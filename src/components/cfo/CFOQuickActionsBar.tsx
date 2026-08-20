@@ -53,15 +53,15 @@ export function CFOQuickActionsBar({
   onJump: (tab: string) => void;
 }) {
   return (
-    <div className="sticky top-0 z-30 -mx-2 sm:-mx-4 lg:-mx-6 mb-4 bg-background/95 backdrop-blur border-b border-border">
-      <div className="flex items-center gap-2 overflow-x-auto px-2 sm:px-4 lg:px-6 py-2 no-scrollbar">
+    <div className="sticky top-0 z-30 -mx-2 sm:-mx-4 lg:-mx-6 mb-4 bg-muted/40 backdrop-blur border-b border-border">
+      <div className="flex items-center gap-2.5 overflow-x-auto px-2 sm:px-4 lg:px-6 py-3 no-scrollbar">
         {GROUP_ORDER.map((group, gi) => {
           const items = ACTIONS.filter((a) => a.group === group);
           if (items.length === 0) return null;
           return (
             <div key={group} className="flex items-center gap-2 shrink-0">
-              {gi > 0 && <span className="h-6 w-px bg-border shrink-0" aria-hidden />}
-              <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground shrink-0 hidden sm:inline">
+              {gi > 0 && <span className="h-8 w-px bg-border shrink-0 mx-1" aria-hidden />}
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground shrink-0 hidden sm:inline">
                 {GROUP_LABEL[group]}
               </span>
               {items.map((a) => {
@@ -76,10 +76,10 @@ export function CFOQuickActionsBar({
                       onJump(a.id);
                     }}
                     className={cn(
-                      'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-colors active:scale-95 touch-manipulation border',
+                      'flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-colors active:scale-95 touch-manipulation border shadow-sm',
                       isActive
                         ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-muted/60 text-foreground border-border hover:bg-muted',
+                        : 'bg-card text-foreground border-border hover:bg-accent hover:text-accent-foreground',
                     )}
                     style={{ WebkitTapHighlightColor: 'transparent' }}
                   >

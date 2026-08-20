@@ -1,21 +1,24 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { KPICard } from '../KPICard';
 import {
   ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts';
 import {
-  Building2, Clock, BadgeCheck, Banknote, XCircle, Percent, MapPin, Users, Loader2,
+  Building2, Clock, BadgeCheck, Banknote, XCircle, Percent, MapPin, Users, Loader2, Link2,
 } from 'lucide-react';
 import { format, subMonths, startOfMonth, isSameMonth, differenceInHours } from 'date-fns';
 import { useServiceCentres, SC_STATUS_META, SERVICE_CENTRE_BONUS, type ServiceCentreStatus } from '@/hooks/useServiceCentres';
+import { ServiceCentreRequestLinkDialog } from './ServiceCentreRequestLinkDialog';
 
 const ugx = (n: number) => `UGX ${new Intl.NumberFormat('en-UG').format(Math.round(n || 0))}`;
 
 /** Agent Ops → Service Centres → Overview: adoption, funnel, payout exposure. */
 export function ServiceCentreOverview() {
   const { data: centres, isLoading } = useServiceCentres();
+  const [linkOpen, setLinkOpen] = useState(false);
 
   const stats = useMemo(() => {
     const rows = centres || [];
@@ -85,6 +88,17 @@ export function ServiceCentreOverview() {
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          Send an agent the request link with the setup amount they need.
+        </p>
+        <Button onClick={() => setLinkOpen(true)} className="gap-2">
+          <Link2 className="h-4 w-4" />
+          Generate request link
+        </Button>
+      </div>
+      <ServiceCentreRequestLinkDialog open={linkOpen} onOpenChange={setLinkOpen} />
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KPICard title="Service centres" value={stats.total} icon={Building2} subtitle={`${stats.uniqueAgents} distinct agents`} />
         <KPICard title="Live centres" value={stats.liveCount} icon={BadgeCheck} color="bg-emerald-500/10 text-emerald-600" subtitle="Verified & paid setups" />

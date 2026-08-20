@@ -654,7 +654,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                 </div>
               </div>
 
-              <DialogFooter className="sticky bottom-0 z-10 -mx-5 -mb-5 mt-2 gap-2 border-t border-border/50 bg-background/95 px-5 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:gap-0">
+              <DialogFooter className="-mx-5 -mb-5 mt-2 gap-2 border-t border-border/50 bg-background px-5 py-3 sm:gap-0">
                 <Button
                   type="button"
                   variant="outline"
@@ -804,7 +804,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                         </button>
                       )}
                     </div>
-                    <div className="flex flex-col gap-1.5 max-h-44 overflow-y-auto pr-0.5">
+                    <div className="flex flex-col gap-1.5 pr-0.5">
                       {savedRecipients
                         .filter((r) => {
                           const q = recipientSearch.trim().toLowerCase();
@@ -1079,7 +1079,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                           <UserX className="h-3 w-3" />
                           {recipient.matches.length} accounts match this {mode === 'email' ? 'email' : 'number'}. Pick the correct recipient:
                         </p>
-                        <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                        <div className="space-y-1.5">
                           {recipient.matches.map((m) => (
                             <button
                               key={m.id}
@@ -1213,7 +1213,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
 
                 <motion.div
                   variants={itemVariants}
-                  className="sticky bottom-0 z-10 -mx-5 -mb-5 mt-2 border-t border-border/50 bg-background/95 px-5 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+                  className="-mx-5 -mb-5 mt-2 border-t border-border/50 bg-background px-5 py-3"
                 >
                   <DialogFooter className="gap-2 sm:gap-0">
                     <motion.div className="w-full sm:w-auto" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>

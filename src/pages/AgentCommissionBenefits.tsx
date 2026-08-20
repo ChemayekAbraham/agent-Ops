@@ -1,5 +1,5 @@
 import { ArrowLeft, Users, Award, BookOpen, Download, ImageIcon, Share2, DollarSign, Star, Printer, Zap, MapPin, Bike, Wallet, HandCoins, Building2, UserPlus, TrendingUp, CheckCircle2, Home, FileText, ChevronDown, FileDown, Link2, MessageCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,9 +11,13 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/component
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { sharePdfViaWhatsApp } from '@/lib/whatsappShare';
 import { generateAgentEarningsPdf, EARNINGS_SHARE_CAPTION, EARNINGS_SHARE_URL } from '@/lib/agentEarningsPdf';
+import { formatUGX } from '@/lib/rentCalculations';
 
 const AgentCommissionBenefits = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const requestedSetupAmount = Number(searchParams.get('setup_amount') || 0);
+  const requestNote = searchParams.get('sc_note') || '';
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const handleShareWhatsApp = () => {
@@ -792,6 +796,15 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                     </div>
                   </div>
 
+                  {requestedSetupAmount > 0 && (
+                    <div className="rounded-xl border border-primary/30 bg-primary/10 p-3 mb-3">
+                      <p className="text-sm font-semibold text-foreground">Service centre requested for you</p>
+                      <p className="text-xs mt-1">
+                        Setup amount needed: <span className="font-bold text-primary">{formatUGX(requestedSetupAmount)}</span>
+                      </p>
+                      {requestNote && <p className="text-xs mt-1 text-muted-foreground">{requestNote}</p>}
+                    </div>
+                  )}
                   <ServiceCentreSubmissionForm />
                 </CardContent>
               </CollapsibleContent>

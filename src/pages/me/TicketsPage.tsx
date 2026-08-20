@@ -93,24 +93,24 @@ const TicketsPage = () => {
     };
   }, []);
 
-  // One query decides both booleans: primary, still-current placement only.
+  // Ask the backend for the authoritative booleans; definer rights bypass RLS blind spots.
   useEffect(() => {
     if (!staff?.id) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from('hr_assignments')
-        .select('id, hr_departments(key), hr_positions(can_assign_tasks)')
-        .eq('staff_id', staff.id)
-        .eq('is_primary', true)
-        .is('ended_on', null)
-        .maybeSingle();
+      const [{ data: engData, error: engError }, { data: assignData, error: assignError }] = await Promise.all([
+        supabase.rpc('hr_is_engineering'),
+        supabase.rpc('hr_can_assign_tasks'),
+      ]);
       if (cancelled) return;
-      const row = data as unknown as
-        | { hr_departments?: { key?: string | null } | null; hr_positions?: { can_assign_tasks?: boolean | null } | null }
-        | null;
-      setIsEngineering(row?.hr_departments?.key === 'engineering');
-      setCanAssign(!!row?.hr_positions?.can_assign_tasks);
+      if (engError) {
+        console.error('hr_is_engineering', engError);
+      }
+      if (assignError) {
+        console.error('hr_can_assign_tasks', assignError);
+      }
+      setIsEngineering(!!engData);
+      setCanAssign(!!assignData);
     })();
     return () => {
       cancelled = true;

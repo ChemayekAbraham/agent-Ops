@@ -67,7 +67,7 @@ export function CFOBreadcrumbHeader({
   return (
     <nav
       aria-label="Breadcrumb"
-      className="-mx-2 sm:-mx-4 lg:-mx-6 mb-1 bg-background border-b border-border"
+      className="-mx-2 sm:-mx-4 lg:-mx-6 mb-1 bg-card border-b border-border"
     >
       {/* Screen-reader live announcement of the current section + position. */}
       <p aria-live="polite" className="sr-only">
@@ -107,6 +107,17 @@ export function CFOBreadcrumbHeader({
           </button>
         </li>
 
+        {isOverview && (
+          <>
+            <li aria-hidden className="shrink-0 text-muted-foreground/60">
+              <ChevronRight className="h-3.5 w-3.5" />
+            </li>
+            <li aria-current="page" className="shrink-0 font-semibold text-foreground">
+              Overview
+            </li>
+          </>
+        )}
+
         {!isOverview && meta && (
           <>
             <li aria-hidden className="shrink-0 text-muted-foreground/60">
@@ -129,23 +140,9 @@ export function CFOBreadcrumbHeader({
         )}
         </ol>
 
-        <div className="flex shrink-0 items-center gap-1 pl-2">
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              aria-label="Copy section link"
-              title="Copy link to this section"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {copied ? <Check className="h-4 w-4 text-success" /> : <Link2 className="h-4 w-4" />}
-            </button>
+        <div className="flex shrink-0 items-center gap-2 pl-2">
             {hasPager && (
               <>
-            {position && (
-              <span aria-hidden className="hidden sm:inline text-xs text-muted-foreground tabular-nums">
-                {position.index}/{position.total}
-              </span>
-            )}
             <button
               type="button"
               onClick={() => {
@@ -154,7 +151,7 @@ export function CFOBreadcrumbHeader({
               }}
               disabled={atFirst}
               aria-label="Previous dashboard section"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 disabled:pointer-events-none"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 disabled:pointer-events-none"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -166,12 +163,28 @@ export function CFOBreadcrumbHeader({
               }}
               disabled={atLast}
               aria-label="Next dashboard section"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 disabled:pointer-events-none"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 disabled:pointer-events-none"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
+            {position && (
+              <span aria-hidden className="hidden sm:inline text-xs text-muted-foreground tabular-nums">
+                {position.index} of {position.total}
+              </span>
+            )}
+            <span aria-hidden className="hidden sm:inline h-6 w-px bg-border" />
               </>
             )}
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              aria-label="Copy section link"
+              title="Copy link to this section"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {copied ? <Check className="h-4 w-4 text-success" /> : <Link2 className="h-4 w-4" />}
+              <span className="hidden sm:inline">{copied ? 'Copied' : 'Copy link'}</span>
+            </button>
             {actions}
         </div>
       </div>

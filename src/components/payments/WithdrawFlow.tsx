@@ -1233,7 +1233,7 @@ export default function WithdrawFlow({
                     </Button>
                   )}
                 </div>
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                <div className="space-y-2 pr-1">
                   {compatibleSaved.map((m) => {
                     const isActive = selectedSavedId === m.id;
                     const title =

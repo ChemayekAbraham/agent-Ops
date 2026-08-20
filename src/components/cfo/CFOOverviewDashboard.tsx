@@ -189,25 +189,25 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   ];
 
   return (
-    <div className="space-y-5 max-w-7xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto">
 
       {/* ══════════════ GREETING HEADER ══════════════ */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
             {greeting}, {firstName} <span aria-hidden>👋</span>
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Here's what's happening with Welile today.</p>
+          <p className="text-sm text-muted-foreground mt-1">Here's what's happening with Welile today.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-2 h-9 px-3 rounded-xl border border-border bg-card text-xs font-medium">
+          <div className="flex items-center gap-2 h-10 px-4 rounded-lg border border-border bg-card text-xs font-medium shadow-sm">
             <CalendarDays className="h-4 w-4 text-muted-foreground" />
             {todayLabel}
           </div>
           <Button
             variant="outline"
             size="sm"
-            className="h-9 rounded-xl gap-2 text-xs"
+            className="h-10 rounded-lg gap-2 text-xs shadow-sm"
             onClick={handleExportCommissions}
             disabled={exportingCommissions}
           >
@@ -217,11 +217,14 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         </div>
       </div>
 
+      {/* Two-column shell: main financial surface on the left, live feeds on the right */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
+      <div className="xl:col-span-2 space-y-5">
 
       {/* ══════════════ THREE HEADLINE CARDS ══════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <HeroCard
-          icon={<PiggyBank className="h-4 w-4 text-emerald-600" />}
+          icon={<PiggyBank className="h-5 w-5 text-emerald-600" />}
           iconBg="bg-emerald-50 dark:bg-emerald-950/40"
           title="Money We Have"
           value={fmt(totalCash)}
@@ -235,7 +238,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           onClick={() => setActiveBreakdown('cash')}
         />
         <HeroCard
-          icon={<Package className="h-4 w-4 text-orange-600" />}
+          icon={<Package className="h-5 w-5 text-orange-600" />}
           iconBg="bg-orange-50 dark:bg-orange-950/40"
           title="Money We Owe"
           value={fmt(walletTotal)}
@@ -249,7 +252,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           onClick={() => setActiveBreakdown('wallets')}
         />
         <HeroCard
-          icon={<BarChart3 className="h-4 w-4 text-blue-600" />}
+          icon={<BarChart3 className="h-5 w-5 text-blue-600" />}
           iconBg="bg-blue-50 dark:bg-blue-950/40"
           title="Money We Can Use"
           value={fmt(moneyWeCanUse)}
@@ -264,9 +267,9 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
       </div>
 
       {/* ══════════════ WHERE THE MONEY SITS ══════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <HeroCard
-          icon={<Vault className="h-4 w-4 text-indigo-600" />}
+          icon={<Vault className="h-5 w-5 text-indigo-600" />}
           iconBg="bg-indigo-50 dark:bg-indigo-950/40"
           title="Money in Treasury / Platform"
           value={fmt(treasuryPosition?.value ?? 0)}
@@ -276,10 +279,10 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
             { dot: 'bg-indigo-500', label: 'Ledger entries', value: String(treasuryPosition?.count ?? 0) },
           ]}
           footer="Position view — part of Money We Have, not added to it"
-          footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400"
+          footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic"
         />
         <HeroCard
-          icon={<Landmark className="h-4 w-4 text-sky-600" />}
+          icon={<Landmark className="h-5 w-5 text-sky-600" />}
           iconBg="bg-sky-50 dark:bg-sky-950/40"
           title="Money in Bank"
           value={fmt(bankPosition?.value ?? 0)}
@@ -289,29 +292,29 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
             { dot: 'bg-sky-500', label: 'Ledger entries', value: String(bankPosition?.count ?? 0) },
           ]}
           footer="Position view — part of Money We Have, not added to it"
-          footerTone="bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400"
+          footerTone="bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic"
         />
       </div>
 
 
       {/* ══════════════ COMPACT FINANCIAL SUMMARY ══════════════ */}
-      <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+      <div className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-sm">
         <h2 className="text-sm font-semibold tracking-tight mb-4">Financial Summary</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-5">
-          <SummaryItem label="Cash Balance" value={fmt(totalCash)} caption="Bank + in transit" />
-          <SummaryItem label="Daily Burn" value={fmt(dailyBurn)} caption="30-day average" valueColor="text-destructive" />
-          <SummaryItem label="Revenue" value={fmt(revenueTotal)} caption="Life to date" valueColor="text-emerald-600" />
-          <SummaryItem label="Total Expenses" value={fmt(expenseTotal)} caption="Life to date" valueColor="text-orange-600" />
-          <SummaryItem label="Net Working Capital" value={fmt(netWorkingCapital)} caption="Cash + receivables − debt" valueColor={netWorkingCapital >= 0 ? undefined : 'text-destructive'} />
-          <SummaryItem label="Net Result" value={fmt(netProfit)} caption="Revenue − expenses" valueColor={netProfit >= 0 ? 'text-emerald-600' : 'text-destructive'} />
-          <SummaryItem label="Net Margin" value={`${netMargin.toFixed(1)}%`} caption="Net ÷ revenue" valueColor={netMargin >= 0 ? undefined : 'text-destructive'} />
-          <SummaryItem label="Receivables" value={fmt(totalReceivables)} caption="Tenant + advances" valueColor="text-amber-600" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <SummaryItem icon={<Wallet className="h-3.5 w-3.5" />} label="Cash Balance" value={fmt(totalCash)} caption="Bank + in transit" />
+          <SummaryItem icon={<ArrowUpRight className="h-3.5 w-3.5" />} label="Daily Burn" value={fmt(dailyBurn)} caption="30-day average" valueColor="text-destructive" />
+          <SummaryItem icon={<LineChartIcon className="h-3.5 w-3.5" />} label="Revenue" value={fmt(revenueTotal)} caption="Life to date" valueColor="text-emerald-600" />
+          <SummaryItem icon={<Package className="h-3.5 w-3.5" />} label="Total Expenses" value={fmt(expenseTotal)} caption="Life to date" valueColor="text-orange-600" />
+          <SummaryItem icon={<Scale className="h-3.5 w-3.5" />} label="Net Working Capital" value={fmt(netWorkingCapital)} caption="Cash + receivables − debt" valueColor={netWorkingCapital >= 0 ? undefined : 'text-destructive'} />
+          <SummaryItem icon={<PiggyBank className="h-3.5 w-3.5" />} label="Net Result" value={fmt(netProfit)} caption="Revenue − expenses" valueColor={netProfit >= 0 ? 'text-emerald-600' : 'text-destructive'} />
+          <SummaryItem icon={<BarChart3 className="h-3.5 w-3.5" />} label="Net Margin" value={`${netMargin.toFixed(1)}%`} caption="Net ÷ revenue" valueColor={netMargin >= 0 ? undefined : 'text-destructive'} />
+          <SummaryItem icon={<Landmark className="h-3.5 w-3.5" />} label="Receivables" value={fmt(totalReceivables)} caption="Tenant + advances" valueColor="text-amber-600" />
         </div>
       </div>
 
       {/* ══════════════ CHARTS ══════════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="rounded-2xl">
+        <Card className="rounded-xl shadow-sm">
           <CardContent className="p-4 sm:p-5">
             <div className="flex items-center justify-between gap-2 mb-4">
               <p className="font-semibold text-sm">Revenue — Last 7 Days</p>
@@ -339,11 +342,11 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl">
+        <Card className="rounded-xl shadow-sm">
           <CardContent className="p-4 sm:p-5">
             <div className="flex items-center justify-between gap-2 mb-4">
               <p className="font-semibold text-sm">Advances — Disbursed vs Recovered</p>
-              <span className="text-[11px] text-muted-foreground">{recoveryRate.toFixed(0)}% recovered</span>
+              <span className="text-[11px] font-semibold text-emerald-600">{recoveryRate.toFixed(0)}% recovered</span>
             </div>
             <AgentAdvancesTrendChart />
           </CardContent>
@@ -351,9 +354,9 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
       </div>
 
       {/* ── TODAY'S MOVEMENT ── */}
-      <Card className="rounded-2xl overflow-hidden">
+      <Card className="rounded-xl overflow-hidden shadow-sm">
         <CardContent className="p-0">
-          <div className="px-5 pt-4 pb-2 flex items-center justify-between gap-3">
+          <div className="px-5 py-3 flex items-center justify-between gap-3 border-b border-border bg-muted/30">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Today's Money Flow</p>
             <SectionToggle open={isOpen('todayFlow')} onToggle={() => toggleSection('todayFlow')} label="Today's Money Flow" />
           </div>
@@ -363,27 +366,34 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               label="Came In"
               value={fmtShort(todayCashFlow?.cashInToday ?? 0)}
               color="text-emerald-600"
-              icon={<ArrowDownRight className="h-4 w-4" />}
+              iconBg="bg-emerald-50 dark:bg-emerald-950/40"
+              icon={<ArrowDownRight className="h-5 w-5" />}
               onClick={() => setActiveBreakdown('cashIn')}
             />
             <FlowCell
               label="Went Out"
               value={fmtShort(todayCashFlow?.cashOutToday ?? 0)}
               color="text-destructive"
-              icon={<ArrowUpRight className="h-4 w-4" />}
+              iconBg="bg-destructive/10"
+              icon={<ArrowUpRight className="h-5 w-5" />}
               onClick={() => setActiveBreakdown('cashOut')}
             />
             <FlowCell
               label="Net Change"
               value={`${netToday >= 0 ? '+' : ''}${fmtShort(netToday)}`}
-              color={netToday >= 0 ? 'text-emerald-600' : 'text-destructive'}
-              icon={<Scale className="h-4 w-4" />}
+              color={netToday >= 0 ? 'text-primary' : 'text-destructive'}
+              iconBg="bg-primary/10"
+              icon={<Scale className="h-5 w-5" />}
               onClick={() => setActiveBreakdown('netCash')}
             />
           </div>
           )}
         </CardContent>
       </Card>
+      </div>
+
+      {/* ══════════════ RIGHT COLUMN — FEEDS & CONTROLS ══════════════ */}
+      <div className="space-y-5">
 
       {/* ── ROI PAYABLE FORECAST ── */}
       <CollapsibleBlock title="ROI Payable Forecast" open={isOpen('roiForecast')} onToggle={() => toggleSection('roiForecast')}>
@@ -399,7 +409,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
       </CollapsibleBlock>
 
       {/* ── SOURCES OF CASH (replaces channel breakdown) ── */}
-      <Card className="rounded-2xl">
+      <Card className="rounded-xl shadow-sm">
         <CardContent className="p-4">
           <div className="flex items-center justify-between gap-3 mb-3">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Where Our Money Comes From</p>
@@ -430,7 +440,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
       </Card>
 
       {/* ── AUTO-PAYOUTS ── */}
-      <Card className="rounded-2xl">
+      <Card className="rounded-xl shadow-sm">
         <CardContent className="p-4">
           <div className="flex items-center justify-between gap-3 mb-3">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Automatic Payments</p>
@@ -446,10 +456,15 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               { key: 'auto_commissions', label: 'Agent Commissions', desc: 'Agent earnings payouts' },
               { key: 'auto_advances', label: 'Advance Payments', desc: 'Pre-approved advances' },
             ].map((ctrl) => (
-              <div key={ctrl.key} className="flex items-center justify-between py-2 px-1">
-                <div>
+              <div key={ctrl.key} className="flex items-center justify-between gap-3 py-2 px-1">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <Wallet className="h-3.5 w-3.5" />
+                  </span>
+                  <div className="min-w-0">
                   <p className="text-sm font-medium">{ctrl.label}</p>
                   <p className="text-xs text-muted-foreground">{ctrl.desc}</p>
+                  </div>
                 </div>
                 <Switch
                   checked={treasuryControls?.[ctrl.key] ?? false}
@@ -462,6 +477,13 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           )}
         </CardContent>
       </Card>
+
+      {/* ── AGENT ADVANCES — FULL PORTFOLIO STATS & CHART ── */}
+      <CollapsibleBlock title="Agent Advances — Full Portfolio" open={isOpen('agentAdvances')} onToggle={() => toggleSection('agentAdvances')}>
+        <AgentAdvancesStatsCard />
+      </CollapsibleBlock>
+      </div>
+      </div>
 
       {/* ── BREAKDOWNS ── */}
       <CashSourcesSheet
@@ -531,11 +553,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           <Wallet className="h-6 w-6" />
         </button>
       )}
-
-      {/* ── AGENT ADVANCES — FULL PORTFOLIO STATS & CHART (bottom) ── */}
-      <CollapsibleBlock title="Agent Advances — Full Portfolio" open={isOpen('agentAdvances')} onToggle={() => toggleSection('agentAdvances')}>
-        <AgentAdvancesStatsCard />
-      </CollapsibleBlock>
     </div>
   );
 }
@@ -565,7 +582,7 @@ function CollapsibleBlock({ title, open, onToggle, children }: {
 }) {
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-2.5">
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{title}</p>
         <SectionToggle open={open} onToggle={onToggle} label={title} />
       </div>
@@ -587,15 +604,15 @@ function HeroCard({ icon, iconBg, title, value, valueColor, items, footer, foote
 }) {
   const content = (
     <>
-      <div className="p-3 sm:p-4">
+      <div className="p-4 sm:p-5">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
-            <p className="font-semibold text-xs truncate">{title}</p>
+            <div className={`h-11 w-11 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
+            <p className="font-semibold text-sm truncate">{title}</p>
           </div>
           {onClick && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
         </div>
-        <p className={`mt-2.5 text-lg sm:text-xl font-bold font-mono tabular-nums tracking-tight ${valueColor}`}>{value}</p>
+        <p className={`mt-3 text-xl sm:text-2xl font-bold tabular-nums tracking-tight ${valueColor}`}>{value}</p>
         <div className="mt-3 pt-3 border-t border-border space-y-1.5">
           {items.map((it) => (
             <div key={it.label} className="flex items-center justify-between gap-2 text-[11px]">
@@ -603,12 +620,12 @@ function HeroCard({ icon, iconBg, title, value, valueColor, items, footer, foote
                 <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${it.dot}`} />
                 <span className="truncate">{it.label}</span>
               </span>
-              <span className="font-mono tabular-nums font-medium shrink-0">{it.value}</span>
+              <span className="tabular-nums font-medium shrink-0 text-right">{it.value}</span>
             </div>
           ))}
         </div>
       </div>
-      <div className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-2 text-[10px] font-medium ${footerTone}`}>
+      <div className={`flex items-center justify-between gap-2 px-4 sm:px-5 py-2.5 text-[10px] font-medium ${footerTone}`}>
         <span className="truncate">{footer}</span>
         <Info className="h-3 w-3 shrink-0 opacity-70" />
       </div>
@@ -620,7 +637,7 @@ function HeroCard({ icon, iconBg, title, value, valueColor, items, footer, foote
       <button
         type="button"
         onClick={onClick}
-        className="w-full text-left rounded-2xl border border-border bg-card overflow-hidden hover:shadow-md active:scale-[0.995] transition-all"
+        className="w-full text-left rounded-xl border border-border bg-card overflow-hidden shadow-sm hover:shadow-md active:scale-[0.995] transition-all"
       >
         {content}
       </button>
@@ -628,33 +645,36 @@ function HeroCard({ icon, iconBg, title, value, valueColor, items, footer, foote
   }
 
   return (
-    <div className="w-full rounded-2xl border border-border bg-card overflow-hidden">
+    <div className="w-full rounded-xl border border-border bg-card overflow-hidden shadow-sm">
       {content}
     </div>
   );
 }
 
 
-function SummaryItem({ label, value, caption, valueColor }: {
-  label: string; value: string; caption: string; valueColor?: string;
+function SummaryItem({ label, value, caption, valueColor, icon }: {
+  label: string; value: string; caption: string; valueColor?: string; icon?: React.ReactNode;
 }) {
   return (
-    <div className="min-w-0">
-      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider leading-tight">{label}</p>
-      <p className={`text-sm sm:text-base font-bold font-mono tabular-nums leading-tight mt-1.5 ${valueColor || ''}`}>{value}</p>
+    <div className="min-w-0 rounded-lg border border-border/70 bg-muted/20 p-3">
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        {icon}
+        <p className="text-[10px] font-medium uppercase tracking-wider leading-tight truncate">{label}</p>
+      </div>
+      <p className={`text-sm sm:text-base font-bold tabular-nums leading-tight mt-1.5 ${valueColor || ''}`}>{value}</p>
       <p className="text-[10px] text-muted-foreground mt-1 leading-tight">{caption}</p>
     </div>
   );
 }
 
-function FlowCell({ label, value, color, icon, onClick }: {
-  label: string; value: string; color: string; icon: React.ReactNode; onClick?: () => void;
+function FlowCell({ label, value, color, icon, iconBg, onClick }: {
+  label: string; value: string; color: string; icon: React.ReactNode; iconBg?: string; onClick?: () => void;
 }) {
   return (
-    <button onClick={onClick} className="flex flex-col items-center gap-1 py-4 px-2 hover:bg-muted/30 transition-colors">
-      <div className={`${color}`}>{icon}</div>
-      <p className={`text-lg font-bold font-mono tabular-nums ${color}`}>{value}</p>
-      <p className="text-[10px] text-muted-foreground font-medium">{label}</p>
+    <button onClick={onClick} className="flex flex-col items-center gap-2 py-6 px-2 hover:bg-muted/30 transition-colors">
+      <div className={`h-12 w-12 rounded-full flex items-center justify-center ${iconBg || 'bg-muted'} ${color}`}>{icon}</div>
+      <p className="text-[11px] text-muted-foreground font-medium">{label}</p>
+      <p className={`text-2xl font-bold tabular-nums ${color}`}>{value}</p>
     </button>
   );
 }
