@@ -840,6 +840,29 @@ export function FleetPerformanceStats({
     });
   };
 
+  /** Which KPI card has its inline agent accordion open. */
+  const [kpiPanel, setKpiPanel] = useState<'expected' | 'collected' | null>(null);
+
+  /** Agents with expected rent due in this window, biggest first. */
+  const expectedPanelRows = useMemo(
+    () => filteredRows.filter((r) => r.expected > 0).sort((a, b) => b.expected - a.expected),
+    [filteredRows],
+  );
+
+  /** Agents that actually collected in this window, biggest first. */
+  const collectedPanelRows = useMemo(
+    () => filteredRows.filter((r) => r.collected > 0).sort((a, b) => b.collected - a.collected),
+    [filteredRows],
+  );
+
+  /** Toggle the inline accordion under a KPI card and sort the breakdown to match. */
+  const toggleKpiPanel = (key: 'expected' | 'collected') => {
+    setKpiPanel((prev) => (prev === key ? null : key));
+    setSort({ key, dir: 'desc' });
+    setPage(0);
+  };
+
+
   // Jump to a specific agent row in the breakdown table, expand it, and scroll it into view.
   const focusAgent = (id: string) => {
     const idx = rows.findIndex((r) => r.id === id);
