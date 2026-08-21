@@ -790,6 +790,21 @@ export function FleetPerformanceStats({
       .sort((a, b) => b.gap - a.gap);
   }, [rawRows, alertThreshold, alertMinExpected]);
 
+  // Anchor for the agent-by-agent breakdown table so KPI cards can scroll to it.
+  const breakdownRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * KPI card click: sort the breakdown by the clicked metric (highest first,
+   * toggling to lowest first on a repeat click) and scroll the table into view.
+   */
+  const focusMetric = (key: 'expected' | 'collected' | 'rate') => {
+    setSort((prev) => (prev.key === key ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' }));
+    setPage(0);
+    requestAnimationFrame(() => {
+      breakdownRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
   // Jump to a specific agent row in the breakdown table, expand it, and scroll it into view.
   const focusAgent = (id: string) => {
     const idx = rows.findIndex((r) => r.id === id);
