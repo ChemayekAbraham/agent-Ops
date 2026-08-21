@@ -81,12 +81,26 @@ export default function VouchAgreementModal({
               </span>
             </label>
           )}
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" size="sm" onClick={onClose}>
+          <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+            <Button variant="outline" size="sm" onClick={onClose} className="w-full sm:w-auto h-11 sm:h-9 touch-manipulation">
               {viewOnly ? 'Close' : 'Cancel'}
             </Button>
             {!viewOnly && (
-              <Button size="sm" onClick={handleAccept} disabled={!agreed || submitting}>
+              <Button
+                size="sm"
+                onClick={handleAccept}
+                disabled={submitting}
+                onMouseDown={() => setPressed(true)}
+                onMouseUp={() => setPressed(false)}
+                onTouchStart={() => setPressed(true)}
+                onTouchEnd={() => setPressed(false)}
+                className={`
+                  w-full sm:w-auto h-11 sm:h-9 min-w-[140px]
+                  touch-manipulation select-none
+                  transition-transform duration-100 active:scale-95
+                  ${pressed ? 'scale-95' : 'scale-100'}
+                `}
+              >
                 {submitting && <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />}
                 {acceptLabel}
               </Button>
