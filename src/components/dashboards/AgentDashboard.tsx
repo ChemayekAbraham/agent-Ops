@@ -47,7 +47,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { Info } from 'lucide-react';
+import { Info, UsersRound } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Wallet, Landmark, LayoutDashboard, ChevronRight } from 'lucide-react';
 import { HandCoins } from 'lucide-react';
@@ -67,6 +67,7 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { ProfileSummaryPopover } from '@/components/profile/ProfileSummaryPopover';
 import { SubAgentsPanel } from '@/components/agent/SubAgentsPanel';
 import { MyParentAgentCard } from '@/components/agent/MyParentAgentCard';
+import { ParentAgentDialog, useMyParentAgent } from '@/components/agent/ParentAgentDialog';
 import { ServiceCenterQualificationCard } from '@/components/agent/ServiceCenterQualificationCard';
 import { LastWeekWinnerOverlay } from '@/components/agent/LastWeekWinnerOverlay';
 import { ListRegisterEarnDialog } from '@/components/agent/ListRegisterEarnDialog';
@@ -323,6 +324,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // Weekly Listing Mission promo dialog removed — campaign expired.
   const [rentRequestOpen, setRentRequestOpen] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
+  const [parentAgentOpen, setParentAgentOpen] = useState(false);
+  const { data: parentAgentInfo } = useMyParentAgent(user?.id);
   const [walletScrollTarget, setWalletScrollTarget] = useState<'statement' | null>(null);
   const [earningsRankOpen, setEarningsRankOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -1618,6 +1621,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               {[
                 { icon: Building2, label: 'Share Landlord', onClick: handleShareLandlordSignup },
                 { icon: UserPlus, label: 'Invite & Earn', onClick: () => navigate('/referrals') },
+                ...(parentAgentInfo?.parent_agent_id
+                  ? [{ icon: UsersRound, label: 'My Parent Agent', onClick: () => setParentAgentOpen(true) }]
+                  : []),
                 { icon: Menu, label: 'All Menu', onClick: handleOpenMenu },
               ].map((a) => (
                 <button
@@ -1649,6 +1655,13 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         </main>
       </div>
 
+      <LazyModal when={parentAgentOpen}>
+      <ParentAgentDialog
+        open={parentAgentOpen}
+        onOpenChange={setParentAgentOpen}
+        agentId={user?.id}
+      />
+      </LazyModal>
       <LazyModal when={showWallet}>
       <FullScreenWalletSheet
         open={showWallet}

@@ -40433,6 +40433,22 @@ export type Database = {
       get_mission_leaderboard: { Args: { p_limit?: number }; Returns: Json }
       get_my_ai_id_summary: { Args: never; Returns: Json }
       get_my_listing_block: { Args: never; Returns: Json }
+      get_my_parent_agent: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          full_name: string
+          invited_at: string
+          link_status: string
+          linked_at: string
+          location_label: string
+          parent_agent_id: string
+          phone: string
+          service_centre_name: string
+          service_centre_photo_url: string
+          service_centre_status: string
+        }[]
+      }
       get_my_referral_bonuses: {
         Args: never
         Returns: {
