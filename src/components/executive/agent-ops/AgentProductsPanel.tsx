@@ -407,9 +407,25 @@ function IssueProductDialog({
           <div className="flex justify-between"><span>Total value</span><span className="font-semibold">{formatUGX(total)}</span></div>
           <div className="flex justify-between">
             <span>To recover from wallet</span>
-            <span className="font-semibold">{formatUGX(Math.max(total - (plan === 'full' ? total : Number(amountPaid) || 0), 0))}</span>
+            <span className="font-semibold">{formatUGX(outstanding)}</span>
           </div>
+          {recoveryRate !== null && (
+            <>
+              <div className="flex items-center justify-between">
+                <span>Recovery rule</span>
+                <Badge variant="secondary" className="text-[11px]">Recovery Rate: 33%</Badge>
+              </div>
+              <div className="flex justify-between">
+                <span>Recovery amount (33%)</span>
+                <span className="font-semibold tabular-nums">{formatUGX(recoveryAmount)}</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Smartphones and Welile Bikes recover at a fixed 33% rate from the agent wallet.
+              </p>
+            </>
+          )}
         </div>
+
       </div>
       <DialogFooter>
         <Button onClick={() => mutation.mutate()} disabled={!valid || mutation.isPending} className="w-full">
