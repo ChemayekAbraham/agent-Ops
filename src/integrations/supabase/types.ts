@@ -19502,6 +19502,7 @@ export type Database = {
         Row: {
           amount_outstanding: number
           amount_paid: number
+          brand: string | null
           client_name: string | null
           client_phone: string | null
           created_at: string
@@ -19510,9 +19511,11 @@ export type Database = {
           id: string
           issued_channel: string | null
           item_name: string
+          model_type: string | null
           notes: string | null
           order_status: string
           payment_plan: string
+          payment_projection: number
           payment_status: string
           quantity: number
           rejected_at: string | null
@@ -19521,6 +19524,7 @@ export type Database = {
           sale_date: string
           selected_size: string | null
           service_centre_id: string | null
+          total_amount: number
           total_revenue: number
           tracking_reference: string | null
           unit_cost: number
@@ -19530,6 +19534,7 @@ export type Database = {
         Insert: {
           amount_outstanding?: number
           amount_paid?: number
+          brand?: string | null
           client_name?: string | null
           client_phone?: string | null
           created_at?: string
@@ -19538,9 +19543,11 @@ export type Database = {
           id?: string
           issued_channel?: string | null
           item_name: string
+          model_type?: string | null
           notes?: string | null
           order_status?: string
           payment_plan?: string
+          payment_projection?: number
           payment_status?: string
           quantity: number
           rejected_at?: string | null
@@ -19549,6 +19556,7 @@ export type Database = {
           sale_date?: string
           selected_size?: string | null
           service_centre_id?: string | null
+          total_amount?: number
           total_revenue: number
           tracking_reference?: string | null
           unit_cost?: number
@@ -19558,6 +19566,7 @@ export type Database = {
         Update: {
           amount_outstanding?: number
           amount_paid?: number
+          brand?: string | null
           client_name?: string | null
           client_phone?: string | null
           created_at?: string
@@ -19566,9 +19575,11 @@ export type Database = {
           id?: string
           issued_channel?: string | null
           item_name?: string
+          model_type?: string | null
           notes?: string | null
           order_status?: string
           payment_plan?: string
+          payment_projection?: number
           payment_status?: string
           quantity?: number
           rejected_at?: string | null
@@ -19577,6 +19588,7 @@ export type Database = {
           sale_date?: string
           selected_size?: string | null
           service_centre_id?: string | null
+          total_amount?: number
           total_revenue?: number
           tracking_reference?: string | null
           unit_cost?: number
@@ -37529,7 +37541,16 @@ export type Database = {
         Args: { p_catalog_id: string; p_quantity: number }
         Returns: Json
       }
-      agent_order_smartphone: { Args: { p_amount: number }; Returns: Json }
+      agent_order_smartphone:
+        | { Args: { p_amount: number }; Returns: Json }
+        | {
+            Args: {
+              p_brand: string
+              p_model_type: string
+              p_total_amount: number
+            }
+            Returns: Json
+          }
       agent_order_spiro_bike: { Args: { p_amount: number }; Returns: Json }
       agent_per_tenant_max: { Args: { _agent_id: string }; Returns: number }
       agent_product_category: { Args: { p_item_name: string }; Returns: string }
