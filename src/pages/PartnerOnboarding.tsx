@@ -886,7 +886,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 interface ShellProps {
   embedded: boolean;
-  headerStatus: 'success' | 'warning' | 'error' | 'neutral';
+  headerStatus: 'green' | 'yellow' | 'red';
   children: React.ReactNode;
 }
 
