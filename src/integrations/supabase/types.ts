@@ -38793,6 +38793,7 @@ export type Database = {
       credit_promissory_agent_commission: {
         Args: {
           p_base_amount: number
+          p_dedupe_key?: string
           p_kind: string
           p_partner_id: string
           p_source_id: string
@@ -44611,6 +44612,7 @@ export type Database = {
       try_credit_promissory_agent_commission: {
         Args: {
           p_base_amount: number
+          p_dedupe_key?: string
           p_kind: string
           p_partner_id: string
           p_source_id: string
