@@ -777,25 +777,106 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                     </CardContent>
                   </Card>
 
-                  {/* Borrower lookup */}
+                  {/* Borrower lookup — phone number or AI ID */}
                   <div className="space-y-2 mb-4">
                     <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Create a loan — lookup borrower by AI ID
+                      Create a loan — find the borrower
                     </Label>
-                    <div className="flex gap-2">
-                      <Input
-                        ref={borrowerInputRef}
-                        value={aiIdInput}
-                        onChange={(e) => setAiIdInput(e.target.value.toUpperCase())}
-                        placeholder="WEL-XXXXXX"
-                        className="h-11 text-sm font-mono rounded-2xl"
-                        onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
-                      />
-                      <Button onClick={handleLookup} disabled={borrowerLoading} className="h-11 rounded-2xl">
-                        {borrowerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                      </Button>
+                    <div className="inline-flex rounded-xl bg-muted p-0.5">
+                      {(['phone', 'ai_id'] as const).map((m) => (
+                        <button
+                          key={m}
+                          onClick={() => setLookupMode(m)}
+                          className={
+                            'px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors ' +
+                            (lookupMode === m ? 'bg-background shadow-sm' : 'text-muted-foreground')
+                          }
+                        >
+                          {m === 'phone' ? 'Phone number' : 'AI ID'}
+                        </button>
+                      ))}
                     </div>
+                    {lookupMode === 'phone' ? (
+                      <div className="flex gap-2">
+                        <Input
+                          value={phoneInput}
+                          onChange={(e) => setPhoneInput(e.target.value)}
+                          placeholder="07XX XXX XXX"
+                          inputMode="tel"
+                          className="h-11 text-sm rounded-2xl"
+                          onKeyDown={(e) => e.key === 'Enter' && handlePhoneSearch()}
+                        />
+                        <Button onClick={handlePhoneSearch} disabled={phoneSearching} className="h-11 rounded-2xl">
+                          {phoneSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Input
+                          ref={borrowerInputRef}
+                          value={aiIdInput}
+                          onChange={(e) => setAiIdInput(e.target.value.toUpperCase())}
+                          placeholder="WEL-XXXXXX"
+                          className="h-11 text-sm font-mono rounded-2xl"
+                          onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
+                        />
+                        <Button onClick={handleLookup} disabled={borrowerLoading} className="h-11 rounded-2xl">
+                          {borrowerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    )}
                   </div>
+
+                  {/* Phone search results */}
+                  {lookupMode === 'phone' && phoneResults.length > 1 && !phoneBorrower && (
+                    <div className="space-y-1.5 mb-4">
+                      {phoneResults.map((r) => (
+                        <button
+                          key={r.user_id}
+                          onClick={() => { setPhoneBorrower(r); resetLoanForm(); }}
+                          className="w-full text-left rounded-xl border p-3 hover:bg-muted/50 transition-colors"
+                        >
+                          <p className="text-sm font-semibold">{r.full_name ?? 'Welile user'}</p>
+                          <p className="text-[11px] text-muted-foreground">{r.phone} {r.city ? `· ${r.city}` : ''}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Selected phone borrower + loan form */}
+                  {phoneBorrower && (
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
+                      <Card className="border-primary/20">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                            {phoneBorrower.full_name ?? 'Welile user'}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-0 space-y-3">
+                          <p className="text-[11px] text-muted-foreground">
+                            {phoneBorrower.phone}{phoneBorrower.city ? ` · ${phoneBorrower.city}` : ''}
+                          </p>
+                          <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-2.5 flex items-start gap-2">
+                            <ShieldCheck className="h-3.5 w-3.5 text-emerald-700 shrink-0 mt-0.5" />
+                            <p className="text-[10px] leading-relaxed">
+                              Money moves instantly from your wallet into this borrower's withdrawable wallet, and they get an SMS with the repayment schedule.
+                            </p>
+                          </div>
+                          {renderLoanForm()}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="w-full h-8 text-[11px]"
+                            onClick={() => { setPhoneBorrower(null); setPhoneResults([]); resetLoanForm(); }}
+                          >
+                            Choose a different borrower
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )}
+
 
                   {activeAiId && borrowerLoading && <Skeleton className="h-40 w-full rounded-xl mb-4" />}
                   {borrowerError && (
