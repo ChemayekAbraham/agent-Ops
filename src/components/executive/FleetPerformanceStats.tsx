@@ -714,6 +714,32 @@ export function FleetPerformanceStats({
     refetchIntervalInBackground: false,
   });
 
+  /**
+   * Shared source of truth with the Performance page (Collections Command Center):
+   * the same `get_agent_collections_command_center` RPC, called with this page's
+   * selected range. The EXPECTED / COLLECTED / COLLECTION RATE cards read from
+   * here so both pages always show identical real-time totals.
+   */
+  const commandBucket = days <= 1 ? 'hour' : days <= 62 ? 'day' : 'month';
+  const { data: commandCenter } = useQuery({
+    queryKey: ['agent-collections-command-center', start.toISOString(), end.toISOString(), commandBucket],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_collections_command_center', {
+        p_start: start.toISOString(),
+        p_end: end.toISOString(),
+        p_bucket: commandBucket,
+      });
+      if (error) throw error;
+      return data as unknown as {
+        totals: { collected: number };
+        agents: { agent_id: string; expected: number; collected: number }[];
+      };
+    },
+    refetchInterval: 60_000,
+    staleTime: 20_000,
+  });
+
+
   const agentIds = useMemo(() => {
     const set = new Set<string>([...Object.keys(expectedByAgent), ...Object.keys(collectedByAgent)]);
     return Array.from(set).sort();
@@ -769,9 +795,18 @@ export function FleetPerformanceStats({
   }, [expandedId, rows]);
 
   const loading = expLoading || colLoading;
-  const totalExpected = rows.reduce((s, r) => s + r.expected, 0);
-  const totalCollected = rows.reduce((s, r) => s + r.collected, 0);
+  // KPI totals come from the Command Center RPC (shared with the Performance page)
+  // and fall back to the locally computed row sums until the RPC resolves.
+  const localExpected = rows.reduce((s, r) => s + r.expected, 0);
+  const localCollected = rows.reduce((s, r) => s + r.collected, 0);
+  const totalExpected = commandCenter
+    ? (commandCenter.agents || []).reduce((s, a) => s + (Number(a.expected) || 0), 0)
+    : localExpected;
+  const totalCollected = commandCenter
+    ? Number(commandCenter.totals?.collected ?? 0)
+    : localCollected;
   const rate = totalExpected > 0 ? Math.round((totalCollected / totalExpected) * 100) : 0;
+
   const rateTone = rate >= 100 ? 'text-emerald-600' : rate >= 80 ? 'text-emerald-600' : rate >= 50 ? 'text-amber-600' : 'text-destructive';
   const barTone = rate >= 100 ? 'bg-emerald-500' : rate >= 80 ? 'bg-emerald-500' : rate >= 50 ? 'bg-amber-500' : 'bg-destructive';
 
