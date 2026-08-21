@@ -892,6 +892,16 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                   )}
                 </h1>
                 <p className="text-xs text-muted-foreground mt-0.5">Welile Agent{profile?.territory ? ` · ${profile.territory}` : ''}</p>
+                {mySubagentRank && (
+                  <button
+                    type="button"
+                    onClick={() => { hapticTap(); navigate('/dashboard/agents/leaderboard'); }}
+                    className="mt-1.5 inline-flex w-fit items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                  >
+                    <Trophy className="h-3 w-3" />
+                    Top Performer #{mySubagentRank.rank}
+                  </button>
+                )}
                 <div className="mt-1.5">
                   <AiIdButton variant="compact" />
                 </div>
