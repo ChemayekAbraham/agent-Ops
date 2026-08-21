@@ -23,7 +23,9 @@ export const AGENT_PRODUCT_PAGES = [
   { slug: 'advances', category: null, label: 'Agent Advances', desc: 'Advance requests, limits & repayment queues', icon: HandCoins, color: 'bg-violet-600', to: '/agent-ops/products/advances' },
   { slug: 'service-centres', category: null, label: 'Service Centres', desc: 'Service centre locations, verifications & manager assignments', icon: Store, color: 'bg-red-500', to: '/agent-ops/products/service-centres' },
   { slug: 'personal-rent-request', category: null, label: 'Agent Personal Rent Request', desc: 'Personal rent financing requests, approvals & repayment tracking', icon: Home, color: 'bg-teal-600', to: '/agent-ops/products/personal-rent-request' },
+  { slug: 'lending-agents', category: null, label: 'Welile Lending Agents', desc: 'Lending agent business model, company cost, revenue & contactable lenders', icon: HandCoins, color: 'bg-violet-500', to: '/agent-ops/products/lending-agents' },
 ] as const;
+
 
 export const AGENT_PRODUCTS_HUB_PATH = '/executive-hub?tab=agent-ops&section=agent-products-services';
 
