@@ -408,8 +408,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
       {/* ── ROI PAYABLE FORECAST ── */}
       <ROIPayableForecast />
 
-      {/* ── CFO ACTIONS LOG ── */}
-      <CFOActionsLog />
 
       {/* ── LEDGER MAINTENANCE WINDOW ── */}
       <CollapsibleBlock title="Ledger Maintenance" open={isOpen('ledgerMaintenance')} onToggle={() => toggleSection('ledgerMaintenance')}>
