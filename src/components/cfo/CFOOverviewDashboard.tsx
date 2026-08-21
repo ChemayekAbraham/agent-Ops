@@ -318,43 +318,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
       </div>
 
 
-      {/* ── TODAY'S MOVEMENT ── */}
-      <Card className="rounded-lg overflow-hidden shadow-sm">
-        <CardContent className="p-0">
-          <div className="px-5 py-3 flex items-center justify-between gap-3 border-b border-border">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Today's Money Flow</p>
-            <SectionToggle open={isOpen('todayFlow')} onToggle={() => toggleSection('todayFlow')} label="Today's Money Flow" />
-          </div>
-          {isOpen('todayFlow') && (
-          <div className="grid grid-cols-3 divide-x divide-border">
-            <FlowCell
-              label="Came In"
-              value={fmtShort(todayCashFlow?.cashInToday ?? 0)}
-              color="text-emerald-600"
-              iconBg="bg-emerald-50 dark:bg-emerald-950/40"
-              icon={<ArrowDownRight className="h-5 w-5" />}
-              onClick={() => setActiveBreakdown('cashIn')}
-            />
-            <FlowCell
-              label="Went Out"
-              value={fmtShort(todayCashFlow?.cashOutToday ?? 0)}
-              color="text-destructive"
-              iconBg="bg-destructive/10"
-              icon={<ArrowUpRight className="h-5 w-5" />}
-              onClick={() => setActiveBreakdown('cashOut')}
-            />
-            <FlowCell
-              label="Net Change"
-              value={`${netToday >= 0 ? '+' : ''}${fmtShort(netToday)}`}
-              color={netToday >= 0 ? 'text-primary' : 'text-destructive'}
-              iconBg="bg-primary/10"
-              icon={<Scale className="h-5 w-5" />}
-              onClick={() => setActiveBreakdown('netCash')}
-            />
-          </div>
-          )}
-        </CardContent>
-      </Card>
       </div>
 
       {/* ══════════════ RIGHT COLUMN — FEEDS & CONTROLS ══════════════ */}
