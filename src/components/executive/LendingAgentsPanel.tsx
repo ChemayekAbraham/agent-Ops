@@ -10,6 +10,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Search, ShieldCheck, HandCoins, AlertTriangle, TrendingUp, FileText, Calendar, Phone, User } from 'lucide-react';
 import { BorrowerVouchBadge } from './BorrowerVouchBadge';
+import { ContactActions } from '@/components/ops/ContactActions';
+
 import { format } from 'date-fns';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
