@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { ServiceCentreNewEntryDialog } from './service-centres/ServiceCentreNewEntryDialog';
 import { ServiceCentreEntriesList } from './service-centres/ServiceCentreEntriesList';
 import { ServiceCentreAdvancesPanel } from './service-centres/ServiceCentreAdvancesPanel';
+import { ActiveServiceCentresList } from './service-centres/ActiveServiceCentresList';
 
 export function ServiceCentreVerificationQueue() {
   const { user } = useAuth();
@@ -123,7 +124,7 @@ export function ServiceCentreVerificationQueue() {
       </CardHeader>
       <CardContent className="pt-0">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full grid grid-cols-3 mb-3">
+          <TabsList className="w-full grid grid-cols-4 mb-3">
             <TabsTrigger
               value="pending"
               className="text-xs gap-1 relative data-[state=inactive]:animate-pulse data-[state=inactive]:bg-destructive/15 data-[state=inactive]:text-destructive"
@@ -135,6 +136,10 @@ export function ServiceCentreVerificationQueue() {
                   {setups?.length}
                 </span>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="active" className="text-xs gap-1">
+              <CheckCircle className="h-3 w-3" />
+              Active
             </TabsTrigger>
             <TabsTrigger value="entries" className="text-xs gap-1">
               <Building2 className="h-3 w-3" />
@@ -261,6 +266,11 @@ export function ServiceCentreVerificationQueue() {
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          {/* ── Active (CEO approved) ── */}
+          <TabsContent value="active">
+            <ActiveServiceCentresList />
           </TabsContent>
 
           {/* ── Entries (COO → CEO → Verified) ── */}
