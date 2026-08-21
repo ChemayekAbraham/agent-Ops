@@ -30,6 +30,8 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import LendingStatCards from './LendingStatCards';
 import LendingBorrowerCard from './LendingBorrowerCard';
+import GiveLoanWizard from './GiveLoanWizard';
+
 import {
   LendingLoan, computeStats, matchesFilter, matchesSearch, dueStateOf,
   StatusFilter,
@@ -60,8 +62,10 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
   const { isAccepted, acceptAgreement, isLoading: agreementLoading } = useLendingAgentAgreement();
 
   const [showAgreement, setShowAgreement] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [loans, setLoans] = useState<LendingLoan[]>([]);
   const [loansLoading, setLoansLoading] = useState(false);
+
 
   const [tab, setTab] = useState<Tab>('borrowers');
   const [search, setSearch] = useState('');
@@ -519,16 +523,8 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
   const pendingCount = requests.filter((r) => r.status === 'pending').length;
   const activeOffers = offers.filter((o) => o.active).length;
 
-  const goToNewLoan = () => {
-    setTab('offers');
-    setActiveAiId(null);
-    setShowLoanForm(false);
-    setAiIdInput('');
-    setTimeout(() => {
-      borrowerInputRef.current?.focus();
-      borrowerInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 60);
-  };
+  const goToNewLoan = () => setWizardOpen(true);
+
 
   const TABS: { key: Tab; label: string; Icon: typeof Users; badge?: number }[] = [
     { key: 'borrowers', label: 'Borrowers', Icon: Users },
@@ -661,9 +657,26 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
               </button>
             ))}
           </div>
+
+          {/* Primary action — one big, obvious button */}
+          <button
+            onClick={() => setWizardOpen(true)}
+            className="mt-3 w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-primary px-4 py-4 text-left shadow-md active:scale-[0.99] transition-transform"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-full bg-white/20 flex items-center justify-center">
+                <Plus className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <div>
+                <p className="text-lg font-extrabold text-primary-foreground leading-tight">Give a loan</p>
+                <p className="text-[12px] text-primary-foreground/85">Find someone by phone and send money</p>
+              </div>
+            </div>
+          </button>
         </div>
 
         <div className="px-4 pb-10 pt-4">
+
           {trustLoading || agreementLoading ? (
             <Skeleton className="h-40 w-full rounded-2xl" />
           ) : (
@@ -1139,15 +1152,23 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
           )}
         </div>
 
-        {/* Floating New Loan button (borrowers tab) */}
+        {/* Floating Give a loan button (borrowers tab) */}
         {tab === 'borrowers' && !loansLoading && (
           <button
             onClick={goToNewLoan}
-            className="fixed bottom-6 right-5 z-30 h-14 px-5 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30 flex items-center gap-2 font-semibold text-sm active:scale-95 transition-transform"
+            className="fixed bottom-6 right-5 z-30 h-14 px-5 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30 flex items-center gap-2 font-extrabold text-base active:scale-95 transition-transform"
           >
-            <Plus className="h-5 w-5" /> New Loan
+            <Plus className="h-5 w-5" /> Give a loan
           </button>
         )}
+
+        <GiveLoanWizard
+          open={wizardOpen}
+          onOpenChange={setWizardOpen}
+          lendablePool={lendablePool}
+          onDone={() => { reloadLoans(); refetchBalances(); setTab('borrowers'); }}
+        />
+
 
         <LendingAgentAgreementModal
           isOpen={showAgreement}
