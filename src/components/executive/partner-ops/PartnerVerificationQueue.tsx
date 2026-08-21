@@ -26,7 +26,8 @@ interface FunderRow {
   full_name: string | null;
   email: string | null;
   phone: string | null;
-  location: string | null;
+  district: string | null;
+  city: string | null;
   occupation: string | null;
   created_at: string;
   funder_verified_at: string | null;
@@ -50,7 +51,7 @@ export function PartnerVerificationQueue() {
       const { data, error } = await supabase
         .from('profiles')
         .select(
-          'id, full_name, email, phone, location, occupation, created_at, funder_verified_at, funder_rejected_at, funder_rejection_reason',
+          'id, full_name, email, phone, district, city, occupation, created_at, funder_verified_at, funder_rejected_at, funder_rejection_reason',
         )
         .eq('signup_source', SELF_REG_SOURCE)
         .order('created_at', { ascending: false })
@@ -175,8 +176,8 @@ export function PartnerVerificationQueue() {
                       {[row.phone, row.email].filter(Boolean).join(' · ') || 'No contact on file'}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {[row.occupation, row.location].filter(Boolean).join(' · ')}
-                      {row.occupation || row.location ? ' · ' : ''}
+                      {[row.occupation, row.city, row.district].filter(Boolean).join(' · ')}
+                      {row.occupation || row.city || row.district ? ' · ' : ''}
                       Registered {format(new Date(row.created_at), 'd MMM yyyy')}
                     </p>
                     {row.funder_rejection_reason && !row.funder_verified_at && (
