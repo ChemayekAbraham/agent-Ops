@@ -18,6 +18,7 @@ import { logLendingAudit } from '@/lib/lendingAudit';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import BorrowerResidenceGate, { isResidenceComplete } from './BorrowerResidenceGate';
+import MyLoansPortfolio from './MyLoansPortfolio';
 
 interface Props {
   open: boolean;
