@@ -228,10 +228,13 @@ Deno.serve(async (req) => {
       const msg = `Welile: ${fmtUGX(principal)} loan from ${lenderLabel} has been added to your wallet. Interest ${interestRate}%. ${scheduleLine} Contact your lender on ${lenderProfile?.phone ?? "the app"}.`;
       try {
         smsSent = await sendSMS(borrowerProfile.phone, msg, {
-          userId: borrowerUserId,
-          purpose: "lending_loan_disbursed",
+          admin,
+          source: "lending-disburse-loan",
+          reference_id: ref,
+          recipient_user_id: borrowerUserId,
+          recipient_name: borrowerLabel,
           idempotencyKey: `LND-SMS-${loanId.slice(0, 12)}`,
-        } as never);
+        });
       } catch (err) {
         console.error("lending-disburse-loan sms failure:", (err as Error)?.message);
       }
