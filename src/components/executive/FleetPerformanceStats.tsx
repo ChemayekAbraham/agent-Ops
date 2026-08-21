@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -1189,9 +1189,8 @@ export function FleetPerformanceStats({
                         const open = expandedId === r.id;
                         const tone = r.rate >= 80 ? 'text-emerald-600' : r.rate >= 50 ? 'text-amber-600' : 'text-destructive';
                         return (
-                          <>
+                          <Fragment key={r.id}>
                             <tr
-                              key={r.id}
                               id={`fleet-row-${r.id}`}
                               onClick={() => setExpandedId(open ? null : r.id)}
                               className="cursor-pointer border-b border-border/60 hover:bg-muted/50"
@@ -1208,7 +1207,7 @@ export function FleetPerformanceStats({
                               </td>
                             </tr>
                             {open && (
-                              <tr key={`${r.id}-detail`} className="border-b border-border/60 bg-muted/20">
+                              <tr className="border-b border-border/60 bg-muted/20">
                                 <td colSpan={5} className="p-2">
                                   <AgentCollectionsBreakdown
                                     agentId={r.id}
@@ -1220,7 +1219,7 @@ export function FleetPerformanceStats({
                                 </td>
                               </tr>
                             )}
-                          </>
+                          </Fragment>
                         );
                       })}
                     </tbody>
@@ -1283,6 +1282,9 @@ function Stat({
   formula,
   onClick,
   clickHint,
+  active,
+  secondaryLabel,
+  onSecondary,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -1296,9 +1298,20 @@ function Stat({
   };
   onClick?: () => void;
   clickHint?: string;
+  /** Highlights the card when the breakdown is currently sorted by this metric. */
+  active?: boolean;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
 }) {
   return (
-    <div className={`rounded-lg border border-border bg-card p-2 ${onClick ? 'hover:border-primary/40 hover:bg-primary/5 transition-colors' : ''}`}>
+    <div
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      title={onClick ? clickHint : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+      className={`rounded-lg border bg-card p-2 ${onClick ? 'cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-colors' : ''} ${active ? 'border-primary ring-1 ring-primary/30' : 'border-border'}`}
+    >
       <div className={`flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide ${tone}`}>
         {icon}
         <span className="truncate">{label}</span>
