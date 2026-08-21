@@ -657,9 +657,26 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
               </button>
             ))}
           </div>
+
+          {/* Primary action — one big, obvious button */}
+          <button
+            onClick={() => setWizardOpen(true)}
+            className="mt-3 w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-primary px-4 py-4 text-left shadow-md active:scale-[0.99] transition-transform"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-11 w-11 rounded-full bg-white/20 flex items-center justify-center">
+                <Plus className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <div>
+                <p className="text-lg font-extrabold text-primary-foreground leading-tight">Give a loan</p>
+                <p className="text-[12px] text-primary-foreground/85">Find someone by phone and send money</p>
+              </div>
+            </div>
+          </button>
         </div>
 
         <div className="px-4 pb-10 pt-4">
+
           {trustLoading || agreementLoading ? (
             <Skeleton className="h-40 w-full rounded-2xl" />
           ) : (
