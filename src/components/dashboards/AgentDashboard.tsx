@@ -267,6 +267,21 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       void refreshEarnings();
     },
   });
+
+  // Live sub-agent leaderboard rank for the current agent (same source as
+  // /dashboard/agents/leaderboard). Defaults to weekly to match the leaderboard
+  // landing period.
+  const { data: mySubagentRank } = useQuery({
+    queryKey: ['agent-dashboard-my-subagent-rank', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_my_subagent_rank', {
+        p_period: 'weekly',
+      });
+      if (error) throw error;
+      return (data?.[0] as { rank: number; active_count: number; total_subagents: number; active_rate: number } | null) ?? null;
+    },
+  });
   
   const { 
     stats, 
