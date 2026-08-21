@@ -30,6 +30,8 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import LendingStatCards from './LendingStatCards';
 import LendingBorrowerCard from './LendingBorrowerCard';
+import GiveLoanWizard from './GiveLoanWizard';
+
 import {
   LendingLoan, computeStats, matchesFilter, matchesSearch, dueStateOf,
   StatusFilter,
