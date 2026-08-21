@@ -343,7 +343,10 @@ export default function MerchandiseStore() {
       toast.error(error.message || 'Could not place smartphone order');
       return;
     }
-    toast.success(`Welile Smartphone order submitted. Total: ${formatUGX(phoneTotalNum)}; projection: ${formatUGX(phoneProjection)}.`);
+    toast.success('Smartphone order submitted — Pending Approval', {
+      description: `${formatUGX(phoneTotalNum)} total. Nothing is charged until Agent Operations approves it (then ${formatUGX(phoneProjection)} recovery rate applies).`,
+    });
+
     setPhoneOpen(false);
     setPhoneBrand('');
     setPhoneModel('');
