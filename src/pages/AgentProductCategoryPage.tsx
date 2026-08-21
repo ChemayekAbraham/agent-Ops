@@ -13,6 +13,8 @@ import { ActiveAdvancesPanel } from '@/components/ops/ActiveAdvancesPanel';
 import { AdvanceRepaymentsPanel } from '@/components/ops/AdvanceRepaymentsPanel';
 import { ServiceCentreVerificationQueue } from '@/components/executive/ServiceCentreVerificationQueue';
 import { SmartphoneOrderApprovals } from '@/components/executive/agent-ops/SmartphoneOrderApprovals';
+import { WelileLendingBusinessPanel } from '@/components/executive/agent-ops/WelileLendingBusinessPanel';
+
 
 
 export const AGENT_PRODUCT_PAGES = [
