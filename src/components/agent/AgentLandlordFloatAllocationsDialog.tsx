@@ -148,7 +148,8 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                 ) : filtered.map((a) => {
                   const lockExpiry = locks[allocationLockKey(a)] ?? 0;
                   const remainingMs = Math.max(0, lockExpiry - now);
-                  const isLocked = remainingMs > 0;
+                   const isReturnPending = a.status === 'return_pending';
+                   const isLocked = remainingMs > 0 || isReturnPending;
                   const mins = Math.floor(remainingMs / 60000);
                   const secs = Math.floor((remainingMs % 60000) / 1000);
                   return (
