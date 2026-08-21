@@ -249,6 +249,7 @@ export function PromissoryNotesQueue() {
     { label: 'Pending commission', value: <CompactAmount value={Number(kpis.pending_commission)} />, hint: `${kpis.pending_commission_count} requests`, tone: 'bg-amber-50 border-amber-200' },
     { label: 'Approved commission', value: <CompactAmount value={Number(kpis.approved_commission)} />, hint: `${kpis.approved_commission_count} paid`, tone: 'bg-emerald-50 border-emerald-200' },
     { label: 'Proxies pending review', value: kpis.proxies_pending, hint: 'awaiting approval', tone: 'bg-rose-50 border-rose-200' },
+    { label: 'Self supporting tenants', value: kpis.self_supporting_tenants, hint: `${kpis.self_supporting_partners} partner${kpis.self_supporting_partners === 1 ? '' : 's'} · ${formatUGX(Number(kpis.self_support_committed))}`, tone: 'bg-teal-50 border-teal-200' },
   ];
 
   return (
