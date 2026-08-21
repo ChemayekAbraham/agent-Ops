@@ -416,8 +416,25 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     return ok;
   };
 
+  // Whoever is selected — AI-ID lookup or phone search — is the borrower.
+  const selectedBorrower = phoneBorrower
+    ? {
+        user_id: phoneBorrower.user_id,
+        ai_id: null as string | null,
+        name: phoneBorrower.full_name,
+        phone: phoneBorrower.phone,
+      }
+    : borrower
+      ? {
+          user_id: borrower.user_id,
+          ai_id: borrower.ai_id as string | null,
+          name: borrower.identity?.full_name ?? null,
+          phone: borrower.identity?.phone ?? null,
+        }
+      : null;
+
   const handleDisburse = async () => {
-    if (!user || !borrower) return;
+    if (!user || !selectedBorrower) return;
     const principalNum = Number(principal);
     if (!principalNum || principalNum <= 0) { toast.error('Enter a valid amount'); return; }
     const fee = Math.round(principalNum * PLATFORM_FEE_PCT);
@@ -428,53 +445,60 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     }
 
     setSubmitting(true);
-    const ratePct = interestRate ? Number(interestRate) : 0;
-    const totalOwed = principalNum + (principalNum * ratePct) / 100;
-    const schedule = autoDeduct
-      ? buildSchedule(totalOwed, frequency, new Date(), dueDate || null)
-      : null;
-    const { error } = await (supabase.from('lending_agent_loans' as any).insert({
-      lender_agent_id: user.id,
-      borrower_user_id: borrower.user_id,
-      borrower_ai_id: borrower.ai_id,
-      borrower_display_name: borrower.identity?.full_name ?? null,
-      borrower_phone: borrower.identity?.phone ?? null,
-      principal_ugx: principalNum,
-      interest_rate_pct: interestRate ? Number(interestRate) : 0,
-      expected_repayment_date: dueDate || null,
-      loan_purpose: purpose.trim() || null,
-      platform_fee_ugx: fee,
-      lender_trust_score_at_record: trustScore,
-      borrower_trust_score_at_record: borrower.trust.score,
-      borrower_trust_tier_at_record: borrower.trust.tier,
-      status: 'active',
-      repayment_frequency: autoDeduct ? frequency : 'once',
-      auto_deduct_enabled: autoDeduct,
-      installment_ugx: schedule?.installment ?? 0,
-      next_deduction_date: schedule?.firstDate ?? null,
-      auto_deduct_started_at: autoDeduct ? new Date().toISOString() : null,
-    }) as any);
+    const { data, error } = await supabase.functions.invoke('lending-disburse-loan', {
+      body: {
+        borrower_user_id: selectedBorrower.user_id,
+        borrower_ai_id: selectedBorrower.ai_id,
+        principal_ugx: principalNum,
+        interest_rate_pct: interestRate ? Number(interestRate) : 0,
+        expected_repayment_date: dueDate || null,
+        loan_purpose: purpose.trim() || null,
+        repayment_frequency: autoDeduct ? frequency : 'once',
+        auto_deduct_enabled: autoDeduct,
+      },
+    });
     setSubmitting(false);
 
-    if (error) {
-      console.error('[LendingAgentPortal] disburse error', error);
-      toast.error('Could not record loan: ' + error.message);
+    const failure = (error as any) || (data as any)?.error;
+    if (failure) {
+      let msg = (data as any)?.error ?? (error as any)?.message ?? 'Disbursement failed';
+      if (error && (error as any).context?.text) {
+        try {
+          const raw = await (error as any).context.text();
+          msg = JSON.parse(raw)?.error ?? msg;
+        } catch { /* keep msg */ }
+      }
+      console.error('[LendingAgentPortal] disburse error', msg);
+      toast.error(msg);
       return;
     }
 
+    const res = data as any;
     toast.success(
       autoDeduct
-        ? `Loan recorded. Auto-deduction set ${frequency.replace('_', ' ')} (~${formatUGX(schedule?.installment ?? 0)}/cycle).`
-        : `Loan to ${borrower.identity?.full_name ?? borrower.ai_id} recorded.`,
+        ? `${formatUGX(principalNum)} sent to ${selectedBorrower.name ?? 'the borrower'}. Auto-deduction ${frequency.replace('_', ' ')} (~${formatUGX(res?.installment_ugx ?? 0)}/cycle).`
+        : `${formatUGX(principalNum)} sent to ${selectedBorrower.name ?? 'the borrower'}.`,
     );
+    if (res?.sms_sent === false) toast.info('Borrower notified in-app (SMS could not be delivered).');
+
+    await logLendingAudit({
+      actorId: user.id, actorDisplayName: myName, actionType: 'loan_disbursed',
+      entityType: 'loan', entityId: res?.loan_id ?? null,
+      borrowerUserId: selectedBorrower.user_id, lenderAgentId: user.id,
+      amountUgx: principalNum, feeUgx: fee, newStatus: 'active',
+      details: { interest_rate_pct: interestRate ? Number(interestRate) : 0, repayment_frequency: autoDeduct ? frequency : 'once' },
+    });
+
     await reloadLoans();
     refetchBalances();
     setShowLoanForm(false);
     setPrincipal(''); setDueDate(''); setPurpose('');
     setAutoDeduct(true); setFrequency('monthly');
     setActiveAiId(null); setAiIdInput('');
+    setPhoneBorrower(null); setPhoneResults([]); setPhoneInput('');
     setTab('borrowers');
   };
+
 
   const stats = useMemo(() => computeStats(loans), [loans]);
 
