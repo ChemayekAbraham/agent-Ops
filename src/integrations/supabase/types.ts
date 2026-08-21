@@ -36701,6 +36701,7 @@ export type Database = {
           number_of_payments: number | null
           posted_at: string | null
           projected_end_date: string | null
+          proxy_agent_phone: string | null
           rent_amount: number | null
           rent_request_id: string | null
           repayment_cadence: string | null
