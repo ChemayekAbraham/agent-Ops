@@ -160,7 +160,10 @@ Deno.serve(async (req) => {
         borrower_user_id: borrowerUserId,
         borrower_display_name: borrowerProfile.full_name,
         borrower_phone: borrowerProfile.phone,
-        borrower_ai_id: body?.borrower_ai_id ?? null,
+        borrower_ai_id: borrowerAiId,
+        borrower_trust_score_at_record: borrowerTrust?.score != null ? Math.round(Number(borrowerTrust.score)) : null,
+        borrower_trust_tier_at_record: borrowerTrust?.tier ?? null,
+
         principal_ugx: principal,
         interest_rate_pct: interestRate,
         expected_repayment_date: dueDateStr,
