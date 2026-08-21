@@ -252,6 +252,17 @@ function IssueProductDialog({
   }, [catalog, category]);
 
   const total = (Number(quantity) || 0) * (Number(unitPrice) || 0);
+  const outstanding = Math.max(total - (plan === 'full' ? total : Number(amountPaid) || 0), 0);
+
+  // Smartphones and Welile Bikes recover at a fixed 33% rate from the agent wallet.
+  const isFixedRecoveryProduct = useMemo(() => {
+    const name = itemName.trim().toLowerCase();
+    if (!name) return false;
+    return name.includes('phone') || name.includes('bike');
+  }, [itemName]);
+  const recoveryRate = isFixedRecoveryProduct ? 0.33 : null;
+  const recoveryAmount = recoveryRate ? Math.round(outstanding * recoveryRate) : 0;
+
 
   const mutation = useMutation({
     mutationFn: async () => {
