@@ -218,14 +218,6 @@ export function LedgerEntryDetailDrawer({ entryId, open, onOpenChange }: LedgerE
 
             <Separator />
 
-            {/* Source */}
-            <DetailSection title="Source" icon={<Link className="h-3.5 w-3.5" />}>
-              <DetailRow label="Source Table" value={sourceLabel} />
-              {entry.source_id && <DetailRow label="Source ID" value={entry.source_id} />}
-              {entry.transaction_group_id && <DetailRow label="Transaction Group" value={entry.transaction_group_id} />}
-            </DetailSection>
-
-            <Separator />
 
             {/* Parties */}
             <DetailSection title="Parties" icon={<User className="h-3.5 w-3.5" />}>
