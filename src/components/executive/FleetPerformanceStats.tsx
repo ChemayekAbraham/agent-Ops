@@ -1153,9 +1153,9 @@ export function FleetPerformanceStats({
               label="Expected"
               value={formatUGX(totalExpected)}
               tone="text-violet-600"
-              onClick={() => focusMetric('expected')}
-              clickHint="Sort the agent breakdown below by highest expected rent"
-              active={sort.key === 'expected'}
+              onClick={() => toggleKpiPanel('expected')}
+              clickHint="Show the agents with expected rent due in this period"
+              active={kpiPanel === 'expected'}
               secondaryLabel="Rent plans"
               onSecondary={() => openExpected()}
             />
@@ -1173,9 +1173,9 @@ export function FleetPerformanceStats({
                 ],
                 footnote: 'Legacy tracking_ids (ALLOC-*, TPAY-*, WEL-TXN-*, null) are also excluded.',
               }}
-              onClick={() => focusMetric('collected')}
-              clickHint="Sort the agent breakdown below by highest collected amount"
-              active={sort.key === 'collected'}
+              onClick={() => toggleKpiPanel('collected')}
+              clickHint="Show the active collecting agents and their collection rates"
+              active={kpiPanel === 'collected'}
               secondaryLabel="Records"
               onSecondary={() => openDrill()}
             />
@@ -1189,6 +1189,17 @@ export function FleetPerformanceStats({
               active={sort.key === 'rate'}
             />
           </div>
+
+          {/* Inline accordion folded under the Expected / Collected KPI cards. */}
+          {kpiPanel && (
+            <KpiAgentAccordion
+              variant={kpiPanel}
+              rows={kpiPanel === 'expected' ? expectedPanelRows : collectedPanelRows}
+              onClose={() => setKpiPanel(null)}
+              onSelectAgent={focusAgent}
+            />
+          )}
+
           <div className="mt-2.5 h-2 w-full rounded-full bg-muted overflow-hidden">
             <div className={`h-full ${barTone} transition-all`} style={{ width: `${Math.min(rate, 100)}%` }} />
           </div>
@@ -1220,6 +1231,7 @@ export function FleetPerformanceStats({
                 )}
               </div>
             </div>
+
 
             {rows.length === 0 ? (
               <p className="p-3 text-[11px] text-muted-foreground">No agent activity for this period.</p>
