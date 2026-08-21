@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { Loader2, Shield } from 'lucide-react';
+import { Loader2, Shield, ArrowDown, ArrowUp } from 'lucide-react';
 
 interface Props {
   isOpen: boolean;
@@ -33,6 +32,33 @@ export default function VouchAgreementModal({
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [pressed, setPressed] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [progress, setProgress] = useState(0);
+  const [atBottom, setAtBottom] = useState(false);
+
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const max = el.scrollHeight - el.clientHeight;
+    const pct = max > 0 ? Math.min(100, Math.round((el.scrollTop / max) * 100)) : 100;
+    setProgress(pct);
+    setAtBottom(max <= 0 || el.scrollTop >= max - 24);
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const t = setTimeout(() => {
+      if (scrollRef.current) scrollRef.current.scrollTop = 0;
+      onScroll();
+    }, 60);
+    return () => clearTimeout(t);
+  }, [isOpen, agreementText]);
+
+  const scrollTo = (dir: 'top' | 'bottom') => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: dir === 'top' ? 0 : el.scrollHeight, behavior: 'smooth' });
+  };
 
   const handleAccept = async () => {
     // On mobile, tapping the primary button should record agreement even if
