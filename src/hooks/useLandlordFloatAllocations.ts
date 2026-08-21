@@ -14,7 +14,7 @@ export type LandlordFloatAllocation = {
   allocated_amount: number;
   paid_out_amount: number;
   remaining_amount: number;
-  status: 'open' | 'partially_paid' | 'fully_paid' | 'cancelled';
+  status: 'open' | 'partially_paid' | 'fully_paid' | 'cancelled' | 'return_pending';
   source: string;
   created_at: string;
   /** Tenant this earmark pays a landlord FOR — used so agents can find the row by tenant. */
