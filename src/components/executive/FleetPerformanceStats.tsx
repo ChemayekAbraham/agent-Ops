@@ -1322,6 +1322,7 @@ function Stat({
                 <button
                   type="button"
                   aria-label={`${label} data source`}
+                  onClick={(e) => e.stopPropagation()}
                   className="ml-0.5 inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <Info className="h-3 w-3" />
@@ -1340,6 +1341,7 @@ function Stat({
                 <button
                   type="button"
                   aria-label={`${label} formula`}
+                  onClick={(e) => e.stopPropagation()}
                   className="ml-0.5 inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <Info className="h-3 w-3" />
@@ -1365,17 +1367,19 @@ function Stat({
           </UiTooltipProvider>
         )}
       </div>
-      {onClick ? (
+      <div
+        className={`mt-0.5 text-sm font-extrabold tabular-nums text-foreground truncate ${onClick ? 'underline decoration-dotted decoration-muted-foreground/40 underline-offset-2' : ''}`}
+      >
+        {value}
+      </div>
+      {secondaryLabel && onSecondary && (
         <button
           type="button"
-          onClick={onClick}
-          title={clickHint || 'Drill into contributing records'}
-          className="mt-0.5 text-sm font-extrabold tabular-nums text-foreground truncate w-full text-left underline decoration-dotted decoration-muted-foreground/40 underline-offset-2 hover:decoration-primary hover:text-primary transition-colors focus:outline-none focus:ring-1 focus:ring-primary rounded"
+          onClick={(e) => { e.stopPropagation(); onSecondary(); }}
+          className="mt-1 text-[10px] font-semibold text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-primary focus:outline-none focus:ring-1 focus:ring-primary rounded"
         >
-          {value}
+          {secondaryLabel}
         </button>
-      ) : (
-        <div className="mt-0.5 text-sm font-extrabold tabular-nums text-foreground truncate">{value}</div>
       )}
     </div>
   );
