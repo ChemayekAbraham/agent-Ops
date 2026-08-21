@@ -196,7 +196,7 @@ export function PromissoryNotesQueue() {
     }
   };
 
-  const { range, setRange, report, isLoading, refetch } = usePromissoryOpsReport();
+  const { range, setRange, report, isLoading, refetch, error: reportError } = usePromissoryOpsReport();
   const notes = report.notes;
   const kpis = report.kpis;
 
@@ -329,6 +329,11 @@ export function PromissoryNotesQueue() {
         <CardContent className="p-3">
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground text-sm">Loading promissory notes...</div>
+          ) : reportError ? (
+            <div className="text-center py-8 text-sm space-y-2">
+              <p className="text-destructive">Could not load promissory notes: {reportError.message}</p>
+              <Button variant="outline" size="sm" onClick={() => refetch()}>Try again</Button>
+            </div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">No promissory notes found</div>
           ) : (
