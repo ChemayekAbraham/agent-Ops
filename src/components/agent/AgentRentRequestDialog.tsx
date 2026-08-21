@@ -4394,8 +4394,8 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                 </div>
 
                 {/* Bonus promo removed — keeps the agent focused on the listing. */}
-                {/* ── Sticky quick-switch bar ── */}
-                <div className="sticky top-0 z-20 -mx-1 px-1 py-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                {/* ── Scrollable quick-switch bar (no longer sticky) ── */}
+                <div className="-mx-1 px-1 py-2">
                   {!selectedLandlord ? (
                     <div className="rounded-2xl border-2 border-muted bg-muted/30 p-1.5 flex gap-1.5">
                       <button
