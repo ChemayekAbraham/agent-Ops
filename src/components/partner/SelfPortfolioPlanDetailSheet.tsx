@@ -28,6 +28,7 @@ export interface PlanDetail {
   house_image_urls: string[] | null;
   request_latitude?: number | string | null;
   request_longitude?: number | string | null;
+  proxy_agent_phone: string | null;
 }
 
 /** Lightweight controlled slider: always in sync with the real photo count. */
