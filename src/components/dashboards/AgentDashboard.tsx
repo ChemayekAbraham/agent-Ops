@@ -771,13 +771,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       toast.error('Enter a phone amount of at least UGX 1,000');
       return;
     }
-    if (phoneProjection > realWithdrawableBalance) {
-      const { toast } = await import('sonner');
-      toast.error(
-        `Payment projection of ${formatUGX(phoneProjection)} exceeds your available wallet balance of ${formatUGX(realWithdrawableBalance)}.`
-      );
-      return;
-    }
+    // No upfront wallet balance gate — orders are submitted for approval first.
+
     setOrderingPhone(true);
     const { error } = await (supabase as any).rpc('agent_order_smartphone', {
       p_total_amount: phoneTotalNum,
