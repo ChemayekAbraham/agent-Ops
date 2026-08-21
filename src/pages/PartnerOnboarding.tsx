@@ -60,7 +60,7 @@ export default function FunderOnboarding({ embedded = false }: FunderOnboardingP
   // Managers get the standalone page. In embedded mode the host dashboard
   // (Partner Operations) already gates access, so ops roles are allowed too.
   const canView = roles.includes('manager')
-    || (embedded && (roles.includes('partner_ops') || roles.includes('coo') || roles.includes('super_admin')));
+    || (embedded && (roles as string[]).some(r => ['partner_ops', 'coo', 'super_admin'].includes(r)));
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
