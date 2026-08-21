@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Handshake, UserPlus, Loader2, Smartphone, ShieldCheck, Pencil, Trash2, Users, UserCheck, Building, Search, Layers, X, ArrowRightLeft } from 'lucide-react';
+import { Handshake, UserPlus, Loader2, Smartphone, ShieldCheck, Pencil, Trash2, Users, UserCheck, Building, Search, Layers, X, ArrowRightLeft, Home } from 'lucide-react';
 import { UserSearchPicker } from './UserSearchPicker';
 import { ProxyAuditExport } from './ProxyAuditExport';
 import { format } from 'date-fns';
@@ -34,12 +34,24 @@ function dedupeKey(p: any): string | null {
   return phoneKey || nidKey || null;
 }
 
+/** Display label for a beneficiary_role value (tenant | landlord | supporter). */
+const ROLE_LABELS: Record<string, string> = {
+  tenant: '🧑\u200d🤝\u200d🧑 Tenant',
+  landlord: '🏠 Landlord',
+  supporter: '💼 Partner',
+};
+function roleLabel(role?: string | null): string {
+  return ROLE_LABELS[role || ''] || '💼 Partner';
+}
+
 export function ProxyAgentManager() {
   const { user } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
   const [showAssign, setShowAssign] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  // Which proxy relationship type the table shows (tenant / landlord / partner).
+  const [roleTab, setRoleTab] = useState<'all' | 'tenant' | 'landlord' | 'supporter'>('all');
   const [pickedAgent, setPickedAgent] = useState<any>(null);
   const [pickedBeneficiary, setPickedBeneficiary] = useState<any>(null);
   const [beneficiaryRole, setBeneficiaryRole] = useState('landlord');
@@ -293,20 +305,37 @@ export function ProxyAgentManager() {
   }, [bulkSearch, bulkFilter, bulkRole, showBulk, bulkFromAgent, bulkRequirePhone]);
 
   const filteredAssignments = useMemo(() => {
-    if (!searchTerm.trim()) return assignments;
+    const scoped = roleTab === 'all'
+      ? assignments
+      : assignments.filter((a: any) => (a.beneficiary_role || 'supporter') === roleTab);
+    if (!searchTerm.trim()) return scoped;
     const q = searchTerm.toLowerCase();
-    return assignments.filter((a: any) =>
+    return scoped.filter((a: any) =>
       a.agent?.full_name?.toLowerCase().includes(q) ||
       a.agent?.phone?.toLowerCase().includes(q) ||
       a.beneficiary?.full_name?.toLowerCase().includes(q) ||
       a.beneficiary?.phone?.toLowerCase().includes(q) ||
       a.reason?.toLowerCase().includes(q)
     );
-  }, [assignments, searchTerm]);
+  }, [assignments, searchTerm, roleTab]);
 
   const uniqueAgents = new Set(assignments.map((a: any) => a.agent_id)).size;
   const uniquePartners = new Set(assignments.map((a: any) => a.beneficiary_id)).size;
   const managedCount = assignments.filter((a: any) => a.is_managed_account).length;
+  const roleCounts = useMemo(() => {
+    let tenant = 0, landlord = 0, supporter = 0;
+    assignments.forEach((a: any) => {
+      const r = a.beneficiary_role || 'supporter';
+      if (r === 'tenant') tenant++;
+      else if (r === 'landlord') landlord++;
+      else supporter++;
+    });
+    return { all: assignments.length, tenant, landlord, supporter };
+  }, [assignments]);
+  const uniqueTenants = useMemo(
+    () => new Set(assignments.filter((a: any) => a.beneficiary_role === 'tenant').map((a: any) => a.beneficiary_id)).size,
+    [assignments],
+  );
 
   const resetForm = () => {
     setPickedAgent(null);
@@ -604,7 +633,7 @@ export function ProxyAgentManager() {
 
   const openEdit = (a: any) => {
     setEditingAssignment(a);
-    setBeneficiaryRole(a.beneficiary_role || 'landlord');
+    setBeneficiaryRole(a.beneficiary_role || 'supporter');
     setReason(a.reason || '');
     setIsManagedAccount(a.is_managed_account || false);
     setShowAssign(true);
@@ -619,7 +648,8 @@ export function ProxyAgentManager() {
   const kpis = [
     { label: 'Total Assignments', value: assignments.length, icon: Handshake, color: 'text-primary' },
     { label: 'Unique Agents', value: uniqueAgents, icon: Users, color: 'text-blue-500' },
-    { label: 'Partners Assigned', value: uniquePartners, icon: UserCheck, color: 'text-green-500' },
+    { label: 'Beneficiaries Linked', value: uniquePartners, icon: UserCheck, color: 'text-green-500' },
+    { label: 'Tenants With Proxy', value: uniqueTenants, icon: Home, color: 'text-fuchsia-500' },
     { label: 'Managed Accounts', value: managedCount, icon: Building, color: 'text-amber-500' },
   ];
 
@@ -640,12 +670,12 @@ export function ProxyAgentManager() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Bulk Assign Partners to Agent</DialogTitle>
+              <DialogTitle>Bulk Assign Beneficiaries to Agent</DialogTitle>
             </DialogHeader>
             <p className="text-xs text-muted-foreground">
-              Pick one agent, search/filter the partner pool, multi-select, and link.
-              Partners already attached to a different proxy agent will be automatically
-              moved over.
+              Pick one agent, choose the relationship type (tenant, landlord or partner),
+              search/filter the pool, multi-select, and link. Beneficiaries already attached
+              to a different proxy agent will be automatically moved over.
             </p>
             <div className="space-y-3">
               <UserSearchPicker
@@ -660,6 +690,7 @@ export function ProxyAgentManager() {
                 <Select value={bulkRole} onValueChange={setBulkRole}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="tenant">🧑‍🤝‍🧑 Tenant</SelectItem>
                     <SelectItem value="landlord">🏠 Landlord</SelectItem>
                     <SelectItem value="supporter">💼 Partner/Funder</SelectItem>
                   </SelectContent>
@@ -669,7 +700,7 @@ export function ProxyAgentManager() {
                 <UserSearchPicker
                   key={`bulk-user-picker-${bulkRole}-${bulkBeneficiaries.length}`}
                   label="Search User to Assign"
-                  placeholder={`Search ${bulkRole === 'landlord' ? 'landlord' : 'partner/funder'} by name or phone...`}
+                  placeholder={`Search ${bulkRole === 'landlord' ? 'landlord' : bulkRole === 'tenant' ? 'tenant' : 'partner/funder'} by name or phone...`}
                   selectedUser={null}
                   onSelect={(u) => { if (u) toggleBulkBeneficiary(u); }}
                   roleFilter={bulkRole}
@@ -907,7 +938,7 @@ export function ProxyAgentManager() {
             </DialogHeader>
             {!editingAssignment && (
               <p className="text-xs text-muted-foreground">
-                Assign an agent to act on behalf of a landlord or partner who doesn't have smartphone access.
+                Assign an agent to act on behalf of a tenant, landlord or partner who doesn't have smartphone access.
               </p>
             )}
             <div className="space-y-3">
@@ -921,7 +952,7 @@ export function ProxyAgentManager() {
               ) : (
                 <>
                   <UserSearchPicker label="Search Agent" placeholder="Search agent by name or phone..." selectedUser={pickedAgent} onSelect={setPickedAgent} roleFilter="agent" />
-                  <UserSearchPicker label="Search Beneficiary (landlord/partner)" placeholder="Search beneficiary by name or phone..." selectedUser={pickedBeneficiary} onSelect={setPickedBeneficiary} />
+                  <UserSearchPicker label="Search Beneficiary (tenant/landlord/partner)" placeholder="Search beneficiary by name or phone..." selectedUser={pickedBeneficiary} onSelect={setPickedBeneficiary} />
                 </>
               )}
               <div>
@@ -929,6 +960,7 @@ export function ProxyAgentManager() {
                 <Select value={beneficiaryRole} onValueChange={setBeneficiaryRole}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="tenant">🧑‍🤝‍🧑 Tenant</SelectItem>
                     <SelectItem value="landlord">🏠 Landlord</SelectItem>
                     <SelectItem value="supporter">💼 Partner/Funder</SelectItem>
                   </SelectContent>
@@ -965,7 +997,7 @@ export function ProxyAgentManager() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {kpis.map(k => (
           <Card key={k.label}>
             <CardContent className="p-3 flex items-center gap-3">
@@ -979,12 +1011,34 @@ export function ProxyAgentManager() {
         ))}
       </div>
 
+      {/* Relationship type filter — proxy links for tenants, landlords and partners */}
+      {assignments.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {([
+            { key: 'all', label: `All (${roleCounts.all})` },
+            { key: 'tenant', label: `🧑‍🤝‍🧑 Tenants (${roleCounts.tenant})` },
+            { key: 'landlord', label: `🏠 Landlords (${roleCounts.landlord})` },
+            { key: 'supporter', label: `💼 Partners (${roleCounts.supporter})` },
+          ] as const).map((t) => (
+            <Button
+              key={t.key}
+              size="sm"
+              variant={roleTab === t.key ? 'default' : 'outline'}
+              className="h-7 text-xs"
+              onClick={() => setRoleTab(t.key)}
+            >
+              {t.label}
+            </Button>
+          ))}
+        </div>
+      )}
+
       {/* Search */}
       {assignments.length > 0 && (
         <div className="relative max-w-sm">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search agent, partner, phone..."
+            placeholder="Search agent, tenant, partner, phone..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             className="pl-9 h-9"
@@ -998,11 +1052,11 @@ export function ProxyAgentManager() {
       ) : assignments.length === 0 ? (
         <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">
           <Smartphone className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-          No proxy agents assigned. Link agents for landlords/partners without smartphones.
+          No proxy agents assigned. Link agents for tenants, landlords or partners without smartphones.
         </CardContent></Card>
       ) : filteredAssignments.length === 0 ? (
         <Card><CardContent className="py-6 text-center text-muted-foreground text-sm">
-          No results for "{searchTerm}"
+          {searchTerm ? `No results for "${searchTerm}"` : 'No proxy links for this relationship type yet.'}
         </CardContent></Card>
       ) : (
         <Card>
@@ -1012,7 +1066,7 @@ export function ProxyAgentManager() {
                 <TableRow>
                   <TableHead className="w-10">#</TableHead>
                   <TableHead>Agent</TableHead>
-                  <TableHead>Partner / Beneficiary</TableHead>
+                  <TableHead>Beneficiary (tenant / landlord / partner)</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Managed</TableHead>
                   <TableHead>Reason</TableHead>
@@ -1034,7 +1088,7 @@ export function ProxyAgentManager() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-[10px]">
-                        {a.beneficiary_role === 'landlord' ? '🏠 Landlord' : '💼 Partner'}
+                        {roleLabel(a.beneficiary_role)}
                       </Badge>
                     </TableCell>
                     <TableCell>
