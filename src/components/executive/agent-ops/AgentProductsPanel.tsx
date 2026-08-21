@@ -274,7 +274,7 @@ function IssueProductDialog({
         p_agent_id: agent!.id,
         p_item_name: itemName,
         p_quantity: Number(quantity),
-        p_unit_price: Number(unitPrice),
+        p_unit_price: (Number(quantity) || 1) > 0 ? total / (Number(quantity) || 1) : 0,
         p_unit_cost: Number(unitCost) || 0,
         p_service_centre_id: centreId === 'none' ? null : centreId,
         p_payment_plan: plan,
