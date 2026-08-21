@@ -883,3 +883,37 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
     </div>
   );
 }
+
+interface ShellProps {
+  embedded: boolean;
+  headerStatus: 'success' | 'warning' | 'error' | 'neutral';
+  children: React.ReactNode;
+}
+
+function Shell({ embedded, headerStatus, children }: ShellProps) {
+  return embedded ? (
+    <div className="space-y-4">
+      <div className="space-y-1">
+        <h2 className="text-lg font-bold">Partner Onboarding &amp; Verification</h2>
+        <p className="text-xs text-muted-foreground">
+          Self-registered partners must be verified here before they can support tenants or create portfolios.
+        </p>
+      </div>
+      {children}
+    </div>
+  ) : (
+    <>
+      <Helmet>
+        <link rel="canonical" href="https://welileapp.com/partner-onboarding" />
+        <meta property="og:url" content="https://welileapp.com/partner-onboarding" />
+      </Helmet>
+      <COODetailLayout
+        title="Partner Onboarding"
+        subtitle="Self-Registered Funders"
+        status={headerStatus}
+      >
+        {children}
+      </COODetailLayout>
+    </>
+  );
+}
