@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Search, Loader2, ArrowLeft, Check, User, Banknote, CalendarClock,
-  ShieldCheck, PartyPopper, Phone,
+  ShieldCheck, PartyPopper, Phone, X,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -253,13 +253,15 @@ export default function GiveLoanWizard({ open, onOpenChange, lendablePool, onDon
               <p className="text-sm text-muted-foreground">
                 Your wallet has <span className="font-bold text-foreground">{formatUGX(lendablePool)}</span>
               </p>
-              <Button
-                onClick={() => setStep(3)}
-                disabled={!amount || amount <= 0}
-                className="w-full h-16 text-lg font-extrabold rounded-2xl"
-              >
-                Next
-              </Button>
+              <div className="sticky bottom-0 -mx-4 px-4 pt-3 pb-4 bg-gradient-to-t from-background via-background to-transparent">
+                <Button
+                  onClick={() => setStep(3)}
+                  disabled={!amount || amount <= 0}
+                  className="w-full h-16 text-lg font-extrabold rounded-2xl"
+                >
+                  Next
+                </Button>
+              </div>
             </>
           )}
 
@@ -301,9 +303,11 @@ export default function GiveLoanWizard({ open, onOpenChange, lendablePool, onDon
                   </button>
                 ))}
               </div>
-              <Button onClick={() => setStep(4)} className="w-full h-16 text-lg font-extrabold rounded-2xl">
-                Next
-              </Button>
+              <div className="sticky bottom-0 -mx-4 px-4 pt-3 pb-4 bg-gradient-to-t from-background via-background to-transparent">
+                <Button onClick={() => setStep(4)} className="w-full h-16 text-lg font-extrabold rounded-2xl">
+                  Next
+                </Button>
+              </div>
             </>
           )}
 
@@ -329,10 +333,15 @@ export default function GiveLoanWizard({ open, onOpenChange, lendablePool, onDon
                   Welile pays you back <span className="font-bold">100% of your money</span> if they fail to pay.
                 </p>
               </div>
-              <Button onClick={send} disabled={sending} className="w-full h-16 text-lg font-extrabold rounded-2xl">
-                {sending ? <Loader2 className="h-6 w-6 mr-2 animate-spin" /> : <Check className="h-6 w-6 mr-2" />}
-                Send the money
-              </Button>
+              <div className="sticky bottom-0 -mx-4 px-4 pt-3 pb-4 bg-gradient-to-t from-background via-background to-transparent space-y-2">
+                <Button onClick={send} disabled={sending} className="w-full h-16 text-lg font-extrabold rounded-2xl">
+                  {sending ? <Loader2 className="h-6 w-6 mr-2 animate-spin" /> : <Check className="h-6 w-6 mr-2" />}
+                  Send the money
+                </Button>
+                <Button variant="ghost" onClick={() => setStep(3)} className="w-full h-11 text-sm font-bold rounded-2xl">
+                  Change something
+                </Button>
+              </div>
             </>
           )}
 
