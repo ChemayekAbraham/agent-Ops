@@ -42,9 +42,11 @@ export function useLendingAgentAgreement() {
     let ip: string | null = null;
     try { ip = (await (await fetch('https://api.ipify.org?format=json')).json()).ip; } catch {}
     const device = `${navigator.userAgent} | ${navigator.platform}`;
+    const safeScore =
+      typeof trustScore === 'number' && Number.isFinite(trustScore) ? Math.round(trustScore) : null;
     const { data, error } = await (supabase
       .from('lending_agent_agreement_acceptance' as any)
-      .insert({ agent_user_id: user.id, agreement_version: LENDING_AGENT_AGREEMENT_VERSION, trust_score_at_acceptance: trustScore ?? null, ip_address: ip, device_info: device, status: 'accepted' })
+      .insert({ agent_user_id: user.id, agreement_version: LENDING_AGENT_AGREEMENT_VERSION, trust_score_at_acceptance: safeScore, ip_address: ip, device_info: device, status: 'accepted' })
       .select().single() as any);
     if (error) {
       console.error('[useLendingAgentAgreement]', error);
