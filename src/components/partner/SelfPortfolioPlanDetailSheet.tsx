@@ -200,6 +200,18 @@ export function SelfPortfolioPlanDetailSheet({
           <SheetTitle>Rent plan details</SheetTitle>
         </SheetHeader>
 
+        <button
+          type="button"
+          onClick={() => onOpenChange(false)}
+          aria-label="Back"
+          className="absolute left-3 top-3 z-30 flex items-center gap-1 rounded-full bg-background/90 px-3 py-2 text-xs font-semibold text-foreground shadow-md backdrop-blur transition hover:bg-background"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Back
+        </button>
+
+
+
         {/* Photo carousel */}
         {photos.length > 0 ? (
           <PhotoSlider
