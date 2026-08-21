@@ -2238,11 +2238,10 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                 <p className="text-base font-bold">{formatUGX(phoneProjection)}</p>
               </div>
             )}
-            {phoneProjection > realWithdrawableBalance && phoneTotalNum > 0 && (
-              <p className="text-[11px] font-medium text-destructive">
-                Payment projection exceeds your available wallet balance of {formatUGX(realWithdrawableBalance)}.
-              </p>
-            )}
+            <p className="text-[11px] text-muted-foreground">
+              Orders are submitted as <span className="font-semibold">Pending Approval</span>. Nothing is
+              charged to your wallet until Agent Operations approves the order.
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPhoneOpen(false)} disabled={orderingPhone}>Cancel</Button>
@@ -2252,9 +2251,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                 orderingPhone ||
                 !phoneBrand.trim() ||
                 !phoneModel.trim() ||
-                phoneTotalNum < 1000 ||
-                phoneProjection > realWithdrawableBalance
+                phoneTotalNum < 1000
               }
+
             >
               {orderingPhone ? 'Submitting…' : 'Submit order'}
             </Button>
