@@ -272,7 +272,7 @@ export function AgentOpsDashboard() {
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">Choose a category to manage issuance, payments and receivables.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {AGENT_PRODUCT_PAGES.map((c) => (
+                {AGENT_PRODUCT_PAGES.filter((c) => c.slug !== 'personal-rent-request').map((c) => (
                   <Link
                     key={c.slug}
                     to={c.to}
