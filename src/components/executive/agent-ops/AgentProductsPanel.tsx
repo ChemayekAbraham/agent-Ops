@@ -252,6 +252,17 @@ function IssueProductDialog({
   }, [catalog, category]);
 
   const total = (Number(quantity) || 0) * (Number(unitPrice) || 0);
+  const outstanding = Math.max(total - (plan === 'full' ? total : Number(amountPaid) || 0), 0);
+
+  // Smartphones and Welile Bikes recover at a fixed 33% rate from the agent wallet.
+  const isFixedRecoveryProduct = useMemo(() => {
+    const name = itemName.trim().toLowerCase();
+    if (!name) return false;
+    return name.includes('phone') || name.includes('bike');
+  }, [itemName]);
+  const recoveryRate = isFixedRecoveryProduct ? 0.33 : null;
+  const recoveryAmount = recoveryRate ? Math.round(outstanding * recoveryRate) : 0;
+
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -265,6 +276,8 @@ function IssueProductDialog({
         p_payment_plan: plan,
         p_amount_paid: plan === 'full' ? total : Number(amountPaid) || 0,
         p_notes: notes || null,
+        p_recovery_rate: recoveryRate,
+
       });
       if (error) throw error;
       return data;
@@ -394,9 +407,25 @@ function IssueProductDialog({
           <div className="flex justify-between"><span>Total value</span><span className="font-semibold">{formatUGX(total)}</span></div>
           <div className="flex justify-between">
             <span>To recover from wallet</span>
-            <span className="font-semibold">{formatUGX(Math.max(total - (plan === 'full' ? total : Number(amountPaid) || 0), 0))}</span>
+            <span className="font-semibold">{formatUGX(outstanding)}</span>
           </div>
+          {recoveryRate !== null && (
+            <>
+              <div className="flex items-center justify-between">
+                <span>Recovery rule</span>
+                <Badge variant="secondary" className="text-[11px]">Recovery Rate: 33%</Badge>
+              </div>
+              <div className="flex justify-between">
+                <span>Recovery amount (33%)</span>
+                <span className="font-semibold tabular-nums">{formatUGX(recoveryAmount)}</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Smartphones and Welile Bikes recover at a fixed 33% rate from the agent wallet.
+              </p>
+            </>
+          )}
         </div>
+
       </div>
       <DialogFooter>
         <Button onClick={() => mutation.mutate()} disabled={!valid || mutation.isPending} className="w-full">

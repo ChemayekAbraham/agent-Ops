@@ -37138,13 +37138,14 @@ export type Database = {
       agent_ops_issue_agent_product: {
         Args: {
           p_agent_id: string
-          p_amount_paid?: number
+          p_amount_paid: number
           p_item_name: string
-          p_notes?: string
-          p_payment_plan?: string
+          p_notes: string
+          p_payment_plan: string
           p_quantity: number
-          p_service_centre_id?: string
-          p_unit_cost?: number
+          p_recovery_rate?: number
+          p_service_centre_id: string
+          p_unit_cost: number
           p_unit_price: number
         }
         Returns: string
