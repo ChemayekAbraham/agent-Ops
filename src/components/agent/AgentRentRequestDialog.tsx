@@ -4050,7 +4050,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
               ) : detailStep === 0 ? (
               <>
               <div className="space-y-3 p-4 rounded-2xl bg-primary/10 border-2 border-primary/40">
-                <h4 className="text-base font-extrabold text-primary flex items-center gap-2">
+                <h4 className="text-sm font-extrabold text-primary flex items-center gap-2">
                   <div className="p-2 rounded-xl bg-primary/20">
                     <Calculator className="h-5 w-5 text-primary" />
                   </div>
