@@ -240,11 +240,19 @@ export function MerchantDebtSettlementDialog({
                               ? 'Telecom sending charge they paid'
                               : 'Customer payout from their own phone money'}
                           </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {format(new Date(l.payoutAt), 'd MMM yyyy · HH:mm')}
+                            {` · paid to ${l.recipientName || 'Unknown recipient'}`}
+                            {l.recipientPhone ? ` · ${l.recipientPhone}` : ''}
+                          </p>
                           <p className="text-[10px] text-muted-foreground truncate">
-                            {format(new Date(l.createdAt), 'd MMM yyyy · HH:mm')}
+                            {`TID ${l.payoutTid || 'not returned by provider'}`}
                             {l.withdrawalId ? ` · ref ${l.withdrawalId.slice(0, 8)}` : ''}
                             {l.payoutAmount ? ` · payout ${formatUGX(l.payoutAmount)}` : ''}
                             {` · float used ${formatUGX(l.floatUsed)}`}
+                          </p>
+                          <p className="text-[10px] text-success">
+                            {`Books at that moment: desk float ${formatUGX(l.floatPositionAtPayout)} — short by ${formatUGX(Math.max(0, -l.floatPositionAtPayout))}, so this much came from their own phone money.`}
                           </p>
                           {l.note && (
                             <p className="text-[10px] text-muted-foreground">{l.note}</p>
@@ -258,13 +266,23 @@ export function MerchantDebtSettlementDialog({
                     {g.reviewLines.length > 0 && (
                       <div className="mt-2 rounded-lg border border-dashed border-warning/50 bg-warning/5 p-2">
                         <p className="text-[10px] font-semibold uppercase tracking-wider text-warning">
-                          Not payable — awaiting confirmation
+                          Not payable — the books show float was available
                         </p>
                         {g.reviewLines.slice(0, 8).map((l) => (
-                          <p key={l.id} className="text-[10px] text-muted-foreground">
-                            {format(new Date(l.createdAt), 'd MMM yyyy')} · {formatUGX(l.amount)}
-                            {l.withdrawalId ? ` · ref ${l.withdrawalId.slice(0, 8)}` : ''}
-                          </p>
+                          <div key={l.id} className="mt-1">
+                            <p className="text-[10px] text-muted-foreground">
+                              {format(new Date(l.payoutAt), 'd MMM yyyy · HH:mm')} · {formatUGX(l.amount)}
+                              {` · paid to ${l.recipientName || 'Unknown recipient'}`}
+                              {l.recipientPhone ? ` · ${l.recipientPhone}` : ''}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {`TID ${l.payoutTid || 'not returned by provider'}`}
+                              {l.withdrawalId ? ` · ref ${l.withdrawalId.slice(0, 8)}` : ''}
+                              {l.isEstimate
+                                ? ' · estimated telecom charge, not yet claimable'
+                                : ` · desk float at that moment ${formatUGX(l.floatPositionAtPayout)}`}
+                            </p>
+                          </div>
                         ))}
                         {g.reviewLines.length > 8 && (
                           <p className="text-[10px] text-muted-foreground">

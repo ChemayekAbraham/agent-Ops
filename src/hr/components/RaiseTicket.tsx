@@ -143,7 +143,8 @@ export default function RaiseTicket({ staffId }: RaiseTicketProps) {
           .from('task-evidence')
           .upload(path, file, { upsert: false, contentType: file.type });
         if (uploadError) {
-          uploadProblems.push(`${file.name} could not be attached.`);
+          console.error(`${file.name} upload failed:`, uploadError);
+          uploadProblems.push(`${file.name} could not be attached: ${uploadError.message}`);
           continue;
         }
         const { error: rowError } = await supabase.from('hr_task_attachments').insert({
@@ -156,7 +157,8 @@ export default function RaiseTicket({ staffId }: RaiseTicketProps) {
           delete_after: deleteAfter,
         } as never);
         if (rowError) {
-          uploadProblems.push(`${file.name} could not be attached.`);
+          console.error(`${file.name} attachment row failed:`, rowError);
+          uploadProblems.push(`${file.name} could not be attached: ${rowError.message}`);
           try {
             const { error: removeError } = await supabase.storage
               .from('task-evidence')

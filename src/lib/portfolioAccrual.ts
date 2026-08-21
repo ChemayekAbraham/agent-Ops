@@ -1,7 +1,7 @@
 import { differenceInCalendarDays, addMonths } from 'date-fns';
 import { extractDateOnly, dateOnlyToLocalDate } from '@/lib/portfolioDates';
 
-export type PortfolioState = 'active' | 'pending' | 'matured' | 'paused' | 'withdrawn';
+export type PortfolioState = 'active' | 'pending' | 'matured' | 'paused' | 'locked' | 'withdrawn';
 
 export function normalizePortfolioState(status: string | null | undefined): PortfolioState {
   switch ((status || '').toLowerCase()) {
@@ -9,6 +9,7 @@ export function normalizePortfolioState(status: string | null | undefined): Port
     case 'pending':
     case 'pending_approval': return 'pending';
     case 'matured': return 'matured';
+    case 'locked': return 'locked';
     case 'paused':
     case 'suspended': return 'paused';
     case 'withdrawn': return 'withdrawn';

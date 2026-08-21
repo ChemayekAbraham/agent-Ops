@@ -203,6 +203,7 @@ export function PartnersOpsDashboard() {
   const badges: Partial<Record<PartnerOpsViewKey, number>> = {
     'portfolios.invited': invitedCount,
     maturity: maturityPending,
+    'portfolios.maturity': maturityPending,
     'nearing.overview': nearingPayouts,
   };
 
@@ -278,6 +279,7 @@ export function PartnersOpsDashboard() {
         </div>
       );
       case 'maturity': return <MaturityRequestsQueue />;
+      case 'portfolios.maturity': return <MaturityRequestsQueue />;
       case 'approvals': return (
         <div className="space-y-6">
           <PendingFunderApprovals />

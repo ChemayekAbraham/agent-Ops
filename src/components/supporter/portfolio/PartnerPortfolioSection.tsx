@@ -28,7 +28,12 @@ export function PartnerPortfolioSection({ onViewPortfolios, onExploreOpportuniti
    */
   const active = useMemo(() => {
     return portfolios
-      .filter(p => normalizePortfolioState(p.status) === 'active')
+      .filter(p => {
+        const s = normalizePortfolioState(p.status);
+        // Locked portfolios (open redemption) are not active, but the partner
+        // must still see them on the dashboard with the LOCKED badge.
+        return s === 'active' || s === 'locked';
+      })
       .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   }, [portfolios]);
 

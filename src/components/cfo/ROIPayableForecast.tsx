@@ -1,19 +1,11 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, CalendarClock, ChevronDown, ChevronUp } from 'lucide-react';
-import { format, isToday, isThisWeek, endOfMonth, startOfMonth, addMonths, isBefore, isAfter, isEqual } from 'date-fns';
+import { Loader2, ChevronDown } from 'lucide-react';
+import { format, startOfWeek, endOfWeek } from 'date-fns';
 
 const fmt = (n: number) =>
-  new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(n);
-
-const fmtShort = (n: number) => {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
-  return n.toFixed(0);
-};
+  new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(n));
 
 interface Portfolio {
   id: string;
@@ -24,11 +16,8 @@ interface Portfolio {
   investor_id: string | null;
 }
 
-type Period = 'today' | 'this_week' | 'this_month' | 'next_month';
-
 export function ROIPayableForecast() {
-  const [expanded, setExpanded] = useState(false);
-  const [activePeriod, setActivePeriod] = useState<Period | null>(null);
+  const [expanded, setExpanded] = useState(true);
 
   const { data, isLoading } = useQuery({
     queryKey: ['roi-payable-forecast'],
@@ -43,120 +32,79 @@ export function ROIPayableForecast() {
     },
   });
 
-  if (isLoading) {
-    return (
-      <Card className="rounded-2xl">
-        <CardContent className="p-4 flex justify-center">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const now = new Date();
-  const thisMonthEnd = endOfMonth(now);
-  const nextMonthStart = startOfMonth(addMonths(now, 1));
-  const nextMonthEnd = endOfMonth(addMonths(now, 1));
-
   const calcROI = (p: Portfolio) => (p.investment_amount * p.roi_percentage) / 100;
 
-  const buckets: Record<Period, { total: number; count: number; portfolios: Portfolio[] }> = {
-    today: { total: 0, count: 0, portfolios: [] },
-    this_week: { total: 0, count: 0, portfolios: [] },
-    this_month: { total: 0, count: 0, portfolios: [] },
-    next_month: { total: 0, count: 0, portfolios: [] },
-  };
-
-  (data || []).forEach(p => {
+  // Group active portfolios into the calendar week their next ROI falls due.
+  const weekMap = new Map<string, { start: Date; due: Date; investors: Set<string>; amount: number }>();
+  (data || []).forEach((p) => {
     if (!p.next_roi_date) return;
     const d = new Date(p.next_roi_date);
-    const roi = calcROI(p);
-
-    if (isToday(d)) {
-      buckets.today.total += roi;
-      buckets.today.count++;
-      buckets.today.portfolios.push(p);
-    }
-    if (isThisWeek(d, { weekStartsOn: 1 })) {
-      buckets.this_week.total += roi;
-      buckets.this_week.count++;
-      buckets.this_week.portfolios.push(p);
-    }
-    if ((isAfter(d, startOfMonth(now)) || isEqual(d, startOfMonth(now))) && (isBefore(d, thisMonthEnd) || isEqual(d, thisMonthEnd))) {
-      buckets.this_month.total += roi;
-      buckets.this_month.count++;
-      buckets.this_month.portfolios.push(p);
-    }
-    if ((isAfter(d, nextMonthStart) || isEqual(d, nextMonthStart)) && (isBefore(d, nextMonthEnd) || isEqual(d, nextMonthEnd))) {
-      buckets.next_month.total += roi;
-      buckets.next_month.count++;
-      buckets.next_month.portfolios.push(p);
-    }
+    const start = startOfWeek(d, { weekStartsOn: 1 });
+    const key = start.toISOString().slice(0, 10);
+    const bucket = weekMap.get(key) || {
+      start,
+      due: endOfWeek(d, { weekStartsOn: 1 }),
+      investors: new Set<string>(),
+      amount: 0,
+    };
+    bucket.investors.add(p.investor_id || p.id);
+    bucket.amount += calcROI(p);
+    weekMap.set(key, bucket);
   });
 
-  const periods: { key: Period; label: string; color: string }[] = [
-    { key: 'today', label: 'Today', color: 'text-destructive' },
-    { key: 'this_week', label: 'This Week', color: 'text-amber-600' },
-    { key: 'this_month', label: 'This Month', color: 'text-blue-600' },
-    { key: 'next_month', label: 'Next Month', color: 'text-muted-foreground' },
-  ];
-
-  const activePortfolios = activePeriod ? buckets[activePeriod].portfolios : [];
+  const rows = Array.from(weekMap.values())
+    .sort((a, b) => a.start.getTime() - b.start.getTime())
+    .slice(0, 8);
 
   return (
-    <Card className="rounded-2xl">
-      <CardContent className="p-4">
+    <div className="rounded-lg border border-border bg-card shadow-sm">
+      <div className="flex items-center justify-between gap-2 px-4 py-3">
+        <p className="text-sm font-bold tracking-tight">ROI Payable Forecast</p>
         <button
-          onClick={() => setExpanded(!expanded)}
-          className="w-full flex items-center justify-between mb-3"
+          type="button"
+          onClick={() => setExpanded((o) => !o)}
+          aria-expanded={expanded}
+          aria-label={`${expanded ? 'Collapse' : 'Expand'} ROI Payable Forecast`}
+          className="text-muted-foreground hover:text-foreground shrink-0"
         >
-          <div className="flex items-center gap-2">
-            <CalendarClock className="h-4 w-4 text-primary" />
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              ROI Payable Forecast
-            </p>
-          </div>
-          {expanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+          <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
         </button>
+      </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          {periods.map(({ key, label, color }) => (
-            <button
-              key={key}
-              onClick={() => {
-                setExpanded(true);
-                setActivePeriod(activePeriod === key ? null : key);
-              }}
-              className={`rounded-xl border p-3 text-left transition-all hover:shadow-sm ${activePeriod === key ? 'border-primary bg-primary/5' : ''}`}
-            >
-              <p className="text-[11px] text-muted-foreground">{label}</p>
-              <p className={`text-sm font-bold font-mono tabular-nums ${color}`}>
-                {fmtShort(buckets[key].total)}
-              </p>
-              <p className="text-[10px] text-muted-foreground">
-                {buckets[key].count} portfolio{buckets[key].count !== 1 ? 's' : ''}
-              </p>
-            </button>
-          ))}
+      {expanded && (
+        <div className="px-4 pb-4">
+          {isLoading ? (
+            <div className="flex justify-center py-6">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : rows.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-4 text-center">No returns scheduled.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-muted/40">
+                    <th className="text-left font-medium uppercase tracking-wider text-[10px] text-muted-foreground px-3 py-2">Due Week</th>
+                    <th className="text-left font-medium uppercase tracking-wider text-[10px] text-muted-foreground px-3 py-2">Due Date</th>
+                    <th className="text-left font-medium uppercase tracking-wider text-[10px] text-muted-foreground px-3 py-2">Investors</th>
+                    <th className="text-right font-medium uppercase tracking-wider text-[10px] text-muted-foreground px-3 py-2">Amount (UGX)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.start.toISOString()} className="border-b border-border/60 last:border-0">
+                      <td className="px-3 py-2 whitespace-nowrap text-foreground">Week of {format(r.start, 'dd MMM yyyy')}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-foreground">{format(r.due, 'EEE, dd MMM yyyy')}</td>
+                      <td className="px-3 py-2 tabular-nums text-foreground">{r.investors.size}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-foreground">UGX {fmt(r.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-
-        {expanded && activePeriod && activePortfolios.length > 0 && (
-          <div className="mt-3 border-t pt-3 space-y-2 max-h-48 overflow-y-auto">
-            {activePortfolios.map(p => (
-              <div key={p.id} className="flex items-center justify-between text-xs gap-2">
-                <div className="min-w-0">
-                  <span className="text-muted-foreground">{p.next_roi_date ? format(new Date(p.next_roi_date), 'dd MMM') : '—'}</span>
-                  <span className="mx-1.5">·</span>
-                  <span className="text-foreground">{p.roi_percentage}% of {fmtShort(p.investment_amount)}</span>
-                </div>
-                <Badge variant="outline" className="font-mono shrink-0">
-                  {fmt(calcROI(p))}
-                </Badge>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 }

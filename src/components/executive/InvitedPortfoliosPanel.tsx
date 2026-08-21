@@ -61,6 +61,7 @@ export function InvitedPortfoliosPanel() {
   const [approvalError, setApprovalError] = useState<string | null>(null);
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [reviewRow, setReviewRow] = useState<Row | null>(null);
+  const [forceRow, setForceRow] = useState<Row | null>(null);
   const queryClient = useQueryClient();
 
   const { data, isLoading, refetch, isFetching } = useQuery<Row[]>({
@@ -447,7 +448,7 @@ export function InvitedPortfoliosPanel() {
                     </div>
                   )}
 
-                  <div className="flex justify-end pt-1 border-t">
+                  <div className="flex flex-wrap justify-end items-center gap-2 pt-1 border-t">
                     {(row.status === 'awaiting_partner_details' || row.status === 'pending_ops_approval') && (
                       <Button
                         size="sm"
@@ -462,6 +463,20 @@ export function InvitedPortfoliosPanel() {
                         {expired
                           ? 'Resend — new 7-day link'
                           : 'Resend invite (new 7-day link)'}
+                      </Button>
+                    )}
+                    {row.status === 'awaiting_partner_details' && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-8 text-xs gap-1.5"
+                        onClick={() => setForceRow(row)}
+                        disabled={approvingId === row.id}
+                      >
+                        {approvingId === row.id
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : <ShieldCheck className="h-3.5 w-3.5" />}
+                        Activate without partner details
                       </Button>
                     )}
                     <Button
@@ -489,6 +504,47 @@ export function InvitedPortfoliosPanel() {
         approving={approvingId === reviewRow?.id}
         approvalError={approvalError}
       />
+
+      {/* Force-activation confirmation: used when the partner never submits
+          their completion details but Ops has verified funding offline. */}
+      <Dialog open={!!forceRow} onOpenChange={(o) => { if (!o) setForceRow(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Activate without partner details?</DialogTitle>
+            <DialogDescription>
+              {forceRow
+                ? `${forceRow.portfolio_code} · ${forceRow.partner_name} · ${formatUGX(forceRow.investment_amount)}`
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            The partner never completed the invite form, so no NIN, mobile-money name or
+            signature will be on file. The portfolio goes live immediately and ROI starts
+            accruing. Only do this when funding has been verified offline.
+          </p>
+          {approvalError && (
+            <p className="text-xs text-destructive">{approvalError}</p>
+          )}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="ghost" size="sm" onClick={() => setForceRow(null)}>Cancel</Button>
+            <Button
+              size="sm"
+              onClick={async () => {
+                if (!forceRow) return;
+                const target = forceRow;
+                await handleApprove(target);
+                setForceRow(null);
+              }}
+              disabled={!!forceRow && approvingId === forceRow.id}
+            >
+              {!!forceRow && approvingId === forceRow.id
+                ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                : <ShieldCheck className="h-4 w-4 mr-1.5" />}
+              Activate portfolio
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { optimizeImage } from '@/lib/imageOptimizer';
@@ -15,6 +15,8 @@ export function ServiceCentreSubmissionForm() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [locationName, setLocationName] = useState('');
+  const [agentName, setAgentName] = useState('');
+  const [agentPhone, setAgentPhone] = useState('');
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -32,6 +34,12 @@ export function ServiceCentreSubmissionForm() {
     },
     enabled: !!user?.id,
   });
+
+  useEffect(() => {
+    if (profile?.full_name) setAgentName((prev) => prev || profile.full_name || '');
+    if (profile?.phone) setAgentPhone((prev) => prev || profile.phone || '');
+  }, [profile?.full_name, profile?.phone]);
+
 
   const { data: submissions, isLoading: subsLoading } = useQuery({
     queryKey: ['my-service-centre-setups', user?.id],
@@ -73,8 +81,16 @@ export function ServiceCentreSubmissionForm() {
   };
 
   const handleSubmit = async () => {
-    if (!user?.id || !photoFile || latitude === null || longitude === null) {
+    if (!photoFile || latitude === null || longitude === null) {
       toast.error('Please capture GPS and take a photo first.');
+      return;
+    }
+    if (!agentName.trim() || !agentPhone.trim()) {
+      toast.error('Please enter your name and phone number.');
+      return;
+    }
+    if (!user?.id) {
+      toast.error('Please sign in to submit — your details will be kept.');
       return;
     }
     if (!locationName.trim()) {
@@ -118,8 +134,8 @@ export function ServiceCentreSubmissionForm() {
           latitude,
           longitude,
           location_name: locationName.trim(),
-          agent_name: profile?.full_name || 'Unknown',
-          agent_phone: profile?.phone || '',
+          agent_name: agentName.trim(),
+          agent_phone: agentPhone.trim(),
           status: 'pending',
         } as any);
       if (insertErr) throw insertErr;
@@ -218,15 +234,33 @@ export function ServiceCentreSubmissionForm() {
             />
           </div>
 
-          {/* Agent Info (auto-filled) */}
-          <div className="rounded-xl bg-muted/40 p-3 text-sm space-y-1">
-            <p><span className="font-medium text-foreground">Agent Name:</span> {profile?.full_name || '—'}</p>
-            <p><span className="font-medium text-foreground">Phone:</span> {profile?.phone || '—'}</p>
+          {/* Agent Info (auto-filled when signed in, editable otherwise) */}
+          <div className="rounded-xl bg-muted/40 p-3 space-y-3">
+            <div className="space-y-2">
+              <Label>👤 Agent Name</Label>
+              <Input
+                placeholder="Your full name"
+                value={agentName}
+                onChange={(e) => setAgentName(e.target.value)}
+                maxLength={120}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>📞 Phone</Label>
+              <Input
+                type="tel"
+                placeholder="e.g. +256700000000"
+                value={agentPhone}
+                onChange={(e) => setAgentPhone(e.target.value)}
+                maxLength={20}
+              />
+            </div>
           </div>
+
 
           <Button
             onClick={handleSubmit}
-            disabled={submitting || !photoFile || latitude === null || !locationName.trim()}
+            disabled={submitting || !photoFile || latitude === null || !locationName.trim() || !agentName.trim() || !agentPhone.trim()}
             className="w-full gap-2"
           >
             {submitting ? (

@@ -11,6 +11,7 @@ const stateStyles: Record<PortfolioState, { label: string; text: string; dot: st
   pending: { label: 'PENDING', text: 'text-warning', dot: 'bg-warning' },
   matured: { label: 'MATURED', text: 'text-primary', dot: 'bg-primary' },
   paused: { label: 'PAUSED', text: 'text-muted-foreground', dot: 'bg-muted-foreground/50' },
+  locked: { label: 'LOCKED', text: 'text-warning', dot: 'bg-warning' },
   withdrawn: { label: 'WITHDRAWN', text: 'text-muted-foreground', dot: 'bg-muted-foreground/40' },
 };
 

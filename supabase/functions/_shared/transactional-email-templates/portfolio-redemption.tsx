@@ -16,6 +16,8 @@ interface PortfolioRedemptionProps {
   maturity_date?: string
   next_payout_date?: string
   processed_date?: string
+  settlement_window_days?: string | number
+  expected_payout_by?: string
   currency?: string
   company_name?: string
   logo_url?: string
@@ -43,6 +45,8 @@ export function PortfolioRedemption({
   maturity_date = '',
   next_payout_date = '',
   processed_date = '',
+  settlement_window_days = 90,
+  expected_payout_by = '',
   currency = 'UGX',
   company_name = 'Welile',
   logo_url = 'https://welileapp.com/welile-logo.png',
@@ -56,6 +60,7 @@ export function PortfolioRedemption({
   const fmtPrevious = formatAmount(previous_principal, currency)
   const fmtRemaining = formatAmount(remaining_principal, currency)
   const displayId = portfolio_id || ''
+  const windowDays = Number(settlement_window_days) > 0 ? Number(settlement_window_days) : 90
 
   return (
     <Html>
@@ -106,6 +111,41 @@ export function PortfolioRedemption({
                         ? `We confirm that your capital redemption request has been processed in full. The entire principal of ${fmtPrevious} has been released for payout and this portfolio has now been closed.`
                         : `We confirm that your capital redemption request has been processed. ${fmtRedeemed} has been released for payout from your portfolio principal of ${fmtPrevious}. The balance of ${fmtRemaining} remains invested and continues to earn returns under your existing partnership terms.`}
                     </Text>
+                    <Text style={{ ...introText, margin: '15px 0 0 0' }}>
+                      Please note: paying out your capital takes up to {windowDays} days (about 3 months) from
+                      today. This is normal and it is part of your partnership terms.
+                    </Text>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td className="padding-mobile" style={{ padding: '0 40px 30px 40px' }}>
+                    <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation" style={noticeCard}>
+                      <tbody>
+                        <tr>
+                          <td style={{ padding: '18px 22px' }}>
+                            <Text style={noticeTitle}>When will I get my money? Up to {windowDays} days</Text>
+                            <Text style={noticeBody}>
+                              Your money is working inside real rent plans with tenants, so it cannot be pulled out
+                              on the same day. We need time to collect it back safely without hurting the tenants
+                              or the other partners. That is why capital redemptions take up to {windowDays} days,
+                              which is roughly 3 months.
+                            </Text>
+                            <Text style={{ ...noticeBody, margin: '10px 0 0 0' }}>
+                              What this means for you in simple terms:
+                            </Text>
+                            <Text style={{ ...noticeBody, margin: '6px 0 0 0' }}>
+                              • Your redemption of {fmtRedeemed} is now approved and locked in — the amount will not change.<br />
+                              • The cash is released to your registered payout channel within {windowDays} days from {processed_date || 'today'}
+                              {expected_payout_by ? `, and on or before ${expected_payout_by}` : ''}.<br />
+                              • It can come sooner. If it does, we will send you the money and inform you.<br />
+                              • You do not need to do anything or ask again while you wait. We will keep you updated.
+                              {!isFull ? <><br />• The {fmtRemaining} still invested keeps earning your returns as normal during this period.</> : null}
+                            </Text>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </td>
                 </tr>
 
@@ -183,7 +223,7 @@ export function PortfolioRedemption({
                             <Text style={insightTitle}>{isFull ? 'What happens next' : 'Your portfolio going forward'}</Text>
                             <Text style={insightBody}>
                               {isFull
-                                ? 'Your redeemed capital will be settled through your registered payout channel. Once settlement is complete, this portfolio will show as closed on your dashboard.'
+                                ? `Your redeemed capital will be settled through your registered payout channel within the ${windowDays}-day window. Once the money has been sent, this portfolio will show as closed on your dashboard.`
                                 : `From today, your portfolio principal is recorded as ${fmtRemaining}${maturity_date ? `, running to its maturity date of ${maturity_date}` : ''}. All future returns are calculated on this new principal.`}
                             </Text>
                           </td>
@@ -289,6 +329,9 @@ const totalLabel: React.CSSProperties = { margin: '15px 0 5px 0', color: BRAND, 
 const totalValue: React.CSSProperties = { margin: 0, color: BRAND, fontSize: '22px', fontWeight: 800 }
 
 const insightCard: React.CSSProperties = { backgroundColor: '#f0fdfa', borderRadius: '8px', borderLeft: '4px solid #14b8a6' }
+const noticeCard: React.CSSProperties = { backgroundColor: '#fffbeb', borderRadius: '8px', borderLeft: '4px solid #f59e0b' }
+const noticeTitle: React.CSSProperties = { margin: '0 0 8px 0', color: '#92400e', fontSize: '15px', fontWeight: 700 }
+const noticeBody: React.CSSProperties = { margin: 0, color: '#78350f', fontSize: '14px', lineHeight: '21px' }
 const insightTitle: React.CSSProperties = { margin: '0 0 5px 0', color: '#0f766e', fontSize: '14px', fontWeight: 600 }
 const insightBody: React.CSSProperties = { margin: 0, color: '#0f766e', fontSize: '14px', lineHeight: '20px' }
 
@@ -327,6 +370,8 @@ export const template = {
     maturity_date: '28 April 2027',
     next_payout_date: '15 September 2026',
     processed_date: '19 August 2026',
+    settlement_window_days: 90,
+    expected_payout_by: '17 November 2026',
     currency: 'UGX',
     company_name: 'Welile',
     logo_url: 'https://welileapp.com/welile-logo.png',

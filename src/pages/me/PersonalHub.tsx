@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, Briefcase, User, Bell, FolderOpen, Ticket } from 'lucide-react';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -128,6 +130,18 @@ function formatDateTime(iso: string | null) {
 const PersonalHub = () => {
   const [staffRecord, setStaffRecord] = useState<Employee | null>(null);
   const [unclaimedTickets, setUnclaimedTickets] = useState<UnclaimedTicket[]>([]);
+  const [isEngineering, setIsEngineering] = useState(false);
+  const [claiming, setClaiming] = useState<string | null>(null);
+
+  const loadUnclaimedTickets = useCallback(async () => {
+    const { data } = await supabase
+      .from('hr_tickets')
+      .select('id, ref, title, severity, raised_at, hr_ticket_surfaces(label)')
+      .is('task_id', null)
+      .is('closed_no_task_at', null)
+      .order('raised_at', { ascending: true });
+    setUnclaimedTickets((data ?? []) as unknown as UnclaimedTicket[]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -142,18 +156,43 @@ const PersonalHub = () => {
       setStaffRecord(staff);
       if (!staff) return;
 
-      const { data } = await supabase
-        .from('hr_tickets')
-        .select('id, ref, title, severity, raised_at, hr_ticket_surfaces(label)')
-        .is('task_id', null)
-        .is('closed_no_task_at', null)
-        .order('raised_at', { ascending: true });
-      if (!cancelled) setUnclaimedTickets((data ?? []) as unknown as UnclaimedTicket[]);
+      await loadUnclaimedTickets();
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadUnclaimedTickets]);
+
+  useEffect(() => {
+    if (!staffRecord) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.rpc('hr_is_engineering');
+      if (cancelled) return;
+      if (error) {
+        console.error('hr_is_engineering', error);
+      }
+      setIsEngineering(!!data);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [staffRecord]);
+
+  const claim = async (ticket: UnclaimedTicket) => {
+    setClaiming(ticket.id);
+    try {
+      const { error } = await supabase.rpc('hr_claim_ticket', { p_ticket_id: ticket.id });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success(`Ticket ${ticket.ref} claimed`);
+      await loadUnclaimedTickets();
+    } finally {
+      setClaiming(null);
+    }
+  };
 
   return (
     <PersonalLayout title="My space">
@@ -186,6 +225,7 @@ const PersonalHub = () => {
                       <TableHead>Area</TableHead>
                       <TableHead>How bad</TableHead>
                       <TableHead>Raised</TableHead>
+                      <TableHead className="text-right">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -196,6 +236,18 @@ const PersonalHub = () => {
                         <TableCell>{row.hr_ticket_surfaces?.label ?? '—'}</TableCell>
                         <TableCell className="capitalize">{row.severity}</TableCell>
                         <TableCell>{formatDateTime(row.raised_at)}</TableCell>
+                        <TableCell className="text-right">
+                          {isEngineering ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={claiming === row.id}
+                              onClick={() => void claim(row)}
+                            >
+                              Claim
+                            </Button>
+                          ) : null}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

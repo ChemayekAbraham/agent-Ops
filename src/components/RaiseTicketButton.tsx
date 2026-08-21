@@ -52,23 +52,25 @@ export default function RaiseTicketButton() {
 
   return (
     <>
-      <motion.button
-        type="button"
-        onClick={() => setOpen(true)}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.93 }}
-        className={cn(
-          "fixed bottom-24 right-4 z-[60] h-11 w-11 rounded-full",
-          "bg-primary text-primary-foreground",
-          "shadow-lg shadow-primary/30",
-          "flex items-center justify-center",
-          "border border-white/15",
-          "active:scale-95 transition-transform touch-manipulation"
-        )}
-        aria-label="Raise a ticket"
-      >
-        <Ticket className="h-5 w-5" aria-hidden="true" />
-      </motion.button>
+      {!open && (
+        <motion.button
+          type="button"
+          onClick={() => setOpen(true)}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.93 }}
+          className={cn(
+            "fixed bottom-24 right-4 z-[60] h-11 w-11 rounded-full",
+            "bg-primary text-primary-foreground",
+            "shadow-lg shadow-primary/30",
+            "flex items-center justify-center",
+            "border border-white/15",
+            "active:scale-95 transition-transform touch-manipulation"
+          )}
+          aria-label="Raise a ticket"
+        >
+          <Ticket className="h-5 w-5" aria-hidden="true" />
+        </motion.button>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent stable className="max-w-lg">

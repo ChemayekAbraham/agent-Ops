@@ -15291,6 +15291,10 @@ export type Database = {
           investment_reference: string | null
           investor_id: string | null
           invite_id: string | null
+          lock_reason: string | null
+          locked_at: string | null
+          locked_by: string | null
+          locked_from_portfolio_id: string | null
           maturity_alert_30d: boolean
           maturity_alert_7d: boolean
           maturity_date: string | null
@@ -15330,6 +15334,10 @@ export type Database = {
           investment_reference?: string | null
           investor_id?: string | null
           invite_id?: string | null
+          lock_reason?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          locked_from_portfolio_id?: string | null
           maturity_alert_30d?: boolean
           maturity_alert_7d?: boolean
           maturity_date?: string | null
@@ -15369,6 +15377,10 @@ export type Database = {
           investment_reference?: string | null
           investor_id?: string | null
           invite_id?: string | null
+          lock_reason?: string | null
+          locked_at?: string | null
+          locked_by?: string | null
+          locked_from_portfolio_id?: string | null
           maturity_alert_30d?: boolean
           maturity_alert_7d?: boolean
           maturity_date?: string | null
@@ -28927,6 +28939,62 @@ export type Database = {
           },
         ]
       }
+      service_centre_advances: {
+        Row: {
+          agent_id: string
+          amount_recovered: number
+          attached_at: string
+          attached_by: string | null
+          created_at: string
+          daily_deduction: number
+          duration_days: number
+          entry_id: string
+          id: string
+          notes: string | null
+          principal_amount: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          amount_recovered?: number
+          attached_at?: string
+          attached_by?: string | null
+          created_at?: string
+          daily_deduction?: number
+          duration_days?: number
+          entry_id: string
+          id?: string
+          notes?: string | null
+          principal_amount: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          amount_recovered?: number
+          attached_at?: string
+          attached_by?: string | null
+          created_at?: string
+          daily_deduction?: number
+          duration_days?: number
+          entry_id?: string
+          id?: string
+          notes?: string | null
+          principal_amount?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_centre_advances_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "service_centre_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_centre_entries: {
         Row: {
           assigned_agent_ids: string[]
@@ -33550,6 +33618,72 @@ export type Database = {
         }
         Relationships: []
       }
+      web_analytics_breakdown: {
+        Row: {
+          created_at: string
+          dimension: string
+          id: string
+          label: string
+          period_end: string
+          period_start: string
+          visitors: number
+        }
+        Insert: {
+          created_at?: string
+          dimension: string
+          id?: string
+          label: string
+          period_end: string
+          period_start: string
+          visitors?: number
+        }
+        Update: {
+          created_at?: string
+          dimension?: string
+          id?: string
+          label?: string
+          period_end?: string
+          period_start?: string
+          visitors?: number
+        }
+        Relationships: []
+      }
+      web_analytics_daily: {
+        Row: {
+          bounce_rate: number
+          created_at: string
+          day: string
+          id: string
+          pageviews: number
+          pageviews_per_visit: number
+          session_duration_seconds: number
+          updated_at: string
+          visitors: number
+        }
+        Insert: {
+          bounce_rate?: number
+          created_at?: string
+          day: string
+          id?: string
+          pageviews?: number
+          pageviews_per_visit?: number
+          session_duration_seconds?: number
+          updated_at?: string
+          visitors?: number
+        }
+        Update: {
+          bounce_rate?: number
+          created_at?: string
+          day?: string
+          id?: string
+          pageviews?: number
+          pageviews_per_visit?: number
+          session_duration_seconds?: number
+          updated_at?: string
+          visitors?: number
+        }
+        Relationships: []
+      }
       welile_homes_enrollment_audit: {
         Row: {
           agent_id: string | null
@@ -35897,6 +36031,36 @@ export type Database = {
           },
         ]
       }
+      v_merchant_oop_evidence: {
+        Row: {
+          advance_id: string | null
+          agent_id: string | null
+          attested_at: string | null
+          created_at: string | null
+          evidence: Json | null
+          evidenced_amount: number | null
+          float_position_at_payout: number | null
+          float_used: number | null
+          is_estimate: boolean | null
+          is_evidenced: boolean | null
+          kind: string | null
+          note: string | null
+          payout_amount: number | null
+          payout_at: string | null
+          payout_tid: string | null
+          provider: string | null
+          recipient_name: string | null
+          recipient_phone: string | null
+          reimbursed_at: string | null
+          reviewed_at: string | null
+          shortfall_amount: number | null
+          status: string | null
+          telecom_charge: number | null
+          withdrawal_amount: number | null
+          withdrawal_id: string | null
+        }
+        Relationships: []
+      }
       v_merchant_payout_float_trace: {
         Row: {
           agent_id: string | null
@@ -37747,6 +37911,7 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: boolean
       }
+      can_view_web_analytics: { Args: { _user_id: string }; Returns: boolean }
       cancel_agent_advance: {
         Args: { p_advance_id: string; p_reason: string; p_recoup: boolean }
         Returns: Json
@@ -40224,6 +40389,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_merchant_oop_evidenced_owed: {
+        Args: { p_agent_id: string }
+        Returns: number
+      }
       get_merchant_out_of_pocket_summary: {
         Args: { p_agent_id?: string }
         Returns: Json
@@ -41690,6 +41859,14 @@ export type Database = {
         }[]
       }
       lock_campaign_attribution: { Args: { p_token: string }; Returns: Json }
+      lock_portfolio_principal: {
+        Args: {
+          p_locked_amount: number
+          p_portfolio_id: string
+          p_reason: string
+        }
+        Returns: Json
+      }
       log_archived_login_attempt: {
         Args: {
           p_archived_at?: string
@@ -41839,6 +42016,10 @@ export type Database = {
       merchant_float_fix_authorized: {
         Args: { _user_id: string }
         Returns: boolean
+      }
+      merchant_float_position_at: {
+        Args: { p_agent_id: string; p_at: string }
+        Returns: number
       }
       merchant_float_visible_net: {
         Args: { p_agent_id: string }

@@ -6,7 +6,7 @@ import type { PortfolioRecord } from '@/hooks/useCapitalOpportunities';
 const COLUMNS =
   'id, investment_amount, total_roi_earned, roi_percentage, status, portfolio_code, account_name, maturity_date, duration_months, auto_reinvest, roi_mode, next_roi_date, created_at';
 
-const VISIBLE_STATUSES = ['active', 'pending', 'pending_approval', 'matured', 'paused', 'suspended'];
+const VISIBLE_STATUSES = ['active', 'pending', 'pending_approval', 'matured', 'paused', 'suspended', 'locked'];
 
 /**
  * Dashboard-facing read of the partner's own portfolios.

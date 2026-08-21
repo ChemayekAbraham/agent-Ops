@@ -20,7 +20,7 @@ import {
   Users, Banknote, PiggyBank, ArrowUpRight, Filter, RefreshCw, Phone, Calendar as CalendarIcon,
   CalendarDays, Shield, CheckCircle2, Clock, Briefcase, Save, Upload, Trash2,
   Plus, FileText, Share2, ArrowRightLeft, ShieldCheck, Handshake, Scissors, Info,
-  Mail, MailCheck, MailX, MailWarning, Sparkles, Hourglass, CalendarClock, AlertTriangle
+  Mail, MailCheck, MailX, MailWarning, Sparkles, Hourglass, CalendarClock, AlertTriangle, Lock
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format } from 'date-fns';
@@ -95,6 +95,7 @@ import { RenewPortfolioDialog } from '@/components/manager/RenewPortfolioDialog'
 import { FundInvestmentAccountDialog } from '@/components/manager/FundInvestmentAccountDialog';
 import { CreateInvestmentAccountDialog } from '@/components/manager/CreateInvestmentAccountDialog';
 import { InvitePartnerPortfolioDialog } from '@/components/partner/InvitePartnerPortfolioDialog';
+import { LockPortfolioDialog, type LockablePortfolio } from '@/components/partner/LockPortfolioDialog';
 
 /* ─── Types ─── */
 interface PartnerRow {
@@ -500,6 +501,9 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
   // Renew portfolio dialog
   const [renewPortfolio, setRenewPortfolio] = useState<PortfolioRow | null>(null);
   const [renewOpen, setRenewOpen] = useState(false);
+  // Lock portfolio dialog (full principal or split)
+  const [lockPortfolio, setLockPortfolio] = useState<LockablePortfolio | null>(null);
+  const [lockOpen, setLockOpen] = useState(false);
   const [renewalCounts, setRenewalCounts] = useState<Record<string, number>>({});
   const [pendingRedemptions, setPendingRedemptions] = useState<Record<string, boolean>>({});
   const [recentRenewals, setRecentRenewals] = useState<Record<string, string>>({});
@@ -3309,6 +3313,25 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                                     Compound
                                   </Button>
                                 )}
+                                {!readOnly && p.status !== 'locked' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-9 px-3 text-xs text-amber-700 hover:text-amber-800 hover:bg-amber-500/10 gap-1.5 min-h-[44px]"
+                                    onClick={() => {
+                                      setLockPortfolio({
+                                        id: p.id,
+                                        portfolio_code: p.portfolio_code,
+                                        investment_amount: Number(p.investment_amount) || 0,
+                                        status: p.status,
+                                      });
+                                      setLockOpen(true);
+                                    }}
+                                    title="Lock the full principal or split what stays active"
+                                  >
+                                    <Lock className="h-3.5 w-3.5" /> Lock
+                                  </Button>
+                                )}
                               </div>
                               </fieldset>
 
@@ -3955,6 +3978,16 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
           if (renewPortfolio) {
             setRenewalCounts(prev => ({ ...prev, [renewPortfolio.id]: (prev[renewPortfolio.id] || 0) + 1 }));
           }
+        }}
+      />
+
+      {/* ─── Lock Portfolio (full principal or split) ─── */}
+      <LockPortfolioDialog
+        open={lockOpen}
+        onOpenChange={(o) => { setLockOpen(o); if (!o) setLockPortfolio(null); }}
+        portfolio={lockPortfolio}
+        onSuccess={() => {
+          if (detailPartner?.profile?.id) openPartnerDetail(detailPartner.profile.id);
         }}
       />
 

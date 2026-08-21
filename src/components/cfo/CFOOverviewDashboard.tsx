@@ -40,9 +40,10 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const [exportingCommissions, setExportingCommissions] = useState(false);
   const [activeBreakdown, setActiveBreakdown] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
-  const isOpen = (key: string) => openSections[key] === true;
+  // Every section renders fully expanded on load; the chevron only collapses it.
+  const isOpen = (key: string) => openSections[key] !== false;
   const toggleSection = (key: string) =>
-    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+    setOpenSections((prev) => ({ ...prev, [key]: prev[key] === false }));
   const { user } = useAuth();
   const {
     platformCash, liabilities, revenue, receivables, moneyFlow,
@@ -218,9 +219,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
       </div>
 
       {/* Two-column shell: main financial surface on the left, live feeds on the right */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
-      <div className="xl:col-span-2 space-y-5">
-
       {/* ══════════════ THREE HEADLINE CARDS ══════════════ */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <HeroCard
@@ -265,6 +263,10 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           onClick={() => setActiveBreakdown('earnings')}
         />
       </div>
+
+      {/* Two-column shell: main financial surface on the left, live feeds on the right */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
+      <div className="xl:col-span-2 space-y-5">
 
       {/* ══════════════ WHERE THE MONEY SITS ══════════════ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -354,9 +356,9 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
       </div>
 
       {/* ── TODAY'S MOVEMENT ── */}
-      <Card className="rounded-xl overflow-hidden shadow-sm">
+      <Card className="rounded-lg overflow-hidden shadow-sm">
         <CardContent className="p-0">
-          <div className="px-5 py-3 flex items-center justify-between gap-3 border-b border-border bg-muted/30">
+          <div className="px-5 py-3 flex items-center justify-between gap-3 border-b border-border">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Today's Money Flow</p>
             <SectionToggle open={isOpen('todayFlow')} onToggle={() => toggleSection('todayFlow')} label="Today's Money Flow" />
           </div>
@@ -396,9 +398,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
       <div className="space-y-5">
 
       {/* ── ROI PAYABLE FORECAST ── */}
-      <CollapsibleBlock title="ROI Payable Forecast" open={isOpen('roiForecast')} onToggle={() => toggleSection('roiForecast')}>
-        <ROIPayableForecast />
-      </CollapsibleBlock>
+      <ROIPayableForecast />
 
       {/* ── CFO ACTIONS LOG ── */}
       <CFOActionsLog />
@@ -409,10 +409,10 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
       </CollapsibleBlock>
 
       {/* ── SOURCES OF CASH (replaces channel breakdown) ── */}
-      <Card className="rounded-xl shadow-sm">
+      <Card className="rounded-lg shadow-sm">
         <CardContent className="p-4">
           <div className="flex items-center justify-between gap-3 mb-3">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Where Our Money Comes From</p>
+            <p className="text-sm font-bold tracking-tight">Where Our Money Comes From</p>
             <SectionToggle open={isOpen('cashSources')} onToggle={() => toggleSection('cashSources')} label="Where Our Money Comes From" />
           </div>
           {isOpen('cashSources') && (
@@ -440,10 +440,10 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
       </Card>
 
       {/* ── AUTO-PAYOUTS ── */}
-      <Card className="rounded-xl shadow-sm">
+      <Card className="rounded-lg shadow-sm">
         <CardContent className="p-4">
           <div className="flex items-center justify-between gap-3 mb-3">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Automatic Payments</p>
+            <p className="text-sm font-bold tracking-tight">Automatic Payments</p>
             <SectionToggle open={isOpen('autoPayments')} onToggle={() => toggleSection('autoPayments')} label="Automatic Payments" />
           </div>
           {isOpen('autoPayments') && (
@@ -566,10 +566,9 @@ function SectionToggle({ open, onToggle, label }: { open: boolean; onToggle: () 
       onClick={onToggle}
       aria-expanded={open}
       aria-label={`${open ? 'Collapse' : 'Expand'} ${label}`}
-      className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground shrink-0"
+      className="text-muted-foreground hover:text-foreground shrink-0"
     >
-      {open ? 'Hide' : 'Show'}
-      <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+      <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
     </button>
   );
 }
@@ -581,12 +580,12 @@ function CollapsibleBlock({ title, open, onToggle, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{title}</p>
+    <div className="rounded-lg border border-border bg-card shadow-sm">
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <p className="text-sm font-bold tracking-tight">{title}</p>
         <SectionToggle open={open} onToggle={onToggle} label={title} />
       </div>
-      {open && children}
+      {open && <div className="px-4 pb-4">{children}</div>}
     </div>
   );
 }
@@ -671,10 +670,12 @@ function FlowCell({ label, value, color, icon, iconBg, onClick }: {
   label: string; value: string; color: string; icon: React.ReactNode; iconBg?: string; onClick?: () => void;
 }) {
   return (
-    <button onClick={onClick} className="flex flex-col items-center gap-2 py-6 px-2 hover:bg-muted/30 transition-colors">
-      <div className={`h-12 w-12 rounded-full flex items-center justify-center ${iconBg || 'bg-muted'} ${color}`}>{icon}</div>
-      <p className="text-[11px] text-muted-foreground font-medium">{label}</p>
-      <p className={`text-2xl font-bold tabular-nums ${color}`}>{value}</p>
+    <button onClick={onClick} className="flex items-center justify-center gap-3 py-6 px-3 hover:bg-muted/30 transition-colors">
+      <div className={`h-12 w-12 rounded-full flex items-center justify-center shrink-0 ${iconBg || 'bg-muted'} ${color}`}>{icon}</div>
+      <div className="min-w-0 text-left">
+        <p className="text-[11px] text-muted-foreground font-medium">{label}</p>
+        <p className={`text-2xl font-bold tabular-nums leading-tight ${color}`}>{value}</p>
+      </div>
     </button>
   );
 }

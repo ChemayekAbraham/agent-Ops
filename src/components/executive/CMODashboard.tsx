@@ -17,6 +17,7 @@ import { SignupTrendsView } from './SignupTrendsView';
 import { ReferralPerformanceView } from './ReferralPerformanceView';
 import { UserAnalyticsView } from './UserAnalyticsView';
 import { InstallFunnelView } from './InstallFunnelView';
+import { WebTrafficAnalyticsSection } from './WebTrafficAnalyticsSection';
 
 type ReferralStatus = 'all' | 'pending' | 'completed';
 type DatePreset = '6months' | 'today' | 'yesterday' | 'last_week' | 'last_30' | 'last_90' | 'mtd' | 'ytd' | 'custom';
@@ -545,6 +546,8 @@ function CMOMarketingDashboard() {
         <KPICard title="Failed Logins" value={(loginStats?.failed || 0).toLocaleString()} icon={ShieldAlert} color="bg-red-500/10 text-red-600" />
         <KPICard title="No-Account Attempts" value={(loginStats?.noAccount || 0).toLocaleString()} icon={UserX} color="bg-amber-500/10 text-amber-600" />
       </div>
+
+      <WebTrafficAnalyticsSection />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         <div className="rounded-2xl border border-border bg-card p-3 sm:p-4">

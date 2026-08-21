@@ -928,6 +928,22 @@ export interface MerchantDebtLine {
   createdAt: string;
   attestedAt: string | null;
   reviewedAt: string | null;
+  /** When the payout actually left the agent's phone (ledger/payout truth). */
+  payoutAt: string;
+  /** Mobile money transaction id on the payout, when the provider returned one. */
+  payoutTid: string | null;
+  /** Who received the money. */
+  recipientName: string | null;
+  recipientPhone: string | null;
+  provider: string | null;
+  /** Desk float position reconstructed from the ledger at `payoutAt`. */
+  floatPositionAtPayout: number;
+  /** True only when the books show the desk was short at that moment. */
+  isEvidenced: boolean;
+  /** Telecom charge with no provider reference — never claimable. */
+  isEstimate: boolean;
+  /** Ledger-supported portion of the claim. */
+  evidencedAmount: number;
 }
 
 export interface MerchantDebtGroup {
@@ -954,10 +970,13 @@ export function useMerchantSettlementDebts(enabled = true) {
     staleTime: 20_000,
     refetchInterval: 60_000,
     queryFn: async (): Promise<MerchantDebtGroup[]> => {
+      // LEDGER TRUTH: read the evidence view, which reconstructs each desk's
+      // float position at the payout's own timestamp. A claim is only payable
+      // when the books show the desk was actually short at that moment.
       const { data, error } = await supabase
-        .from('merchant_out_of_pocket_advances' as any)
+        .from('v_merchant_oop_evidence' as any)
         .select(
-          'id, agent_id, withdrawal_id, kind, payout_amount, telecom_charge, float_used, shortfall_amount, status, note, created_at, attested_at, reviewed_at',
+          'advance_id, agent_id, withdrawal_id, kind, payout_amount, telecom_charge, float_used, shortfall_amount, status, note, created_at, attested_at, reviewed_at, payout_at, payout_tid, recipient_name, recipient_phone, provider, float_position_at_payout, is_evidenced, is_estimate, evidenced_amount',
         )
         .in('status', [DEBT_STATUS_PAYABLE, DEBT_STATUS_REVIEW])
         .is('reimbursed_at', null)
@@ -983,7 +1002,7 @@ export function useMerchantSettlementDebts(enabled = true) {
         const agentId = String(r.agent_id ?? '');
         if (!agentId) continue;
         const line: MerchantDebtLine = {
-          id: String(r.id),
+          id: String(r.advance_id),
           agentId,
           withdrawalId: r.withdrawal_id ?? null,
           kind: r.kind,
@@ -996,6 +1015,15 @@ export function useMerchantSettlementDebts(enabled = true) {
           createdAt: String(r.created_at),
           attestedAt: r.attested_at ?? null,
           reviewedAt: r.reviewed_at ?? null,
+          payoutAt: String(r.payout_at ?? r.created_at),
+          payoutTid: r.payout_tid ?? null,
+          recipientName: r.recipient_name ?? null,
+          recipientPhone: r.recipient_phone ?? null,
+          provider: r.provider ?? null,
+          floatPositionAtPayout: Number(r.float_position_at_payout ?? 0),
+          isEvidenced: !!r.is_evidenced,
+          isEstimate: !!r.is_estimate,
+          evidencedAmount: Number(r.evidenced_amount ?? 0),
         };
         const who = people.get(agentId);
         let g = groups.get(agentId);
@@ -1012,8 +1040,11 @@ export function useMerchantSettlementDebts(enabled = true) {
           };
           groups.set(agentId, g);
         }
-        if (line.status === DEBT_STATUS_PAYABLE) {
-          g.payable += line.amount;
+        // Only a ledger-evidenced, confirmed claim is money we owe. Confirmed
+        // rows the books do not support are reported alongside `needs_review`
+        // instead of being presented as a payable balance.
+        if (line.status === DEBT_STATUS_PAYABLE && line.isEvidenced) {
+          g.payable += line.evidencedAmount || line.amount;
           g.payableLines.push(line);
           if (!g.oldestAt || line.createdAt < g.oldestAt) g.oldestAt = line.createdAt;
         } else {

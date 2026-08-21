@@ -322,22 +322,40 @@ export async function fetchAllNearingPayoutPortfolios(): Promise<{
     if (ownerId) ownerIds.add(ownerId);
   });
 
-  const profiles = await batchedQuery<{ id: string; full_name: string; phone: string; email: string }>(
+  const profiles = await batchedQuery<{ id: string; full_name: string; phone: string; email: string; frozen_at: string | null; is_frozen: boolean }>(
     Array.from(ownerIds),
-    (batch) => supabase.from('profiles').select('id, full_name, phone, email, frozen_at').in('id', batch)
+    (batch) => supabase.from('profiles').select('id, full_name, phone, email, frozen_at, is_frozen').in('id', batch)
   );
 
   const profileMap = new Map(profiles.map(p => [p.id, p]));
 
   // Suspended (frozen) owners must NOT surface in nearing payouts. Drop every
-  // portfolio whose owner has a non-null `frozen_at`, and remove those owners
-  // from the owner set so downstream name resolution skips them too.
+  // portfolio whose owner has a non-null `frozen_at` or `is_frozen=true`, and
+  // remove those owners from the owner set so downstream name resolution skips them too.
   const frozenOwnerIds = new Set(
-    profiles.filter((p: any) => p.frozen_at != null).map((p) => p.id)
+    profiles.filter((p: any) => p.frozen_at != null || p.is_frozen === true).map((p) => p.id)
   );
+
+  // Portfolios that are locked for redemption/maturity payout must not appear in
+  // nearing payouts. A pending/processing REDEMPTION_REQUEST means the partner
+  // has asked for their capital back and the portfolio is locked from new ROI.
+  const lockedPortfolioIds = new Set<string>();
+  try {
+    const { data } = await supabase
+      .from('portfolio_action_requests')
+      .select('portfolio_id')
+      .eq('request_type', 'REDEMPTION_REQUEST')
+      .in('status', ['pending', 'processing']);
+    for (const r of (data as any[]) || []) if (r.portfolio_id) lockedPortfolioIds.add(r.portfolio_id);
+  } catch (e) {
+    console.error('[fetchAllNearingPayoutPortfolios] locked lookup failed', e);
+  }
+
   const filteredPortfolios = portfolios.filter((p) => {
     const ownerId = p.investor_id || p.agent_id;
-    return ownerId ? !frozenOwnerIds.has(ownerId) : true;
+    if (ownerId && frozenOwnerIds.has(ownerId)) return false;
+    if (lockedPortfolioIds.has(p.id)) return false;
+    return true;
   });
   frozenOwnerIds.forEach((id) => ownerIds.delete(id));
 

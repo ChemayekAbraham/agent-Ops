@@ -139,6 +139,8 @@ Deno.serve(async (req) => {
       maturity_date: portfolio.maturity_date ? fmtDate(new Date(`${portfolio.maturity_date}T00:00:00Z`)) : "",
       next_payout_date: portfolio.next_roi_date ? fmtDate(new Date(`${portfolio.next_roi_date}T00:00:00Z`)) : "",
       processed_date: fmtDate(new Date()),
+      settlement_window_days: 90,
+      expected_payout_by: fmtDate(new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)),
       currency: reqRow.currency || "UGX",
       company_name: "Welile",
       logo_url: "https://welileapp.com/welile-logo.png",

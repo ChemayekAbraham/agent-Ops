@@ -58,7 +58,12 @@ export function PartnerPortfolioWalletCard({ onAddCard, onPortfolios, onCalculat
   const [showAmount, setShowAmount] = useState(true);
 
   const active = useMemo(
-    () => portfolios.filter(p => normalizePortfolioState(p.status) === 'active'),
+    // Locked portfolios (open redemption) stop accruing but the capital is still
+    // deployed, so it stays visible in the card total.
+    () => portfolios.filter(p => {
+      const s = normalizePortfolioState(p.status);
+      return s === 'active' || s === 'locked';
+    }),
     [portfolios]
   );
 
