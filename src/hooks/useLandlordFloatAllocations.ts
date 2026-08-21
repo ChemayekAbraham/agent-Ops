@@ -14,7 +14,7 @@ export type LandlordFloatAllocation = {
   allocated_amount: number;
   paid_out_amount: number;
   remaining_amount: number;
-  status: 'open' | 'partially_paid' | 'fully_paid' | 'cancelled';
+  status: 'open' | 'partially_paid' | 'fully_paid' | 'cancelled' | 'return_pending';
   source: string;
   created_at: string;
   /** Tenant this earmark pays a landlord FOR — used so agents can find the row by tenant. */
@@ -40,7 +40,11 @@ export function useLandlordFloatAllocations(opts?: { onlyOpen?: boolean }) {
         .order('created_at', { ascending: false })
         .limit(200);
       if (opts?.onlyOpen !== false) {
-        q = q.in('status', ['open', 'partially_paid']);
+        // `return_pending` rows are still counted as live float by
+        // recompute_agent_landlord_float, so they MUST stay visible here.
+        // Hiding them left the agent with a float balance and no matching
+        // landlord line explaining it (money "stuck on the card").
+        q = q.in('status', ['open', 'partially_paid', 'return_pending']);
       }
       const { data, error } = await q;
       if (error) throw error;
