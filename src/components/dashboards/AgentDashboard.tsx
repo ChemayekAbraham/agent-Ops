@@ -1621,6 +1621,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               {[
                 { icon: Building2, label: 'Share Landlord', onClick: handleShareLandlordSignup },
                 { icon: UserPlus, label: 'Invite & Earn', onClick: () => navigate('/referrals') },
+                ...(parentAgentInfo?.parent_agent_id
+                  ? [{ icon: UsersRound, label: 'My Parent Agent', onClick: () => setParentAgentOpen(true) }]
+                  : []),
                 { icon: Menu, label: 'All Menu', onClick: handleOpenMenu },
               ].map((a) => (
                 <button
