@@ -276,6 +276,8 @@ function IssueProductDialog({
         p_payment_plan: plan,
         p_amount_paid: plan === 'full' ? total : Number(amountPaid) || 0,
         p_notes: notes || null,
+        p_recovery_rate: recoveryRate,
+
       });
       if (error) throw error;
       return data;
