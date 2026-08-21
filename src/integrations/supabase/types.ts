@@ -24850,6 +24850,93 @@ export type Database = {
           },
         ]
       }
+      promissory_commission_events: {
+        Row: {
+          agent_id: string | null
+          amount: number
+          base_amount: number
+          created_at: string
+          error_message: string | null
+          id: string
+          idempotency_key: string
+          kind: string
+          ledger_group_id: string | null
+          note_id: string | null
+          partner_id: string | null
+          rate: number
+          skip_reason: string | null
+          source_id: string
+          source_table: string
+          status: string
+        }
+        Insert: {
+          agent_id?: string | null
+          amount?: number
+          base_amount?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          idempotency_key: string
+          kind: string
+          ledger_group_id?: string | null
+          note_id?: string | null
+          partner_id?: string | null
+          rate?: number
+          skip_reason?: string | null
+          source_id: string
+          source_table: string
+          status?: string
+        }
+        Update: {
+          agent_id?: string | null
+          amount?: number
+          base_amount?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          idempotency_key?: string
+          kind?: string
+          ledger_group_id?: string | null
+          note_id?: string | null
+          partner_id?: string | null
+          rate?: number
+          skip_reason?: string | null
+          source_id?: string
+          source_table?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      promissory_commission_rates: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          kind: string
+          rate: number
+          reason: string | null
+          set_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          kind: string
+          rate: number
+          reason?: string | null
+          set_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          kind?: string
+          rate?: number
+          reason?: string | null
+          set_by?: string | null
+        }
+        Relationships: []
+      }
       promissory_note_plan_intents: {
         Row: {
           agent_id: string
@@ -36733,6 +36820,32 @@ export type Database = {
         }
         Relationships: []
       }
+      v_promissory_agent_commissions: {
+        Row: {
+          agent_id: string | null
+          agent_name: string | null
+          agent_phone: string | null
+          amount: number | null
+          base_amount: number | null
+          created_at: string | null
+          error_message: string | null
+          id: string | null
+          kind: string | null
+          ledger_group_id: string | null
+          note_amount: number | null
+          note_id: string | null
+          note_partner_name: string | null
+          partner_id: string | null
+          partner_name: string | null
+          partner_phone: string | null
+          rate: number | null
+          skip_reason: string | null
+          source_id: string | null
+          source_table: string | null
+          status: string | null
+        }
+        Relationships: []
+      }
       v_promissory_self_support_tracker: {
         Row: {
           agent_id: string | null
@@ -38675,6 +38788,17 @@ export type Database = {
           }
       credit_merchant_payout_commission: {
         Args: { p_awarded_via?: string; p_withdrawal_id: string }
+        Returns: Json
+      }
+      credit_promissory_agent_commission: {
+        Args: {
+          p_base_amount: number
+          p_dedupe_key?: string
+          p_kind: string
+          p_partner_id: string
+          p_source_id: string
+          p_source_table: string
+        }
         Returns: Json
       }
       credit_proxy_approval:
@@ -43410,6 +43534,10 @@ export type Database = {
         }
         Returns: Json
       }
+      promissory_commission_rate: {
+        Args: { p_at?: string; p_kind: string }
+        Returns: number
+      }
       promissory_self_support_context: {
         Args: { p_user: string }
         Returns: Json
@@ -44322,6 +44450,11 @@ export type Database = {
         }[]
       }
       slugify_district: { Args: { p_input: string }; Returns: string }
+      smoke_promissory_commissions: {
+        Args: { p_agent_id: string; p_partner_id: string }
+        Returns: Json
+      }
+      smoke_promissory_commissions_authorized: { Args: never; Returns: boolean }
       snapshot_agent_daily_eligibility: {
         Args: { p_days?: number }
         Returns: number
@@ -44474,6 +44607,17 @@ export type Database = {
       }
       try_award_subagent_registration_bonus: {
         Args: { p_sub_agent_id: string }
+        Returns: undefined
+      }
+      try_credit_promissory_agent_commission: {
+        Args: {
+          p_base_amount: number
+          p_dedupe_key?: string
+          p_kind: string
+          p_partner_id: string
+          p_source_id: string
+          p_source_table: string
+        }
         Returns: undefined
       }
       try_credit_qualified_referrals: {
