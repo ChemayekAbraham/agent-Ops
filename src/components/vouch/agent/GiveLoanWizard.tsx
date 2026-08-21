@@ -113,6 +113,8 @@ export default function GiveLoanWizard({ open, onOpenChange, lendablePool, onDon
     onDone();
   };
 
+  const STEP_LABELS = ['Find the person', 'Choose the money', 'Profit & payback', 'Check & send'];
+
   const StepDots = () => (
     <div className="flex items-center gap-1.5">
       {[1, 2, 3, 4].map((s) => (
@@ -139,23 +141,44 @@ export default function GiveLoanWizard({ open, onOpenChange, lendablePool, onDon
 
   return (
     <Sheet open={open} onOpenChange={close}>
-      <SheetContent side="bottom" className="h-[96vh] overflow-y-auto rounded-t-3xl p-0">
+      <SheetContent side="bottom" className="h-[96vh] overflow-y-auto rounded-t-3xl p-0 [&>button]:hidden">
         {/* Header */}
         <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b px-4 py-3 flex items-center gap-3">
           {step > 1 && step < 5 ? (
-            <button onClick={() => setStep(step - 1)} className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+            <button
+              onClick={() => setStep(step - 1)}
+              aria-label="Go back"
+              className="h-11 w-11 rounded-full bg-muted flex items-center justify-center active:scale-95 transition-transform"
+            >
               <ArrowLeft className="h-5 w-5" />
             </button>
           ) : (
-            <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-primary flex items-center justify-center">
+            <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-emerald-500 to-primary flex items-center justify-center">
               <Banknote className="h-5 w-5 text-primary-foreground" />
             </div>
           )}
-          <div className="flex-1">
-            <p className="text-lg font-extrabold leading-none">Give a loan</p>
-            <div className="mt-2"><StepDots /></div>
+          <div className="flex-1 min-w-0">
+            <p className="text-lg font-extrabold leading-none truncate">Give a loan</p>
+            {step < 5 ? (
+              <>
+                <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Step {step} of 4 · {STEP_LABELS[step - 1]}
+                </p>
+                <div className="mt-1.5"><StepDots /></div>
+              </>
+            ) : (
+              <p className="mt-1 text-[11px] font-bold uppercase tracking-wide text-emerald-600">Finished</p>
+            )}
           </div>
+          <button
+            onClick={() => close(false)}
+            aria-label="Close"
+            className="h-11 w-11 rounded-full bg-muted flex items-center justify-center active:scale-95 transition-transform"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
+
 
         <div className="px-4 py-5 pb-16 space-y-5">
           {/* STEP 1 — find person */}
