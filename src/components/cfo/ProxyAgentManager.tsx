@@ -633,7 +633,7 @@ export function ProxyAgentManager() {
 
   const openEdit = (a: any) => {
     setEditingAssignment(a);
-    setBeneficiaryRole(a.beneficiary_role || 'landlord');
+    setBeneficiaryRole(a.beneficiary_role || 'supporter');
     setReason(a.reason || '');
     setIsManagedAccount(a.is_managed_account || false);
     setShowAssign(true);
@@ -670,12 +670,12 @@ export function ProxyAgentManager() {
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Bulk Assign Partners to Agent</DialogTitle>
+              <DialogTitle>Bulk Assign Beneficiaries to Agent</DialogTitle>
             </DialogHeader>
             <p className="text-xs text-muted-foreground">
-              Pick one agent, search/filter the partner pool, multi-select, and link.
-              Partners already attached to a different proxy agent will be automatically
-              moved over.
+              Pick one agent, choose the relationship type (tenant, landlord or partner),
+              search/filter the pool, multi-select, and link. Beneficiaries already attached
+              to a different proxy agent will be automatically moved over.
             </p>
             <div className="space-y-3">
               <UserSearchPicker
@@ -691,7 +691,6 @@ export function ProxyAgentManager() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="tenant">🧑‍🤝‍🧑 Tenant</SelectItem>
-                    <SelectItem value="tenant">🧑‍🤝‍🧑 Tenant</SelectItem>
                     <SelectItem value="landlord">🏠 Landlord</SelectItem>
                     <SelectItem value="supporter">💼 Partner/Funder</SelectItem>
                   </SelectContent>
@@ -701,7 +700,7 @@ export function ProxyAgentManager() {
                 <UserSearchPicker
                   key={`bulk-user-picker-${bulkRole}-${bulkBeneficiaries.length}`}
                   label="Search User to Assign"
-                  placeholder={`Search ${bulkRole === 'landlord' ? 'landlord' : 'partner/funder'} by name or phone...`}
+                  placeholder={`Search ${bulkRole === 'landlord' ? 'landlord' : bulkRole === 'tenant' ? 'tenant' : 'partner/funder'} by name or phone...`}
                   selectedUser={null}
                   onSelect={(u) => { if (u) toggleBulkBeneficiary(u); }}
                   roleFilter={bulkRole}
@@ -961,7 +960,6 @@ export function ProxyAgentManager() {
                 <Select value={beneficiaryRole} onValueChange={setBeneficiaryRole}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="tenant">🧑‍🤝‍🧑 Tenant</SelectItem>
                     <SelectItem value="tenant">🧑‍🤝‍🧑 Tenant</SelectItem>
                     <SelectItem value="landlord">🏠 Landlord</SelectItem>
                     <SelectItem value="supporter">💼 Partner/Funder</SelectItem>
