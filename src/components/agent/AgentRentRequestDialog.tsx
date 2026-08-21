@@ -4437,37 +4437,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                             <p className="text-xs text-muted-foreground font-medium mt-1">Confirming registration…</p>
                           ) : landlordCheck === 'missing' ? (
                             <FieldError message="This landlord is not registered in the system — pick another or register them again" />
-                          ) : landlordCheck === 'unverified' ? (
-                            <div className="mt-1 space-y-2">
-                              <div className="rounded-lg border border-amber-300/60 bg-amber-50 p-2.5">
-                                <p className="text-xs font-semibold text-amber-800 leading-snug">
-                                  Landlord {selectedLandlord.name} is not yet verified — once approved, your rent request will be processed.
-                                </p>
-                              </div>
-                              {verifyReqState === 'sent' || verifyReqState === 'exists' ? (
-                                <p className="text-xs font-medium text-success flex items-center gap-1">
-                                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                                  Verification request sent to Landlord Operations.
-                                </p>
-                              ) : (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-9 w-full gap-1.5 rounded-xl border-amber-500/40 text-amber-700 hover:bg-amber-50"
-                                  disabled={verifyReqState === 'sending'}
-                                  onClick={requestLandlordVerification}
-                                >
-                                  {verifyReqState === 'sending' ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <ShieldCheck className="h-3.5 w-3.5" />
-                                  )}
-                                  Request verification from Landlord Ops
-                                </Button>
-                              )}
-                            </div>
-                          ) : (
+                          ) : landlordCheck === 'unverified' ? null : (
                             /* Verified landlord — nothing to notify Landlord Ops about. */
                             <div className="mt-2 flex items-center gap-2 rounded-xl border border-success/40 bg-success/10 px-2.5 py-2">
                               <ShieldCheck className="h-4 w-4 text-success shrink-0" />
