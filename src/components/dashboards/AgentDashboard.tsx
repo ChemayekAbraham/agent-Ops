@@ -20,6 +20,7 @@ import { EarningsSummaryCard } from '@/components/agent/EarningsSummaryCard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { 
   UserPlus,
   Menu,
