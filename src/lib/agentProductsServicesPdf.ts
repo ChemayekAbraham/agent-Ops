@@ -293,6 +293,7 @@ export function generateAgentProductsServicesPdf(opts: {
   const drawKpiCards = (
     cards: { label: string; value: string; detail?: string }[],
     perRow = 4,
+    title = 'DAILY SUMMARY',
   ) => {
     if (!cards.length) return;
     const gap = 3;
