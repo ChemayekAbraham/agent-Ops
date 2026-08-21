@@ -408,27 +408,30 @@ function IssueProductDialog({
         </div>
 
         <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
-          <div className="flex justify-between"><span>Total value</span><span className="font-semibold">{formatUGX(total)}</span></div>
+          <div className="flex justify-between"><span>Base price</span><span className="tabular-nums">{formatUGX(baseValue)}</span></div>
+          <div className="flex items-center justify-between">
+            <span>Interest (33%)</span>
+            <span className="tabular-nums">{formatUGX(interestAmount)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Total value</span>
+            <span className="font-semibold tabular-nums">{formatUGX(total)}</span>
+          </div>
           <div className="flex justify-between">
             <span>To recover from wallet</span>
-            <span className="font-semibold">{formatUGX(outstanding)}</span>
+            <span className="font-semibold tabular-nums">{formatUGX(outstanding)}</span>
           </div>
+          <p className="text-[11px] text-muted-foreground">
+            Total value = base price + 33% interest. Wallet recovery is total value less any amount paid upfront.
+          </p>
           {recoveryRate !== null && (
-            <>
-              <div className="flex items-center justify-between">
-                <span>Recovery rule</span>
-                <Badge variant="secondary" className="text-[11px]">Recovery Rate: 33%</Badge>
-              </div>
-              <div className="flex justify-between">
-                <span>Recovery amount (33%)</span>
-                <span className="font-semibold tabular-nums">{formatUGX(recoveryAmount)}</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                Smartphones and Welile Bikes recover at a fixed 33% rate from the agent wallet.
-              </p>
-            </>
+            <div className="flex items-center justify-between pt-1">
+              <span>Recovery rule</span>
+              <Badge variant="secondary" className="text-[11px]">Recovery Rate: 33%</Badge>
+            </div>
           )}
         </div>
+
 
       </div>
       <DialogFooter>
