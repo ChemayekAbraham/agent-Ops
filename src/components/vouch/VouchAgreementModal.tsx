@@ -32,9 +32,12 @@ export default function VouchAgreementModal({
 }: Props) {
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [pressed, setPressed] = useState(false);
 
   const handleAccept = async () => {
-    if (!agreed) return;
+    // On mobile, tapping the primary button should record agreement even if
+    // the user skipped the checkbox. We check the box first, then submit.
+    if (!agreed) setAgreed(true);
     setSubmitting(true);
     try {
       const ok = await onAccept();
@@ -66,23 +69,40 @@ export default function VouchAgreementModal({
 
         <DialogFooter className="p-4 pt-3 border-t flex-col sm:flex-col gap-3 items-stretch">
           {!viewOnly && (
-            <label className="flex items-start gap-2.5 text-xs cursor-pointer p-2 rounded-md hover:bg-muted/40">
+            <label
+              className="flex items-start gap-2.5 text-xs cursor-pointer p-3 rounded-md hover:bg-muted/40 active:bg-muted/60 transition-colors touch-manipulation"
+              onClick={() => setAgreed((v) => !v)}
+            >
               <Checkbox
                 checked={agreed}
                 onCheckedChange={(c) => setAgreed(c === true)}
-                className="mt-0.5"
+                className="mt-0.5 h-4 w-4"
               />
-              <span className="leading-relaxed">
+              <span className="leading-relaxed select-none">
                 I have read, understood, and accept the terms above. I confirm I am authorised to accept on my behalf.
               </span>
             </label>
           )}
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" size="sm" onClick={onClose}>
+          <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+            <Button variant="outline" size="sm" onClick={onClose} className="w-full sm:w-auto h-11 sm:h-9 touch-manipulation">
               {viewOnly ? 'Close' : 'Cancel'}
             </Button>
             {!viewOnly && (
-              <Button size="sm" onClick={handleAccept} disabled={!agreed || submitting}>
+              <Button
+                size="sm"
+                onClick={handleAccept}
+                disabled={submitting}
+                onMouseDown={() => setPressed(true)}
+                onMouseUp={() => setPressed(false)}
+                onTouchStart={() => setPressed(true)}
+                onTouchEnd={() => setPressed(false)}
+                className={`
+                  w-full sm:w-auto h-11 sm:h-9 min-w-[140px]
+                  touch-manipulation select-none
+                  transition-transform duration-100 active:scale-95
+                  ${pressed ? 'scale-95' : 'scale-100'}
+                `}
+              >
                 {submitting && <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />}
                 {acceptLabel}
               </Button>
