@@ -4357,7 +4357,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
               <>
               {/* ===== 3. HOUSE CATEGORY ===== */}
               <div className="space-y-3">
-                <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                <h4 className="text-sm font-bold text-black flex items-center gap-1">
                   <Home className="h-3 w-3" />
                   House Category *
                 </h4>
