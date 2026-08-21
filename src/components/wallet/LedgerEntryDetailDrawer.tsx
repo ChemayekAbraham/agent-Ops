@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowDownLeft, ArrowUpRight, Copy, FileText, Calendar, User, Link } from 'lucide-react';
+import { Loader2, ArrowDownLeft, ArrowUpRight, Copy, FileText, Calendar, User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { applyCustomerWalletLedgerFilters, isCustomerWalletLedgerEntryVisible } from '@/lib/customerWalletHistory';
+import { applyCustomerWalletLedgerFilters } from '@/lib/customerWalletHistory';
 
 interface LedgerEntryDetailDrawerProps {
   entryId: string | null;
@@ -34,18 +34,6 @@ interface FullLedgerEntry {
   classification?: string | null;
 }
 
-interface RelatedEntry {
-  id: string;
-  amount: number;
-  direction: string;
-  category: string;
-  description: string | null;
-  transaction_date: string;
-  user_id: string | null;
-  classification?: string | null;
-  source_table?: string | null;
-  reference_id?: string | null;
-}
 
 interface ProfileInfo {
   full_name: string;
@@ -81,7 +69,7 @@ export function LedgerEntryDetailDrawer({ entryId, open, onOpenChange }: LedgerE
   const [entry, setEntry] = useState<FullLedgerEntry | null>(null);
   const [ownerProfile, setOwnerProfile] = useState<ProfileInfo | null>(null);
   const [linkedPartyProfile, setLinkedPartyProfile] = useState<ProfileInfo | null>(null);
-  const [relatedEntries, setRelatedEntries] = useState<RelatedEntry[]>([]);
+  
 
   useEffect(() => {
     if (!entryId || !open) return;
@@ -97,26 +85,17 @@ export function LedgerEntryDetailDrawer({ entryId, open, onOpenChange }: LedgerE
       if (!e) { setLoading(false); return; }
       setEntry(e as FullLedgerEntry);
 
-      // Fetch owner profile, and related group entries in parallel
-      // Fetch related data in parallel
-      const [ownerRes, relatedRes, linkedRes] = await Promise.all([
+      // Fetch owner profile and linked party in parallel
+      const [ownerRes, linkedRes] = await Promise.all([
         e.user_id
           ? supabase.from('profiles').select('full_name, phone').eq('id', e.user_id).single()
           : Promise.resolve({ data: null }),
-        e.transaction_group_id
-          ? applyCustomerWalletLedgerFilters(supabase.from('general_ledger')
-              .select('id, amount, direction, category, description, transaction_date, user_id, classification, source_table, reference_id')
-              .eq('transaction_group_id', e.transaction_group_id)
-              .neq('id', entryId))
-              .order('transaction_date', { ascending: false })
-          : Promise.resolve({ data: [] }),
         e.linked_party && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(e.linked_party)
           ? supabase.from('profiles').select('full_name, phone').eq('id', e.linked_party).single()
           : Promise.resolve({ data: null }),
       ]);
 
       setOwnerProfile(ownerRes.data as any);
-      setRelatedEntries(((relatedRes.data || []) as RelatedEntry[]).filter(isCustomerWalletLedgerEntryVisible));
       setLinkedPartyProfile(linkedRes.data as any);
       setLoading(false);
     };
@@ -216,34 +195,6 @@ export function LedgerEntryDetailDrawer({ entryId, open, onOpenChange }: LedgerE
               <DetailRow label="Created At" value={format(new Date(entry.created_at), 'dd MMM yyyy, HH:mm:ss')} />
             </DetailSection>
 
-            {/* Related entries */}
-            {relatedEntries.length > 0 && (
-              <>
-                <Separator />
-                <DetailSection title={`Related Entries (${relatedEntries.length})`} icon={<Link className="h-3.5 w-3.5" />}>
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                    {relatedEntries.map(r => (
-                      <div key={r.id} className="flex items-center justify-between text-xs py-1.5 border-b border-border/30 last:border-0">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          {r.direction === 'cash_in' ? (
-                            <ArrowDownLeft className="h-3 w-3 text-success shrink-0" />
-                          ) : (
-                            <ArrowUpRight className="h-3 w-3 text-destructive shrink-0" />
-                          )}
-                          <span className="truncate">{CATEGORY_LABELS[r.category] || r.category.replace(/_/g, ' ')}</span>
-                        </div>
-                        <span className={cn(
-                          'font-mono font-semibold ml-2 shrink-0',
-                          r.direction === 'cash_in' ? 'text-success' : 'text-destructive'
-                        )}>
-                          {r.direction === 'cash_in' ? '+' : '-'}{formatUGX(r.amount)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </DetailSection>
-              </>
-            )}
           </div>
         )}
       </SheetContent>
