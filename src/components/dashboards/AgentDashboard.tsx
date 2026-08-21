@@ -67,6 +67,7 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { ProfileSummaryPopover } from '@/components/profile/ProfileSummaryPopover';
 import { SubAgentsPanel } from '@/components/agent/SubAgentsPanel';
 import { MyParentAgentCard } from '@/components/agent/MyParentAgentCard';
+import { ParentAgentDialog, useMyParentAgent } from '@/components/agent/ParentAgentDialog';
 import { ServiceCenterQualificationCard } from '@/components/agent/ServiceCenterQualificationCard';
 import { LastWeekWinnerOverlay } from '@/components/agent/LastWeekWinnerOverlay';
 import { ListRegisterEarnDialog } from '@/components/agent/ListRegisterEarnDialog';
