@@ -20,6 +20,7 @@ import { EarningsSummaryCard } from '@/components/agent/EarningsSummaryCard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { 
   UserPlus,
   Menu,
@@ -264,6 +265,21 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       void refreshWallet();
       void refreshBalances();
       void refreshEarnings();
+    },
+  });
+
+  // Live sub-agent leaderboard rank for the current agent (same source as
+  // /dashboard/agents/leaderboard). Defaults to weekly to match the leaderboard
+  // landing period.
+  const { data: mySubagentRank } = useQuery({
+    queryKey: ['agent-dashboard-my-subagent-rank', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_my_subagent_rank', {
+        p_period: 'weekly',
+      });
+      if (error) throw error;
+      return (data?.[0] as { rank: number; active_count: number; total_subagents: number; active_rate: number } | null) ?? null;
     },
   });
   
@@ -876,6 +892,16 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                   )}
                 </h1>
                 <p className="text-xs text-muted-foreground mt-0.5">Welile Agent{profile?.territory ? ` · ${profile.territory}` : ''}</p>
+                {mySubagentRank && (
+                  <button
+                    type="button"
+                    onClick={() => { hapticTap(); navigate('/dashboard/agents/leaderboard'); }}
+                    className="mt-1.5 inline-flex w-fit items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                  >
+                    <Trophy className="h-3 w-3" />
+                    Top Performer #{mySubagentRank.rank}
+                  </button>
+                )}
                 <div className="mt-1.5">
                   <AiIdButton variant="compact" />
                 </div>
