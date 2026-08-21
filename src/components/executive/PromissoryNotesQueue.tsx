@@ -518,6 +518,20 @@ export function PromissoryNotesQueue() {
                   </CardContent>
                 </Card>
 
+                {/* Real joined-account details vs what the note claims */}
+                <JoinedPartnerIdentityCard
+                  userId={selectedNote.came_in_user_id || null}
+                  notePartnerName={selectedNote.partner_name}
+                  noteWhatsapp={selectedNote.whatsapp_number}
+                  notePhone={selectedNote.phone_number}
+                  noteEmail={selectedNote.email}
+                  noteAgentId={selectedNote.agent_id}
+                  noteAgentName={selectedNote.agent_name}
+                  cameInAt={selectedNote.came_in_at}
+                />
+
+
+
                 {/* Financial Summary */}
                 <Card>
                   <CardContent className="p-3 space-y-3">
