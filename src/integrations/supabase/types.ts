@@ -8482,6 +8482,75 @@ export type Database = {
           },
         ]
       }
+      deleted_accounts: {
+        Row: {
+          created_at: string
+          deleted_at: string
+          deleted_by: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          metadata: Json
+          national_id: string | null
+          phone: string | null
+          purge_reason: string | null
+          purged_at: string | null
+          purged_by: string | null
+          reason: string
+          restore_reason: string | null
+          restored_at: string | null
+          restored_by: string | null
+          roles: Json
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string
+          deleted_by?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          metadata?: Json
+          national_id?: string | null
+          phone?: string | null
+          purge_reason?: string | null
+          purged_at?: string | null
+          purged_by?: string | null
+          reason: string
+          restore_reason?: string | null
+          restored_at?: string | null
+          restored_by?: string | null
+          roles?: Json
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string
+          deleted_by?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          metadata?: Json
+          national_id?: string | null
+          phone?: string | null
+          purge_reason?: string | null
+          purged_at?: string | null
+          purged_by?: string | null
+          reason?: string
+          restore_reason?: string | null
+          restored_at?: string | null
+          restored_by?: string | null
+          roles?: Json
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       departments: {
         Row: {
           created_at: string
@@ -24372,6 +24441,9 @@ export type Database = {
           country: string | null
           country_code: string | null
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          deletion_reason: string | null
           district: string | null
           district_id: number | null
           easy_read_size: number
@@ -24463,6 +24535,9 @@ export type Database = {
           country?: string | null
           country_code?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deletion_reason?: string | null
           district?: string | null
           district_id?: number | null
           easy_read_size?: number
@@ -24554,6 +24629,9 @@ export type Database = {
           country?: string | null
           country_code?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deletion_reason?: string | null
           district?: string | null
           district_id?: number | null
           easy_read_size?: number
@@ -37149,6 +37227,10 @@ export type Database = {
         Args: { p_limit?: number; p_offset?: number; p_status?: string }
         Returns: Json
       }
+      admin_mark_account_purged: {
+        Args: { p_reason: string; p_user_id: string }
+        Returns: Json
+      }
       admin_purge_table_refs: {
         Args: { p_parent_pk_values: string[]; p_parent_table: string }
         Returns: number
@@ -37166,9 +37248,17 @@ export type Database = {
         Returns: undefined
       }
       admin_restore_auth_user: { Args: { p_user_id: string }; Returns: Json }
+      admin_restore_soft_deleted_account: {
+        Args: { p_reason: string; p_user_id: string }
+        Returns: Json
+      }
       admin_set_kyc_level: {
         Args: { p_new_level: number; p_reason: string; p_user_id: string }
         Returns: undefined
+      }
+      admin_soft_delete_account: {
+        Args: { p_reason: string; p_user_id: string }
+        Returns: Json
       }
       admin_unfreeze_kyc_account: {
         Args: { p_reason: string; p_user_id: string }
@@ -38059,6 +38149,10 @@ export type Database = {
       }
       can_access_budget_submission: {
         Args: { _submission_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_manage_deleted_accounts: {
+        Args: { p_user_id: string }
         Returns: boolean
       }
       can_manage_tenant_documents: {

@@ -5,7 +5,7 @@ import {
   Crown, LayoutDashboard, Globe, DollarSign, UserCog, Truck, Layers, MinusCircle, Receipt,
   ShieldCheck, GraduationCap, Mail, FolderOpen, CalendarCheck, Landmark, KeyRound, SlidersHorizontal, HandCoins, Snowflake, ShoppingBag, MonitorSmartphone
   , Gauge, Download, ShieldAlert,
-  Eye,
+  Eye, Trash2,
 } from 'lucide-react';
 import type { AppRole } from '@/hooks/auth/types';
 
@@ -83,6 +83,8 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Signup Log', icon: ShieldCheck, id: 'signup-log' },
         { label: 'Deposit Bridge', icon: Activity, id: 'bridge-health' },
         { label: 'Platform Users', icon: Users, id: 'platform-users', route: '/platform-users' },
+        { label: 'Deleted Accounts', icon: Trash2, id: 'deleted-accounts' },
+
         { label: 'Requisitions', icon: ClipboardList, id: 'requisitions' },
         { label: 'My Work', icon: ClipboardList, id: 'my-work' },
       ],

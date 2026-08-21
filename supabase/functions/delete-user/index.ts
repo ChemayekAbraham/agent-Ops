@@ -29,16 +29,19 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // Check manager role
-    const { data: roles } = await supabaseAdmin.from('user_roles').select('role').eq('user_id', caller.id).eq('role', 'manager').eq('enabled', true);
+    // Check privileged role (manager, CTO or super admin)
+    const { data: roles } = await supabaseAdmin.from('user_roles').select('role').eq('user_id', caller.id).in('role', ['manager', 'cto', 'super_admin']).eq('enabled', true);
     if (!roles || roles.length === 0) {
-      return new Response(JSON.stringify({ error: 'Forbidden: Manager role required' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ error: 'Forbidden: Manager, CTO or Super Admin role required' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const { user_id, preserve_history, reason } = await req.json();
+    const { user_id, preserve_history, reason, mode } = await req.json();
     if (!user_id) {
       return new Response(JSON.stringify({ error: 'user_id is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
+    // Default behaviour is a reversible soft delete; 'permanent' purges the account for good.
+    const deleteMode: 'soft' | 'permanent' = mode === 'permanent' ? 'permanent' : 'soft';
+
 
     // Validate UUID format
     if (typeof user_id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user_id)) {
@@ -125,6 +128,68 @@ Deno.serve(async (req) => {
 
       return new Response(JSON.stringify({ success: true, archived: true, auth_soft_deleted: !softDeleteError, message: 'Tenant archived and payment history preserved' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
+
+    // ---------------------------------------------------------------------
+    // SOFT DELETE (default): keep all historical records, release the login
+    // details so the same person can register again, and register the account
+    // in public.deleted_accounts for CTO review / permanent removal.
+    // ---------------------------------------------------------------------
+    if (deleteMode === 'soft') {
+      const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? '';
+      const callerClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+
+      const { data: softResult, error: softError } = await callerClient.rpc('admin_soft_delete_account', {
+        p_user_id: user_id,
+        p_reason: auditReason,
+      });
+      if (softError) {
+        console.error('Soft delete failed:', softError);
+        return new Response(JSON.stringify({ error: 'Failed to delete account: ' + softError.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      // Release the auth login identifiers and lock the account out.
+      const tombstoneEmail = `deleted+${user_id}@deleted.invalid`;
+      let authTombstoned = true;
+      let authTombstoneError: string | null = null;
+      const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(user_id, {
+        email: tombstoneEmail,
+        phone: '',
+        ban_duration: '876000h',
+        email_confirm: true,
+        app_metadata: { soft_deleted: true, soft_deleted_at: new Date().toISOString() },
+      });
+      if (authUpdateError) {
+        authTombstoned = false;
+        authTombstoneError = authUpdateError.message;
+        console.error('Auth tombstone failed:', authUpdateError);
+      }
+
+      await supabaseAdmin.from('deleted_accounts').update({
+        metadata: {
+          auth_tombstoned: authTombstoned,
+          auth_tombstone_error: authTombstoneError,
+          auth_email_before: beforeValues.auth_email,
+          auth_phone_before: beforeValues.auth_phone,
+          tombstone_email: tombstoneEmail,
+          performed_by_email: caller.email,
+        },
+      }).eq('user_id', user_id).eq('status', 'soft_deleted');
+
+      return new Response(JSON.stringify({
+        success: true,
+        soft_deleted: true,
+        auth_tombstoned: authTombstoned,
+        auth_tombstone_error: authTombstoneError,
+        register: softResult ?? null,
+        message: authTombstoned
+          ? 'Account deleted. History preserved and the details are free to be reused.'
+          : 'Account deleted, but the login details could not be released. Review in CTO > Deleted Accounts.',
+      }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+
 
     // PRE-STEP: remove records that have non-nullable FK refs or need explicit cleanup.
     // Most FK constraints now use ON DELETE SET NULL, so only truly blocking refs need handling.
@@ -213,6 +278,41 @@ Deno.serve(async (req) => {
         dependency_purge: purgeSummary,
       },
     });
+
+    // Close out the deleted-accounts register (or create a purged record if the
+    // account was permanently deleted without a prior soft delete).
+    {
+      const { data: registerRow } = await supabaseAdmin
+        .from('deleted_accounts')
+        .select('id')
+        .eq('user_id', user_id)
+        .eq('status', 'soft_deleted')
+        .maybeSingle();
+
+      if (registerRow?.id) {
+        await supabaseAdmin.from('deleted_accounts').update({
+          status: 'purged',
+          purged_at: new Date().toISOString(),
+          purged_by: caller.id,
+          purge_reason: auditReason,
+        }).eq('id', registerRow.id);
+      } else {
+        await supabaseAdmin.from('deleted_accounts').insert({
+          user_id,
+          full_name: beforeValues.full_name,
+          email: beforeValues.profile_email ?? beforeValues.auth_email,
+          phone: beforeValues.profile_phone ?? beforeValues.auth_phone,
+          status: 'purged',
+          reason: auditReason,
+          deleted_by: caller.id,
+          purged_at: new Date().toISOString(),
+          purged_by: caller.id,
+          purge_reason: auditReason,
+          metadata: { note: 'purged without prior soft delete record', performed_by_email: caller.email },
+        });
+      }
+    }
+
 
 
     // Notify managers (fire-and-forget)
