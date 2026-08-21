@@ -284,10 +284,13 @@ export function PartnersOpsDashboard() {
       case 'portfolios.maturity': return <MaturityRequestsQueue />;
       case 'approvals': return (
         <div className="space-y-6">
+          <PartnerVerificationQueue />
           <PendingFunderApprovals />
           <PendingPartnerRequests />
         </div>
       );
+      case 'verification': return <PartnerVerificationQueue />;
+
       case 'nearing.overview': return (
         <div className="space-y-6">
           <NearingPayoutsPanel />
