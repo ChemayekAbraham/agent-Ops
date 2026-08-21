@@ -596,8 +596,6 @@ function AgentOpsSideNav({
           <span className="truncate">Overview</span>
         </button>
 
-        <div className="space-y-1">{renderItem('agent-products-services')}</div>
-
         {SIDE_GROUPS.map((group) => {
           const containsActive = group.keys.includes(activeView as ActiveView);
           const open = group.pinned || openGroups[group.title] || containsActive;
