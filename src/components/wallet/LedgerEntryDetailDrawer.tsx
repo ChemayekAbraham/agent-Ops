@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, ArrowDownLeft, ArrowUpRight, Copy, FileText, Calendar, User, Link } from 'lucide-react';
+import { Loader2, ArrowDownLeft, ArrowUpRight, Copy, FileText, Calendar, User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
@@ -52,21 +52,6 @@ interface ProfileInfo {
   phone: string;
 }
 
-const SOURCE_TABLE_LABELS: Record<string, string> = {
-  rent_requests: 'Rent Request',
-  repayments: 'Repayment',
-  deposit_requests: 'Deposit',
-  withdrawal_requests: 'Withdrawal',
-  referrals: 'Referral Bonus',
-  agent_earnings: 'Agent Earning',
-  agent_commission_payouts: 'Commission Payout',
-  supporter_roi_payments: 'Supporter ROI',
-  tenant_merchant_payments: 'Field Payment',
-  manual: 'Manual Entry',
-  system: 'System',
-  subscription_charges: 'Auto-Charge',
-  opening_balance: 'Opening Balance',
-};
 
 const CATEGORY_LABELS: Record<string, string> = {
   tenant_access_fee: 'Access Fee',
