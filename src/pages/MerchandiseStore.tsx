@@ -330,12 +330,8 @@ export default function MerchandiseStore() {
       toast.error('Enter a phone amount of at least UGX 1,000');
       return;
     }
-    if (phoneProjection > availableWallet) {
-      toast.error(
-        `Payment projection of ${formatUGX(phoneProjection)} exceeds your available wallet balance of ${formatUGX(availableWallet)}.`
-      );
-      return;
-    }
+    // No upfront wallet balance gate — orders are submitted for approval first.
+
     setOrderingPhone(true);
     const { error } = await db.rpc('agent_order_smartphone', {
       p_total_amount: phoneTotalNum,
