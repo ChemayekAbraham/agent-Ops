@@ -19,6 +19,14 @@ const statusConfig: Record<string, { label: string; class: string }> = {
   cancelled: { label: 'Cancelled', class: 'bg-muted text-muted-foreground border-border' },
 };
 
+const getNoteStatusConfig = (note: any) => {
+  const base = statusConfig[note.status] ?? statusConfig.pending;
+  if (note.status === 'activated' && note.came_in) {
+    return { ...base, label: 'Joined' };
+  }
+  return base;
+};
+
 export function AgentPromissoryNotesList({ open, onOpenChange }: Props) {
   const [selected, setSelected] = useState<any>(null);
 
@@ -96,7 +104,7 @@ export function AgentPromissoryNotesList({ open, onOpenChange }: Props) {
             </div>
           ) : (
             notes.map((note) => {
-              const cfg = statusConfig[note.status] ?? statusConfig.pending;
+              const cfg = getNoteStatusConfig(note);
               const noteCommission = note.amount * 0.02;
               const isExpanded = selected?.id === note.id;
 

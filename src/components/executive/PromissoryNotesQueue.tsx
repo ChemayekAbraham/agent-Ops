@@ -238,6 +238,14 @@ export function PromissoryNotesQueue() {
     cancelled: { icon: XCircle, color: 'bg-muted text-muted-foreground border-border', label: 'Cancelled' },
   };
 
+  const getNoteStatusConfig = (note: any) => {
+    const base = statusConfig[note.status] || statusConfig.pending;
+    if (note.status === 'activated' && note.came_in) {
+      return { ...base, label: 'Joined' };
+    }
+    return base;
+  };
+
   const statuses = ['all', 'pending', 'activated', 'fulfilled', 'defaulted', 'cancelled'];
 
   const kpiCards: { label: string; value: React.ReactNode; hint?: string; tone: string }[] = [
@@ -355,7 +363,7 @@ export function PromissoryNotesQueue() {
                   </thead>
                   <tbody>
                     {pagedNotes.map(note => {
-                      const config = statusConfig[note.status] || statusConfig.pending;
+                      const config = getNoteStatusConfig(note);
                       const StatusIcon = config.icon;
                       return (
                         <tr key={note.id} className="border-b last:border-0 cursor-pointer hover:bg-muted/40" onClick={() => setSelectedNote(note)}>
@@ -390,7 +398,7 @@ export function PromissoryNotesQueue() {
               {/* Mobile cards */}
               <div className="md:hidden space-y-2">
                 {pagedNotes.map(note => {
-                  const config = statusConfig[note.status] || statusConfig.pending;
+                  const config = getNoteStatusConfig(note);
                   const StatusIcon = config.icon;
                   return (
                     <button
@@ -459,7 +467,7 @@ export function PromissoryNotesQueue() {
             </SheetTitle>
           </SheetHeader>
           {selectedNote && (() => {
-            const config = statusConfig[selectedNote.status] || statusConfig.pending;
+            const config = getNoteStatusConfig(selectedNote);
             const StatusIcon = config.icon;
             const outstanding = Number(selectedNote.amount) - Number(selectedNote.total_collected);
             const progress = Number(selectedNote.amount) > 0 ? Math.min(100, (Number(selectedNote.total_collected) / Number(selectedNote.amount)) * 100) : 0;
