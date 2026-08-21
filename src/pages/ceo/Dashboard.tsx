@@ -9,6 +9,7 @@ import { MissionGoalsEditor } from '@/components/executive/MissionGoalsEditor';
 import { RoleManagementPanel } from '@/components/executive/RoleManagementPanel';
 import { DirectorRequisitionsPanel } from '@/components/requisitions/DirectorRequisitionsPanel';
 import ExecutiveBrief from '@/hr/components/ExecutiveBrief';
+import { CEOServiceCentreApprovals } from '@/components/ceo/CEOServiceCentreApprovals';
 
 export default function CEODashboardPage() {
   const [activeTab, setActiveTab] = usePersistedActiveTab('ceo');
@@ -26,6 +27,8 @@ export default function CEODashboardPage() {
             <StaffPerformancePanel />
           </div>
         );
+      case 'service-centres':
+        return <CEOServiceCentreApprovals />;
       case 'requisitions':
         return <DirectorRequisitionsPanel />;
       case 'angel-pool':

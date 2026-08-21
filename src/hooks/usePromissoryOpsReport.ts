@@ -115,6 +115,9 @@ export interface PromissoryOpsKpis {
   pending_commission_count: number;
   approved_commission: number;
   approved_commission_count: number;
+  self_supporting_tenants: number;
+  self_supporting_partners: number;
+  self_support_committed: number;
 }
 
 export interface PromissoryOpsReport {
@@ -128,6 +131,7 @@ const EMPTY: PromissoryOpsReport = {
     notes_count: 0, partners_came_in: 0, receivable: 0, promised_total: 0, fulfilled_total: 0,
     approved_notes: 0, proxy_agents: 0, proxies_approved: 0, proxies_pending: 0, lead_attachments: 0,
     pending_commission: 0, pending_commission_count: 0, approved_commission: 0, approved_commission_count: 0,
+    self_supporting_tenants: 0, self_supporting_partners: 0, self_support_committed: 0,
   },
   notes: [],
   proxy_agents: [],
@@ -165,6 +169,7 @@ export function usePromissoryOpsReport() {
     report: query.data ?? EMPTY,
     isLoading: query.isLoading,
     isFetching: query.isFetching,
+    error: query.error as Error | null,
     refetch: query.refetch,
   };
 }

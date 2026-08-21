@@ -39,8 +39,11 @@ const fmtShort = (n: number) => {
 export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps) {
   const [exportingCommissions, setExportingCommissions] = useState(false);
   const [activeBreakdown, setActiveBreakdown] = useState<string | null>(null);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
-  // Every section renders fully expanded on load; the chevron only collapses it.
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    ledgerMaintenance: false,
+    agentAdvances: false,
+  });
+  // Sections default to expanded unless explicitly collapsed above; the chevron toggles.
   const isOpen = (key: string) => openSections[key] !== false;
   const toggleSection = (key: string) =>
     setOpenSections((prev) => ({ ...prev, [key]: prev[key] === false }));
@@ -603,16 +606,16 @@ function HeroCard({ icon, iconBg, title, value, valueColor, items, footer, foote
 }) {
   const content = (
     <>
-      <div className="p-4 sm:p-5">
+      <div className="p-3 sm:p-4">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className={`h-11 w-11 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
+            <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
             <p className="font-semibold text-sm truncate">{title}</p>
           </div>
           {onClick && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
         </div>
-        <p className={`mt-3 text-xl sm:text-2xl font-bold tabular-nums tracking-tight ${valueColor}`}>{value}</p>
-        <div className="mt-3 pt-3 border-t border-border space-y-1.5">
+        <p className={`mt-2 text-xl font-bold tabular-nums tracking-tight ${valueColor}`}>{value}</p>
+        <div className="mt-2 pt-2 border-t border-border space-y-1">
           {items.map((it) => (
             <div key={it.label} className="flex items-center justify-between gap-2 text-[11px]">
               <span className="flex items-center gap-1.5 min-w-0 text-muted-foreground">
@@ -624,7 +627,7 @@ function HeroCard({ icon, iconBg, title, value, valueColor, items, footer, foote
           ))}
         </div>
       </div>
-      <div className={`flex items-center justify-between gap-2 px-4 sm:px-5 py-2.5 text-[10px] font-medium ${footerTone}`}>
+      <div className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-2 text-[10px] font-medium ${footerTone}`}>
         <span className="truncate">{footer}</span>
         <Info className="h-3 w-3 shrink-0 opacity-70" />
       </div>

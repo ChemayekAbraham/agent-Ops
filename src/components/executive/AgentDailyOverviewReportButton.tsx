@@ -17,6 +17,8 @@ import {
   generateAgentDailyOverviewPdf,
   type AgentDailyOverviewRow,
 } from '@/lib/agentDailyOverviewPdf';
+import { ACTIVE_RENT_STATUSES } from '@/hooks/useAgentCapacityMap';
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,10 +67,12 @@ const PRESETS: Preset[] = [
   },
 ];
 
-// Unified active-book definition shared with activeTenantsReportPdf.ts.
-// Keep these in sync so the two reports reconcile on Principal/Outstanding.
-const ACTIVE_STATUSES = ['approved', 'disbursed', 'active', 'repaying', 'funded'];
+// Active-book definition MUST mirror the live Agent Ops capacity map
+// (`ACTIVE_RENT_STATUSES`); the previous literal list used statuses that do
+// not exist in `rent_requests`, which is why Tenants/Expected/Rate read 0.
+const ACTIVE_STATUSES = ACTIVE_RENT_STATUSES;
 const UNASSIGNED_AGENT_KEY = '__unassigned__';
+
 
 /**
  * Paged select helper — Supabase caps single requests at 1000 rows. The
@@ -127,13 +131,35 @@ export function AgentDailyOverviewReportButton() {
           .range(from, to),
       );
 
+      // 2b. Live eligibility snapshot — the same source the Agent Rent
+      //     Capacity panel shows on screen. It is authoritative for the
+      //     active-tenant count and the daily expected target, so the PDF
+      //     always reconciles with the dashboard.
+      const eligibility = await fetchAll<any>((from, to) =>
+        supabase
+          .from('v_agent_daily_eligibility')
+          .select('agent_id, active_count, expected_daily')
+          .range(from, to),
+      );
+      const eligMap = new Map<string, { active: number; expectedDaily: number }>();
+      eligibility.forEach((e: any) => {
+        if (!e.agent_id) return;
+        eligMap.set(e.agent_id, {
+          active: Number(e.active_count) || 0,
+          expectedDaily: Number(e.expected_daily) || 0,
+        });
+      });
+
+
       // 3. Agent profile lookup
       const agentIds = Array.from(
         new Set([
           ...requests.map((r) => r.agent_id),
           ...collections.map((c) => c.agent_id),
+          ...Array.from(eligMap.keys()),
         ].filter(Boolean)),
       );
+
       const profileMap = new Map<string, { full_name: string | null; phone: string | null }>();
       // Profiles fetched in chunks of 500 ids to stay within URL limits.
       const chunk = 500;
@@ -199,18 +225,34 @@ export function AgentDailyOverviewReportButton() {
         if (c.tenant_id) a.paidSet.add(c.tenant_id);
       });
 
-      const rows: AgentDailyOverviewRow[] = Array.from(map.values())
-        .map((a) => ({
-          agentName: a.agentName,
-          agentPhone: a.agentPhone,
-          activeTenants: a.tenantSet.size,
-          expectedToday: a.expectedToday,
-          collectedToday: a.collectedToday,
-          tenantsPaidToday: a.paidSet.size,
-          paymentsToday: a.paymentsToday,
-          principalPaid: a.principalPaid,
-          outstanding: a.outstanding,
-        }))
+      // Make sure every agent carrying a live book appears, even when their
+      // plans sit in a status the aggregation above did not pick up.
+      eligMap.forEach((e, agentId) => {
+        if (e.active > 0 || e.expectedDaily > 0) ensure(agentId);
+      });
+
+      const rows: AgentDailyOverviewRow[] = Array.from(map.entries())
+        .map(([agentId, a]) => {
+          const elig = eligMap.get(agentId);
+          // Live figures win; the ledger-derived fallbacks keep historical
+          // ranges and the "Unassigned" bucket meaningful.
+          const activeTenants = elig ? elig.active : a.tenantSet.size;
+          const expectedToday = elig && elig.expectedDaily > 0
+            ? elig.expectedDaily * dayCount
+            : a.expectedToday;
+          return {
+            agentName: a.agentName,
+            agentPhone: a.agentPhone,
+            activeTenants,
+            expectedToday,
+            collectedToday: a.collectedToday,
+            tenantsPaidToday: a.paidSet.size,
+            paymentsToday: a.paymentsToday,
+            principalPaid: a.principalPaid,
+            outstanding: a.outstanding,
+          };
+        })
+
         // Show best performers first: highest collection rate, then highest expected
         .sort((x, y) => {
           const rx = x.expectedToday > 0 ? x.collectedToday / x.expectedToday : 1;

@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { MapPin, CheckCircle, XCircle, Loader2, Building2, ExternalLink, Wallet } from 'lucide-react';
@@ -12,6 +13,7 @@ import { format } from 'date-fns';
 import { ServiceCentreNewEntryDialog } from './service-centres/ServiceCentreNewEntryDialog';
 import { ServiceCentreEntriesList } from './service-centres/ServiceCentreEntriesList';
 import { ServiceCentreAdvancesPanel } from './service-centres/ServiceCentreAdvancesPanel';
+import { ActiveServiceCentresList } from './service-centres/ActiveServiceCentresList';
 
 export function ServiceCentreVerificationQueue() {
   const { user } = useAuth();
@@ -20,6 +22,8 @@ export function ServiceCentreVerificationQueue() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('pending');
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [comments, setComments] = useState<Record<string, string>>({});
 
   // Fetch pending submissions
   const { data: setups, isLoading: setupsLoading } = useQuery({
@@ -37,18 +41,35 @@ export function ServiceCentreVerificationQueue() {
 
   const handleVerify = async (id: string) => {
     if (!user?.id) return;
+    const rawAmount = (amounts[id] ?? '').replace(/[^0-9.]/g, '');
+    const amount = Number(rawAmount);
+    const comment = (comments[id] ?? '').trim();
+    if (!rawAmount || !Number.isFinite(amount) || amount <= 0) {
+      toast.error('Enter the service centre amount (UGX) before verifying.');
+      return;
+    }
+    if (comment.length < 10) {
+      toast.error('Add a comment of at least 10 characters before verifying.');
+      return;
+    }
     setProcessingId(id);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('service_centre_setups' as any)
         .update({
           status: 'verified',
           verified_by: user.id,
           verified_at: new Date().toISOString(),
+          verified_amount: amount,
+          verification_comment: comment,
         } as any)
-        .eq('id', id);
+        .eq('id', id)
+        .select('id, verified_amount, verification_comment');
       if (error) throw error;
-      toast.success('Service Centre verified!');
+      if (!data?.length) throw new Error('Verification did not save — no row was updated.');
+      toast.success('Service Centre verified with amount and comment attached.');
+      setAmounts((p) => ({ ...p, [id]: '' }));
+      setComments((p) => ({ ...p, [id]: '' }));
       queryClient.invalidateQueries({ queryKey: ['service-centre-pending-setups'] });
     } catch (err: any) {
       toast.error(err.message || 'Failed to verify');
@@ -103,7 +124,7 @@ export function ServiceCentreVerificationQueue() {
       </CardHeader>
       <CardContent className="pt-0">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="w-full grid grid-cols-3 mb-3">
+          <TabsList className="w-full grid grid-cols-4 mb-3">
             <TabsTrigger
               value="pending"
               className="text-xs gap-1 relative data-[state=inactive]:animate-pulse data-[state=inactive]:bg-destructive/15 data-[state=inactive]:text-destructive"
@@ -115,6 +136,10 @@ export function ServiceCentreVerificationQueue() {
                   {setups?.length}
                 </span>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="active" className="text-xs gap-1">
+              <CheckCircle className="h-3 w-3" />
+              Active
             </TabsTrigger>
             <TabsTrigger value="entries" className="text-xs gap-1">
               <Building2 className="h-3 w-3" />
@@ -157,6 +182,39 @@ export function ServiceCentreVerificationQueue() {
                     <img src={s.photo_url} alt="Service Centre" className="rounded-lg max-h-40 w-full object-cover border" />
                     <p className="text-xs text-muted-foreground">📍 {s.location_name || 'No description'}</p>
                     <p className="text-xs text-muted-foreground">🌐 {Number(s.latitude).toFixed(5)}, {Number(s.longitude).toFixed(5)}</p>
+
+                    {rejectingId !== s.id && (
+                      <div className="space-y-2 rounded-lg border border-dashed border-border bg-muted/40 p-2.5">
+                        <p className="text-[11px] font-semibold text-foreground">Attach before verifying</p>
+                        <div className="space-y-1">
+                          <label className="text-[11px] text-muted-foreground" htmlFor={`sc-amount-${s.id}`}>
+                            Service centre amount (UGX)
+                          </label>
+                          <Input
+                            id={`sc-amount-${s.id}`}
+                            inputMode="numeric"
+                            placeholder="e.g. 350000"
+                            value={amounts[s.id] ?? ''}
+                            onChange={(e) => setAmounts((p) => ({ ...p, [s.id]: e.target.value }))}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[11px] text-muted-foreground" htmlFor={`sc-comment-${s.id}`}>
+                            Comment / description (min 10 chars)
+                          </label>
+                          <Textarea
+                            id={`sc-comment-${s.id}`}
+                            placeholder="What was agreed, what the amount covers, any conditions…"
+                            value={comments[s.id] ?? ''}
+                            onChange={(e) => setComments((p) => ({ ...p, [s.id]: e.target.value }))}
+                            maxLength={1000}
+                            rows={3}
+                            className="text-xs"
+                          />
+                        </div>
+                      </div>
+                    )}
 
                     {rejectingId === s.id ? (
                       <div className="space-y-2">
@@ -208,6 +266,11 @@ export function ServiceCentreVerificationQueue() {
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          {/* ── Active (CEO approved) ── */}
+          <TabsContent value="active">
+            <ActiveServiceCentresList />
           </TabsContent>
 
           {/* ── Entries (COO → CEO → Verified) ── */}

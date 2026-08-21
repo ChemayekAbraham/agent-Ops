@@ -686,163 +686,226 @@ function CapacityRow({
 
   return (
     <li className="rounded-xl border border-border bg-background overflow-hidden">
-      {/* Tap-anywhere header — big, plain-language status */}
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={onToggle}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
-        className="w-full text-left p-3 active:bg-muted/40 transition-colors touch-manipulation cursor-pointer"
-        aria-expanded={!collapsed}
-      >
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <div className="min-w-0 flex-1">
-            <p className="text-base font-bold text-foreground truncate leading-tight">
-              {row.name}
-            </p>
-            <p className="text-[11px] text-muted-foreground truncate">
-              {row.phone || '—'} · {row.active_count} active rent{row.active_count === 1 ? '' : 's'}
-              {row.unfunded_tenant_count > 0 && (
-                <span className="text-destructive font-bold">
-                  {' · '}{row.unfunded_tenant_count} not funded
-                </span>
-              )}
-            </p>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              onClick={handlePrint}
-              disabled={printing}
-              title={`Print report for ${row.name}`}
-              className="inline-flex items-center justify-center h-9 w-9 rounded-lg border border-border hover:bg-muted disabled:opacity-50"
-            >
-              {printing
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : <Printer className="h-4 w-4" />}
-            </button>
+      {collapsed ? (
+        /* Compact 1-line bar — name, key status, today's collection, expand chevron */
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={onToggle}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
+          className="w-full text-left p-3 active:bg-muted/40 transition-colors touch-manipulation cursor-pointer"
+          aria-expanded={false}
+        >
+          <div className="flex items-center gap-3">
             <div
-              className="inline-flex items-center justify-center h-9 w-9 rounded-lg border border-border"
-              aria-hidden
-            >
-              {collapsed
-                ? <ChevronDown className="h-4 w-4" />
-                : <ChevronUp className="h-4 w-4" />}
+              className={`shrink-0 h-2.5 w-2.5 rounded-full ${
+                isAllowed ? 'bg-emerald-500' : 'bg-destructive'
+              }`}
+              title={isAllowed ? 'Can post new rent today' : 'Blocked from posting today'}
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-foreground truncate leading-tight">
+                {row.name}
+              </p>
+              <p className="text-[11px] text-muted-foreground truncate">
+                {row.phone || '—'} · {row.active_count} active rent{row.active_count === 1 ? '' : 's'}
+                {row.unfunded_tenant_count > 0 && (
+                  <span className="text-destructive font-bold">
+                    {' · '}{row.unfunded_tenant_count} not funded
+                  </span>
+                )}
+              </p>
+            </div>
+            <div className="hidden sm:flex items-center gap-4 text-xs tabular-nums">
+              <div className="text-right">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Today</div>
+                <div className={`font-bold ${todayTone}`}>{formatUGX(row.paid_today)}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Target</div>
+                <div className="font-bold text-foreground">{formatUGX(row.expected_daily)}</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={handlePrint}
+                disabled={printing}
+                title={`Print report for ${row.name}`}
+                className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-border hover:bg-muted disabled:opacity-50"
+              >
+                {printing
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  : <Printer className="h-3.5 w-3.5" />}
+              </button>
+              <span
+                className={`hidden md:inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                  isAllowed
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                    : 'bg-red-50 border-red-200 text-red-700'
+                }`}
+              >
+                {isAllowed ? 'Can post' : 'Blocked'}
+              </span>
+              <div
+                className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-border"
+                aria-hidden
+              >
+                <ChevronDown className="h-4 w-4" />
+              </div>
             </div>
           </div>
         </div>
-
-        {/* BIG status banner — the only thing a busy person needs to see */}
-        <div className={`rounded-xl border-2 ${statusBg} p-3 flex items-center gap-3`}>
-          <StatusIcon className={`h-8 w-8 shrink-0 ${statusText}`} strokeWidth={2.5} />
-          <div className="min-w-0 flex-1">
-            <p className={`text-base font-extrabold leading-tight ${statusText}`}>
-              {statusHeadline}
-            </p>
-            <p className={`text-xs font-semibold mt-0.5 ${statusText} opacity-90`}>
-              {statusSub}
-            </p>
-          </div>
-        </div>
-
-        {/* Today's collection — large numbers everyone can read */}
-        {!isStarter && (
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <div className="rounded-lg border border-border bg-background/70 p-2">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Collected today</div>
-              <div className={`text-base font-extrabold tabular-nums ${todayTone}`}>
-                {formatUGX(row.paid_today)}
+      ) : (
+        <>
+          {/* Tap-anywhere header — big, plain-language status */}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={onToggle}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
+            className="w-full text-left p-3 active:bg-muted/40 transition-colors touch-manipulation cursor-pointer"
+            aria-expanded={true}
+          >
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-base font-bold text-foreground truncate leading-tight">
+                  {row.name}
+                </p>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  {row.phone || '—'} · {row.active_count} active rent{row.active_count === 1 ? '' : 's'}
+                  {row.unfunded_tenant_count > 0 && (
+                    <span className="text-destructive font-bold">
+                      {' · '}{row.unfunded_tenant_count} not funded
+                    </span>
+                  )}
+                </p>
               </div>
-              <div className="text-[10px] text-muted-foreground tabular-nums">
-                of {formatUGX(row.expected_daily)} target
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  disabled={printing}
+                  title={`Print report for ${row.name}`}
+                  className="inline-flex items-center justify-center h-9 w-9 rounded-lg border border-border hover:bg-muted disabled:opacity-50"
+                >
+                  {printing
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Printer className="h-4 w-4" />}
+                </button>
+                <div
+                  className="inline-flex items-center justify-center h-9 w-9 rounded-lg border border-border"
+                  aria-hidden
+                >
+                  <ChevronUp className="h-4 w-4" />
+                </div>
               </div>
             </div>
-            <div className="rounded-lg border border-border bg-background/70 p-2">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Tenants paid (7d)</div>
-              <div className="text-base font-extrabold tabular-nums text-foreground">
-                {row.paying_tenants_last_week}<span className="text-muted-foreground font-semibold text-xs"> / {row.active_tenant_count}</span>
+
+            {/* BIG status banner — the only thing a busy person needs to see */}
+            <div className={`rounded-xl border-2 ${statusBg} p-3 flex items-center gap-3`}>
+              <StatusIcon className={`h-8 w-8 shrink-0 ${statusText}`} strokeWidth={2.5} />
+              <div className="min-w-0 flex-1">
+                <p className={`text-base font-extrabold leading-tight ${statusText}`}>
+                  {statusHeadline}
+                </p>
+                <p className={`text-xs font-semibold mt-0.5 ${statusText} opacity-90`}>
+                  {statusSub}
+                </p>
               </div>
-              <div className="text-[10px] text-muted-foreground">in the last 7 days</div>
             </div>
-          </div>
-        )}
 
-        {/* Show "Tap for details" hint when collapsed */}
-        {collapsed && (
-          <p className="text-center text-[10px] text-muted-foreground mt-2 font-semibold">
-            Tap for full details
-          </p>
-        )}
-      </div>
-
-      {!collapsed && (
-        <div className="px-3 pb-3 border-t border-border/60 pt-3 space-y-2">
-          <div className="flex flex-wrap items-center gap-1">
-            <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${dailyRatingTone[row.daily_rating]}`}
-              title={`Today's collection rating — ${formatUGX(row.paid_today)} of ${formatUGX(row.expected_daily)} (${todayPct}%)`}
-            >
-              {dailyLabel}
-            </span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${tier.tone}`}>
-              7d tier: {tier.label}
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-[11px] font-semibold tabular-nums mb-1">
-            <span className="text-muted-foreground">
-              Used <span className="text-foreground">{formatUGX(row.used)}</span> / {formatUGX(AGENT_RENT_CAP_UGX)}
-            </span>
-            <span className="text-muted-foreground">{pct}%</span>
-          </div>
-          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-            <div className={`h-full ${bar} transition-all`} style={{ width: `${pct}%` }} />
-          </div>
-          <div className="flex items-center justify-between text-[11px] mt-1.5">
-            <span className="text-muted-foreground">
-              Headroom <strong className="text-foreground font-mono">{formatUGX(headroom)}</strong>
-            </span>
-            <span className="text-muted-foreground">
-              Response <strong className="text-foreground">{rateLabel}</strong> · Per-tenant max{' '}
-              <strong className="text-foreground font-mono">{formatUGX(tier.max)}</strong>
-            </span>
-          </div>
-          <div className="text-[10px] text-muted-foreground mt-1 tabular-nums">
-            Last 7d: <strong className="text-foreground">{row.responding_tenant_days}</strong> /{' '}
-            <strong className="text-foreground">{row.expected_tenant_days}</strong> tenant-day responses
-            {row.paid_last_week > 0 && (
-              <> · <span className="text-muted-foreground">{formatUGX(row.paid_last_week)} total</span></>
+            {/* Today's collection — large numbers everyone can read */}
+            {!isStarter && (
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="rounded-lg border border-border bg-background/70 p-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Collected today</div>
+                  <div className={`text-base font-extrabold tabular-nums ${todayTone}`}>
+                    {formatUGX(row.paid_today)}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground tabular-nums">
+                    of {formatUGX(row.expected_daily)} target
+                  </div>
+                </div>
+                <div className="rounded-lg border border-border bg-background/70 p-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Tenants paid (7d)</div>
+                  <div className="text-base font-extrabold tabular-nums text-foreground">
+                    {row.paying_tenants_last_week}<span className="text-muted-foreground font-semibold text-xs"> / {row.active_tenant_count}</span>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">in the last 7 days</div>
+                </div>
+              </div>
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 mt-2">
-            <div className="rounded-lg border border-border bg-background/70 p-2">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Today</div>
-              <div className={`text-[12px] font-extrabold tabular-nums ${todayTone}`}>
-                {formatUGX(row.paid_today)}
-                <span className="text-muted-foreground font-semibold"> / {formatUGX(row.expected_daily)}</span>
-              </div>
-              <div className="text-[10px] text-muted-foreground">{todayPct}% of daily target</div>
+          <div className="px-3 pb-3 border-t border-border/60 pt-3 space-y-2">
+            <div className="flex flex-wrap items-center gap-1">
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${dailyRatingTone[row.daily_rating]}`}
+                title={`Today's collection rating — ${formatUGX(row.paid_today)} of ${formatUGX(row.expected_daily)} (${todayPct}%)`}
+              >
+                {dailyLabel}
+              </span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${tier.tone}`}>
+                7d tier: {tier.label}
+              </span>
             </div>
-            <div className="rounded-lg border border-border bg-background/70 p-2">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Yesterday</div>
-              <div className={`text-[12px] font-extrabold tabular-nums ${yesterdayTone}`}>
-                {formatUGX(row.paid_yesterday)}
-                <span className="text-muted-foreground font-semibold"> / {formatUGX(row.expected_daily)}</span>
-              </div>
-              <div className="text-[10px] text-muted-foreground">{yesterdayPct}% of daily target</div>
+            <div className="flex items-center justify-between text-[11px] font-semibold tabular-nums mb-1">
+              <span className="text-muted-foreground">
+                Used <span className="text-foreground">{formatUGX(row.used)}</span> / {formatUGX(AGENT_RENT_CAP_UGX)}
+              </span>
+              <span className="text-muted-foreground">{pct}%</span>
             </div>
-            <div className="rounded-lg border border-border bg-background/70 p-2">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">This week (7d)</div>
-              <div className={`text-[12px] font-extrabold tabular-nums ${weekTone}`}>
-                {formatUGX(row.paid_last_week)}
-                <span className="text-muted-foreground font-semibold"> / {formatUGX(expectedWeek)}</span>
-              </div>
-              <div className="text-[10px] text-muted-foreground">{weekPct}% of weekly target</div>
+            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+              <div className={`h-full ${bar} transition-all`} style={{ width: `${pct}%` }} />
             </div>
-          </div>
+            <div className="flex items-center justify-between text-[11px] mt-1.5">
+              <span className="text-muted-foreground">
+                Headroom <strong className="text-foreground font-mono">{formatUGX(headroom)}</strong>
+              </span>
+              <span className="text-muted-foreground">
+                Response <strong className="text-foreground">{rateLabel}</strong> · Per-tenant max{' '}
+                <strong className="text-foreground font-mono">{formatUGX(tier.max)}</strong>
+              </span>
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-1 tabular-nums">
+              Last 7d: <strong className="text-foreground">{row.responding_tenant_days}</strong> /{' '}
+              <strong className="text-foreground">{row.expected_tenant_days}</strong> tenant-day responses
+              {row.paid_last_week > 0 && (
+                <> · <span className="text-muted-foreground">{formatUGX(row.paid_last_week)} total</span></>
+              )}
+            </div>
 
-          <AgentEligibilityHistoryStrip agentId={row.agent_id} />
-        </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 mt-2">
+              <div className="rounded-lg border border-border bg-background/70 p-2">
+                <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Today</div>
+                <div className={`text-[12px] font-extrabold tabular-nums ${todayTone}`}>
+                  {formatUGX(row.paid_today)}
+                  <span className="text-muted-foreground font-semibold"> / {formatUGX(row.expected_daily)}</span>
+                </div>
+                <div className="text-[10px] text-muted-foreground">{todayPct}% of daily target</div>
+              </div>
+              <div className="rounded-lg border border-border bg-background/70 p-2">
+                <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Yesterday</div>
+                <div className={`text-[12px] font-extrabold tabular-nums ${yesterdayTone}`}>
+                  {formatUGX(row.paid_yesterday)}
+                  <span className="text-muted-foreground font-semibold"> / {formatUGX(row.expected_daily)}</span>
+                </div>
+                <div className="text-[10px] text-muted-foreground">{yesterdayPct}% of daily target</div>
+              </div>
+              <div className="rounded-lg border border-border bg-background/70 p-2">
+                <div className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">This week (7d)</div>
+                <div className={`text-[12px] font-extrabold tabular-nums ${weekTone}`}>
+                  {formatUGX(row.paid_last_week)}
+                  <span className="text-muted-foreground font-semibold"> / {formatUGX(expectedWeek)}</span>
+                </div>
+                <div className="text-[10px] text-muted-foreground">{weekPct}% of weekly target</div>
+              </div>
+            </div>
+
+            <AgentEligibilityHistoryStrip agentId={row.agent_id} />
+          </div>
+        </>
       )}
     </li>
   );

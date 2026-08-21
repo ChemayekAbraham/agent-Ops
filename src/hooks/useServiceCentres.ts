@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 /** Fixed one-off setup bonus paid to an agent for a verified Service Centre. */
 export const SERVICE_CENTRE_BONUS = 25000;
 
-export type ServiceCentreStatus = 'pending' | 'verified' | 'approved' | 'paid' | 'rejected';
+export type ServiceCentreStatus = 'pending' | 'verified' | 'active' | 'approved' | 'paid' | 'rejected';
 
 export interface ServiceCentre {
   id: string;
@@ -59,6 +59,7 @@ export function useServiceCentres() {
 export const SC_STATUS_META: Record<ServiceCentreStatus, { label: string; className: string; dot: string }> = {
   pending:  { label: 'Awaiting verification', className: 'bg-amber-500/15 text-amber-600',   dot: 'hsl(38 92% 50%)' },
   verified: { label: 'Verified — awaiting payout', className: 'bg-blue-500/15 text-blue-600', dot: 'hsl(217 91% 60%)' },
+  active:   { label: 'Active', className: 'bg-emerald-500/15 text-emerald-600', dot: 'hsl(160 84% 39%)' },
   approved: { label: 'Approved',               className: 'bg-emerald-500/15 text-emerald-600', dot: 'hsl(160 84% 39%)' },
   paid:     { label: 'Live & paid',            className: 'bg-emerald-600/15 text-emerald-700', dot: 'hsl(142 71% 45%)' },
   rejected: { label: 'Rejected',               className: 'bg-destructive/15 text-destructive', dot: 'hsl(0 84% 60%)' },

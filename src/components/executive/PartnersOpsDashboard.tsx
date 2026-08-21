@@ -304,12 +304,14 @@ export function PartnersOpsDashboard() {
           <ApprovedPartnerWithdrawals onBack={() => setView('overview')} />
         </div>
       );
+      // Applications live solely under the "Vetting" tab (proxy.vetting) —
+      // the overview no longer duplicates that queue.
       case 'proxy.overview': return (
         <div className="space-y-6">
-          <ProxyAgentApplicationsQueue />
           <ProxyAgentManager />
         </div>
       );
+
       case 'proxy.vetting': return <ProxyAgentApplicationsQueue />;
       case 'rent.requests': return <PartnerOpsRentRequestQueue />;
       case 'proxy.followup': return (

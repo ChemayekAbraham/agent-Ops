@@ -20,6 +20,7 @@ import { EarningsSummaryCard } from '@/components/agent/EarningsSummaryCard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { 
   UserPlus,
   Menu,
@@ -46,7 +47,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { Info } from 'lucide-react';
+import { Info, UsersRound } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Wallet, Landmark, LayoutDashboard, ChevronRight } from 'lucide-react';
 import { HandCoins } from 'lucide-react';
@@ -66,6 +67,7 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { ProfileSummaryPopover } from '@/components/profile/ProfileSummaryPopover';
 import { SubAgentsPanel } from '@/components/agent/SubAgentsPanel';
 import { MyParentAgentCard } from '@/components/agent/MyParentAgentCard';
+import { ParentAgentDialog, useMyParentAgent } from '@/components/agent/ParentAgentDialog';
 import { ServiceCenterQualificationCard } from '@/components/agent/ServiceCenterQualificationCard';
 import { LastWeekWinnerOverlay } from '@/components/agent/LastWeekWinnerOverlay';
 import { ListRegisterEarnDialog } from '@/components/agent/ListRegisterEarnDialog';
@@ -266,6 +268,21 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       void refreshEarnings();
     },
   });
+
+  // Live sub-agent leaderboard rank for the current agent (same source as
+  // /dashboard/agents/leaderboard). Defaults to weekly to match the leaderboard
+  // landing period.
+  const { data: mySubagentRank } = useQuery({
+    queryKey: ['agent-dashboard-my-subagent-rank', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_my_subagent_rank', {
+        p_period: 'weekly',
+      });
+      if (error) throw error;
+      return (data?.[0] as { rank: number; active_count: number; total_subagents: number; active_rate: number } | null) ?? null;
+    },
+  });
   
   const { 
     stats, 
@@ -307,6 +324,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // Weekly Listing Mission promo dialog removed — campaign expired.
   const [rentRequestOpen, setRentRequestOpen] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
+  const [parentAgentOpen, setParentAgentOpen] = useState(false);
+  const { data: parentAgentInfo } = useMyParentAgent(user?.id);
   const [walletScrollTarget, setWalletScrollTarget] = useState<'statement' | null>(null);
   const [earningsRankOpen, setEarningsRankOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -887,8 +906,20 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
           </div>
         )}
 
-        {/* Active devices / multi-session indicator */}
-        <div className="flex justify-end -mt-2">
+        {/* Active devices / multi-session indicator + performance pill */}
+        <div className="flex items-center justify-between -mt-2 gap-2">
+          {mySubagentRank ? (
+            <button
+              type="button"
+              onClick={() => { hapticTap(); navigate('/dashboard/agents/leaderboard'); }}
+              className="inline-flex w-fit items-center gap-1 rounded-full bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+            >
+              <Trophy className="h-3 w-3" />
+              Top Performer #{mySubagentRank.rank}
+            </button>
+          ) : (
+            <span />
+          )}
           <DeviceSessionIndicator userId={user.id} />
         </div>
 
@@ -1592,6 +1623,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               {[
                 { icon: Building2, label: 'Share Landlord', onClick: handleShareLandlordSignup },
                 { icon: UserPlus, label: 'Invite & Earn', onClick: () => navigate('/referrals') },
+                ...(parentAgentInfo?.parent_agent_id
+                  ? [{ icon: UsersRound, label: 'My Parent Agent', onClick: () => setParentAgentOpen(true) }]
+                  : []),
                 { icon: Menu, label: 'All Menu', onClick: handleOpenMenu },
               ].map((a) => (
                 <button
@@ -1623,6 +1657,13 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         </main>
       </div>
 
+      <LazyModal when={parentAgentOpen}>
+      <ParentAgentDialog
+        open={parentAgentOpen}
+        onOpenChange={setParentAgentOpen}
+        agentId={user?.id}
+      />
+      </LazyModal>
       <LazyModal when={showWallet}>
       <FullScreenWalletSheet
         open={showWallet}

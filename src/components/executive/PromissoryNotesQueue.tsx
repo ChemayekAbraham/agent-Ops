@@ -26,7 +26,8 @@ import { CompactAmount } from '@/components/ui/CompactAmount';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { usePromissoryOpsReport, PROMISSORY_RANGES } from '@/hooks/usePromissoryOpsReport';
-import { ProxyAgentPerformanceList } from './ProxyAgentPerformanceList';
+import { formatUGX } from '@/lib/rentCalculations';
+
 
 export function PromissoryNotesQueue() {
   const queryClient = useQueryClient();
@@ -196,7 +197,7 @@ export function PromissoryNotesQueue() {
     }
   };
 
-  const { range, setRange, report, isLoading, refetch } = usePromissoryOpsReport();
+  const { range, setRange, report, isLoading, refetch, error: reportError } = usePromissoryOpsReport();
   const notes = report.notes;
   const kpis = report.kpis;
 
@@ -249,6 +250,7 @@ export function PromissoryNotesQueue() {
     { label: 'Pending commission', value: <CompactAmount value={Number(kpis.pending_commission)} />, hint: `${kpis.pending_commission_count} requests`, tone: 'bg-amber-50 border-amber-200' },
     { label: 'Approved commission', value: <CompactAmount value={Number(kpis.approved_commission)} />, hint: `${kpis.approved_commission_count} paid`, tone: 'bg-emerald-50 border-emerald-200' },
     { label: 'Proxies pending review', value: kpis.proxies_pending, hint: 'awaiting approval', tone: 'bg-rose-50 border-rose-200' },
+    { label: 'Self supporting tenants', value: kpis.self_supporting_tenants, hint: `${kpis.self_supporting_partners} partner${kpis.self_supporting_partners === 1 ? '' : 's'} · ${formatUGX(Number(kpis.self_support_committed))}`, tone: 'bg-teal-50 border-teal-200' },
   ];
 
   return (
@@ -329,6 +331,11 @@ export function PromissoryNotesQueue() {
         <CardContent className="p-3">
           {isLoading ? (
             <div className="text-center py-8 text-muted-foreground text-sm">Loading promissory notes...</div>
+          ) : reportError ? (
+            <div className="text-center py-8 text-sm space-y-2">
+              <p className="text-destructive">Could not load promissory notes: {reportError.message}</p>
+              <Button variant="outline" size="sm" onClick={() => refetch()}>Try again</Button>
+            </div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">No promissory notes found</div>
           ) : (
@@ -441,10 +448,6 @@ export function PromissoryNotesQueue() {
           )}
         </CardContent>
       </Card>
-
-      {/* Proxy agent performance */}
-      <ProxyAgentPerformanceList agents={report.proxy_agents} isLoading={isLoading} />
-
 
       {/* Detail Sheet */}
       <Sheet open={!!selectedNote} onOpenChange={(open) => { if (!open) setSelectedNote(null); }}>

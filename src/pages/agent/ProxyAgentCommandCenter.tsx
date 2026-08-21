@@ -25,6 +25,7 @@ import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import { createShortLink } from '@/lib/createShortLink';
 
 import { PromissoryNoteDialog } from '@/components/agent/PromissoryNoteDialog';
+import { SupportModeChooserDialog, type SupportMode } from '@/components/agent/SupportModeChooserDialog';
 import { WithdrawRequestDialog } from '@/components/wallet/WithdrawRequestDialog';
 import {
   useProxyCommandCenterSummary,
@@ -100,6 +101,8 @@ export default function ProxyAgentCommandCenter() {
 
   // Dialog / sheet state
   const [noteOpen, setNoteOpen] = useState(false);
+  const [supportModeOpen, setSupportModeOpen] = useState(false);
+  const [supportMode, setSupportMode] = useState<SupportMode>('self');
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [inviting, setInviting] = useState(false);
@@ -249,7 +252,7 @@ export default function ProxyAgentCommandCenter() {
   }, [tab, partnersQ.data, notesQ.data]);
 
   const quickActions = useMemo(() => ([
-    { key: 'note', label: 'Promissory', icon: FileText, onClick: () => { hapticTap(); setNoteOpen(true); } },
+    { key: 'note', label: 'Promissory', icon: FileText, onClick: () => { hapticTap(); setSupportModeOpen(true); } },
     { key: 'reports', label: 'Reports', icon: BarChart3, onClick: () => { hapticTap(); setReportsOpen(true); } },
     { key: 'invite', label: 'Invite', icon: Share2, onClick: openInviteSheet },
     { key: 'withdraw', label: 'Withdraw', icon: Wallet, onClick: () => { hapticTap(); setWithdrawOpen(true); } },
@@ -578,7 +581,13 @@ export default function ProxyAgentCommandCenter() {
       </main>
 
       {/* Dialogs */}
+      <SupportModeChooserDialog
+        open={supportModeOpen}
+        onOpenChange={setSupportModeOpen}
+        onSelect={(mode) => { setSupportMode(mode); setSupportModeOpen(false); setNoteOpen(true); }}
+      />
       <PromissoryNoteDialog
+        supportMode={supportMode}
         open={noteOpen}
         onOpenChange={(o) => { setNoteOpen(o); if (!o) refreshAll(); }}
       />

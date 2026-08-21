@@ -29074,6 +29074,10 @@ export type Database = {
           agent_phone: string
           approved_at: string | null
           approved_by: string | null
+          ceo_approved_at: string | null
+          ceo_approved_by: string | null
+          ceo_comment: string | null
+          ceo_rejection_reason: string | null
           created_at: string | null
           id: string
           latitude: number
@@ -29082,6 +29086,8 @@ export type Database = {
           photo_url: string
           rejection_reason: string | null
           status: string
+          verification_comment: string | null
+          verified_amount: number | null
           verified_at: string | null
           verified_by: string | null
         }
@@ -29091,6 +29097,10 @@ export type Database = {
           agent_phone: string
           approved_at?: string | null
           approved_by?: string | null
+          ceo_approved_at?: string | null
+          ceo_approved_by?: string | null
+          ceo_comment?: string | null
+          ceo_rejection_reason?: string | null
           created_at?: string | null
           id?: string
           latitude: number
@@ -29099,6 +29109,8 @@ export type Database = {
           photo_url: string
           rejection_reason?: string | null
           status?: string
+          verification_comment?: string | null
+          verified_amount?: number | null
           verified_at?: string | null
           verified_by?: string | null
         }
@@ -29108,6 +29120,10 @@ export type Database = {
           agent_phone?: string
           approved_at?: string | null
           approved_by?: string | null
+          ceo_approved_at?: string | null
+          ceo_approved_by?: string | null
+          ceo_comment?: string | null
+          ceo_rejection_reason?: string | null
           created_at?: string | null
           id?: string
           latitude?: number
@@ -29116,6 +29132,8 @@ export type Database = {
           photo_url?: string
           rejection_reason?: string | null
           status?: string
+          verification_comment?: string | null
+          verified_amount?: number | null
           verified_at?: string | null
           verified_by?: string | null
         }
@@ -37120,13 +37138,14 @@ export type Database = {
       agent_ops_issue_agent_product: {
         Args: {
           p_agent_id: string
-          p_amount_paid?: number
+          p_amount_paid: number
           p_item_name: string
-          p_notes?: string
-          p_payment_plan?: string
+          p_notes: string
+          p_payment_plan: string
           p_quantity: number
-          p_service_centre_id?: string
-          p_unit_cost?: number
+          p_recovery_rate?: number
+          p_service_centre_id: string
+          p_unit_cost: number
           p_unit_price: number
         }
         Returns: string
@@ -37954,6 +37973,20 @@ export type Database = {
           p_reason: string
         }
         Returns: Json
+      }
+      ceo_approve_service_centres: {
+        Args: { p_comment: string; p_ids: string[] }
+        Returns: {
+          id: string
+          status: string
+        }[]
+      }
+      ceo_reject_service_centres: {
+        Args: { p_comment: string; p_ids: string[] }
+        Returns: {
+          id: string
+          status: string
+        }[]
       }
       cfo_approve_float_request: {
         Args: { p_amount: number; p_reason: string; p_request_id: string }
@@ -40401,6 +40434,22 @@ export type Database = {
       get_mission_leaderboard: { Args: { p_limit?: number }; Returns: Json }
       get_my_ai_id_summary: { Args: never; Returns: Json }
       get_my_listing_block: { Args: never; Returns: Json }
+      get_my_parent_agent: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          full_name: string
+          invited_at: string
+          link_status: string
+          linked_at: string
+          location_label: string
+          parent_agent_id: string
+          phone: string
+          service_centre_name: string
+          service_centre_photo_url: string
+          service_centre_status: string
+        }[]
+      }
       get_my_referral_bonuses: {
         Args: never
         Returns: {
@@ -44354,6 +44403,10 @@ export type Database = {
               sign: number
             }[]
           }
+      wallet_self_route_allowed: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
       wallet_strict_for_user: {
         Args: { p_user_id: string }
         Returns: {

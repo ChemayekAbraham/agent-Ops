@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -714,6 +714,32 @@ export function FleetPerformanceStats({
     refetchIntervalInBackground: false,
   });
 
+  /**
+   * Shared source of truth with the Performance page (Collections Command Center):
+   * the same `get_agent_collections_command_center` RPC, called with this page's
+   * selected range. The EXPECTED / COLLECTED / COLLECTION RATE cards read from
+   * here so both pages always show identical real-time totals.
+   */
+  const commandBucket = days <= 1 ? 'hour' : days <= 62 ? 'day' : 'month';
+  const { data: commandCenter } = useQuery({
+    queryKey: ['agent-collections-command-center', start.toISOString(), end.toISOString(), commandBucket],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_collections_command_center', {
+        p_start: start.toISOString(),
+        p_end: end.toISOString(),
+        p_bucket: commandBucket,
+      });
+      if (error) throw error;
+      return data as unknown as {
+        totals: { collected: number };
+        agents: { agent_id: string; expected: number; collected: number }[];
+      };
+    },
+    refetchInterval: 60_000,
+    staleTime: 20_000,
+  });
+
+
   const agentIds = useMemo(() => {
     const set = new Set<string>([...Object.keys(expectedByAgent), ...Object.keys(collectedByAgent)]);
     return Array.from(set).sort();
@@ -769,9 +795,18 @@ export function FleetPerformanceStats({
   }, [expandedId, rows]);
 
   const loading = expLoading || colLoading;
-  const totalExpected = rows.reduce((s, r) => s + r.expected, 0);
-  const totalCollected = rows.reduce((s, r) => s + r.collected, 0);
+  // KPI totals come from the Command Center RPC (shared with the Performance page)
+  // and fall back to the locally computed row sums until the RPC resolves.
+  const localExpected = rows.reduce((s, r) => s + r.expected, 0);
+  const localCollected = rows.reduce((s, r) => s + r.collected, 0);
+  const totalExpected = commandCenter
+    ? (commandCenter.agents || []).reduce((s, a) => s + (Number(a.expected) || 0), 0)
+    : localExpected;
+  const totalCollected = commandCenter
+    ? Number(commandCenter.totals?.collected ?? 0)
+    : localCollected;
   const rate = totalExpected > 0 ? Math.round((totalCollected / totalExpected) * 100) : 0;
+
   const rateTone = rate >= 100 ? 'text-emerald-600' : rate >= 80 ? 'text-emerald-600' : rate >= 50 ? 'text-amber-600' : 'text-destructive';
   const barTone = rate >= 100 ? 'bg-emerald-500' : rate >= 80 ? 'bg-emerald-500' : rate >= 50 ? 'bg-amber-500' : 'bg-destructive';
 
@@ -789,6 +824,44 @@ export function FleetPerformanceStats({
       .map((r) => ({ ...r, gap: Math.max(0, r.expected - r.collected) }))
       .sort((a, b) => b.gap - a.gap);
   }, [rawRows, alertThreshold, alertMinExpected]);
+
+  // Anchor for the agent-by-agent breakdown table so KPI cards can scroll to it.
+  const breakdownRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * KPI card click: sort the breakdown by the clicked metric (highest first,
+   * toggling to lowest first on a repeat click) and scroll the table into view.
+   */
+  const focusMetric = (key: 'expected' | 'collected' | 'rate') => {
+    setSort((prev) => (prev.key === key ? { key, dir: prev.dir === 'desc' ? 'asc' : 'desc' } : { key, dir: 'desc' }));
+    setPage(0);
+    requestAnimationFrame(() => {
+      breakdownRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
+  /** Which KPI card has its inline agent accordion open. */
+  const [kpiPanel, setKpiPanel] = useState<'expected' | 'collected' | null>(null);
+
+  /** Agents with expected rent due in this window, biggest first. */
+  const expectedPanelRows = useMemo(
+    () => filteredRows.filter((r) => r.expected > 0).sort((a, b) => b.expected - a.expected),
+    [filteredRows],
+  );
+
+  /** Agents that actually collected in this window, biggest first. */
+  const collectedPanelRows = useMemo(
+    () => filteredRows.filter((r) => r.collected > 0).sort((a, b) => b.collected - a.collected),
+    [filteredRows],
+  );
+
+  /** Toggle the inline accordion under a KPI card and sort the breakdown to match. */
+  const toggleKpiPanel = (key: 'expected' | 'collected') => {
+    setKpiPanel((prev) => (prev === key ? null : key));
+    setSort({ key, dir: 'desc' });
+    setPage(0);
+  };
+
 
   // Jump to a specific agent row in the breakdown table, expand it, and scroll it into view.
   const focusAgent = (id: string) => {
@@ -1080,8 +1153,11 @@ export function FleetPerformanceStats({
               label="Expected"
               value={formatUGX(totalExpected)}
               tone="text-violet-600"
-              onClick={() => openExpected()}
-              clickHint="View every active rent plan contributing to Expected"
+              onClick={() => toggleKpiPanel('expected')}
+              clickHint="Show the agents with expected rent due in this period"
+              active={kpiPanel === 'expected'}
+              secondaryLabel="Rent plans"
+              onSecondary={() => openExpected()}
             />
             <Stat
               icon={<Banknote className="h-3.5 w-3.5" />}
@@ -1097,13 +1173,153 @@ export function FleetPerformanceStats({
                 ],
                 footnote: 'Legacy tracking_ids (ALLOC-*, TPAY-*, WEL-TXN-*, null) are also excluded.',
               }}
-              onClick={() => openDrill()}
-              clickHint="View every collection record contributing to this total"
+              onClick={() => toggleKpiPanel('collected')}
+              clickHint="Show the active collecting agents and their collection rates"
+              active={kpiPanel === 'collected'}
+              secondaryLabel="Records"
+              onSecondary={() => openDrill()}
             />
-            <Stat icon={<Percent className="h-3.5 w-3.5" />} label="Collection rate" value={`${rate}%`} tone={rateTone} />
+            <Stat
+              icon={<Percent className="h-3.5 w-3.5" />}
+              label="Collection rate"
+              value={`${rate}%`}
+              tone={rateTone}
+              onClick={() => focusMetric('rate')}
+              clickHint="Sort the agent breakdown below by collection rate"
+              active={sort.key === 'rate'}
+            />
           </div>
+
+          {/* Inline accordion folded under the Expected / Collected KPI cards. */}
+          {kpiPanel && (
+            <KpiAgentAccordion
+              variant={kpiPanel}
+              rows={kpiPanel === 'expected' ? expectedPanelRows : collectedPanelRows}
+              onClose={() => setKpiPanel(null)}
+              onSelectAgent={focusAgent}
+            />
+          )}
+
           <div className="mt-2.5 h-2 w-full rounded-full bg-muted overflow-hidden">
             <div className={`h-full ${barTone} transition-all`} style={{ width: `${Math.min(rate, 100)}%` }} />
+          </div>
+
+          {/* Agent performance breakdown — exact expected / collected / rate per agent
+              plus a drill-down of that agent's tenant payments. */}
+          <div ref={breakdownRef} className="mt-4 scroll-mt-4 rounded-lg border border-border bg-card">
+            <div className="flex flex-col gap-2 border-b border-border p-2.5 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                Agent performance breakdown · {rows.length} agent{rows.length === 1 ? '' : 's'}
+              </p>
+              <div className="relative sm:w-56">
+                <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search agent"
+                  className="h-7 w-full rounded-lg border border-border bg-background pl-7 pr-6 text-[11px] outline-none focus:border-primary"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    aria-label="Clear agent search"
+                    onClick={() => setSearch('')}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+
+            {rows.length === 0 ? (
+              <p className="p-3 text-[11px] text-muted-foreground">No agent activity for this period.</p>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[11px]">
+                    <thead>
+                      <tr className="border-b border-border text-[10px] uppercase tracking-wide">
+                        <th className="p-2 text-left font-semibold text-muted-foreground">Agent</th>
+                        <th className="p-2 text-right font-semibold">
+                          <SortHeader label="Expected" sortKey="expected" sort={sort} onChange={setSort} align="right" />
+                        </th>
+                        <th className="p-2 text-right font-semibold">
+                          <SortHeader label="Collected" sortKey="collected" sort={sort} onChange={setSort} align="right" />
+                        </th>
+                        <th className="p-2 text-right font-semibold">
+                          <SortHeader label="Rate" sortKey="rate" sort={sort} onChange={setSort} align="right" />
+                        </th>
+                        <th className="w-8 p-2" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pageRows.map((r, i) => {
+                        const open = expandedId === r.id;
+                        const tone = r.rate >= 80 ? 'text-emerald-600' : r.rate >= 50 ? 'text-amber-600' : 'text-destructive';
+                        return (
+                          <Fragment key={r.id}>
+                            <tr
+                              id={`fleet-row-${r.id}`}
+                              onClick={() => setExpandedId(open ? null : r.id)}
+                              className="cursor-pointer border-b border-border/60 hover:bg-muted/50"
+                            >
+                              <td className="p-2">
+                                <span className="text-muted-foreground mr-1">{pageStart + i + 1}.</span>
+                                <span className="font-semibold">{r.name}</span>
+                              </td>
+                              <td className="p-2 text-right font-mono text-violet-600">{formatUGX(r.expected)}</td>
+                              <td className="p-2 text-right font-mono text-primary">{formatUGX(r.collected)}</td>
+                              <td className={`p-2 text-right font-bold ${tone}`}>{r.rate}%</td>
+                              <td className="p-2 text-right text-muted-foreground">
+                                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+                              </td>
+                            </tr>
+                            {open && (
+                              <tr className="border-b border-border/60 bg-muted/20">
+                                <td colSpan={5} className="p-2">
+                                  <AgentCollectionsBreakdown
+                                    agentId={r.id}
+                                    agentName={r.name}
+                                    start={start}
+                                    end={end}
+                                    expectedCollected={r.collected}
+                                  />
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between gap-2 border-t border-border p-2">
+                    <button
+                      type="button"
+                      onClick={() => setPage((p) => Math.max(0, p - 1))}
+                      disabled={safePage === 0}
+                      className="inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-[10px] font-semibold disabled:opacity-40"
+                    >
+                      <ChevronLeft className="h-3 w-3" /> Prev
+                    </button>
+                    <span className="text-[10px] text-muted-foreground">
+                      Page {safePage + 1} of {totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                      disabled={safePage >= totalPages - 1}
+                      className="inline-flex h-6 items-center gap-1 rounded-md border border-border px-2 text-[10px] font-semibold disabled:opacity-40"
+                    >
+                      Next <ChevronRight className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </>
       )}
@@ -1127,7 +1343,100 @@ export function FleetPerformanceStats({
   );
 }
 
+/**
+ * Inline accordion body folded under the Expected / Collected KPI cards.
+ * Expected: agents with rent due. Collected: active collecting agents with
+ * their calculated collection rate (collected / expected * 100).
+ */
+function KpiAgentAccordion({
+  variant,
+  rows,
+  onClose,
+  onSelectAgent,
+}: {
+  variant: 'expected' | 'collected';
+  rows: { id: string; name: string; expected: number; collected: number; rate: number }[];
+  onClose: () => void;
+  onSelectAgent: (id: string) => void;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? rows : rows.slice(0, 10);
+  const total = rows.reduce((s, r) => s + (variant === 'expected' ? r.expected : r.collected), 0);
+
+  return (
+    <div className="mt-2 rounded-lg border border-border bg-muted/20">
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 px-2.5 py-2">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+          {variant === 'expected'
+            ? `Agents with expected rent · ${rows.length}`
+            : `Active collecting agents · ${rows.length}`}
+          <span className="ml-2 font-mono normal-case text-foreground">{formatUGX(total)}</span>
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Collapse agent list"
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="p-3 text-[11px] text-muted-foreground">
+          {variant === 'expected' ? 'No agent has expected rent in this period.' : 'No agent collected in this period.'}
+        </p>
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="border-b border-border/60 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <th className="p-2 text-left font-semibold">Agent</th>
+                  <th className="p-2 text-right font-semibold">Expected</th>
+                  <th className="p-2 text-right font-semibold">Collected</th>
+                  <th className="p-2 text-right font-semibold">Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((r, i) => {
+                  const tone = r.rate >= 80 ? 'text-emerald-600' : r.rate >= 50 ? 'text-amber-600' : 'text-destructive';
+                  return (
+                    <tr
+                      key={r.id}
+                      onClick={() => onSelectAgent(r.id)}
+                      className="cursor-pointer border-b border-border/40 last:border-0 hover:bg-muted/50"
+                    >
+                      <td className="p-2">
+                        <span className="mr-1 text-muted-foreground">{i + 1}.</span>
+                        <span className="font-semibold">{r.name}</span>
+                      </td>
+                      <td className="p-2 text-right font-mono text-violet-600">{formatUGX(r.expected)}</td>
+                      <td className="p-2 text-right font-mono text-primary">{formatUGX(r.collected)}</td>
+                      <td className={`p-2 text-right font-bold ${tone}`}>{r.expected > 0 ? `${r.rate}%` : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {rows.length > 10 && (
+            <button
+              type="button"
+              onClick={() => setShowAll((v) => !v)}
+              className="w-full border-t border-border/60 p-2 text-[10px] font-semibold text-primary hover:bg-muted/40"
+            >
+              {showAll ? 'Show top 10' : `Show all ${rows.length} agents`}
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function Stat({
+
   icon,
   label,
   value,
@@ -1136,6 +1445,9 @@ function Stat({
   formula,
   onClick,
   clickHint,
+  active,
+  secondaryLabel,
+  onSecondary,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -1149,9 +1461,20 @@ function Stat({
   };
   onClick?: () => void;
   clickHint?: string;
+  /** Highlights the card when the breakdown is currently sorted by this metric. */
+  active?: boolean;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
 }) {
   return (
-    <div className={`rounded-lg border border-border bg-card p-2 ${onClick ? 'hover:border-primary/40 hover:bg-primary/5 transition-colors' : ''}`}>
+    <div
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      title={onClick ? clickHint : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+      className={`rounded-lg border bg-card p-2 ${onClick ? 'cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-colors' : ''} ${active ? 'border-primary ring-1 ring-primary/30' : 'border-border'}`}
+    >
       <div className={`flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide ${tone}`}>
         {icon}
         <span className="truncate">{label}</span>
@@ -1162,6 +1485,7 @@ function Stat({
                 <button
                   type="button"
                   aria-label={`${label} data source`}
+                  onClick={(e) => e.stopPropagation()}
                   className="ml-0.5 inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <Info className="h-3 w-3" />
@@ -1180,6 +1504,7 @@ function Stat({
                 <button
                   type="button"
                   aria-label={`${label} formula`}
+                  onClick={(e) => e.stopPropagation()}
                   className="ml-0.5 inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <Info className="h-3 w-3" />
@@ -1205,17 +1530,19 @@ function Stat({
           </UiTooltipProvider>
         )}
       </div>
-      {onClick ? (
+      <div
+        className={`mt-0.5 text-sm font-extrabold tabular-nums text-foreground truncate ${onClick ? 'underline decoration-dotted decoration-muted-foreground/40 underline-offset-2' : ''}`}
+      >
+        {value}
+      </div>
+      {secondaryLabel && onSecondary && (
         <button
           type="button"
-          onClick={onClick}
-          title={clickHint || 'Drill into contributing records'}
-          className="mt-0.5 text-sm font-extrabold tabular-nums text-foreground truncate w-full text-left underline decoration-dotted decoration-muted-foreground/40 underline-offset-2 hover:decoration-primary hover:text-primary transition-colors focus:outline-none focus:ring-1 focus:ring-primary rounded"
+          onClick={(e) => { e.stopPropagation(); onSecondary(); }}
+          className="mt-1 text-[10px] font-semibold text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-primary focus:outline-none focus:ring-1 focus:ring-primary rounded"
         >
-          {value}
+          {secondaryLabel}
         </button>
-      ) : (
-        <div className="mt-0.5 text-sm font-extrabold tabular-nums text-foreground truncate">{value}</div>
       )}
     </div>
   );

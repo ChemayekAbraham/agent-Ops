@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
-import { ArrowLeft, Bike, Smartphone, ShoppingBag, Signpost, HandCoins, Store } from 'lucide-react';
+import { ArrowLeft, Bike, Smartphone, ShoppingBag, Signpost, HandCoins, Store, Home } from 'lucide-react';
+import { AgentPersonalRentRequestPanel } from '@/components/executive/agent-ops/AgentPersonalRentRequestPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AgentProductsPanel, type AgentProductCategory } from '@/components/executive/agent-ops/AgentProductsPanel';
 import { AgentProductsServicesReport } from '@/components/executive/agent-ops/AgentProductsServicesReport';
@@ -20,6 +21,7 @@ export const AGENT_PRODUCT_PAGES = [
   { slug: 'signages', category: 'signage' as AgentProductCategory, label: 'Signages', desc: 'Shop signage production & agent contributions', icon: Signpost, color: 'bg-green-600', to: '/agent-ops/products/signages' },
   { slug: 'advances', category: null, label: 'Agent Advances', desc: 'Advance requests, limits & repayment queues', icon: HandCoins, color: 'bg-violet-600', to: '/agent-ops/products/advances' },
   { slug: 'service-centres', category: null, label: 'Service Centres', desc: 'Service centre locations, verifications & manager assignments', icon: Store, color: 'bg-red-500', to: '/agent-ops/products/service-centres' },
+  { slug: 'personal-rent-request', category: null, label: 'Agent Personal Rent Request', desc: 'Personal rent financing requests, approvals & repayment tracking', icon: Home, color: 'bg-teal-600', to: '/agent-ops/products/personal-rent-request' },
 ] as const;
 
 export const AGENT_PRODUCTS_HUB_PATH = '/executive-hub?tab=agent-ops&section=agent-products-services';
@@ -33,6 +35,7 @@ export default function AgentProductCategoryPage() {
   const Icon = entry.icon;
   const isAdvances = entry.slug === 'advances';
   const isServiceCentres = entry.slug === 'service-centres';
+  const isPersonalRentRequest = entry.slug === 'personal-rent-request';
 
   if (isServiceCentres) {
     return (
@@ -57,6 +60,34 @@ export default function AgentProductCategoryPage() {
           </header>
 
           <ServiceCentreVerificationQueue />
+        </div>
+      </div>
+    );
+  }
+
+  if (isPersonalRentRequest) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="mx-auto max-w-7xl px-4 py-5 space-y-5">
+          <Link
+            to={AGENT_PRODUCTS_HUB_PATH}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Products &amp; Services Hub
+          </Link>
+
+          <header className="flex items-start gap-4 rounded-2xl border bg-card p-5 shadow-sm">
+            <div className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${entry.color} text-white shadow-md`}>
+              <Icon className="h-6 w-6" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{entry.label}</h1>
+              <p className="text-sm text-muted-foreground">{entry.desc}</p>
+            </div>
+          </header>
+
+          <AgentPersonalRentRequestPanel />
         </div>
       </div>
     );

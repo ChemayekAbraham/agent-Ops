@@ -1172,6 +1172,33 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
       if (!Number.isFinite(amt) || amt <= 0) throw new Error('Enter a valid amount');
       if (reason.trim().length < 10) throw new Error('Reason must be at least 10 characters');
 
+      // Separation of duties: the backend guard
+      // (WALLET_CORRECTION_SELF_BLOCKED) refuses any wallet movement whose
+      // author is also its target. Catch it here so the operator gets a plain
+      // instruction instead of a raw 403 from the edge function.
+      const { data: authData } = await supabase.auth.getUser();
+      const selfId = authData?.user?.id ?? null;
+      if (selfId) {
+        const selfTargets = [
+          user.id,
+          transferFromUser ? sourceUser?.id : null,
+          manualProxyAgent?.id,
+        ].filter(Boolean) as string[];
+        if (selfTargets.includes(selfId)) {
+          // Some accounts are explicitly allowlisted to route to their own wallet.
+          const { data: selfAllowed } = await supabase.rpc('wallet_self_route_allowed', {
+            p_user_id: selfId,
+          });
+          if (selfAllowed !== true) {
+            throw new Error(
+              'You cannot route this transaction to or from your own account. Ask another CFO / Financial Ops colleague to record it.',
+            );
+          }
+        }
+      }
+
+
+
       // ─── DEBIT MODE (money-out) ────────────────────────────────
       if (mode === 'debit') {
         // `proxyInfo` is the effective proxy agent — either the operator's
