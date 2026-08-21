@@ -44386,6 +44386,10 @@ export type Database = {
               sign: number
             }[]
           }
+      wallet_self_route_allowed: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
       wallet_strict_for_user: {
         Args: { p_user_id: string }
         Returns: {

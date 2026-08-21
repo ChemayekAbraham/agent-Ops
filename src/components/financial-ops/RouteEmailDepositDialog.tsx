@@ -1185,11 +1185,18 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
           manualProxyAgent?.id,
         ].filter(Boolean) as string[];
         if (selfTargets.includes(selfId)) {
-          throw new Error(
-            'You cannot route this transaction to or from your own account. Ask another CFO / Financial Ops colleague to record it.',
-          );
+          // Some accounts are explicitly allowlisted to route to their own wallet.
+          const { data: selfAllowed } = await supabase.rpc('wallet_self_route_allowed', {
+            p_user_id: selfId,
+          });
+          if (selfAllowed !== true) {
+            throw new Error(
+              'You cannot route this transaction to or from your own account. Ask another CFO / Financial Ops colleague to record it.',
+            );
+          }
         }
       }
+
 
 
       // ─── DEBIT MODE (money-out) ────────────────────────────────
