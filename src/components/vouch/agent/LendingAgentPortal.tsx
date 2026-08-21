@@ -408,12 +408,19 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
 
 
   const handleAccept = async () => {
-    const ok = await acceptAgreement(trustScore);
-    if (ok) {
-      toast.success('Agreement signed — you are now a Welile Lending Agent');
-      setShowAgreement(false);
+    try {
+      const ok = await acceptAgreement(trustScore);
+      if (ok) {
+        toast.success('Agreement signed — you are now a Welile Lending Agent');
+        setShowAgreement(false);
+      } else {
+        toast.error('Could not sign the agreement. Please try again.');
+      }
+      return ok;
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not sign the agreement. Please try again.');
+      return false;
     }
-    return ok;
   };
 
   // Whoever is selected — AI-ID lookup or phone search — is the borrower.

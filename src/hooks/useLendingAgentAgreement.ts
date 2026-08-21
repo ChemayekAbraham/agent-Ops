@@ -46,11 +46,16 @@ export function useLendingAgentAgreement() {
       .from('lending_agent_agreement_acceptance' as any)
       .insert({ agent_user_id: user.id, agreement_version: LENDING_AGENT_AGREEMENT_VERSION, trust_score_at_acceptance: trustScore ?? null, ip_address: ip, device_info: device, status: 'accepted' })
       .select().single() as any);
-    if (error) { console.error('[useLendingAgentAgreement]', error); return false; }
+    if (error) {
+      console.error('[useLendingAgentAgreement]', error);
+      // Already signed (unique violation) counts as accepted — re-read the row.
+      if ((error as any).code === '23505') { await check(); return true; }
+      throw new Error(error.message || 'Could not save your acceptance');
+    }
     setIsAccepted(true);
     setAcceptance(data as Acceptance);
     return true;
-  }, [user]);
+  }, [user, check]);
 
   return { isAccepted, acceptance, isLoading, acceptAgreement, currentVersion: LENDING_AGENT_AGREEMENT_VERSION };
 }
