@@ -3353,7 +3353,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
   return (
     <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] sm:w-full sm:max-w-md max-h-[88vh] overflow-x-hidden overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+96px)] sm:pb-6 overscroll-contain">
+      <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] sm:w-full sm:max-w-md max-h-[88vh] overflow-x-hidden overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+96px)] sm:pb-6 overscroll-contain text-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -3586,7 +3586,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
               key="details"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="min-w-0 break-words space-y-4 [&_label]:text-[15px] [&_label]:font-bold [&_input]:h-12 [&_input]:text-base [&_[role=combobox]]:h-12 [&_[role=combobox]]:text-base"
+              className="min-w-0 break-words space-y-3 [&_label]:text-sm [&_label]:font-bold [&_input]:h-10 [&_input]:text-sm [&_[role=combobox]]:h-10 [&_[role=combobox]]:text-sm"
             >
               {/* Guided wizard progress (standard flow only) */}
               {incomeType !== 'outstanding' && (
@@ -3651,7 +3651,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Step {detailStep + 1} of {DETAIL_STEPS.length}
                       </p>
-                      <h3 className="text-xl font-bold tracking-tight text-foreground truncate">
+                      <h3 className="text-base font-bold tracking-tight text-foreground truncate">
                         {DETAIL_STEPS[detailStep]}
                       </h3>
                     </div>
@@ -3872,7 +3872,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                         value={formatCurrencyInput(outstandingBalance)}
                         onChange={(e) => setOutstandingBalance(e.target.value.replace(/[^0-9]/g, ''))}
                         placeholder="Enter amount"
-                        className={`h-12 text-lg font-bold rounded-xl border-input focus-visible:border-primary ${hasFieldError('outstandingBalance') ? 'border-destructive border-2' : ''}`}
+                        className={`h-10 text-base font-bold rounded-xl border-input focus-visible:border-primary ${hasFieldError('outstandingBalance') ? 'border-destructive border-2' : ''}`}
                         required
                       />
                       <FieldError message={vAmount(outstandingBalance) || getFieldError('outstandingBalance')} />
@@ -3922,13 +3922,13 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                   {/* Validation Error Summary */}
                   {validationErrors.length > 0 && (
                     <div ref={errorSummaryRef} className="p-4 rounded-2xl bg-destructive/10 border-2 border-destructive/40 space-y-3 scroll-mt-4">
-                      <p className="text-base font-extrabold text-destructive flex items-center gap-2">
+                      <p className="text-sm font-extrabold text-destructive flex items-center gap-2">
                         <AlertTriangle className="h-5 w-5 flex-shrink-0" />
                         {validationErrors.length} thing{validationErrors.length > 1 ? 's' : ''} still needed
                       </p>
                       <ul className="space-y-2">
                         {validationErrors.map((err, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm font-semibold text-destructive">
+                          <li key={i} className="flex items-start gap-2 text-xs font-semibold text-destructive">
                             <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[11px] font-bold">{i + 1}</span>
                             <span>{err}</span>
                           </li>
@@ -4050,7 +4050,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
               ) : detailStep === 0 ? (
               <>
               <div className="space-y-3 p-4 rounded-2xl bg-primary/10 border-2 border-primary/40">
-                <h4 className="text-base font-extrabold text-primary flex items-center gap-2">
+                <h4 className="text-sm font-extrabold text-primary flex items-center gap-2">
                   <div className="p-2 rounded-xl bg-primary/20">
                     <Calculator className="h-5 w-5 text-primary" />
                   </div>
@@ -4078,7 +4078,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                         value={formatCurrencyInput(rentAmount)}
                         onChange={(e) => setRentAmount(e.target.value.replace(/[^0-9]/g, ''))}
                         placeholder="500,000"
-                        className={`h-12 pl-14 text-lg font-bold border-2 border-primary/30 focus:border-primary rounded-xl ${hasFieldError('rentAmount') ? 'border-destructive' : ''}`}
+                        className={`h-10 pl-14 text-base font-bold border-2 border-primary/30 focus:border-primary rounded-xl ${hasFieldError('rentAmount') ? 'border-destructive' : ''}`}
                         required
                       />
                     </div>
