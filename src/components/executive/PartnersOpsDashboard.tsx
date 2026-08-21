@@ -48,6 +48,8 @@ import { PartnerOpsSummaryCards } from './partner-ops/PartnerOpsSummaryCards';
 import { ExpiringPortfoliosPanel } from './partner-ops/ExpiringPortfoliosPanel';
 import { NearingPayoutsPanel } from './partner-ops/NearingPayoutsPanel';
 import { PartnerOpsRentRequestQueue } from './partner-ops/PartnerOpsRentRequestQueue';
+import { PartnerVerificationQueue } from './partner-ops/PartnerVerificationQueue';
+
 import {
   PartnerRoiProjectionChart,
   PartnerRecentWithdrawals,
