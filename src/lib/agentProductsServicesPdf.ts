@@ -411,20 +411,32 @@ export function generateAgentProductsServicesPdf(opts: {
   ], a4);
 
   if (report.new_agent_rows.length) {
-    drawTable(
-      `NEW AGENTS TODAY — ${num(report.new_agent_rows.length)} registered`,
-      ['Agent', 'Phone', 'Location', 'Type', 'Parent agent'],
-      [50, 34, 42, 28, 50],
-      report.new_agent_rows.map(r => [
-        r.name || '—',
-        r.phone || '—',
-        r.location || '—',
-        title(r.agent_type),
-        r.parent_name || '—',
-      ]),
-      ['left', 'left', 'left', 'left', 'left'],
+    const rows = report.new_agent_rows;
+    const mainCount = rows.filter(r => (r.agent_type || '').toLowerCase() !== 'sub').length;
+    const subCount = rows.length - mainCount;
+    const parentTally = new Map<string, number>();
+    rows.forEach(r => {
+      const p = (r.parent_name || '').trim();
+      if (!p) return;
+      parentTally.set(p, (parentTally.get(p) || 0) + 1);
+    });
+    const topParent = [...parentTally.entries()].sort((a, b) => b[1] - a[1])[0];
+    drawKpiCards(
+      [
+        { label: 'Total registered', value: num(rows.length), detail: 'new agents in period' },
+        { label: 'Main agents', value: num(mainCount), detail: `${rows.length ? ((mainCount / rows.length) * 100).toFixed(0) : '0'}% of new` },
+        { label: 'Sub-agents', value: num(subCount), detail: `${rows.length ? ((subCount / rows.length) * 100).toFixed(0) : '0'}% of new` },
+        {
+          label: 'Top parent agent',
+          value: topParent ? topParent[0] : '—',
+          detail: topParent ? `${num(topParent[1])} sub-agent(s) recruited` : 'no parent recorded',
+        },
+      ],
+      4,
+      'NEW AGENTS SUMMARY',
     );
   }
+
 
   // ===== 1b. Cumulative build-up to the reporting date =====
   const cumWindows = opts.cumulative?.windows ?? [];
