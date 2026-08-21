@@ -26,7 +26,7 @@ import { CompactAmount } from '@/components/ui/CompactAmount';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { usePromissoryOpsReport, PROMISSORY_RANGES } from '@/hooks/usePromissoryOpsReport';
-import { ProxyAgentPerformanceList } from './ProxyAgentPerformanceList';
+
 
 export function PromissoryNotesQueue() {
   const queryClient = useQueryClient();
@@ -441,10 +441,6 @@ export function PromissoryNotesQueue() {
           )}
         </CardContent>
       </Card>
-
-      {/* Proxy agent performance */}
-      <ProxyAgentPerformanceList agents={report.proxy_agents} isLoading={isLoading} />
-
 
       {/* Detail Sheet */}
       <Sheet open={!!selectedNote} onOpenChange={(open) => { if (!open) setSelectedNote(null); }}>
