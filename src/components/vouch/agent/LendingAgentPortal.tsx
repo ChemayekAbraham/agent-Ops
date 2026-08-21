@@ -67,11 +67,17 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
-  // Borrower lookup
+  // Borrower lookup — by AI ID or by phone number
+  const [lookupMode, setLookupMode] = useState<'ai_id' | 'phone'>('phone');
   const [aiIdInput, setAiIdInput] = useState('');
+  const [phoneInput, setPhoneInput] = useState('');
+  const [phoneSearching, setPhoneSearching] = useState(false);
+  const [phoneResults, setPhoneResults] = useState<{ user_id: string; full_name: string | null; phone: string | null; city: string | null }[]>([]);
+  const [phoneBorrower, setPhoneBorrower] = useState<{ user_id: string; full_name: string | null; phone: string | null; city: string | null } | null>(null);
   const [activeAiId, setActiveAiId] = useState<string | null>(null);
   const { profile: borrower, loading: borrowerLoading, error: borrowerError } =
     useTrustProfile(activeAiId ?? undefined, { publicMode: true });
+
 
   // Loan form
   const [showLoanForm, setShowLoanForm] = useState(false);
