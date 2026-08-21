@@ -1152,15 +1152,23 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
           )}
         </div>
 
-        {/* Floating New Loan button (borrowers tab) */}
+        {/* Floating Give a loan button (borrowers tab) */}
         {tab === 'borrowers' && !loansLoading && (
           <button
             onClick={goToNewLoan}
-            className="fixed bottom-6 right-5 z-30 h-14 px-5 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30 flex items-center gap-2 font-semibold text-sm active:scale-95 transition-transform"
+            className="fixed bottom-6 right-5 z-30 h-14 px-5 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30 flex items-center gap-2 font-extrabold text-base active:scale-95 transition-transform"
           >
-            <Plus className="h-5 w-5" /> New Loan
+            <Plus className="h-5 w-5" /> Give a loan
           </button>
         )}
+
+        <GiveLoanWizard
+          open={wizardOpen}
+          onOpenChange={setWizardOpen}
+          lendablePool={lendablePool}
+          onDone={() => { reloadLoans(); refetchBalances(); setTab('borrowers'); }}
+        />
+
 
         <LendingAgentAgreementModal
           isOpen={showAgreement}
