@@ -714,6 +714,32 @@ export function FleetPerformanceStats({
     refetchIntervalInBackground: false,
   });
 
+  /**
+   * Shared source of truth with the Performance page (Collections Command Center):
+   * the same `get_agent_collections_command_center` RPC, called with this page's
+   * selected range. The EXPECTED / COLLECTED / COLLECTION RATE cards read from
+   * here so both pages always show identical real-time totals.
+   */
+  const commandBucket = days <= 1 ? 'hour' : days <= 62 ? 'day' : 'month';
+  const { data: commandCenter } = useQuery({
+    queryKey: ['agent-collections-command-center', start.toISOString(), end.toISOString(), commandBucket],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_collections_command_center', {
+        p_start: start.toISOString(),
+        p_end: end.toISOString(),
+        p_bucket: commandBucket,
+      });
+      if (error) throw error;
+      return data as unknown as {
+        totals: { collected: number };
+        agents: { agent_id: string; expected: number; collected: number }[];
+      };
+    },
+    refetchInterval: 60_000,
+    staleTime: 20_000,
+  });
+
+
   const agentIds = useMemo(() => {
     const set = new Set<string>([...Object.keys(expectedByAgent), ...Object.keys(collectedByAgent)]);
     return Array.from(set).sort();
