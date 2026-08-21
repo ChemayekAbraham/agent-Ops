@@ -37857,6 +37857,10 @@ export type Database = {
         Args: { _reason: string; _target_user: string }
         Returns: undefined
       }
+      approve_smartphone_order: {
+        Args: { p_note?: string; p_sale_id: string }
+        Returns: Json
+      }
       archive_dead_letter_batch: {
         Args: { _dead_letter_id: number }
         Returns: undefined
@@ -38301,6 +38305,10 @@ export type Database = {
         Returns: boolean
       }
       can_replay_settlement: { Args: { _user_id: string }; Returns: boolean }
+      can_review_smartphone_orders: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       can_view_agent_data: {
         Args: { _target_agent_id: string; _viewer_id: string }
         Returns: boolean
@@ -42301,6 +42309,24 @@ export type Database = {
           video_url: string
         }[]
       }
+      list_smartphone_orders: {
+        Args: { p_status?: string }
+        Returns: {
+          amount_outstanding: number
+          amount_paid: number
+          brand: string
+          client_name: string
+          client_phone: string
+          created_at: string
+          customer_id: string
+          id: string
+          model_type: string
+          order_status: string
+          payment_projection: number
+          rejection_reason: string
+          total_amount: number
+        }[]
+      }
       lock_campaign_attribution: { Args: { p_token: string }; Returns: Json }
       lock_portfolio_principal: {
         Args: {
@@ -43953,6 +43979,10 @@ export type Database = {
       reject_self_registered_funder: {
         Args: { _reason: string; _target_user: string }
         Returns: undefined
+      }
+      reject_smartphone_order: {
+        Args: { p_reason: string; p_sale_id: string }
+        Returns: Json
       }
       release_agent_duplicate_flag: {
         Args: { p_agent_id: string; p_reason: string }
