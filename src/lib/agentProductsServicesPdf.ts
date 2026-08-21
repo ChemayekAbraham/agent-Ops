@@ -303,7 +303,7 @@ export function generateAgentProductsServicesPdf(opts: {
     doc.setFontSize(8.5);
     doc.setTextColor(brand[0], brand[1], brand[2]);
     ensure(6 + cardH);
-    doc.text('DAILY SUMMARY', margin, y);
+    doc.text(title, margin, y);
     y += 3;
     for (let i = 0; i < cards.length; i += perRow) {
       const row = cards.slice(i, i + perRow);
