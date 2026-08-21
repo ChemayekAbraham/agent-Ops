@@ -1655,6 +1655,13 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         </main>
       </div>
 
+      <LazyModal when={parentAgentOpen}>
+      <ParentAgentDialog
+        open={parentAgentOpen}
+        onOpenChange={setParentAgentOpen}
+        agentId={user?.id}
+      />
+      </LazyModal>
       <LazyModal when={showWallet}>
       <FullScreenWalletSheet
         open={showWallet}
