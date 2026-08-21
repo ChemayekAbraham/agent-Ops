@@ -324,6 +324,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // Weekly Listing Mission promo dialog removed — campaign expired.
   const [rentRequestOpen, setRentRequestOpen] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
+  const [parentAgentOpen, setParentAgentOpen] = useState(false);
+  const { data: parentAgentInfo } = useMyParentAgent(user?.id);
   const [walletScrollTarget, setWalletScrollTarget] = useState<'statement' | null>(null);
   const [earningsRankOpen, setEarningsRankOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
