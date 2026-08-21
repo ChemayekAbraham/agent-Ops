@@ -330,12 +330,8 @@ export default function MerchandiseStore() {
       toast.error('Enter a phone amount of at least UGX 1,000');
       return;
     }
-    if (phoneProjection > availableWallet) {
-      toast.error(
-        `Payment projection of ${formatUGX(phoneProjection)} exceeds your available wallet balance of ${formatUGX(availableWallet)}.`
-      );
-      return;
-    }
+    // No upfront wallet balance gate — orders are submitted for approval first.
+
     setOrderingPhone(true);
     const { error } = await db.rpc('agent_order_smartphone', {
       p_total_amount: phoneTotalNum,
@@ -347,7 +343,10 @@ export default function MerchandiseStore() {
       toast.error(error.message || 'Could not place smartphone order');
       return;
     }
-    toast.success(`Welile Smartphone order submitted. Total: ${formatUGX(phoneTotalNum)}; projection: ${formatUGX(phoneProjection)}.`);
+    toast.success('Smartphone order submitted — Pending Approval', {
+      description: `${formatUGX(phoneTotalNum)} total. Nothing is charged until Agent Operations approves it (then ${formatUGX(phoneProjection)} recovery rate applies).`,
+    });
+
     setPhoneOpen(false);
     setPhoneBrand('');
     setPhoneModel('');
@@ -899,9 +898,6 @@ export default function MerchandiseStore() {
                 onChange={(e) => setPhoneTotal(e.target.value)}
                 className="h-10 text-sm"
               />
-              <p className="text-[11px] text-muted-foreground">
-                Available wallet balance: <span className="font-semibold">{formatUGX(availableWallet)}</span>
-              </p>
             </div>
             {phoneTotalNum > 0 && (
               <div className="rounded-lg bg-muted/50 px-3 py-2 space-y-1">
@@ -909,11 +905,10 @@ export default function MerchandiseStore() {
                 <p className="text-base font-bold">{formatUGX(phoneProjection)}</p>
               </div>
             )}
-            {phoneProjection > availableWallet && phoneTotalNum > 0 && (
-              <p className="text-[11px] font-medium text-destructive">
-                Payment projection exceeds your available wallet balance of {formatUGX(availableWallet)}.
-              </p>
-            )}
+            <p className="text-[11px] text-muted-foreground">
+              Orders are submitted as <span className="font-semibold">Pending Approval</span>. Nothing is
+              charged to your wallet until Agent Operations approves the order.
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPhoneOpen(false)} disabled={orderingPhone}>Cancel</Button>
@@ -923,9 +918,9 @@ export default function MerchandiseStore() {
                 orderingPhone ||
                 !phoneBrand.trim() ||
                 !phoneModel.trim() ||
-                phoneTotalNum < 1000 ||
-                phoneProjection > availableWallet
+                phoneTotalNum < 1000
               }
+
             >
               {orderingPhone ? 'Submitting…' : 'Submit order'}
             </Button>
