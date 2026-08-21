@@ -27,6 +27,8 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { usePromissoryOpsReport, PROMISSORY_RANGES } from '@/hooks/usePromissoryOpsReport';
 import { formatUGX } from '@/lib/rentCalculations';
+import { JoinedPartnerIdentityCard } from './JoinedPartnerIdentityCard';
+
 
 
 export function PromissoryNotesQueue() {
@@ -517,6 +519,20 @@ export function PromissoryNotesQueue() {
                     )}
                   </CardContent>
                 </Card>
+
+                {/* Real joined-account details vs what the note claims */}
+                <JoinedPartnerIdentityCard
+                  userId={selectedNote.came_in_user_id || null}
+                  notePartnerName={selectedNote.partner_name}
+                  noteWhatsapp={selectedNote.whatsapp_number}
+                  notePhone={selectedNote.phone_number}
+                  noteEmail={selectedNote.email}
+                  noteAgentId={selectedNote.agent_id}
+                  noteAgentName={selectedNote.agent_name}
+                  cameInAt={selectedNote.came_in_at}
+                />
+
+
 
                 {/* Financial Summary */}
                 <Card>
