@@ -44321,6 +44321,7 @@ export type Database = {
         }[]
       }
       slugify_district: { Args: { p_input: string }; Returns: string }
+      smoke_promissory_self_support: { Args: never; Returns: Json }
       snapshot_agent_daily_eligibility: {
         Args: { p_days?: number }
         Returns: number
