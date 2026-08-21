@@ -840,6 +840,29 @@ export function FleetPerformanceStats({
     });
   };
 
+  /** Which KPI card has its inline agent accordion open. */
+  const [kpiPanel, setKpiPanel] = useState<'expected' | 'collected' | null>(null);
+
+  /** Agents with expected rent due in this window, biggest first. */
+  const expectedPanelRows = useMemo(
+    () => filteredRows.filter((r) => r.expected > 0).sort((a, b) => b.expected - a.expected),
+    [filteredRows],
+  );
+
+  /** Agents that actually collected in this window, biggest first. */
+  const collectedPanelRows = useMemo(
+    () => filteredRows.filter((r) => r.collected > 0).sort((a, b) => b.collected - a.collected),
+    [filteredRows],
+  );
+
+  /** Toggle the inline accordion under a KPI card and sort the breakdown to match. */
+  const toggleKpiPanel = (key: 'expected' | 'collected') => {
+    setKpiPanel((prev) => (prev === key ? null : key));
+    setSort({ key, dir: 'desc' });
+    setPage(0);
+  };
+
+
   // Jump to a specific agent row in the breakdown table, expand it, and scroll it into view.
   const focusAgent = (id: string) => {
     const idx = rows.findIndex((r) => r.id === id);
@@ -1130,9 +1153,9 @@ export function FleetPerformanceStats({
               label="Expected"
               value={formatUGX(totalExpected)}
               tone="text-violet-600"
-              onClick={() => focusMetric('expected')}
-              clickHint="Sort the agent breakdown below by highest expected rent"
-              active={sort.key === 'expected'}
+              onClick={() => toggleKpiPanel('expected')}
+              clickHint="Show the agents with expected rent due in this period"
+              active={kpiPanel === 'expected'}
               secondaryLabel="Rent plans"
               onSecondary={() => openExpected()}
             />
@@ -1150,9 +1173,9 @@ export function FleetPerformanceStats({
                 ],
                 footnote: 'Legacy tracking_ids (ALLOC-*, TPAY-*, WEL-TXN-*, null) are also excluded.',
               }}
-              onClick={() => focusMetric('collected')}
-              clickHint="Sort the agent breakdown below by highest collected amount"
-              active={sort.key === 'collected'}
+              onClick={() => toggleKpiPanel('collected')}
+              clickHint="Show the active collecting agents and their collection rates"
+              active={kpiPanel === 'collected'}
               secondaryLabel="Records"
               onSecondary={() => openDrill()}
             />
@@ -1166,6 +1189,17 @@ export function FleetPerformanceStats({
               active={sort.key === 'rate'}
             />
           </div>
+
+          {/* Inline accordion folded under the Expected / Collected KPI cards. */}
+          {kpiPanel && (
+            <KpiAgentAccordion
+              variant={kpiPanel}
+              rows={kpiPanel === 'expected' ? expectedPanelRows : collectedPanelRows}
+              onClose={() => setKpiPanel(null)}
+              onSelectAgent={focusAgent}
+            />
+          )}
+
           <div className="mt-2.5 h-2 w-full rounded-full bg-muted overflow-hidden">
             <div className={`h-full ${barTone} transition-all`} style={{ width: `${Math.min(rate, 100)}%` }} />
           </div>
@@ -1197,6 +1231,7 @@ export function FleetPerformanceStats({
                 )}
               </div>
             </div>
+
 
             {rows.length === 0 ? (
               <p className="p-3 text-[11px] text-muted-foreground">No agent activity for this period.</p>
@@ -1308,7 +1343,100 @@ export function FleetPerformanceStats({
   );
 }
 
+/**
+ * Inline accordion body folded under the Expected / Collected KPI cards.
+ * Expected: agents with rent due. Collected: active collecting agents with
+ * their calculated collection rate (collected / expected * 100).
+ */
+function KpiAgentAccordion({
+  variant,
+  rows,
+  onClose,
+  onSelectAgent,
+}: {
+  variant: 'expected' | 'collected';
+  rows: { id: string; name: string; expected: number; collected: number; rate: number }[];
+  onClose: () => void;
+  onSelectAgent: (id: string) => void;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? rows : rows.slice(0, 10);
+  const total = rows.reduce((s, r) => s + (variant === 'expected' ? r.expected : r.collected), 0);
+
+  return (
+    <div className="mt-2 rounded-lg border border-border bg-muted/20">
+      <div className="flex items-center justify-between gap-2 border-b border-border/60 px-2.5 py-2">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+          {variant === 'expected'
+            ? `Agents with expected rent · ${rows.length}`
+            : `Active collecting agents · ${rows.length}`}
+          <span className="ml-2 font-mono normal-case text-foreground">{formatUGX(total)}</span>
+        </p>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Collapse agent list"
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="p-3 text-[11px] text-muted-foreground">
+          {variant === 'expected' ? 'No agent has expected rent in this period.' : 'No agent collected in this period.'}
+        </p>
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="border-b border-border/60 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <th className="p-2 text-left font-semibold">Agent</th>
+                  <th className="p-2 text-right font-semibold">Expected</th>
+                  <th className="p-2 text-right font-semibold">Collected</th>
+                  <th className="p-2 text-right font-semibold">Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((r, i) => {
+                  const tone = r.rate >= 80 ? 'text-emerald-600' : r.rate >= 50 ? 'text-amber-600' : 'text-destructive';
+                  return (
+                    <tr
+                      key={r.id}
+                      onClick={() => onSelectAgent(r.id)}
+                      className="cursor-pointer border-b border-border/40 last:border-0 hover:bg-muted/50"
+                    >
+                      <td className="p-2">
+                        <span className="mr-1 text-muted-foreground">{i + 1}.</span>
+                        <span className="font-semibold">{r.name}</span>
+                      </td>
+                      <td className="p-2 text-right font-mono text-violet-600">{formatUGX(r.expected)}</td>
+                      <td className="p-2 text-right font-mono text-primary">{formatUGX(r.collected)}</td>
+                      <td className={`p-2 text-right font-bold ${tone}`}>{r.expected > 0 ? `${r.rate}%` : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {rows.length > 10 && (
+            <button
+              type="button"
+              onClick={() => setShowAll((v) => !v)}
+              className="w-full border-t border-border/60 p-2 text-[10px] font-semibold text-primary hover:bg-muted/40"
+            >
+              {showAll ? 'Show top 10' : `Show all ${rows.length} agents`}
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function Stat({
+
   icon,
   label,
   value,
