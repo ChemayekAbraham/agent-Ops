@@ -439,36 +439,8 @@ export default function FunderOnboarding({ embedded = false }: FunderOnboardingP
     queryClient.invalidateQueries({ queryKey: ['funder-onboarding-kpis'] });
   };
 
-  const Shell = ({ children }: { children: React.ReactNode }) => (
-    embedded ? (
-      <div className="space-y-4">
-        <div className="space-y-1">
-          <h2 className="text-lg font-bold">Partner Onboarding &amp; Verification</h2>
-          <p className="text-xs text-muted-foreground">
-            Self-registered partners must be verified here before they can support tenants or create portfolios.
-          </p>
-        </div>
-        {children}
-      </div>
-    ) : (
-      <>
-        <Helmet>
-          <link rel="canonical" href="https://welileapp.com/partner-onboarding" />
-          <meta property="og:url" content="https://welileapp.com/partner-onboarding" />
-        </Helmet>
-        <COODetailLayout
-          title="Partner Onboarding"
-          subtitle="Self-Registered Funders"
-          status={headerStatus}
-        >
-          {children}
-        </COODetailLayout>
-      </>
-    )
-  );
-
   return (
-    <Shell>
+    <Shell embedded={embedded} headerStatus={headerStatus}>
       {/* KPIs — grouped: Funders (self-registered) vs Invited Portfolios */}
       <div className="space-y-4">
         <section className="space-y-2">
@@ -909,5 +881,39 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
       <span className="text-muted-foreground shrink-0">{label}</span>
       <span className="text-right font-medium break-words">{children}</span>
     </div>
+  );
+}
+
+interface ShellProps {
+  embedded: boolean;
+  headerStatus: 'green' | 'yellow' | 'red';
+  children: React.ReactNode;
+}
+
+function Shell({ embedded, headerStatus, children }: ShellProps) {
+  return embedded ? (
+    <div className="space-y-4">
+      <div className="space-y-1">
+        <h2 className="text-lg font-bold">Partner Onboarding &amp; Verification</h2>
+        <p className="text-xs text-muted-foreground">
+          Self-registered partners must be verified here before they can support tenants or create portfolios.
+        </p>
+      </div>
+      {children}
+    </div>
+  ) : (
+    <>
+      <Helmet>
+        <link rel="canonical" href="https://welileapp.com/partner-onboarding" />
+        <meta property="og:url" content="https://welileapp.com/partner-onboarding" />
+      </Helmet>
+      <COODetailLayout
+        title="Partner Onboarding"
+        subtitle="Self-Registered Funders"
+        status={headerStatus}
+      >
+        {children}
+      </COODetailLayout>
+    </>
   );
 }
