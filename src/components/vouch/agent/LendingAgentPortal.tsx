@@ -62,8 +62,10 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
   const { isAccepted, acceptAgreement, isLoading: agreementLoading } = useLendingAgentAgreement();
 
   const [showAgreement, setShowAgreement] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [loans, setLoans] = useState<LendingLoan[]>([]);
   const [loansLoading, setLoansLoading] = useState(false);
+
 
   const [tab, setTab] = useState<Tab>('borrowers');
   const [search, setSearch] = useState('');
