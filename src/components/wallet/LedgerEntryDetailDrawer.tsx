@@ -52,21 +52,6 @@ interface ProfileInfo {
   phone: string;
 }
 
-const SOURCE_TABLE_LABELS: Record<string, string> = {
-  rent_requests: 'Rent Request',
-  repayments: 'Repayment',
-  deposit_requests: 'Deposit',
-  withdrawal_requests: 'Withdrawal',
-  referrals: 'Referral Bonus',
-  agent_earnings: 'Agent Earning',
-  agent_commission_payouts: 'Commission Payout',
-  supporter_roi_payments: 'Supporter ROI',
-  tenant_merchant_payments: 'Field Payment',
-  manual: 'Manual Entry',
-  system: 'System',
-  subscription_charges: 'Auto-Charge',
-  opening_balance: 'Opening Balance',
-};
 
 const CATEGORY_LABELS: Record<string, string> = {
   tenant_access_fee: 'Access Fee',
@@ -139,12 +124,6 @@ export function LedgerEntryDetailDrawer({ entryId, open, onOpenChange }: LedgerE
     fetchAll();
   }, [entryId, open]);
 
-  const handleCopyId = async () => {
-    if (!entryId) return;
-    await navigator.clipboard.writeText(entryId);
-    toast.success('Entry ID copied');
-  };
-
   const handleCopyRef = async () => {
     if (!entry?.reference_id) return;
     await navigator.clipboard.writeText(entry.reference_id);
@@ -153,7 +132,7 @@ export function LedgerEntryDetailDrawer({ entryId, open, onOpenChange }: LedgerE
 
   const isIn = entry?.direction === 'cash_in';
   const categoryLabel = entry ? (CATEGORY_LABELS[entry.category] || entry.category.replace(/_/g, ' ')) : '';
-  const sourceLabel = entry ? (SOURCE_TABLE_LABELS[entry.source_table] || entry.source_table.replace(/_/g, ' ')) : '';
+
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -187,16 +166,11 @@ export function LedgerEntryDetailDrawer({ entryId, open, onOpenChange }: LedgerE
                 <Badge variant={isIn ? 'default' : 'destructive'} className="text-xs">
                   {isIn ? 'Cash In' : 'Cash Out'}
                 </Badge>
-                <Badge variant="outline" className="text-xs">{sourceLabel}</Badge>
               </div>
             </div>
 
-            {/* IDs */}
+            {/* Reference */}
             <div className="space-y-1">
-              <button onClick={handleCopyId} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground w-full">
-                <Copy className="h-3 w-3" />
-                <span className="font-mono truncate">ID: {entry.id}</span>
-              </button>
               {entry.reference_id && (
                 <button onClick={handleCopyRef} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground w-full">
                   <Copy className="h-3 w-3" />
@@ -204,6 +178,7 @@ export function LedgerEntryDetailDrawer({ entryId, open, onOpenChange }: LedgerE
                 </button>
               )}
             </div>
+
 
             <Separator />
 
@@ -218,14 +193,6 @@ export function LedgerEntryDetailDrawer({ entryId, open, onOpenChange }: LedgerE
 
             <Separator />
 
-            {/* Source */}
-            <DetailSection title="Source" icon={<Link className="h-3.5 w-3.5" />}>
-              <DetailRow label="Source Table" value={sourceLabel} />
-              {entry.source_id && <DetailRow label="Source ID" value={entry.source_id} />}
-              {entry.transaction_group_id && <DetailRow label="Transaction Group" value={entry.transaction_group_id} />}
-            </DetailSection>
-
-            <Separator />
 
             {/* Parties */}
             <DetailSection title="Parties" icon={<User className="h-3.5 w-3.5" />}>
