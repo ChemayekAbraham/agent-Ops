@@ -67,11 +67,17 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
-  // Borrower lookup
+  // Borrower lookup — by AI ID or by phone number
+  const [lookupMode, setLookupMode] = useState<'ai_id' | 'phone'>('phone');
   const [aiIdInput, setAiIdInput] = useState('');
+  const [phoneInput, setPhoneInput] = useState('');
+  const [phoneSearching, setPhoneSearching] = useState(false);
+  const [phoneResults, setPhoneResults] = useState<{ user_id: string; full_name: string | null; phone: string | null; city: string | null }[]>([]);
+  const [phoneBorrower, setPhoneBorrower] = useState<{ user_id: string; full_name: string | null; phone: string | null; city: string | null } | null>(null);
   const [activeAiId, setActiveAiId] = useState<string | null>(null);
   const { profile: borrower, loading: borrowerLoading, error: borrowerError } =
     useTrustProfile(activeAiId ?? undefined, { publicMode: true });
+
 
   // Loan form
   const [showLoanForm, setShowLoanForm] = useState(false);
@@ -287,58 +293,54 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
       return;
     }
     setDecidingId(req.id);
-    const ratePct = req.interest_rate_pct ?? 0;
-    const totalOwed = principalNum + (principalNum * ratePct) / 100;
     const durationDays = Number(req.requested_duration_days) || 30;
     const dueStr = new Date(Date.now() + durationDays * 86400000).toISOString().slice(0, 10);
     const reqFreq: RepaymentFrequency = durationDays <= 1 ? 'once' : 'monthly';
-    const reqSchedule = buildSchedule(totalOwed, reqFreq, new Date(), dueStr);
-    const { data: loanRow, error } = await (supabase.from('lending_agent_loans' as any).insert({
-      lender_agent_id: user.id,
-      borrower_user_id: req.borrower_user_id,
-      borrower_ai_id: req.borrower_ai_id,
-      borrower_display_name: req.borrower_display_name,
-      borrower_phone: req.borrower_phone,
-      principal_ugx: principalNum,
-      interest_rate_pct: req.interest_rate_pct ?? 0,
-      expected_repayment_date: dueStr,
-      loan_purpose: req.purpose ?? null,
-      platform_fee_ugx: fee,
-      lender_trust_score_at_record: trustScore,
-      status: 'active',
-      repayment_frequency: reqFreq,
-      auto_deduct_enabled: true,
-      installment_ugx: reqSchedule.installment,
-      next_deduction_date: reqSchedule.firstDate,
-      auto_deduct_started_at: new Date().toISOString(),
-    }).select('id').single() as any);
-    if (error) {
+    const { data: res, error } = await supabase.functions.invoke('lending-disburse-loan', {
+      body: {
+        borrower_user_id: req.borrower_user_id,
+        borrower_ai_id: req.borrower_ai_id ?? null,
+        principal_ugx: principalNum,
+        interest_rate_pct: req.interest_rate_pct ?? 0,
+        expected_repayment_date: dueStr,
+        loan_purpose: req.purpose ?? null,
+        repayment_frequency: reqFreq,
+        auto_deduct_enabled: true,
+      },
+    });
+    const loanRow = res as any;
+    if (error || loanRow?.error) {
       setDecidingId(null);
-      toast.error('Could not disburse: ' + error.message);
+      let msg = loanRow?.error ?? (error as any)?.message ?? 'Disbursement failed';
+      if (error && (error as any).context?.text) {
+        try { msg = JSON.parse(await (error as any).context.text())?.error ?? msg; } catch { /* keep msg */ }
+      }
+      toast.error('Could not disburse: ' + msg);
       return;
     }
     await (supabase.from('lending_loan_requests' as any)
-      .update({ status: 'approved', decided_at: new Date().toISOString(), loan_id: loanRow?.id ?? null })
+      .update({ status: 'approved', decided_at: new Date().toISOString(), loan_id: loanRow?.loan_id ?? null })
       .eq('id', req.id) as any);
     setDecidingId(null);
-    toast.success(`Loan to ${req.borrower_display_name ?? req.borrower_ai_id} approved & recorded`);
+    toast.success(`${formatUGX(principalNum)} sent to ${req.borrower_display_name ?? req.borrower_ai_id}`);
+
     await logLendingAudit({
       actorId: user.id, actorDisplayName: myName, actionType: 'request_approved',
       entityType: 'request', entityId: req.id,
       borrowerUserId: req.borrower_user_id, lenderAgentId: user.id,
       amountUgx: principalNum, feeUgx: fee, oldStatus: 'pending', newStatus: 'approved',
-      details: { loan_id: loanRow?.id ?? null, borrower_ai_id: req.borrower_ai_id },
+      details: { loan_id: loanRow?.loan_id ?? null, borrower_ai_id: req.borrower_ai_id },
     });
     await logLendingAudit({
       actorId: user.id, actorDisplayName: myName, actionType: 'loan_disbursed',
-      entityType: 'loan', entityId: loanRow?.id ?? null,
+      entityType: 'loan', entityId: loanRow?.loan_id ?? null,
       borrowerUserId: req.borrower_user_id, lenderAgentId: user.id,
       amountUgx: principalNum, feeUgx: fee, newStatus: 'active',
       details: { interest_rate_pct: req.interest_rate_pct ?? 0, request_id: req.id },
     });
     await logLendingAudit({
       actorId: user.id, actorDisplayName: myName, actionType: 'fee_deducted',
-      entityType: 'loan', entityId: loanRow?.id ?? null,
+      entityType: 'loan', entityId: loanRow?.loan_id ?? null,
       borrowerUserId: req.borrower_user_id, lenderAgentId: user.id,
       feeUgx: fee, details: { platform_fee_pct: PLATFORM_FEE_PCT, principal_ugx: principalNum },
     });
@@ -365,13 +367,41 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     await reloadRequests();
   };
 
-  const handleLookup = () => {
-    const cleaned = aiIdInput.trim().toUpperCase();
-    if (!cleaned) { toast.error('Enter a borrower AI ID'); return; }
-    setActiveAiId(cleaned);
+  const resetLoanForm = () => {
     setShowLoanForm(false);
     setPrincipal(''); setInterestRate('10'); setDueDate(''); setPurpose('');
   };
+
+  const handleLookup = () => {
+    const cleaned = aiIdInput.trim().toUpperCase();
+    if (!cleaned) { toast.error('Enter a borrower AI ID'); return; }
+    setPhoneBorrower(null); setPhoneResults([]);
+    setActiveAiId(cleaned);
+    resetLoanForm();
+  };
+
+  const handlePhoneSearch = async () => {
+    const digits = phoneInput.replace(/\D/g, '');
+    if (digits.length < 9) { toast.error('Enter at least 9 digits of the phone number'); return; }
+    setPhoneSearching(true);
+    setActiveAiId(null); setPhoneBorrower(null);
+    const { data, error } = await (supabase.rpc('lending_find_user_by_phone' as any, { p_phone: phoneInput }) as any);
+    setPhoneSearching(false);
+    if (error) {
+      toast.error(
+        error.message?.includes('lending_agreement_required')
+          ? 'Sign the Lending Agent Agreement first'
+          : 'Search failed: ' + error.message,
+      );
+      return;
+    }
+    const rows = (data ?? []) as typeof phoneResults;
+    setPhoneResults(rows);
+    if (rows.length === 0) { toast.error('No Welile user found on that number'); return; }
+    if (rows.length === 1) { setPhoneBorrower(rows[0]); }
+    resetLoanForm();
+  };
+
 
   const handleAccept = async () => {
     const ok = await acceptAgreement(trustScore);
@@ -382,8 +412,25 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     return ok;
   };
 
+  // Whoever is selected — AI-ID lookup or phone search — is the borrower.
+  const selectedBorrower = phoneBorrower
+    ? {
+        user_id: phoneBorrower.user_id,
+        ai_id: null as string | null,
+        name: phoneBorrower.full_name,
+        phone: phoneBorrower.phone,
+      }
+    : borrower
+      ? {
+          user_id: borrower.user_id,
+          ai_id: borrower.ai_id as string | null,
+          name: borrower.identity?.full_name ?? null,
+          phone: borrower.identity?.phone ?? null,
+        }
+      : null;
+
   const handleDisburse = async () => {
-    if (!user || !borrower) return;
+    if (!user || !selectedBorrower) return;
     const principalNum = Number(principal);
     if (!principalNum || principalNum <= 0) { toast.error('Enter a valid amount'); return; }
     const fee = Math.round(principalNum * PLATFORM_FEE_PCT);
@@ -394,53 +441,60 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     }
 
     setSubmitting(true);
-    const ratePct = interestRate ? Number(interestRate) : 0;
-    const totalOwed = principalNum + (principalNum * ratePct) / 100;
-    const schedule = autoDeduct
-      ? buildSchedule(totalOwed, frequency, new Date(), dueDate || null)
-      : null;
-    const { error } = await (supabase.from('lending_agent_loans' as any).insert({
-      lender_agent_id: user.id,
-      borrower_user_id: borrower.user_id,
-      borrower_ai_id: borrower.ai_id,
-      borrower_display_name: borrower.identity?.full_name ?? null,
-      borrower_phone: borrower.identity?.phone ?? null,
-      principal_ugx: principalNum,
-      interest_rate_pct: interestRate ? Number(interestRate) : 0,
-      expected_repayment_date: dueDate || null,
-      loan_purpose: purpose.trim() || null,
-      platform_fee_ugx: fee,
-      lender_trust_score_at_record: trustScore,
-      borrower_trust_score_at_record: borrower.trust.score,
-      borrower_trust_tier_at_record: borrower.trust.tier,
-      status: 'active',
-      repayment_frequency: autoDeduct ? frequency : 'once',
-      auto_deduct_enabled: autoDeduct,
-      installment_ugx: schedule?.installment ?? 0,
-      next_deduction_date: schedule?.firstDate ?? null,
-      auto_deduct_started_at: autoDeduct ? new Date().toISOString() : null,
-    }) as any);
+    const { data, error } = await supabase.functions.invoke('lending-disburse-loan', {
+      body: {
+        borrower_user_id: selectedBorrower.user_id,
+        borrower_ai_id: selectedBorrower.ai_id,
+        principal_ugx: principalNum,
+        interest_rate_pct: interestRate ? Number(interestRate) : 0,
+        expected_repayment_date: dueDate || null,
+        loan_purpose: purpose.trim() || null,
+        repayment_frequency: autoDeduct ? frequency : 'once',
+        auto_deduct_enabled: autoDeduct,
+      },
+    });
     setSubmitting(false);
 
-    if (error) {
-      console.error('[LendingAgentPortal] disburse error', error);
-      toast.error('Could not record loan: ' + error.message);
+    const failure = (error as any) || (data as any)?.error;
+    if (failure) {
+      let msg = (data as any)?.error ?? (error as any)?.message ?? 'Disbursement failed';
+      if (error && (error as any).context?.text) {
+        try {
+          const raw = await (error as any).context.text();
+          msg = JSON.parse(raw)?.error ?? msg;
+        } catch { /* keep msg */ }
+      }
+      console.error('[LendingAgentPortal] disburse error', msg);
+      toast.error(msg);
       return;
     }
 
+    const res = data as any;
     toast.success(
       autoDeduct
-        ? `Loan recorded. Auto-deduction set ${frequency.replace('_', ' ')} (~${formatUGX(schedule?.installment ?? 0)}/cycle).`
-        : `Loan to ${borrower.identity?.full_name ?? borrower.ai_id} recorded.`,
+        ? `${formatUGX(principalNum)} sent to ${selectedBorrower.name ?? 'the borrower'}. Auto-deduction ${frequency.replace('_', ' ')} (~${formatUGX(res?.installment_ugx ?? 0)}/cycle).`
+        : `${formatUGX(principalNum)} sent to ${selectedBorrower.name ?? 'the borrower'}.`,
     );
+    if (res?.sms_sent === false) toast.info('Borrower notified in-app (SMS could not be delivered).');
+
+    await logLendingAudit({
+      actorId: user.id, actorDisplayName: myName, actionType: 'loan_disbursed',
+      entityType: 'loan', entityId: res?.loan_id ?? null,
+      borrowerUserId: selectedBorrower.user_id, lenderAgentId: user.id,
+      amountUgx: principalNum, feeUgx: fee, newStatus: 'active',
+      details: { interest_rate_pct: interestRate ? Number(interestRate) : 0, repayment_frequency: autoDeduct ? frequency : 'once' },
+    });
+
     await reloadLoans();
     refetchBalances();
     setShowLoanForm(false);
     setPrincipal(''); setDueDate(''); setPurpose('');
     setAutoDeduct(true); setFrequency('monthly');
     setActiveAiId(null); setAiIdInput('');
+    setPhoneBorrower(null); setPhoneResults([]); setPhoneInput('');
     setTab('borrowers');
   };
+
 
   const stats = useMemo(() => computeStats(loans), [loans]);
 
@@ -482,6 +536,92 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     { key: 'offers', label: 'Offers', Icon: Megaphone, badge: activeOffers },
     { key: 'activity', label: 'Activity', Icon: ScrollText },
   ];
+
+  // Shared loan form — used by both the AI-ID and phone-number borrower cards.
+  const renderLoanForm = () => {
+    if (!showLoanForm) {
+      return (
+        <Button size="sm" className="w-full" onClick={() => setShowLoanForm(true)}>
+          <Plus className="h-4 w-4 mr-1.5" />
+          Disburse Loan
+        </Button>
+      );
+    }
+    return (
+      <div className="space-y-2 p-3 rounded-lg bg-background border">
+        <div>
+          <Label className="text-xs">Principal (UGX) *</Label>
+          <Input type="number" value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder="500000" className="h-9 text-sm" />
+          {principal && Number(principal) > 0 && (
+            <p className="text-[10px] text-muted-foreground mt-1">
+              + 1% fee ({formatUGX(Math.round(Number(principal) * PLATFORM_FEE_PCT))}) = total deduction {formatUGX(Number(principal) + Math.round(Number(principal) * PLATFORM_FEE_PCT))}
+            </p>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label className="text-xs">Interest % (per cycle)</Label>
+            <Input type="number" value={interestRate} onChange={(e) => setInterestRate(e.target.value)} min={0} className="h-9 text-sm" />
+            <p className="text-[9px] text-muted-foreground mt-0.5">Any rate allowed</p>
+          </div>
+          <div>
+            <Label className="text-xs">Due date</Label>
+            <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="h-9 text-sm" />
+          </div>
+        </div>
+        <div>
+          <Label className="text-xs">Loan purpose</Label>
+          <Textarea value={purpose} onChange={(e) => setPurpose(e.target.value)} rows={2} placeholder="e.g. school fees, business stock" className="text-sm resize-none" />
+        </div>
+        {/* Auto-deduction schedule */}
+        <div className="rounded-lg border bg-muted/30 p-2.5 space-y-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-xs font-semibold">Auto-deduct repayments</Label>
+              <p className="text-[9px] text-muted-foreground">Pull installments straight from the borrower's wallet into yours.</p>
+            </div>
+            <Switch checked={autoDeduct} onCheckedChange={setAutoDeduct} />
+          </div>
+          {autoDeduct && (
+            <>
+              <div>
+                <Label className="text-xs">Repayment schedule</Label>
+                <Select value={frequency} onValueChange={(v) => setFrequency(v as RepaymentFrequency)}>
+                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {REPAYMENT_FREQUENCIES.map((f) => (
+                      <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {principal && Number(principal) > 0 && (() => {
+                const ratePct = interestRate ? Number(interestRate) : 0;
+                const totalOwed = Number(principal) + (Number(principal) * ratePct) / 100;
+                const sched = buildSchedule(totalOwed, frequency, new Date(), dueDate || null);
+                return (
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">
+                    {frequency === 'once'
+                      ? `One lump-sum pull of ${formatUGX(sched.installment)} on ${sched.firstDate}.`
+                      : `${sched.periods} installments of ~${formatUGX(sched.installment)} each. First on ${sched.firstDate}. Partial amounts are taken when the wallet is short and retried next cycle.`}
+                  </p>
+                );
+              })()}
+            </>
+          )}
+        </div>
+        <div className="flex gap-2 pt-1">
+          <Button size="sm" variant="outline" className="flex-1" onClick={() => setShowLoanForm(false)}>Cancel</Button>
+          <Button size="sm" className="flex-1" onClick={handleDisburse} disabled={submitting}>
+            {submitting && <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />}
+            Send Money &amp; Record
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
+
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -719,25 +859,106 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                     </CardContent>
                   </Card>
 
-                  {/* Borrower lookup */}
+                  {/* Borrower lookup — phone number or AI ID */}
                   <div className="space-y-2 mb-4">
                     <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Create a loan — lookup borrower by AI ID
+                      Create a loan — find the borrower
                     </Label>
-                    <div className="flex gap-2">
-                      <Input
-                        ref={borrowerInputRef}
-                        value={aiIdInput}
-                        onChange={(e) => setAiIdInput(e.target.value.toUpperCase())}
-                        placeholder="WEL-XXXXXX"
-                        className="h-11 text-sm font-mono rounded-2xl"
-                        onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
-                      />
-                      <Button onClick={handleLookup} disabled={borrowerLoading} className="h-11 rounded-2xl">
-                        {borrowerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                      </Button>
+                    <div className="inline-flex rounded-xl bg-muted p-0.5">
+                      {(['phone', 'ai_id'] as const).map((m) => (
+                        <button
+                          key={m}
+                          onClick={() => setLookupMode(m)}
+                          className={
+                            'px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors ' +
+                            (lookupMode === m ? 'bg-background shadow-sm' : 'text-muted-foreground')
+                          }
+                        >
+                          {m === 'phone' ? 'Phone number' : 'AI ID'}
+                        </button>
+                      ))}
                     </div>
+                    {lookupMode === 'phone' ? (
+                      <div className="flex gap-2">
+                        <Input
+                          value={phoneInput}
+                          onChange={(e) => setPhoneInput(e.target.value)}
+                          placeholder="07XX XXX XXX"
+                          inputMode="tel"
+                          className="h-11 text-sm rounded-2xl"
+                          onKeyDown={(e) => e.key === 'Enter' && handlePhoneSearch()}
+                        />
+                        <Button onClick={handlePhoneSearch} disabled={phoneSearching} className="h-11 rounded-2xl">
+                          {phoneSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Input
+                          ref={borrowerInputRef}
+                          value={aiIdInput}
+                          onChange={(e) => setAiIdInput(e.target.value.toUpperCase())}
+                          placeholder="WEL-XXXXXX"
+                          className="h-11 text-sm font-mono rounded-2xl"
+                          onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
+                        />
+                        <Button onClick={handleLookup} disabled={borrowerLoading} className="h-11 rounded-2xl">
+                          {borrowerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    )}
                   </div>
+
+                  {/* Phone search results */}
+                  {lookupMode === 'phone' && phoneResults.length > 1 && !phoneBorrower && (
+                    <div className="space-y-1.5 mb-4">
+                      {phoneResults.map((r) => (
+                        <button
+                          key={r.user_id}
+                          onClick={() => { setPhoneBorrower(r); resetLoanForm(); }}
+                          className="w-full text-left rounded-xl border p-3 hover:bg-muted/50 transition-colors"
+                        >
+                          <p className="text-sm font-semibold">{r.full_name ?? 'Welile user'}</p>
+                          <p className="text-[11px] text-muted-foreground">{r.phone} {r.city ? `· ${r.city}` : ''}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Selected phone borrower + loan form */}
+                  {phoneBorrower && (
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="mb-4">
+                      <Card className="border-primary/20">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                            {phoneBorrower.full_name ?? 'Welile user'}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-0 space-y-3">
+                          <p className="text-[11px] text-muted-foreground">
+                            {phoneBorrower.phone}{phoneBorrower.city ? ` · ${phoneBorrower.city}` : ''}
+                          </p>
+                          <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-2.5 flex items-start gap-2">
+                            <ShieldCheck className="h-3.5 w-3.5 text-emerald-700 shrink-0 mt-0.5" />
+                            <p className="text-[10px] leading-relaxed">
+                              Money moves instantly from your wallet into this borrower's withdrawable wallet, and they get an SMS with the repayment schedule.
+                            </p>
+                          </div>
+                          {renderLoanForm()}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="w-full h-8 text-[11px]"
+                            onClick={() => { setPhoneBorrower(null); setPhoneResults([]); resetLoanForm(); }}
+                          >
+                            Choose a different borrower
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )}
+
 
                   {activeAiId && borrowerLoading && <Skeleton className="h-40 w-full rounded-xl mb-4" />}
                   {borrowerError && (
@@ -780,83 +1001,8 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                             </p>
                           </div>
 
-                          {!showLoanForm ? (
-                            <Button size="sm" className="w-full" onClick={() => setShowLoanForm(true)}>
-                              <Plus className="h-4 w-4 mr-1.5" />
-                              Disburse Loan
-                            </Button>
-                          ) : (
-                            <div className="space-y-2 p-3 rounded-lg bg-background border">
-                              <div>
-                                <Label className="text-xs">Principal (UGX) *</Label>
-                                <Input type="number" value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder="500000" className="h-9 text-sm" />
-                                {principal && Number(principal) > 0 && (
-                                  <p className="text-[10px] text-muted-foreground mt-1">
-                                    + 1% fee ({formatUGX(Math.round(Number(principal) * PLATFORM_FEE_PCT))}) = total deduction {formatUGX(Number(principal) + Math.round(Number(principal) * PLATFORM_FEE_PCT))}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                  <Label className="text-xs">Interest % (per cycle)</Label>
-                                  <Input type="number" value={interestRate} onChange={(e) => setInterestRate(e.target.value)} min={0} className="h-9 text-sm" />
-                                  <p className="text-[9px] text-muted-foreground mt-0.5">Any rate allowed</p>
-                                </div>
-                                <div>
-                                  <Label className="text-xs">Due date</Label>
-                                  <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="h-9 text-sm" />
-                                </div>
-                              </div>
-                              <div>
-                                <Label className="text-xs">Loan purpose</Label>
-                                <Textarea value={purpose} onChange={(e) => setPurpose(e.target.value)} rows={2} placeholder="e.g. school fees, business stock" className="text-sm resize-none" />
-                              </div>
-                              {/* Auto-deduction schedule */}
-                              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <Label className="text-xs font-semibold">Auto-deduct repayments</Label>
-                                    <p className="text-[9px] text-muted-foreground">Pull installments straight from the borrower's wallet into yours.</p>
-                                  </div>
-                                  <Switch checked={autoDeduct} onCheckedChange={setAutoDeduct} />
-                                </div>
-                                {autoDeduct && (
-                                  <>
-                                    <div>
-                                      <Label className="text-xs">Repayment schedule</Label>
-                                      <Select value={frequency} onValueChange={(v) => setFrequency(v as RepaymentFrequency)}>
-                                        <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                          {REPAYMENT_FREQUENCIES.map((f) => (
-                                            <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                    {principal && Number(principal) > 0 && (() => {
-                                      const ratePct = interestRate ? Number(interestRate) : 0;
-                                      const totalOwed = Number(principal) + (Number(principal) * ratePct) / 100;
-                                      const sched = buildSchedule(totalOwed, frequency, new Date(), dueDate || null);
-                                      return (
-                                        <p className="text-[10px] text-muted-foreground leading-relaxed">
-                                          {frequency === 'once'
-                                            ? `One lump-sum pull of ${formatUGX(sched.installment)} on ${sched.firstDate}.`
-                                            : `${sched.periods} installments of ~${formatUGX(sched.installment)} each. First on ${sched.firstDate}. Partial amounts are taken when the wallet is short and retried next cycle.`}
-                                        </p>
-                                      );
-                                    })()}
-                                  </>
-                                )}
-                              </div>
-                              <div className="flex gap-2 pt-1">
-                                <Button size="sm" variant="outline" className="flex-1" onClick={() => setShowLoanForm(false)}>Cancel</Button>
-                                <Button size="sm" className="flex-1" onClick={handleDisburse} disabled={submitting}>
-                                  {submitting && <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />}
-                                  Confirm &amp; Record
-                                </Button>
-                              </div>
-                            </div>
-                          )}
+                          {renderLoanForm()}
+
                         </CardContent>
                       </Card>
                     </motion.div>
