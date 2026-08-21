@@ -78,15 +78,26 @@ export function ProxyAgentManager() {
   const { data: assignments = [], isLoading } = useQuery({
     queryKey: ['proxy-assignments'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('proxy_agent_assignments')
-        .select('*, agent:agent_id(full_name, phone), beneficiary:beneficiary_id(full_name, phone)')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data || [];
+      // Paginate: PostgREST caps a single request at 1000 rows, which silently
+      // truncated the KPI counts once partner links passed that mark.
+      const pageSize = 1000;
+      const all: any[] = [];
+      for (let from = 0; ; from += pageSize) {
+        const { data, error } = await supabase
+          .from('proxy_agent_assignments')
+          .select('*, agent:agent_id(full_name, phone), beneficiary:beneficiary_id(full_name, phone)')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        const batch = data || [];
+        all.push(...batch);
+        if (batch.length < pageSize) break;
+      }
+      return all;
     },
   });
+
 
   /** Map: beneficiary_id → active proxy assignment (one per partner is the contract). */
   const assignmentByBeneficiary = useMemo(() => {
