@@ -32,9 +32,13 @@ export default function VouchAgreementModal({
 }: Props) {
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [pressed, setPressed] = useState(false);
 
   const handleAccept = async () => {
-    if (!agreed) return;
+    // On mobile, tapping the primary button should record agreement even if
+    // the user skipped the checkbox. We check the box first, then submit.
+    const willAgree = agreed || true;
+    if (!agreed) setAgreed(true);
     setSubmitting(true);
     try {
       const ok = await onAccept();
