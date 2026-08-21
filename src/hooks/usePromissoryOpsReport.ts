@@ -165,6 +165,7 @@ export function usePromissoryOpsReport() {
     report: query.data ?? EMPTY,
     isLoading: query.isLoading,
     isFetching: query.isFetching,
+    error: query.error as Error | null,
     refetch: query.refetch,
   };
 }
