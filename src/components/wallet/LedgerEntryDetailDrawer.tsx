@@ -139,12 +139,6 @@ export function LedgerEntryDetailDrawer({ entryId, open, onOpenChange }: LedgerE
     fetchAll();
   }, [entryId, open]);
 
-  const handleCopyId = async () => {
-    if (!entryId) return;
-    await navigator.clipboard.writeText(entryId);
-    toast.success('Entry ID copied');
-  };
-
   const handleCopyRef = async () => {
     if (!entry?.reference_id) return;
     await navigator.clipboard.writeText(entry.reference_id);
@@ -153,7 +147,7 @@ export function LedgerEntryDetailDrawer({ entryId, open, onOpenChange }: LedgerE
 
   const isIn = entry?.direction === 'cash_in';
   const categoryLabel = entry ? (CATEGORY_LABELS[entry.category] || entry.category.replace(/_/g, ' ')) : '';
-  const sourceLabel = entry ? (SOURCE_TABLE_LABELS[entry.source_table] || entry.source_table.replace(/_/g, ' ')) : '';
+
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
