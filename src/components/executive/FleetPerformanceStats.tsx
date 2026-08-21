@@ -795,9 +795,18 @@ export function FleetPerformanceStats({
   }, [expandedId, rows]);
 
   const loading = expLoading || colLoading;
-  const totalExpected = rows.reduce((s, r) => s + r.expected, 0);
-  const totalCollected = rows.reduce((s, r) => s + r.collected, 0);
+  // KPI totals come from the Command Center RPC (shared with the Performance page)
+  // and fall back to the locally computed row sums until the RPC resolves.
+  const localExpected = rows.reduce((s, r) => s + r.expected, 0);
+  const localCollected = rows.reduce((s, r) => s + r.collected, 0);
+  const totalExpected = commandCenter
+    ? (commandCenter.agents || []).reduce((s, a) => s + (Number(a.expected) || 0), 0)
+    : localExpected;
+  const totalCollected = commandCenter
+    ? Number(commandCenter.totals?.collected ?? 0)
+    : localCollected;
   const rate = totalExpected > 0 ? Math.round((totalCollected / totalExpected) * 100) : 0;
+
   const rateTone = rate >= 100 ? 'text-emerald-600' : rate >= 80 ? 'text-emerald-600' : rate >= 50 ? 'text-amber-600' : 'text-destructive';
   const barTone = rate >= 100 ? 'bg-emerald-500' : rate >= 80 ? 'bg-emerald-500' : rate >= 50 ? 'bg-amber-500' : 'bg-destructive';
 
