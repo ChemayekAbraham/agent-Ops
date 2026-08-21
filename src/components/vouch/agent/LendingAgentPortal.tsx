@@ -293,41 +293,37 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
       return;
     }
     setDecidingId(req.id);
-    const ratePct = req.interest_rate_pct ?? 0;
-    const totalOwed = principalNum + (principalNum * ratePct) / 100;
     const durationDays = Number(req.requested_duration_days) || 30;
     const dueStr = new Date(Date.now() + durationDays * 86400000).toISOString().slice(0, 10);
     const reqFreq: RepaymentFrequency = durationDays <= 1 ? 'once' : 'monthly';
-    const reqSchedule = buildSchedule(totalOwed, reqFreq, new Date(), dueStr);
-    const { data: loanRow, error } = await (supabase.from('lending_agent_loans' as any).insert({
-      lender_agent_id: user.id,
-      borrower_user_id: req.borrower_user_id,
-      borrower_ai_id: req.borrower_ai_id,
-      borrower_display_name: req.borrower_display_name,
-      borrower_phone: req.borrower_phone,
-      principal_ugx: principalNum,
-      interest_rate_pct: req.interest_rate_pct ?? 0,
-      expected_repayment_date: dueStr,
-      loan_purpose: req.purpose ?? null,
-      platform_fee_ugx: fee,
-      lender_trust_score_at_record: trustScore,
-      status: 'active',
-      repayment_frequency: reqFreq,
-      auto_deduct_enabled: true,
-      installment_ugx: reqSchedule.installment,
-      next_deduction_date: reqSchedule.firstDate,
-      auto_deduct_started_at: new Date().toISOString(),
-    }).select('id').single() as any);
-    if (error) {
+    const { data: res, error } = await supabase.functions.invoke('lending-disburse-loan', {
+      body: {
+        borrower_user_id: req.borrower_user_id,
+        borrower_ai_id: req.borrower_ai_id ?? null,
+        principal_ugx: principalNum,
+        interest_rate_pct: req.interest_rate_pct ?? 0,
+        expected_repayment_date: dueStr,
+        loan_purpose: req.purpose ?? null,
+        repayment_frequency: reqFreq,
+        auto_deduct_enabled: true,
+      },
+    });
+    const loanRow = res as any;
+    if (error || loanRow?.error) {
       setDecidingId(null);
-      toast.error('Could not disburse: ' + error.message);
+      let msg = loanRow?.error ?? (error as any)?.message ?? 'Disbursement failed';
+      if (error && (error as any).context?.text) {
+        try { msg = JSON.parse(await (error as any).context.text())?.error ?? msg; } catch { /* keep msg */ }
+      }
+      toast.error('Could not disburse: ' + msg);
       return;
     }
     await (supabase.from('lending_loan_requests' as any)
-      .update({ status: 'approved', decided_at: new Date().toISOString(), loan_id: loanRow?.id ?? null })
+      .update({ status: 'approved', decided_at: new Date().toISOString(), loan_id: loanRow?.loan_id ?? null })
       .eq('id', req.id) as any);
     setDecidingId(null);
-    toast.success(`Loan to ${req.borrower_display_name ?? req.borrower_ai_id} approved & recorded`);
+    toast.success(`${formatUGX(principalNum)} sent to ${req.borrower_display_name ?? req.borrower_ai_id}`);
+
     await logLendingAudit({
       actorId: user.id, actorDisplayName: myName, actionType: 'request_approved',
       entityType: 'request', entityId: req.id,
