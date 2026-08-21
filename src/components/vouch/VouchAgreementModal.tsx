@@ -37,7 +37,6 @@ export default function VouchAgreementModal({
   const handleAccept = async () => {
     // On mobile, tapping the primary button should record agreement even if
     // the user skipped the checkbox. We check the box first, then submit.
-    const willAgree = agreed || true;
     if (!agreed) setAgreed(true);
     setSubmitting(true);
     try {
