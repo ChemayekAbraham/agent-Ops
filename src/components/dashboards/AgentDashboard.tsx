@@ -2228,9 +2228,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                 onChange={(e) => setPhoneTotal(e.target.value)}
                 className="h-10 text-sm"
               />
-              <p className="text-[11px] text-muted-foreground">
-                Available wallet balance: <span className="font-semibold">{formatUGX(realWithdrawableBalance)}</span>
-              </p>
+            </div>
+
             </div>
             {phoneTotalNum > 0 && (
               <div className="rounded-lg bg-muted/50 px-3 py-2 space-y-1">
