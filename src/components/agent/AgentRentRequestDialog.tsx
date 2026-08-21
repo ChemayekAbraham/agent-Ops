@@ -4078,7 +4078,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                         value={formatCurrencyInput(rentAmount)}
                         onChange={(e) => setRentAmount(e.target.value.replace(/[^0-9]/g, ''))}
                         placeholder="500,000"
-                        className={`h-12 pl-14 text-lg font-bold border-2 border-primary/30 focus:border-primary rounded-xl ${hasFieldError('rentAmount') ? 'border-destructive' : ''}`}
+                        className={`h-10 pl-14 text-base font-bold border-2 border-primary/30 focus:border-primary rounded-xl ${hasFieldError('rentAmount') ? 'border-destructive' : ''}`}
                         required
                       />
                     </div>
