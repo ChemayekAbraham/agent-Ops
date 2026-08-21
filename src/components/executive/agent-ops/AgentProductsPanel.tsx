@@ -251,7 +251,11 @@ function IssueProductDialog({
     return Array.from(names).sort();
   }, [catalog, category]);
 
-  const total = (Number(quantity) || 0) * (Number(unitPrice) || 0);
+  // Every issued product carries a 33% interest markup on the base price.
+  const INTEREST_RATE = 0.33;
+  const baseValue = (Number(quantity) || 0) * (Number(unitPrice) || 0);
+  const interestAmount = Math.round(baseValue * INTEREST_RATE);
+  const total = baseValue + interestAmount;
   const outstanding = Math.max(total - (plan === 'full' ? total : Number(amountPaid) || 0), 0);
 
   // Smartphones and Welile Bikes recover at a fixed 33% rate from the agent wallet.
@@ -261,7 +265,7 @@ function IssueProductDialog({
     return name.includes('phone') || name.includes('bike');
   }, [itemName]);
   const recoveryRate = isFixedRecoveryProduct ? 0.33 : null;
-  const recoveryAmount = recoveryRate ? Math.round(outstanding * recoveryRate) : 0;
+
 
 
   const mutation = useMutation({
