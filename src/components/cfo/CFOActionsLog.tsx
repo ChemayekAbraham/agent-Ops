@@ -431,8 +431,8 @@ export function CFOActionsLog() {
   }
 
   return (
-    <Card className="rounded-lg shadow-sm">
-      <CardContent className="p-4">
+    <Card className="rounded-2xl shadow-sm">
+      <CardContent className="p-4 sm:p-5">
         <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
           <div className="flex items-center gap-2 text-sm font-bold tracking-tight">
             <span>CFO Actions Log</span>

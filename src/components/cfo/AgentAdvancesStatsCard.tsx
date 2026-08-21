@@ -109,8 +109,32 @@ function useAgentAdvancesPortfolioData() {
  * The 30-day "Disbursed vs Recovered" chart exactly as rendered inside
  * `AgentAdvancesStatsCard`, reusable standalone (same queries, same data).
  */
-export function AgentAdvancesTrendChart() {
+export function AgentAdvancesTrendChart({ hideHeader = false }: { hideHeader?: boolean }) {
   const { chartData, loading } = useAgentAdvancesPortfolioData();
+
+  const chart = (
+    <div className="h-64 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+          <XAxis dataKey="day" tick={{ fontSize: 10 }} interval={4} />
+          <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
+          <RechartsTooltip
+            formatter={(v: number, name: string) => [formatUGX(v), name]}
+            contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+          />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Bar dataKey="disbursed" name="Disbursed" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="recovered" name="Recovered" fill="#10b981" radius={[4, 4, 0, 0]} />
+          <Line dataKey="interest" name="Interest accrued" stroke="#f59e0b" strokeWidth={2} dot={false} />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </div>
+  );
+
+  if (hideHeader) {
+    return chart;
+  }
 
   return (
     <div className="rounded-xl border bg-muted/20 p-3">
@@ -118,23 +142,7 @@ export function AgentAdvancesTrendChart() {
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Last 30 days · Disbursed vs Recovered</p>
         {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
       </div>
-      <div className="h-64 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis dataKey="day" tick={{ fontSize: 10 }} interval={4} />
-            <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
-            <RechartsTooltip
-              formatter={(v: number, name: string) => [formatUGX(v), name]}
-              contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
-            />
-            <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Bar dataKey="disbursed" name="Disbursed" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="recovered" name="Recovered" fill="#10b981" radius={[4, 4, 0, 0]} />
-            <Line dataKey="interest" name="Interest accrued" stroke="#f59e0b" strokeWidth={2} dot={false} />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
+      {chart}
     </div>
   );
 }
