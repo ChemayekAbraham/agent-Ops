@@ -242,7 +242,10 @@ export function PromissoryNotesQueue() {
 
   const getNoteStatusConfig = (note: any) => {
     const base = statusConfig[note.status] || statusConfig.pending;
-    if (note.status === 'activated' && note.came_in) {
+    if (
+      note.status === 'activated' &&
+      (note.came_in_user_id || note.partner_user_id || note.came_in)
+    ) {
       return { ...base, label: 'Joined' };
     }
     return base;
