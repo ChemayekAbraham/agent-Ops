@@ -427,8 +427,14 @@ export default function BorrowLoanSheet({ open, onOpenChange, onOpenLendingPorta
               )}
             </div>
 
+            {/* My loans — lender contact + repayment schedule */}
+            <div className="mb-4">
+              <MyLoansPortfolio refreshKey={myRequests.length} />
+            </div>
+
             {/* My requests */}
             <div className="space-y-2">
+
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">My Requests</Label>
               {myRequests.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No requests yet.</p>
