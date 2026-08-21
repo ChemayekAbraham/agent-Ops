@@ -183,6 +183,11 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                           </div>
                         )}
                       </div>
+                      {isReturnPending && (
+                        <Badge variant="outline" className="text-[9px] shrink-0 border-amber-500 text-amber-600">
+                          Awaiting CFO
+                        </Badge>
+                      )}
                       {a.status === 'partially_paid' && (
                         <Badge variant="secondary" className="text-[9px] shrink-0">Partial</Badge>
                       )}
