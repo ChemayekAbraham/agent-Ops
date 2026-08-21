@@ -467,7 +467,7 @@ export function PromissoryNotesQueue() {
             </SheetTitle>
           </SheetHeader>
           {selectedNote && (() => {
-            const config = statusConfig[selectedNote.status] || statusConfig.pending;
+            const config = getNoteStatusConfig(selectedNote);
             const StatusIcon = config.icon;
             const outstanding = Number(selectedNote.amount) - Number(selectedNote.total_collected);
             const progress = Number(selectedNote.amount) > 0 ? Math.min(100, (Number(selectedNote.total_collected) / Number(selectedNote.amount)) * 100) : 0;
