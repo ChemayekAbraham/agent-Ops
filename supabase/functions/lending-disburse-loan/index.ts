@@ -124,14 +124,21 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
-    const [{ data: borrowerProfile }, { data: lenderProfile }] = await Promise.all([
+    const [{ data: borrowerProfile }, { data: lenderProfile }, { data: borrowerTrust }] = await Promise.all([
       admin.from("profiles").select("id, full_name, phone").eq("id", borrowerUserId).maybeSingle(),
       admin.from("profiles").select("id, full_name, phone").eq("id", lenderId).maybeSingle(),
+      admin.from("welile_trust_score_cache").select("ai_id, score, tier").eq("user_id", borrowerUserId).maybeSingle(),
     ]);
     if (!borrowerProfile) return json({ error: "Borrower account not found" }, 404);
 
+    // borrower_ai_id is NOT NULL in the DB: resolve from the trust cache, fall back to the request, then a deterministic id.
+    const borrowerAiId = String(
+      body?.borrower_ai_id ?? borrowerTrust?.ai_id ?? `WAI-${borrowerUserId.slice(0, 8).toUpperCase()}`,
+    );
+
     const borrowerLabel = borrowerProfile.full_name || "Borrower";
     const lenderLabel = lenderProfile?.full_name || "Welile lending agent";
+
 
     const start = new Date();
     const due = dueDateStr ? new Date(dueDateStr) : new Date(start.getTime() + 30 * 86400000);
