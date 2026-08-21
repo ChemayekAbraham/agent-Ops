@@ -175,6 +175,11 @@ interface PortfolioRow {
   // the cron clears these fields.
   pending_renewal_effective_date?: string | null;
   pending_renewal_duration_months?: number | null;
+  // Split-lock linkage: set on the LOCKED child created by a partial lock.
+  // The parent portfolio keeps the remaining (still-earning) principal.
+  locked_from_portfolio_id?: string | null;
+  locked_at?: string | null;
+  lock_reason?: string | null;
 }
 
 interface PartnerDetail {
@@ -1213,7 +1218,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         supabase.from('profiles').select('id, full_name, phone, email, created_at, frozen_at, frozen_reason, funder_verified_at, signup_source').eq('id', partnerId).single(),
         supabase.from('wallets').select('balance, withdrawable_balance, float_balance').eq('user_id', partnerId).single(),
         supabase.from('investor_portfolios')
-          .select('id, portfolio_code, account_name, investment_amount, roi_percentage, payout_day, roi_mode, status, created_at, maturity_date, total_roi_earned, duration_months, next_roi_date, investor_id, agent_id, payment_method, mobile_network, mobile_money_number, bank_name, bank_account_name, account_number, pending_renewal_effective_date, pending_renewal_duration_months')
+          .select('id, portfolio_code, account_name, investment_amount, roi_percentage, payout_day, roi_mode, status, created_at, maturity_date, total_roi_earned, duration_months, next_roi_date, investor_id, agent_id, payment_method, mobile_network, mobile_money_number, bank_name, bank_account_name, account_number, pending_renewal_effective_date, pending_renewal_duration_months, locked_from_portfolio_id, locked_at, lock_reason')
           .or(`investor_id.eq.${partnerId},agent_id.eq.${partnerId}`)
           .order('created_at', { ascending: false }),
         supabase.from('general_ledger')
@@ -2880,6 +2885,18 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                                   ? Math.max(0, Math.ceil((pendingRenewalDate.getTime() - Date.now()) / 86400000))
                                   : 0;
                                 const isPendingRedemption = !!pendingRedemptions[p.id];
+                                // Split lock: this card is the LOCKED slice carved out of a
+                                // parent portfolio (partial lock), or it IS the parent that
+                                // still holds the remaining active capital.
+                                const isLocked = p.status === 'locked';
+                                const parentOfLock = p.locked_from_portfolio_id
+                                  ? detailPartner.portfolios.find(x => x.id === p.locked_from_portfolio_id) || null
+                                  : null;
+                                const lockedChildren = detailPartner.portfolios.filter(
+                                  x => x.locked_from_portfolio_id === p.id,
+                                );
+                                const lockedChildTotal = lockedChildren.reduce((sum, x) => sum + (x.investment_amount || 0), 0);
+                                const isPartiallyLocked = !isLocked && lockedChildren.length > 0;
                                 const lastRenewalAt = recentRenewals[p.id] ? new Date(recentRenewals[p.id]) : null;
                                 const renewedRecently = !!lastRenewalAt && (Date.now() - lastRenewalAt.getTime()) < 30 * 86400000;
                                 const renewedDaysAgo = lastRenewalAt ? Math.floor((Date.now() - lastRenewalAt.getTime()) / 86400000) : 0;
@@ -2899,6 +2916,27 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                                     <span>Partner requested payout at maturity — portfolio locked from edits until redemption is processed.</span>
                                     <span className="ml-auto uppercase tracking-wide text-[9px] bg-amber-200/70 dark:bg-amber-800/60 px-1.5 py-0.5 rounded">
                                       Locked
+                                    </span>
+                                  </div>
+                                )}
+                                {isLocked && (
+                                  <div className="flex flex-wrap items-center gap-2 px-3.5 py-2 border-b border-slate-300 bg-slate-100/80 dark:bg-slate-800/50 dark:border-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+                                    <Lock className="h-3.5 w-3.5" />
+                                    <span>
+                                      {parentOfLock
+                                        ? `Locked slice of ${parentOfLock.portfolio_code} — only this ${formatUGX(p.investment_amount)} is paused. ${formatUGX(parentOfLock.investment_amount)} stays active on ${parentOfLock.portfolio_code}.`
+                                        : 'Full principal locked — this portfolio no longer earns returns.'}
+                                    </span>
+                                    <span className="ml-auto uppercase tracking-wide text-[9px] bg-slate-200/80 dark:bg-slate-700/70 px-1.5 py-0.5 rounded">
+                                      No payouts
+                                    </span>
+                                  </div>
+                                )}
+                                {isPartiallyLocked && (
+                                  <div className="flex flex-wrap items-center gap-2 px-3.5 py-2 border-b border-emerald-200 bg-emerald-50/80 dark:bg-emerald-950/30 dark:border-emerald-800/60 text-[11px] font-semibold text-emerald-800 dark:text-emerald-200">
+                                    <Lock className="h-3.5 w-3.5" />
+                                    <span>
+                                      Partially locked — {formatUGX(lockedChildTotal)} moved to {lockedChildren.map(c => c.portfolio_code).join(', ')}. This {formatUGX(p.investment_amount)} is still active and keeps earning.
                                     </span>
                                   </div>
                                 )}
@@ -3063,7 +3101,9 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                                 </div>
                                 <div>
                                   <span className="text-muted-foreground">Next Payout</span>
-                                  {editingNextPayoutId === p.id ? (
+                                  {isLocked ? (
+                                    <p className="font-semibold text-muted-foreground">— paused (locked)</p>
+                                  ) : editingNextPayoutId === p.id ? (
                                     <div className="flex items-center gap-1 mt-1">
                                       <Input
                                         type="date"
@@ -3107,6 +3147,8 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                                   <p className="font-semibold">
                                     {p.status === 'active'
                                       ? <span className="text-primary">🟢 Active</span>
+                                      : isLocked
+                                        ? <span className="text-slate-600 dark:text-slate-300">🔒 Locked — no payouts</span>
                                       : p.status === 'pending_approval'
                                         ? <span className="text-amber-600">⏸ Awaiting Approval</span>
                                         : <span className="text-amber-600">⏸ {p.status === 'pending' ? 'Pending' : p.status}</span>}
