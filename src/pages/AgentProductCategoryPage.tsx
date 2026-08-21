@@ -13,6 +13,8 @@ import { ActiveAdvancesPanel } from '@/components/ops/ActiveAdvancesPanel';
 import { AdvanceRepaymentsPanel } from '@/components/ops/AdvanceRepaymentsPanel';
 import { ServiceCentreVerificationQueue } from '@/components/executive/ServiceCentreVerificationQueue';
 import { SmartphoneOrderApprovals } from '@/components/executive/agent-ops/SmartphoneOrderApprovals';
+import { WelileLendingBusinessPanel } from '@/components/executive/agent-ops/WelileLendingBusinessPanel';
+
 
 
 export const AGENT_PRODUCT_PAGES = [
@@ -23,7 +25,9 @@ export const AGENT_PRODUCT_PAGES = [
   { slug: 'advances', category: null, label: 'Agent Advances', desc: 'Advance requests, limits & repayment queues', icon: HandCoins, color: 'bg-violet-600', to: '/agent-ops/products/advances' },
   { slug: 'service-centres', category: null, label: 'Service Centres', desc: 'Service centre locations, verifications & manager assignments', icon: Store, color: 'bg-red-500', to: '/agent-ops/products/service-centres' },
   { slug: 'personal-rent-request', category: null, label: 'Agent Personal Rent Request', desc: 'Personal rent financing requests, approvals & repayment tracking', icon: Home, color: 'bg-teal-600', to: '/agent-ops/products/personal-rent-request' },
+  { slug: 'lending-agents', category: null, label: 'Welile Lending Agents', desc: 'Lending agent business model, company cost, revenue & contactable lenders', icon: HandCoins, color: 'bg-violet-500', to: '/agent-ops/products/lending-agents' },
 ] as const;
+
 
 export const AGENT_PRODUCTS_HUB_PATH = '/executive-hub?tab=agent-ops&section=agent-products-services';
 
@@ -37,6 +41,39 @@ export default function AgentProductCategoryPage() {
   const isAdvances = entry.slug === 'advances';
   const isServiceCentres = entry.slug === 'service-centres';
   const isPersonalRentRequest = entry.slug === 'personal-rent-request';
+  const isLendingAgents = entry.slug === 'lending-agents';
+
+  if (isLendingAgents) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="mx-auto max-w-7xl px-4 py-5 space-y-5">
+          <Link
+            to={AGENT_PRODUCTS_HUB_PATH}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Products &amp; Services Hub
+          </Link>
+
+          <header className="flex items-start gap-4 rounded-2xl border bg-card p-5 shadow-sm">
+            <div className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${entry.color} text-white shadow-md`}>
+              <Icon className="h-6 w-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{entry.label}</h1>
+              <p className="text-sm text-muted-foreground">{entry.desc}</p>
+            </div>
+            <div className="shrink-0">
+              <ExportProductsPdfButton />
+            </div>
+          </header>
+
+          <WelileLendingBusinessPanel />
+        </div>
+      </div>
+    );
+  }
+
 
   if (isServiceCentres) {
     return (
