@@ -130,7 +130,15 @@ export const PARTNER_OPS_NAV: PartnerOpsNavItem[] = [
     keywords: ['rent', 'requests', 'proxy', 'attach', 'coo', 'tenants', 'media'],
   },
   { key: 'approvals', label: 'Partner Approvals', icon: ClipboardCheck, view: 'approvals', keywords: ['approve', 'funders', 'role requests'] },
+  {
+    key: 'verification',
+    label: 'Partner Verification',
+    icon: ShieldCheck,
+    view: 'verification',
+    keywords: ['verify', 'verification', 'self registered', 'funder', 'kyc', 'blocked', 'not verified'],
+  },
 ];
+
 
 export interface PartnerOpsSearchResult {
   view: PartnerOpsViewKey;
