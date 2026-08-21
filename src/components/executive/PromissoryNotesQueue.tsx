@@ -398,7 +398,7 @@ export function PromissoryNotesQueue() {
               {/* Mobile cards */}
               <div className="md:hidden space-y-2">
                 {pagedNotes.map(note => {
-                  const config = statusConfig[note.status] || statusConfig.pending;
+                  const config = getNoteStatusConfig(note);
                   const StatusIcon = config.icon;
                   return (
                     <button
