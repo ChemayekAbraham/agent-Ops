@@ -346,10 +346,10 @@ export function SelfPortfolioPlanDetailSheet({
                 <Phone className="h-4 w-4 flex-none" /> Proxy Agent
               </span>
               <a
-                href="tel:+256751424629"
+                href={`tel:${(plan.proxy_agent_phone ?? '+256 751 424 629').replace(/\s/g, '')}`}
                 className="text-sm font-bold truncate text-primary hover:underline"
               >
-                +256 751 424 629
+                {plan.proxy_agent_phone ?? '+256 751 424 629'}
               </a>
             </li>
           </ul>
