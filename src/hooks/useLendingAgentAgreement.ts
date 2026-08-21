@@ -55,7 +55,7 @@ export function useLendingAgentAgreement() {
     setIsAccepted(true);
     setAcceptance(data as Acceptance);
     return true;
-  }, [user]);
+  }, [user, check]);
 
   return { isAccepted, acceptance, isLoading, acceptAgreement, currentVersion: LENDING_AGENT_AGREEMENT_VERSION };
 }
