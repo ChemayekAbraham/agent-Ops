@@ -206,7 +206,12 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                         )}
                       </div>
                       <div className="flex items-center gap-1 text-xs font-semibold text-[#9234EA]">
-                        {isLocked ? (
+                        {isReturnPending ? (
+                          <span className="flex items-center gap-1 text-amber-600">
+                            <Lock className="h-3.5 w-3.5" />
+                            Return sent to CFO
+                          </span>
+                        ) : isLocked ? (
                           <span className="flex items-center gap-1 text-muted-foreground">
                             <Lock className="h-3.5 w-3.5" />
                             {mins}:{secs.toString().padStart(2, '0')}
