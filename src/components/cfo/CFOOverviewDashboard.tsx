@@ -39,8 +39,10 @@ const fmtShort = (n: number) => {
 export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps) {
   const [exportingCommissions, setExportingCommissions] = useState(false);
   const [activeBreakdown, setActiveBreakdown] = useState<string | null>(null);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
-  // Every section renders fully expanded on load; the chevron only collapses it.
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    ledgerMaintenance: false,
+  });
+  // Sections default to expanded unless explicitly collapsed above; the chevron toggles.
   const isOpen = (key: string) => openSections[key] !== false;
   const toggleSection = (key: string) =>
     setOpenSections((prev) => ({ ...prev, [key]: prev[key] === false }));
