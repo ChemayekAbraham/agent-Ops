@@ -70,13 +70,16 @@ export default function VouchAgreementModal({
 
         <DialogFooter className="p-4 pt-3 border-t flex-col sm:flex-col gap-3 items-stretch">
           {!viewOnly && (
-            <label className="flex items-start gap-2.5 text-xs cursor-pointer p-2 rounded-md hover:bg-muted/40">
+            <label
+              className="flex items-start gap-2.5 text-xs cursor-pointer p-3 rounded-md hover:bg-muted/40 active:bg-muted/60 transition-colors touch-manipulation"
+              onClick={() => setAgreed((v) => !v)}
+            >
               <Checkbox
                 checked={agreed}
                 onCheckedChange={(c) => setAgreed(c === true)}
-                className="mt-0.5"
+                className="mt-0.5 h-4 w-4"
               />
-              <span className="leading-relaxed">
+              <span className="leading-relaxed select-none">
                 I have read, understood, and accept the terms above. I confirm I am authorised to accept on my behalf.
               </span>
             </label>
