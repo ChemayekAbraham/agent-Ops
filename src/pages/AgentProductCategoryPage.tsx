@@ -145,8 +145,12 @@ export default function AgentProductCategoryPage() {
             </TabsContent>
           </Tabs>
         ) : (
-          <AgentProductsPanel category={entry.category ?? undefined} />
+          <div className="space-y-5">
+            {entry.slug === 'smart-phones' && <SmartphoneOrderApprovals />}
+            <AgentProductsPanel category={entry.category ?? undefined} />
+          </div>
         )}
+
       </div>
     </div>
   );
