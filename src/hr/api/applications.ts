@@ -104,6 +104,9 @@ const COLUMNS = [
   'decided_at',
   'decided_by',
   'decision_reason',
+  'shortlist_round',
+  'archived_at',
+  'archived_by',
   'created_at',
 ].join(', ');
 
