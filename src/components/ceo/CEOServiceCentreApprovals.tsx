@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Building2, CheckCircle, XCircle, Loader2, MapPin, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
-import { formatUGX } from '@/lib/currency';
+import { formatUGX } from '@/lib/businessAdvanceCalculations';
 
 interface SCRow {
   id: string;
