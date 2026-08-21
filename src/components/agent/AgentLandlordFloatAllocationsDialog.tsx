@@ -64,6 +64,7 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
   }, [open, hasActiveLock]);
 
   const handleSelect = (a: LandlordFloatAllocation) => {
+    if (a.status === 'return_pending') return; // awaiting CFO decision — not payable
     const key = allocationLockKey(a);
     const expiry = locks[key];
     if (expiry && expiry > Date.now()) return; // still locked — ignore the tap
