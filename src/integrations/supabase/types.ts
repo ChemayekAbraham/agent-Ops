@@ -11446,6 +11446,7 @@ export type Database = {
           funder_id: string
           id: string
           portfolio_id: string
+          promissory_note_id: string | null
           review_reason: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -11462,6 +11463,7 @@ export type Database = {
           funder_id: string
           id?: string
           portfolio_id: string
+          promissory_note_id?: string | null
           review_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -11478,6 +11480,7 @@ export type Database = {
           funder_id?: string
           id?: string
           portfolio_id?: string
+          promissory_note_id?: string | null
           review_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -21570,6 +21573,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "partner_float_agent_notices_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["commitment_id"]
+          },
+          {
             foreignKeyName: "partner_float_agent_notices_topup_id_fkey"
             columns: ["topup_id"]
             isOneToOne: false
@@ -21882,6 +21892,7 @@ export type Database = {
           partner_id: string
           payout_anchor_at: string | null
           payout_day: number | null
+          promissory_note_id: string | null
           status: string
           term_end_at: string | null
           term_months: number
@@ -21901,6 +21912,7 @@ export type Database = {
           partner_id: string
           payout_anchor_at?: string | null
           payout_day?: number | null
+          promissory_note_id?: string | null
           status?: string
           term_end_at?: string | null
           term_months?: number
@@ -21920,6 +21932,7 @@ export type Database = {
           partner_id?: string
           payout_anchor_at?: string | null
           payout_day?: number | null
+          promissory_note_id?: string | null
           status?: string
           term_end_at?: string | null
           term_months?: number
@@ -21991,6 +22004,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "partner_self_commitments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_self_earnings_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["commitment_id"]
           },
           {
             foreignKeyName: "partner_self_earnings_line_id_fkey"
@@ -22068,6 +22088,13 @@ export type Database = {
             referencedRelation: "partner_self_commitments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "partner_self_funding_lines_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["commitment_id"]
+          },
         ]
       }
       partner_self_payout_cycles: {
@@ -22126,6 +22153,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "partner_self_commitments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_self_payout_cycles_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["commitment_id"]
           },
         ]
       }
@@ -22251,6 +22285,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "partner_self_commitments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_self_topups_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["commitment_id"]
           },
         ]
       }
@@ -24786,6 +24827,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "promissory_note_plan_intents_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["note_id"]
+          },
+          {
             foreignKeyName: "promissory_note_plan_intents_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
@@ -24895,6 +24943,13 @@ export type Database = {
             referencedRelation: "promissory_notes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "promissory_note_pledge_notices_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: true
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["note_id"]
+          },
         ]
       }
       promissory_note_release_notices: {
@@ -24962,6 +25017,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "promissory_notes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promissory_note_release_notices_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: true
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["note_id"]
           },
         ]
       }
@@ -25034,6 +25096,33 @@ export type Database = {
           total_collected?: number
           updated_at?: string
           whatsapp_number?: string
+        }
+        Relationships: []
+      }
+      promissory_self_support_guard_events: {
+        Row: {
+          attempted_amount: number | null
+          context: Json
+          created_at: string
+          id: string
+          path: string
+          user_id: string
+        }
+        Insert: {
+          attempted_amount?: number | null
+          context?: Json
+          created_at?: string
+          id?: string
+          path: string
+          user_id: string
+        }
+        Update: {
+          attempted_amount?: number | null
+          context?: Json
+          created_at?: string
+          id?: string
+          path?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -35679,6 +35768,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "promissory_note_plan_intents_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["note_id"]
+          },
+          {
             foreignKeyName: "promissory_note_plan_intents_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
@@ -36457,6 +36553,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "partner_float_agent_notices_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["commitment_id"]
+          },
+          {
             foreignKeyName: "partner_float_agent_notices_topup_id_fkey"
             columns: ["topup_id"]
             isOneToOne: false
@@ -36493,6 +36596,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "partner_self_commitments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_self_funding_lines_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["commitment_id"]
           },
         ]
       }
@@ -36543,6 +36653,42 @@ export type Database = {
           withdrawable_delta: number | null
         }
         Relationships: []
+      }
+      v_promissory_self_support_tracker: {
+        Row: {
+          agent_id: string | null
+          commitment_id: string | null
+          commitment_status: string | null
+          committed_amount: number | null
+          funded_amount: number | null
+          funded_plans: number | null
+          note_id: string | null
+          note_status: string | null
+          partner_account_name: string | null
+          partner_account_phone: string | null
+          partner_name: string | null
+          partner_registered: boolean | null
+          partner_user_id: string | null
+          portfolio_code: string | null
+          portfolio_id: string | null
+          portfolio_review_status: string | null
+          portfolio_source: string | null
+          portfolio_status: string | null
+          promised_amount: number | null
+          reserved_amount: number | null
+          reserved_plans: number | null
+          routing_violation: boolean | null
+          whatsapp_number: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funder_pending_portfolios_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: true
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       v_suspicious_duplicate_accounts: {
         Row: {
@@ -37488,6 +37634,10 @@ export type Database = {
       }
       archive_dead_letter_batch: {
         Args: { _dead_letter_id: number }
+        Returns: undefined
+      }
+      assert_no_promissory_self_support: {
+        Args: { p_path: string; p_user: string }
         Returns: undefined
       }
       assert_no_urgent_proxy_priority: {
@@ -41850,6 +42000,10 @@ export type Database = {
         Returns: Json
       }
       link_campaign_sub_agent: { Args: { p_user_id: string }; Returns: Json }
+      link_promissory_notes_for_user: {
+        Args: { p_user: string }
+        Returns: number
+      }
       link_referred_agent_to_parent: {
         Args: { p_sub_agent_id: string }
         Returns: boolean
@@ -43161,6 +43315,10 @@ export type Database = {
         }
         Returns: Json
       }
+      promissory_self_support_context: {
+        Args: { p_user: string }
+        Returns: Json
+      }
       proxy_agent_partner_rows: {
         Args: { p_agent_id: string }
         Returns: {
@@ -43193,16 +43351,28 @@ export type Database = {
         }
         Returns: undefined
       }
-      psm_confirm_commitment_for: {
-        Args: {
-          p_actor?: string
-          p_idempotency_key?: string
-          p_partner: string
-          p_rent_request_ids: string[]
-          p_term_months?: number
-        }
-        Returns: Json
-      }
+      psm_confirm_commitment_for:
+        | {
+            Args: {
+              p_actor?: string
+              p_idempotency_key?: string
+              p_partner: string
+              p_rent_request_ids: string[]
+              p_term_months?: number
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_actor?: string
+              p_idempotency_key?: string
+              p_partner: string
+              p_promissory_note_id?: string
+              p_rent_request_ids: string[]
+              p_term_months?: number
+            }
+            Returns: Json
+          }
       psm_disburse_landlord_float: {
         Args: {
           p_commitment_id: string
