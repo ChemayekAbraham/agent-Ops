@@ -29074,6 +29074,10 @@ export type Database = {
           agent_phone: string
           approved_at: string | null
           approved_by: string | null
+          ceo_approved_at: string | null
+          ceo_approved_by: string | null
+          ceo_comment: string | null
+          ceo_rejection_reason: string | null
           created_at: string | null
           id: string
           latitude: number
@@ -29093,6 +29097,10 @@ export type Database = {
           agent_phone: string
           approved_at?: string | null
           approved_by?: string | null
+          ceo_approved_at?: string | null
+          ceo_approved_by?: string | null
+          ceo_comment?: string | null
+          ceo_rejection_reason?: string | null
           created_at?: string | null
           id?: string
           latitude: number
@@ -29112,6 +29120,10 @@ export type Database = {
           agent_phone?: string
           approved_at?: string | null
           approved_by?: string | null
+          ceo_approved_at?: string | null
+          ceo_approved_by?: string | null
+          ceo_comment?: string | null
+          ceo_rejection_reason?: string | null
           created_at?: string | null
           id?: string
           latitude?: number
@@ -37960,6 +37972,20 @@ export type Database = {
           p_reason: string
         }
         Returns: Json
+      }
+      ceo_approve_service_centres: {
+        Args: { p_comment: string; p_ids: string[] }
+        Returns: {
+          id: string
+          status: string
+        }[]
+      }
+      ceo_reject_service_centres: {
+        Args: { p_comment: string; p_ids: string[] }
+        Returns: {
+          id: string
+          status: string
+        }[]
       }
       cfo_approve_float_request: {
         Args: { p_amount: number; p_reason: string; p_request_id: string }
