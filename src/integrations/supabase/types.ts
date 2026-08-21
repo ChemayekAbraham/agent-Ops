@@ -44453,6 +44453,7 @@ export type Database = {
         Args: { p_agent_id: string; p_partner_id: string }
         Returns: Json
       }
+      smoke_promissory_commissions_authorized: { Args: never; Returns: boolean }
       snapshot_agent_daily_eligibility: {
         Args: { p_days?: number }
         Returns: number
