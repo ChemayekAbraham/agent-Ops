@@ -78,20 +78,47 @@ export default function VouchAgreementModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0">
-        <DialogHeader className="p-5 pb-3 border-b">
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <Shield className="h-4 w-4 text-primary" />
+      <DialogContent className="max-w-2xl h-[92vh] sm:h-[85vh] max-h-[92vh] flex flex-col p-0 gap-0">
+        <DialogHeader className="p-4 sm:p-5 pb-3 border-b shrink-0">
+          <DialogTitle className="flex items-center gap-2 text-sm sm:text-base pr-8">
+            <Shield className="h-4 w-4 text-primary shrink-0" />
             {title}
           </DialogTitle>
           {subtitle && <DialogDescription className="text-xs">{subtitle}</DialogDescription>}
+          <div className="mt-2 h-1 w-full rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-primary transition-all duration-150"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground">{progress}% read</p>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-5 py-4">
-          <pre className="whitespace-pre-wrap text-xs leading-relaxed font-sans text-foreground">
-            {agreementText}
-          </pre>
-        </ScrollArea>
+        <div className="relative flex-1 min-h-0">
+          <div
+            ref={scrollRef}
+            onScroll={onScroll}
+            className="absolute inset-0 overflow-y-auto overscroll-contain px-4 sm:px-5 py-4"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
+            <pre className="whitespace-pre-wrap text-xs sm:text-[13px] leading-relaxed font-sans text-foreground">
+              {agreementText}
+            </pre>
+            <div className="h-6" />
+          </div>
+
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => scrollTo(atBottom ? 'top' : 'bottom')}
+            className="absolute bottom-3 right-3 h-10 rounded-full shadow-md px-3 gap-1.5 text-xs touch-manipulation"
+          >
+            {atBottom ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />}
+            {atBottom ? 'Top' : 'Skip to end'}
+          </Button>
+        </div>
+
 
         <DialogFooter className="p-4 pt-3 border-t flex-col sm:flex-col gap-3 items-stretch">
           {!viewOnly && (
