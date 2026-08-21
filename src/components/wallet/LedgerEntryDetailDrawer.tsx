@@ -187,16 +187,11 @@ export function LedgerEntryDetailDrawer({ entryId, open, onOpenChange }: LedgerE
                 <Badge variant={isIn ? 'default' : 'destructive'} className="text-xs">
                   {isIn ? 'Cash In' : 'Cash Out'}
                 </Badge>
-                <Badge variant="outline" className="text-xs">{sourceLabel}</Badge>
               </div>
             </div>
 
-            {/* IDs */}
+            {/* Reference */}
             <div className="space-y-1">
-              <button onClick={handleCopyId} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground w-full">
-                <Copy className="h-3 w-3" />
-                <span className="font-mono truncate">ID: {entry.id}</span>
-              </button>
               {entry.reference_id && (
                 <button onClick={handleCopyRef} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground w-full">
                   <Copy className="h-3 w-3" />
@@ -204,6 +199,7 @@ export function LedgerEntryDetailDrawer({ entryId, open, onOpenChange }: LedgerE
                 </button>
               )}
             </div>
+
 
             <Separator />
 
