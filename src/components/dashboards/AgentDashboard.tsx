@@ -47,7 +47,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { Info } from 'lucide-react';
+import { Info, UsersRound } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Wallet, Landmark, LayoutDashboard, ChevronRight } from 'lucide-react';
 import { HandCoins } from 'lucide-react';
