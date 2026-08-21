@@ -342,7 +342,8 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const newStatus = closingBalance <= 0 ? 'completed' : (isOverdue ? 'overdue' : 'active');
+      const isPastExpiry = new Date() > new Date(advance.expires_at);
+      const newStatus = closingBalance <= 0 ? 'completed' : (isPastExpiry ? 'overdue' : 'active');
       const advAccessFee = Number(advance.access_fee || 0);
       const totalPayable = Number(advance.principal) + advAccessFee;
       const totalDeducted = totalPayable - Math.max(0, closingBalance);
