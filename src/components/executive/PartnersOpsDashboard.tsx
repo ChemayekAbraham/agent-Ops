@@ -28,6 +28,7 @@ import { SelfManagedTopUpReviews } from './SelfManagedTopUpReviews';
 import { ShareSupporterRecruit } from '@/components/shared/ShareSupporterRecruit';
 import { PartnerFinancialActivity } from './PartnerFinancialActivity';
 import { PendingFunderApprovals } from './PendingFunderApprovals';
+import { PromissoryCommissionsPanel } from '@/components/shared/PromissoryCommissionsPanel';
 import { PromissoryNotesQueue } from './PromissoryNotesQueue';
 import { PartnerOpsScoreboard } from './PartnerOpsScoreboard';
 
@@ -276,6 +277,7 @@ export function PartnersOpsDashboard() {
         <div className="space-y-6">
           <PartnerOpsScoreboard />
           <PromissoryNotesQueue />
+          <PromissoryCommissionsPanel />
         </div>
       );
       case 'maturity': return <MaturityRequestsQueue />;
