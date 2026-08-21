@@ -363,7 +363,7 @@ export function PromissoryNotesQueue() {
                   </thead>
                   <tbody>
                     {pagedNotes.map(note => {
-                      const config = statusConfig[note.status] || statusConfig.pending;
+                      const config = getNoteStatusConfig(note);
                       const StatusIcon = config.icon;
                       return (
                         <tr key={note.id} className="border-b last:border-0 cursor-pointer hover:bg-muted/40" onClick={() => setSelectedNote(note)}>
