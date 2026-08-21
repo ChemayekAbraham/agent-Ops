@@ -371,13 +371,41 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     await reloadRequests();
   };
 
-  const handleLookup = () => {
-    const cleaned = aiIdInput.trim().toUpperCase();
-    if (!cleaned) { toast.error('Enter a borrower AI ID'); return; }
-    setActiveAiId(cleaned);
+  const resetLoanForm = () => {
     setShowLoanForm(false);
     setPrincipal(''); setInterestRate('10'); setDueDate(''); setPurpose('');
   };
+
+  const handleLookup = () => {
+    const cleaned = aiIdInput.trim().toUpperCase();
+    if (!cleaned) { toast.error('Enter a borrower AI ID'); return; }
+    setPhoneBorrower(null); setPhoneResults([]);
+    setActiveAiId(cleaned);
+    resetLoanForm();
+  };
+
+  const handlePhoneSearch = async () => {
+    const digits = phoneInput.replace(/\D/g, '');
+    if (digits.length < 9) { toast.error('Enter at least 9 digits of the phone number'); return; }
+    setPhoneSearching(true);
+    setActiveAiId(null); setPhoneBorrower(null);
+    const { data, error } = await (supabase.rpc('lending_find_user_by_phone' as any, { p_phone: phoneInput }) as any);
+    setPhoneSearching(false);
+    if (error) {
+      toast.error(
+        error.message?.includes('lending_agreement_required')
+          ? 'Sign the Lending Agent Agreement first'
+          : 'Search failed: ' + error.message,
+      );
+      return;
+    }
+    const rows = (data ?? []) as typeof phoneResults;
+    setPhoneResults(rows);
+    if (rows.length === 0) { toast.error('No Welile user found on that number'); return; }
+    if (rows.length === 1) { setPhoneBorrower(rows[0]); }
+    resetLoanForm();
+  };
+
 
   const handleAccept = async () => {
     const ok = await acceptAgreement(trustScore);
