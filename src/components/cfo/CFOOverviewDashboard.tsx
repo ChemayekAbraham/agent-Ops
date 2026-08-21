@@ -41,6 +41,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const [activeBreakdown, setActiveBreakdown] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     ledgerMaintenance: false,
+    agentAdvances: false,
   });
   // Sections default to expanded unless explicitly collapsed above; the chevron toggles.
   const isOpen = (key: string) => openSections[key] !== false;
