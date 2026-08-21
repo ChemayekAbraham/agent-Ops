@@ -523,16 +523,8 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
   const pendingCount = requests.filter((r) => r.status === 'pending').length;
   const activeOffers = offers.filter((o) => o.active).length;
 
-  const goToNewLoan = () => {
-    setTab('offers');
-    setActiveAiId(null);
-    setShowLoanForm(false);
-    setAiIdInput('');
-    setTimeout(() => {
-      borrowerInputRef.current?.focus();
-      borrowerInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 60);
-  };
+  const goToNewLoan = () => setWizardOpen(true);
+
 
   const TABS: { key: Tab; label: string; Icon: typeof Users; badge?: number }[] = [
     { key: 'borrowers', label: 'Borrowers', Icon: Users },
