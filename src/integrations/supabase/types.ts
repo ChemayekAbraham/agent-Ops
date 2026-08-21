@@ -40831,6 +40831,26 @@ export type Database = {
       get_merchant_payout_float: { Args: never; Returns: Json }
       get_mission_leaderboard: { Args: { p_limit?: number }; Returns: Json }
       get_my_ai_id_summary: { Args: never; Returns: Json }
+      get_my_borrowed_loans: {
+        Args: never
+        Returns: {
+          amount_repaid_ugx: number
+          auto_deduct_enabled: boolean
+          created_at: string
+          expected_repayment_date: string
+          id: string
+          installment_ugx: number
+          interest_rate_pct: number
+          lender_agent_id: string
+          lender_name: string
+          lender_phone: string
+          loan_purpose: string
+          next_deduction_date: string
+          principal_ugx: number
+          repayment_frequency: string
+          status: string
+        }[]
+      }
       get_my_listing_block: { Args: never; Returns: Json }
       get_my_parent_agent: {
         Args: never
@@ -42243,6 +42263,15 @@ export type Database = {
         Returns: Json
       }
       ledger_category_allowlist: { Args: never; Returns: string[] }
+      lending_find_user_by_phone: {
+        Args: { p_phone: string }
+        Returns: {
+          city: string
+          full_name: string
+          phone: string
+          user_id: string
+        }[]
+      }
       lift_withdrawable_to_ledger: {
         Args: { p_user_id: string }
         Returns: Json
