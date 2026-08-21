@@ -238,6 +238,14 @@ export function PromissoryNotesQueue() {
     cancelled: { icon: XCircle, color: 'bg-muted text-muted-foreground border-border', label: 'Cancelled' },
   };
 
+  const getNoteStatusConfig = (note: any) => {
+    const base = statusConfig[note.status] || statusConfig.pending;
+    if (note.status === 'activated' && note.came_in) {
+      return { ...base, label: 'Joined' };
+    }
+    return base;
+  };
+
   const statuses = ['all', 'pending', 'activated', 'fulfilled', 'defaulted', 'cancelled'];
 
   const kpiCards: { label: string; value: React.ReactNode; hint?: string; tone: string }[] = [
