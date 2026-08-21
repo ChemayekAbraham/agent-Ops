@@ -3651,7 +3651,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                         Step {detailStep + 1} of {DETAIL_STEPS.length}
                       </p>
-                      <h3 className="text-xl font-bold tracking-tight text-foreground truncate">
+                      <h3 className="text-base font-bold tracking-tight text-foreground truncate">
                         {DETAIL_STEPS[detailStep]}
                       </h3>
                     </div>
