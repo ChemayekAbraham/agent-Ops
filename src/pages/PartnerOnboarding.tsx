@@ -50,8 +50,17 @@ const PAGE_SIZE = 50;
 type SourceFilter = 'all' | 'referred' | 'direct';
 type ViewTab = 'funders' | 'invited';
 
-export default function FunderOnboarding() {
+interface FunderOnboardingProps {
+  /** Embedded mode: render inside another dashboard (no page chrome, no role redirect). */
+  embedded?: boolean;
+}
+
+export default function FunderOnboarding({ embedded = false }: FunderOnboardingProps = {}) {
   const { user, roles, loading, role } = useAuth();
+  // Managers get the standalone page. In embedded mode the host dashboard
+  // (Partner Operations) already gates access, so ops roles are allowed too.
+  const canView = roles.includes('manager')
+    || (embedded && (roles.includes('partner_ops') || roles.includes('coo') || roles.includes('super_admin')));
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -85,7 +94,7 @@ export default function FunderOnboarding() {
   // One-shot fetch for the focused partner so the page works even when
   // the row isn't on the current page (search/pagination independent).
   useEffect(() => {
-    if (!focusUserId || !user || !roles.includes('manager')) return;
+    if (!focusUserId || !user || !canView) return;
     // Friendly guard: the focus param must look like a UUID. Anything
     // else is almost certainly a stale/copied link and we shouldn't
     // even bother round-tripping the DB for it.
@@ -164,11 +173,11 @@ export default function FunderOnboarding() {
 
   // Gate: managers only
   useEffect(() => {
-    if (loading) return;
-    if (!user || !roles.includes('manager')) {
+    if (loading || embedded) return;
+    if (!user || !canView) {
       navigate(roleToSlug(role));
     }
-  }, [user, loading, roles, role, navigate]);
+  }, [user, loading, canView, embedded, role, navigate]);
 
   const trimmedSearch = search.trim();
 
@@ -178,7 +187,7 @@ export default function FunderOnboarding() {
   // ops-created partners), otherwise the countersign step is unreachable.
   const { data: awaitingSignOffIds } = useQuery({
     queryKey: ['partner-agreements-awaiting-countersign-ids'],
-    enabled: !!user && roles.includes('manager'),
+    enabled: !!user && canView,
     queryFn: async () => {
       const { data: ags, error } = await (supabase.from('partner_agreements') as any)
         .select('partner_id, status, countersigned_at')
@@ -199,7 +208,7 @@ export default function FunderOnboarding() {
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['funder-onboarding-self-registered', page, trimmedSearch, sourceFilter, awaitingIdsKey],
-    enabled: !!user && roles.includes('manager'),
+    enabled: !!user && canView,
     queryFn: async () => {
       const extraIds = awaitingSignOffIds || [];
       let query = supabase
@@ -236,7 +245,7 @@ export default function FunderOnboarding() {
   // Lightweight KPI counts (independent of pagination/search)
   const { data: kpis } = useQuery({
     queryKey: ['funder-onboarding-kpis'],
-    enabled: !!user && roles.includes('manager'),
+    enabled: !!user && canView,
     queryFn: async () => {
       const [
         { count: total }, { count: pending }, { count: verified }, { count: rejected },
@@ -264,7 +273,7 @@ export default function FunderOnboarding() {
   // separately in the KPI header.
   const { data: invitedKpis } = useQuery({
     queryKey: ['invited-portfolios-kpis'],
-    enabled: !!user && roles.includes('manager'),
+    enabled: !!user && canView,
     queryFn: async () => {
       const [{ count: awaiting }, { count: pendingApproval }] = await Promise.all([
         supabase.from('investor_portfolios').select('id', { count: 'exact', head: true }).eq('status', 'awaiting_partner_details'),
@@ -322,7 +331,7 @@ export default function FunderOnboarding() {
   // Per-share analytics: top sharers by clicks + converted signups
   const { data: shareStats } = useQuery({
     queryKey: ['funder-onboarding-share-stats'],
-    enabled: !!user && roles.includes('manager'),
+    enabled: !!user && canView,
     queryFn: async () => {
       const { data: links } = await supabase
         .from('short_links')
@@ -361,6 +370,7 @@ export default function FunderOnboarding() {
   });
 
   if (loading || !user) {
+    if (embedded) return <ScreenLoader />;
     return (
       <>
       <Helmet>
@@ -429,17 +439,36 @@ export default function FunderOnboarding() {
     queryClient.invalidateQueries({ queryKey: ['funder-onboarding-kpis'] });
   };
 
+  const Shell = ({ children }: { children: React.ReactNode }) => (
+    embedded ? (
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <h2 className="text-lg font-bold">Partner Onboarding &amp; Verification</h2>
+          <p className="text-xs text-muted-foreground">
+            Self-registered partners must be verified here before they can support tenants or create portfolios.
+          </p>
+        </div>
+        {children}
+      </div>
+    ) : (
+      <>
+        <Helmet>
+          <link rel="canonical" href="https://welileapp.com/partner-onboarding" />
+          <meta property="og:url" content="https://welileapp.com/partner-onboarding" />
+        </Helmet>
+        <COODetailLayout
+          title="Partner Onboarding"
+          subtitle="Self-Registered Funders"
+          status={headerStatus}
+        >
+          {children}
+        </COODetailLayout>
+      </>
+    )
+  );
+
   return (
-    <>
-    <Helmet>
-      <link rel="canonical" href="https://welileapp.com/partner-onboarding" />
-      <meta property="og:url" content="https://welileapp.com/partner-onboarding" />
-    </Helmet>
-    <COODetailLayout
-      title="Partner Onboarding"
-      subtitle="Self-Registered Funders"
-      status={headerStatus}
-    >
+    <Shell>
       {/* KPIs — grouped: Funders (self-registered) vs Invited Portfolios */}
       <div className="space-y-4">
         <section className="space-y-2">
@@ -870,8 +899,7 @@ export default function FunderOnboarding() {
         open={companyDefaultsOpen}
         onOpenChange={setCompanyDefaultsOpen}
       />
-    </COODetailLayout>
-    </>
+    </Shell>
   );
 }
 
