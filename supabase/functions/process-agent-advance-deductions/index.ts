@@ -253,21 +253,15 @@ Deno.serve(async (req) => {
         }
       }
 
-      const advanceMonthlyRate = Number(advance.monthly_rate) || Number(advance.daily_rate) || DEFAULT_MONTHLY_RATE;
-      const dailyInterestRate = Math.pow(1 + advanceMonthlyRate, 1 / 30) - 1;
-
       const openingBalance = Number(advance.outstanding_balance);
-      const isOverdue = new Date() > new Date(advance.expires_at);
 
-      // POLICY: the outstanding balance is FIXED at principal + access_fee for the
-      // whole scheduled period (cycle_days). Missed installments do NOT grow the
-      // outstanding — they are simply carried forward as arrears and recovered later.
-      // Only once the scheduled period has fully elapsed and the advance is still
-      // not settled does a daily penalty start accruing on the remaining balance.
-      const interestAccrued = isOverdue
-        ? Math.round(openingBalance * dailyInterestRate)
-        : 0;
-      const balanceAfterInterest = openingBalance + interestAccrued;
+      // POLICY (2026-08-21): the outstanding balance is FIXED at principal + access_fee
+      // for the whole life of the advance. Missed installments are carried forward as
+      // arrears only — NO penalty interest accrues, not even after expiry. An advance
+      // must never grow; it only shrinks as repayments come in.
+      const interestAccrued = 0;
+      const balanceAfterInterest = openingBalance;
+
 
       // STRICT: read withdrawable-only figure (Wallet Withdrawable Strict Rule).
       // Never read wallets.balance — that aggregate includes float/commission
