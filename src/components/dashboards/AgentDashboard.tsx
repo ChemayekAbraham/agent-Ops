@@ -146,6 +146,13 @@ import { AgentCashDepositCodesPanel } from '@/components/agent/AgentCashDepositC
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { MissionBanner } from '@/components/mission/MissionBanner';
 import { MERCHANT_QUEUE_STATUSES } from '@/lib/merchantPayoutQueue';
 
@@ -353,7 +360,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const [pipelineTab, setPipelineTab] = useState<PipelineTab>('submitted');
   const [submissionsExpanded, setSubmissionsExpanded] = useState(false);
   const [phoneOpen, setPhoneOpen] = useState(false);
-  const [phoneAmount, setPhoneAmount] = useState('');
+  const [phoneBrand, setPhoneBrand] = useState('');
+  const [phoneModel, setPhoneModel] = useState('');
+  const [phoneTotal, setPhoneTotal] = useState('');
   const [orderingPhone, setOrderingPhone] = useState(false);
   const [bikeOpen, setBikeOpen] = useState(false);
   const [bikeAmount, setBikeAmount] = useState('');
@@ -744,22 +753,37 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const handleViewWallet = () => { hapticTap(); setShowWallet(true); };
   const handleOpenMenu = () => { hapticTap(); setMenuOpen(true); };
 
-  const phoneAmountNum = Math.max(0, parseInt(phoneAmount || '0', 10) || 0);
+  const phoneTotalNum = Math.max(0, parseInt(phoneTotal || '0', 10) || 0);
+  const phoneProjection = Math.round(phoneTotalNum * 0.33);
   const orderSmartphone = async () => {
-    if (phoneAmountNum < 1000) {
+    if (!phoneBrand.trim()) {
       const { toast } = await import('sonner');
-      toast.error('Enter an amount of at least UGX 1,000');
+      toast.error('Select a product brand');
       return;
     }
-    if (phoneAmountNum > realWithdrawableBalance) {
+    if (!phoneModel.trim()) {
+      const { toast } = await import('sonner');
+      toast.error('Enter the type of phone');
+      return;
+    }
+    if (phoneTotalNum < 1000) {
+      const { toast } = await import('sonner');
+      toast.error('Enter a phone amount of at least UGX 1,000');
+      return;
+    }
+    if (phoneProjection > realWithdrawableBalance) {
       const { toast } = await import('sonner');
       toast.error(
-        `Amount exceeds your available wallet balance of ${formatUGX(realWithdrawableBalance)}. Enter ${formatUGX(realWithdrawableBalance)} or less.`
+        `Payment projection of ${formatUGX(phoneProjection)} exceeds your available wallet balance of ${formatUGX(realWithdrawableBalance)}.`
       );
       return;
     }
     setOrderingPhone(true);
-    const { error } = await (supabase as any).rpc('agent_order_smartphone', { p_amount: phoneAmountNum });
+    const { error } = await (supabase as any).rpc('agent_order_smartphone', {
+      p_total_amount: phoneTotalNum,
+      p_brand: phoneBrand,
+      p_model_type: phoneModel,
+    });
     setOrderingPhone(false);
     if (error) {
       const { toast } = await import('sonner');
@@ -767,9 +791,11 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       return;
     }
     const { toast } = await import('sonner');
-    toast.success(`Welile Smartphone requested. ${formatUGX(phoneAmountNum)} will be recovered from your wallet.`);
+    toast.success(`Welile Smartphone order submitted. Total: ${formatUGX(phoneTotalNum)}; projection: ${formatUGX(phoneProjection)}.`);
     setPhoneOpen(false);
-    setPhoneAmount('');
+    setPhoneBrand('');
+    setPhoneModel('');
+    setPhoneTotal('');
     queryClient.invalidateQueries({ queryKey: ['my-merchandise-plans', user?.id] });
     queryClient.invalidateQueries({ queryKey: ['my-merchandise-deductions', user?.id] });
   };
@@ -1224,7 +1250,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                         Get a company smartphone on credit. Choose how much can be deducted from your wallet.
                       </p>
                     </div>
-                    <Button size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => { setPhoneAmount(''); setPhoneOpen(true); }}>
+                    <Button size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => { setPhoneBrand(''); setPhoneModel(''); setPhoneTotal(''); setPhoneOpen(true); }}>
                       Order
                     </Button>
                   </CardContent>
@@ -2168,46 +2194,71 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             <img
               src={smartphonePromoAsset.url}
               alt="Welile Smartphone selection"
-              className="w-full h-40 object-cover rounded-lg border border-border"
+              className="w-full h-32 object-cover rounded-lg border border-border"
             />
-            <p className="text-xs text-muted-foreground">
-              Marketing sets the final phone price. Enter the amount you're comfortable having recovered
-              from your wallet toward the smartphone.
-            </p>
             <div className="space-y-1">
-              <Label className="text-xs">Amount to deduct (UGX)</Label>
+              <Label className="text-xs">Product Brand *</Label>
+              <Select value={phoneBrand} onValueChange={setPhoneBrand}>
+                <SelectTrigger className="h-10 text-sm">
+                  <SelectValue placeholder="Select brand" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="iPhone">iPhone</SelectItem>
+                  <SelectItem value="Samsung">Samsung</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Type Of Phone *</Label>
+              <Input
+                type="text"
+                placeholder="e.g. iPhone 13 Pro Max or Samsung Galaxy A14"
+                value={phoneModel}
+                onChange={(e) => setPhoneModel(e.target.value)}
+                className="h-10 text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Input Phone Amount (UGX) *</Label>
               <Input
                 type="number"
                 min={1000}
                 step={1000}
                 inputMode="numeric"
-                placeholder="e.g. 50000"
-                value={phoneAmount}
-                onChange={(e) => setPhoneAmount(e.target.value)}
+                placeholder="e.g. 1500000"
+                value={phoneTotal}
+                onChange={(e) => setPhoneTotal(e.target.value)}
+                className="h-10 text-sm"
               />
               <p className="text-[11px] text-muted-foreground">
                 Available wallet balance: <span className="font-semibold">{formatUGX(realWithdrawableBalance)}</span>
               </p>
             </div>
-            {phoneAmountNum > 0 && (
-              <div className="rounded-lg bg-muted/50 px-3 py-2 flex justify-between text-sm">
-                <span className="text-muted-foreground">Will be recovered from wallet</span>
-                <span className="font-bold">{formatUGX(phoneAmountNum)}</span>
+            {phoneTotalNum > 0 && (
+              <div className="rounded-lg bg-muted/50 px-3 py-2 space-y-1">
+                <p className="text-xs text-muted-foreground">Payment Projection (33% Wallet Recovery Rate):</p>
+                <p className="text-base font-bold">{formatUGX(phoneProjection)}</p>
               </div>
             )}
-            {phoneAmountNum > realWithdrawableBalance && (
+            {phoneProjection > realWithdrawableBalance && phoneTotalNum > 0 && (
               <p className="text-[11px] font-medium text-destructive">
-                Amount exceeds your available wallet balance of {formatUGX(realWithdrawableBalance)}.
+                Payment projection exceeds your available wallet balance of {formatUGX(realWithdrawableBalance)}.
               </p>
             )}
-            <p className="text-[11px] text-muted-foreground">
-              This amount is recovered from your withdrawable wallet — 15% up to 4 times a day until fully paid.
-            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPhoneOpen(false)} disabled={orderingPhone}>Cancel</Button>
-            <Button onClick={orderSmartphone} disabled={orderingPhone || phoneAmountNum < 1000 || phoneAmountNum > realWithdrawableBalance}>
-              {orderingPhone ? 'Ordering…' : 'Confirm order'}
+            <Button
+              onClick={orderSmartphone}
+              disabled={
+                orderingPhone ||
+                !phoneBrand.trim() ||
+                !phoneModel.trim() ||
+                phoneTotalNum < 1000 ||
+                phoneProjection > realWithdrawableBalance
+              }
+            >
+              {orderingPhone ? 'Submitting…' : 'Submit order'}
             </Button>
           </DialogFooter>
         </DialogContent>
