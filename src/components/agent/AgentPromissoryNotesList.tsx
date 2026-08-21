@@ -104,7 +104,7 @@ export function AgentPromissoryNotesList({ open, onOpenChange }: Props) {
             </div>
           ) : (
             notes.map((note) => {
-              const cfg = statusConfig[note.status] ?? statusConfig.pending;
+              const cfg = getNoteStatusConfig(note);
               const noteCommission = note.amount * 0.02;
               const isExpanded = selected?.id === note.id;
 
