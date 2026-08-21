@@ -469,14 +469,15 @@ function SectionToggle({ open, onToggle, label }: { open: boolean; onToggle: () 
   );
 }
 
-function CollapsibleBlock({ title, open, onToggle, children }: {
+function CollapsibleBlock({ title, open, onToggle, children, className }: {
   title: string;
   open: boolean;
   onToggle: () => void;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card shadow-sm">
+    <div className={`rounded-lg border border-border bg-card shadow-sm ${className || ''}`}>
       <div className="flex items-center justify-between gap-3 px-4 py-3">
         <p className="text-sm font-bold tracking-tight">{title}</p>
         <SectionToggle open={open} onToggle={onToggle} label={title} />
@@ -485,6 +486,7 @@ function CollapsibleBlock({ title, open, onToggle, children }: {
     </div>
   );
 }
+
 
 function HeroCard({ icon, iconBg, title, value, valueColor, items, footer, footerTone, onClick }: {
   icon: React.ReactNode;
