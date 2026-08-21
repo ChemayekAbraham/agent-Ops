@@ -98,59 +98,54 @@ function PhotoSlider({
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
-      <div
-        className="flex h-full transition-transform duration-300 ease-out"
-        style={{
-          width: `${total * 100}%`,
-          transform: `translateX(-${index * (100 / total)}%)`,
-        }}
-      >
-        {photos.map((url, i) => (
-          <div
-            key={`${url}-${i}`}
-            className="h-full flex-none"
-            style={{ width: `${100 / total}%` }}
-          >
-            <img
-              src={url}
-              alt={`House photo ${i + 1}`}
-              loading="eager"
-              decoding="async"
-              draggable={false}
-              onClick={() => {
-                if (swiped.current) return;
-                onSelect?.(i);
-              }}
-              className={cn(
-                'h-full w-full',
-                fit === 'cover' ? 'object-cover' : 'object-contain',
-                onSelect && 'cursor-zoom-in',
-                imgClassName,
-              )}
-            />
-          </div>
-        ))}
-      </div>
+      {photos.map((url, i) => (
+        <img
+          key={`${url}-${i}`}
+          src={url}
+          alt={`House photo ${i + 1}`}
+          loading="eager"
+          decoding="async"
+          draggable={false}
+          aria-hidden={i !== index}
+          onClick={() => {
+            if (swiped.current) return;
+            onSelect?.(i);
+          }}
+          className={cn(
+            'absolute inset-0 h-full w-full transition-opacity duration-300 ease-out',
+            i === index ? 'opacity-100' : 'pointer-events-none opacity-0',
+            fit === 'cover' ? 'object-cover' : 'object-contain',
+            onSelect && 'cursor-zoom-in',
+            imgClassName,
+          )}
+        />
+      ))}
 
       {total > 1 && (
         <>
           <button
             type="button"
-            onClick={() => go(-1)}
+            onClick={(e) => {
+              e.stopPropagation();
+              go(-1);
+            }}
             aria-label="Previous photo"
-            className="absolute left-3 top-1/2 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-full bg-background/85 text-foreground shadow-md backdrop-blur transition hover:bg-background"
+            className="absolute left-3 top-1/2 z-20 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-full bg-background/85 text-foreground shadow-md backdrop-blur transition hover:bg-background"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
           <button
             type="button"
-            onClick={() => go(1)}
+            onClick={(e) => {
+              e.stopPropagation();
+              go(1);
+            }}
             aria-label="Next photo"
-            className="absolute right-3 top-1/2 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-full bg-background/85 text-foreground shadow-md backdrop-blur transition hover:bg-background"
+            className="absolute right-3 top-1/2 z-20 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-full bg-background/85 text-foreground shadow-md backdrop-blur transition hover:bg-background"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
-          <span className="absolute bottom-3 right-3 rounded-md bg-foreground/70 px-2 py-1 text-[11px] font-semibold text-background">
+          <span className="absolute bottom-3 right-3 z-20 rounded-md bg-foreground/70 px-2 py-1 text-[11px] font-semibold text-background">
             {index + 1} / {total}
           </span>
         </>
@@ -158,6 +153,7 @@ function PhotoSlider({
     </div>
   );
 }
+
 
 /**
  * Read-only plan detail view for self-managed partners.
