@@ -318,17 +318,17 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
       </div>
 
       {/* ══════════════ CHARTS ══════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="rounded-xl shadow-sm">
-          <CardContent className="p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-2 mb-4">
-              <p className="font-semibold text-sm">Revenue — Last 7 Days</p>
-              <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+        <Card className="rounded-2xl shadow-sm h-full flex flex-col">
+          <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
+            <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
+              <p className="text-sm font-semibold tracking-tight">Revenue — Last 7 Days</p>
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                 <LineChartIcon className="h-3.5 w-3.5" /> UGX
               </span>
             </div>
             {trendChartData.length > 0 ? (
-              <div className="h-[260px]">
+              <div className="h-64 flex-1 min-h-0">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={trendChartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
@@ -342,21 +342,26 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                 </ResponsiveContainer>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground py-10 text-center">No revenue recorded in the last 7 days.</p>
+              <p className="text-xs text-muted-foreground flex-1 flex items-center justify-center min-h-[16rem]">No revenue recorded in the last 7 days.</p>
             )}
           </CardContent>
         </Card>
 
-        <Card className="rounded-xl shadow-sm">
-          <CardContent className="p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-2 mb-4">
-              <p className="font-semibold text-sm">Advances — Disbursed vs Recovered</p>
+        <Card className="rounded-2xl shadow-sm h-full flex flex-col">
+          <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
+            <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
+              <p className="text-sm font-semibold tracking-tight">Advances — Disbursed vs Recovered</p>
               <span className="text-[11px] font-semibold text-emerald-600">{recoveryRate.toFixed(0)}% recovered</span>
             </div>
-            <AgentAdvancesTrendChart />
+            <div className="flex-1 min-h-0">
+              <AgentAdvancesTrendChart hideHeader />
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* ══════════════ CFO ACTIONS LOG ══════════════ */}
+      <CFOActionsLog />
 
       {/* ── TODAY'S MOVEMENT ── */}
       <Card className="rounded-lg overflow-hidden shadow-sm">
