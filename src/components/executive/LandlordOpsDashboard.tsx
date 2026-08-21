@@ -3930,8 +3930,24 @@ export function LandlordOpsDashboard() {
                   <Checkbox checked={allSelected} className="pointer-events-none" />
                   {allSelected ? 'Clear all' : 'Select all'}
                 </button>
-                <Badge variant="outline" className="text-xs font-bold">{selectedHouses.length} selected</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs font-bold">{selectedHouses.length} selected</Badge>
+                  {hasMoreHouses && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2.5 text-[11px] font-semibold gap-1.5"
+                      disabled={isFetchingMoreHouses}
+                      onClick={() => { fetchMoreHouses(); }}
+                    >
+                      {isFetchingMoreHouses
+                        ? 'Loading…'
+                        : `Load more (${Math.max(totalFiltered - displayedHouses.length, 0).toLocaleString()})`}
+                    </Button>
+                  )}
+                </div>
               </div>
+
               {anySelected && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <Button size="sm" variant="outline" className="h-10 gap-1.5 font-semibold" disabled={bulkBusy !== null} onClick={() => handleBulkHide(selectedHouses, true)}>
