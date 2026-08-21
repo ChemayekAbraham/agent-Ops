@@ -48,6 +48,8 @@ import { PartnerOpsSummaryCards } from './partner-ops/PartnerOpsSummaryCards';
 import { ExpiringPortfoliosPanel } from './partner-ops/ExpiringPortfoliosPanel';
 import { NearingPayoutsPanel } from './partner-ops/NearingPayoutsPanel';
 import { PartnerOpsRentRequestQueue } from './partner-ops/PartnerOpsRentRequestQueue';
+import { PartnerVerificationQueue } from './partner-ops/PartnerVerificationQueue';
+
 import {
   PartnerRoiProjectionChart,
   PartnerRecentWithdrawals,
@@ -284,10 +286,13 @@ export function PartnersOpsDashboard() {
       case 'portfolios.maturity': return <MaturityRequestsQueue />;
       case 'approvals': return (
         <div className="space-y-6">
+          <PartnerVerificationQueue />
           <PendingFunderApprovals />
           <PendingPartnerRequests />
         </div>
       );
+      case 'verification': return <PartnerVerificationQueue />;
+
       case 'nearing.overview': return (
         <div className="space-y-6">
           <NearingPayoutsPanel />
