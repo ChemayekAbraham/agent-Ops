@@ -27,6 +27,8 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { usePromissoryOpsReport, PROMISSORY_RANGES } from '@/hooks/usePromissoryOpsReport';
 import { formatUGX } from '@/lib/rentCalculations';
+import { JoinedPartnerIdentityCard } from './JoinedPartnerIdentityCard';
+
 
 
 export function PromissoryNotesQueue() {
