@@ -329,18 +329,18 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
       entityType: 'request', entityId: req.id,
       borrowerUserId: req.borrower_user_id, lenderAgentId: user.id,
       amountUgx: principalNum, feeUgx: fee, oldStatus: 'pending', newStatus: 'approved',
-      details: { loan_id: loanRow?.id ?? null, borrower_ai_id: req.borrower_ai_id },
+      details: { loan_id: loanRow?.loan_id ?? null, borrower_ai_id: req.borrower_ai_id },
     });
     await logLendingAudit({
       actorId: user.id, actorDisplayName: myName, actionType: 'loan_disbursed',
-      entityType: 'loan', entityId: loanRow?.id ?? null,
+      entityType: 'loan', entityId: loanRow?.loan_id ?? null,
       borrowerUserId: req.borrower_user_id, lenderAgentId: user.id,
       amountUgx: principalNum, feeUgx: fee, newStatus: 'active',
       details: { interest_rate_pct: req.interest_rate_pct ?? 0, request_id: req.id },
     });
     await logLendingAudit({
       actorId: user.id, actorDisplayName: myName, actionType: 'fee_deducted',
-      entityType: 'loan', entityId: loanRow?.id ?? null,
+      entityType: 'loan', entityId: loanRow?.loan_id ?? null,
       borrowerUserId: req.borrower_user_id, lenderAgentId: user.id,
       feeUgx: fee, details: { platform_fee_pct: PLATFORM_FEE_PCT, principal_ugx: principalNum },
     });
