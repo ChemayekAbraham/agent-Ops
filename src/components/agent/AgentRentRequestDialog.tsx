@@ -3922,13 +3922,13 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                   {/* Validation Error Summary */}
                   {validationErrors.length > 0 && (
                     <div ref={errorSummaryRef} className="p-4 rounded-2xl bg-destructive/10 border-2 border-destructive/40 space-y-3 scroll-mt-4">
-                      <p className="text-base font-extrabold text-destructive flex items-center gap-2">
+                      <p className="text-sm font-extrabold text-destructive flex items-center gap-2">
                         <AlertTriangle className="h-5 w-5 flex-shrink-0" />
                         {validationErrors.length} thing{validationErrors.length > 1 ? 's' : ''} still needed
                       </p>
                       <ul className="space-y-2">
                         {validationErrors.map((err, i) => (
-                          <li key={i} className="flex items-start gap-2 text-sm font-semibold text-destructive">
+                          <li key={i} className="flex items-start gap-2 text-xs font-semibold text-destructive">
                             <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[11px] font-bold">{i + 1}</span>
                             <span>{err}</span>
                           </li>
