@@ -8,7 +8,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { applyCustomerWalletLedgerFilters, isCustomerWalletLedgerEntryVisible } from '@/lib/customerWalletHistory';
+import { applyCustomerWalletLedgerFilters } from '@/lib/customerWalletHistory';
 
 interface LedgerEntryDetailDrawerProps {
   entryId: string | null;
