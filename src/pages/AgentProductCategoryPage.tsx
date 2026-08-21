@@ -39,6 +39,39 @@ export default function AgentProductCategoryPage() {
   const isAdvances = entry.slug === 'advances';
   const isServiceCentres = entry.slug === 'service-centres';
   const isPersonalRentRequest = entry.slug === 'personal-rent-request';
+  const isLendingAgents = entry.slug === 'lending-agents';
+
+  if (isLendingAgents) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="mx-auto max-w-7xl px-4 py-5 space-y-5">
+          <Link
+            to={AGENT_PRODUCTS_HUB_PATH}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Products &amp; Services Hub
+          </Link>
+
+          <header className="flex items-start gap-4 rounded-2xl border bg-card p-5 shadow-sm">
+            <div className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${entry.color} text-white shadow-md`}>
+              <Icon className="h-6 w-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{entry.label}</h1>
+              <p className="text-sm text-muted-foreground">{entry.desc}</p>
+            </div>
+            <div className="shrink-0">
+              <ExportProductsPdfButton />
+            </div>
+          </header>
+
+          <WelileLendingBusinessPanel />
+        </div>
+      </div>
+    );
+  }
+
 
   if (isServiceCentres) {
     return (
