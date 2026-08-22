@@ -126,7 +126,7 @@ const MyRequisitions = () => {
         .select('*')
         .eq('requester_id', uid)
         .order('created_at', { ascending: false }),
-      supabase.rpc('staff_requisition_route', { p_user_id: uid }),
+      supabase.rpc('staff_requisition_route', { _user_id: uid }),
     ]);
 
     if (reqRes.error) {
