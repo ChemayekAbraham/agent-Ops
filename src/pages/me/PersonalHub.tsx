@@ -166,6 +166,36 @@ const PersonalHub = () => {
   const [unclaimedTickets, setUnclaimedTickets] = useState<UnclaimedTicket[]>([]);
   const [isEngineering, setIsEngineering] = useState(false);
   const [claiming, setClaiming] = useState<string | null>(null);
+  const [reqCounts, setReqCounts] = useState({ pending: 0, approved: 0 });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth?.user?.id;
+      if (!uid || cancelled) return;
+      const { data, error } = await supabase
+        .from('staff_requisitions')
+        .select('stage')
+        .eq('requester_id', uid);
+      if (cancelled) return;
+      if (error) {
+        console.error('staff_requisitions counts', error);
+        return;
+      }
+      const rows = (data ?? []) as { stage: string | null }[];
+      setReqCounts({
+        pending: rows.filter(
+          (r) => r.stage && !['approved', 'rejected', 'cancelled'].includes(r.stage)
+        ).length,
+        approved: rows.filter((r) => r.stage === 'approved').length,
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
 
   const loadUnclaimedTickets = useCallback(async () => {
     const { data } = await supabase
