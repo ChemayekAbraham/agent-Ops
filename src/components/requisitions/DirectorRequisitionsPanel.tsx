@@ -69,7 +69,12 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-export function DirectorRequisitionsPanel() {
+interface DirectorRequisitionsPanelProps {
+  /** History mode: hides creation and decision actions. New requests live in the staff flow. */
+  readOnly?: boolean;
+}
+
+export function DirectorRequisitionsPanel({ readOnly = false }: DirectorRequisitionsPanelProps = {}) {
   const { user, roles } = useAuth();
   const isDirector = roles.some((r) => DIRECTOR_ROLES.includes(r));
 
@@ -201,9 +206,12 @@ export function DirectorRequisitionsPanel() {
             <Building2 className="h-5 w-5 text-primary" /> Director Requisitions
           </h2>
           <p className="text-sm text-muted-foreground">
-            Submit operational funding requests to the Director and track every decision.
+            {readOnly
+              ? 'Historical record of the retired Director requisition flow.'
+              : 'Submit operational funding requests to the Director and track every decision.'}
           </p>
         </div>
+        {!readOnly && (
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2"><Plus className="h-4 w-4" /> New requisition</Button>
@@ -238,6 +246,7 @@ export function DirectorRequisitionsPanel() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as Status)}>
@@ -335,7 +344,7 @@ export function DirectorRequisitionsPanel() {
                   )}
 
                   <div className="flex flex-wrap items-center gap-2 mt-3">
-                    {canAct && (
+                    {canAct && !readOnly && (
                       <>
                         <Button size="sm" className="gap-1 bg-emerald-600 hover:bg-emerald-700" onClick={() => openAction(req, 'approve')}>
                           <CheckCircle2 className="h-4 w-4" /> Approve
