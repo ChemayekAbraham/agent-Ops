@@ -331,7 +331,7 @@ export default function BorrowLoanSheet({ open, onOpenChange, onOpenLendingPorta
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Request a specific agent (AI ID)</Label>
               <div className="flex gap-2">
                 <Input value={lenderAiInput} onChange={(e) => setLenderAiInput(e.target.value.toUpperCase())} placeholder="WEL-XXXXXX" className="h-10 text-sm font-mono" onKeyDown={(e) => e.key === 'Enter' && handleDirectRequest()} />
-                <Button onClick={handleDirectRequest} className="h-10"><Search className="h-4 w-4" /></Button>
+                <Button onClick={() => handleDirectRequest()} className="h-10"><Search className="h-4 w-4" /></Button>
               </div>
             </div>
 
