@@ -69,6 +69,12 @@ const HubCard = ({ to, icon: Icon, title, description, disabled }: HubCardProps)
 
 const CARDS = [
   {
+    to: '/your-profile',
+    icon: User,
+    title: 'My profile',
+    description: 'Your personal details',
+  },
+  {
     to: '/me/payslips',
     icon: FileText,
     title: 'My payslips',
@@ -91,12 +97,6 @@ const CARDS = [
     icon: Wallet,
     title: 'Make a requisition',
     description: 'Ask for funds — reviewed by your head, COO, then CFO',
-  },
-  {
-    to: '/your-profile',
-    icon: User,
-    title: 'My profile',
-    description: 'Your personal details',
   },
   {
     to: '/notifications',
