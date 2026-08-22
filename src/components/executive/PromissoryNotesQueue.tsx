@@ -27,8 +27,6 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { usePromissoryOpsReport, PROMISSORY_RANGES } from '@/hooks/usePromissoryOpsReport';
 import { formatUGX } from '@/lib/rentCalculations';
-import { JoinedPartnerIdentityCard } from './JoinedPartnerIdentityCard';
-
 
 
 export function PromissoryNotesQueue() {
@@ -240,17 +238,6 @@ export function PromissoryNotesQueue() {
     cancelled: { icon: XCircle, color: 'bg-muted text-muted-foreground border-border', label: 'Cancelled' },
   };
 
-  const getNoteStatusConfig = (note: any) => {
-    const base = statusConfig[note.status] || statusConfig.pending;
-    if (
-      note.status === 'activated' &&
-      (note.came_in_user_id || note.partner_user_id || note.came_in)
-    ) {
-      return { ...base, label: 'Joined' };
-    }
-    return base;
-  };
-
   const statuses = ['all', 'pending', 'activated', 'fulfilled', 'defaulted', 'cancelled'];
 
   const kpiCards: { label: string; value: React.ReactNode; hint?: string; tone: string }[] = [
@@ -368,7 +355,7 @@ export function PromissoryNotesQueue() {
                   </thead>
                   <tbody>
                     {pagedNotes.map(note => {
-                      const config = getNoteStatusConfig(note);
+                      const config = statusConfig[note.status] || statusConfig.pending;
                       const StatusIcon = config.icon;
                       return (
                         <tr key={note.id} className="border-b last:border-0 cursor-pointer hover:bg-muted/40" onClick={() => setSelectedNote(note)}>
@@ -403,7 +390,7 @@ export function PromissoryNotesQueue() {
               {/* Mobile cards */}
               <div className="md:hidden space-y-2">
                 {pagedNotes.map(note => {
-                  const config = getNoteStatusConfig(note);
+                  const config = statusConfig[note.status] || statusConfig.pending;
                   const StatusIcon = config.icon;
                   return (
                     <button
@@ -472,7 +459,7 @@ export function PromissoryNotesQueue() {
             </SheetTitle>
           </SheetHeader>
           {selectedNote && (() => {
-            const config = getNoteStatusConfig(selectedNote);
+            const config = statusConfig[selectedNote.status] || statusConfig.pending;
             const StatusIcon = config.icon;
             const outstanding = Number(selectedNote.amount) - Number(selectedNote.total_collected);
             const progress = Number(selectedNote.amount) > 0 ? Math.min(100, (Number(selectedNote.total_collected) / Number(selectedNote.amount)) * 100) : 0;
@@ -522,20 +509,6 @@ export function PromissoryNotesQueue() {
                     )}
                   </CardContent>
                 </Card>
-
-                {/* Real joined-account details vs what the note claims */}
-                <JoinedPartnerIdentityCard
-                  userId={selectedNote.came_in_user_id || null}
-                  notePartnerName={selectedNote.partner_name}
-                  noteWhatsapp={selectedNote.whatsapp_number}
-                  notePhone={selectedNote.phone_number}
-                  noteEmail={selectedNote.email}
-                  noteAgentId={selectedNote.agent_id}
-                  noteAgentName={selectedNote.agent_name}
-                  cameInAt={selectedNote.came_in_at}
-                />
-
-
 
                 {/* Financial Summary */}
                 <Card>

@@ -19502,7 +19502,6 @@ export type Database = {
         Row: {
           amount_outstanding: number
           amount_paid: number
-          brand: string | null
           client_name: string | null
           client_phone: string | null
           created_at: string
@@ -19511,11 +19510,9 @@ export type Database = {
           id: string
           issued_channel: string | null
           item_name: string
-          model_type: string | null
           notes: string | null
           order_status: string
           payment_plan: string
-          payment_projection: number
           payment_status: string
           quantity: number
           rejected_at: string | null
@@ -19524,7 +19521,6 @@ export type Database = {
           sale_date: string
           selected_size: string | null
           service_centre_id: string | null
-          total_amount: number
           total_revenue: number
           tracking_reference: string | null
           unit_cost: number
@@ -19534,7 +19530,6 @@ export type Database = {
         Insert: {
           amount_outstanding?: number
           amount_paid?: number
-          brand?: string | null
           client_name?: string | null
           client_phone?: string | null
           created_at?: string
@@ -19543,11 +19538,9 @@ export type Database = {
           id?: string
           issued_channel?: string | null
           item_name: string
-          model_type?: string | null
           notes?: string | null
           order_status?: string
           payment_plan?: string
-          payment_projection?: number
           payment_status?: string
           quantity: number
           rejected_at?: string | null
@@ -19556,7 +19549,6 @@ export type Database = {
           sale_date?: string
           selected_size?: string | null
           service_centre_id?: string | null
-          total_amount?: number
           total_revenue: number
           tracking_reference?: string | null
           unit_cost?: number
@@ -19566,7 +19558,6 @@ export type Database = {
         Update: {
           amount_outstanding?: number
           amount_paid?: number
-          brand?: string | null
           client_name?: string | null
           client_phone?: string | null
           created_at?: string
@@ -19575,11 +19566,9 @@ export type Database = {
           id?: string
           issued_channel?: string | null
           item_name?: string
-          model_type?: string | null
           notes?: string | null
           order_status?: string
           payment_plan?: string
-          payment_projection?: number
           payment_status?: string
           quantity?: number
           rejected_at?: string | null
@@ -19588,7 +19577,6 @@ export type Database = {
           sale_date?: string
           selected_size?: string | null
           service_centre_id?: string | null
-          total_amount?: number
           total_revenue?: number
           tracking_reference?: string | null
           unit_cost?: number
@@ -24861,93 +24849,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      promissory_commission_events: {
-        Row: {
-          agent_id: string | null
-          amount: number
-          base_amount: number
-          created_at: string
-          error_message: string | null
-          id: string
-          idempotency_key: string
-          kind: string
-          ledger_group_id: string | null
-          note_id: string | null
-          partner_id: string | null
-          rate: number
-          skip_reason: string | null
-          source_id: string
-          source_table: string
-          status: string
-        }
-        Insert: {
-          agent_id?: string | null
-          amount?: number
-          base_amount?: number
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          idempotency_key: string
-          kind: string
-          ledger_group_id?: string | null
-          note_id?: string | null
-          partner_id?: string | null
-          rate?: number
-          skip_reason?: string | null
-          source_id: string
-          source_table: string
-          status?: string
-        }
-        Update: {
-          agent_id?: string | null
-          amount?: number
-          base_amount?: number
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          idempotency_key?: string
-          kind?: string
-          ledger_group_id?: string | null
-          note_id?: string | null
-          partner_id?: string | null
-          rate?: number
-          skip_reason?: string | null
-          source_id?: string
-          source_table?: string
-          status?: string
-        }
-        Relationships: []
-      }
-      promissory_commission_rates: {
-        Row: {
-          created_at: string
-          effective_from: string
-          id: string
-          kind: string
-          rate: number
-          reason: string | null
-          set_by: string | null
-        }
-        Insert: {
-          created_at?: string
-          effective_from?: string
-          id?: string
-          kind: string
-          rate: number
-          reason?: string | null
-          set_by?: string | null
-        }
-        Update: {
-          created_at?: string
-          effective_from?: string
-          id?: string
-          kind?: string
-          rate?: number
-          reason?: string | null
-          set_by?: string | null
-        }
-        Relationships: []
       }
       promissory_note_plan_intents: {
         Row: {
@@ -36832,32 +36733,6 @@ export type Database = {
         }
         Relationships: []
       }
-      v_promissory_agent_commissions: {
-        Row: {
-          agent_id: string | null
-          agent_name: string | null
-          agent_phone: string | null
-          amount: number | null
-          base_amount: number | null
-          created_at: string | null
-          error_message: string | null
-          id: string | null
-          kind: string | null
-          ledger_group_id: string | null
-          note_amount: number | null
-          note_id: string | null
-          note_partner_name: string | null
-          partner_id: string | null
-          partner_name: string | null
-          partner_phone: string | null
-          rate: number | null
-          skip_reason: string | null
-          source_id: string | null
-          source_table: string | null
-          status: string | null
-        }
-        Relationships: []
-      }
       v_promissory_self_support_tracker: {
         Row: {
           agent_id: string | null
@@ -37541,16 +37416,7 @@ export type Database = {
         Args: { p_catalog_id: string; p_quantity: number }
         Returns: Json
       }
-      agent_order_smartphone:
-        | { Args: { p_amount: number }; Returns: Json }
-        | {
-            Args: {
-              p_brand: string
-              p_model_type: string
-              p_total_amount: number
-            }
-            Returns: Json
-          }
+      agent_order_smartphone: { Args: { p_amount: number }; Returns: Json }
       agent_order_spiro_bike: { Args: { p_amount: number }; Returns: Json }
       agent_per_tenant_max: { Args: { _agent_id: string }; Returns: number }
       agent_product_category: { Args: { p_item_name: string }; Returns: string }
@@ -37856,10 +37722,6 @@ export type Database = {
       approve_self_registered_funder: {
         Args: { _reason: string; _target_user: string }
         Returns: undefined
-      }
-      approve_smartphone_order: {
-        Args: { p_note?: string; p_sale_id: string }
-        Returns: Json
       }
       archive_dead_letter_batch: {
         Args: { _dead_letter_id: number }
@@ -38305,10 +38167,6 @@ export type Database = {
         Returns: boolean
       }
       can_replay_settlement: { Args: { _user_id: string }; Returns: boolean }
-      can_review_smartphone_orders: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
       can_view_agent_data: {
         Args: { _target_agent_id: string; _viewer_id: string }
         Returns: boolean
@@ -38817,17 +38675,6 @@ export type Database = {
           }
       credit_merchant_payout_commission: {
         Args: { p_awarded_via?: string; p_withdrawal_id: string }
-        Returns: Json
-      }
-      credit_promissory_agent_commission: {
-        Args: {
-          p_base_amount: number
-          p_dedupe_key?: string
-          p_kind: string
-          p_partner_id: string
-          p_source_id: string
-          p_source_table: string
-        }
         Returns: Json
       }
       credit_proxy_approval:
@@ -40831,26 +40678,6 @@ export type Database = {
       get_merchant_payout_float: { Args: never; Returns: Json }
       get_mission_leaderboard: { Args: { p_limit?: number }; Returns: Json }
       get_my_ai_id_summary: { Args: never; Returns: Json }
-      get_my_borrowed_loans: {
-        Args: never
-        Returns: {
-          amount_repaid_ugx: number
-          auto_deduct_enabled: boolean
-          created_at: string
-          expected_repayment_date: string
-          id: string
-          installment_ugx: number
-          interest_rate_pct: number
-          lender_agent_id: string
-          lender_name: string
-          lender_phone: string
-          loan_purpose: string
-          next_deduction_date: string
-          principal_ugx: number
-          repayment_frequency: string
-          status: string
-        }[]
-      }
       get_my_listing_block: { Args: never; Returns: Json }
       get_my_parent_agent: {
         Args: never
@@ -42263,15 +42090,6 @@ export type Database = {
         Returns: Json
       }
       ledger_category_allowlist: { Args: never; Returns: string[] }
-      lending_find_user_by_phone: {
-        Args: { p_phone: string }
-        Returns: {
-          city: string
-          full_name: string
-          phone: string
-          user_id: string
-        }[]
-      }
       lift_withdrawable_to_ledger: {
         Args: { p_user_id: string }
         Returns: Json
@@ -42336,24 +42154,6 @@ export type Database = {
           image_urls: string[]
           rejected_at: string
           video_url: string
-        }[]
-      }
-      list_smartphone_orders: {
-        Args: { p_status?: string }
-        Returns: {
-          amount_outstanding: number
-          amount_paid: number
-          brand: string
-          client_name: string
-          client_phone: string
-          created_at: string
-          customer_id: string
-          id: string
-          model_type: string
-          order_status: string
-          payment_projection: number
-          rejection_reason: string
-          total_amount: number
         }[]
       }
       lock_campaign_attribution: { Args: { p_token: string }; Returns: Json }
@@ -42437,7 +42237,6 @@ export type Database = {
           phone: string
         }[]
       }
-      lookup_transaction_id: { Args: { p_tid: string }; Returns: Json }
       manager_vendor_pin_flags: {
         Args: never
         Returns: {
@@ -43611,10 +43410,6 @@ export type Database = {
         }
         Returns: Json
       }
-      promissory_commission_rate: {
-        Args: { p_at?: string; p_kind: string }
-        Returns: number
-      }
       promissory_self_support_context: {
         Args: { p_user: string }
         Returns: Json
@@ -44009,10 +43804,6 @@ export type Database = {
       reject_self_registered_funder: {
         Args: { _reason: string; _target_user: string }
         Returns: undefined
-      }
-      reject_smartphone_order: {
-        Args: { p_reason: string; p_sale_id: string }
-        Returns: Json
       }
       release_agent_duplicate_flag: {
         Args: { p_agent_id: string; p_reason: string }
@@ -44531,11 +44322,6 @@ export type Database = {
         }[]
       }
       slugify_district: { Args: { p_input: string }; Returns: string }
-      smoke_promissory_commissions: {
-        Args: { p_agent_id: string; p_partner_id: string }
-        Returns: Json
-      }
-      smoke_promissory_commissions_authorized: { Args: never; Returns: boolean }
       snapshot_agent_daily_eligibility: {
         Args: { p_days?: number }
         Returns: number
@@ -44688,17 +44474,6 @@ export type Database = {
       }
       try_award_subagent_registration_bonus: {
         Args: { p_sub_agent_id: string }
-        Returns: undefined
-      }
-      try_credit_promissory_agent_commission: {
-        Args: {
-          p_base_amount: number
-          p_dedupe_key?: string
-          p_kind: string
-          p_partner_id: string
-          p_source_id: string
-          p_source_table: string
-        }
         Returns: undefined
       }
       try_credit_qualified_referrals: {
