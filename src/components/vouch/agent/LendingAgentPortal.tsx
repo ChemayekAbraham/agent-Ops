@@ -770,25 +770,50 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                     </CardContent>
                   </Card>
 
-                  {/* Borrower lookup */}
+                  {/* Borrower lookup — phone number (preferred) or AI ID */}
                   <div className="space-y-2 mb-4">
                     <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Create a loan — lookup borrower by AI ID
+                      Create a loan — find borrower by phone number
                     </Label>
                     <div className="flex gap-2">
                       <Input
                         ref={borrowerInputRef}
                         value={aiIdInput}
-                        onChange={(e) => setAiIdInput(e.target.value.toUpperCase())}
-                        placeholder="WEL-XXXXXX"
-                        className="h-11 text-sm font-mono rounded-2xl"
+                        onChange={(e) => setAiIdInput(e.target.value)}
+                        inputMode="tel"
+                        placeholder="0700 000 000 or WEL-XXXXXX"
+                        className="h-11 text-sm rounded-2xl"
                         onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
                       />
-                      <Button onClick={handleLookup} disabled={borrowerLoading} className="h-11 rounded-2xl">
-                        {borrowerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      <Button onClick={handleLookup} disabled={borrowerLoading || phoneSearching} className="h-11 rounded-2xl">
+                        {borrowerLoading || phoneSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                       </Button>
                     </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Enter any Welile user's phone number — their Welile Trust Score appears before you lend.
+                    </p>
                   </div>
+
+                  {phoneMatches.length > 0 && (
+                    <div className="space-y-2 mb-4">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        {phoneMatches.length} users on that number
+                      </p>
+                      {phoneMatches.map((m) => (
+                        <button
+                          key={m.user_id}
+                          onClick={() => selectBorrower(m.ai_id)}
+                          className="w-full text-left rounded-2xl border border-border bg-card p-3 hover:bg-muted/40 transition-colors"
+                        >
+                          <p className="text-sm font-semibold truncate">{m.full_name || 'Unnamed user'}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">
+                            {m.phone || '—'} · {m.city || '—'} · {m.ai_id}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
 
                   {activeAiId && borrowerLoading && <Skeleton className="h-40 w-full rounded-xl mb-4" />}
                   {borrowerError && (
