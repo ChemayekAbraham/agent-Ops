@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, Briefcase, User, Bell, FolderOpen, Ticket } from 'lucide-react';
+import { FileText, Briefcase, User, Bell, FolderOpen, Ticket, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -85,6 +85,12 @@ const CARDS = [
     icon: Ticket,
     title: 'Tickets',
     description: 'Raise a fault or pick one up',
+  },
+  {
+    to: '/me/requisitions',
+    icon: Wallet,
+    title: 'Make a requisition',
+    description: 'Ask for funds — reviewed by your head, COO, then CFO',
   },
   {
     to: '/your-profile',

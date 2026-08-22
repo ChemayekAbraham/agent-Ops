@@ -5481,6 +5481,13 @@ export type Database = {
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "budget_cycle_notifications_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
         ]
       }
       budget_department_notification_reads: {
@@ -5555,6 +5562,13 @@ export type Database = {
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "budget_department_notifications_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
         ]
       }
       budget_department_routes: {
@@ -5589,6 +5603,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_department_routes_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: true
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
           },
         ]
       }
@@ -5927,6 +5948,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_submissions_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
           },
           {
             foreignKeyName: "budget_submissions_parent_submission_id_fkey"
@@ -12477,6 +12505,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "hr_assignments_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
+          {
             foreignKeyName: "hr_assignments_position_id_fkey"
             columns: ["position_id"]
             isOneToOne: false
@@ -12780,6 +12815,13 @@ export type Database = {
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "hr_job_postings_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
         ]
       }
       hr_metric_definitions: {
@@ -12842,6 +12884,13 @@ export type Database = {
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "hr_metric_definitions_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
         ]
       }
       hr_metric_snapshots: {
@@ -12891,6 +12940,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_metric_snapshots_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
           },
           {
             foreignKeyName: "hr_metric_snapshots_staff_id_fkey"
@@ -12972,6 +13028,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_metric_targets_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
           },
           {
             foreignKeyName: "hr_metric_targets_source_task_id_fkey"
@@ -13712,6 +13775,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_payslips_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
           },
           {
             foreignKeyName: "hr_pay_payslips_position_id_fkey"
@@ -14649,6 +14719,13 @@ export type Database = {
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "hr_positions_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
         ]
       }
       hr_review_weeks: {
@@ -14955,6 +15032,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_tasks_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
           },
         ]
       }
@@ -30162,6 +30246,224 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_requisition_department_routes: {
+        Row: {
+          approver_role: string
+          created_at: string
+          department_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          approver_role: string
+          created_at?: string
+          department_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          approver_role?: string
+          created_at?: string
+          department_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_requisition_department_routes_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: true
+            referencedRelation: "hr_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_requisition_department_routes_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: true
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
+        ]
+      }
+      staff_requisition_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string | null
+          actor_role: string | null
+          comment: string | null
+          created_at: string
+          id: string
+          metadata: Json
+          requisition_id: string
+          stage: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          comment?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          requisition_id: string
+          stage?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          comment?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          requisition_id?: string
+          stage?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_requisition_events_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_requisitions: {
+        Row: {
+          amount: number
+          approved_amount: number | null
+          attachment_urls: string[]
+          category: string | null
+          cfo_decided_at: string | null
+          cfo_decided_by: string | null
+          cfo_note: string | null
+          coo_decided_at: string | null
+          coo_decided_by: string | null
+          coo_note: string | null
+          created_at: string
+          credited_at: string | null
+          credited_by: string | null
+          currency: string
+          current_approver_role: string | null
+          decided_at: string | null
+          department_id: string | null
+          department_key: string | null
+          final_stage: string
+          id: string
+          needed_by: string | null
+          reason: string
+          rejection_reason: string | null
+          requester_id: string
+          requester_name: string | null
+          requester_role: string | null
+          requisition_code: string
+          returned_from_stage: string | null
+          stage: string
+          supervisor_decided_at: string | null
+          supervisor_decided_by: string | null
+          supervisor_note: string | null
+          title: string
+          updated_at: string
+          wallet_credit_status: string | null
+          wallet_transaction_id: string | null
+        }
+        Insert: {
+          amount: number
+          approved_amount?: number | null
+          attachment_urls?: string[]
+          category?: string | null
+          cfo_decided_at?: string | null
+          cfo_decided_by?: string | null
+          cfo_note?: string | null
+          coo_decided_at?: string | null
+          coo_decided_by?: string | null
+          coo_note?: string | null
+          created_at?: string
+          credited_at?: string | null
+          credited_by?: string | null
+          currency?: string
+          current_approver_role?: string | null
+          decided_at?: string | null
+          department_id?: string | null
+          department_key?: string | null
+          final_stage?: string
+          id?: string
+          needed_by?: string | null
+          reason: string
+          rejection_reason?: string | null
+          requester_id: string
+          requester_name?: string | null
+          requester_role?: string | null
+          requisition_code?: string
+          returned_from_stage?: string | null
+          stage?: string
+          supervisor_decided_at?: string | null
+          supervisor_decided_by?: string | null
+          supervisor_note?: string | null
+          title: string
+          updated_at?: string
+          wallet_credit_status?: string | null
+          wallet_transaction_id?: string | null
+        }
+        Update: {
+          amount?: number
+          approved_amount?: number | null
+          attachment_urls?: string[]
+          category?: string | null
+          cfo_decided_at?: string | null
+          cfo_decided_by?: string | null
+          cfo_note?: string | null
+          coo_decided_at?: string | null
+          coo_decided_by?: string | null
+          coo_note?: string | null
+          created_at?: string
+          credited_at?: string | null
+          credited_by?: string | null
+          currency?: string
+          current_approver_role?: string | null
+          decided_at?: string | null
+          department_id?: string | null
+          department_key?: string | null
+          final_stage?: string
+          id?: string
+          needed_by?: string | null
+          reason?: string
+          rejection_reason?: string | null
+          requester_id?: string
+          requester_name?: string | null
+          requester_role?: string | null
+          requisition_code?: string
+          returned_from_stage?: string | null
+          stage?: string
+          supervisor_decided_at?: string | null
+          supervisor_decided_by?: string | null
+          supervisor_note?: string | null
+          title?: string
+          updated_at?: string
+          wallet_credit_status?: string | null
+          wallet_transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_requisitions_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "hr_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_requisitions_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
+        ]
+      }
       standing_order_audit_log: {
         Row: {
           acted_by: string | null
@@ -36893,6 +37195,18 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_staff_requisition_budget_context: {
+        Row: {
+          approved_budget: number | null
+          committed_amount: number | null
+          credited_amount: number | null
+          department_id: string | null
+          department_key: string | null
+          department_name: string | null
+          remaining_budget: number | null
+        }
+        Relationships: []
       }
       v_suspicious_duplicate_accounts: {
         Row: {
@@ -44556,6 +44870,17 @@ export type Database = {
           dr: number
           ledger_scope: string
           transaction_group_id: string
+        }[]
+      }
+      staff_requisition_route: {
+        Args: { _user_id: string }
+        Returns: {
+          approver_role: string
+          department_id: string
+          department_key: string
+          department_name: string
+          final_stage: string
+          stage: string
         }[]
       }
       stamp_float_request_settlement: {

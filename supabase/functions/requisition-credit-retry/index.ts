@@ -7,6 +7,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+type RetrySource = "director_requisitions" | "employee_requisitions" | "staff_requisitions";
+
 const ALLOWED_ROLES = new Set(["cfo", "super_admin", "manager", "ceo"]);
 
 function json(body: unknown, status = 200) {
@@ -33,18 +35,22 @@ Deno.serve(async (req) => {
     // requisition_wallet_credits lock row, so an already-credited requisition
     // returns `already_credited` without posting a second ledger transaction.
     if (body?.recover_all === true) {
-      const tables: Array<"director_requisitions" | "employee_requisitions"> = [
+      const tables: RetrySource[] = [
         "employee_requisitions",
         "director_requisitions",
+        "staff_requisitions",
       ];
       const results: unknown[] = [];
       for (const table of tables) {
+        // staff_requisitions tracks progress in `stage`, the legacy tables in `status`.
+        const approvedColumn = table === "staff_requisitions" ? "stage" : "status";
         const { data: stranded } = await admin
           .from(table)
           .select("*")
-          .in("status", ["approved", "paid"])
+          .in(approvedColumn, table === "staff_requisitions" ? ["approved"] : ["approved", "paid"])
           .eq("wallet_credit_status", "failed")
           .limit(50);
+
         for (const row of stranded || []) {
           const outcome = await recoverOne(admin, table, row, actor.id, req);
           results.push(outcome);
@@ -66,7 +72,7 @@ Deno.serve(async (req) => {
 
     const sourceTable = String(body.source_table || "");
     const requisitionId = String(body.requisition_id || "");
-    if (!["director_requisitions", "employee_requisitions"].includes(sourceTable) || !requisitionId) {
+    if (!["director_requisitions", "employee_requisitions", "staff_requisitions"].includes(sourceTable) || !requisitionId) {
       return json({ error: "bad_request" }, 400);
     }
 
@@ -75,7 +81,7 @@ Deno.serve(async (req) => {
 
     const result = await recoverOne(
       admin,
-      sourceTable as "director_requisitions" | "employee_requisitions",
+      sourceTable as RetrySource,
       row,
       actor.id,
       req,
@@ -91,7 +97,7 @@ Deno.serve(async (req) => {
 // deno-lint-ignore no-explicit-any
 async function recoverOne(
   admin: any,
-  sourceTable: "director_requisitions" | "employee_requisitions",
+  sourceTable: RetrySource,
   // deno-lint-ignore no-explicit-any
   row: any,
   actorId: string,
@@ -129,14 +135,17 @@ async function recoverOne(
     requisitionCode: row.requisition_code || String(row.id).slice(0, 8).toUpperCase(),
     userId: userId || "",
     approverId: actorId,
-    amount: Number(row.amount),
+    amount: Number(row.approved_amount ?? row.amount),
     currency: row.currency || "UGX",
     purpose: row.title || row.purpose || "Requisition",
     category: row.category || null,
-    status: row.status === "paid" ? "approved" : row.status,
+    status: sourceTable === "staff_requisitions"
+      ? (row.stage === "approved" ? "approved" : row.stage)
+      : (row.status === "paid" ? "approved" : row.status),
     approvedAt: row.approved_at || row.decided_at,
     ipAddress: req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip"),
     deviceInfo: req.headers.get("user-agent"),
+
   });
 
   return { ...result, requisition_id: row.id, source_table: sourceTable };
