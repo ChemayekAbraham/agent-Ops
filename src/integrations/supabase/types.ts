@@ -42437,6 +42437,7 @@ export type Database = {
           phone: string
         }[]
       }
+      lookup_transaction_id: { Args: { p_tid: string }; Returns: Json }
       manager_vendor_pin_flags: {
         Args: never
         Returns: {
