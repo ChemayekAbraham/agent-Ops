@@ -247,7 +247,7 @@ const MyRequisitions = () => {
                 <DialogHeader>
                   <DialogTitle>{resubmitId ? 'Update and resubmit' : 'New requisition'}</DialogTitle>
                   <DialogDescription>
-                    Tell us what you need and why. Approvers see your department budget alongside the request.
+                    Approvers see your department budget alongside the request.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-3">
