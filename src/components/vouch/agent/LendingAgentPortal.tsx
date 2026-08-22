@@ -22,6 +22,8 @@ import { useMyTrustScore } from '@/hooks/useMyTrustScore';
 import { useAgentBalances } from '@/hooks/useAgentBalances';
 import { useLendingAgentAgreement } from '@/hooks/useLendingAgentAgreement';
 import { useTrustProfile } from '@/hooks/useTrustProfile';
+import BorrowerTrustScorePanel from './BorrowerTrustScorePanel';
+
 import LendingAgentAgreementModal from '@/components/vouch/agent/LendingAgentAgreementModal';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -769,6 +771,8 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="pt-0 space-y-3">
+                          <BorrowerTrustScorePanel profile={borrower} />
+
                           <div className="grid grid-cols-3 gap-2 text-center">
                             <div className="rounded-lg bg-muted/40 p-2">
                               <p className="text-[9px] uppercase text-muted-foreground">Score</p>
@@ -783,6 +787,7 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                               <p className="text-xs font-bold">{formatUGX(borrower.cash_flow_capacity?.monthly_avg ?? 0)}</p>
                             </div>
                           </div>
+
 
                           <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-2.5 flex items-start gap-2">
                             <ShieldCheck className="h-3.5 w-3.5 text-emerald-700 shrink-0 mt-0.5" />
