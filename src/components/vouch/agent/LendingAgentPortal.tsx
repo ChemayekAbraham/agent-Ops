@@ -368,13 +368,46 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     await reloadRequests();
   };
 
-  const handleLookup = () => {
-    const cleaned = aiIdInput.trim().toUpperCase();
-    if (!cleaned) { toast.error('Enter a borrower AI ID'); return; }
-    setActiveAiId(cleaned);
+  const handleLookup = async () => {
+    const raw = aiIdInput.trim();
+    if (!raw) { toast.error('Enter a phone number or AI ID'); return; }
+    setPhoneMatches([]);
+    const digits = raw.replace(/[^0-9]/g, '');
+    const looksLikePhone = !/^WEL/i.test(raw) && digits.length >= 9;
+
+    if (looksLikePhone) {
+      setPhoneSearching(true);
+      const { data, error } = await (supabase.rpc('lending_find_user_by_phone', { p_phone: digits }) as any);
+      setPhoneSearching(false);
+      if (error) {
+        const msg = String(error.message || '');
+        toast.error(
+          msg.includes('lending_agreement_required') ? 'Sign the lending agreement first'
+          : msg.includes('phone_too_short') ? 'Enter at least 9 digits'
+          : 'Could not search that phone number',
+        );
+        return;
+      }
+      const rows = (data ?? []) as { user_id: string; full_name: string | null; phone: string | null; city: string | null; ai_id: string }[];
+      if (rows.length === 0) { toast.error('No Welile user found on that phone number'); return; }
+      if (rows.length === 1) {
+        selectBorrower(rows[0].ai_id);
+        return;
+      }
+      setPhoneMatches(rows);
+      return;
+    }
+
+    selectBorrower(raw.toUpperCase());
+  };
+
+  const selectBorrower = (aiId: string) => {
+    setPhoneMatches([]);
+    setActiveAiId(aiId);
     setShowLoanForm(false);
     setPrincipal(''); setInterestRate('10'); setDueDate(''); setPurpose('');
   };
+
 
   const handleAccept = async () => {
     const ok = await acceptAgreement(trustScore);
