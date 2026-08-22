@@ -16,7 +16,7 @@ type Admin = any;
 
 export interface RequisitionCreditInput {
   admin: Admin;
-  sourceTable: "director_requisitions" | "employee_requisitions";
+  sourceTable: "director_requisitions" | "employee_requisitions" | "staff_requisitions";
   requisitionId: string;
   requisitionCode: string;
   userId: string;            // requester (never the approver)
