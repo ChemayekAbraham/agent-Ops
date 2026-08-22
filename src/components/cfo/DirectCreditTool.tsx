@@ -866,43 +866,47 @@ export function DirectCreditTool() {
   const ImpactIcon = impactInfo?.icon;
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm flex items-center gap-2">
+    <Card className="rounded-2xl border-border/60 shadow-sm">
+      <CardHeader className="pb-4">
+        <CardTitle className="text-base flex items-center gap-2">
           {isCredit ? <ArrowUpRight className="h-4 w-4 text-emerald-600" /> : <ArrowDownLeft className="h-4 w-4 text-destructive" />}
           CFO Wallet Adjustment
         </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Move money between the platform and user wallets securely.
+        </p>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="grid grid-cols-3 gap-2">
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           <Button
             type="button"
             variant={isCredit ? 'default' : 'outline'}
-            className={isCredit ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''}
+            className={`h-11 w-full rounded-xl text-sm font-semibold ${isCredit ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm' : ''}`}
             onClick={() => handleOperationChange('credit')}
           >
             <ArrowUpRight className="h-4 w-4 mr-1.5 shrink-0" />
-            <span>{CFO_PAYOUT_LABELS.credit}</span>
+            <span className="truncate">{CFO_PAYOUT_LABELS.credit}</span>
           </Button>
           <Button
             type="button"
             variant={operation === 'debit' ? 'default' : 'outline'}
-            className={operation === 'debit' ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground' : ''}
+            className={`h-11 w-full rounded-xl text-sm font-semibold ${operation === 'debit' ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground shadow-sm' : ''}`}
             onClick={() => handleOperationChange('debit')}
           >
             <ArrowDownLeft className="h-4 w-4 mr-1.5 shrink-0" />
-            <span>{CFO_PAYOUT_LABELS.debit}</span>
+            <span className="truncate">{CFO_PAYOUT_LABELS.debit}</span>
           </Button>
           <Button
             type="button"
             variant={operation === 'withdraw' ? 'default' : 'outline'}
-            className={operation === 'withdraw' ? 'bg-orange-600 hover:bg-orange-700 text-white' : ''}
+            className={`h-11 w-full rounded-xl text-sm font-semibold ${operation === 'withdraw' ? 'bg-orange-600 hover:bg-orange-700 text-white shadow-sm' : ''}`}
             onClick={() => handleOperationChange('withdraw')}
           >
             <Banknote className="h-4 w-4 mr-1.5 shrink-0" />
-            <span>Withdraw</span>
+            <span className="truncate">Withdraw</span>
           </Button>
         </div>
+
 
         {operation === 'withdraw' && (
           <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-[11px] text-orange-800 flex gap-2">
