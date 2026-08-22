@@ -42266,6 +42266,7 @@ export type Database = {
       lending_find_user_by_phone: {
         Args: { p_phone: string }
         Returns: {
+          ai_id: string
           city: string
           full_name: string
           phone: string
