@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
+import LenderInviteShare from './LenderInviteShare';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -485,21 +486,25 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[96vh] overflow-y-auto rounded-t-3xl p-0">
+      <SheetContent
+        side="bottom"
+        className="h-[96dvh] overflow-y-auto rounded-t-3xl p-0"
+      >
         {/* Sticky header */}
         <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/60 px-4 pt-4 pb-3">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-primary flex items-center justify-center shadow-sm">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="h-10 w-10 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-500 to-primary flex items-center justify-center shadow-sm">
                 <Banknote className="h-5 w-5 text-white" />
               </div>
-              <div>
-                <p className="text-base font-bold text-foreground tracking-tight leading-none">Lending Agent</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Manage your borrowers</p>
+              <div className="min-w-0">
+                <p className="truncate text-base font-bold text-foreground tracking-tight leading-none">Lending Agent</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Score {trustScore} · Manage your borrowers</p>
               </div>
             </div>
-            <Badge variant="outline" className="text-[10px] font-bold">Score {trustScore}</Badge>
+            <LenderInviteShare aiId={myAiId} displayName={myName} variant="icon" />
           </div>
+
 
           {/* Material-style segmented tabs */}
           <div className="grid grid-cols-4 gap-1 rounded-2xl bg-muted/60 p-1">
@@ -507,14 +512,14 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
               <button
                 key={key}
                 onClick={() => setTab(key)}
-                className={`relative flex flex-col items-center gap-0.5 rounded-xl py-2 text-[10px] font-semibold transition-colors ${
+                className={`relative flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[10px] font-semibold leading-none transition-colors ${
                   tab === key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
                 }`}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-[18px] w-[18px]" />
                 {label}
                 {badge != null && badge > 0 && (
-                  <span className="absolute top-0.5 right-2 min-w-[15px] h-[15px] px-1 rounded-full bg-primary text-primary-foreground text-[8px] font-bold flex items-center justify-center">
+                  <span className="absolute top-0.5 right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[8px] font-bold flex items-center justify-center">
                     {badge}
                   </span>
                 )}
@@ -523,11 +528,17 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
           </div>
         </div>
 
-        <div className="px-4 pb-10 pt-4">
+        <div className="px-4 pt-4 pb-[calc(3rem+env(safe-area-inset-bottom))]">
           {trustLoading || agreementLoading ? (
             <Skeleton className="h-40 w-full rounded-2xl" />
           ) : (
             <>
+              {/* Borrower acquisition — shareable public link */}
+              <div className="mb-4">
+                <LenderInviteShare aiId={myAiId} displayName={myName} />
+              </div>
+
+
               {/* Principal protection guarantee — always visible & prominent.
                   Borrowers never see this; it is for the Lending Agent only. */}
               <div className="mb-4 rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-500/15 to-emerald-500/5 p-4 shadow-sm">
