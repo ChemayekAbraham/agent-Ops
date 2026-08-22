@@ -42,7 +42,7 @@ export function PortfolioRequestConfirmation({
   portfolio_id = '',
   portfolio_value = 0,
   maturity_date = '',
-  request_type = 'RENEWAL_REQUEST',
+  request_type = 'NEW_PORTFOLIO_REQUEST',
   request_reference = '',
   submitted_at = '',
   currency = 'UGX',
