@@ -226,8 +226,8 @@ export default function BorrowLoanSheet({ open, onOpenChange, onOpenLendingPorta
     reloadRequests();
   };
 
-  const handleDirectRequest = async () => {
-    const cleaned = normalizeAiId(lenderAiInput);
+  const handleDirectRequest = async (raw?: string) => {
+    const cleaned = normalizeAiId(raw ?? lenderAiInput);
     if (!isValidAiId(cleaned)) { toast.error('Enter a valid AI ID e.g. WEL-AB12CD'); return; }
     // Resolve AI ID -> user via public trust profile RPC
     const { data, error } = await (supabase.rpc('get_public_trust_profile', { p_ai_id: cleaned }) as any);
@@ -253,6 +253,17 @@ export default function BorrowLoanSheet({ open, onOpenChange, onOpenLendingPorta
       active: true,
     }));
   };
+
+  // Shared borrower link (/borrow/:aiId) — pre-target that lending agent once.
+  const prefilledRef = useRef(false);
+  useEffect(() => {
+    if (!open || !user || !initialLenderAiId || prefilledRef.current) return;
+    prefilledRef.current = true;
+    setLenderAiInput(initialLenderAiId);
+    void handleDirectRequest(initialLenderAiId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, user, initialLenderAiId, residenceComplete]);
+
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
