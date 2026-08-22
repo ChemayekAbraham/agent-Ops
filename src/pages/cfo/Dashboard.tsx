@@ -185,21 +185,62 @@ export default function CFODashboardPage() {
         return <DirectorRequisitionsPanel />;
       case 'wallet-payout':
         return (
-          <div className="space-y-4">
-            <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4">
-              <button onClick={() => setActiveTab('overview')} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-3 transition-colors">
-                <ArrowLeft className="h-4 w-4" />
-                Back to Treasury
-              </button>
-              <div className="flex items-start justify-between gap-2 flex-wrap mb-1">
-                <h1 className="text-xl font-bold flex items-center gap-2">💳 Pay Out to Any User's Wallet</h1>
+          <div className="space-y-5">
+            {/* ── Page header ── */}
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <button
+                  onClick={() => setActiveTab('overview')}
+                  className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground mb-3 transition-colors"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Treasury
+                </button>
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
+                    <Wallet className="h-5 w-5" />
+                  </span>
+                  <h1 className="text-2xl font-bold tracking-tight truncate">
+                    Pay Out to Any User's Wallet
+                  </h1>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2 max-w-2xl leading-relaxed">
+                  Search a user by name or phone number, enter the amount, and credit or debit their
+                  wallet instantly. Use “Share Payouts PDF” to send a list of everyone you've paid
+                  out via WhatsApp.
+                </p>
+              </div>
+              <div className="lg:text-right shrink-0">
                 <CFOPayoutsShareButton />
               </div>
-              <p className="text-sm text-muted-foreground mb-4">Search a user by name or phone number, enter the amount, and credit or debit their wallet instantly. Use “Share Payouts PDF” to send a list of everyone you've paid out via WhatsApp.</p>
-              <DirectCreditTool />
+            </div>
+
+            <DirectCreditTool />
+
+            {/* ── Security assurance card ── */}
+            <div className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6 shadow-sm">
+              <div className="flex flex-col sm:flex-row items-center gap-5">
+                <div className="flex-1 min-w-0 text-center sm:text-left">
+                  <div className="flex items-center justify-center sm:justify-start gap-2 mb-1.5">
+                    <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
+                    <h2 className="text-lg font-bold tracking-tight">Secure. Accurate. Instant.</h2>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
+                    Every payout is logged, traceable and reconciled against the general ledger, and
+                    protected with enterprise-grade security.
+                  </p>
+                </div>
+                <img
+                  src={walletSecurityIllustration.url}
+                  alt="Secure wallet payout illustration"
+                  loading="lazy"
+                  className="h-28 w-auto sm:h-32 shrink-0 select-none pointer-events-none"
+                />
+              </div>
             </div>
           </div>
         );
+
       case 'roi-requests':
         return <CFOROIRequests />;
       case 'rent-payouts':
