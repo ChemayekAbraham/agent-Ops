@@ -69,17 +69,12 @@ export function FundRentDialog({ open, onOpenChange, summary }: FundRentDialogPr
       });
     } catch (err: any) {
       console.error('[FundRentDialog] Fund error:', err);
-      const raw: string = err?.message || '';
-      const awaitingVerification = raw.includes('self_registered_funder_not_verified');
       toast({
-        title: awaitingVerification ? 'Account awaiting verification' : 'Transfer failed',
-        description: awaitingVerification
-          ? 'Partner Operations must verify your partner registration before you can support tenants. Your money has not left your wallet — you will be notified once you are approved.'
-          : raw || 'Please try again later.',
+        title: 'Transfer failed',
+        description: err?.message || 'Please try again later.',
         variant: 'destructive',
       });
     } finally {
-
       setSubmitting(false);
     }
   };
@@ -105,25 +100,24 @@ export function FundRentDialog({ open, onOpenChange, summary }: FundRentDialogPr
         {successInfo ? (
           <div className="space-y-4">
             <div className="px-4 py-4 rounded-xl bg-green-500/10 border border-green-500/30 space-y-2">
-              <p className="text-sm font-bold text-green-700 dark:text-green-400">Portfolio submitted for approval</p>
+              <p className="text-sm font-bold text-green-700 dark:text-green-400">✅ Investment Confirmed!</p>
               <p className="text-xs text-muted-foreground">
-                Once Partner Operations approves it, you will receive <span className="font-black text-foreground">15% monthly returns</span>{' '}
-                ({formatUGX(successInfo.monthlyReward)}) every <span className="font-bold">30 days</span> for <span className="font-bold">12 months</span>.
+                You will receive <span className="font-black text-foreground">15% monthly</span> ({formatUGX(successInfo.monthlyReward)}) 
+                every <span className="font-bold">30 days</span> for <span className="font-bold">12 months</span>.
               </p>
               <p className="text-xs text-muted-foreground">
-                Expected first payout: <span className="font-bold text-foreground">{successInfo.firstPayoutDate}</span>
+                📅 First payout: <span className="font-bold text-foreground">{successInfo.firstPayoutDate}</span>
               </p>
               <p className="text-xs text-muted-foreground">
-                Reference: <span className="font-mono font-bold">{successInfo.referenceId}</span>
+                🔖 Ref: <span className="font-mono font-bold">{successInfo.referenceId}</span>
               </p>
             </div>
 
             <div className="px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
               <p className="text-xs text-amber-700 dark:text-amber-400 font-semibold">
-                Capital withdrawal: to withdraw your capital, submit a 90-day advance notice request from your dashboard.
+                📋 Investment Withdrawal: To withdraw your investment, submit a 90-day advance notice request from your dashboard.
               </p>
             </div>
-
 
             <Button onClick={() => handleClose(false)} className="w-full rounded-xl font-bold h-11">
               Done

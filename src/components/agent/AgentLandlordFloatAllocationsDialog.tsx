@@ -64,7 +64,6 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
   }, [open, hasActiveLock]);
 
   const handleSelect = (a: LandlordFloatAllocation) => {
-    if (a.status === 'return_pending') return; // awaiting CFO decision — not payable
     const key = allocationLockKey(a);
     const expiry = locks[key];
     if (expiry && expiry > Date.now()) return; // still locked — ignore the tap
@@ -148,8 +147,7 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                 ) : filtered.map((a) => {
                   const lockExpiry = locks[allocationLockKey(a)] ?? 0;
                   const remainingMs = Math.max(0, lockExpiry - now);
-                   const isReturnPending = a.status === 'return_pending';
-                   const isLocked = remainingMs > 0 || isReturnPending;
+                  const isLocked = remainingMs > 0;
                   const mins = Math.floor(remainingMs / 60000);
                   const secs = Math.floor((remainingMs % 60000) / 1000);
                   return (
@@ -183,11 +181,6 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                           </div>
                         )}
                       </div>
-                      {isReturnPending && (
-                        <Badge variant="outline" className="text-[9px] shrink-0 border-amber-500 text-amber-600">
-                          Awaiting CFO
-                        </Badge>
-                      )}
                       {a.status === 'partially_paid' && (
                         <Badge variant="secondary" className="text-[9px] shrink-0">Partial</Badge>
                       )}
@@ -206,12 +199,7 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                         )}
                       </div>
                       <div className="flex items-center gap-1 text-xs font-semibold text-[#9234EA]">
-                        {isReturnPending ? (
-                          <span className="flex items-center gap-1 text-amber-600">
-                            <Lock className="h-3.5 w-3.5" />
-                            Return sent to CFO
-                          </span>
-                        ) : isLocked ? (
+                        {isLocked ? (
                           <span className="flex items-center gap-1 text-muted-foreground">
                             <Lock className="h-3.5 w-3.5" />
                             {mins}:{secs.toString().padStart(2, '0')}

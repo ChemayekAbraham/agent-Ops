@@ -31,10 +31,9 @@ const formatAmount = (amount: string | number | undefined, currency: string) => 
 const labelFor = (t?: string) =>
   t === 'REDEMPTION_REQUEST'
     ? 'Capital Redemption Request'
-    : t === 'RENEWAL_REQUEST'
-      ? 'Partnership Renewal Request'
-      : 'New Portfolio Request'
-
+    : t === 'NEW_PORTFOLIO_REQUEST'
+      ? 'New Portfolio Request'
+      : 'Partnership Renewal Request'
 
 export function PortfolioRequestConfirmation({
   partner_name = 'Partner',
@@ -42,7 +41,7 @@ export function PortfolioRequestConfirmation({
   portfolio_id = '',
   portfolio_value = 0,
   maturity_date = '',
-  request_type = 'NEW_PORTFOLIO_REQUEST',
+  request_type = 'RENEWAL_REQUEST',
   request_reference = '',
   submitted_at = '',
   currency = 'UGX',

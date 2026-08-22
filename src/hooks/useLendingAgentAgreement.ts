@@ -42,22 +42,15 @@ export function useLendingAgentAgreement() {
     let ip: string | null = null;
     try { ip = (await (await fetch('https://api.ipify.org?format=json')).json()).ip; } catch {}
     const device = `${navigator.userAgent} | ${navigator.platform}`;
-    const safeScore =
-      typeof trustScore === 'number' && Number.isFinite(trustScore) ? Math.round(trustScore) : null;
     const { data, error } = await (supabase
       .from('lending_agent_agreement_acceptance' as any)
-      .insert({ agent_user_id: user.id, agreement_version: LENDING_AGENT_AGREEMENT_VERSION, trust_score_at_acceptance: safeScore, ip_address: ip, device_info: device, status: 'accepted' })
+      .insert({ agent_user_id: user.id, agreement_version: LENDING_AGENT_AGREEMENT_VERSION, trust_score_at_acceptance: trustScore ?? null, ip_address: ip, device_info: device, status: 'accepted' })
       .select().single() as any);
-    if (error) {
-      console.error('[useLendingAgentAgreement]', error);
-      // Already signed (unique violation) counts as accepted — re-read the row.
-      if ((error as any).code === '23505') { await check(); return true; }
-      throw new Error(error.message || 'Could not save your acceptance');
-    }
+    if (error) { console.error('[useLendingAgentAgreement]', error); return false; }
     setIsAccepted(true);
     setAcceptance(data as Acceptance);
     return true;
-  }, [user, check]);
+  }, [user]);
 
   return { isAccepted, acceptance, isLoading, acceptAgreement, currentVersion: LENDING_AGENT_AGREEMENT_VERSION };
 }

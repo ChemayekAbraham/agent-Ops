@@ -35,7 +35,6 @@ import { normalizeMomoTid } from '@/lib/momoTid';
 import { downloadCsv, csvTimestamp } from '@/lib/csvExport';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip as RTooltip, CartesianGrid, Legend, Brush } from 'recharts';
 import { DebitBucketAuditSearch } from './DebitBucketAuditSearch';
-import { TidLookupCard } from './TidLookupCard';
 
 import { ProxyDebitBreakdownDialog } from './ProxyDebitBreakdownDialog';
 import { EmailPeriodComparison } from './EmailPeriodComparison';
@@ -5674,8 +5673,6 @@ export function EmailTransactionsPanel() {
           );
         })()}
       </div>
-
-      <TidLookupCard />
 
       <DebitBucketAuditSearch />
 

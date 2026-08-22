@@ -34,7 +34,6 @@ import { GeneralLedger } from '@/components/manager/GeneralLedger';
 import { CFOPartnerPayoutProcessing } from '@/components/cfo/CFOPartnerPayoutProcessing';
 import { RentDisbursementQueue } from '@/components/cfo/RentDisbursementQueue';
 import { PromissoryBookingsPanel } from '@/components/cfo/PromissoryBookingsPanel';
-import { PromissoryCommissionsPanel } from '@/components/shared/PromissoryCommissionsPanel';
 import { BatchPayoutProcessor } from '@/components/cfo/BatchPayoutProcessor';
 import { LandlordFloatAllocationsPanel } from '@/components/cfo/LandlordFloatAllocationsPanel';
 import { WithdrawalHistoryStatement } from '@/components/financial-ops/WithdrawalHistoryStatement';
@@ -309,7 +308,6 @@ export default function CFODashboardPage() {
             <CFOAllocationReturnApprovals />
             <RentDisbursementQueue locationProvisionsOnly />
             <PromissoryBookingsPanel />
-            <PromissoryCommissionsPanel />
             <BatchPayoutProcessor />
             <LandlordFloatAllocationsPanel />
           </div>

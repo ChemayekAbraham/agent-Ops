@@ -12,13 +12,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { toast } from 'sonner';
 import {
   ArrowLeft, ShoppingBag, Package, Wallet, CheckCircle2, Repeat, Info, Smartphone, Bike, AlertCircle, Share2,
@@ -83,9 +76,7 @@ export default function MerchandiseStore() {
   const [confirmStep, setConfirmStep] = useState(false);
   const [ordering, setOrdering] = useState(false);
   const [phoneOpen, setPhoneOpen] = useState(false);
-  const [phoneBrand, setPhoneBrand] = useState('');
-  const [phoneModel, setPhoneModel] = useState('');
-  const [phoneTotal, setPhoneTotal] = useState('');
+  const [phoneAmount, setPhoneAmount] = useState('');
   const [orderingPhone, setOrderingPhone] = useState(false);
   const [bikeOpen, setBikeOpen] = useState(false);
   const [bikeAmount, setBikeAmount] = useState('');
@@ -314,43 +305,29 @@ export default function MerchandiseStore() {
     queryClient.invalidateQueries({ queryKey: ['wallet-view', user?.id] });
   };
 
-  const phoneTotalNum = Math.max(0, parseInt(phoneTotal || '0', 10) || 0);
-  const phoneProjection = Math.round(phoneTotalNum * 0.33);
+  const phoneAmountNum = Math.max(0, parseInt(phoneAmount || '0', 10) || 0);
 
   const orderSmartphone = async () => {
-    if (!phoneBrand.trim()) {
-      toast.error('Select a product brand');
+    if (phoneAmountNum < 1000) {
+      toast.error('Enter an amount of at least UGX 1,000');
       return;
     }
-    if (!phoneModel.trim()) {
-      toast.error('Enter the type of phone');
+    if (phoneAmountNum > availableWallet) {
+      toast.error(
+        `Amount exceeds your available wallet balance of ${formatUGX(availableWallet)}. Enter ${formatUGX(availableWallet)} or less.`
+      );
       return;
     }
-    if (phoneTotalNum < 1000) {
-      toast.error('Enter a phone amount of at least UGX 1,000');
-      return;
-    }
-    // No upfront wallet balance gate — orders are submitted for approval first.
-
     setOrderingPhone(true);
-    const { error } = await db.rpc('agent_order_smartphone', {
-      p_total_amount: phoneTotalNum,
-      p_brand: phoneBrand,
-      p_model_type: phoneModel,
-    });
+    const { error } = await db.rpc('agent_order_smartphone', { p_amount: phoneAmountNum });
     setOrderingPhone(false);
     if (error) {
       toast.error(error.message || 'Could not place smartphone order');
       return;
     }
-    toast.success('Smartphone order submitted — Pending Approval', {
-      description: `${formatUGX(phoneTotalNum)} total. Nothing is charged until Agent Operations approves it (then ${formatUGX(phoneProjection)} recovery rate applies).`,
-    });
-
+    toast.success(`Welile Smartphone requested. ${formatUGX(phoneAmountNum)} will be recovered from your wallet.`);
     setPhoneOpen(false);
-    setPhoneBrand('');
-    setPhoneModel('');
-    setPhoneTotal('');
+    setPhoneAmount('');
     queryClient.invalidateQueries({ queryKey: ['my-merchandise-plans', user?.id] });
     queryClient.invalidateQueries({ queryKey: ['my-merchandise-deductions', user?.id] });
   };
@@ -455,7 +432,7 @@ export default function MerchandiseStore() {
                 Get a company smartphone on credit. Choose how much can be deducted from your wallet — final price is set by marketing.
               </p>
             </div>
-            <Button size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => { setPhoneBrand(''); setPhoneModel(''); setPhoneTotal(''); setPhoneOpen(true); }}>
+            <Button size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => { setPhoneAmount(''); setPhoneOpen(true); }}>
               Order
             </Button>
           </CardContent>
@@ -862,67 +839,46 @@ export default function MerchandiseStore() {
             <img
               src={smartphonePromoAsset.url}
               alt="Welile Smartphone selection"
-              className="w-full h-32 object-cover rounded-lg border border-border"
+              className="w-full h-40 object-cover rounded-lg border border-border"
             />
+            <p className="text-xs text-muted-foreground">
+              Marketing sets the final phone price. Enter the amount you're comfortable having recovered
+              from your wallet toward the smartphone.
+            </p>
             <div className="space-y-1">
-              <Label className="text-xs">Product Brand *</Label>
-              <Select value={phoneBrand} onValueChange={setPhoneBrand}>
-                <SelectTrigger className="h-10 text-sm">
-                  <SelectValue placeholder="Select brand" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="iPhone">iPhone</SelectItem>
-                  <SelectItem value="Samsung">Samsung</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Type Of Phone *</Label>
-              <Input
-                type="text"
-                placeholder="e.g. iPhone 13 Pro Max or Samsung Galaxy A14"
-                value={phoneModel}
-                onChange={(e) => setPhoneModel(e.target.value)}
-                className="h-10 text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Input Phone Amount (UGX) *</Label>
+              <Label className="text-xs">Amount to deduct (UGX)</Label>
               <Input
                 type="number"
                 min={1000}
                 step={1000}
                 inputMode="numeric"
-                placeholder="e.g. 1500000"
-                value={phoneTotal}
-                onChange={(e) => setPhoneTotal(e.target.value)}
-                className="h-10 text-sm"
+                placeholder="e.g. 50000"
+                value={phoneAmount}
+                onChange={(e) => setPhoneAmount(e.target.value)}
               />
+              <p className="text-[11px] text-muted-foreground">
+                Available wallet balance: <span className="font-semibold">{formatUGX(availableWallet)}</span>
+              </p>
             </div>
-            {phoneTotalNum > 0 && (
-              <div className="rounded-lg bg-muted/50 px-3 py-2 space-y-1">
-                <p className="text-xs text-muted-foreground">Payment Projection (33% Wallet Recovery Rate):</p>
-                <p className="text-base font-bold">{formatUGX(phoneProjection)}</p>
+            {phoneAmountNum > 0 && (
+              <div className="rounded-lg bg-muted/50 px-3 py-2 flex justify-between text-sm">
+                <span className="text-muted-foreground">Will be recovered from wallet</span>
+                <span className="font-bold">{formatUGX(phoneAmountNum)}</span>
               </div>
             )}
+            {phoneAmountNum > availableWallet && (
+              <p className="text-[11px] font-medium text-destructive">
+                Amount exceeds your available wallet balance of {formatUGX(availableWallet)}.
+              </p>
+            )}
             <p className="text-[11px] text-muted-foreground">
-              Orders are submitted as <span className="font-semibold">Pending Approval</span>. Nothing is
-              charged to your wallet until Agent Operations approves the order.
+              This amount is recovered from your withdrawable wallet — 15% up to 4 times a day until fully paid.
             </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPhoneOpen(false)} disabled={orderingPhone}>Cancel</Button>
-            <Button
-              onClick={orderSmartphone}
-              disabled={
-                orderingPhone ||
-                !phoneBrand.trim() ||
-                !phoneModel.trim() ||
-                phoneTotalNum < 1000
-              }
-
-            >
-              {orderingPhone ? 'Submitting…' : 'Submit order'}
+            <Button onClick={orderSmartphone} disabled={orderingPhone || phoneAmountNum < 1000 || phoneAmountNum > availableWallet}>
+              {orderingPhone ? 'Ordering…' : 'Confirm order'}
             </Button>
           </DialogFooter>
         </DialogContent>
