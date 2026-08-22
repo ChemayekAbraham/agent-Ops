@@ -22,6 +22,8 @@ import { useMyTrustScore } from '@/hooks/useMyTrustScore';
 import { useAgentBalances } from '@/hooks/useAgentBalances';
 import { useLendingAgentAgreement } from '@/hooks/useLendingAgentAgreement';
 import { useTrustProfile } from '@/hooks/useTrustProfile';
+import BorrowerTrustScorePanel from './BorrowerTrustScorePanel';
+
 import LendingAgentAgreementModal from '@/components/vouch/agent/LendingAgentAgreementModal';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
