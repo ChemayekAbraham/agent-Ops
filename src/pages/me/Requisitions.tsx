@@ -163,14 +163,18 @@ const MyRequisitions = () => {
 
   const routeLine = useMemo(() => {
     if (!route) return null;
-    const chain = [
-      route.first_stage === 'supervisor' ? STAGE_LABEL.supervisor : null,
-      route.first_stage === 'supervisor' || route.first_stage === 'coo' ? 'COO' : null,
-      'CFO',
-      route.final_stage === 'ceo' ? 'CEO' : null,
-    ].filter(Boolean);
+    const stages = ['supervisor', 'coo', 'cfo', 'ceo'];
+    const startIdx = Math.max(0, stages.indexOf(route.first_stage));
+    const endIdx = route.final_stage === 'ceo' ? stages.indexOf('ceo') : stages.indexOf('cfo');
+    const supervisorLabel = route.supervisor_role
+      ? route.supervisor_role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+      : STAGE_LABEL.supervisor;
+    const chain = stages
+      .slice(startIdx, endIdx + 1)
+      .map((s) => (s === 'supervisor' ? supervisorLabel : STAGE_LABEL[s] || s));
     return chain.join(' → ');
   }, [route]);
+
 
   const startNew = () => {
     setResubmitId(null);
