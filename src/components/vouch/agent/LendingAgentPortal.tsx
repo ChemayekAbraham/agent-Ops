@@ -70,11 +70,16 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
-  // Borrower lookup
+  // Borrower lookup (phone number or AI ID)
   const [aiIdInput, setAiIdInput] = useState('');
   const [activeAiId, setActiveAiId] = useState<string | null>(null);
+  const [phoneSearching, setPhoneSearching] = useState(false);
+  const [phoneMatches, setPhoneMatches] = useState<
+    { user_id: string; full_name: string | null; phone: string | null; city: string | null; ai_id: string }[]
+  >([]);
   const { profile: borrower, loading: borrowerLoading, error: borrowerError } =
     useTrustProfile(activeAiId ?? undefined, { publicMode: true });
+
 
   // Loan form
   const [showLoanForm, setShowLoanForm] = useState(false);
@@ -368,13 +373,46 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     await reloadRequests();
   };
 
-  const handleLookup = () => {
-    const cleaned = aiIdInput.trim().toUpperCase();
-    if (!cleaned) { toast.error('Enter a borrower AI ID'); return; }
-    setActiveAiId(cleaned);
+  const handleLookup = async () => {
+    const raw = aiIdInput.trim();
+    if (!raw) { toast.error('Enter a phone number or AI ID'); return; }
+    setPhoneMatches([]);
+    const digits = raw.replace(/[^0-9]/g, '');
+    const looksLikePhone = !/^WEL/i.test(raw) && digits.length >= 9;
+
+    if (looksLikePhone) {
+      setPhoneSearching(true);
+      const { data, error } = await (supabase.rpc('lending_find_user_by_phone', { p_phone: digits }) as any);
+      setPhoneSearching(false);
+      if (error) {
+        const msg = String(error.message || '');
+        toast.error(
+          msg.includes('lending_agreement_required') ? 'Sign the lending agreement first'
+          : msg.includes('phone_too_short') ? 'Enter at least 9 digits'
+          : 'Could not search that phone number',
+        );
+        return;
+      }
+      const rows = (data ?? []) as { user_id: string; full_name: string | null; phone: string | null; city: string | null; ai_id: string }[];
+      if (rows.length === 0) { toast.error('No Welile user found on that phone number'); return; }
+      if (rows.length === 1) {
+        selectBorrower(rows[0].ai_id);
+        return;
+      }
+      setPhoneMatches(rows);
+      return;
+    }
+
+    selectBorrower(raw.toUpperCase());
+  };
+
+  const selectBorrower = (aiId: string) => {
+    setPhoneMatches([]);
+    setActiveAiId(aiId);
     setShowLoanForm(false);
     setPrincipal(''); setInterestRate('10'); setDueDate(''); setPurpose('');
   };
+
 
   const handleAccept = async () => {
     const ok = await acceptAgreement(trustScore);
@@ -732,25 +770,50 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                     </CardContent>
                   </Card>
 
-                  {/* Borrower lookup */}
+                  {/* Borrower lookup — phone number (preferred) or AI ID */}
                   <div className="space-y-2 mb-4">
                     <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Create a loan — lookup borrower by AI ID
+                      Create a loan — find borrower by phone number
                     </Label>
                     <div className="flex gap-2">
                       <Input
                         ref={borrowerInputRef}
                         value={aiIdInput}
-                        onChange={(e) => setAiIdInput(e.target.value.toUpperCase())}
-                        placeholder="WEL-XXXXXX"
-                        className="h-11 text-sm font-mono rounded-2xl"
+                        onChange={(e) => setAiIdInput(e.target.value)}
+                        inputMode="tel"
+                        placeholder="0700 000 000 or WEL-XXXXXX"
+                        className="h-11 text-sm rounded-2xl"
                         onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
                       />
-                      <Button onClick={handleLookup} disabled={borrowerLoading} className="h-11 rounded-2xl">
-                        {borrowerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      <Button onClick={handleLookup} disabled={borrowerLoading || phoneSearching} className="h-11 rounded-2xl">
+                        {borrowerLoading || phoneSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                       </Button>
                     </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Enter any Welile user's phone number — their Welile Trust Score appears before you lend.
+                    </p>
                   </div>
+
+                  {phoneMatches.length > 0 && (
+                    <div className="space-y-2 mb-4">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        {phoneMatches.length} users on that number
+                      </p>
+                      {phoneMatches.map((m) => (
+                        <button
+                          key={m.user_id}
+                          onClick={() => selectBorrower(m.ai_id)}
+                          className="w-full text-left rounded-2xl border border-border bg-card p-3 hover:bg-muted/40 transition-colors"
+                        >
+                          <p className="text-sm font-semibold truncate">{m.full_name || 'Unnamed user'}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">
+                            {m.phone || '—'} · {m.city || '—'} · {m.ai_id}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
 
                   {activeAiId && borrowerLoading && <Skeleton className="h-40 w-full rounded-xl mb-4" />}
                   {borrowerError && (
