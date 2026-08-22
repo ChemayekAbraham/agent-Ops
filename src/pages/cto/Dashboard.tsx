@@ -1,7 +1,7 @@
 import ExecutiveDashboardLayout from '@/components/layout/ExecutiveDashboardLayout';
 import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import { CTODashboard } from '@/components/executive/CTODashboard';
-import { DirectorRequisitionsPanel } from '@/components/requisitions/DirectorRequisitionsPanel';
+import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWorkspace';
 
 export default function CTODashboardPage() {
   const [activeTab, setActiveTab] = usePersistedActiveTab('cto');
@@ -9,7 +9,7 @@ export default function CTODashboardPage() {
   return (
     <ExecutiveDashboardLayout role="cto" activeTab={activeTab} onTabChange={setActiveTab}>
       {activeTab === 'requisitions' ? (
-        <DirectorRequisitionsPanel />
+        <RequisitionsWorkspace />
       ) : (
         <CTODashboard activeTab={activeTab} />
       )}

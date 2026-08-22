@@ -25,7 +25,7 @@ import MerchantFloatRequisitionReportPanel from '@/components/cfo/MerchantFloatR
 import ExpenseReportPanel from '@/components/cfo/ExpenseReportPanel';
 import CFOWeeklyReportPanel from '@/components/cfo/CFOWeeklyReportPanel';
 import { CashflowForecastGraphs } from '@/components/cfo/CashflowForecastGraphs';
-import { DirectorRequisitionsPanel } from '@/components/requisitions/DirectorRequisitionsPanel';
+import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWorkspace';
 
 import { FinancialStatementsPanel } from '@/components/manager/FinancialStatementsPanel';
 import { BufferAccountPanel } from '@/components/manager/BufferAccountPanel';
@@ -184,7 +184,7 @@ export default function CFODashboardPage() {
   const renderContent = () => {
     switch (activeTab) {
       case 'requisitions':
-        return <DirectorRequisitionsPanel />;
+        return <RequisitionsWorkspace />;
       case 'wallet-payout':
         return (
           <div className="space-y-5">

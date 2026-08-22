@@ -7,7 +7,7 @@ import { StaffPerformancePanel } from '@/components/executive/StaffPerformancePa
 import { AngelPoolManagementPanel } from '@/components/executive/AngelPoolManagementPanel';
 import { MissionGoalsEditor } from '@/components/executive/MissionGoalsEditor';
 import { RoleManagementPanel } from '@/components/executive/RoleManagementPanel';
-import { DirectorRequisitionsPanel } from '@/components/requisitions/DirectorRequisitionsPanel';
+import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWorkspace';
 import ExecutiveBrief from '@/hr/components/ExecutiveBrief';
 import { CEOServiceCentreApprovals } from '@/components/ceo/CEOServiceCentreApprovals';
 
@@ -30,7 +30,7 @@ export default function CEODashboardPage() {
       case 'service-centres':
         return <CEOServiceCentreApprovals />;
       case 'requisitions':
-        return <DirectorRequisitionsPanel />;
+        return <RequisitionsWorkspace />;
       case 'angel-pool':
         return <AngelPoolManagementPanel userRole="ceo" />;
       case 'mission-goals':
