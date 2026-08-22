@@ -251,11 +251,7 @@ function IssueProductDialog({
     return Array.from(names).sort();
   }, [catalog, category]);
 
-  // Every issued product carries a 33% interest markup on the base price.
-  const INTEREST_RATE = 0.33;
-  const baseValue = (Number(quantity) || 0) * (Number(unitPrice) || 0);
-  const interestAmount = Math.round(baseValue * INTEREST_RATE);
-  const total = baseValue + interestAmount;
+  const total = (Number(quantity) || 0) * (Number(unitPrice) || 0);
   const outstanding = Math.max(total - (plan === 'full' ? total : Number(amountPaid) || 0), 0);
 
   // Smartphones and Welile Bikes recover at a fixed 33% rate from the agent wallet.
@@ -265,7 +261,7 @@ function IssueProductDialog({
     return name.includes('phone') || name.includes('bike');
   }, [itemName]);
   const recoveryRate = isFixedRecoveryProduct ? 0.33 : null;
-
+  const recoveryAmount = recoveryRate ? Math.round(outstanding * recoveryRate) : 0;
 
 
   const mutation = useMutation({
@@ -274,7 +270,7 @@ function IssueProductDialog({
         p_agent_id: agent!.id,
         p_item_name: itemName,
         p_quantity: Number(quantity),
-        p_unit_price: (Number(quantity) || 1) > 0 ? total / (Number(quantity) || 1) : 0,
+        p_unit_price: Number(unitPrice),
         p_unit_cost: Number(unitCost) || 0,
         p_service_centre_id: centreId === 'none' ? null : centreId,
         p_payment_plan: plan,
@@ -408,30 +404,27 @@ function IssueProductDialog({
         </div>
 
         <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
-          <div className="flex justify-between"><span>Base price</span><span className="tabular-nums">{formatUGX(baseValue)}</span></div>
-          <div className="flex items-center justify-between">
-            <span>Interest (33%)</span>
-            <span className="tabular-nums">{formatUGX(interestAmount)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Total value</span>
-            <span className="font-semibold tabular-nums">{formatUGX(total)}</span>
-          </div>
+          <div className="flex justify-between"><span>Total value</span><span className="font-semibold">{formatUGX(total)}</span></div>
           <div className="flex justify-between">
             <span>To recover from wallet</span>
-            <span className="font-semibold tabular-nums">{formatUGX(outstanding)}</span>
+            <span className="font-semibold">{formatUGX(outstanding)}</span>
           </div>
-          <p className="text-[11px] text-muted-foreground">
-            Total value = base price + 33% interest. Wallet recovery is total value less any amount paid upfront.
-          </p>
           {recoveryRate !== null && (
-            <div className="flex items-center justify-between pt-1">
-              <span>Recovery rule</span>
-              <Badge variant="secondary" className="text-[11px]">Recovery Rate: 33%</Badge>
-            </div>
+            <>
+              <div className="flex items-center justify-between">
+                <span>Recovery rule</span>
+                <Badge variant="secondary" className="text-[11px]">Recovery Rate: 33%</Badge>
+              </div>
+              <div className="flex justify-between">
+                <span>Recovery amount (33%)</span>
+                <span className="font-semibold tabular-nums">{formatUGX(recoveryAmount)}</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Smartphones and Welile Bikes recover at a fixed 33% rate from the agent wallet.
+              </p>
+            </>
           )}
         </div>
-
 
       </div>
       <DialogFooter>

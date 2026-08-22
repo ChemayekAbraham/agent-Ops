@@ -72,12 +72,8 @@ export interface JobApplicationRow {
   decided_at: string | null;
   decided_by: string | null;
   decision_reason: string | null;
-  shortlist_round: number | null;
-  archived_at: string | null;
-  archived_by: string | null;
   created_at: string;
 }
-
 
 const COLUMNS = [
   'id',
@@ -108,9 +104,6 @@ const COLUMNS = [
   'decided_at',
   'decided_by',
   'decision_reason',
-  'shortlist_round',
-  'archived_at',
-  'archived_by',
   'created_at',
 ].join(', ');
 

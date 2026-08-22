@@ -1,1 +1,0 @@
-DROP FUNCTION IF EXISTS public.smoke_promissory_self_support();

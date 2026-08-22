@@ -69,17 +69,12 @@ export function FundRentDialog({ open, onOpenChange, summary }: FundRentDialogPr
       });
     } catch (err: any) {
       console.error('[FundRentDialog] Fund error:', err);
-      const raw: string = err?.message || '';
-      const awaitingVerification = raw.includes('self_registered_funder_not_verified');
       toast({
-        title: awaitingVerification ? 'Account awaiting verification' : 'Transfer failed',
-        description: awaitingVerification
-          ? 'Partner Operations must verify your partner registration before you can support tenants. Your money has not left your wallet — you will be notified once you are approved.'
-          : raw || 'Please try again later.',
+        title: 'Transfer failed',
+        description: err?.message || 'Please try again later.',
         variant: 'destructive',
       });
     } finally {
-
       setSubmitting(false);
     }
   };

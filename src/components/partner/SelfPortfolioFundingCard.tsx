@@ -51,7 +51,6 @@ interface FundablePlan {
   hold_expires_at: string | null;
   request_latitude?: number | string | null;
   request_longitude?: number | string | null;
-  proxy_agent_phone: string | null;
 }
 
 /**

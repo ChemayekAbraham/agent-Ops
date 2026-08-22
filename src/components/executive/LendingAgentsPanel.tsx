@@ -10,8 +10,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Search, ShieldCheck, HandCoins, AlertTriangle, TrendingUp, FileText, Calendar, Phone, User } from 'lucide-react';
 import { BorrowerVouchBadge } from './BorrowerVouchBadge';
-import { ContactActions } from '@/components/ops/ContactActions';
-
 import { format } from 'date-fns';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
@@ -254,12 +252,10 @@ export function LendingAgentsPanel() {
                       />
                     </div>
                       {a.phone && (
-                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                          <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" /> {a.phone}</span>
-                          <ContactActions phone={a.phone} size="xs" message={`Hello ${a.full_name}, this is Welile Agent Ops about your lending activity.`} />
+                        <div className="flex items-center gap-1.5 mt-0.5 text-xs text-muted-foreground">
+                          <Phone className="h-3 w-3" /> {a.phone}
                         </div>
                       )}
-
                       <div className="flex flex-wrap gap-1 mt-1.5">
                         <Badge variant="primary" size="sm">{a.loans.length} loan{a.loans.length !== 1 ? 's' : ''}</Badge>
                         {a.active_count > 0 && <Badge variant="warning" size="sm">{a.active_count} active</Badge>}
