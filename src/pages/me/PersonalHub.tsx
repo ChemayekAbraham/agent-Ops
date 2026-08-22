@@ -264,8 +264,20 @@ const PersonalHub = () => {
         <NameCompletionReminder />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {CARDS.map((card, index) => (
-            <HubCard key={index} {...card} />
+            <HubCard
+              key={index}
+              {...card}
+              badges={
+                card.to === '/me/requisitions'
+                  ? [
+                      { label: 'pending', count: reqCounts.pending, tone: 'pending' as const },
+                      { label: 'approved', count: reqCounts.approved, tone: 'approved' as const },
+                    ]
+                  : undefined
+              }
+            />
           ))}
+
         </div>
 
         {staffRecord && (
