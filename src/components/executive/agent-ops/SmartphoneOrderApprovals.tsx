@@ -136,10 +136,13 @@ export function SmartphoneOrderApprovals() {
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {[o.brand, o.model_type].filter(Boolean).join(' · ') || 'Welile Smartphone'}
+                        Phone model: <span className="font-medium text-foreground">
+                          {[o.brand, o.model_type].filter(Boolean).join(' ') || 'Welile Smartphone'}
+                        </span>
                         {' · '}
                         {format(new Date(o.created_at), 'dd MMM yyyy HH:mm')}
                       </p>
+
                       <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
                         <span>Total: <span className="font-semibold tabular-nums">{formatUGX(Number(o.total_amount || 0))}</span></span>
                         <span className="text-muted-foreground">
