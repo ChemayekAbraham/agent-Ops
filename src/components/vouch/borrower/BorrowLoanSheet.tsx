@@ -43,7 +43,7 @@ interface Offer {
   active: boolean;
 }
 
-export default function BorrowLoanSheet({ open, onOpenChange, onOpenLendingPortal }: Props) {
+export default function BorrowLoanSheet({ open, onOpenChange, onOpenLendingPortal, initialLenderAiId }: Props) {
   const { user } = useAuth();
   const [offers, setOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(false);
