@@ -23,7 +23,10 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenLendingPortal?: () => void;
+  /** Pre-target a specific lending agent (from a shared borrower link). */
+  initialLenderAiId?: string;
 }
+
 
 interface Offer {
   id: string;
