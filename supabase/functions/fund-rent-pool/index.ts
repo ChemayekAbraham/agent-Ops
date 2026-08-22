@@ -129,14 +129,20 @@ Deno.serve(async (req) => {
     );
 
     if (pendingErr) {
-      const msg = pendingErr.message?.includes("AGREEMENT_REQUIRED")
-        ? "Sign your partner agreement before creating a portfolio."
-        : pendingErr.message || "Could not submit your portfolio for approval.";
+      const raw = pendingErr.message || "";
+      let msg = raw || "Could not submit your portfolio for approval.";
+      if (raw.includes("AGREEMENT_REQUIRED")) {
+        msg = "Sign your partner agreement before creating a portfolio.";
+      } else if (raw.includes("self_registered_funder_not_verified")) {
+        msg =
+          "Your partner account is still awaiting verification. Partner Operations must approve your registration before you can support tenants — you will be notified once that is done.";
+      }
       return new Response(
         JSON.stringify({ error: msg }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
 
     await adminClient.from("notifications").insert({
       user_id: user.id,

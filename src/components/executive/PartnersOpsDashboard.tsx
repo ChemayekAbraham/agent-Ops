@@ -28,6 +28,7 @@ import { SelfManagedTopUpReviews } from './SelfManagedTopUpReviews';
 import { ShareSupporterRecruit } from '@/components/shared/ShareSupporterRecruit';
 import { PartnerFinancialActivity } from './PartnerFinancialActivity';
 import { PendingFunderApprovals } from './PendingFunderApprovals';
+import { PromissoryCommissionsPanel } from '@/components/shared/PromissoryCommissionsPanel';
 import { PromissoryNotesQueue } from './PromissoryNotesQueue';
 import { PartnerOpsScoreboard } from './PartnerOpsScoreboard';
 
@@ -47,6 +48,8 @@ import { PartnerOpsSummaryCards } from './partner-ops/PartnerOpsSummaryCards';
 import { ExpiringPortfoliosPanel } from './partner-ops/ExpiringPortfoliosPanel';
 import { NearingPayoutsPanel } from './partner-ops/NearingPayoutsPanel';
 import { PartnerOpsRentRequestQueue } from './partner-ops/PartnerOpsRentRequestQueue';
+import FunderOnboarding from '@/pages/PartnerOnboarding';
+
 import {
   PartnerRoiProjectionChart,
   PartnerRecentWithdrawals,
@@ -276,6 +279,7 @@ export function PartnersOpsDashboard() {
         <div className="space-y-6">
           <PartnerOpsScoreboard />
           <PromissoryNotesQueue />
+          <PromissoryCommissionsPanel />
         </div>
       );
       case 'maturity': return <MaturityRequestsQueue />;
@@ -286,6 +290,8 @@ export function PartnersOpsDashboard() {
           <PendingPartnerRequests />
         </div>
       );
+      case 'verification': return <FunderOnboarding embedded />;
+
       case 'nearing.overview': return (
         <div className="space-y-6">
           <NearingPayoutsPanel />
