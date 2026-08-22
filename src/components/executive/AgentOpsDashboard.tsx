@@ -272,7 +272,7 @@ export function AgentOpsDashboard() {
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">Choose a category to manage issuance, payments and receivables.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {AGENT_PRODUCT_PAGES.map((c) => (
+                {AGENT_PRODUCT_PAGES.filter((c) => c.slug !== 'personal-rent-request').map((c) => (
                   <Link
                     key={c.slug}
                     to={c.to}
@@ -536,6 +536,7 @@ function AgentOpsSideNav({
     { title: 'Agents', defaultOpen: true, keys: ['directory', 'performance', 'sub-agents', 'bulk-ops'] },
     { title: 'Field Operations', defaultOpen: true, keys: ['pipeline', 'rent-capacity', 'daily-collections-report', 'tasks', 'escalations', 'connector'] },
     { title: 'Service Centers', keys: ['sc-overview', 'service-centres', 'sc-directory', 'sc-payouts', 'sc-requests', 'sc-operating-model', 'sc-products'] },
+    { title: 'Agent Products & Services', keys: ['agent-products-services'] },
     { title: 'Financials', keys: ['balances', 'float-payouts', 'earnings', 'locked-transfers', 'lending-agents'] },
     { title: 'Advances', keys: ['advances-analytics', 'advance-requests', 'active-advances', 'advance-potential', 'advance-limits', 'advance-repayments', 'advance-activity-correlation'] },
     { title: 'Reports', keys: ['products-services-report'] },
@@ -594,8 +595,6 @@ function AgentOpsSideNav({
           </span>
           <span className="truncate">Overview</span>
         </button>
-
-        <div className="space-y-1">{renderItem('agent-products-services')}</div>
 
         {SIDE_GROUPS.map((group) => {
           const containsActive = group.keys.includes(activeView as ActiveView);

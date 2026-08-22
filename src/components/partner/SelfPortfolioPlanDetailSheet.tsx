@@ -28,6 +28,7 @@ export interface PlanDetail {
   house_image_urls: string[] | null;
   request_latitude?: number | string | null;
   request_longitude?: number | string | null;
+  proxy_agent_phone: string | null;
 }
 
 /** Lightweight controlled slider: always in sync with the real photo count. */
@@ -97,59 +98,54 @@ function PhotoSlider({
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
-      <div
-        className="flex h-full transition-transform duration-300 ease-out"
-        style={{
-          width: `${total * 100}%`,
-          transform: `translateX(-${index * (100 / total)}%)`,
-        }}
-      >
-        {photos.map((url, i) => (
-          <div
-            key={`${url}-${i}`}
-            className="h-full flex-none"
-            style={{ width: `${100 / total}%` }}
-          >
-            <img
-              src={url}
-              alt={`House photo ${i + 1}`}
-              loading="eager"
-              decoding="async"
-              draggable={false}
-              onClick={() => {
-                if (swiped.current) return;
-                onSelect?.(i);
-              }}
-              className={cn(
-                'h-full w-full',
-                fit === 'cover' ? 'object-cover' : 'object-contain',
-                onSelect && 'cursor-zoom-in',
-                imgClassName,
-              )}
-            />
-          </div>
-        ))}
-      </div>
+      {photos.map((url, i) => (
+        <img
+          key={`${url}-${i}`}
+          src={url}
+          alt={`House photo ${i + 1}`}
+          loading="eager"
+          decoding="async"
+          draggable={false}
+          aria-hidden={i !== index}
+          onClick={() => {
+            if (swiped.current) return;
+            onSelect?.(i);
+          }}
+          className={cn(
+            'absolute inset-0 h-full w-full transition-opacity duration-300 ease-out',
+            i === index ? 'opacity-100' : 'pointer-events-none opacity-0',
+            fit === 'cover' ? 'object-cover' : 'object-contain',
+            onSelect && 'cursor-zoom-in',
+            imgClassName,
+          )}
+        />
+      ))}
 
       {total > 1 && (
         <>
           <button
             type="button"
-            onClick={() => go(-1)}
+            onClick={(e) => {
+              e.stopPropagation();
+              go(-1);
+            }}
             aria-label="Previous photo"
-            className="absolute left-3 top-1/2 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-full bg-background/85 text-foreground shadow-md backdrop-blur transition hover:bg-background"
+            className="absolute left-3 top-1/2 z-20 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-full bg-background/85 text-foreground shadow-md backdrop-blur transition hover:bg-background"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
           <button
             type="button"
-            onClick={() => go(1)}
+            onClick={(e) => {
+              e.stopPropagation();
+              go(1);
+            }}
             aria-label="Next photo"
-            className="absolute right-3 top-1/2 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-full bg-background/85 text-foreground shadow-md backdrop-blur transition hover:bg-background"
+            className="absolute right-3 top-1/2 z-20 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-full bg-background/85 text-foreground shadow-md backdrop-blur transition hover:bg-background"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
-          <span className="absolute bottom-3 right-3 rounded-md bg-foreground/70 px-2 py-1 text-[11px] font-semibold text-background">
+          <span className="absolute bottom-3 right-3 z-20 rounded-md bg-foreground/70 px-2 py-1 text-[11px] font-semibold text-background">
             {index + 1} / {total}
           </span>
         </>
@@ -157,6 +153,7 @@ function PhotoSlider({
     </div>
   );
 }
+
 
 /**
  * Read-only plan detail view for self-managed partners.
@@ -202,6 +199,18 @@ export function SelfPortfolioPlanDetailSheet({
         <SheetHeader className="sr-only">
           <SheetTitle>Rent plan details</SheetTitle>
         </SheetHeader>
+
+        <button
+          type="button"
+          onClick={() => onOpenChange(false)}
+          aria-label="Back"
+          className="absolute left-3 top-3 z-30 flex items-center gap-1 rounded-full bg-background/90 px-3 py-2 text-xs font-semibold text-foreground shadow-md backdrop-blur transition hover:bg-background"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Back
+        </button>
+
+
 
         {/* Photo carousel */}
         {photos.length > 0 ? (
@@ -345,10 +354,10 @@ export function SelfPortfolioPlanDetailSheet({
                 <Phone className="h-4 w-4 flex-none" /> Proxy Agent
               </span>
               <a
-                href="tel:+256751424629"
+                href={`tel:${(plan.proxy_agent_phone ?? '+256 751 424 629').replace(/\s/g, '')}`}
                 className="text-sm font-bold truncate text-primary hover:underline"
               >
-                +256 751 424 629
+                {plan.proxy_agent_phone ?? '+256 751 424 629'}
               </a>
             </li>
           </ul>

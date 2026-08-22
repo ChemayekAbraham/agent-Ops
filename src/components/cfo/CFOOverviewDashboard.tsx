@@ -267,7 +267,124 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         />
       </div>
 
+      {/* ══════════════ CASH FLOW CONTROL PANEL ══════════════ */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
+        {/* ── SOURCES OF CASH ── */}
+        <Card className="rounded-lg shadow-sm h-full flex flex-col">
+          <CardContent className="p-4 flex-1 flex flex-col">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <p className="text-sm font-bold tracking-tight">Where Our Money Comes From</p>
+              <SectionToggle open={isOpen('cashSources')} onToggle={() => toggleSection('cashSources')} label="Where Our Money Comes From" />
+            </div>
+            {isOpen('cashSources') && (
+            <>
+            <div className="space-y-1.5 flex-1">
+              {(platformCash?.increases ?? []).slice(0, 6).map((item, i) => (
+                <div key={i} className="flex items-center justify-between text-xs gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    <span className="truncate text-foreground">{item.label}</span>
+                    <span className="text-muted-foreground shrink-0">({item.count})</span>
+                  </div>
+                  <span className="font-mono font-semibold text-emerald-600 shrink-0">+{fmtShort(item.value)}</span>
+                </div>
+              ))}
+            </div>
+            {(platformCash?.increases?.length ?? 0) > 6 && (
+              <button onClick={() => setActiveBreakdown('cash')} className="text-xs text-primary mt-2 hover:underline">
+                View all sources →
+              </button>
+            )}
+            </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ── AUTO-PAYOUTS ── */}
+        <Card className="rounded-lg shadow-sm h-full flex flex-col">
+          <CardContent className="p-4 flex-1 flex flex-col">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <p className="text-sm font-bold tracking-tight">Automatic Payments</p>
+              <SectionToggle open={isOpen('autoPayments')} onToggle={() => toggleSection('autoPayments')} label="Automatic Payments" />
+            </div>
+            {isOpen('autoPayments') && (
+            <>
+            <p className="text-xs text-muted-foreground mb-4">Toggle which payouts happen automatically. Each is checked against available cash first.</p>
+            <div className="space-y-3 flex-1">
+              {[
+                { key: 'auto_roi', label: 'Investor Returns', desc: 'Pay investors automatically' },
+                { key: 'auto_salaries', label: 'Staff Salaries', desc: 'Monthly payroll' },
+                { key: 'auto_commissions', label: 'Agent Commissions', desc: 'Agent earnings payouts' },
+                { key: 'auto_advances', label: 'Advance Payments', desc: 'Pre-approved advances' },
+              ].map((ctrl) => (
+                <div key={ctrl.key} className="flex items-center justify-between gap-3 py-2 px-1">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                      <Wallet className="h-3.5 w-3.5" />
+                    </span>
+                    <div className="min-w-0">
+                    <p className="text-sm font-medium">{ctrl.label}</p>
+                    <p className="text-xs text-muted-foreground">{ctrl.desc}</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={treasuryControls?.[ctrl.key] ?? false}
+                    onCheckedChange={(val) => handleToggleControl(ctrl.key, val)}
+                  />
+                </div>
+              ))}
+            </div>
+            </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ── LEDGER MAINTENANCE WINDOW ── */}
+        <CollapsibleBlock title="Ledger Maintenance" open={isOpen('ledgerMaintenance')} onToggle={() => toggleSection('ledgerMaintenance')} className="h-full">
+          <LedgerMaintenancePanel />
+        </CollapsibleBlock>
+      </div>
+
+      {/* ── TODAY'S MOVEMENT ── */}
+      <Card className="rounded-lg overflow-hidden shadow-sm">
+        <CardContent className="p-0">
+          <div className="px-5 py-3 flex items-center justify-between gap-3 border-b border-border">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Today's Money Flow</p>
+            <SectionToggle open={isOpen('todayFlow')} onToggle={() => toggleSection('todayFlow')} label="Today's Money Flow" />
+          </div>
+          {isOpen('todayFlow') && (
+          <div className="grid grid-cols-3 divide-x divide-border">
+            <FlowCell
+              label="Came In"
+              value={fmtShort(todayCashFlow?.cashInToday ?? 0)}
+              color="text-emerald-600"
+              iconBg="bg-emerald-50 dark:bg-emerald-950/40"
+              icon={<ArrowDownRight className="h-5 w-5" />}
+              onClick={() => setActiveBreakdown('cashIn')}
+            />
+            <FlowCell
+              label="Went Out"
+              value={fmtShort(todayCashFlow?.cashOutToday ?? 0)}
+              color="text-destructive"
+              iconBg="bg-destructive/10"
+              icon={<ArrowUpRight className="h-5 w-5" />}
+              onClick={() => setActiveBreakdown('cashOut')}
+            />
+            <FlowCell
+              label="Net Change"
+              value={`${netToday >= 0 ? '+' : ''}${fmtShort(netToday)}`}
+              color={netToday >= 0 ? 'text-primary' : 'text-destructive'}
+              iconBg="bg-primary/10"
+              icon={<Scale className="h-5 w-5" />}
+              onClick={() => setActiveBreakdown('netCash')}
+            />
+          </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Two-column shell: main financial surface on the left, live feeds on the right */}
+
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
       <div className="xl:col-span-2 space-y-5">
 
@@ -317,6 +434,24 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         </div>
       </div>
 
+
+      </div>
+
+      {/* ══════════════ RIGHT COLUMN — FEEDS & CONTROLS ══════════════ */}
+      <div className="space-y-5">
+
+      {/* ── ROI PAYABLE FORECAST ── */}
+      <ROIPayableForecast />
+
+
+
+      {/* ── AGENT ADVANCES — FULL PORTFOLIO STATS & CHART ── */}
+      <CollapsibleBlock title="Agent Advances — Full Portfolio" open={isOpen('agentAdvances')} onToggle={() => toggleSection('agentAdvances')}>
+        <AgentAdvancesStatsCard />
+      </CollapsibleBlock>
+      </div>
+      </div>
+
       {/* ══════════════ CHARTS ══════════════ */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
         <Card className="rounded-2xl shadow-sm h-full flex flex-col">
@@ -362,134 +497,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
 
       {/* ══════════════ CFO ACTIONS LOG ══════════════ */}
       <CFOActionsLog />
-
-      {/* ── TODAY'S MOVEMENT ── */}
-      <Card className="rounded-lg overflow-hidden shadow-sm">
-        <CardContent className="p-0">
-          <div className="px-5 py-3 flex items-center justify-between gap-3 border-b border-border">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Today's Money Flow</p>
-            <SectionToggle open={isOpen('todayFlow')} onToggle={() => toggleSection('todayFlow')} label="Today's Money Flow" />
-          </div>
-          {isOpen('todayFlow') && (
-          <div className="grid grid-cols-3 divide-x divide-border">
-            <FlowCell
-              label="Came In"
-              value={fmtShort(todayCashFlow?.cashInToday ?? 0)}
-              color="text-emerald-600"
-              iconBg="bg-emerald-50 dark:bg-emerald-950/40"
-              icon={<ArrowDownRight className="h-5 w-5" />}
-              onClick={() => setActiveBreakdown('cashIn')}
-            />
-            <FlowCell
-              label="Went Out"
-              value={fmtShort(todayCashFlow?.cashOutToday ?? 0)}
-              color="text-destructive"
-              iconBg="bg-destructive/10"
-              icon={<ArrowUpRight className="h-5 w-5" />}
-              onClick={() => setActiveBreakdown('cashOut')}
-            />
-            <FlowCell
-              label="Net Change"
-              value={`${netToday >= 0 ? '+' : ''}${fmtShort(netToday)}`}
-              color={netToday >= 0 ? 'text-primary' : 'text-destructive'}
-              iconBg="bg-primary/10"
-              icon={<Scale className="h-5 w-5" />}
-              onClick={() => setActiveBreakdown('netCash')}
-            />
-          </div>
-          )}
-        </CardContent>
-      </Card>
-      </div>
-
-      {/* ══════════════ RIGHT COLUMN — FEEDS & CONTROLS ══════════════ */}
-      <div className="space-y-5">
-
-      {/* ── ROI PAYABLE FORECAST ── */}
-      <ROIPayableForecast />
-
-
-      {/* ── LEDGER MAINTENANCE WINDOW ── */}
-      <CollapsibleBlock title="Ledger Maintenance" open={isOpen('ledgerMaintenance')} onToggle={() => toggleSection('ledgerMaintenance')}>
-        <LedgerMaintenancePanel />
-      </CollapsibleBlock>
-
-      {/* ── SOURCES OF CASH (replaces channel breakdown) ── */}
-      <Card className="rounded-lg shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <p className="text-sm font-bold tracking-tight">Where Our Money Comes From</p>
-            <SectionToggle open={isOpen('cashSources')} onToggle={() => toggleSection('cashSources')} label="Where Our Money Comes From" />
-          </div>
-          {isOpen('cashSources') && (
-          <>
-          <div className="space-y-1.5">
-            {(platformCash?.increases ?? []).slice(0, 6).map((item, i) => (
-              <div key={i} className="flex items-center justify-between text-xs gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="truncate text-foreground">{item.label}</span>
-                  <span className="text-muted-foreground shrink-0">({item.count})</span>
-                </div>
-                <span className="font-mono font-semibold text-emerald-600 shrink-0">+{fmtShort(item.value)}</span>
-              </div>
-            ))}
-          </div>
-          {(platformCash?.increases?.length ?? 0) > 6 && (
-            <button onClick={() => setActiveBreakdown('cash')} className="text-xs text-primary mt-2 hover:underline">
-              View all sources →
-            </button>
-          )}
-          </>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ── AUTO-PAYOUTS ── */}
-      <Card className="rounded-lg shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <p className="text-sm font-bold tracking-tight">Automatic Payments</p>
-            <SectionToggle open={isOpen('autoPayments')} onToggle={() => toggleSection('autoPayments')} label="Automatic Payments" />
-          </div>
-          {isOpen('autoPayments') && (
-          <>
-          <p className="text-xs text-muted-foreground mb-4">Toggle which payouts happen automatically. Each is checked against available cash first.</p>
-          <div className="space-y-3">
-            {[
-              { key: 'auto_roi', label: 'Investor Returns', desc: 'Pay investors automatically' },
-              { key: 'auto_salaries', label: 'Staff Salaries', desc: 'Monthly payroll' },
-              { key: 'auto_commissions', label: 'Agent Commissions', desc: 'Agent earnings payouts' },
-              { key: 'auto_advances', label: 'Advance Payments', desc: 'Pre-approved advances' },
-            ].map((ctrl) => (
-              <div key={ctrl.key} className="flex items-center justify-between gap-3 py-2 px-1">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                    <Wallet className="h-3.5 w-3.5" />
-                  </span>
-                  <div className="min-w-0">
-                  <p className="text-sm font-medium">{ctrl.label}</p>
-                  <p className="text-xs text-muted-foreground">{ctrl.desc}</p>
-                  </div>
-                </div>
-                <Switch
-                  checked={treasuryControls?.[ctrl.key] ?? false}
-                  onCheckedChange={(val) => handleToggleControl(ctrl.key, val)}
-                />
-              </div>
-            ))}
-          </div>
-          </>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ── AGENT ADVANCES — FULL PORTFOLIO STATS & CHART ── */}
-      <CollapsibleBlock title="Agent Advances — Full Portfolio" open={isOpen('agentAdvances')} onToggle={() => toggleSection('agentAdvances')}>
-        <AgentAdvancesStatsCard />
-      </CollapsibleBlock>
-      </div>
-      </div>
 
       {/* ── BREAKDOWNS ── */}
       <CashSourcesSheet
@@ -579,14 +586,15 @@ function SectionToggle({ open, onToggle, label }: { open: boolean; onToggle: () 
   );
 }
 
-function CollapsibleBlock({ title, open, onToggle, children }: {
+function CollapsibleBlock({ title, open, onToggle, children, className }: {
   title: string;
   open: boolean;
   onToggle: () => void;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-card shadow-sm">
+    <div className={`rounded-lg border border-border bg-card shadow-sm ${className || ''}`}>
       <div className="flex items-center justify-between gap-3 px-4 py-3">
         <p className="text-sm font-bold tracking-tight">{title}</p>
         <SectionToggle open={open} onToggle={onToggle} label={title} />
@@ -595,6 +603,7 @@ function CollapsibleBlock({ title, open, onToggle, children }: {
     </div>
   );
 }
+
 
 function HeroCard({ icon, iconBg, title, value, valueColor, items, footer, footerTone, onClick }: {
   icon: React.ReactNode;
