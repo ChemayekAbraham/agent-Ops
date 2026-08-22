@@ -181,12 +181,25 @@ export default function AgentProductCategoryPage() {
               <RentHistoryVerificationQueue dept="agent_ops" />
             </TabsContent>
           </Tabs>
+        ) : entry.slug === 'smart-phones' ? (
+          <Tabs defaultValue="devices" className="space-y-4">
+            <TabsList className="flex-wrap h-auto">
+              <TabsTrigger value="devices">Active devices</TabsTrigger>
+              <TabsTrigger value="requests">Requests</TabsTrigger>
+            </TabsList>
+            <TabsContent value="devices" className="space-y-5">
+              <AgentProductsPanel category={entry.category ?? undefined} />
+            </TabsContent>
+            <TabsContent value="requests" className="space-y-5">
+              <SmartphoneOrderApprovals />
+            </TabsContent>
+          </Tabs>
         ) : (
           <div className="space-y-5">
-            {entry.slug === 'smart-phones' && <SmartphoneOrderApprovals />}
             <AgentProductsPanel category={entry.category ?? undefined} />
           </div>
         )}
+
 
       </div>
     </div>
