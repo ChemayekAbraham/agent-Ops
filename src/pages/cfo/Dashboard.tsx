@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Wallet, ShieldCheck } from 'lucide-react';
+import walletSecurityIllustration from '@/assets/undraw_wallet_diag.svg.asset.json';
+
 import { toast } from 'sonner';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useIsMobile } from '@/hooks/use-mobile';
