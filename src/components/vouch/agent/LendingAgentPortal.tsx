@@ -485,21 +485,25 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[96vh] overflow-y-auto rounded-t-3xl p-0">
+      <SheetContent
+        side="bottom"
+        className="h-[96dvh] overflow-y-auto rounded-t-3xl p-0"
+      >
         {/* Sticky header */}
         <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/60 px-4 pt-4 pb-3">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-primary flex items-center justify-center shadow-sm">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="h-10 w-10 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-500 to-primary flex items-center justify-center shadow-sm">
                 <Banknote className="h-5 w-5 text-white" />
               </div>
-              <div>
-                <p className="text-base font-bold text-foreground tracking-tight leading-none">Lending Agent</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Manage your borrowers</p>
+              <div className="min-w-0">
+                <p className="truncate text-base font-bold text-foreground tracking-tight leading-none">Lending Agent</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Score {trustScore} · Manage your borrowers</p>
               </div>
             </div>
-            <Badge variant="outline" className="text-[10px] font-bold">Score {trustScore}</Badge>
+            <LenderInviteShare aiId={myAiId} displayName={myName} variant="icon" />
           </div>
+
 
           {/* Material-style segmented tabs */}
           <div className="grid grid-cols-4 gap-1 rounded-2xl bg-muted/60 p-1">
