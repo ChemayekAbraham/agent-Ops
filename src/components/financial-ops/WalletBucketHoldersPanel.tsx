@@ -58,13 +58,24 @@ async function fetchProfiles(ids: string[]) {
 }
 
 async function loadHolders(bucket: HolderBucket): Promise<HolderRow[]> {
-  if (bucket === 'withdrawable' || bucket === 'float') {
-    const column = bucket === 'withdrawable' ? 'withdrawable_balance' : 'float_balance';
+  if (bucket === 'withdrawable') {
+    const { data: rows, error } = await supabase.rpc('get_withdrawable_wallet_holders_by_recent_withdrawal' as any);
+    if (error) throw error;
+    return ((rows ?? []) as any[]).map((r) => ({
+      key: r.user_id ?? Math.random().toString(36),
+      userId: r.user_id ?? null,
+      name: r.name ?? 'Unknown',
+      phone: r.phone ?? '',
+      amount: Number(r.withdrawable_balance ?? 0),
+    }));
+  }
+
+  if (bucket === 'float') {
     const { data: rows, error } = await supabase
       .from('wallets')
       .select('user_id, withdrawable_balance, float_balance')
-      .gt(column, 0)
-      .order(column, { ascending: false })
+      .gt('float_balance', 0)
+      .order('float_balance', { ascending: false })
       .limit(500);
     if (error) throw error;
     const ids = (rows ?? []).map((r) => r.user_id).filter((v): v is string => !!v);
@@ -76,9 +87,7 @@ async function loadHolders(bucket: HolderBucket): Promise<HolderRow[]> {
         userId: r.user_id ?? null,
         name: p?.full_name ?? 'Unknown',
         phone: p?.phone ?? '',
-        amount: Number(
-          bucket === 'withdrawable' ? r.withdrawable_balance ?? 0 : r.float_balance ?? 0,
-        ),
+        amount: Number(r.float_balance ?? 0),
       };
     });
   }
