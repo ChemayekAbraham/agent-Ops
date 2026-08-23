@@ -140,6 +140,7 @@ const ReconciliationReviewScreen = lz(() => import('./ReconciliationReviewScreen
 const WithdrawalHistoryStatement = lz(() => import('./WithdrawalHistoryStatement'), 'WithdrawalHistoryStatement');
 const PortfolioTopUpVerification = lz(() => import('./PortfolioTopUpVerification'), 'PortfolioTopUpVerification');
 const PartnershipTopupAuditLog = lz(() => import('./PartnershipTopupAuditLog'), 'PartnershipTopupAuditLog');
+const WalletBucketsPanel = lz(() => import('./WalletBucketsPanel'), 'WalletBucketsPanel');
 const WalletBreakdownReadOnly = lz(() => import('./WalletBreakdownReadOnly'), 'WalletBreakdownReadOnly');
 const FinOpsWalletMovePanel = lz(() => import('./FinOpsWalletMovePanel'), 'FinOpsWalletMovePanel');
 const EmailTransactionsPanel = lz(() => import('./EmailTransactionsPanel'), 'EmailTransactionsPanel');
@@ -198,7 +199,8 @@ type Tool =
   | 'earnings_explainer'
   | 'liquidity_forecast'
   | 'reports'
-  | 'stale_withdrawal_holds';
+  | 'stale_withdrawal_holds'
+  | 'wallet_buckets';
 // Extend Tool type via union above; add new tools:
 
 
@@ -401,6 +403,9 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
             onCreateNewAllocation={() => setView('deposits')}
           />
         )}
+        {activeTool === 'wallet_buckets' && (
+          <WalletBucketsPanel onOpenTool={(t) => setActiveTool(t as any)} />
+        )}
         {activeTool === 'wallet_breakdown' && (
           <div className="space-y-8">
             <FinOpsWalletMovePanel />
@@ -540,6 +545,12 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
   // Group the tool list into meaningful sections for the sidebar.
 
   const sidebarGroups: { title: string; items: MoreAction[] }[] = [
+    {
+      title: 'Wallet Buckets',
+      items: [
+        { kind: 'tool', id: 'wallet_buckets', label: 'Wallet Buckets', desc: 'Drill into withdrawable, operational, landlord and merchant float buckets', icon: Wallet },
+      ],
+    },
     {
       title: 'Deposits & Reconciliation',
       items: moreActions.filter(a => [
