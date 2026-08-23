@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2 } from 'lucide-react';
+import { Loader2, History } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
+import { LandlordWithdrawalHistoryDialog } from './LandlordWithdrawalHistoryDialog';
 
 type AllocationRow = {
+  landlord_id: string | null;
   id: string;
   landlord_name: string;
   landlord_phone: string | null;
@@ -21,6 +24,11 @@ type AllocationRow = {
  * how much, and when it was disbursed into that agent's wallet.
  */
 export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string }) {
+  const [historyFor, setHistoryFor] = useState<{
+    id: string;
+    name: string;
+    phone: string | null;
+  } | null>(null);
   const { data, isLoading, error } = useQuery({
     queryKey: ['landlord-float-allocations-detail', agentId],
     queryFn: async (): Promise<AllocationRow[]> => {
@@ -61,6 +69,7 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
         const live = r.landlord_id ? landlordById.get(r.landlord_id) : null;
         return {
           id: r.id,
+          landlord_id: r.landlord_id ?? null,
           landlord_name: live?.name || r.landlord_name || 'Unknown landlord',
           landlord_phone: live?.mobile_money_number || live?.phone || r.landlord_phone || null,
           tenant_name: (r.tenant_id ? tenantById.get(r.tenant_id) : null) ?? 'Unassigned tenant',
@@ -118,7 +127,25 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
             {rows.map((r) => (
               <tr key={r.id} className="align-top">
                 <td className="py-2 pr-3">
-                  <p className="font-semibold text-foreground">{r.landlord_name}</p>
+                  {r.landlord_id ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setHistoryFor({
+                          id: r.landlord_id as string,
+                          name: r.landlord_name,
+                          phone: r.landlord_phone,
+                        })
+                      }
+                      className="font-semibold text-primary hover:underline inline-flex items-center gap-1 text-left"
+                      title="View withdrawal history for this landlord"
+                    >
+                      {r.landlord_name}
+                      <History className="h-3 w-3 opacity-70" />
+                    </button>
+                  ) : (
+                    <p className="font-semibold text-foreground">{r.landlord_name}</p>
+                  )}
                   <p className="text-muted-foreground">{r.landlord_phone || '—'}</p>
                 </td>
                 <td className="py-2 pr-3 text-foreground">{r.tenant_name}</td>
@@ -143,6 +170,16 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
           </tbody>
         </table>
       </div>
+
+      {historyFor && (
+        <LandlordWithdrawalHistoryDialog
+          open
+          onOpenChange={(v) => !v && setHistoryFor(null)}
+          landlordId={historyFor.id}
+          landlordName={historyFor.name}
+          landlordPhone={historyFor.phone}
+        />
+      )}
     </div>
   );
 }
