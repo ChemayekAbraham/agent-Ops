@@ -75,6 +75,7 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
           landlord_id: r.landlord_id ?? null,
           landlord_name: live?.name || r.landlord_name || 'Unknown landlord',
           landlord_phone: live?.mobile_money_number || live?.phone || r.landlord_phone || null,
+          tenant_id: r.tenant_id ?? null,
           tenant_name: (r.tenant_id ? tenantById.get(r.tenant_id) : null) ?? 'Unassigned tenant',
           allocated_amount: Number(r.allocated_amount ?? 0),
           paid_out_amount: Number(r.paid_out_amount ?? 0),
