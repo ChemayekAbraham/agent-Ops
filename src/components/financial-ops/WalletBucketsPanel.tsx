@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Wallet, ArrowRightLeft, Home, Store, ChevronRight, Loader2 } from 'lucide-react';
+import { Wallet, ArrowRightLeft, Home, Store, ChevronRight, Loader2, Banknote } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import { WalletBucketHoldersPanel, type HolderBucket } from './WalletBucketHoldersPanel';
+import { ActualMoneyDetail, useActualMoneyPosition } from './ActualMoneyDetail';
 
 export type WalletBucketTool =
   | 'wallet_breakdown'
@@ -26,6 +27,7 @@ interface BucketTotals extends Record<BucketTotalKey, number> {
 interface WalletBucketsPanelProps {
   onOpenTool: (tool: WalletBucketTool) => void;
 }
+
 
 const BUCKETS = [
   {
