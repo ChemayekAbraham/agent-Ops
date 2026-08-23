@@ -4,10 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, ChevronDown, ChevronRight, Loader2, Search, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronRight, Loader2, Search, ExternalLink, History } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { WalletBucketLedgerDetail } from './WalletBucketLedgerDetail';
 import { LandlordFloatAllocationsDetail } from './LandlordFloatAllocationsDetail';
+import { CompanyFloatDisbursementHistoryDialog } from './CompanyFloatDisbursementHistoryDialog';
 
 
 export type HolderBucket = 'withdrawable' | 'float' | 'landlord_float' | 'merchant_float';
@@ -147,6 +148,7 @@ export function WalletBucketHoldersPanel({
 }) {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [companyHistoryOpen, setCompanyHistoryOpen] = useState(false);
   const meta = TITLES[bucket];
 
   const { data, isLoading, error } = useQuery({
@@ -221,6 +223,10 @@ export function WalletBucketHoldersPanel({
 
   return (
     <div className="space-y-4">
+      <CompanyFloatDisbursementHistoryDialog
+        open={companyHistoryOpen}
+        onOpenChange={setCompanyHistoryOpen}
+      />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2 mb-1 gap-1.5">
@@ -250,8 +256,16 @@ export function WalletBucketHoldersPanel({
                 {sourceSplit?.companyCount ?? 0} open earmark
                 {(sourceSplit?.companyCount ?? 0) === 1 ? '' : 's'} from CFO disbursements
               </p>
+              <button
+                type="button"
+                onClick={() => setCompanyHistoryOpen(true)}
+                className="mt-2 inline-flex items-center gap-1 rounded-full border border-purple-500/30 bg-purple-500/10 px-2.5 py-1 text-[11px] font-medium text-purple-700 dark:text-purple-300 hover:bg-purple-500/20 transition-colors"
+              >
+                <History className="h-3 w-3" /> Disbursement history
+              </button>
             </CardContent>
           </Card>
+
           <Card className="border-emerald-500/20 bg-emerald-500/5">
             <CardContent className="p-3 sm:p-4">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
