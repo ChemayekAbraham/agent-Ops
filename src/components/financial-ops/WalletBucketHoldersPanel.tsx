@@ -214,7 +214,7 @@ export function WalletBucketHoldersPanel({
       </div>
 
       {bucket === 'landlord_float' && (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Card className="border-purple-500/20 bg-purple-500/5">
             <CardContent className="p-3 sm:p-4">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -240,6 +240,20 @@ export function WalletBucketHoldersPanel({
               <p className="text-xs text-muted-foreground mt-0.5">
                 {sourceSplit?.funderCount ?? 0} open earmark
                 {(sourceSplit?.funderCount ?? 0) === 1 ? '' : 's'} from funder wallets
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="border-amber-500/20 bg-amber-500/5">
+            <CardContent className="p-3 sm:p-4">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Float receivable
+              </p>
+              <p className="font-mono tabular-nums text-lg font-bold text-amber-600 dark:text-amber-400">
+                {receivablesTotal ? formatUGX(receivablesTotal.total) : 'UGX —'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {receivablesTotal?.count ?? 0} pending pledge
+                {(receivablesTotal?.count ?? 0) === 1 ? '' : 's'} from funders yet to deposit
               </p>
             </CardContent>
           </Card>
