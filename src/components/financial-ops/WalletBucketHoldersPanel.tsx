@@ -7,6 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, ChevronDown, ChevronRight, Loader2, Search, ExternalLink } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { WalletBucketLedgerDetail } from './WalletBucketLedgerDetail';
+import { LandlordFloatAllocationsDetail } from './LandlordFloatAllocationsDetail';
+
 
 export type HolderBucket = 'withdrawable' | 'float' | 'landlord_float' | 'merchant_float';
 
