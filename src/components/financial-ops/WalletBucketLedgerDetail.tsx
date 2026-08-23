@@ -185,6 +185,9 @@ export function WalletBucketLedgerDetail({
                               {isIn ? '+' : '−'}{formatUGX(Number(r.amount))}
                             </span>
                           </td>
+                          <td className="px-2 py-1.5 text-right text-muted-foreground">
+                            <ChevronRight className="h-3.5 w-3.5 inline" />
+                          </td>
                         </tr>
                       );
                     })}
