@@ -520,7 +520,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
         )}
 
         {selected && (
-          <div className="space-y-4 pb-6">
+          <div className="space-y-4 pb-3">
             {/* Drill-down header card */}
             <div className="rounded-2xl border border-border bg-card p-4 flex items-center justify-between shadow-sm">
               <div>
