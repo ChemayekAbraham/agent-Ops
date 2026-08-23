@@ -19,6 +19,7 @@ interface HolderRow {
   phone: string;
   amount: number;
   meta?: string;
+  retired?: boolean;
 }
 
 const TITLES: Record<HolderBucket, { title: string; desc: string; amountLabel: string }> = {
