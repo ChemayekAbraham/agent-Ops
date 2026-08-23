@@ -53,11 +53,13 @@ export function WalletBucketLedgerDetail({
   withdrawable,
   float,
   advance,
+  onlyBucket,
 }: {
   userId: string;
   withdrawable: number;
   float: number;
   advance: number;
+  onlyBucket?: BucketKey;
 }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['wallet-bucket-ledger', userId],
