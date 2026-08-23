@@ -412,7 +412,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
 
             {/* Money out */}
             {decreases.length > 0 && (
-              <section className="space-y-3">
+              <section className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="rounded-lg bg-destructive/10 p-1.5">
@@ -430,10 +430,10 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                     const isExpanded = expanded === line.category;
 
                     return (
-                      <div key={line.category} className="rounded-xl border border-border bg-card overflow-hidden">
+                      <div key={line.category} className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
                         <button
                           onClick={() => openLine(line)}
-                          className="w-full flex items-center justify-between gap-3 p-3 hover:bg-muted/40 transition-colors"
+                          className="w-full flex items-center justify-between gap-3 p-3.5 hover:bg-muted/40 transition-colors"
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="rounded-lg bg-destructive/10 p-2 text-destructive shrink-0">
@@ -463,7 +463,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                               <button
                                 key={c.category}
                                 onClick={() => pick({ ...c, value: Math.abs(c.value) })}
-                                className="w-full flex items-center justify-between gap-2 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors"
+                                className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 text-left hover:bg-muted/40 transition-colors"
                               >
                                 <span className="text-xs text-muted-foreground truncate pl-2">
                                   {c.label}
