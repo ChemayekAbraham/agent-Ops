@@ -487,7 +487,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
             <Separator />
 
             {/* Summary footer */}
-            <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+            <div className="rounded-xl border border-border bg-card p-3.5 space-y-2.5">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Total Money In</span>
                 <span className="font-mono font-medium">{formatUGX(grossIn)}</span>
@@ -498,17 +498,17 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
               </div>
               <Separator />
               <div className="flex items-center justify-between">
-                <span className="text-base font-bold">Money We Have</span>
-                <span className="text-xl font-bold font-mono">{formatUGX(grossIn - grossOut)}</span>
+                <span className="text-sm font-bold">Money We Have</span>
+                <span className="text-lg font-bold font-mono">{formatUGX(grossIn - grossOut)}</span>
               </div>
               {Math.abs(reconciliationGap) > 1 && (
-                <p className="text-[11px] text-warning bg-warning/10 rounded-lg px-3 py-2">
+                <p className="text-[10px] text-warning bg-warning/10 rounded-lg px-3 py-2">
                   Reconciliation gap vs Balance Sheet cash: {formatUGX(reconciliationGap)}
                 </p>
               )}
             </div>
 
-            <p className="text-[11px] text-center text-muted-foreground">
+            <p className="text-[10px] text-center text-muted-foreground">
               Tap any source amount to drill down into the underlying ledger entries.
             </p>
           </div>
