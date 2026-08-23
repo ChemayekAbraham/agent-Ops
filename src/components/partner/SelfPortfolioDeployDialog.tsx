@@ -9,10 +9,14 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/hooks/useAuth';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { toast } from 'sonner';
-import { CalendarClock, CheckCircle2, Info, Loader2, PlusCircle, Sparkles } from 'lucide-react';
+import { CalendarClock, CheckCircle2, HandCoins, Info, Loader2, PlusCircle, Sparkles } from 'lucide-react';
+
 
 /**
  * Self Portfolio Management — deployment decision.
