@@ -191,8 +191,9 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
 
   return (
     <Sheet open={open} onOpenChange={close}>
-      <SheetContent side="bottom" className="rounded-t-3xl max-h-[92vh] overflow-y-auto px-4 sm:px-6">
+      <SheetContent side="bottom" className="rounded-t-3xl max-h-[92vh] overflow-y-auto px-4 sm:px-6 sm:max-w-3xl sm:mx-auto">
         <SheetHeader className="pb-4 pt-1">
+
           <SheetTitle className="text-base sm:text-lg flex items-center gap-3">
             {selected && (
               <button
