@@ -31,6 +31,7 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
     name: string;
     phone: string | null;
   } | null>(null);
+  const [tenantFor, setTenantFor] = useState<{ id: string; name: string } | null>(null);
   const { data, isLoading, error } = useQuery({
     queryKey: ['landlord-float-allocations-detail', agentId],
     queryFn: async (): Promise<AllocationRow[]> => {
