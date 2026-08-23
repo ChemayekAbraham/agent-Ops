@@ -152,7 +152,23 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
                   )}
                   <p className="text-muted-foreground">{r.landlord_phone || '—'}</p>
                 </td>
-                <td className="py-2 pr-3 text-foreground">{r.tenant_name}</td>
+                <td className="py-2 pr-3 text-foreground">
+                  {r.tenant_id ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTenantFor({ id: r.tenant_id as string, name: r.tenant_name })
+                      }
+                      className="font-semibold text-primary hover:underline inline-flex items-center gap-1 text-left"
+                      title="View this tenant's repayment breakdown"
+                    >
+                      {r.tenant_name}
+                      <Receipt className="h-3 w-3 opacity-70" />
+                    </button>
+                  ) : (
+                    r.tenant_name
+                  )}
+                </td>
                 <td className="py-2 pr-3 text-right font-mono tabular-nums">
                   {formatUGX(r.allocated_amount)}
                 </td>
