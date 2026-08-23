@@ -191,7 +191,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-[720px] max-h-[85vh] overflow-y-auto rounded-2xl p-5 sm:p-6 shadow-2xl">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-[640px] max-h-[75vh] overflow-y-auto rounded-2xl p-5 sm:p-6 shadow-2xl">
         <DialogHeader className="pb-3">
           <DialogTitle className="text-base sm:text-lg flex items-center gap-3">
             {selected && (
