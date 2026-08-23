@@ -156,6 +156,7 @@ export function WalletBucketHoldersPanel({
   onOpenFullTool?: () => void;
 }) {
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<SortKey>('recent');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [companyHistoryOpen, setCompanyHistoryOpen] = useState(false);
   const meta = TITLES[bucket];
@@ -166,12 +167,6 @@ export function WalletBucketHoldersPanel({
     staleTime: 30_000,
   });
 
-  const rows = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const list = data ?? [];
-    if (!q) return list;
-    return list.filter((r) => `${r.name} ${r.phone}`.toLowerCase().includes(q));
-  }, [data, search]);
 
   // Per-holder activity counters: how many withdrawals this person has taken and
   // how many wallet transfers they were part of.
