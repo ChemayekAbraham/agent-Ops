@@ -141,6 +141,7 @@ const WithdrawalHistoryStatement = lz(() => import('./WithdrawalHistoryStatement
 const PortfolioTopUpVerification = lz(() => import('./PortfolioTopUpVerification'), 'PortfolioTopUpVerification');
 const PartnershipTopupAuditLog = lz(() => import('./PartnershipTopupAuditLog'), 'PartnershipTopupAuditLog');
 const WalletBucketsPanel = lz(() => import('./WalletBucketsPanel'), 'WalletBucketsPanel');
+const WalletBreakdownReadOnly = lz(() => import('./WalletBreakdownReadOnly'), 'WalletBreakdownReadOnly');
 const FinOpsWalletMovePanel = lz(() => import('./FinOpsWalletMovePanel'), 'FinOpsWalletMovePanel');
 const EmailTransactionsPanel = lz(() => import('./EmailTransactionsPanel'), 'EmailTransactionsPanel');
 const BulkBankPayoutPanel = lz(() => import('./BulkBankPayoutPanel'), 'BulkBankPayoutPanel');
