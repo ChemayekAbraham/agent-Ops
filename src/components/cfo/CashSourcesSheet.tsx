@@ -310,7 +310,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
             )}
 
             {/* Sources of money in */}
-            <section className="space-y-3">
+            <section className="space-y-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="rounded-lg bg-success/10 p-1.5">
@@ -321,7 +321,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                 <span className="text-sm font-mono font-semibold text-success">{formatUGX(grossIn)}</span>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {increases.map((line) => {
                   const pct = grossIn > 0 ? (line.value / grossIn) * 100 : 0;
                   const pctOfTotal = totalCash > 0 ? (line.value / totalCash) * 100 : 0;
@@ -332,49 +332,44 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                   return (
                     <div
                       key={line.category}
-                      className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm"
+                      className="rounded-xl border border-border bg-card overflow-hidden shadow-sm"
                     >
                       <button
                         onClick={() => openLine(line)}
-                        className="w-full text-left p-4 hover:bg-muted/40 transition-colors"
+                        className="w-full text-left p-3.5 hover:bg-muted/40 transition-colors"
                       >
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 rounded-xl bg-primary/10 p-2.5 text-primary shrink-0">
-                            <Icon className="h-5 w-5" />
+                        <div className="flex items-center gap-3">
+                          <div className="rounded-lg bg-primary/10 p-2 text-primary shrink-0">
+                            <Icon className="h-4 w-4" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-3">
-                              <p className="text-sm font-semibold truncate">{line.label}</p>
-                              <div className="flex items-center gap-2 shrink-0">
-                                <span className="font-mono text-sm font-bold text-success">
-                                  {formatUGX(line.value)}
-                                </span>
-                                <ChevronRight
-                                  className={cn(
-                                    'h-4 w-4 text-muted-foreground transition-transform',
-                                    hasChildren && isExpanded && 'rotate-90'
-                                  )}
-                                />
-                              </div>
-                            </div>
-                            <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-                              <span>{formatPercent(pct)} of money in</span>
-                              <span className="text-border">|</span>
-                              <span>{formatPercent(pctOfTotal)} of total</span>
-                              {line.count != null && (
-                                <>
-                                  <span className="text-border">|</span>
-                                  <span>{line.count.toLocaleString()} entries</span>
-                                </>
-                              )}
-                            </div>
-                            <div className="mt-3 flex items-center gap-2">
-                              <Progress value={Math.min(100, pct)} className="h-1.5 flex-1" />
-                              <span className="text-[10px] font-medium text-muted-foreground w-9 text-right">
-                                {formatPercent(pct)}
+                              <p className="text-sm font-medium truncate">{line.label}</p>
+                              <span className="font-mono text-sm font-bold text-success shrink-0">
+                                {formatUGX(line.value)}
                               </span>
                             </div>
+                            <div className="mt-1.5 flex items-center gap-3">
+                              <Progress value={Math.min(100, pct)} className="h-1 flex-1" />
+                              <div className="flex items-center gap-2 text-[10px] text-muted-foreground shrink-0">
+                                <span>{formatPercent(pct)}</span>
+                                <span className="text-border">|</span>
+                                <span>{formatPercent(pctOfTotal)} total</span>
+                                {line.count != null && (
+                                  <>
+                                    <span className="text-border">|</span>
+                                    <span>{line.count.toLocaleString()} entries</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
                           </div>
+                          <ChevronRight
+                            className={cn(
+                              'h-4 w-4 text-muted-foreground shrink-0 transition-transform',
+                              hasChildren && isExpanded && 'rotate-90'
+                            )}
+                          />
                         </div>
                       </button>
 
@@ -384,7 +379,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                             <button
                               key={c.category}
                               onClick={() => pick({ ...c, value: Math.abs(c.value) })}
-                              className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+                              className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 text-left hover:bg-muted/40 transition-colors"
                             >
                               <div className="flex items-center gap-2 min-w-0">
                                 <div className="w-1.5 h-1.5 rounded-full bg-primary/70 shrink-0" />
@@ -408,7 +403,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                   );
                 })}
                 {increases.length === 0 && (
-                  <div className="rounded-2xl border border-dashed border-border p-6 text-center">
+                  <div className="rounded-xl border border-dashed border-border p-5 text-center">
                     <p className="text-sm text-muted-foreground">No cash inflows recorded.</p>
                   </div>
                 )}
