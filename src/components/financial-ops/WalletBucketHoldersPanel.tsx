@@ -4,7 +4,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, ArrowLeftRight, ArrowUpRight, ChevronDown, ChevronRight, Loader2, Search, ExternalLink, History } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ArrowDownUp, ArrowDownLeft, ArrowLeft, ArrowLeftRight, ArrowUpRight, ChevronDown, ChevronRight, Loader2, Search, ExternalLink, History } from 'lucide-react';
+
 import { formatUGX } from '@/lib/rentCalculations';
 import { WalletBucketLedgerDetail } from './WalletBucketLedgerDetail';
 import { LandlordFloatAllocationsDetail } from './LandlordFloatAllocationsDetail';
