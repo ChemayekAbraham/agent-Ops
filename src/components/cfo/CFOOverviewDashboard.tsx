@@ -267,6 +267,21 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         />
       </div>
 
+      {/* ══════════════ COMPACT FINANCIAL SUMMARY ══════════════ */}
+      <div className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-sm">
+        <h2 className="text-sm font-semibold tracking-tight mb-4">Financial Summary</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <SummaryItem icon={<Wallet className="h-3.5 w-3.5" />} label="Cash Balance" value={fmt(totalCash)} caption="Bank + in transit" />
+          <SummaryItem icon={<ArrowUpRight className="h-3.5 w-3.5" />} label="Daily Burn" value={fmt(dailyBurn)} caption="30-day average" valueColor="text-destructive" />
+          <SummaryItem icon={<LineChartIcon className="h-3.5 w-3.5" />} label="Revenue" value={fmt(revenueTotal)} caption="Life to date" valueColor="text-emerald-600" />
+          <SummaryItem icon={<Package className="h-3.5 w-3.5" />} label="Total Expenses" value={fmt(expenseTotal)} caption="Life to date" valueColor="text-orange-600" />
+          <SummaryItem icon={<Scale className="h-3.5 w-3.5" />} label="Net Working Capital" value={fmt(netWorkingCapital)} caption="Cash + receivables − debt" valueColor={netWorkingCapital >= 0 ? undefined : 'text-destructive'} />
+          <SummaryItem icon={<PiggyBank className="h-3.5 w-3.5" />} label="Net Result" value={fmt(netProfit)} caption="Revenue − expenses" valueColor={netProfit >= 0 ? 'text-emerald-600' : 'text-destructive'} />
+          <SummaryItem icon={<BarChart3 className="h-3.5 w-3.5" />} label="Net Margin" value={`${netMargin.toFixed(1)}%`} caption="Net ÷ revenue" valueColor={netMargin >= 0 ? undefined : 'text-destructive'} />
+          <SummaryItem icon={<Landmark className="h-3.5 w-3.5" />} label="Receivables" value={fmt(totalReceivables)} caption="Tenant + advances" valueColor="text-amber-600" />
+        </div>
+      </div>
+
       {/* ══════════════ CHARTS — FULL WIDTH, STACKED ══════════════ */}
       <div className="w-full space-y-5">
         <Card className="w-full rounded-2xl shadow-sm">
@@ -317,6 +332,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
 
 
 
+
       {/* Two-column shell: main financial surface on the left, live feeds on the right */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
       <div className="xl:col-span-2 space-y-5">
@@ -352,20 +368,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
       </div>
 
 
-      {/* ══════════════ COMPACT FINANCIAL SUMMARY ══════════════ */}
-      <div className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-sm">
-        <h2 className="text-sm font-semibold tracking-tight mb-4">Financial Summary</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <SummaryItem icon={<Wallet className="h-3.5 w-3.5" />} label="Cash Balance" value={fmt(totalCash)} caption="Bank + in transit" />
-          <SummaryItem icon={<ArrowUpRight className="h-3.5 w-3.5" />} label="Daily Burn" value={fmt(dailyBurn)} caption="30-day average" valueColor="text-destructive" />
-          <SummaryItem icon={<LineChartIcon className="h-3.5 w-3.5" />} label="Revenue" value={fmt(revenueTotal)} caption="Life to date" valueColor="text-emerald-600" />
-          <SummaryItem icon={<Package className="h-3.5 w-3.5" />} label="Total Expenses" value={fmt(expenseTotal)} caption="Life to date" valueColor="text-orange-600" />
-          <SummaryItem icon={<Scale className="h-3.5 w-3.5" />} label="Net Working Capital" value={fmt(netWorkingCapital)} caption="Cash + receivables − debt" valueColor={netWorkingCapital >= 0 ? undefined : 'text-destructive'} />
-          <SummaryItem icon={<PiggyBank className="h-3.5 w-3.5" />} label="Net Result" value={fmt(netProfit)} caption="Revenue − expenses" valueColor={netProfit >= 0 ? 'text-emerald-600' : 'text-destructive'} />
-          <SummaryItem icon={<BarChart3 className="h-3.5 w-3.5" />} label="Net Margin" value={`${netMargin.toFixed(1)}%`} caption="Net ÷ revenue" valueColor={netMargin >= 0 ? undefined : 'text-destructive'} />
-          <SummaryItem icon={<Landmark className="h-3.5 w-3.5" />} label="Receivables" value={fmt(totalReceivables)} caption="Tenant + advances" valueColor="text-amber-600" />
-        </div>
-      </div>
 
 
 
