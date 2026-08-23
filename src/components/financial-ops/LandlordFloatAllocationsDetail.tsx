@@ -4,12 +4,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2, History } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { LandlordWithdrawalHistoryDialog } from './LandlordWithdrawalHistoryDialog';
+import { TenantRepaymentBreakdownDialog } from './TenantRepaymentBreakdownDialog';
 
 type AllocationRow = {
   landlord_id: string | null;
   id: string;
   landlord_name: string;
   landlord_phone: string | null;
+  tenant_id: string | null;
   tenant_name: string;
   allocated_amount: number;
   paid_out_amount: number;
