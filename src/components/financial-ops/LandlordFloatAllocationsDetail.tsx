@@ -194,8 +194,12 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
       </div>
     );
   }
-  const rows = data ?? [];
-  if (rows.length === 0) {
+  const rows = data?.allocations ?? [];
+  const receivables = data?.receivables ?? [];
+  const receivableTotal = receivables
+    .filter((r) => r.status !== 'settled' && r.status !== 'cancelled')
+    .reduce((sum, r) => sum + r.amount, 0);
+  if (rows.length === 0 && receivables.length === 0) {
     return (
       <div className="px-4 py-4 text-xs text-muted-foreground bg-muted/20">
         No landlord earmarks recorded for this agent.
@@ -204,7 +208,8 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
   }
 
   return (
-    <div className="bg-muted/20 px-3 sm:px-4 py-3 space-y-2">
+    <div className="bg-muted/20 px-3 sm:px-4 py-3 space-y-4">
+      <div className="space-y-2">
       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
         Landlord earmarks — who the money is for and when it landed
       </p>
@@ -214,6 +219,8 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
             <tr className="text-left text-muted-foreground">
               <th className="py-1.5 pr-3 font-medium">Landlord</th>
               <th className="py-1.5 pr-3 font-medium">Tenant</th>
+              <th className="py-1.5 pr-3 font-medium">Funder</th>
+              <th className="py-1.5 pr-3 font-medium">Proxy agent</th>
               <th className="py-1.5 pr-3 font-medium text-right">Amount</th>
               <th className="py-1.5 pr-3 font-medium text-right">Remaining</th>
               <th className="py-1.5 font-medium">Disbursed</th>
