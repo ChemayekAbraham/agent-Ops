@@ -318,7 +318,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               </span>
             </div>
             {trendChartData.length > 0 ? (
-              <div className="h-64 flex-1 min-h-0">
+              <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={trendChartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
