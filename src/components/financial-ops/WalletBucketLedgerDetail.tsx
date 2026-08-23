@@ -159,7 +159,12 @@ export function WalletBucketLedgerDetail({
                     {rows.map((r) => {
                       const isIn = r.direction === 'cash_in';
                       return (
-                        <tr key={r.id} className="border-t border-border/40 hover:bg-muted/30">
+                        <tr
+                          key={r.id}
+                          onClick={() => setDetailId(r.id)}
+                          title="Open full transaction detail"
+                          className="border-t border-border/40 hover:bg-muted/30 cursor-pointer"
+                        >
                           <td className="px-3 py-1.5 whitespace-nowrap font-mono tabular-nums text-muted-foreground">
                             {fmtTs(r.transaction_date)}
                           </td>
