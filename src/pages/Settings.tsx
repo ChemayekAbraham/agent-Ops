@@ -692,7 +692,6 @@ export default function Settings() {
                     </CollapsibleContent>
                   </Collapsible>
 
-                  <div className="space-y-3">
                   <Collapsible open={vibrationOpen} onOpenChange={setVibrationOpen} className="space-y-2">
                     <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
                       <span className="flex items-center gap-2"><Vibrate className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Vibration</span></span>
