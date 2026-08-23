@@ -51,22 +51,41 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
   const [tenantFor, setTenantFor] = useState<{ id: string; name: string } | null>(null);
   const { data, isLoading, error } = useQuery({
     queryKey: ['landlord-float-allocations-detail', agentId],
-    queryFn: async (): Promise<AllocationRow[]> => {
-      const { data: rows, error } = await supabase
-        .from('agent_landlord_float_allocations')
-        .select(
-          'id, tenant_id, landlord_id, landlord_name, landlord_phone, allocated_amount, paid_out_amount, remaining_amount, status, created_at',
-        )
-        .eq('agent_id', agentId)
-        .order('created_at', { ascending: false })
-        .limit(300);
-      if (error) throw error;
-      const list = (rows ?? []) as any[];
+    queryFn: async (): Promise<{ allocations: AllocationRow[]; receivables: ReceivableRow[] }> => {
+      const [allocRes, recvRes] = await Promise.all([
+        supabase
+          .from('agent_landlord_float_allocations')
+          .select(
+            'id, tenant_id, landlord_id, landlord_name, landlord_phone, allocated_amount, paid_out_amount, remaining_amount, status, created_at, funded_by_partner_id',
+          )
+          .eq('agent_id', agentId)
+          .order('created_at', { ascending: false })
+          .limit(300),
+        supabase
+          .from('landlord_float_receivables')
+          .select(
+            'id, landlord_name, tenant_id, funder_id, amount, promised_deposit_date, status, created_at',
+          )
+          .eq('agent_id', agentId)
+          .order('created_at', { ascending: false })
+          .limit(200),
+      ]);
+      if (allocRes.error) throw allocRes.error;
+      const list = (allocRes.data ?? []) as any[];
+      const recvList = (recvRes.error ? [] : ((recvRes.data ?? []) as any[])) as any[];
 
-      const tenantIds = [...new Set(list.map((r) => r.tenant_id).filter(Boolean))] as string[];
+      const tenantIds = [
+        ...new Set([...list, ...recvList].map((r) => r.tenant_id).filter(Boolean)),
+      ] as string[];
       const landlordIds = [...new Set(list.map((r) => r.landlord_id).filter(Boolean))] as string[];
+      const funderIds = [
+        ...new Set([
+          ...list.map((r) => r.funded_by_partner_id).filter(Boolean),
+          ...recvList.map((r) => r.funder_id).filter(Boolean),
+        ]),
+      ] as string[];
 
-      const [tenantsRes, landlordsRes] = await Promise.all([
+      const [tenantsRes, landlordsRes, fundersRes, proxyRes] = await Promise.all([
         tenantIds.length
           ? supabase.rpc('ops_get_profiles_lite', { p_ids: tenantIds })
           : Promise.resolve({ data: [] as any[] }),
@@ -76,6 +95,19 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
               .select('id, name, mobile_money_number, phone')
               .in('id', landlordIds)
           : Promise.resolve({ data: [] as any[] }),
+        funderIds.length
+          ? supabase.rpc('ops_get_profiles_lite', { p_ids: funderIds })
+          : Promise.resolve({ data: [] as any[] }),
+        funderIds.length
+          ? supabase
+              .from('proxy_agent_assignments')
+              .select('beneficiary_id, agent_id, is_managed_account, created_at')
+              .in('beneficiary_id', funderIds)
+              .eq('is_active', true)
+              .eq('approval_status', 'approved')
+              .order('is_managed_account', { ascending: false })
+              .order('created_at', { ascending: false })
+          : Promise.resolve({ data: [] as any[] }),
       ]);
 
       const tenantById = new Map<string, string>(
@@ -84,9 +116,33 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
       const landlordById = new Map<string, any>(
         (((landlordsRes as any).data ?? []) as any[]).map((l) => [l.id, l]),
       );
+      const funderById = new Map<string, string>(
+        (((fundersRes as any).data ?? []) as any[]).map((f) => [f.id, f.full_name]),
+      );
 
-      return list.map((r) => {
+      // Live proxy link per funder: managed rows first, newest first (mirrors
+      // the server rule) — a stale row must never shadow the live managed link.
+      const proxyByFunder = new Map<string, { agent_id: string; is_managed: boolean }>();
+      for (const row of (((proxyRes as any).data ?? []) as any[])) {
+        if (!proxyByFunder.has(row.beneficiary_id)) {
+          proxyByFunder.set(row.beneficiary_id, {
+            agent_id: row.agent_id,
+            is_managed: !!row.is_managed_account,
+          });
+        }
+      }
+      const proxyAgentIds = [...new Set([...proxyByFunder.values()].map((p) => p.agent_id))];
+      const proxyNamesRes = proxyAgentIds.length
+        ? await supabase.rpc('ops_get_profiles_lite', { p_ids: proxyAgentIds })
+        : { data: [] as any[] };
+      const proxyNameById = new Map<string, string>(
+        (((proxyNamesRes as any).data ?? []) as any[]).map((p) => [p.id, p.full_name]),
+      );
+
+      const allocations: AllocationRow[] = list.map((r) => {
         const live = r.landlord_id ? landlordById.get(r.landlord_id) : null;
+        const funderId = r.funded_by_partner_id ?? null;
+        const proxy = funderId ? proxyByFunder.get(funderId) : null;
         return {
           id: r.id,
           landlord_id: r.landlord_id ?? null,
@@ -99,8 +155,27 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
           remaining_amount: Number(r.remaining_amount ?? 0),
           status: r.status ?? 'open',
           created_at: r.created_at,
+          funder_id: funderId,
+          funder_name: funderId ? (funderById.get(funderId) ?? null) : null,
+          proxy_agent_name: proxy ? (proxyNameById.get(proxy.agent_id) ?? 'Proxy agent') : null,
+          proxy_is_managed: !!proxy?.is_managed,
         };
       });
+
+      const receivables: ReceivableRow[] = recvList.map((r) => ({
+        id: r.id,
+        landlord_name: r.landlord_name || 'Unknown landlord',
+        tenant_id: r.tenant_id ?? null,
+        tenant_name: (r.tenant_id ? tenantById.get(r.tenant_id) : null) ?? 'Unassigned tenant',
+        funder_id: r.funder_id ?? null,
+        funder_name: r.funder_id ? (funderById.get(r.funder_id) ?? null) : null,
+        amount: Number(r.amount ?? 0),
+        promised_deposit_date: r.promised_deposit_date ?? null,
+        status: r.status ?? 'pending',
+        created_at: r.created_at,
+      }));
+
+      return { allocations, receivables };
     },
     staleTime: 30_000,
   });
