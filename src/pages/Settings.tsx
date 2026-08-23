@@ -232,6 +232,7 @@ export default function Settings() {
   const [pushOpen, setPushOpen] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
   const [textSizeOpen, setTextSizeOpen] = useState(false);
+  const [vibrationOpen, setVibrationOpen] = useState(false);
 
 
 
