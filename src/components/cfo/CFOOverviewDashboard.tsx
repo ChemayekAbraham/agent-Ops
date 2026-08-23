@@ -11,7 +11,7 @@ import {
   Landmark, Vault,
 } from 'lucide-react';
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   Line, ComposedChart,
 } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,7 +21,7 @@ import { CashSourcesSheet } from '@/components/cfo/CashSourcesSheet';
 import { ROIPayableForecast } from '@/components/cfo/ROIPayableForecast';
 import { CFOActionsLog } from '@/components/cfo/CFOActionsLog';
 import { LedgerMaintenancePanel } from '@/components/cfo/LedgerMaintenancePanel';
-import { AgentAdvancesStatsCard, AgentAdvancesTrendChart } from '@/components/cfo/AgentAdvancesStatsCard';
+import { AgentAdvancesStatsCard } from '@/components/cfo/AgentAdvancesStatsCard';
 
 interface CFOOverviewDashboardProps {
   onTabChange?: (tab: string) => void;
@@ -159,7 +159,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const dailyBurn = burn30d / 30;
 
   const advancesIssued = receivables?.advancesPrincipal ?? 0;
-  const advancesOutstandingAll = receivables?.advancesOutstandingAll ?? 0;
   const recoveryRate = advancesIssued > 0
     ? ((receivables?.advancesRecovered ?? 0) / advancesIssued) * 100
     : 100;
