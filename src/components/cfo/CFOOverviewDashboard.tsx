@@ -489,10 +489,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         </CardContent>
       </Card>
 
-      {/* ── AGENT ADVANCES — FULL PORTFOLIO STATS & CHART ── */}
-      <CollapsibleBlock title="Agent Advances — Full Portfolio" open={isOpen('agentAdvances')} onToggle={() => toggleSection('agentAdvances')}>
-        <AgentAdvancesStatsCard />
-      </CollapsibleBlock>
       </div>
       </div>
 
