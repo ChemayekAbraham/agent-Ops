@@ -11,7 +11,7 @@ import {
   Landmark, Vault,
 } from 'lucide-react';
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   Line, ComposedChart,
 } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,7 +21,7 @@ import { CashSourcesSheet } from '@/components/cfo/CashSourcesSheet';
 import { ROIPayableForecast } from '@/components/cfo/ROIPayableForecast';
 import { CFOActionsLog } from '@/components/cfo/CFOActionsLog';
 import { LedgerMaintenancePanel } from '@/components/cfo/LedgerMaintenancePanel';
-import { AgentAdvancesStatsCard, AgentAdvancesTrendChart } from '@/components/cfo/AgentAdvancesStatsCard';
+import { AgentAdvancesStatsCard } from '@/components/cfo/AgentAdvancesStatsCard';
 
 interface CFOOverviewDashboardProps {
   onTabChange?: (tab: string) => void;
@@ -158,11 +158,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const burn30d = moneyFlow?.totalOutflows ?? 0;
   const dailyBurn = burn30d / 30;
 
-  const advancesIssued = receivables?.advancesPrincipal ?? 0;
-  const advancesOutstandingAll = receivables?.advancesOutstandingAll ?? 0;
-  const recoveryRate = advancesIssued > 0
-    ? ((receivables?.advancesRecovered ?? 0) / advancesIssued) * 100
-    : 100;
 
   const trend = revenue?.trend ?? [];
 
@@ -186,11 +181,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
     revenue: t.amount,
   }));
 
-  const advancesChartData = [
-    { label: 'Issued', disbursed: advancesIssued, recovered: 0 },
-    { label: 'Recovered', disbursed: 0, recovered: receivables?.advancesRecovered ?? 0 },
-    { label: 'Outstanding', disbursed: advancesOutstandingAll, recovered: 0 },
-  ];
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -347,17 +337,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl shadow-sm h-full flex flex-col">
-          <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
-            <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
-              <p className="text-sm font-semibold tracking-tight">Advances — Disbursed vs Recovered</p>
-              <span className="text-[11px] font-semibold text-emerald-600">{recoveryRate.toFixed(0)}% recovered</span>
-            </div>
-            <div className="flex-1 min-h-0">
-              <AgentAdvancesTrendChart hideHeader />
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Agent Advances — Full Portfolio placed below the Advances chart */}
         <CollapsibleBlock title="Agent Advances — Full Portfolio" open={isOpen('agentAdvances')} onToggle={() => toggleSection('agentAdvances')}>
