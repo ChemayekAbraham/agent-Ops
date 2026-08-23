@@ -211,7 +211,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
         </DialogHeader>
 
         {!selected && (
-          <div className="space-y-4 pb-4">
+          <div className="space-y-3 pb-3">
             {/* Where the money sits — position cards (A1 split + in-transit) */}
             {positions.length > 0 && (
             <section className="space-y-2">
