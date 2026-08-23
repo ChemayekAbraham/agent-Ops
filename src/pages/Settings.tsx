@@ -235,6 +235,7 @@ export default function Settings() {
   const [vibrationOpen, setVibrationOpen] = useState(false);
   const [motionOpen, setMotionOpen] = useState(false);
   const [soundOpen, setSoundOpen] = useState(false);
+  const [languageOpen, setLanguageOpen] = useState(false);
 
 
 
