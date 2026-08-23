@@ -268,6 +268,27 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
                     r.tenant_name
                   )}
                 </td>
+                <td className="py-2 pr-3">
+                  {r.funder_name ? (
+                    <span className="text-foreground">{r.funder_name}</span>
+                  ) : (
+                    <span className="text-muted-foreground">Company float</span>
+                  )}
+                </td>
+                <td className="py-2 pr-3">
+                  {r.proxy_agent_name ? (
+                    <span className="text-foreground">
+                      {r.proxy_agent_name}
+                      {r.proxy_is_managed && (
+                        <span className="block text-[10px] text-muted-foreground">
+                          Managed account
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </td>
                 <td className="py-2 pr-3 text-right font-mono tabular-nums">
                   {formatUGX(r.allocated_amount)}
                 </td>
