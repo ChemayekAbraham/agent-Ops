@@ -330,6 +330,67 @@ export function SelfPortfolioDeployDialog({
               </div>
             </button>
 
+
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setChoice('direct')}
+              aria-pressed={choice === 'direct'}
+              className={`w-full text-left rounded-2xl border p-3 transition-colors ${
+                choice === 'direct' ? 'border-primary bg-primary/5' : 'border-border'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <HandCoins className="h-4 w-4 text-primary shrink-0" />
+                    <p className="text-sm font-bold truncate">Support this landlord now</p>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    {covered
+                      ? "Moves the capital straight out of your spendable wallet or operational float onto the tenant's agent landlord float — no approval wait."
+                      : 'You have no balance to cover this. It is recorded as a landlord float receivable and releases once you deposit on the date you choose.'}
+                  </p>
+                </div>
+                <Badge variant={covered ? 'secondary' : 'outline'} className="text-[10px] shrink-0">
+                  {covered ? 'Instant' : 'Deposit date needed'}
+                </Badge>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {[
+                  { label: 'Available now', value: capacity === null ? '—' : formatDynamic(capacity) },
+                  { label: 'To landlord float', value: formatDynamic(total) },
+                  { label: 'Per month', value: formatDynamic(fullMonthly) },
+                ].map((f) => (
+                  <div key={f.label} className="rounded-xl bg-muted/40 px-2 py-1.5 min-w-0">
+                    <p className="text-[9px] uppercase tracking-wide font-semibold text-muted-foreground truncate">
+                      {f.label}
+                    </p>
+                    <p className="text-xs font-black mt-0.5 truncate">{f.value}</p>
+                  </div>
+                ))}
+              </div>
+            </button>
+
+            {needsDepositDate && (
+              <div className="space-y-1.5 rounded-2xl border border-primary/30 bg-primary/5 p-3">
+                <Label htmlFor="psm-deposit-date" className="text-[11px] font-bold">
+                  Date you will deposit {formatDynamic(total)} (required)
+                </Label>
+                <Input
+                  id="psm-deposit-date"
+                  type="date"
+                  min={todayISO}
+                  value={depositDate}
+                  onChange={(e) => setDepositDate(e.target.value)}
+                  className="h-10"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Until the deposit lands, this stays a landlord float receivable in your name.
+                </p>
+              </div>
+            )}
+
             <div className="flex items-start gap-2 rounded-xl bg-muted/30 px-2.5 py-2">
               <CalendarClock className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
               <p className="text-[10px] text-muted-foreground">
@@ -339,16 +400,27 @@ export function SelfPortfolioDeployDialog({
               </p>
             </div>
 
-            <Button className="w-full" onClick={() => void deploy()} disabled={busy || selectedIds.length === 0}>
+            <Button
+              className="w-full"
+              onClick={() => void deploy()}
+              disabled={busy || selectedIds.length === 0 || (needsDepositDate && !depositDate)}
+            >
               {busy ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <CheckCircle2 className="h-4 w-4" />
               )}
               <span className="ml-2">
-                {choice === 'topup' ? 'Add to portfolio' : 'Start new portfolio'}
+                {choice === 'topup'
+                  ? 'Add to portfolio'
+                  : choice === 'direct'
+                    ? covered
+                      ? 'Send to landlord float'
+                      : 'Pledge with deposit date'
+                    : 'Start new portfolio'}
               </span>
             </Button>
+
           </div>
         )}
       </DialogContent>
