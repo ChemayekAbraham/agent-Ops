@@ -779,36 +779,40 @@ export default function Settings() {
                 </Card>
                 {/* Language preference */}
                 <Card className="border-border/40 rounded-2xl">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-primary" />
-                      <div>
-                        <CardTitle className="text-sm">Language</CardTitle>
-                        <CardDescription className="text-xs">Choose your preferred language</CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <RadioGroup
-                      value={language}
-                      onValueChange={(v) => { setLanguage(v as Language); toast.success(`Language: ${languageNames[v as Language]}`); }}
-                      className="grid grid-cols-2 gap-2"
-                    >
-                      {(['en', 'sw', 'fr', 'am'] as Language[]).map((lang) => (
-                        <Label
-                          key={lang}
-                          htmlFor={`lang-${lang}`}
-                          className={cn(
-                            "flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm",
-                            language === lang ? 'border-primary bg-primary/10' : 'border-border/50'
-                          )}
+                  <CardContent className="pt-5">
+                    <Collapsible open={languageOpen} onOpenChange={setLanguageOpen} className="space-y-2">
+                      <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
+                        <span className="flex items-center gap-2"><Globe className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Language</span></span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-base">{languageFlags[language]}</span>
+                          <span className="text-[11px] text-muted-foreground">{languageNames[language]}</span>
+                          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", languageOpen && "rotate-180")} />
+                        </span>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-2 pt-1">
+                        <p className="text-[11px] text-muted-foreground">Choose your preferred language</p>
+                        <RadioGroup
+                          value={language}
+                          onValueChange={(v) => { setLanguage(v as Language); toast.success(`Language: ${languageNames[v as Language]}`); }}
+                          className="grid grid-cols-2 gap-2"
                         >
-                          <RadioGroupItem value={lang} id={`lang-${lang}`} />
-                          <span className="text-base">{languageFlags[lang]}</span>
-                          <span className="font-medium text-xs">{languageNames[lang]}</span>
-                        </Label>
-                      ))}
-                    </RadioGroup>
+                          {(['en', 'sw', 'fr', 'am'] as Language[]).map((lang) => (
+                            <Label
+                              key={lang}
+                              htmlFor={`lang-${lang}`}
+                              className={cn(
+                                "flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm",
+                                language === lang ? 'border-primary bg-primary/10' : 'border-border/50'
+                              )}
+                            >
+                              <RadioGroupItem value={lang} id={`lang-${lang}`} />
+                              <span className="text-base">{languageFlags[lang]}</span>
+                              <span className="font-medium text-xs">{languageNames[lang]}</span>
+                            </Label>
+                          ))}
+                        </RadioGroup>
+                      </CollapsibleContent>
+                    </Collapsible>
                   </CardContent>
                 </Card>
 
