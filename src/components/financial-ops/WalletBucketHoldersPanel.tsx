@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, ChevronDown, ChevronRight, Loader2, Search, ExternalLink, History } from 'lucide-react';
+import { ArrowLeft, ArrowLeftRight, ArrowUpRight, ChevronDown, ChevronRight, Loader2, Search, ExternalLink, History } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { WalletBucketLedgerDetail } from './WalletBucketLedgerDetail';
 import { LandlordFloatAllocationsDetail } from './LandlordFloatAllocationsDetail';
@@ -389,6 +389,7 @@ export function WalletBucketHoldersPanel({
             <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
               {rows.map((r) => {
                 const isOpen = expanded === r.key;
+                const act = activity;
                 return (
                   <div key={r.key}>
                     <button
