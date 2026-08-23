@@ -204,7 +204,8 @@ type Tool =
   | 'liquidity_forecast'
   | 'reports'
   | 'stale_withdrawal_holds'
-  | 'wallet_buckets';
+  | 'wallet_buckets'
+  | 'landlord_withdrawal_history';
 // Extend Tool type via union above; add new tools:
 
 
