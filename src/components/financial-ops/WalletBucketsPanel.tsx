@@ -203,7 +203,73 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
             </button>
           );
         })}
+
+        {/* 5. Actual Float — email transaction balances + cash at hand */}
+        <Card className="overflow-hidden border border-border bg-card">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0 border bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20">
+                <Smartphone className="h-5 w-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold tabular-nums text-muted-foreground/80 w-5">5.</span>
+                  <p className="text-sm sm:text-base font-semibold text-foreground">Actual Float (Money We Hold)</p>
+                </div>
+                <p className={cn('text-xs font-bold font-mono mt-0.5 ml-7', actualError ? 'text-destructive' : 'text-primary')}>
+                  {actualLoading ? (
+                    <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      UGX —
+                    </span>
+                  ) : actualError ? (
+                    'Unavailable'
+                  ) : (
+                    formatUGX(actual?.total ?? 0)
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5 ml-7">
+                  MTN + Airtel line balances from email transactions, plus verified cash at hand.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-border space-y-2">
+              {actualRows.map((r) => (
+                <button
+                  key={r.label}
+                  type="button"
+                  onClick={() => setOpenLine(r.line)}
+                  aria-label={`View ${r.label} statement`}
+                  className="w-full flex items-center justify-between gap-3 rounded-lg px-1 py-1.5 text-left hover:bg-muted/50 transition-colors"
+                >
+                  <span className="flex items-center gap-2.5 min-w-0">
+                    {r.logo ? (
+                      <span className="h-6 w-6 rounded-md overflow-hidden shrink-0 border border-border bg-background">
+                        <img src={r.logo} alt={r.label} className="w-full h-full object-cover" loading="lazy" />
+                      </span>
+                    ) : (
+                      <span className="h-6 w-6 rounded-md shrink-0 border border-border bg-emerald-500/10 flex items-center justify-center">
+                        <Banknote className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                      </span>
+                    )}
+                    <span className="text-sm text-foreground truncate">{r.label}</span>
+                  </span>
+                  <span className="flex items-center gap-1.5 shrink-0">
+                    <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+                      {actualLoading ? '—' : formatUGX(r.amount)}
+                    </span>
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  </span>
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      <PhoneMoneyStatementSheet line={openLine} onOpenChange={(open) => !open && setOpenLine(null)} />
+
     </div>
   );
 }
