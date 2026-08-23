@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Wallet, ArrowRightLeft, Home, Store, ChevronRight, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
+import { WalletBucketHoldersPanel, type HolderBucket } from './WalletBucketHoldersPanel';
 
 export type WalletBucketTool =
   | 'wallet_breakdown'
@@ -33,6 +35,7 @@ const BUCKETS = [
     desc: 'All user withdrawable balances across the platform.',
     icon: Wallet,
     totalKey: 'withdrawable_total' as BucketTotalKey,
+    holder: 'withdrawable' as HolderBucket,
     tone: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
   },
   {
@@ -42,6 +45,7 @@ const BUCKETS = [
     desc: 'Company float held in wallets and reclassification tools.',
     icon: ArrowRightLeft,
     totalKey: 'float_total' as BucketTotalKey,
+    holder: 'float' as HolderBucket,
     tone: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
   },
   {
@@ -51,6 +55,7 @@ const BUCKETS = [
     desc: 'Money reserved for landlord payouts and funded tenants.',
     icon: Home,
     totalKey: 'landlord_float_total' as BucketTotalKey,
+    holder: 'landlord_float' as HolderBucket,
     tone: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
   },
   {
@@ -60,11 +65,13 @@ const BUCKETS = [
     desc: 'Cash-out merchant agent operational float requests.',
     icon: Store,
     totalKey: 'merchant_float_total' as BucketTotalKey,
+    holder: 'merchant_float' as HolderBucket,
     tone: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
   },
 ];
 
 export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
+  const [selected, setSelected] = useState<{ holder: HolderBucket; tool: WalletBucketTool } | null>(null);
   const { data, isLoading, error } = useQuery({
     queryKey: ['wallet-bucket-totals'],
     queryFn: async (): Promise<BucketTotals> => {
@@ -86,6 +93,16 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
 
   const totalFor = (key: BucketTotalKey) => Number(data?.[key] ?? 0);
 
+  if (selected) {
+    return (
+      <WalletBucketHoldersPanel
+        bucket={selected.holder}
+        onBack={() => setSelected(null)}
+        onOpenFullTool={() => onOpenTool(selected.tool)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-5">
       <div>
@@ -105,7 +122,7 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
           return (
             <button
               key={b.id}
-              onClick={() => onOpenTool(b.id)}
+              onClick={() => setSelected({ holder: b.holder, tool: b.id })}
               className="group text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-2xl"
               aria-label={`Open ${b.title}`}
             >
