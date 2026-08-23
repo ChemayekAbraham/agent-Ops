@@ -402,12 +402,44 @@ export function WalletBucketHoldersPanel({
                         <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate">{r.name}</p>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">{r.name}</p>
+                          {(() => {
+                            const a = r.userId ? act?.get(r.userId) : undefined;
+                            return (
+                              <span className="flex items-center gap-1 shrink-0">
+                                <span
+                                  title={
+                                    a
+                                      ? `${a.withdrawals} withdrawals • ${formatUGX(a.withdrawalTotal)}`
+                                      : 'Withdrawals'
+                                  }
+                                  className="inline-flex items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-700 dark:text-sky-300"
+                                >
+                                  <ArrowUpRight className="h-3 w-3" />
+                                  {a?.withdrawals ?? 0}
+                                </span>
+                                <span
+                                  title={
+                                    a
+                                      ? `${a.transfers} wallet transfers • ${formatUGX(a.transferTotal)}`
+                                      : 'Wallet transfers'
+                                  }
+                                  className="inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300"
+                                >
+                                  <ArrowLeftRight className="h-3 w-3" />
+                                  {a?.transfers ?? 0}
+                                </span>
+                              </span>
+                            );
+                          })()}
+                        </div>
                         <p className="text-xs text-muted-foreground truncate">
                           {r.phone || '—'}
                           {r.meta ? ` • ${r.meta}` : ''}
                         </p>
                       </div>
+
                       <div className="text-right shrink-0">
                         <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
                           {meta.amountLabel}
