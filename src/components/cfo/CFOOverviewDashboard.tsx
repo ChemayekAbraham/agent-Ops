@@ -158,10 +158,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const burn30d = moneyFlow?.totalOutflows ?? 0;
   const dailyBurn = burn30d / 30;
 
-  const advancesIssued = receivables?.advancesPrincipal ?? 0;
-  const recoveryRate = advancesIssued > 0
-    ? ((receivables?.advancesRecovered ?? 0) / advancesIssued) * 100
-    : 100;
 
   const trend = revenue?.trend ?? [];
 
@@ -185,11 +181,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
     revenue: t.amount,
   }));
 
-  const advancesChartData = [
-    { label: 'Issued', disbursed: advancesIssued, recovered: 0 },
-    { label: 'Recovered', disbursed: 0, recovered: receivables?.advancesRecovered ?? 0 },
-    { label: 'Outstanding', disbursed: advancesOutstandingAll, recovered: 0 },
-  ];
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
