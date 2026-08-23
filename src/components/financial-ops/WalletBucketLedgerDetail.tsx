@@ -62,6 +62,7 @@ export function WalletBucketLedgerDetail({
   advance: number;
   onlyBucket?: BucketKey;
 }) {
+  const [detailId, setDetailId] = useState<string | null>(null);
   const { data, isLoading, error } = useQuery({
     queryKey: ['wallet-bucket-ledger', userId],
     queryFn: async () => {
