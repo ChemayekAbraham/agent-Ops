@@ -200,6 +200,16 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
           landlordPhone={historyFor.phone}
         />
       )}
+
+      {tenantFor && (
+        <TenantRepaymentBreakdownDialog
+          open
+          onOpenChange={(v) => !v && setTenantFor(null)}
+          tenantId={tenantFor.id}
+          tenantName={tenantFor.name}
+          focusAgentId={agentId}
+        />
+      )}
     </div>
   );
 }
