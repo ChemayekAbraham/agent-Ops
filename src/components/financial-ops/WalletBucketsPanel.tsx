@@ -79,6 +79,8 @@ const BUCKETS = [
 export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
   const [selected, setSelected] = useState<{ holder: HolderBucket; tool: WalletBucketTool } | null>(null);
   const [openLine, setOpenLine] = useState<PhoneMoneyLine | null>(null);
+  const [openMerchantEmails, setOpenMerchantEmails] = useState(false);
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['wallet-bucket-totals'],
     queryFn: async (): Promise<BucketTotals> => {
