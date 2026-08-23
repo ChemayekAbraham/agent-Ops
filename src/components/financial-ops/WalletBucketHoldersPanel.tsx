@@ -442,6 +442,24 @@ export function WalletBucketHoldersPanel({
                 className="pl-8"
               />
             </div>
+            <div className="min-w-[220px]">
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
+                <SelectTrigger className="h-10">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <ArrowDownUp className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <SelectValue placeholder="Sort holders" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="text-right">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
                 {rows.length} {rows.length === 1 ? 'holder' : 'holders'} shown
