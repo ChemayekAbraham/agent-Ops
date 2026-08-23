@@ -151,7 +151,7 @@ export function AgentAdvancesStatsCard() {
   const { stats } = useAgentAdvancesPortfolioData();
 
   return (
-    <Card className="w-full rounded-2xl">
+    <Card className="w-full rounded-2xl shadow-sm">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2 flex-wrap">
           <div>
