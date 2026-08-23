@@ -92,7 +92,7 @@ async function loadTenantBreakdown(tenantId: string) {
     id: p.id,
     rent_amount: Number(p.rent_amount ?? 0),
     daily_repayment: Number(p.daily_repayment ?? 0),
-    total_repayment: Number(p.total_repayment_amount ?? 0),
+    total_repayment: Number(p.total_repayment ?? 0),
     status: p.status ?? 'pending',
     started_at: p.disbursed_at ?? p.created_at ?? null,
   }));
