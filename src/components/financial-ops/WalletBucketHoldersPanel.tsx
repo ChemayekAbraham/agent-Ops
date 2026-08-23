@@ -120,9 +120,19 @@ async function loadHolders(bucket: HolderBucket): Promise<HolderRow[]> {
       name: r.agent_name ?? r.label ?? 'Merchant desk',
       phone: r.agent_phone ?? '',
       amount: Number(r.ledger_float_held ?? 0),
-      meta: `Evidenced ${formatUGX(Number(r.evidenced_amount ?? 0))} • Paid out ${formatUGX(Number(r.paid_out_total ?? 0))}`,
+      retired: r.is_active === false,
+      meta: [
+        r.is_active === false ? 'Retired desk — float is plain operational float' : null,
+        `Evidenced ${formatUGX(Number(r.evidenced_amount ?? 0))}`,
+        `Paid out ${formatUGX(Number(r.paid_out_total ?? 0))}`,
+      ]
+        .filter(Boolean)
+        .join(' • '),
     }))
-    .filter((r) => r.amount > 0)
+    // A desk that is no longer active is NOT a merchant float holder. Its wallet
+    // float is ordinary operational float and belongs only to the Operational
+    // Float bucket — counting it here double-counts the same money.
+    .filter((r) => r.amount > 0 && !r.retired)
     .sort((a, b) => b.amount - a.amount);
 }
 
