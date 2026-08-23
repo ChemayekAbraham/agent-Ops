@@ -64,6 +64,7 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
         const live = r.landlord_id ? landlordById.get(r.landlord_id) : null;
         return {
           id: r.id,
+          landlord_id: r.landlord_id ?? null,
           landlord_name: live?.name || r.landlord_name || 'Unknown landlord',
           landlord_phone: live?.mobile_money_number || live?.phone || r.landlord_phone || null,
           tenant_name: (r.tenant_id ? tenantById.get(r.tenant_id) : null) ?? 'Unassigned tenant',
