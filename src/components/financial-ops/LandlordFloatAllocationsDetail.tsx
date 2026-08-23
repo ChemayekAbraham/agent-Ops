@@ -122,7 +122,25 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
             {rows.map((r) => (
               <tr key={r.id} className="align-top">
                 <td className="py-2 pr-3">
-                  <p className="font-semibold text-foreground">{r.landlord_name}</p>
+                  {r.landlord_id ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setHistoryFor({
+                          id: r.landlord_id as string,
+                          name: r.landlord_name,
+                          phone: r.landlord_phone,
+                        })
+                      }
+                      className="font-semibold text-primary hover:underline inline-flex items-center gap-1 text-left"
+                      title="View withdrawal history for this landlord"
+                    >
+                      {r.landlord_name}
+                      <History className="h-3 w-3 opacity-70" />
+                    </button>
+                  ) : (
+                    <p className="font-semibold text-foreground">{r.landlord_name}</p>
+                  )}
                   <p className="text-muted-foreground">{r.landlord_phone || '—'}</p>
                 </td>
                 <td className="py-2 pr-3 text-foreground">{r.tenant_name}</td>
