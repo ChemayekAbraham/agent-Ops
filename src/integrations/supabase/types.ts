@@ -41118,7 +41118,7 @@ export type Database = {
         }[]
       }
       get_merchant_float_positions_signed: {
-        Args: never
+        Args: { p_include_retired?: boolean }
         Returns: {
           advance_count: number | null
           agent_id: string | null
