@@ -164,6 +164,38 @@ export function WalletBucketHoldersPanel({
 
   const total = rows.reduce((s, r) => s + r.amount, 0);
 
+  // Landlord float only: split the outstanding earmarks by who put the money
+  // there — company float (CFO disbursements) vs funders supporting a landlord
+  // directly from their own wallet (`partner_self_funding`).
+  const { data: sourceSplit } = useQuery({
+    queryKey: ['landlord-float-source-split'],
+    enabled: bucket === 'landlord_float',
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('agent_landlord_float_allocations' as any)
+        .select('source, remaining_amount, status')
+        .in('status', ['open', 'partially_paid'])
+        .limit(5000);
+      if (error) throw error;
+      let company = 0;
+      let companyCount = 0;
+      let funder = 0;
+      let funderCount = 0;
+      for (const r of (data ?? []) as any[]) {
+        const amt = Number(r.remaining_amount) || 0;
+        if (r.source === 'partner_self_funding') {
+          funder += amt;
+          funderCount += 1;
+        } else {
+          company += amt;
+          companyCount += 1;
+        }
+      }
+      return { company, companyCount, funder, funderCount };
+    },
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
