@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, ChevronDown, ChevronRight, Loader2, Search, ExternalLink, History } from 'lucide-react';
+import { ArrowLeft, ArrowLeftRight, ArrowUpRight, ChevronDown, ChevronRight, Loader2, Search, ExternalLink, History } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { WalletBucketLedgerDetail } from './WalletBucketLedgerDetail';
 import { LandlordFloatAllocationsDetail } from './LandlordFloatAllocationsDetail';
@@ -172,6 +172,40 @@ export function WalletBucketHoldersPanel({
     if (!q) return list;
     return list.filter((r) => `${r.name} ${r.phone}`.toLowerCase().includes(q));
   }, [data, search]);
+
+  // Per-holder activity counters: how many withdrawals this person has taken and
+  // how many wallet transfers they were part of.
+  const holderIds = useMemo(
+    () => Array.from(new Set((data ?? []).map((r) => r.userId).filter((v): v is string => !!v))),
+    [data],
+  );
+
+  const { data: activity } = useQuery({
+    queryKey: ['wallet-holder-activity-counts', holderIds],
+    enabled: holderIds.length > 0,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data: rows, error } = await supabase.rpc(
+        'get_wallet_holder_activity_counts' as any,
+        { p_user_ids: holderIds } as any,
+      );
+      if (error) throw error;
+      const map = new Map<
+        string,
+        { withdrawals: number; withdrawalTotal: number; transfers: number; transferTotal: number }
+      >();
+      for (const r of (rows ?? []) as any[]) {
+        map.set(String(r.user_id), {
+          withdrawals: Number(r.withdrawal_count ?? 0),
+          withdrawalTotal: Number(r.withdrawal_total ?? 0),
+          transfers: Number(r.transfer_count ?? 0),
+          transferTotal: Number(r.transfer_total ?? 0),
+        });
+      }
+      return map;
+    },
+  });
+
 
   const total = rows.reduce((s, r) => s + r.amount, 0);
 
@@ -355,6 +389,7 @@ export function WalletBucketHoldersPanel({
             <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
               {rows.map((r) => {
                 const isOpen = expanded === r.key;
+                const act = activity;
                 return (
                   <div key={r.key}>
                     <button
@@ -368,12 +403,44 @@ export function WalletBucketHoldersPanel({
                         <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate">{r.name}</p>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">{r.name}</p>
+                          {(() => {
+                            const a = r.userId ? act?.get(r.userId) : undefined;
+                            return (
+                              <span className="flex items-center gap-1 shrink-0">
+                                <span
+                                  title={
+                                    a
+                                      ? `${a.withdrawals} withdrawals • ${formatUGX(a.withdrawalTotal)}`
+                                      : 'Withdrawals'
+                                  }
+                                  className="inline-flex items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-700 dark:text-sky-300"
+                                >
+                                  <ArrowUpRight className="h-3 w-3" />
+                                  {a?.withdrawals ?? 0}
+                                </span>
+                                <span
+                                  title={
+                                    a
+                                      ? `${a.transfers} wallet transfers • ${formatUGX(a.transferTotal)}`
+                                      : 'Wallet transfers'
+                                  }
+                                  className="inline-flex items-center gap-1 rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300"
+                                >
+                                  <ArrowLeftRight className="h-3 w-3" />
+                                  {a?.transfers ?? 0}
+                                </span>
+                              </span>
+                            );
+                          })()}
+                        </div>
                         <p className="text-xs text-muted-foreground truncate">
                           {r.phone || '—'}
                           {r.meta ? ` • ${r.meta}` : ''}
                         </p>
                       </div>
+
                       <div className="text-right shrink-0">
                         <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
                           {meta.amountLabel}
