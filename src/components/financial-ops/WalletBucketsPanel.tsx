@@ -9,6 +9,8 @@ import { WalletBucketHoldersPanel, type HolderBucket } from './WalletBucketHolde
 import mtnLogoAsset from '@/assets/mtn-logo.png.asset.json';
 import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
 import { PhoneMoneyStatementSheet, type PhoneMoneyLine } from './PhoneMoneyStatementSheet';
+import { MerchantFloatEmailMovementsDialog } from './MerchantFloatEmailMovementsDialog';
+
 
 
 export type WalletBucketTool =
@@ -77,6 +79,8 @@ const BUCKETS = [
 export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
   const [selected, setSelected] = useState<{ holder: HolderBucket; tool: WalletBucketTool } | null>(null);
   const [openLine, setOpenLine] = useState<PhoneMoneyLine | null>(null);
+  const [openMerchantEmails, setOpenMerchantEmails] = useState(false);
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['wallet-bucket-totals'],
     queryFn: async (): Promise<BucketTotals> => {
@@ -264,11 +268,32 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
                 </button>
               ))}
             </div>
+
+            <button
+              type="button"
+              onClick={() => setOpenMerchantEmails(true)}
+              className="mt-3 w-full flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-left hover:bg-muted/60 transition-colors"
+            >
+              <span className="flex items-center gap-2.5 min-w-0">
+                <span className="h-6 w-6 rounded-md shrink-0 border border-amber-500/20 bg-amber-500/10 flex items-center justify-center">
+                  <Store className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm text-foreground">Money sent to merchant agents</span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    Email extraction of every manual MTN/Airtel send, per merchant
+                  </span>
+                </span>
+              </span>
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            </button>
           </CardContent>
         </Card>
       </div>
 
       <PhoneMoneyStatementSheet line={openLine} onOpenChange={(open) => !open && setOpenLine(null)} />
+      <MerchantFloatEmailMovementsDialog open={openMerchantEmails} onOpenChange={setOpenMerchantEmails} />
+
 
     </div>
   );

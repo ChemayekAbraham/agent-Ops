@@ -41054,6 +41054,10 @@ export type Database = {
         Args: { p_catalog_id: string }
         Returns: string
       }
+      get_merchant_float_email_movements: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
       get_merchant_float_ledger_variance: {
         Args: never
         Returns: {
