@@ -197,8 +197,8 @@ type Tool =
   | 'bridge_health' | 'manual_float_credit'
   | 'earnings_explainer'
   | 'liquidity_forecast'
-  | 'reports'
-  | 'stale_withdrawal_holds';
+  | 'stale_withdrawal_holds'
+  | 'wallet_buckets';
 // Extend Tool type via union above; add new tools:
 
 
