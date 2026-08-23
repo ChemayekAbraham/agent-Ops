@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import { useCFOOverviewData } from '@/hooks/useCFOOverviewData';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import {
   Loader2, ArrowDownRight, ArrowUpRight, Scale, Wallet,
@@ -20,7 +19,6 @@ import { KPIBreakdownSheet } from '@/components/cfo/KPIBreakdownSheet';
 import { CashSourcesSheet } from '@/components/cfo/CashSourcesSheet';
 import { ROIPayableForecast } from '@/components/cfo/ROIPayableForecast';
 import { CFOActionsLog } from '@/components/cfo/CFOActionsLog';
-import { LedgerMaintenancePanel } from '@/components/cfo/LedgerMaintenancePanel';
 import { AgentAdvancesStatsCard } from '@/components/cfo/AgentAdvancesStatsCard';
 
 interface CFOOverviewDashboardProps {
