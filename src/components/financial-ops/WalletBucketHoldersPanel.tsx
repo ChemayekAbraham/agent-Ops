@@ -4,7 +4,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, ArrowLeftRight, ArrowUpRight, ChevronDown, ChevronRight, Loader2, Search, ExternalLink, History } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ArrowDownUp, ArrowDownLeft, ArrowLeft, ArrowLeftRight, ArrowUpRight, ChevronDown, ChevronRight, Loader2, Search, ExternalLink, History } from 'lucide-react';
+
 import { formatUGX } from '@/lib/rentCalculations';
 import { WalletBucketLedgerDetail } from './WalletBucketLedgerDetail';
 import { LandlordFloatAllocationsDetail } from './LandlordFloatAllocationsDetail';
@@ -12,6 +20,34 @@ import { CompanyFloatDisbursementHistoryDialog } from './CompanyFloatDisbursemen
 
 
 export type HolderBucket = 'withdrawable' | 'float' | 'landlord_float' | 'merchant_float';
+
+type SortKey =
+  | 'recent'
+  | 'balance_desc'
+  | 'balance_asc'
+  | 'deposit_total_desc'
+  | 'deposit_total_asc'
+  | 'deposit_count_desc'
+  | 'transfer_count_desc'
+  | 'transfer_count_asc'
+  | 'withdrawal_count_desc'
+  | 'activity_desc'
+  | 'activity_asc';
+
+const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
+  { value: 'recent', label: 'Most recent activity first (default)' },
+  { value: 'balance_desc', label: 'Balance: highest to lowest' },
+  { value: 'balance_asc', label: 'Balance: lowest to highest' },
+  { value: 'deposit_total_desc', label: 'Deposited: most to least' },
+  { value: 'deposit_total_asc', label: 'Deposited: least to most' },
+  { value: 'deposit_count_desc', label: 'Deposit count: most to least' },
+  { value: 'transfer_count_desc', label: 'Transfers: highest to lowest' },
+  { value: 'transfer_count_asc', label: 'Transfers: lowest to highest' },
+  { value: 'withdrawal_count_desc', label: 'Withdrawals: most to least' },
+  { value: 'activity_desc', label: 'Most active to least active' },
+  { value: 'activity_asc', label: 'Least active to most active' },
+];
+
 
 interface HolderRow {
   key: string;
@@ -156,6 +192,7 @@ export function WalletBucketHoldersPanel({
   onOpenFullTool?: () => void;
 }) {
   const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<SortKey>('recent');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [companyHistoryOpen, setCompanyHistoryOpen] = useState(false);
   const meta = TITLES[bucket];
@@ -166,12 +203,6 @@ export function WalletBucketHoldersPanel({
     staleTime: 30_000,
   });
 
-  const rows = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const list = data ?? [];
-    if (!q) return list;
-    return list.filter((r) => `${r.name} ${r.phone}`.toLowerCase().includes(q));
-  }, [data, search]);
 
   // Per-holder activity counters: how many withdrawals this person has taken and
   // how many wallet transfers they were part of.
@@ -192,22 +223,76 @@ export function WalletBucketHoldersPanel({
       if (error) throw error;
       const map = new Map<
         string,
-        { withdrawals: number; withdrawalTotal: number; transfers: number; transferTotal: number }
+        {
+          withdrawals: number;
+          withdrawalTotal: number;
+          transfers: number;
+          transferTotal: number;
+          deposits: number;
+          depositTotal: number;
+          lastActivityAt: number;
+        }
       >();
       for (const r of (rows ?? []) as any[]) {
+        const times = [r.last_withdrawal_at, r.last_transfer_at, r.last_deposit_at]
+          .map((t) => (t ? new Date(t as string).getTime() : 0))
+          .filter((n) => Number.isFinite(n));
         map.set(String(r.user_id), {
           withdrawals: Number(r.withdrawal_count ?? 0),
           withdrawalTotal: Number(r.withdrawal_total ?? 0),
           transfers: Number(r.transfer_count ?? 0),
           transferTotal: Number(r.transfer_total ?? 0),
+          deposits: Number(r.deposit_count ?? 0),
+          depositTotal: Number(r.deposit_total ?? 0),
+          lastActivityAt: times.length ? Math.max(...times) : 0,
         });
       }
       return map;
     },
   });
 
+  // Search + sort. `recent` keeps the order the loader returned (for the
+  // withdrawable bucket that is "most recent withdrawal first").
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let list = data ?? [];
+    if (q) list = list.filter((r) => `${r.name} ${r.phone}`.toLowerCase().includes(q));
+    if (sortBy === 'recent') return list;
+    const stat = (r: HolderRow) => (r.userId ? activity?.get(r.userId) : undefined);
+    return [...list].sort((a, b) => {
+      const sa = stat(a);
+      const sb = stat(b);
+      switch (sortBy) {
+        case 'balance_desc':
+          return b.amount - a.amount;
+        case 'balance_asc':
+          return a.amount - b.amount;
+        case 'deposit_total_desc':
+          return (sb?.depositTotal ?? 0) - (sa?.depositTotal ?? 0);
+        case 'deposit_total_asc':
+          return (sa?.depositTotal ?? 0) - (sb?.depositTotal ?? 0);
+        case 'deposit_count_desc':
+          return (sb?.deposits ?? 0) - (sa?.deposits ?? 0);
+        case 'transfer_count_desc':
+          return (sb?.transfers ?? 0) - (sa?.transfers ?? 0);
+        case 'transfer_count_asc':
+          return (sa?.transfers ?? 0) - (sb?.transfers ?? 0);
+        case 'withdrawal_count_desc':
+          return (sb?.withdrawals ?? 0) - (sa?.withdrawals ?? 0);
+        case 'activity_desc':
+        case 'activity_asc': {
+          const av = (sa?.withdrawals ?? 0) + (sa?.transfers ?? 0) + (sa?.deposits ?? 0);
+          const bv = (sb?.withdrawals ?? 0) + (sb?.transfers ?? 0) + (sb?.deposits ?? 0);
+          return sortBy === 'activity_desc' ? bv - av : av - bv;
+        }
+        default:
+          return 0;
+      }
+    });
+  }, [data, search, sortBy, activity]);
 
   const total = rows.reduce((s, r) => s + r.amount, 0);
+
 
   // Landlord float only: split the outstanding earmarks by who put the money
   // there — company float (CFO disbursements) vs funders supporting a landlord
@@ -365,6 +450,24 @@ export function WalletBucketHoldersPanel({
                 className="pl-8"
               />
             </div>
+            <div className="min-w-[220px]">
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
+                <SelectTrigger className="h-10">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <ArrowDownUp className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <SelectValue placeholder="Sort holders" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="text-right">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
                 {rows.length} {rows.length === 1 ? 'holder' : 'holders'} shown
@@ -431,7 +534,19 @@ export function WalletBucketHoldersPanel({
                                   <ArrowLeftRight className="h-3 w-3" />
                                   {a?.transfers ?? 0}
                                 </span>
+                                <span
+                                  title={
+                                    a
+                                      ? `${a.deposits} deposits • ${formatUGX(a.depositTotal)}`
+                                      : 'Deposits'
+                                  }
+                                  className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300"
+                                >
+                                  <ArrowDownLeft className="h-3 w-3" />
+                                  {a?.deposits ?? 0}
+                                </span>
                               </span>
+
                             );
                           })()}
                         </div>
