@@ -73,15 +73,15 @@ export default function Referrals() {
     }
   };
 
+  // Signup bonus (UGX 100) is the only referral bonus. The former UGX 200
+  // first-transaction bonus was retired, but historic credits still count
+  // toward what a referrer already earned.
   const totalSignupBonus = referrals.reduce((sum: number, r: any) => sum + Number(r.bonus_amount), 0);
   const totalFirstTxBonus = referrals
     .filter((r: any) => r.first_transaction_bonus_credited)
     .reduce((sum: number, r: any) => sum + Number(r.first_transaction_bonus_amount || 0), 0);
   const totalEarned = totalSignupBonus + totalFirstTxBonus;
-  
-  const pendingFirstTxBonus = referrals
-    .filter((r: any) => !r.first_transaction_bonus_credited)
-    .length * 200;
+
 
   if (loading) {
     return <ReferralsSkeleton />;
