@@ -203,6 +203,11 @@ export function WalletBucketLedgerDetail({
           Showing the most recent 500 wallet ledger entries.
         </p>
       )}
+      <LedgerEntryDetailDialog
+        entryId={detailId}
+        open={!!detailId}
+        onOpenChange={(v) => !v && setDetailId(null)}
+      />
     </div>
   );
 }
