@@ -42068,6 +42068,7 @@ export type Database = {
         }[]
       }
       get_user_wallet_view: { Args: { p_user_id: string }; Returns: Json }
+      get_wallet_bucket_totals: { Args: never; Returns: Json }
       get_wallet_ledger_category_sums: {
         Args: { p_from: string; p_to: string }
         Returns: {
