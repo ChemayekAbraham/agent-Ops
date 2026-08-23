@@ -38,7 +38,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const [exportingCommissions, setExportingCommissions] = useState(false);
   const [activeBreakdown, setActiveBreakdown] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    ledgerMaintenance: false,
     agentAdvances: true,
   });
   // Sections default to expanded unless explicitly collapsed above; the chevron toggles.
@@ -48,22 +47,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const { user } = useAuth();
   const {
     platformCash, liabilities, revenue, receivables, moneyFlow,
-    todayCashFlow, integrityChecks, pendingApprovals, treasuryControls, refetchControls,
-    isLoading
+    todayCashFlow, isLoading
   } = useCFOOverviewData();
-
-  const handleToggleControl = useCallback(async (controlKey: string, newValue: boolean) => {
-    const { error } = await supabase
-      .from('treasury_controls' as any)
-      .update({ enabled: newValue, updated_at: new Date().toISOString() } as any)
-      .eq('control_key', controlKey);
-    if (error) {
-      toast.error(`Failed to update ${controlKey}`);
-    } else {
-      toast.success(`${controlKey.replace(/_/g, ' ')} ${newValue ? 'enabled' : 'disabled'}`);
-      refetchControls();
-    }
-  }, [refetchControls]);
 
   const handleExportCommissions = useCallback(async () => {
     setExportingCommissions(true);
