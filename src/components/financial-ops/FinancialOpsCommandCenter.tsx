@@ -411,6 +411,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
         {activeTool === 'wallet_buckets' && (
           <WalletBucketsPanel onOpenTool={(t) => setActiveTool(t as any)} />
         )}
+        {activeTool === 'landlord_withdrawal_history' && <LandlordWithdrawalHistoryPanel />}
         {activeTool === 'wallet_breakdown' && (
           <div className="space-y-8">
             <FinOpsWalletMovePanel />
