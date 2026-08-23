@@ -49,7 +49,7 @@ async function loadTenantBreakdown(tenantId: string) {
     supabase
       .from('rent_requests')
       .select(
-        'id, rent_amount, daily_repayment, total_repayment_amount, status, disbursed_at, created_at',
+        'id, rent_amount, daily_repayment, total_repayment, amount_repaid, status, disbursed_at, created_at',
       )
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
