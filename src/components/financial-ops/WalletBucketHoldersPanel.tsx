@@ -13,6 +13,34 @@ import { CompanyFloatDisbursementHistoryDialog } from './CompanyFloatDisbursemen
 
 export type HolderBucket = 'withdrawable' | 'float' | 'landlord_float' | 'merchant_float';
 
+type SortKey =
+  | 'recent'
+  | 'balance_desc'
+  | 'balance_asc'
+  | 'deposit_total_desc'
+  | 'deposit_total_asc'
+  | 'deposit_count_desc'
+  | 'transfer_count_desc'
+  | 'transfer_count_asc'
+  | 'withdrawal_count_desc'
+  | 'activity_desc'
+  | 'activity_asc';
+
+const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
+  { value: 'recent', label: 'Most recent activity first (default)' },
+  { value: 'balance_desc', label: 'Balance: highest to lowest' },
+  { value: 'balance_asc', label: 'Balance: lowest to highest' },
+  { value: 'deposit_total_desc', label: 'Deposited: most to least' },
+  { value: 'deposit_total_asc', label: 'Deposited: least to most' },
+  { value: 'deposit_count_desc', label: 'Deposit count: most to least' },
+  { value: 'transfer_count_desc', label: 'Transfers: highest to lowest' },
+  { value: 'transfer_count_asc', label: 'Transfers: lowest to highest' },
+  { value: 'withdrawal_count_desc', label: 'Withdrawals: most to least' },
+  { value: 'activity_desc', label: 'Most active to least active' },
+  { value: 'activity_asc', label: 'Least active to most active' },
+];
+
+
 interface HolderRow {
   key: string;
   userId: string | null;
