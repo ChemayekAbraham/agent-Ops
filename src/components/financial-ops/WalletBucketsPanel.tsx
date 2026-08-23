@@ -74,6 +74,7 @@ const BUCKETS = [
 
 export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
   const [selected, setSelected] = useState<{ holder: HolderBucket; tool: WalletBucketTool } | null>(null);
+  const [showActualMoney, setShowActualMoney] = useState(false);
   const { data, isLoading, error } = useQuery({
     queryKey: ['wallet-bucket-totals'],
     queryFn: async (): Promise<BucketTotals> => {
@@ -93,7 +94,13 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
     retry: false,
   });
 
+  const actualMoney = useActualMoneyPosition();
+
   const totalFor = (key: BucketTotalKey) => Number(data?.[key] ?? 0);
+
+  if (showActualMoney) {
+    return <ActualMoneyDetail onBack={() => setShowActualMoney(false)} />;
+  }
 
   if (selected) {
     return (
@@ -104,6 +111,7 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
       />
     );
   }
+
 
   return (
     <div className="space-y-5">
