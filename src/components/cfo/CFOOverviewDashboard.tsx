@@ -318,7 +318,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
       </div>
 
       {/* ══════════════ CHARTS ══════════════ */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+      <div className="grid grid-cols-1 gap-5">
         <Card className="rounded-2xl shadow-sm h-full flex flex-col">
           <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
             <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
