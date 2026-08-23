@@ -213,6 +213,39 @@ export function WalletBucketHoldersPanel({
         )}
       </div>
 
+      {bucket === 'landlord_float' && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Card className="border-purple-500/20 bg-purple-500/5">
+            <CardContent className="p-3 sm:p-4">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Funded by company float
+              </p>
+              <p className="font-mono tabular-nums text-lg font-bold text-purple-600 dark:text-purple-400">
+                {sourceSplit ? formatUGX(sourceSplit.company) : 'UGX —'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {sourceSplit?.companyCount ?? 0} open earmark
+                {(sourceSplit?.companyCount ?? 0) === 1 ? '' : 's'} from CFO disbursements
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="border-emerald-500/20 bg-emerald-500/5">
+            <CardContent className="p-3 sm:p-4">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Funded by funders directly
+              </p>
+              <p className="font-mono tabular-nums text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                {sourceSplit ? formatUGX(sourceSplit.funder) : 'UGX —'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {sourceSplit?.funderCount ?? 0} open earmark
+                {(sourceSplit?.funderCount ?? 0) === 1 ? '' : 's'} from funder wallets
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-3 sm:p-4 space-y-3">
           <div className="flex flex-wrap items-center gap-3">
