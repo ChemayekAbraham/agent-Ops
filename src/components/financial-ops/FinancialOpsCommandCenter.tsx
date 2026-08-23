@@ -141,10 +141,6 @@ const WithdrawalHistoryStatement = lz(() => import('./WithdrawalHistoryStatement
 const PortfolioTopUpVerification = lz(() => import('./PortfolioTopUpVerification'), 'PortfolioTopUpVerification');
 const PartnershipTopupAuditLog = lz(() => import('./PartnershipTopupAuditLog'), 'PartnershipTopupAuditLog');
 const WalletBucketsPanel = lz(() => import('./WalletBucketsPanel'), 'WalletBucketsPanel');
-const LandlordWithdrawalHistoryPanel = lz(
-  () => import('./LandlordWithdrawalHistoryPanel'),
-  'LandlordWithdrawalHistoryPanel',
-);
 const WalletBreakdownReadOnly = lz(() => import('./WalletBreakdownReadOnly'), 'WalletBreakdownReadOnly');
 const FinOpsWalletMovePanel = lz(() => import('./FinOpsWalletMovePanel'), 'FinOpsWalletMovePanel');
 const EmailTransactionsPanel = lz(() => import('./EmailTransactionsPanel'), 'EmailTransactionsPanel');
@@ -181,7 +177,7 @@ import {
   WifiOff, MoreHorizontal, AlertTriangle, AlertCircle, ScanLine, Receipt, Mail, Home as HomeIcon,
   ArrowRightLeft, ScrollText, KeyRound, ReceiptText
   , Bell, HandCoins, MessageSquare
-  , Store, Archive, Activity, CheckCircle2, Sparkles, PanelLeftClose, PanelLeftOpen, Wallet, CalendarClock, Landmark
+  , Store, Archive, Activity, CheckCircle2, Sparkles, PanelLeftClose, PanelLeftOpen, Wallet, CalendarClock
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -204,8 +200,7 @@ type Tool =
   | 'liquidity_forecast'
   | 'reports'
   | 'stale_withdrawal_holds'
-  | 'wallet_buckets'
-  | 'landlord_withdrawal_history';
+  | 'wallet_buckets';
 // Extend Tool type via union above; add new tools:
 
 
@@ -411,7 +406,6 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
         {activeTool === 'wallet_buckets' && (
           <WalletBucketsPanel onOpenTool={(t) => setActiveTool(t as any)} />
         )}
-        {activeTool === 'landlord_withdrawal_history' && <LandlordWithdrawalHistoryPanel />}
         {activeTool === 'wallet_breakdown' && (
           <div className="space-y-8">
             <FinOpsWalletMovePanel />
@@ -555,7 +549,6 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
       title: 'Wallet Buckets',
       items: [
         { kind: 'tool', id: 'wallet_buckets', label: 'Wallet Buckets', desc: 'Drill into withdrawable, operational, landlord and merchant float buckets', icon: Wallet },
-        { kind: 'tool', id: 'landlord_withdrawal_history', label: 'Landlord Withdrawal History', desc: 'Withdrawals agents made on behalf of each landlord, with date and time', icon: Landmark },
       ],
     },
     {
