@@ -310,6 +310,80 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
           </tbody>
         </table>
       </div>
+      </div>
+
+      <div className="space-y-2 border-t border-border/60 pt-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Landlord float receivable — funder pledges not yet deposited
+          </p>
+          {receivableTotal > 0 && (
+            <span className="text-xs font-semibold font-mono tabular-nums text-amber-600 dark:text-amber-400">
+              {formatUGX(receivableTotal)} outstanding
+            </span>
+          )}
+        </div>
+        {receivables.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            No receivable pledges on this agent's landlord float.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-left text-muted-foreground">
+                  <th className="py-1.5 pr-3 font-medium">Landlord</th>
+                  <th className="py-1.5 pr-3 font-medium">Tenant</th>
+                  <th className="py-1.5 pr-3 font-medium">Funder</th>
+                  <th className="py-1.5 pr-3 font-medium text-right">Amount</th>
+                  <th className="py-1.5 pr-3 font-medium">Promised deposit</th>
+                  <th className="py-1.5 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {receivables.map((r) => (
+                  <tr key={r.id} className="align-top">
+                    <td className="py-2 pr-3 font-semibold text-foreground">{r.landlord_name}</td>
+                    <td className="py-2 pr-3">
+                      {r.tenant_id ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setTenantFor({ id: r.tenant_id as string, name: r.tenant_name })
+                          }
+                          className="font-semibold text-primary hover:underline inline-flex items-center gap-1 text-left"
+                          title="View this tenant's repayment breakdown"
+                        >
+                          {r.tenant_name}
+                          <Receipt className="h-3 w-3 opacity-70" />
+                        </button>
+                      ) : (
+                        r.tenant_name
+                      )}
+                    </td>
+                    <td className="py-2 pr-3 text-foreground">{r.funder_name || 'Unknown funder'}</td>
+                    <td className="py-2 pr-3 text-right font-mono tabular-nums font-semibold">
+                      {formatUGX(r.amount)}
+                    </td>
+                    <td className="py-2 pr-3 whitespace-nowrap">
+                      {r.promised_deposit_date
+                        ? new Date(r.promised_deposit_date).toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })
+                        : '—'}
+                    </td>
+                    <td className="py-2 capitalize text-muted-foreground">
+                      {r.status.replace(/_/g, ' ')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {historyFor && (
         <LandlordWithdrawalHistoryDialog
