@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, History } from 'lucide-react';
+import { Loader2, History, Receipt } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { LandlordWithdrawalHistoryDialog } from './LandlordWithdrawalHistoryDialog';
 import { TenantRepaymentBreakdownDialog } from './TenantRepaymentBreakdownDialog';
