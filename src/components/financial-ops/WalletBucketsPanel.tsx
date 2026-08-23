@@ -179,7 +179,51 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
             </button>
           );
         })}
+
+        <button
+          onClick={() => setShowActualMoney(true)}
+          className="group text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-2xl"
+          aria-label="Open Actual Money"
+        >
+          <Card className="overflow-hidden border border-border bg-card transition-all hover:border-primary/30 hover:shadow-sm">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-xl flex items-center justify-center shrink-0 border bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20">
+                  <Banknote className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold tabular-nums text-muted-foreground/80 w-5">5.</span>
+                    <p className="text-sm sm:text-base font-semibold text-foreground">Actual Money</p>
+                  </div>
+                  <p className={cn(
+                    'text-xs font-bold font-mono mt-0.5 ml-7',
+                    actualMoney.error ? 'text-destructive' : 'text-primary',
+                  )}>
+                    {actualMoney.isLoading ? (
+                      <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        UGX —
+                      </span>
+                    ) : actualMoney.error ? (
+                      'Unavailable'
+                    ) : (
+                      formatUGX(Number(actualMoney.data?.total ?? 0))
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5 ml-7">
+                    Real cash we hold — banked plus cash in transit, straight from the ledger.
+                  </p>
+                </div>
+                <div className="shrink-0">
+                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </button>
       </div>
+
     </div>
   );
 }
