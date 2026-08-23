@@ -4,10 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, ChevronDown, ChevronRight, Loader2, Search, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronRight, Loader2, Search, ExternalLink, History } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { WalletBucketLedgerDetail } from './WalletBucketLedgerDetail';
 import { LandlordFloatAllocationsDetail } from './LandlordFloatAllocationsDetail';
+import { CompanyFloatDisbursementHistoryDialog } from './CompanyFloatDisbursementHistoryDialog';
 
 
 export type HolderBucket = 'withdrawable' | 'float' | 'landlord_float' | 'merchant_float';
@@ -147,6 +148,7 @@ export function WalletBucketHoldersPanel({
 }) {
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [companyHistoryOpen, setCompanyHistoryOpen] = useState(false);
   const meta = TITLES[bucket];
 
   const { data, isLoading, error } = useQuery({
@@ -221,6 +223,10 @@ export function WalletBucketHoldersPanel({
 
   return (
     <div className="space-y-4">
+      <CompanyFloatDisbursementHistoryDialog
+        open={companyHistoryOpen}
+        onOpenChange={setCompanyHistoryOpen}
+      />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2 mb-1 gap-1.5">
