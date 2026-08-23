@@ -187,22 +187,76 @@ export function WalletBucketHoldersPanel({
       if (error) throw error;
       const map = new Map<
         string,
-        { withdrawals: number; withdrawalTotal: number; transfers: number; transferTotal: number }
+        {
+          withdrawals: number;
+          withdrawalTotal: number;
+          transfers: number;
+          transferTotal: number;
+          deposits: number;
+          depositTotal: number;
+          lastActivityAt: number;
+        }
       >();
       for (const r of (rows ?? []) as any[]) {
+        const times = [r.last_withdrawal_at, r.last_transfer_at, r.last_deposit_at]
+          .map((t) => (t ? new Date(t as string).getTime() : 0))
+          .filter((n) => Number.isFinite(n));
         map.set(String(r.user_id), {
           withdrawals: Number(r.withdrawal_count ?? 0),
           withdrawalTotal: Number(r.withdrawal_total ?? 0),
           transfers: Number(r.transfer_count ?? 0),
           transferTotal: Number(r.transfer_total ?? 0),
+          deposits: Number(r.deposit_count ?? 0),
+          depositTotal: Number(r.deposit_total ?? 0),
+          lastActivityAt: times.length ? Math.max(...times) : 0,
         });
       }
       return map;
     },
   });
 
+  // Search + sort. `recent` keeps the order the loader returned (for the
+  // withdrawable bucket that is "most recent withdrawal first").
+  const rows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let list = data ?? [];
+    if (q) list = list.filter((r) => `${r.name} ${r.phone}`.toLowerCase().includes(q));
+    if (sortBy === 'recent') return list;
+    const stat = (r: HolderRow) => (r.userId ? activity?.get(r.userId) : undefined);
+    return [...list].sort((a, b) => {
+      const sa = stat(a);
+      const sb = stat(b);
+      switch (sortBy) {
+        case 'balance_desc':
+          return b.amount - a.amount;
+        case 'balance_asc':
+          return a.amount - b.amount;
+        case 'deposit_total_desc':
+          return (sb?.depositTotal ?? 0) - (sa?.depositTotal ?? 0);
+        case 'deposit_total_asc':
+          return (sa?.depositTotal ?? 0) - (sb?.depositTotal ?? 0);
+        case 'deposit_count_desc':
+          return (sb?.deposits ?? 0) - (sa?.deposits ?? 0);
+        case 'transfer_count_desc':
+          return (sb?.transfers ?? 0) - (sa?.transfers ?? 0);
+        case 'transfer_count_asc':
+          return (sa?.transfers ?? 0) - (sb?.transfers ?? 0);
+        case 'withdrawal_count_desc':
+          return (sb?.withdrawals ?? 0) - (sa?.withdrawals ?? 0);
+        case 'activity_desc':
+        case 'activity_asc': {
+          const av = (sa?.withdrawals ?? 0) + (sa?.transfers ?? 0) + (sa?.deposits ?? 0);
+          const bv = (sb?.withdrawals ?? 0) + (sb?.transfers ?? 0) + (sb?.deposits ?? 0);
+          return sortBy === 'activity_desc' ? bv - av : av - bv;
+        }
+        default:
+          return 0;
+      }
+    });
+  }, [data, search, sortBy, activity]);
 
   const total = rows.reduce((s, r) => s + r.amount, 0);
+
 
   // Landlord float only: split the outstanding earmarks by who put the money
   // there — company float (CFO disbursements) vs funders supporting a landlord
