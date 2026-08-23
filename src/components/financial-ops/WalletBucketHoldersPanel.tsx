@@ -534,7 +534,19 @@ export function WalletBucketHoldersPanel({
                                   <ArrowLeftRight className="h-3 w-3" />
                                   {a?.transfers ?? 0}
                                 </span>
+                                <span
+                                  title={
+                                    a
+                                      ? `${a.deposits} deposits • ${formatUGX(a.depositTotal)}`
+                                      : 'Deposits'
+                                  }
+                                  className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300"
+                                >
+                                  <ArrowDownLeft className="h-3 w-3" />
+                                  {a?.deposits ?? 0}
+                                </span>
                               </span>
+
                             );
                           })()}
                         </div>
