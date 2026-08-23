@@ -240,12 +240,12 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                           disabled={!canDrill}
                           onClick={() => canDrill && openLine(line)}
                           className={cn(
-                            'w-full p-4 text-left transition-colors',
+                            'w-full p-3.5 text-left transition-colors',
                             canDrill && 'hover:bg-muted/40'
                           )}
                         >
                         <div className="flex items-start justify-between gap-3">
-                          <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
+                          <div className="rounded-xl bg-primary/10 p-2 text-primary">
                             <Icon className="h-5 w-5" />
                           </div>
                           {canDrill && (
@@ -257,18 +257,18 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                             />
                           )}
                         </div>
-                        <p className="mt-3 text-[11px] uppercase tracking-wider text-muted-foreground">
+                        <p className="mt-2 text-[11px] uppercase tracking-wider text-muted-foreground">
                           {line.label}
                         </p>
-                        <p className="mt-1 font-mono text-lg font-bold">{formatUGX(line.value)}</p>
-                        <div className="mt-2 flex items-center gap-2">
+                        <p className="mt-1 font-mono text-base font-bold">{formatUGX(line.value)}</p>
+                        <div className="mt-1.5 flex items-center gap-2">
                           <Progress value={Math.min(100, Math.max(0, pct))} className="h-1.5 flex-1" />
                           <span className="text-[10px] font-medium text-muted-foreground w-9 text-right">
                             {formatPercent(pct)}
                           </span>
                         </div>
                         {line.count != null && (
-                          <p className="mt-1.5 text-[11px] text-muted-foreground">
+                          <p className="mt-1 text-[11px] text-muted-foreground">
                             {line.count.toLocaleString()} entries
                           </p>
                         )}
