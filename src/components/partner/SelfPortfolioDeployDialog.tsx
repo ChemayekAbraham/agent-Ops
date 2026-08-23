@@ -203,7 +203,13 @@ export function SelfPortfolioDeployDialog({
         setChoice('new');
         await loadEligibility();
         toast.error(raw.replace(/^.*PSM_TOPUP_WINDOW_CLOSED:\s*/, ''));
+      } else if (raw.includes('DEPOSIT_DATE_REQUIRED')) {
+        setChoice('direct');
+        toast.error('Add the date you will deposit this amount into your wallet');
+      } else if (raw.includes('DEPOSIT_DATE_IN_PAST')) {
+        toast.error('Pick a deposit date from today onwards');
       } else if (raw.includes('AGREEMENT_REQUIRED')) {
+
         toast.error('Sign your partner agreement first', {
           description: 'A signed partnership agreement is required before you can create a portfolio.',
         });
