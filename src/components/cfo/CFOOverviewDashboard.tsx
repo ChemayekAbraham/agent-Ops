@@ -38,7 +38,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const [exportingCommissions, setExportingCommissions] = useState(false);
   const [activeBreakdown, setActiveBreakdown] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    agentAdvances: true,
+    todayFlow: true,
   });
   // Sections default to expanded unless explicitly collapsed above; the chevron toggles.
   const isOpen = (key: string) => openSections[key] !== false;
