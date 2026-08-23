@@ -234,6 +234,7 @@ export default function Settings() {
   const [textSizeOpen, setTextSizeOpen] = useState(false);
   const [vibrationOpen, setVibrationOpen] = useState(false);
   const [motionOpen, setMotionOpen] = useState(false);
+  const [soundOpen, setSoundOpen] = useState(false);
 
 
 
