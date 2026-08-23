@@ -401,6 +401,9 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
             onCreateNewAllocation={() => setView('deposits')}
           />
         )}
+        {activeTool === 'wallet_buckets' && (
+          <WalletBucketsPanel onOpenTool={(t) => setActiveTool(t as any)} />
+        )}
         {activeTool === 'wallet_breakdown' && (
           <div className="space-y-8">
             <FinOpsWalletMovePanel />
