@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, History } from 'lucide-react';
+import { Loader2, History, Receipt } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { LandlordWithdrawalHistoryDialog } from './LandlordWithdrawalHistoryDialog';
+import { TenantRepaymentBreakdownDialog } from './TenantRepaymentBreakdownDialog';
 
 type AllocationRow = {
   landlord_id: string | null;
   id: string;
   landlord_name: string;
   landlord_phone: string | null;
+  tenant_id: string | null;
   tenant_name: string;
   allocated_amount: number;
   paid_out_amount: number;
@@ -29,6 +31,7 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
     name: string;
     phone: string | null;
   } | null>(null);
+  const [tenantFor, setTenantFor] = useState<{ id: string; name: string } | null>(null);
   const { data, isLoading, error } = useQuery({
     queryKey: ['landlord-float-allocations-detail', agentId],
     queryFn: async (): Promise<AllocationRow[]> => {
@@ -72,6 +75,7 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
           landlord_id: r.landlord_id ?? null,
           landlord_name: live?.name || r.landlord_name || 'Unknown landlord',
           landlord_phone: live?.mobile_money_number || live?.phone || r.landlord_phone || null,
+          tenant_id: r.tenant_id ?? null,
           tenant_name: (r.tenant_id ? tenantById.get(r.tenant_id) : null) ?? 'Unassigned tenant',
           allocated_amount: Number(r.allocated_amount ?? 0),
           paid_out_amount: Number(r.paid_out_amount ?? 0),
@@ -148,7 +152,23 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
                   )}
                   <p className="text-muted-foreground">{r.landlord_phone || '—'}</p>
                 </td>
-                <td className="py-2 pr-3 text-foreground">{r.tenant_name}</td>
+                <td className="py-2 pr-3 text-foreground">
+                  {r.tenant_id ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTenantFor({ id: r.tenant_id as string, name: r.tenant_name })
+                      }
+                      className="font-semibold text-primary hover:underline inline-flex items-center gap-1 text-left"
+                      title="View this tenant's repayment breakdown"
+                    >
+                      {r.tenant_name}
+                      <Receipt className="h-3 w-3 opacity-70" />
+                    </button>
+                  ) : (
+                    r.tenant_name
+                  )}
+                </td>
                 <td className="py-2 pr-3 text-right font-mono tabular-nums">
                   {formatUGX(r.allocated_amount)}
                 </td>
@@ -178,6 +198,16 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
           landlordId={historyFor.id}
           landlordName={historyFor.name}
           landlordPhone={historyFor.phone}
+        />
+      )}
+
+      {tenantFor && (
+        <TenantRepaymentBreakdownDialog
+          open
+          onOpenChange={(v) => !v && setTenantFor(null)}
+          tenantId={tenantFor.id}
+          tenantName={tenantFor.name}
+          focusAgentId={agentId}
         />
       )}
     </div>

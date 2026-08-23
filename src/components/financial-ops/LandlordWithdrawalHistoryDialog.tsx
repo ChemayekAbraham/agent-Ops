@@ -9,13 +9,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2, Receipt } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
+import { TenantRepaymentBreakdownDialog } from './TenantRepaymentBreakdownDialog';
 
 type PayoutRow = {
   id: string;
   agentId: string;
   agentName: string;
+  tenantId: string | null;
   tenantName: string;
   amount: number;
   status: string;
@@ -81,6 +83,7 @@ async function loadLandlordHistory(landlordId: string): Promise<AgentGroup[]> {
       id: r.id,
       agentId,
       agentName: (r.agent_id ? nameById.get(r.agent_id) : null) ?? 'Unassigned agent',
+      tenantId: r.tenant_id ?? null,
       tenantName: (r.tenant_id ? nameById.get(r.tenant_id) : null) ?? 'Unknown tenant',
       amount: Number(r.amount ?? 0),
       status: r.status ?? 'pending',
@@ -118,6 +121,12 @@ export function LandlordWithdrawalHistoryDialog({
   landlordPhone?: string | null;
 }) {
   const [openAgent, setOpenAgent] = useState<string | null>(null);
+  const [tenantFor, setTenantFor] = useState<{
+    id: string;
+    name: string;
+    agentId: string | null;
+    agentName: string | null;
+  } | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['landlord-withdrawal-history', landlordId],
@@ -214,7 +223,28 @@ export function LandlordWithdrawalHistoryDialog({
                                 <td className="py-2 px-3 whitespace-nowrap text-foreground">
                                   {fmtWhen(r.when)}
                                 </td>
-                                <td className="py-2 px-3">{r.tenantName}</td>
+                                <td className="py-2 px-3">
+                                  {r.tenantId ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setTenantFor({
+                                          id: r.tenantId as string,
+                                          name: r.tenantName,
+                                          agentId: r.agentId === 'none' ? null : r.agentId,
+                                          agentName: r.agentName,
+                                        })
+                                      }
+                                      className="font-semibold text-primary hover:underline inline-flex items-center gap-1 text-left"
+                                      title="View this tenant's repayment breakdown"
+                                    >
+                                      {r.tenantName}
+                                      <Receipt className="h-3 w-3 opacity-70" />
+                                    </button>
+                                  ) : (
+                                    r.tenantName
+                                  )}
+                                </td>
                                 <td className="py-2 px-3 text-right font-mono tabular-nums font-semibold">
                                   {formatUGX(r.amount)}
                                 </td>
@@ -240,6 +270,17 @@ export function LandlordWithdrawalHistoryDialog({
               })}
             </div>
           </div>
+        )}
+
+        {tenantFor && (
+          <TenantRepaymentBreakdownDialog
+            open
+            onOpenChange={(v) => !v && setTenantFor(null)}
+            tenantId={tenantFor.id}
+            tenantName={tenantFor.name}
+            focusAgentId={tenantFor.agentId}
+            focusAgentName={tenantFor.agentName}
+          />
         )}
       </DialogContent>
     </Dialog>
