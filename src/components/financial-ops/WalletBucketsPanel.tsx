@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Wallet, ArrowRightLeft, Home, Store, ChevronRight, Loader2 } from 'lucide-react';
+import { Wallet, ArrowRightLeft, Home, Store, ChevronRight, Loader2, Smartphone, Banknote } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import { WalletBucketHoldersPanel, type HolderBucket } from './WalletBucketHoldersPanel';
+import mtnLogoAsset from '@/assets/mtn-logo.png.asset.json';
+import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
+import { PhoneMoneyStatementSheet, type PhoneMoneyLine } from './PhoneMoneyStatementSheet';
+
 
 export type WalletBucketTool =
   | 'wallet_breakdown'
