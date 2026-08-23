@@ -59,7 +59,7 @@ async function fetchProfiles(ids: string[]) {
 
 async function loadHolders(bucket: HolderBucket): Promise<HolderRow[]> {
   if (bucket === 'withdrawable') {
-    const { data: rows, error } = await supabase.rpc('get_withdrawable_wallet_holders_by_recent_withdrawal');
+    const { data: rows, error } = await supabase.rpc('get_withdrawable_wallet_holders_by_recent_withdrawal' as any);
     if (error) throw error;
     return ((rows ?? []) as any[]).map((r) => ({
       key: r.user_id ?? Math.random().toString(36),
