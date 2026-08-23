@@ -170,6 +170,16 @@ export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string })
           </tbody>
         </table>
       </div>
+
+      {historyFor && (
+        <LandlordWithdrawalHistoryDialog
+          open
+          onOpenChange={(v) => !v && setHistoryFor(null)}
+          landlordId={historyFor.id}
+          landlordName={historyFor.name}
+          landlordPhone={historyFor.phone}
+        />
+      )}
     </div>
   );
 }
