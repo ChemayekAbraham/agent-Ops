@@ -18,6 +18,23 @@ type AllocationRow = {
   remaining_amount: number;
   status: string;
   created_at: string;
+  funder_id: string | null;
+  funder_name: string | null;
+  proxy_agent_name: string | null;
+  proxy_is_managed: boolean;
+};
+
+type ReceivableRow = {
+  id: string;
+  landlord_name: string;
+  tenant_id: string | null;
+  tenant_name: string;
+  funder_id: string | null;
+  funder_name: string | null;
+  amount: number;
+  promised_deposit_date: string | null;
+  status: string;
+  created_at: string;
 };
 
 /**
