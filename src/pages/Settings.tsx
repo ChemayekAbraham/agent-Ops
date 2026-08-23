@@ -234,6 +234,7 @@ export default function Settings() {
   const [textSizeOpen, setTextSizeOpen] = useState(false);
   const [vibrationOpen, setVibrationOpen] = useState(false);
   const [motionOpen, setMotionOpen] = useState(false);
+  const [soundOpen, setSoundOpen] = useState(false);
 
 
 
@@ -722,15 +723,27 @@ export default function Settings() {
                       </RadioGroup>
                     </CollapsibleContent>
                   </Collapsible>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between"><div className="flex items-center gap-2"><Volume2 className="h-4 w-4 text-primary" /><p className="font-medium text-sm">Alert Sounds</p></div><Switch checked={preferences.notificationSounds} onCheckedChange={(c) => { updatePreference('notificationSounds', c); if (c) playNotificationSound(preferences.notificationSoundType); toast.success(c ? 'Sounds on' : 'Sounds off'); }} /></div>
-                    {preferences.notificationSounds && (
-                      <div className="space-y-3 pl-6 border-l-2 border-primary/20">
-                        <div><p className="text-xs text-muted-foreground mb-2">General Sound</p><RadioGroup value={preferences.notificationSoundType} onValueChange={(v) => { updatePreference('notificationSoundType', v as any); playNotificationSound(v as any); }} className="grid grid-cols-3 gap-2">{(['ding', 'pop', 'chime'] as const).map((s) => (<Label key={s} htmlFor={`sound-${s}`} className={cn("flex items-center justify-center p-2 rounded-lg border cursor-pointer capitalize text-xs", preferences.notificationSoundType === s ? 'border-primary bg-primary/10 font-semibold' : 'border-border/50')}><RadioGroupItem value={s} id={`sound-${s}`} className="sr-only" />{s}</Label>))}</RadioGroup></div>
-                        <div><p className="text-xs text-muted-foreground mb-2">💰 Opportunity Sound</p><RadioGroup value={preferences.opportunitySoundType} onValueChange={(v) => { updatePreference('opportunitySoundType', v as any); if (v === 'opportunity') import('@/lib/notificationSound').then(m => m.playOpportunitySound('opportunity')); else playNotificationSound(v as any); }} className="grid grid-cols-2 gap-2">{(['opportunity', 'ding', 'pop', 'chime'] as const).map((s) => (<Label key={s} htmlFor={`opp-sound-${s}`} className={cn("flex items-center justify-center p-2 rounded-lg border cursor-pointer capitalize text-xs", preferences.opportunitySoundType === s ? 'border-success bg-success/10 font-semibold' : 'border-border/50')}><RadioGroupItem value={s} id={`opp-sound-${s}`} className="sr-only" />{s === 'opportunity' ? '💰 Money' : s}</Label>))}</RadioGroup></div>
+                  <Collapsible open={soundOpen} onOpenChange={setSoundOpen} className="space-y-2">
+                    <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
+                      <span className="flex items-center gap-2"><Volume2 className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Alert Sounds</span></span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-muted-foreground">{preferences.notificationSounds ? 'On' : 'Off'}</span>
+                        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", soundOpen && "rotate-180")} />
+                      </span>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-3 pt-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm">Enable sounds</p>
+                        <Switch checked={preferences.notificationSounds} onCheckedChange={(c) => { updatePreference('notificationSounds', c); if (c) playNotificationSound(preferences.notificationSoundType); toast.success(c ? 'Sounds on' : 'Sounds off'); }} />
                       </div>
-                    )}
-                  </div>
+                      {preferences.notificationSounds && (
+                        <div className="space-y-3 pl-6 border-l-2 border-primary/20">
+                          <div><p className="text-xs text-muted-foreground mb-2">General Sound</p><RadioGroup value={preferences.notificationSoundType} onValueChange={(v) => { updatePreference('notificationSoundType', v as any); playNotificationSound(v as any); }} className="grid grid-cols-3 gap-2">{(['ding', 'pop', 'chime'] as const).map((s) => (<Label key={s} htmlFor={`sound-${s}`} className={cn("flex items-center justify-center p-2 rounded-lg border cursor-pointer capitalize text-xs", preferences.notificationSoundType === s ? 'border-primary bg-primary/10 font-semibold' : 'border-border/50')}><RadioGroupItem value={s} id={`sound-${s}`} className="sr-only" />{s}</Label>))}</RadioGroup></div>
+                          <div><p className="text-xs text-muted-foreground mb-2">💰 Opportunity Sound</p><RadioGroup value={preferences.opportunitySoundType} onValueChange={(v) => { updatePreference('opportunitySoundType', v as any); if (v === 'opportunity') import('@/lib/notificationSound').then(m => m.playOpportunitySound('opportunity')); else playNotificationSound(v as any); }} className="grid grid-cols-2 gap-2">{(['opportunity', 'ding', 'pop', 'chime'] as const).map((s) => (<Label key={s} htmlFor={`opp-sound-${s}`} className={cn("flex items-center justify-center p-2 rounded-lg border cursor-pointer capitalize text-xs", preferences.opportunitySoundType === s ? 'border-success bg-success/10 font-semibold' : 'border-border/50')}><RadioGroupItem value={s} id={`opp-sound-${s}`} className="sr-only" />{s === 'opportunity' ? '💰 Money' : s}</Label>))}</RadioGroup></div>
+                        </div>
+                      )}
+                    </CollapsibleContent>
+                  </Collapsible>
                   <Collapsible open={pushOpen} onOpenChange={setPushOpen} className="space-y-2">
                     <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
                       <span className="flex items-center gap-2"><Bell className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Push Notifications</span></span>
