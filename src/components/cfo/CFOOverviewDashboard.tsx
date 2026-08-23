@@ -337,17 +337,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl shadow-sm h-full flex flex-col">
-          <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
-            <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
-              <p className="text-sm font-semibold tracking-tight">Advances — Disbursed vs Recovered</p>
-              <span className="text-[11px] font-semibold text-emerald-600">{recoveryRate.toFixed(0)}% recovered</span>
-            </div>
-            <div className="flex-1 min-h-0">
-              <AgentAdvancesTrendChart hideHeader />
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Agent Advances — Full Portfolio placed below the Advances chart */}
         <CollapsibleBlock title="Agent Advances — Full Portfolio" open={isOpen('agentAdvances')} onToggle={() => toggleSection('agentAdvances')}>
