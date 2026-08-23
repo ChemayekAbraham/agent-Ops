@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, ArrowDownLeft, ArrowUpRight, Wallet, Banknote, AlertTriangle, HelpCircle } from 'lucide-react';
+import { Loader2, ArrowDownLeft, ArrowUpRight, Wallet, Banknote, AlertTriangle, HelpCircle, ChevronRight } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
+import { LedgerEntryDetailDialog } from './LedgerEntryDetailDialog';
 
 /**
  * Per-user wallet bucket → ledger drill-down.
@@ -61,6 +62,7 @@ export function WalletBucketLedgerDetail({
   advance: number;
   onlyBucket?: BucketKey;
 }) {
+  const [detailId, setDetailId] = useState<string | null>(null);
   const { data, isLoading, error } = useQuery({
     queryKey: ['wallet-bucket-ledger', userId],
     queryFn: async () => {
@@ -150,13 +152,19 @@ export function WalletBucketLedgerDetail({
                       <th className="px-3 py-1.5 font-medium">Category</th>
                       <th className="px-3 py-1.5 font-medium">Description</th>
                       <th className="px-3 py-1.5 font-medium text-right">Amount</th>
+                      <th className="px-2 py-1.5 font-medium sr-only">Details</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((r) => {
                       const isIn = r.direction === 'cash_in';
                       return (
-                        <tr key={r.id} className="border-t border-border/40 hover:bg-muted/30">
+                        <tr
+                          key={r.id}
+                          onClick={() => setDetailId(r.id)}
+                          title="Open full transaction detail"
+                          className="border-t border-border/40 hover:bg-muted/30 cursor-pointer"
+                        >
                           <td className="px-3 py-1.5 whitespace-nowrap font-mono tabular-nums text-muted-foreground">
                             {fmtTs(r.transaction_date)}
                           </td>
@@ -177,6 +185,9 @@ export function WalletBucketLedgerDetail({
                               {isIn ? '+' : '−'}{formatUGX(Number(r.amount))}
                             </span>
                           </td>
+                          <td className="px-2 py-1.5 text-right text-muted-foreground">
+                            <ChevronRight className="h-3.5 w-3.5 inline" />
+                          </td>
                         </tr>
                       );
                     })}
@@ -192,6 +203,11 @@ export function WalletBucketLedgerDetail({
           Showing the most recent 500 wallet ledger entries.
         </p>
       )}
+      <LedgerEntryDetailDialog
+        entryId={detailId}
+        open={!!detailId}
+        onOpenChange={(v) => !v && setDetailId(null)}
+      />
     </div>
   );
 }
