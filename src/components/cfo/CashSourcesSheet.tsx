@@ -214,7 +214,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
           <div className="space-y-4 pb-4">
             {/* Where the money sits — position cards (A1 split + in-transit) */}
             {positions.length > 0 && (
-              <section className="space-y-3">
+            <section className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="rounded-lg bg-primary/10 p-1.5">
