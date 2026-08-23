@@ -555,6 +555,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
       title: 'Wallet Buckets',
       items: [
         { kind: 'tool', id: 'wallet_buckets', label: 'Wallet Buckets', desc: 'Drill into withdrawable, operational, landlord and merchant float buckets', icon: Wallet },
+        { kind: 'tool', id: 'landlord_withdrawal_history', label: 'Landlord Withdrawal History', desc: 'Withdrawals agents made on behalf of each landlord, with date and time', icon: Landmark },
       ],
     },
     {
