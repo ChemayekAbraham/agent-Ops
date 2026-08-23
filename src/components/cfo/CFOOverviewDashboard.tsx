@@ -358,6 +358,11 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
             </div>
           </CardContent>
         </Card>
+
+        {/* Agent Advances — Full Portfolio placed below the Advances chart */}
+        <CollapsibleBlock title="Agent Advances — Full Portfolio" open={isOpen('agentAdvances')} onToggle={() => toggleSection('agentAdvances')}>
+          <AgentAdvancesStatsCard />
+        </CollapsibleBlock>
       </div>
 
       {/* ══════════════ CFO ACTIONS LOG ══════════════ */}
