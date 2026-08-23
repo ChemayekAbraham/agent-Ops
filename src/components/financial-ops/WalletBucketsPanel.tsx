@@ -9,6 +9,8 @@ import { WalletBucketHoldersPanel, type HolderBucket } from './WalletBucketHolde
 import mtnLogoAsset from '@/assets/mtn-logo.png.asset.json';
 import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
 import { PhoneMoneyStatementSheet, type PhoneMoneyLine } from './PhoneMoneyStatementSheet';
+import { MerchantFloatEmailMovementsDialog } from './MerchantFloatEmailMovementsDialog';
+
 
 
 export type WalletBucketTool =
