@@ -138,6 +138,10 @@ export function SelfPortfolioDeployDialog({
 
   const deploy = async () => {
     if (selectedIds.length === 0) return;
+    if (needsDepositDate && !depositDate) {
+      toast.error('Add the date you will deposit this amount');
+      return;
+    }
     setBusy(true);
     try {
       const { error: claimError } = await supabase.rpc('partner_self_claim_plans', {
@@ -145,7 +149,26 @@ export function SelfPortfolioDeployDialog({
       });
       if (claimError) throw claimError;
 
-      if (choice === 'topup' && eligibility) {
+      if (choice === 'direct') {
+        const { data, error } = await supabase.rpc('funder_support_tenant_direct', {
+          p_rent_request_ids: selectedIds,
+          p_promised_deposit_date: depositDate || null,
+          p_term_months: 1,
+        });
+        if (error) throw error;
+        const payload = (data ?? {}) as { funding_mode?: string; from_float?: number };
+        if (payload.funding_mode === 'receivable') {
+          toast.success('Support pledged', {
+            description: `Recorded as a landlord float receivable of ${formatDynamic(total)}. Deposit it into your wallet by ${new Date(depositDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} and it releases to the landlord float.`,
+            duration: 9000,
+          });
+        } else {
+          toast.success('Sent to the landlord float', {
+            description: `${formatDynamic(total)} moved out of your ${Number(payload.from_float ?? 0) > 0 ? 'wallet and operational float' : 'spendable wallet'} onto the tenant's agent landlord float.`,
+            duration: 9000,
+          });
+        }
+      } else if (choice === 'topup' && eligibility) {
         const { error } = await supabase.rpc('partner_self_top_up', {
           p_commitment_id: eligibility.commitment_id,
           p_rent_request_ids: selectedIds,
@@ -169,6 +192,7 @@ export function SelfPortfolioDeployDialog({
           duration: 8000,
         });
       }
+
 
       onOpenChange(false);
       await onDeployed();
