@@ -196,6 +196,29 @@ export function WalletBucketHoldersPanel({
     },
   });
 
+  // Landlord float only: money that funders have promised to deposit but has not
+  // yet arrived in any wallet bucket. These are future landlord float commitments.
+  const { data: receivablesTotal } = useQuery({
+    queryKey: ['landlord-float-receivables-total'],
+    enabled: bucket === 'landlord_float',
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('landlord_float_receivables' as any)
+        .select('amount, status')
+        .not('status', 'in', '("settled","cancelled")')
+        .limit(5000);
+      if (error) throw error;
+      let total = 0;
+      let count = 0;
+      for (const r of (data ?? []) as any[]) {
+        total += Number(r.amount) || 0;
+        count += 1;
+      }
+      return { total, count };
+    },
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
