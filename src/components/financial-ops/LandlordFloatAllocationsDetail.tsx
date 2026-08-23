@@ -24,6 +24,11 @@ type AllocationRow = {
  * how much, and when it was disbursed into that agent's wallet.
  */
 export function LandlordFloatAllocationsDetail({ agentId }: { agentId: string }) {
+  const [historyFor, setHistoryFor] = useState<{
+    id: string;
+    name: string;
+    phone: string | null;
+  } | null>(null);
   const { data, isLoading, error } = useQuery({
     queryKey: ['landlord-float-allocations-detail', agentId],
     queryFn: async (): Promise<AllocationRow[]> => {
