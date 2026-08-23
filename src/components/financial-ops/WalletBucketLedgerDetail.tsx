@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, ArrowDownLeft, ArrowUpRight, Wallet, Banknote, AlertTriangle, HelpCircle } from 'lucide-react';
+import { Loader2, ArrowDownLeft, ArrowUpRight, Wallet, Banknote, AlertTriangle, HelpCircle, ChevronRight } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
+import { LedgerEntryDetailDialog } from './LedgerEntryDetailDialog';
 
 /**
  * Per-user wallet bucket → ledger drill-down.
