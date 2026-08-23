@@ -72,10 +72,13 @@ export function SelfPortfolioDeployDialog({
   total: number;
   onDeployed: () => void | Promise<void>;
 }) {
+  const { user } = useAuth();
   const [eligibility, setEligibility] = useState<Eligibility | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [choice, setChoice] = useState<Choice>('new');
+  const [capacity, setCapacity] = useState<number | null>(null);
+  const [depositDate, setDepositDate] = useState('');
 
   const loadEligibility = useCallback(async () => {
     if (!activeCommitmentId) {
@@ -98,9 +101,20 @@ export function SelfPortfolioDeployDialog({
     setLoading(false);
   }, [activeCommitmentId]);
 
+  /** Spendable wallet + operational float — the funds a direct release can draw on. */
+  const loadCapacity = useCallback(async () => {
+    if (!user?.id) return;
+    const { data, error } = await supabase.rpc('funder_support_capacity', { p_user_id: user.id });
+    setCapacity(error ? null : Number(data ?? 0));
+  }, [user?.id]);
+
   useEffect(() => {
-    if (open) void loadEligibility();
-  }, [open, loadEligibility]);
+    if (open) {
+      setDepositDate('');
+      void loadEligibility();
+      void loadCapacity();
+    }
+  }, [open, loadEligibility, loadCapacity]);
 
   const rate = Number(eligibility?.monthly_rate ?? 15);
   const fullMonthly = Math.round((total * rate) / 100);
@@ -117,6 +131,10 @@ export function SelfPortfolioDeployDialog({
   const topupProjection = prorata + fullMonthly * cyclesRemaining;
   const newProjection = fullMonthly;
   const canTopUp = !!eligibility?.allow_topup;
+  const covered = capacity !== null && capacity >= total && total > 0;
+  const needsDepositDate = choice === 'direct' && !covered;
+  const todayISO = new Date().toISOString().slice(0, 10);
+
 
   const deploy = async () => {
     if (selectedIds.length === 0) return;
