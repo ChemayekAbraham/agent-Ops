@@ -16216,6 +16216,60 @@ export type Database = {
         }
         Relationships: []
       }
+      landlord_float_receivables: {
+        Row: {
+          agent_id: string | null
+          amount: number
+          commitment_id: string | null
+          created_at: string
+          funder_id: string
+          id: string
+          landlord_id: string | null
+          landlord_name: string | null
+          notes: string | null
+          promised_deposit_date: string
+          rent_request_id: string
+          settled_at: string | null
+          status: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id?: string | null
+          amount: number
+          commitment_id?: string | null
+          created_at?: string
+          funder_id: string
+          id?: string
+          landlord_id?: string | null
+          landlord_name?: string | null
+          notes?: string | null
+          promised_deposit_date: string
+          rent_request_id: string
+          settled_at?: string | null
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string | null
+          amount?: number
+          commitment_id?: string | null
+          created_at?: string
+          funder_id?: string
+          id?: string
+          landlord_id?: string | null
+          landlord_name?: string | null
+          notes?: string | null
+          promised_deposit_date?: string
+          rent_request_id?: string
+          settled_at?: string | null
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       landlord_funder_links: {
         Row: {
           active: boolean
@@ -39666,6 +39720,15 @@ export type Database = {
       }
       funder_pending_committed: { Args: { p_user_id: string }; Returns: number }
       funder_pending_hold: { Args: { p_user_id: string }; Returns: number }
+      funder_support_capacity: { Args: { p_user_id: string }; Returns: number }
+      funder_support_tenant_direct: {
+        Args: {
+          p_promised_deposit_date?: string
+          p_rent_request_ids: string[]
+          p_term_months?: number
+        }
+        Returns: Json
+      }
       funder_supported_tenants: {
         Args: never
         Returns: {
@@ -43977,17 +44040,30 @@ export type Database = {
         }
         Returns: undefined
       }
-      psm_confirm_commitment_for: {
-        Args: {
-          p_actor?: string
-          p_idempotency_key?: string
-          p_partner: string
-          p_promissory_note_id?: string
-          p_rent_request_ids: string[]
-          p_term_months?: number
-        }
-        Returns: Json
-      }
+      psm_confirm_commitment_for:
+        | {
+            Args: {
+              p_actor?: string
+              p_idempotency_key?: string
+              p_partner: string
+              p_promissory_note_id?: string
+              p_rent_request_ids: string[]
+              p_term_months?: number
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_actor?: string
+              p_funding_mode?: string
+              p_idempotency_key?: string
+              p_partner: string
+              p_promissory_note_id?: string
+              p_rent_request_ids: string[]
+              p_term_months?: number
+            }
+            Returns: Json
+          }
       psm_disburse_landlord_float: {
         Args: {
           p_commitment_id: string
