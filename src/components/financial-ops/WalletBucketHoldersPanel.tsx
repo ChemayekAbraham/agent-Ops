@@ -7,6 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, ChevronDown, ChevronRight, Loader2, Search, ExternalLink } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { WalletBucketLedgerDetail } from './WalletBucketLedgerDetail';
+import { LandlordFloatAllocationsDetail } from './LandlordFloatAllocationsDetail';
+
 
 export type HolderBucket = 'withdrawable' | 'float' | 'landlord_float' | 'merchant_float';
 
@@ -234,12 +236,16 @@ export function WalletBucketHoldersPanel({
                     </button>
                     {isOpen && (
                       r.userId ? (
-                        <WalletBucketLedgerDetail
-                          userId={r.userId}
-                          withdrawable={bucket === 'withdrawable' ? r.amount : 0}
-                          float={bucket === 'withdrawable' ? 0 : r.amount}
-                          advance={0}
-                        />
+                        bucket === 'landlord_float' ? (
+                          <LandlordFloatAllocationsDetail agentId={r.userId} />
+                        ) : (
+                          <WalletBucketLedgerDetail
+                            userId={r.userId}
+                            withdrawable={bucket === 'withdrawable' ? r.amount : 0}
+                            float={bucket === 'withdrawable' ? 0 : r.amount}
+                            advance={0}
+                          />
+                        )
                       ) : (
                         <div className="px-4 py-4 text-xs text-muted-foreground bg-muted/20">
                           This holder is not linked to a platform user account, so ledger entries
@@ -247,6 +253,7 @@ export function WalletBucketHoldersPanel({
                         </div>
                       )
                     )}
+
                   </div>
                 );
               })}
