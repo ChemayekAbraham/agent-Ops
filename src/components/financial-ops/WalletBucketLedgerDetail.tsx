@@ -152,6 +152,7 @@ export function WalletBucketLedgerDetail({
                       <th className="px-3 py-1.5 font-medium">Category</th>
                       <th className="px-3 py-1.5 font-medium">Description</th>
                       <th className="px-3 py-1.5 font-medium text-right">Amount</th>
+                      <th className="px-2 py-1.5 font-medium sr-only">Details</th>
                     </tr>
                   </thead>
                   <tbody>
