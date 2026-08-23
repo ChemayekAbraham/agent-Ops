@@ -310,7 +310,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
             )}
 
             {/* Sources of money in */}
-            <section className="space-y-3">
+            <section className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="rounded-lg bg-success/10 p-1.5">
