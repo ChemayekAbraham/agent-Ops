@@ -544,6 +544,12 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
 
   const sidebarGroups: { title: string; items: MoreAction[] }[] = [
     {
+      title: 'Wallet Buckets',
+      items: [
+        { kind: 'tool', id: 'wallet_buckets', label: 'Wallet Buckets', desc: 'Drill into withdrawable, operational, landlord and merchant float buckets', icon: Wallet },
+      ],
+    },
+    {
       title: 'Deposits & Reconciliation',
       items: moreActions.filter(a => [
         'deposits','bridge_health','manual_float_credit','email_tx','auto_credit_review','offline_collections',
