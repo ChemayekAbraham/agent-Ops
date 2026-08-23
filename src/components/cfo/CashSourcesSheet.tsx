@@ -435,32 +435,32 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                     const isExpanded = expanded === line.category;
 
                     return (
-                      <div key={line.category} className="rounded-xl border border-border bg-card overflow-hidden">
-                        <button
-                          onClick={() => openLine(line)}
-                          className="w-full flex items-center justify-between gap-3 p-3 hover:bg-muted/40 transition-colors"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="rounded-lg bg-destructive/10 p-2 text-destructive shrink-0">
-                              <Icon className="h-4 w-4" />
-                            </div>
-                            <span className="text-sm text-muted-foreground truncate">
-                              {line.label}
-                              {line.count != null ? ` (${line.count.toLocaleString()})` : ''}
-                            </span>
+                    <div key={line.category} className="rounded-xl border border-border bg-card overflow-hidden">
+                      <button
+                        onClick={() => openLine(line)}
+                        className="w-full flex items-center justify-between gap-3 p-2.5 hover:bg-muted/40 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="rounded-lg bg-destructive/10 p-2 text-destructive shrink-0">
+                            <Icon className="h-4 w-4" />
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="font-mono text-sm font-semibold text-destructive">
-                              −{formatUGX(line.value)}
-                            </span>
-                            <ChevronRight
-                              className={cn(
-                                'h-4 w-4 text-muted-foreground transition-transform',
-                                hasChildren && isExpanded && 'rotate-90'
-                              )}
-                            />
-                          </div>
-                        </button>
+                          <span className="text-sm text-muted-foreground truncate">
+                            {line.label}
+                            {line.count != null ? ` (${line.count.toLocaleString()})` : ''}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="font-mono text-sm font-semibold text-destructive">
+                            −{formatUGX(line.value)}
+                          </span>
+                          <ChevronRight
+                            className={cn(
+                              'h-4 w-4 text-muted-foreground transition-transform',
+                              hasChildren && isExpanded && 'rotate-90'
+                            )}
+                          />
+                        </div>
+                      </button>
 
                         {isExpanded && hasChildren && (
                           <div className="border-t border-border bg-muted/20 divide-y divide-border">
