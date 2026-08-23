@@ -214,7 +214,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
           <div className="space-y-5 pb-5">
             {/* Where the money sits — position cards (A1 split + in-transit) */}
             {positions.length > 0 && (
-              <section className="space-y-3">
+              <section className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="rounded-lg bg-primary/10 p-1.5">
@@ -225,7 +225,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                   <span className="text-sm font-mono font-semibold">{formatUGX(a1 + a5)}</span>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-2.5 sm:grid-cols-2">
                   {positions.map((line) => {
                     const Icon = getSourceIcon(line.category);
                     const pct = a1 + a5 > 0 ? (line.value / (a1 + a5)) * 100 : 0;
@@ -234,41 +234,41 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                     return (
                       <div
                         key={line.category}
-                        className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm"
+                        className="rounded-xl border border-border bg-card overflow-hidden shadow-sm"
                       >
                         <button
                           disabled={!canDrill}
                           onClick={() => canDrill && openLine(line)}
                           className={cn(
-                            'w-full p-4 text-left transition-colors',
+                            'w-full p-3.5 text-left transition-colors',
                             canDrill && 'hover:bg-muted/40'
                           )}
                         >
                         <div className="flex items-start justify-between gap-3">
-                          <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
-                            <Icon className="h-5 w-5" />
+                          <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                            <Icon className="h-4 w-4" />
                           </div>
                           {canDrill && (
                             <ChevronRight
                               className={cn(
-                                'h-4 w-4 text-muted-foreground mt-2 transition-transform',
+                                'h-4 w-4 text-muted-foreground mt-1 transition-transform',
                                 isExpanded && 'rotate-90'
                               )}
                             />
                           )}
                         </div>
-                        <p className="mt-3 text-[11px] uppercase tracking-wider text-muted-foreground">
+                        <p className="mt-2.5 text-[10px] uppercase tracking-wider text-muted-foreground">
                           {line.label}
                         </p>
-                        <p className="mt-1 font-mono text-lg font-bold">{formatUGX(line.value)}</p>
+                        <p className="mt-0.5 font-mono text-base font-bold">{formatUGX(line.value)}</p>
                         <div className="mt-2 flex items-center gap-2">
-                          <Progress value={Math.min(100, Math.max(0, pct))} className="h-1.5 flex-1" />
+                          <Progress value={Math.min(100, Math.max(0, pct))} className="h-1 flex-1" />
                           <span className="text-[10px] font-medium text-muted-foreground w-9 text-right">
                             {formatPercent(pct)}
                           </span>
                         </div>
                         {line.count != null && (
-                          <p className="mt-1.5 text-[11px] text-muted-foreground">
+                          <p className="mt-1 text-[10px] text-muted-foreground">
                             {line.count.toLocaleString()} entries
                           </p>
                         )}
@@ -280,7 +280,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                               <button
                                 key={c.category}
                                 onClick={() => pick({ ...c, value: Math.abs(c.value) })}
-                                className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors"
+                                className="w-full flex items-center justify-between gap-3 px-3.5 py-2 text-left hover:bg-muted/40 transition-colors"
                               >
                                 <span className="text-xs text-muted-foreground truncate">
                                   {c.label}
@@ -303,7 +303,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                     );
                   })}
                 </div>
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[10px] text-muted-foreground">
                   Position view of the same ledger cash — shown alongside, never added to, the sources below.
                 </p>
               </section>
