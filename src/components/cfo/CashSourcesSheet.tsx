@@ -618,8 +618,8 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
             )}
           </div>
         )}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 
