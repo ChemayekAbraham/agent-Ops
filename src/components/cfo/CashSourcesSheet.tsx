@@ -190,10 +190,10 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
   const reconciliationGap = totalCash - (grossIn - grossOut);
 
   return (
-    <Sheet open={open} onOpenChange={close}>
-      <SheetContent side="bottom" className="rounded-t-3xl max-h-[92vh] overflow-y-auto px-4 sm:px-6">
-        <SheetHeader className="pb-4 pt-1">
-          <SheetTitle className="text-base sm:text-lg flex items-center gap-3">
+    <Dialog open={open} onOpenChange={close}>
+      <DialogContent className="w-[calc(100%-2rem)] max-w-[720px] max-h-[85vh] overflow-y-auto rounded-2xl p-5 sm:p-6 shadow-2xl">
+        <DialogHeader className="pb-3">
+          <DialogTitle className="text-base sm:text-lg flex items-center gap-3">
             {selected && (
               <button
                 onClick={() => setSelected(null)}
@@ -207,11 +207,11 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
             <span className="truncate">
               {selected ? selected.label : 'Money We Have'}
             </span>
-          </SheetTitle>
-        </SheetHeader>
+          </DialogTitle>
+        </DialogHeader>
 
         {!selected && (
-          <div className="space-y-6 pb-6">
+          <div className="space-y-4 pb-4">
             {/* Where the money sits — position cards (A1 split + in-transit) */}
             {positions.length > 0 && (
               <section className="space-y-3">
