@@ -174,17 +174,13 @@ export default function Referrals() {
                   <p className="text-lg font-bold text-primary">UGX 100</p>
                   <p className="text-xs text-muted-foreground">On signup</p>
                 </div>
-                <span className="text-xl text-muted-foreground">+</span>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-success">UGX 200</p>
-                  <p className="text-xs text-muted-foreground">1st transaction</p>
-                </div>
                 <span className="text-xl text-muted-foreground">=</span>
                 <div className="text-center">
-                  <p className="text-lg font-bold text-warning">UGX 300</p>
+                  <p className="text-lg font-bold text-warning">UGX 100</p>
                   <p className="text-xs text-muted-foreground">Per friend</p>
                 </div>
               </div>
+
               
               <div className="flex gap-2">
                 <div className="flex-1 bg-muted/50 rounded-lg px-3 py-2 text-sm truncate font-mono">
