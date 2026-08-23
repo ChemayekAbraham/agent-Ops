@@ -42142,6 +42142,18 @@ export type Database = {
       }
       get_user_wallet_view: { Args: { p_user_id: string }; Returns: Json }
       get_wallet_bucket_totals: { Args: never; Returns: Json }
+      get_wallet_holder_activity_counts: {
+        Args: { p_user_ids: string[] }
+        Returns: {
+          last_transfer_at: string
+          last_withdrawal_at: string
+          transfer_count: number
+          transfer_total: number
+          user_id: string
+          withdrawal_count: number
+          withdrawal_total: number
+        }[]
+      }
       get_wallet_ledger_category_sums: {
         Args: { p_from: string; p_to: string }
         Returns: {
