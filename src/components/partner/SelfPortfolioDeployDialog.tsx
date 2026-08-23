@@ -50,7 +50,7 @@ interface Eligibility {
   available_balance: number;
 }
 
-type Choice = 'topup' | 'new';
+type Choice = 'topup' | 'new' | 'direct';
 
 const shortDate = (iso: string | null) =>
   iso
