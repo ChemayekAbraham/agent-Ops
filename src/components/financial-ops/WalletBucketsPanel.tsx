@@ -95,7 +95,36 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
     retry: false,
   });
 
+  // 5th bucket: real money on the merchant MTN/Airtel lines (parsed from email
+  // transactions) plus verified cash at hand not yet banked.
+  const { data: actual, isLoading: actualLoading, error: actualError } = useQuery({
+    queryKey: ['wallet-bucket-actual-float'],
+    queryFn: async () => {
+      const [phoneRes, cashRes] = await Promise.all([
+        supabase.rpc('get_phone_platform_reconciliation' as any),
+        supabase.rpc('get_cash_at_hand_total' as any),
+      ]);
+      if (phoneRes.error) throw phoneRes.error;
+      const p = (phoneRes.data ?? {}) as any;
+      const c = (cashRes.data ?? {}) as any;
+      const mtn = Number(p.mtn_balance ?? 0);
+      const airtel = Number(p.airtel_balance ?? 0);
+      const cash = Number(c.cash_at_hand_total ?? 0);
+      return { mtn, airtel, cash, total: Number(p.total_float ?? mtn + airtel) + cash };
+    },
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    retry: false,
+  });
+
   const totalFor = (key: BucketTotalKey) => Number(data?.[key] ?? 0);
+
+  const actualRows = [
+    { label: 'MTN Money', amount: actual?.mtn ?? 0, logo: mtnLogoAsset.url as string | null, line: 'mtn_momo' as PhoneMoneyLine },
+    { label: 'Airtel Money', amount: actual?.airtel ?? 0, logo: airtelLogoAsset.url as string | null, line: 'airtel_money' as PhoneMoneyLine },
+    { label: 'Cash at Hand', amount: actual?.cash ?? 0, logo: null, line: 'cash' as PhoneMoneyLine },
+  ];
+
 
   if (selected) {
     return (
