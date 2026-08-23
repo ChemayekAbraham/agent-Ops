@@ -173,6 +173,40 @@ export function WalletBucketHoldersPanel({
     return list.filter((r) => `${r.name} ${r.phone}`.toLowerCase().includes(q));
   }, [data, search]);
 
+  // Per-holder activity counters: how many withdrawals this person has taken and
+  // how many wallet transfers they were part of.
+  const holderIds = useMemo(
+    () => Array.from(new Set((data ?? []).map((r) => r.userId).filter((v): v is string => !!v))),
+    [data],
+  );
+
+  const { data: activity } = useQuery({
+    queryKey: ['wallet-holder-activity-counts', holderIds],
+    enabled: holderIds.length > 0,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data: rows, error } = await supabase.rpc(
+        'get_wallet_holder_activity_counts' as any,
+        { p_user_ids: holderIds } as any,
+      );
+      if (error) throw error;
+      const map = new Map<
+        string,
+        { withdrawals: number; withdrawalTotal: number; transfers: number; transferTotal: number }
+      >();
+      for (const r of (rows ?? []) as any[]) {
+        map.set(String(r.user_id), {
+          withdrawals: Number(r.withdrawal_count ?? 0),
+          withdrawalTotal: Number(r.withdrawal_total ?? 0),
+          transfers: Number(r.transfer_count ?? 0),
+          transferTotal: Number(r.transfer_total ?? 0),
+        });
+      }
+      return map;
+    },
+  });
+
+
   const total = rows.reduce((s, r) => s + r.amount, 0);
 
   // Landlord float only: split the outstanding earmarks by who put the money
