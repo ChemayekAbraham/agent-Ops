@@ -336,10 +336,10 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                     >
                       <button
                         onClick={() => openLine(line)}
-                        className="w-full text-left p-4 hover:bg-muted/40 transition-colors"
+                        className="w-full text-left p-3.5 hover:bg-muted/40 transition-colors"
                       >
                         <div className="flex items-start gap-3">
-                          <div className="mt-0.5 rounded-xl bg-primary/10 p-2.5 text-primary shrink-0">
+                          <div className="mt-0.5 rounded-xl bg-primary/10 p-2 text-primary shrink-0">
                             <Icon className="h-5 w-5" />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -368,7 +368,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                                 </>
                               )}
                             </div>
-                            <div className="mt-3 flex items-center gap-2">
+                            <div className="mt-2 flex items-center gap-2">
                               <Progress value={Math.min(100, pct)} className="h-1.5 flex-1" />
                               <span className="text-[10px] font-medium text-muted-foreground w-9 text-right">
                                 {formatPercent(pct)}
