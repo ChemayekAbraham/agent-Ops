@@ -164,6 +164,38 @@ export function WalletBucketHoldersPanel({
 
   const total = rows.reduce((s, r) => s + r.amount, 0);
 
+  // Landlord float only: split the outstanding earmarks by who put the money
+  // there — company float (CFO disbursements) vs funders supporting a landlord
+  // directly from their own wallet (`partner_self_funding`).
+  const { data: sourceSplit } = useQuery({
+    queryKey: ['landlord-float-source-split'],
+    enabled: bucket === 'landlord_float',
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('agent_landlord_float_allocations' as any)
+        .select('source, remaining_amount, status')
+        .in('status', ['open', 'partially_paid'])
+        .limit(5000);
+      if (error) throw error;
+      let company = 0;
+      let companyCount = 0;
+      let funder = 0;
+      let funderCount = 0;
+      for (const r of (data ?? []) as any[]) {
+        const amt = Number(r.remaining_amount) || 0;
+        if (r.source === 'partner_self_funding') {
+          funder += amt;
+          funderCount += 1;
+        } else {
+          company += amt;
+          companyCount += 1;
+        }
+      }
+      return { company, companyCount, funder, funderCount };
+    },
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -180,6 +212,39 @@ export function WalletBucketHoldersPanel({
           </Button>
         )}
       </div>
+
+      {bucket === 'landlord_float' && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Card className="border-purple-500/20 bg-purple-500/5">
+            <CardContent className="p-3 sm:p-4">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Funded by company float
+              </p>
+              <p className="font-mono tabular-nums text-lg font-bold text-purple-600 dark:text-purple-400">
+                {sourceSplit ? formatUGX(sourceSplit.company) : 'UGX —'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {sourceSplit?.companyCount ?? 0} open earmark
+                {(sourceSplit?.companyCount ?? 0) === 1 ? '' : 's'} from CFO disbursements
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="border-emerald-500/20 bg-emerald-500/5">
+            <CardContent className="p-3 sm:p-4">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Funded by funders directly
+              </p>
+              <p className="font-mono tabular-nums text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                {sourceSplit ? formatUGX(sourceSplit.funder) : 'UGX —'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {sourceSplit?.funderCount ?? 0} open earmark
+                {(sourceSplit?.funderCount ?? 0) === 1 ? '' : 's'} from funder wallets
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-3 sm:p-4 space-y-3">
