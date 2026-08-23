@@ -515,12 +515,12 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
         )}
 
         {selected && (
-          <div className="space-y-4 pb-6">
+          <div className="space-y-3 pb-5">
             {/* Drill-down header card */}
-            <div className="rounded-2xl border border-border bg-card p-4 flex items-center justify-between shadow-sm">
+            <div className="rounded-xl border border-border bg-card p-3.5 flex items-center justify-between shadow-sm">
               <div>
                 <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Net effect on cash</p>
-                <p className="text-xl font-bold font-mono mt-0.5">{formatUGX(data?.netAmount ?? selected.value)}</p>
+                <p className="text-lg font-bold font-mono mt-0.5">{formatUGX(data?.netAmount ?? selected.value)}</p>
               </div>
               <div className="text-right">
                 <p className="text-2xl font-bold text-muted-foreground/30">
@@ -531,7 +531,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
             </div>
 
             {isLoading && (
-              <div className="flex flex-col items-center justify-center py-12 gap-2">
+              <div className="flex flex-col items-center justify-center py-10 gap-2">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 <p className="text-xs text-muted-foreground">Loading transactions…</p>
               </div>
@@ -547,7 +547,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
               (data?.rows ?? []).map((row) => (
                 <div
                   key={row.id}
-                  className="rounded-2xl border border-border bg-card p-4 space-y-3 hover:shadow-sm transition-shadow"
+                  className="rounded-xl border border-border bg-card p-3.5 space-y-2.5 hover:shadow-sm transition-shadow"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1 min-w-0">
@@ -586,13 +586,13 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
               ))}
 
             {!isLoading && (data?.rows.length ?? 0) === 0 && (
-              <div className="rounded-2xl border border-dashed border-border p-8 text-center">
+              <div className="rounded-xl border border-dashed border-border p-6 text-center">
                 <p className="text-sm text-muted-foreground">No transactions found for this source.</p>
               </div>
             )}
 
             {(data?.totalCount ?? 0) > PAGE && (
-              <div className="flex items-center justify-between pt-2">
+              <div className="flex items-center justify-between pt-1">
                 <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>
                   <ChevronLeft className="h-4 w-4 mr-1" />
                   Previous
