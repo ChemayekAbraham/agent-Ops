@@ -267,6 +267,56 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         />
       </div>
 
+      {/* ══════════════ CHARTS — FULL WIDTH, STACKED ══════════════ */}
+      <div className="w-full space-y-5">
+        <Card className="w-full rounded-2xl shadow-sm">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
+              <p className="text-sm font-semibold tracking-tight">Revenue — Last 7 Days</p>
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                <LineChartIcon className="h-3.5 w-3.5" /> UGX
+              </span>
+            </div>
+            {trendChartData.length > 0 ? (
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={trendChartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                    <YAxis tickFormatter={(v: number) => fmtShort(v)} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={52} />
+                    <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Bar name="Revenue (UGX)" dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={22} />
+                    <Line name="Trend" type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground flex items-center justify-center h-64">No revenue recorded in the last 7 days.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="w-full rounded-2xl shadow-sm">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
+              <p className="text-sm font-semibold tracking-tight">Advances — Disbursed vs Recovered</p>
+              <span className="text-[11px] font-semibold text-emerald-600">{recoveryRate.toFixed(0)}% recovered</span>
+            </div>
+            <div className="w-full">
+              <AgentAdvancesTrendChart hideHeader />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ══════════════ CFO ACTIONS LOG — FULL WIDTH ══════════════ */}
+      <div className="w-full">
+        <CFOActionsLog />
+      </div>
+
+
+
       {/* Two-column shell: main financial surface on the left, live feeds on the right */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
       <div className="xl:col-span-2 space-y-5">
@@ -317,51 +367,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         </div>
       </div>
 
-      {/* ══════════════ CHARTS ══════════════ */}
-      <div className="grid grid-cols-1 gap-5">
-        <Card className="rounded-2xl shadow-sm h-full flex flex-col">
-          <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
-            <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
-              <p className="text-sm font-semibold tracking-tight">Revenue — Last 7 Days</p>
-              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                <LineChartIcon className="h-3.5 w-3.5" /> UGX
-              </span>
-            </div>
-            {trendChartData.length > 0 ? (
-              <div className="h-64 flex-1 min-h-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={trendChartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                    <YAxis tickFormatter={(v: number) => fmtShort(v)} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={52} />
-                    <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Bar name="Revenue (UGX)" dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={22} />
-                    <Line name="Trend" type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground flex-1 flex items-center justify-center min-h-[16rem]">No revenue recorded in the last 7 days.</p>
-            )}
-          </CardContent>
-        </Card>
 
-        <Card className="rounded-2xl shadow-sm h-full flex flex-col">
-          <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
-            <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
-              <p className="text-sm font-semibold tracking-tight">Advances — Disbursed vs Recovered</p>
-              <span className="text-[11px] font-semibold text-emerald-600">{recoveryRate.toFixed(0)}% recovered</span>
-            </div>
-            <div className="flex-1 min-h-0">
-              <AgentAdvancesTrendChart hideHeader />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
-      {/* ══════════════ CFO ACTIONS LOG ══════════════ */}
-      <CFOActionsLog />
 
       {/* ── TODAY'S MOVEMENT ── */}
       <Card className="rounded-lg overflow-hidden shadow-sm">
