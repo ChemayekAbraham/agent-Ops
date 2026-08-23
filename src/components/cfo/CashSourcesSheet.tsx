@@ -492,7 +492,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
             <Separator />
 
             {/* Summary footer */}
-            <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+            <div className="rounded-2xl border border-border bg-card p-3 space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Total Money In</span>
                 <span className="font-mono font-medium">{formatUGX(grossIn)}</span>
