@@ -234,8 +234,8 @@ export function WalletBucketHoldersPanel({
                         </p>
                       </div>
                     </button>
-                    {isOpen && (
-                      r.userId ? (
+                    {isOpen &&
+                      (r.userId ? (
                         bucket === 'landlord_float' ? (
                           <LandlordFloatAllocationsDetail agentId={r.userId} />
                         ) : (
@@ -244,6 +244,7 @@ export function WalletBucketHoldersPanel({
                             withdrawable={bucket === 'withdrawable' ? r.amount : 0}
                             float={bucket === 'withdrawable' ? 0 : r.amount}
                             advance={0}
+                            onlyBucket={bucket === 'withdrawable' ? 'withdrawable' : 'float'}
                           />
                         )
                       ) : (
@@ -251,8 +252,7 @@ export function WalletBucketHoldersPanel({
                           This holder is not linked to a platform user account, so ledger entries
                           cannot be drilled into.
                         </div>
-                      )
-                    )}
+                      ))}
 
                   </div>
                 );

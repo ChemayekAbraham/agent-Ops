@@ -53,11 +53,13 @@ export function WalletBucketLedgerDetail({
   withdrawable,
   float,
   advance,
+  onlyBucket,
 }: {
   userId: string;
   withdrawable: number;
   float: number;
   advance: number;
+  onlyBucket?: BucketKey;
 }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ['wallet-bucket-ledger', userId],
@@ -109,7 +111,7 @@ export function WalletBucketLedgerDetail({
 
   return (
     <div className="space-y-4 p-4 bg-muted/20">
-      {BUCKETS.map(({ key, label, icon: Icon, tone }) => {
+      {BUCKETS.filter((b) => (onlyBucket ? b.key === onlyBucket : true)).map(({ key, label, icon: Icon, tone }) => {
         const rows = grouped[key];
         if (key !== 'unclassified' && rows.length === 0 && cachedFor(key) === 0) return null;
         const ledgerNet = rows.reduce(
