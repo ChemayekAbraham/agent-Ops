@@ -15,7 +15,7 @@ import {
   Copy, 
   CheckCircle2,
   Gift,
-  TrendingUp,
+  
   AlertCircle
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
