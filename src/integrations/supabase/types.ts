@@ -42145,6 +42145,9 @@ export type Database = {
       get_wallet_holder_activity_counts: {
         Args: { p_user_ids: string[] }
         Returns: {
+          deposit_count: number
+          deposit_total: number
+          last_deposit_at: string
           last_transfer_at: string
           last_withdrawal_at: string
           transfer_count: number
