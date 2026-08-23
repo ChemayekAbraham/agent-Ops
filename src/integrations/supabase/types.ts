@@ -6944,6 +6944,7 @@ export type Database = {
           created_at: string
           current_queue_count: number | null
           float_phone: string | null
+          float_swept_at: string | null
           handles_airtel: boolean
           handles_bank: boolean
           handles_cash: boolean
@@ -6958,6 +6959,7 @@ export type Database = {
           payout_numbers_set_by: string | null
           personal_phone: string | null
           priority_threshold: number | null
+          retired_at: string | null
           updated_at: string
         }
         Insert: {
@@ -6967,6 +6969,7 @@ export type Database = {
           created_at?: string
           current_queue_count?: number | null
           float_phone?: string | null
+          float_swept_at?: string | null
           handles_airtel?: boolean
           handles_bank?: boolean
           handles_cash?: boolean
@@ -6981,6 +6984,7 @@ export type Database = {
           payout_numbers_set_by?: string | null
           personal_phone?: string | null
           priority_threshold?: number | null
+          retired_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -6990,6 +6994,7 @@ export type Database = {
           created_at?: string
           current_queue_count?: number | null
           float_phone?: string | null
+          float_swept_at?: string | null
           handles_airtel?: boolean
           handles_bank?: boolean
           handles_cash?: boolean
@@ -7004,6 +7009,7 @@ export type Database = {
           payout_numbers_set_by?: string | null
           personal_phone?: string | null
           priority_threshold?: number | null
+          retired_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -41082,7 +41088,7 @@ export type Database = {
         Returns: Json
       }
       get_merchant_float_positions: {
-        Args: never
+        Args: { p_include_retired?: boolean }
         Returns: {
           adjustments_total: number
           agent_id: string
