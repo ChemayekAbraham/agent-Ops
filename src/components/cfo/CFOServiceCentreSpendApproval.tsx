@@ -255,7 +255,7 @@ export function CFOServiceCentreSpendApproval() {
             <span className="font-medium">Money goes to:</span>{' '}
             {payeeFor(s).name || 'Not named yet'}
             {payeeFor(s).phone ? ` · ${payeeFor(s).phone}` : ''}
-            {!s.payee_name && !s.cfo_decision ? ' (defaults to the centre agent)' : ''}
+            {!s.payee_name && !s.cfo_decision ? ' (defaults to the manager account)' : ''}
           </p>
           {s.payee_note && (
             <p className="text-xs text-muted-foreground">
