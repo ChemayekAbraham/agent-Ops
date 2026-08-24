@@ -16704,6 +16704,95 @@ export type Database = {
           },
         ]
       }
+      landlord_payout_receipts: {
+        Row: {
+          agent_id: string | null
+          amount: number
+          created_at: string
+          generated_at: string
+          generated_by: string | null
+          id: string
+          landlord_id: string | null
+          landlord_phone: string | null
+          payout_id: string
+          processed_by: string | null
+          receipt_code: string
+          receipt_number: string
+          replaces_receipt_id: string | null
+          reversal_reason: string | null
+          reversed_at: string | null
+          short_link_code: string | null
+          sms_attempts: number
+          sms_last_attempt_at: string | null
+          sms_last_error: string | null
+          sms_sent_at: string | null
+          snapshot: Json
+          status: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id?: string | null
+          amount: number
+          created_at?: string
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          landlord_id?: string | null
+          landlord_phone?: string | null
+          payout_id: string
+          processed_by?: string | null
+          receipt_code?: string
+          receipt_number: string
+          replaces_receipt_id?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          short_link_code?: string | null
+          sms_attempts?: number
+          sms_last_attempt_at?: string | null
+          sms_last_error?: string | null
+          sms_sent_at?: string | null
+          snapshot: Json
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string | null
+          amount?: number
+          created_at?: string
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          landlord_id?: string | null
+          landlord_phone?: string | null
+          payout_id?: string
+          processed_by?: string | null
+          receipt_code?: string
+          receipt_number?: string
+          replaces_receipt_id?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          short_link_code?: string | null
+          sms_attempts?: number
+          sms_last_attempt_at?: string | null
+          sms_last_error?: string | null
+          sms_sent_at?: string | null
+          snapshot?: Json
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_payout_receipts_replaces_receipt_id_fkey"
+            columns: ["replaces_receipt_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_payout_receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       landlord_payouts: {
         Row: {
           agent_id: string
@@ -39843,6 +39932,7 @@ export type Database = {
         Returns: Json
       }
       generate_landlord_payables: { Args: never; Returns: number }
+      generate_landlord_receipt_code: { Args: never; Returns: string }
       generate_landlord_receivables: { Args: never; Returns: number }
       generate_merchant_cashout_daily_report: {
         Args: { p_date: string }
@@ -41084,6 +41174,7 @@ export type Database = {
           verified_human: number
         }[]
       }
+      get_landlord_payout_receipt: { Args: { p_code: string }; Returns: Json }
       get_landlord_verification_actors: {
         Args: { p_from?: string; p_to?: string }
         Returns: {
@@ -42753,6 +42844,10 @@ export type Database = {
         Returns: boolean
       }
       is_withdrawal_staff: { Args: { _user_id: string }; Returns: boolean }
+      issue_landlord_payout_receipt: {
+        Args: { p_payout_id: string; p_processed_by?: string }
+        Returns: Json
+      }
       landlord_ops_bind_tenant_to_house: {
         Args: {
           p_house_id: string
@@ -44486,6 +44581,10 @@ export type Database = {
           p_source_table: string
         }
         Returns: string
+      }
+      record_landlord_receipt_sms: {
+        Args: { p_error?: string; p_ok: boolean; p_receipt_id: string }
+        Returns: undefined
       }
       record_merchant_float_delivery: {
         Args: {

@@ -2468,18 +2468,15 @@ Deno.serve(async (req) => {
           }
 
           if (lp) {
-            // SMS the landlord that they have been paid (best-effort).
-            if (lp.landlord_phone) {
-              admin.functions.invoke("sms-otp", {
-                body: {
-                  skipOtp: true,
-                  phone: lp.landlord_phone,
-                  message: `Welile sent UGX ${Number(lp.amount).toLocaleString()} to your ${lp.mobile_money_provider ?? "mobile money"} number. Ref: ${momoRef}`,
-                },
-              }).catch((e: unknown) =>
-                console.error("[approve-withdrawal] landlord SMS failed:", e),
-              );
-            }
+            // Issue the permanent rent receipt and SMS the landlord the public
+            // receipt link. Idempotent per payout, so a retried approval can
+            // never double-SMS or mint a second receipt.
+            admin.functions.invoke("landlord-rent-receipt", {
+              body: { payout_id: lp.id, processed_by: user.id },
+            }).catch((e: unknown) =>
+              console.error("[approve-withdrawal] landlord receipt/SMS failed:", e),
+            );
+
             // Notify the agent to upload the receipt (best-effort).
             try {
               await admin.from("notifications").insert({

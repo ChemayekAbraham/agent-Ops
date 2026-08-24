@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { Banknote, Copy, CheckCircle2, XCircle, Phone, User, Loader2 } from 'lucide-react';
 import { LandlordPayoutShareCard, type LandlordPayoutShareData } from './LandlordPayoutShareCard';
+import { LandlordPaymentCompletedDialog, type LandlordPaymentCompletion } from './LandlordPaymentCompletedDialog';
 
 type Payout = {
   id: string;
@@ -51,6 +52,7 @@ export function LandlordPayoutsQueue() {
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [shareData, setShareData] = useState<LandlordPayoutShareData | null>(null);
+  const [completionState, setCompletion] = useState<LandlordPaymentCompletion | null>(null);
 
   const { data: payouts, isLoading } = useQuery({
     queryKey: ['finops-landlord-payouts-queue'],
@@ -116,16 +118,32 @@ export function LandlordPayoutsQueue() {
         .eq('status', 'pending_finops_disbursement');
       if (error) throw error;
 
-      // Notify landlord by SMS + agent in-app (best-effort)
+      // Issue the permanent rent receipt and SMS the landlord the receipt link.
+      // Idempotent server-side, so a double-tap cannot double-send.
+      let completion: LandlordPaymentCompletion = {
+        payoutId: disburse.id,
+        amount: disburse.amount,
+        landlordName: disburse.landlord_name,
+        tenantName: disburse.tenant_profile?.full_name ?? null,
+        landlordPhone: disburse.landlord_phone,
+        receiptUrl: null,
+        receiptNumber: null,
+        smsSent: false,
+      };
       try {
-        await supabase.functions.invoke('sms-otp', {
-          body: {
-            action: 'send_custom',
-            phone: disburse.landlord_phone,
-            message: `Welile sent ${formatUGX(disburse.amount)} to your ${disburse.mobile_money_provider} number. Ref: ${momoRef.trim()}`,
-          },
+        const { data: rec, error: recErr } = await supabase.functions.invoke('landlord-rent-receipt', {
+          body: { payout_id: disburse.id },
         });
-      } catch { /* non-blocking */ }
+        if (!recErr && rec) {
+          completion = {
+            ...completion,
+            receiptUrl: (rec as any).receipt_url ?? null,
+            receiptNumber: (rec as any).receipt_number ?? null,
+            smsSent: (rec as any).sms_sent === true || !!(rec as any).sms_sent_at,
+          };
+        }
+      } catch { /* non-blocking — SMS failure never reverses a paid payout */ }
+
       try {
         await supabase.from('notifications').insert({
           user_id: disburse.agent_id,
@@ -136,8 +154,10 @@ export function LandlordPayoutsQueue() {
         });
       } catch { /* non-blocking */ }
 
+
       toast.success('Marked as disbursed');
       qc.invalidateQueries({ queryKey: ['finops-landlord-payouts-queue'] });
+      setCompletion(completion);
       // Open WhatsApp share card so FinOps can notify the agent immediately.
       setShareData({
         amount: disburse.amount,
@@ -151,6 +171,7 @@ export function LandlordPayoutsQueue() {
         paid_at: new Date().toISOString(),
       });
       closeAll();
+
     } catch (e: any) {
       toast.error(e?.message ?? 'Failed to mark disbursed');
       setSubmitting(false);
@@ -368,6 +389,9 @@ export function LandlordPayoutsQueue() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Internal completion screen — receipt proof, link + SMS resend */}
+      <LandlordPaymentCompletedDialog completion={completionState} onClose={() => setCompletion(null)} />
 
       {/* WhatsApp share card — opens after a successful TID approval */}
       <LandlordPayoutShareCard
