@@ -254,21 +254,45 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
                   </Button>
                 </div>
 
-                {/* Providers — logos only, directly under the action buttons */}
-                <div className="flex items-center justify-center gap-3" data-testid="provider-logos">
-                  {PROVIDERS.map((provider) => (
-                    <div
-                      key={provider.id}
-                      className="h-11 w-16 rounded-xl bg-white flex items-center justify-center overflow-hidden shadow-sm"
-                    >
-                      <img
-                        src={provider.logo}
-                        alt={provider.name}
-                        className="h-full w-full object-contain p-1"
-                        loading="lazy"
+                {/* Providers — slideshow with small pagination dots */}
+                <div className="space-y-2" data-testid="provider-logos">
+                  <Carousel
+                    setApi={setProviderApi}
+                    opts={{ align: 'center', loop: true }}
+                    className="w-full"
+                  >
+                    <CarouselContent className="-ml-2">
+                      {PROVIDERS.map((provider) => (
+                        <CarouselItem key={provider.id} className="pl-2 basis-1/3 sm:basis-1/3">
+                          <div className="h-14 rounded-xl bg-white flex items-center justify-center overflow-hidden shadow-sm px-2">
+                            <img
+                              src={provider.logo}
+                              alt={provider.name}
+                              className="h-full w-full object-contain p-1"
+                              loading="lazy"
+                            />
+                          </div>
+                        </CarouselItem>
+                      ))}
+                    </CarouselContent>
+                  </Carousel>
+
+                  <div className="flex items-center justify-center gap-1.5 pt-1">
+                    {PROVIDERS.map((_, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        aria-label={`Go to provider slide ${index + 1}`}
+                        onClick={() => scrollToProvider(index)}
+                        className={cn(
+                          'rounded-full transition-all duration-200',
+                          currentProvider === index
+                            ? 'w-3 h-1.5 bg-primary'
+                            : 'w-1.5 h-1.5 bg-muted-foreground/40 hover:bg-muted-foreground/70'
+                        )}
                       />
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
 
                 {/* Recent transactions — latest 10 only */}
