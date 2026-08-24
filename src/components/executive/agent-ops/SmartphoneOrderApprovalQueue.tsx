@@ -51,7 +51,7 @@ const isPending = (s: string) => s === 'pending_approval' || s === 'submitted';
  * Pending Approval with no wallet charge; approving one creates the
  * 33% wallet recovery plan, rejecting one requires a 10+ char reason.
  */
-export function SmartphoneOrderApprovalQueue() {
+export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingOnly?: boolean } = {}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [rejectTarget, setRejectTarget] = useState<SmartphoneOrderRow | null>(null);
