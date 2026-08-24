@@ -145,9 +145,9 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
 
 
       {showOverview && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           {isLoading || !kpis ? (
-            Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[110px] rounded-2xl" />)
+            Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-[110px] rounded-2xl" />)
           ) : (
             <>
               <MetricCard label={scopeLabel ? `${scopeLabel} in catalog` : 'Total products'} value={String(kpis.total_products ?? 0)} icon={Package} variant="primary" />
@@ -158,7 +158,6 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                 variant="warning"
               />
               <MetricCard label="Purchased (in stock)" value={String(kpis.stock_qty ?? 0)} icon={Warehouse} variant="success" />
-              <MetricCard label="Service centers" value={String(kpis.service_centres ?? 0)} icon={Store} variant="default" />
             </>
           )}
         </div>
