@@ -389,7 +389,7 @@ export function UnifiedWalletHeroCard({
         <WalletHoldNotice variant="hero" />
 
         {/* Supporter metric cards — individually tappable */}
-        {role === 'supporter' && (
+        {role === 'supporter' && !hideSupporterMetrics && (
           <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => { hapticTap(); onHousesTap?.(); }}
