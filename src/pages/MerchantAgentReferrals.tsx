@@ -14,6 +14,7 @@ interface ReferralRow {
   id: string;
   invitee_id: string;
   status: 'pending' | 'approved' | 'paid' | 'rejected';
+  tier: 'direct' | 'upline';
   bonus_amount: number;
   paid_at: string | null;
   created_at: string;
@@ -30,8 +31,8 @@ export default function MerchantAgentReferrals() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('merchant_agent_referrals')
-        .select('id, invitee_id, status, bonus_amount, paid_at, created_at, invitee:profiles!merchant_agent_referrals_invitee_id_fkey(full_name, phone)')
-        .eq('referrer_id', user!.id)
+        .select('id, invitee_id, status, tier, bonus_amount, paid_at, created_at, invitee:profiles!merchant_agent_referrals_invitee_id_fkey(full_name, phone)')
+        .eq('beneficiary_id', user!.id)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as ReferralRow[];
@@ -64,7 +65,7 @@ export default function MerchantAgentReferrals() {
           </Button>
           <div>
             <h1 className="text-lg font-bold">Merchant Agent Referrals</h1>
-            <p className="text-xs text-muted-foreground">Earn UGX 50,000 per approved invitee</p>
+            <p className="text-xs text-muted-foreground">UGX 4,000 direct + UGX 6,000 when your recruit recruits</p>
           </div>
         </div>
       </div>
@@ -102,6 +103,9 @@ export default function MerchantAgentReferrals() {
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     {statusBadge(r.status)}
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                      {r.tier === 'upline' ? 'Upline' : 'Direct'}
+                    </Badge>
                     <span className="text-[11px] font-mono">{formatUGX(r.bonus_amount)}</span>
                   </div>
                 </li>

@@ -14,9 +14,10 @@ const STORAGE_KEY = 'merchant_agent_ref';
  * 3) Redirect any signed-in user with `pending_merchant_agent = true` to the
  *    Merchant Agent onboarding page (except for safe paths like /auth, /settings).
  *
- * The UGX 50,000 referral bonus is credited automatically by the
- * `pay_merchant_agent_referral_bonus` DB trigger once the invitee has an
- * active row in `cashout_agents`.
+ * The UGX 10,000 referral reward pool (UGX 4,000 direct / UGX 6,000 upline, or
+ * the full UGX 10,000 to a root-level recruiter) is credited automatically by the
+ * referral triggers once the invitee is active in `cashout_agents` AND has
+ * processed their first payout with uploaded proof.
  */
 export default function MerchantAgentReferralGate() {
   const { user, loading } = useAuth();
