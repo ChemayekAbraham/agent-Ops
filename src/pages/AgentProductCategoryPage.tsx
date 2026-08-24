@@ -60,9 +60,6 @@ export default function AgentProductCategoryPage() {
             <AdvanceRequestsQueue stage="agent_ops" />
             <AdvanceRequestsReviewed />
             <BusinessAdvanceQueue stage="agent_ops" />
-            <ActiveAdvancesPanel />
-            <AdvanceRepaymentsPanel />
-            <RentHistoryVerificationQueue dept="agent_ops" />
           </div>
         ) : (
           <div className="space-y-6">
