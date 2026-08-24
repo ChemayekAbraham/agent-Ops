@@ -336,7 +336,7 @@ export function PartnersOpsDashboard() {
       {/* ═══ TOP BAR ═══ */}
       <PartnerOpsTopBar
         active={view}
-        onSelect={setView}
+        onSelect={handleSelect}
         badges={badges}
         actions={
           <div className="flex items-center gap-1.5">
@@ -364,7 +364,7 @@ export function PartnersOpsDashboard() {
       <div className="-ml-4 flex min-h-[calc(100vh-4rem)] gap-4 pt-3">
         <aside className="hidden w-56 shrink-0 lg:block">
           <div className="sticky top-0 flex h-[calc(100vh-4rem)] flex-col rounded-l-none rounded-r-xl border border-l-0 bg-card">
-            <PartnerOpsSidebar active={view} onSelect={setView} badges={badges} className="flex-1" />
+            <PartnerOpsSidebar active={view} onSelect={handleSelect} badges={badges} className="flex-1" />
           </div>
         </aside>
         <div className="min-w-0 flex-1 space-y-4 pl-4 lg:pl-0">
