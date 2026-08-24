@@ -217,15 +217,12 @@ export function AdvanceRequestsReviewed() {
   const disburseMutation = useMutation({
     mutationFn: async ({ req, reason }: { req: any; reason: string }) => {
       if (!user?.id) throw new Error('Not authenticated');
-      const trimmed = reason.trim();
-      // CFO-approved advances don't require a skip reason. Only agent_ops_approved does.
-      if (req.status === 'agent_ops_approved' && trimmed.length < 10) {
-        throw new Error('Please provide a reason for skipping the CFO (min 10 chars).');
+      if (req.status !== 'cfo_approved' && req.status !== 'cfo_paid') {
+        throw new Error('CFO approval is mandatory — this request must be approved by the CFO before disbursement.');
       }
       await disburseAgentAdvanceRequest({
         req,
         actorId: user.id,
-        skipReason: req.status === 'agent_ops_approved' ? trimmed : null,
       });
     },
     onSuccess: () => {
@@ -428,26 +425,11 @@ export function AdvanceRequestsReviewed() {
               {disburseReq ? (
                 <>Disburse <span className="font-semibold text-foreground">{formatUGX(num(disburseReq.principal))}</span> to{' '}
                   <span className="font-semibold text-foreground">{disburseReq.agent_full_name || 'this agent'}</span>&apos;s wallet.
-                  Daily deductions start immediately.{' '}
-                  {disburseReq.status === 'agent_ops_approved'
-                    ? 'This bypasses the CFO — a reason is required.'
-                    : 'Already CFO-approved — no reason required.'}
+                  Daily deductions start immediately. Only CFO-approved advances can be disbursed.
                 </>
               ) : ''}
             </DialogDescription>
           </DialogHeader>
-          {disburseReq?.status === 'agent_ops_approved' && (
-            <div className="space-y-2 py-1">
-              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Reason for skipping CFO (min 10 chars)</Label>
-              <Textarea
-                value={disburseReason}
-                onChange={(e) => setDisburseReason(e.target.value)}
-                rows={3}
-                placeholder="E.g. urgent field float, CFO unavailable, time-critical…"
-                className="text-sm"
-              />
-            </div>
-          )}
           <DialogFooter className="flex-col gap-2 sm:flex-row">
             <Button
               variant="outline"
@@ -461,7 +443,7 @@ export function AdvanceRequestsReviewed() {
               className="w-full sm:w-auto gap-2 bg-amber-600 hover:bg-amber-700 text-white"
               disabled={
                 disburseMutation.isPending ||
-                (disburseReq?.status === 'agent_ops_approved' && disburseReason.trim().length < 10)
+                (disburseReq ? !['cfo_approved', 'cfo_paid'].includes(disburseReq.status) : true)
               }
               onClick={() => disburseReq && disburseMutation.mutate({ req: disburseReq, reason: disburseReason })}
             >
