@@ -48,7 +48,13 @@ interface Props {
 /** Department-facing budget preparation and submission interface. */
 export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }: Props = {}) {
   const { cycles, loading: cyclesLoading } = useBudgetCycles();
-  const { accounts, myDepartments: allMyDepartments, primaryDepartmentId } = useBudgetReferenceData();
+  const {
+    accounts,
+    myDepartments: allMyDepartments,
+    primaryDepartmentId,
+    loading: refLoading,
+  } = useBudgetReferenceData();
+
 
   /**
    * Submissions are department-specific: when the page is opened from a
