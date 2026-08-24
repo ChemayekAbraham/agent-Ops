@@ -16997,6 +16997,33 @@ export type Database = {
           },
         ]
       }
+      landlord_receipt_lookups: {
+        Row: {
+          created_at: string
+          found: boolean
+          id: string
+          query: string
+          receipt_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          found?: boolean
+          id?: string
+          query: string
+          receipt_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          found?: boolean
+          id?: string
+          query?: string
+          receipt_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       landlord_verification_events: {
         Row: {
           actor_id: string | null
@@ -43028,6 +43055,10 @@ export type Database = {
           role: string
           status: string
         }[]
+      }
+      lookup_landlord_payout_receipt: {
+        Args: { p_query: string }
+        Returns: Json
       }
       lookup_profile_by_phone_last9: {
         Args: { phone_last9: string }
