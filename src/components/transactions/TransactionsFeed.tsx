@@ -167,19 +167,19 @@ export function TransactionsFeed({ userId, showFilters = true, className }: Tran
                 key={row.id}
                 type="button"
                 onClick={() => setSelected(row)}
-                className="flex w-full items-center gap-4 rounded-2xl bg-background p-4 text-left shadow-sm transition-transform active:scale-[0.98]"
+                className="flex w-full items-center gap-3 sm:gap-4 rounded-2xl bg-background p-3 sm:p-4 text-left shadow-sm transition-transform active:scale-[0.98]"
               >
                 <span
                   className={cn(
-                    "flex h-12 w-12 shrink-0 items-center justify-center rounded-full",
+                    "flex h-10 w-10 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-full",
                     tone.bubble,
                   )}
                 >
-                  <Icon className={cn("h-5 w-5", tone.icon)} />
+                  <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5", tone.icon)} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-bold">{txLabel(row)}</span>
-                  <span className="block truncate text-sm font-semibold uppercase text-muted-foreground">
+                  <span className="block truncate text-sm sm:text-base font-bold">{txLabel(row)}</span>
+                  <span className="block truncate text-xs sm:text-sm font-semibold uppercase text-muted-foreground">
                     {txCounterparty(row) ?? "—"}
                   </span>
                   <span className="mt-1 flex items-center gap-2">
@@ -192,7 +192,7 @@ export function TransactionsFeed({ userId, showFilters = true, className }: Tran
                   </span>
                 </span>
                 <span className="shrink-0 text-right">
-                  <span className={cn("block text-lg font-bold tabular-nums", tone.amount)}>
+                  <span className={cn("block text-base sm:text-lg font-bold tabular-nums", tone.amount)}>
                     {isIn ? "+" : "−"}
                     {formatUGX(Number(row.amount)).replace(/^UGX\s*/, "")}
                   </span>
