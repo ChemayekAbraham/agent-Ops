@@ -241,11 +241,27 @@ export default function SmartphoneOrderStatus({
           <Smartphone className="h-4 w-4 text-primary" />
           <p className="text-sm font-bold">{title}</p>
         </div>
+        {orders.length > 1 && (
+          <Select value={selected.id} onValueChange={setSelectedId}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Select an order" />
+            </SelectTrigger>
+            <SelectContent>
+              {orders.map((o) => (
+                <SelectItem key={o.id} value={o.id} className="text-xs">
+                  {format(new Date(o.created_at), 'd MMM yyyy, HH:mm')} · {formatUGX(Number(o.unit_price))} ·{' '}
+                  {STATUS_META[normalizeStatus(o.order_status)].label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <div className="space-y-2">
-          {orders.map((o) => {
+          {[selected].map((o) => {
             const status = normalizeStatus(o.order_status);
             const meta = STATUS_META[status];
             const Icon = meta.icon;
+            const cancellable = CANCELLABLE_STATUSES.includes(status);
             return (
               <div
                 key={o.id}
@@ -319,10 +335,45 @@ export default function SmartphoneOrderStatus({
                     </Button>
                   )}
                 </div>
+                {cancellable && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 w-full gap-1.5 text-xs text-destructive border-destructive/40 hover:bg-destructive/10"
+                    onClick={() => setCancelTarget(o)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Cancel this application
+                  </Button>
+                )}
               </div>
             );
           })}
         </div>
+        <AlertDialog open={!!cancelTarget} onOpenChange={(v) => !v && setCancelTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancel this application?</AlertDialogTitle>
+              <AlertDialogDescription className="text-xs">
+                {cancelTarget
+                  ? `Your ${formatUGX(Number(cancelTarget.unit_price))} ${itemName} application from ${format(new Date(cancelTarget.created_at), 'd MMM yyyy, HH:mm')} will be withdrawn before approval, and you can place a new order right away. Applications already in repayment cannot be cancelled.`
+                  : null}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={cancelling}>Keep it</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={cancelling}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleCancel();
+                }}
+              >
+                {cancelling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Cancel application'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
       </CardContent>
     </Card>
   );
