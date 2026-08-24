@@ -225,10 +225,19 @@ export function SelfPortfolioPlanDetailSheet({
     : 'Uganda';
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-none p-0">
+      <SheetContent side="bottom" className="relative max-h-[92vh] overflow-y-auto rounded-t-none p-0">
         <SheetHeader className="sr-only">
           <SheetTitle>Rent plan details</SheetTitle>
         </SheetHeader>
+
+        <button
+          type="button"
+          onClick={() => onOpenChange(false)}
+          aria-label="Back"
+          className="absolute left-3 top-3 z-30 grid h-8 w-8 place-items-center rounded-full bg-background/85 text-foreground shadow-md backdrop-blur transition hover:bg-background"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
 
         {/* Photo carousel */}
         {photos.length > 0 ? (
