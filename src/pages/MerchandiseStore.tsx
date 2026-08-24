@@ -76,8 +76,8 @@ export default function MerchandiseStore() {
   const [confirmStep, setConfirmStep] = useState(false);
   const [ordering, setOrdering] = useState(false);
   const [phoneOpen, setPhoneOpen] = useState(false);
-  const [phoneAmount, setPhoneAmount] = useState('');
-  const [orderingPhone, setOrderingPhone] = useState(false);
+
+
   const [bikeOpen, setBikeOpen] = useState(false);
   const [bikeAmount, setBikeAmount] = useState('');
   const [orderingBike, setOrderingBike] = useState(false);
