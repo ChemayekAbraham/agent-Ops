@@ -404,7 +404,7 @@ export default function ExecutiveDashboardLayout({
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Top Bar */}
-      <header className="shrink-0 z-40 h-14 bg-primary text-primary-foreground border-b border-border flex items-center px-4 gap-3">
+      <header className="shrink-0 z-40 h-14 bg-primary text-primary-foreground border-b border-border flex items-center px-2 sm:px-4 gap-2 md:gap-3">
         {/* Mobile hamburger */}
         <button
           type="button"
@@ -415,13 +415,13 @@ export default function ExecutiveDashboardLayout({
           <Menu className="h-5 w-5" />
         </button>
 
-        {/* Logo / Title */}
-        <div className="flex items-center gap-2 min-w-0">
+        {/* Logo / Title — hidden on very small screens because the role switcher already shows the current role */}
+        <div className="hidden sm:flex items-center gap-2 min-w-0">
           <span className="font-bold text-sm whitespace-nowrap">{displayRole}</span>
         </div>
 
         {/* Center: Role Switcher */}
-        <div className="flex-1 flex justify-center">
+        <div className="flex-1 flex justify-center min-w-0">
           <RoleSwitcher
             currentRole={role as AppRole}
             availableRoles={roles}
@@ -451,7 +451,7 @@ export default function ExecutiveDashboardLayout({
         <button
           type="button"
           onClick={() => signOut()}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-background text-primary text-xs font-semibold shadow-sm hover:bg-background/90 transition-colors whitespace-nowrap"
+          className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg bg-background text-primary text-xs font-semibold shadow-sm hover:bg-background/90 transition-colors whitespace-nowrap"
           style={{ touchAction: 'manipulation' }}
         >
           <LogOut className="h-3.5 w-3.5" />
