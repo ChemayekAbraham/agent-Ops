@@ -399,7 +399,6 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
           <SendMoneyDialog
             open={showTransfer}
             onOpenChange={setShowTransfer}
-            maxAmount={data?.withdrawableAmount ?? 0}
           />
         </>
       )}
