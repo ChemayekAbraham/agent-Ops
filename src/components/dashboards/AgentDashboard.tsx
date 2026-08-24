@@ -55,6 +55,8 @@ import { ShieldCheck } from 'lucide-react';
 import { Trophy } from 'lucide-react';
 import { ShoppingBag, Smartphone, Bike, Store } from 'lucide-react';
 import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatus';
+import SmartphoneOrderDialog from '@/components/merchandise/SmartphoneOrderDialog';
+
 import spiroBikeAsset from '@/assets/spiro-bike.jpg.asset.json';
 import smartphonePromoAsset from '@/assets/smartphone-promo.jpg.asset.json';
 import { formatUGX } from '@/lib/rentCalculations';
