@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+
 import {
   Dialog,
   DialogContent,
@@ -57,6 +59,18 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
   const [rejectTarget, setRejectTarget] = useState<SmartphoneOrderRow | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [detailsTarget, setDetailsTarget] = useState<SmartphoneOrderRow | null>(null);
+  const [approveTarget, setApproveTarget] = useState<SmartphoneOrderRow | null>(null);
+  const [officialAmount, setOfficialAmount] = useState('');
+
+  const openApprove = (o: SmartphoneOrderRow) => {
+    setApproveTarget(o);
+    const existing = Number(o.total_amount || 0);
+    setOfficialAmount(existing > 0 ? String(Math.round(existing)) : '');
+  };
+
+  const officialAmountNumber = Math.max(0, Math.round(Number(officialAmount || 0) || 0));
+  const officialProjection = Math.round(officialAmountNumber * 0.33);
+
 
   const { data: wallet, isLoading: walletLoading } = useQuery({
     queryKey: ['smartphone-order-wallet', detailsTarget?.customer_id],
@@ -88,19 +102,26 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
   };
 
   const approve = useMutation({
-    mutationFn: async (id: string) => {
-      const { data, error } = await db.rpc('approve_smartphone_order', { p_sale_id: id });
+    mutationFn: async ({ id, amount }: { id: string; amount: number }) => {
+      const { data, error } = await db.rpc('approve_smartphone_order', {
+        p_sale_id: id,
+        p_total_amount: amount,
+      });
       if (error) throw error;
       return data;
     },
     onSuccess: (data: any) => {
-      toast.success(`Order approved. ${formatUGX(Number(data?.recovery_amount || 0))} scheduled for wallet recovery.`);
+      toast.success(
+        `Order approved at ${formatUGX(Number(data?.total_amount || 0))}. ${formatUGX(Number(data?.payment_projection || 0))}/month (33%) recovery plan activated.`,
+      );
+      setApproveTarget(null);
+      setOfficialAmount('');
       setDetailsTarget(null);
       invalidate();
-
     },
     onError: (e: any) => toast.error(e.message || 'Could not approve order'),
   });
+
 
   const reject = useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
@@ -212,11 +233,12 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
                   <div className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
                     <Button
                       size="sm"
-                      onClick={() => approve.mutate(o.id)}
+                      onClick={() => openApprove(o)}
                       disabled={approve.isPending}
                     >
                       <Check className="h-3.5 w-3.5 mr-1" /> Approve
                     </Button>
+
                     <Button
                       size="sm"
                       variant="outline"
@@ -312,10 +334,11 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
                     </Button>
                     <Button
                       disabled={approve.isPending}
-                      onClick={() => approve.mutate(detailsTarget.id)}
+                      onClick={() => openApprove(detailsTarget)}
                     >
                       <Check className="h-3.5 w-3.5 mr-1" /> Approve
                     </Button>
+
                   </DialogFooter>
                 )}
               </div>
@@ -323,6 +346,86 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
           })()}
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={!!approveTarget}
+        onOpenChange={(o) => { if (!o && !approve.isPending) { setApproveTarget(null); setOfficialAmount(''); } }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Check className="h-4 w-4 text-primary" /> Approve smartphone order
+            </DialogTitle>
+          </DialogHeader>
+
+          {approveTarget && (
+            <div className="space-y-3">
+              <div className="rounded-lg border divide-y">
+                <div className="flex items-center justify-between gap-3 px-3 py-2">
+                  <span className="text-xs text-muted-foreground">Agent</span>
+                  <span className="text-xs font-semibold text-right truncate">
+                    {approveTarget.client_name || 'Agent'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3 px-3 py-2">
+                  <span className="text-xs text-muted-foreground">Device</span>
+                  <span className="text-xs font-semibold text-right truncate">
+                    {[approveTarget.brand, approveTarget.model_type].filter(Boolean).join(' · ') || '—'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3 px-3 py-2">
+                  <span className="text-xs text-muted-foreground">Requested amount</span>
+                  <span className="text-xs font-semibold">{formatUGX(Number(approveTarget.total_amount || 0))}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Official Phone Amount (UGX)</Label>
+                <Input
+                  type="number"
+                  min={1000}
+                  step={1000}
+                  inputMode="numeric"
+                  autoFocus
+                  placeholder="e.g. 1200000"
+                  value={officialAmount}
+                  onChange={(e) => setOfficialAmount(e.target.value)}
+                />
+              </div>
+
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1">
+                <p className="text-[11px] text-muted-foreground">Monthly Recovery Projection (33%)</p>
+                <p className="text-lg font-bold text-primary">{formatUGX(officialProjection)}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Approving activates an official merchandise recovery plan of{' '}
+                  {formatUGX(officialAmountNumber)} and the agent begins 33% wallet repayments.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={approve.isPending}
+              onClick={() => { setApproveTarget(null); setOfficialAmount(''); }}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={approve.isPending || officialAmountNumber < 1000 || !approveTarget}
+              onClick={() => approveTarget && approve.mutate({ id: approveTarget.id, amount: officialAmountNumber })}
+            >
+              {approve.isPending ? (
+                <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Approving…</>
+              ) : (
+                <><Check className="h-3.5 w-3.5 mr-1" /> Confirm approval</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <Dialog open={!!rejectTarget} onOpenChange={(o) => { if (!o) setRejectTarget(null); }}>
         <DialogContent className="max-w-sm">
