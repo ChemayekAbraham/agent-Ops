@@ -129,7 +129,8 @@ export function buildAgreementHtml(data: AgreementFillData): string {
     BankAccountNumber: accNo,
     KinName: esc(data.kinName?.trim() || ''),
     KinContact: esc(data.kinContact?.trim() || ''),
-    KinSignature: '',
+    KinSignature: kinSig,
+
     // Stamp appears only on executed/counter-signed agreements, centered on the
     // right side of every page with enough inner margin to prevent rotation clipping.
     CoverStamp: stamp,
