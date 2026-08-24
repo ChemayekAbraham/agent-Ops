@@ -44980,7 +44980,10 @@ export type Database = {
           category: string
           cr: number
           dr: number
+          group_one_sided: boolean
+          is_legacy_counterpart: boolean
           ledger_scope: string
+          source_table: string
           transaction_group_id: string
         }[]
       }

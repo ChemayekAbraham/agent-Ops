@@ -32,6 +32,8 @@ interface Reconciliation {
   classification_filter_granularity?: string;
   unresolved_groups: number;
   unresolved_absolute_amount: number;
+  one_sided_equity_counterpart?: number;
+
   schedule: ScheduleRow[];
   excluded_classifications: { classification: string; legs: number; amount: number }[];
   memo_sub_ledgers: PositionLine[];
@@ -469,9 +471,13 @@ export default function BalanceSheetPanel() {
                   <p className="text-[10px] text-muted-foreground">
                     {data.reconciliation.unresolved_groups.toLocaleString()} historic ledger transactions carry only one side of their entry
                     ({formatUGX(data.reconciliation.unresolved_absolute_amount)} in absolute terms) and are listed below by category.
-                    No suspense plug is applied: their net effect is left visible in the balance check above rather than absorbed into
-                    Current Assets. Classification exclusions are applied to whole transaction groups, never to individual legs.
+                    Their missing side is recognised, itemised, in the equity line "Legacy One-Sided Postings"
+                    {typeof data.reconciliation.one_sided_equity_counterpart === 'number'
+                      ? ` (${formatUGX(data.reconciliation.one_sided_equity_counterpart)})`
+                      : ''}. No suspense plug is applied: every balanced ledger entry is mapped to a real debit and a real credit, so nothing
+                    unexplained is absorbed into Current Assets. Classification exclusions are applied to whole transaction groups, never to individual legs.
                   </p>
+
 
                   {data.reconciliation.schedule?.length > 0 && (
                     <div className="space-y-0.5">
