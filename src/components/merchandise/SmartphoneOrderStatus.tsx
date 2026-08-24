@@ -76,8 +76,12 @@ export default function SmartphoneOrderStatus({
   itemName = 'Welile Smartphone',
   title = 'Smartphone order status',
 }: Props) {
+  const queryClient = useQueryClient();
   const [emailingId, setEmailingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<SmartphoneOrder | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const { data: orders = [] } = useQuery<SmartphoneOrder[]>({
     queryKey: ['my-smartphone-orders', userId, itemName],
     enabled: !!userId,
@@ -107,7 +111,47 @@ export default function SmartphoneOrderStatus({
     },
   });
 
-  if (!userId || orders.length === 0) return null;
+  /** Keep the dropdown pointed at a still-existing order (newest by default). */
+  useEffect(() => {
+    if (orders.length === 0) {
+      setSelectedId(null);
+      return;
+    }
+    if (!selectedId || !orders.some((o) => o.id === selectedId)) {
+      setSelectedId(orders[0].id);
+    }
+  }, [orders, selectedId]);
+
+  const selected = useMemo(
+    () => orders.find((o) => o.id === selectedId) ?? orders[0] ?? null,
+    [orders, selectedId],
+  );
+
+  const handleCancel = async () => {
+    if (!cancelTarget) return;
+    setCancelling(true);
+    try {
+      const { error } = await db.rpc('agent_cancel_merchandise_order', {
+        p_sale_id: cancelTarget.id,
+        p_reason: 'Cancelled by the agent before approval to place a new order',
+      });
+      if (error) throw error;
+      toast.success('Order cancelled — you can place a new one');
+      setCancelTarget(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['my-smartphone-orders', userId, itemName] }),
+        queryClient.invalidateQueries({ queryKey: ['merchandise-order-lock', userId, itemName] }),
+      ]);
+    } catch (e: any) {
+      console.error('[SmartphoneOrderStatus] cancel error', e);
+      toast.error(e?.message || 'Could not cancel this order');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  if (!userId || orders.length === 0 || !selected) return null;
+
 
   const isRealEmail = (email?: string | null) =>
     !!email && !email.endsWith('@welile.user') && !email.endsWith('@noapp.welile.user');
