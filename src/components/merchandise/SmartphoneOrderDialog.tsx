@@ -147,7 +147,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
           <div className="rounded-lg border bg-muted/50 px-3 py-2">
             <p className="text-[11px] text-muted-foreground">
-              Payment Projection (33% Wallet Recovery Rate)
+              Payment Projection
             </p>
             <p className="text-base font-bold">{formatUGX(projection)}</p>
           </div>
