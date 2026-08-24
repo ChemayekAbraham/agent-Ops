@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Building2, CheckCircle, XCircle, Loader2, MapPin, ExternalLink } from 'lucide-react';
+import { Building2, CheckCircle, XCircle, Loader2, MapPin, ExternalLink, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatUGX } from '@/lib/businessAdvanceCalculations';
 
