@@ -750,35 +750,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const handleViewWallet = () => { hapticTap(); setShowWallet(true); };
   const handleOpenMenu = () => { hapticTap(); setMenuOpen(true); };
 
-  const phoneAmountNum = Math.max(0, parseInt(phoneAmount || '0', 10) || 0);
-  const orderSmartphone = async () => {
-    if (phoneAmountNum < 1000) {
-      const { toast } = await import('sonner');
-      toast.error('Enter an amount of at least UGX 1,000');
-      return;
-    }
-    if (phoneAmountNum > realWithdrawableBalance) {
-      const { toast } = await import('sonner');
-      toast.error(
-        `Amount exceeds your available wallet balance of ${formatUGX(realWithdrawableBalance)}. Enter ${formatUGX(realWithdrawableBalance)} or less.`
-      );
-      return;
-    }
-    setOrderingPhone(true);
-    const { error } = await (supabase as any).rpc('agent_order_smartphone', { p_amount: phoneAmountNum });
-    setOrderingPhone(false);
-    if (error) {
-      const { toast } = await import('sonner');
-      toast.error(error.message || 'Could not place smartphone order');
-      return;
-    }
-    const { toast } = await import('sonner');
-    toast.success(`Welile Smartphone requested. ${formatUGX(phoneAmountNum)} will be recovered from your wallet.`);
-    setPhoneOpen(false);
-    setPhoneAmount('');
-    queryClient.invalidateQueries({ queryKey: ['my-merchandise-plans', user?.id] });
-    queryClient.invalidateQueries({ queryKey: ['my-merchandise-deductions', user?.id] });
-  };
+
+
 
   const bikeAmountNum = Math.max(0, parseInt(bikeAmount || '0', 10) || 0);
   const orderSpiroBike = async () => {
