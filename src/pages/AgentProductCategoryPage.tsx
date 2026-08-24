@@ -2,16 +2,11 @@ import { useMemo } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
 import { ArrowLeft, Bike, Smartphone, ShoppingBag, Signpost, HandCoins } from 'lucide-react';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AgentProductsPanel, type AgentProductCategory } from '@/components/executive/agent-ops/AgentProductsPanel';
-import { AgentProductsServicesReport } from '@/components/executive/agent-ops/AgentProductsServicesReport';
-import { AdvanceAnalyticsPanel } from '@/components/executive/agent-ops-v2/AdvanceAnalyticsPanel';
+import { AgentProductsServicesExportButton } from '@/components/executive/agent-ops/AgentProductsServicesExportButton';
 import { AdvanceRequestsQueue } from '@/components/ops/AdvanceRequestsQueue';
 import { AdvanceRequestsReviewed } from '@/components/ops/AdvanceRequestsReviewed';
 import { BusinessAdvanceQueue } from '@/components/ops/BusinessAdvanceQueue';
-import { RentHistoryVerificationQueue } from '@/components/ops/RentHistoryVerificationQueue';
-import { ActiveAdvancesPanel } from '@/components/ops/ActiveAdvancesPanel';
-import { AdvanceRepaymentsPanel } from '@/components/ops/AdvanceRepaymentsPanel';
 
 import { SmartphoneOrderApprovalQueue } from '@/components/executive/agent-ops/SmartphoneOrderApprovalQueue';
 
@@ -46,55 +41,28 @@ export default function AgentProductCategoryPage() {
           Back to Products &amp; Services Hub
         </Link>
 
-        <header className="flex items-start gap-4 rounded-2xl border bg-card p-5 shadow-sm">
+        <header className="flex flex-col sm:flex-row sm:items-start gap-4 rounded-2xl border bg-card p-5 shadow-sm">
           <div className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${entry.color} text-white shadow-md`}>
             <Icon className="h-6 w-6" />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{entry.label}</h1>
             <p className="text-sm text-muted-foreground">{entry.desc}</p>
           </div>
+          <AgentProductsServicesExportButton className="sm:justify-end" />
         </header>
 
         {isAdvances ? (
-          <Tabs defaultValue="requests" className="space-y-4">
-            <TabsList className="flex-wrap h-auto">
-              <TabsTrigger value="requests">Requests</TabsTrigger>
-              <TabsTrigger value="active">Active &amp; repayments</TabsTrigger>
-              <TabsTrigger value="verification">Verification</TabsTrigger>
-              <TabsTrigger value="reporting">Reporting</TabsTrigger>
-            </TabsList>
-            <TabsContent value="requests" className="space-y-6">
-              <AdvanceRequestsQueue stage="agent_ops" />
-              <AdvanceRequestsReviewed />
-              <BusinessAdvanceQueue stage="agent_ops" />
-            </TabsContent>
-            <TabsContent value="active" className="space-y-6">
-              <ActiveAdvancesPanel />
-              <AdvanceRepaymentsPanel />
-            </TabsContent>
-            <TabsContent value="verification" className="space-y-6">
-              <RentHistoryVerificationQueue dept="agent_ops" />
-            </TabsContent>
-            <TabsContent value="reporting" className="space-y-6">
-              <AdvanceAnalyticsPanel />
-            </TabsContent>
-          </Tabs>
+          <div className="space-y-6">
+            <AdvanceRequestsQueue stage="agent_ops" />
+            <AdvanceRequestsReviewed />
+            <BusinessAdvanceQueue stage="agent_ops" />
+          </div>
         ) : (
-          <Tabs defaultValue="manage" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="manage">Management &amp; issuance</TabsTrigger>
-              <TabsTrigger value="reporting">Reporting</TabsTrigger>
-            </TabsList>
-            <TabsContent value="manage" className="space-y-6">
-              {entry.slug === 'smart-phones' && <SmartphoneOrderApprovalQueue />}
-              <AgentProductsPanel category={entry.category ?? undefined} />
-            </TabsContent>
-
-            <TabsContent value="reporting">
-              <AgentProductsServicesReport />
-            </TabsContent>
-          </Tabs>
+          <div className="space-y-6">
+            {entry.slug === 'smart-phones' && <SmartphoneOrderApprovalQueue />}
+            <AgentProductsPanel category={entry.category ?? undefined} />
+          </div>
         )}
       </div>
     </div>
