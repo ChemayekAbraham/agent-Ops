@@ -175,24 +175,6 @@ function PhotoSlider({
           >
             <ChevronRight className="h-5 w-5" />
           </button>
-          <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5">
-            {photos.map((_, i) => (
-              <button
-                key={`dot-${i}`}
-                type="button"
-                aria-label={`Go to photo ${i + 1}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  indexRef.current = i;
-                  onIndexChange(i);
-                }}
-                className={cn(
-                  'h-1.5 rounded-full transition-all',
-                  i === safeIndex ? 'w-5 bg-background' : 'w-1.5 bg-background/60',
-                )}
-              />
-            ))}
-          </div>
           <span className="absolute bottom-3 right-3 z-20 rounded-md bg-foreground/70 px-2 py-1 text-[11px] font-semibold text-background">
             {safeIndex + 1} / {total}
           </span>
