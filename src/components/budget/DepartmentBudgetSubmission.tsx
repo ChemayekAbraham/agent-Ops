@@ -258,20 +258,30 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
             </div>
             <div>
               <Label className="text-xs">Department</Label>
-              <Select value={departmentId} onValueChange={setDepartmentId} disabled={myDepartments.length > 0}>
-                <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
-                <SelectContent className="z-[100]">
-                  {myDepartments
-                    .filter(d => d.id === departmentId)
-                    .map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              {myDepartments.length > 1 ? (
+                <Select value={departmentId} onValueChange={setDepartmentId}>
+                  <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+                  <SelectContent className="z-[100]">
+                    {myDepartments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : (
+                /* Single posting: the department is fixed to the user's own
+                   department so a budget can never be filed under another. */
+                <div
+                  className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm"
+                  aria-readonly="true"
+                >
+                  {selectedDepartment?.name ?? '—'}
+                </div>
+              )}
               {route && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   Approval route: {BUDGET_ROUTE_LABEL[route]}
                 </p>
               )}
             </div>
+
           </div>
           {cycle?.instructions && (
             <p className="rounded-md border border-border/60 bg-muted/40 p-3 text-xs text-muted-foreground">
