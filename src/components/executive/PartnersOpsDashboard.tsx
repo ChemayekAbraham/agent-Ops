@@ -246,6 +246,7 @@ export function PartnersOpsDashboard() {
           <PartnerOpsBrief onNavigate={(t) => setTab(t as Tab)} />
         </div>
       );
+      case 'onboarding': return <PartnerOnboardingPanel embedded />;
       case 'directory': return <COOPartnersPage />;
       case 'portfolios.invited': return <InvitedPortfoliosPanel />;
       case 'portfolios.pending': return (
@@ -348,7 +349,7 @@ export function PartnersOpsDashboard() {
               variant="outline"
               size="sm"
               className="hidden gap-1.5 text-xs sm:inline-flex"
-              onClick={() => navigate('/partner-onboarding')}
+              onClick={() => setView('onboarding')}
             >
               <UserPlus className="h-3.5 w-3.5" /> Onboarding
             </Button>
