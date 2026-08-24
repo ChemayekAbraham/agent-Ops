@@ -262,15 +262,17 @@ export function UnifiedWalletHeroCard({
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-[9px] font-bold text-emerald-300 uppercase tracking-wider">Active</span>
             </div>
-            <button
-              type="button"
-              onClick={toggleCollapsed}
-              aria-expanded={!collapsed}
-              aria-label={`Collapse ${ROLE_LABELS[role]}`}
-              className="p-1 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 transition-all"
-            >
-              <ChevronDown className="h-4 w-4 rotate-180 text-white/70" />
-            </button>
+            {collapsible && (
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                aria-expanded={!collapsed}
+                aria-label={`Collapse ${ROLE_LABELS[role]}`}
+                className="p-1 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 transition-all"
+              >
+                <ChevronDown className="h-4 w-4 rotate-180 text-white/70" />
+              </button>
+            )}
           </div>
         </div>
 
