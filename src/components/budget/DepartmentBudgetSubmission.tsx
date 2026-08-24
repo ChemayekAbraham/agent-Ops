@@ -48,7 +48,13 @@ interface Props {
 /** Department-facing budget preparation and submission interface. */
 export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }: Props = {}) {
   const { cycles, loading: cyclesLoading } = useBudgetCycles();
-  const { accounts, myDepartments: allMyDepartments, primaryDepartmentId } = useBudgetReferenceData();
+  const {
+    accounts,
+    myDepartments: allMyDepartments,
+    primaryDepartmentId,
+    loading: refLoading,
+  } = useBudgetReferenceData();
+
 
   /**
    * Submissions are department-specific: when the page is opened from a
@@ -80,7 +86,12 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
   const budgetableAccounts = useMemo(() => accounts.filter(isBudgetableAccount), [accounts]);
   const cycle = useMemo(() => cycles.find(c => c.id === cycleId), [cycles, cycleId]);
   const active = useMemo(() => submissions.find(s => s.id === activeId) ?? null, [submissions, activeId]);
+  const selectedDepartment = useMemo(
+    () => myDepartments.find(d => d.id === departmentId) ?? null,
+    [myDepartments, departmentId],
+  );
   const readOnly = active ? !EDITABLE_STATUSES.includes(active.status) : false;
+
 
   useEffect(() => {
     if (!cycleId && openCycles.length) setCycleId(openCycles[0].id);
@@ -220,7 +231,7 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     }
   };
 
-  if (cyclesLoading) {
+  if (cyclesLoading || refLoading) {
     return <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading budget cycles…</div>;
   }
 
@@ -228,12 +239,14 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     return (
       <Card>
         <CardContent className="p-6 text-sm text-muted-foreground">
-          You are not linked to a department yet, so there is no budget to prepare. Ask HR to add your
-          department assignment.
+          {allowedKeys
+            ? 'You do not have an active department assignment for this hub, so there is no budget to prepare here. Ask HR to post you to this department.'
+            : 'No active department is linked to your account, so a budget cannot be prepared. Ask HR to add your active department assignment — budgets are always filed under your own department.'}
         </CardContent>
       </Card>
     );
   }
+
 
   return (
     <div className="space-y-4">
@@ -258,20 +271,30 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
             </div>
             <div>
               <Label className="text-xs">Department</Label>
-              <Select value={departmentId} onValueChange={setDepartmentId} disabled={myDepartments.length > 0}>
-                <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
-                <SelectContent className="z-[100]">
-                  {myDepartments
-                    .filter(d => d.id === departmentId)
-                    .map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              {myDepartments.length > 1 ? (
+                <Select value={departmentId} onValueChange={setDepartmentId}>
+                  <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+                  <SelectContent className="z-[100]">
+                    {myDepartments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              ) : (
+                /* Single posting: the department is fixed to the user's own
+                   department so a budget can never be filed under another. */
+                <div
+                  className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm"
+                  aria-readonly="true"
+                >
+                  {selectedDepartment?.name ?? '—'}
+                </div>
+              )}
               {route && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   Approval route: {BUDGET_ROUTE_LABEL[route]}
                 </p>
               )}
             </div>
+
           </div>
           {cycle?.instructions && (
             <p className="rounded-md border border-border/60 bg-muted/40 p-3 text-xs text-muted-foreground">

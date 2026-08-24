@@ -216,6 +216,7 @@ export function useBudgetReferenceData() {
   const [departments, setDepartments] = useState<BudgetDepartment[]>([]);
   const [myDepartments, setMyDepartments] = useState<BudgetDepartment[]>([]);
   const [primaryDepartmentId, setPrimaryDepartmentId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -230,53 +231,37 @@ export function useBudgetReferenceData() {
               data: (data ?? []) as unknown as string[],
             }))
           : Promise.resolve({ data: [] as string[] }),
-        userId ? fetchPrimaryDepartmentId(userId) : Promise.resolve<string | null>(null),
+        userId ? fetchHomeDepartmentId(userId) : Promise.resolve<string | null>(null),
       ]);
       const deps = (dep.data ?? []) as BudgetDepartment[];
       setAccounts((acc.data ?? []) as BudgetAccount[]);
       setDepartments(deps);
+      // The server-resolved home department is authoritative; union it with the
+      // membership list so a user whose only link is the primary HR assignment
+      // still sees their own department rather than an alphabetical fallback.
       const mineIds = new Set((mine.data ?? []).map(String));
+      if (primaryId) mineIds.add(primaryId);
       setMyDepartments(deps.filter(d => mineIds.has(d.id)));
       setPrimaryDepartmentId(primaryId ?? null);
-    })().catch(() => undefined);
+      setLoading(false);
+    })().catch(() => setLoading(false));
   }, []);
 
-  return { accounts, departments, myDepartments, primaryDepartmentId };
+  return { accounts, departments, myDepartments, primaryDepartmentId, loading };
 }
 
-async function fetchPrimaryDepartmentId(userId: string): Promise<string | null> {
-  // Prefer the primary active HR assignment; fall back to operations_departments.
-  const { data: staff } = await supabase.from('hr_staff').select('id').eq('user_id', userId).maybeSingle();
-  if (staff?.id) {
-    const { data: assignment } = await supabase
-      .from('hr_assignments')
-      .select('department_id')
-      .eq('staff_id', staff.id)
-      .is('ended_on', null)
-      .order('is_primary', { ascending: false })
-      .order('started_on', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (assignment?.department_id) return assignment.department_id;
-  }
-
-  const { data: op } = await supabase
-    .from('operations_departments')
-    .select('department')
-    .eq('user_id', userId)
-    .limit(1)
-    .maybeSingle();
-  if (op?.department) {
-    const { data: dept } = await supabase
-      .from('hr_departments')
-      .select('id')
-      .eq('active', true)
-      .or(`key.ilike.${op.department},name.ilike.${op.department.replace(/_/g, ' ')}`)
-      .maybeSingle();
-    return dept?.id ?? null;
-  }
-  return null;
+/**
+ * The caller's authoritative budgeting department, resolved by the same
+ * SECURITY DEFINER function the backend and RLS policies use
+ * (`budget_home_department_id`): primary active HR assignment, else the
+ * operations department mapping. Never guesses a department.
+ */
+async function fetchHomeDepartmentId(userId: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc('budget_home_department_id', { _user_id: userId });
+  if (error) return null;
+  return (data as string | null) ?? null;
 }
+
 
 /**
  * Department-scoped submission list. Served by the SECURITY DEFINER
