@@ -78,10 +78,6 @@ export function PartnersOpsDashboard() {
   const queryClient = useQueryClient();
   const [view, setView] = useState<PartnerOpsViewKey>('overview');
   const handleSelect = (next: PartnerOpsViewKey) => {
-    if (next === 'onboarding') {
-      navigate('/partner-onboarding');
-      return;
-    }
     setView(next);
   };
   const setTab = (t: string) => setView(LEGACY_TAB_TO_VIEW[t] ?? 'overview');
