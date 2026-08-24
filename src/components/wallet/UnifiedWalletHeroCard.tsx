@@ -431,7 +431,7 @@ export function UnifiedWalletHeroCard({
         {quickActions}
 
         {/* Payroll Growth Bonus indicator — only renders for staff with active un-withdrawn payroll */}
-        {payrollGrowth && (() => {
+        {!hidePayrollGrowth && payrollGrowth && (() => {
           // Never claim more is "parked" than the user actually has in their wallet.
           // Withdrawals reduce the real balance immediately; the payroll_growth_balances
           // FIFO consumer may lag (or, for historical rows, never ran), so we cap the
