@@ -145,17 +145,12 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
             />
           </div>
 
-          <div className="rounded-lg border bg-muted/50 px-3 py-2">
-            <p className="text-[11px] text-muted-foreground">
-              Payment Projection
-            </p>
-            <p className="text-base font-bold">{formatUGX(projection)}</p>
-          </div>
-
           <p className="text-[11px] text-muted-foreground">
             Your order is submitted as Pending Approval. Nothing is charged to your wallet until it is
-            approved — you can order even with a UGX 0 balance.
+            approved — you can order even with a UGX 0 balance. Your payment projection is shown once the
+            order is approved.
           </p>
+
         </div>
 
         <DialogFooter>
