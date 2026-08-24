@@ -388,9 +388,6 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
           <DepositFlow
             open={showDeposit}
             onOpenChange={setShowDeposit}
-            onPaymentSubmitted={() => {
-              setShowDeposit(false);
-            }}
           />
           <WithdrawFlow
             open={showWithdraw}

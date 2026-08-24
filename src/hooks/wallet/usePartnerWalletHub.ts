@@ -68,7 +68,7 @@ export async function fetchPartnerWalletHub(
     totalAvailable: Number(row.total_available ?? 0),
     pendingHolds: Number(row.pending_holds ?? 0),
     restrictedHeld: Number(row.restricted_held ?? 0),
-    transactions: (row.recent_transactions ?? []) as PartnerWalletHubRow[],
+    transactions: (row.recent_transactions ?? []) as unknown as PartnerWalletHubRow[],
   };
 }
 
