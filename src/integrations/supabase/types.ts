@@ -38288,6 +38288,7 @@ export type Database = {
         Args: { _dead_letter_id: number }
         Returns: undefined
       }
+      assert_merchant_float_alloc_access: { Args: never; Returns: boolean }
       assert_no_promissory_self_support: {
         Args: { p_path: string; p_user: string }
         Returns: undefined
@@ -41478,6 +41479,20 @@ export type Database = {
         Returns: Json
       }
       get_partner_total_trend: { Args: { p_preset?: string }; Returns: Json }
+      get_partner_wallet_hub: {
+        Args: { p_limit?: number; p_offset?: number; p_user_id: string }
+        Returns: {
+          advance_amount: number
+          deposits_amount: number
+          float_amount: number
+          pending_holds: number
+          recent_transactions: Json
+          restricted_held: number
+          roi_amount: number
+          total_available: number
+          withdrawable_amount: number
+        }[]
+      }
       get_payout_delivery_audit: {
         Args: { p_limit?: number; p_user_id?: string }
         Returns: {
@@ -42973,6 +42988,82 @@ export type Database = {
           p_reason: string
         }
         Returns: boolean
+      }
+      merchant_agent_float_allocation_evidence: {
+        Args: { p_agent_id: string; p_days?: number }
+        Returns: {
+          commission_amount: number
+          created_at: string
+          customer_debit: number
+          float_principal: number
+          float_telecom: number
+          has_commission_award: boolean
+          has_debit_leg: boolean
+          has_funding_record: boolean
+          ledger_leg_ids: string[]
+          request_amount: number
+          settlement_state: string
+          shortfall_amount: number
+          shortfall_kind: string
+          shortfall_status: string
+          status: string
+          withdrawal_id: string
+        }[]
+      }
+      merchant_agent_float_allocation_report: {
+        Args: { p_days?: number }
+        Returns: {
+          actioned: number
+          agent_id: string
+          allocation_score: number
+          attempts: number
+          available_float: number
+          blocker: string
+          capacity_utilization_pct: number
+          channels: string
+          commission_awards: number
+          current_queue_count: number
+          failed_settlements: number
+          float_cache: number
+          float_delivered: number
+          float_ledger: number
+          float_spendable: number
+          float_turnover: number
+          grade: string
+          is_active: boolean
+          is_online: boolean
+          label: string
+          max_daily_payouts: number
+          merchant_name: string
+          merchant_phone: string
+          needs_review_amount: number
+          needs_review_count: number
+          net_position: number
+          open_disputes: number
+          out_of_pocket_outstanding: number
+          paid: number
+          payouts_verified: number
+          pct_customer_debited: number
+          pct_fully_recorded: number
+          pct_paid: number
+          pending_reimbursement_amount: number
+          pending_reimbursement_count: number
+          reason: string
+          recommendation: string
+          reserved_float: number
+          settled_count: number
+          settlement_clean_pct: number
+          shortfall_amount: number
+          shortfall_count: number
+          state: string
+          stranded_processing: number
+          total_commission: number
+          total_float_consumed: number
+          total_paid: number
+          total_telecom: number
+          unsettled_count: number
+          window_days: number
+        }[]
       }
       merchant_attach_payout_proof: {
         Args: {
