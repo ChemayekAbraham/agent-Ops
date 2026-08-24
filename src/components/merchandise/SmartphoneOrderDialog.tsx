@@ -67,7 +67,9 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const onModelChange = (value: string) => {
     setModelType(value);
     const match = activeCatalog.find((c) => c.brand === brand && c.model_name === value);
-    if (match && Number(match.default_amount) > 0) setAmount(String(Math.round(Number(match.default_amount))));
+    if (match && match.default_amount != null && Number(match.default_amount) > 0) {
+      setAmount(String(Math.round(Number(match.default_amount))));
+    }
   };
 
   const reset = () => {
