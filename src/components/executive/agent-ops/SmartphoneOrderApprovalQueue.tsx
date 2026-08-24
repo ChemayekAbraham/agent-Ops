@@ -119,7 +119,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
       <CardHeader className="pb-3">
         <CardTitle className="flex flex-wrap items-center gap-2 text-base">
           <Smartphone className="h-4 w-4 text-primary" />
-          Smartphone orders awaiting approval
+          {pendingOnly ? 'Pending applications' : 'Smartphone orders awaiting approval'}
           <Badge variant="secondary">{pendingCount} pending</Badge>
         </CardTitle>
         <Input
@@ -135,7 +135,9 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading orders…
           </p>
         ) : filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No smartphone orders yet.</p>
+          <p className="text-sm text-muted-foreground">
+            {pendingOnly ? 'No applications awaiting approval.' : 'No smartphone orders yet.'}
+          </p>
         ) : (
           filtered.map((o) => {
             const total = Number(o.total_amount || 0);
