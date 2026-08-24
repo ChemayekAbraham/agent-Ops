@@ -521,6 +521,15 @@ function DisbursementDetailDrawer({ advance, onClose, onCancel, onReverse }: { a
                 <Ban className="h-4 w-4" /> Cancel this advance
               </Button>
             )}
+            {!(advance as any).reversed_at && (
+              <Button
+                variant="destructive"
+                className="w-full gap-1"
+                onClick={() => onReverse(advance)}
+              >
+                <Undo2 className="h-4 w-4" /> Reverse this disbursement
+              </Button>
+            )}
             <Button variant="outline" className="w-full" onClick={onClose}>Close</Button>
           </div>
         </ScrollArea>
