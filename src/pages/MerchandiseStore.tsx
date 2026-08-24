@@ -19,6 +19,7 @@ import {
 import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
 import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatus';
+import { useMerchandiseOrderLock } from '@/hooks/useMerchandiseOrderLock';
 import SmartphoneOrderDialog from '@/components/merchandise/SmartphoneOrderDialog';
 
 import { StorageImage } from '@/components/ui/StorageImage';
@@ -78,6 +79,7 @@ export default function MerchandiseStore() {
   const [confirmStep, setConfirmStep] = useState(false);
   const [ordering, setOrdering] = useState(false);
   const [phoneOpen, setPhoneOpen] = useState(false);
+  const { repaying: smartphoneRepaying } = useMerchandiseOrderLock(user?.id);
 
 
   const [bikeOpen, setBikeOpen] = useState(false);
@@ -410,9 +412,16 @@ export default function MerchandiseStore() {
                 Get a company smartphone on credit. Choose how much can be deducted from your wallet — final price is set by marketing.
               </p>
             </div>
-            <Button size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => setPhoneOpen(true)}>
-              Order
+            <Button
+              size="sm"
+              className="h-8 text-xs gap-1 shrink-0"
+              disabled={smartphoneRepaying}
+              title={smartphoneRepaying ? 'You have a smartphone still being repaid' : undefined}
+              onClick={() => setPhoneOpen(true)}
+            >
+              {smartphoneRepaying ? 'In repayment' : 'Order'}
             </Button>
+
           </CardContent>
         </Card>
 

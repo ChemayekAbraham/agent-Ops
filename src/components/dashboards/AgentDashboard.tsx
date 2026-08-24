@@ -55,6 +55,7 @@ import { ShieldCheck } from 'lucide-react';
 import { Trophy } from 'lucide-react';
 import { ShoppingBag, Smartphone, Bike, Store } from 'lucide-react';
 import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatus';
+import { useMerchandiseOrderLock } from '@/hooks/useMerchandiseOrderLock';
 import SmartphoneOrderDialog from '@/components/merchandise/SmartphoneOrderDialog';
 
 import spiroBikeAsset from '@/assets/spiro-bike.jpg.asset.json';
@@ -360,6 +361,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const [pipelineTab, setPipelineTab] = useState<PipelineTab>('submitted');
   const [submissionsExpanded, setSubmissionsExpanded] = useState(false);
   const [phoneOpen, setPhoneOpen] = useState(false);
+  const { repaying: smartphoneRepaying } = useMerchandiseOrderLock(user?.id);
 
 
   const [bikeOpen, setBikeOpen] = useState(false);
@@ -1209,9 +1211,16 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                         Get a company smartphone on credit. Choose how much can be deducted from your wallet.
                       </p>
                     </div>
-                    <Button size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => setPhoneOpen(true)}>
-                      Order
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs gap-1 shrink-0"
+                      disabled={smartphoneRepaying}
+                      title={smartphoneRepaying ? 'You have a smartphone still being repaid' : undefined}
+                      onClick={() => setPhoneOpen(true)}
+                    >
+                      {smartphoneRepaying ? 'In repayment' : 'Order'}
                     </Button>
+
                   </CardContent>
                 </Card>
 
