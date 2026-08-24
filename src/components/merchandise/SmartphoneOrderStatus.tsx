@@ -380,7 +380,7 @@ export default function SmartphoneOrderStatus({
                   handleCancel();
                 }}
               >
-                {cancelling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Cancel application'}
+                {cancelling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Delete order'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
