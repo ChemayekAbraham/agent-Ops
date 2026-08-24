@@ -13,6 +13,8 @@ import { RentHistoryVerificationQueue } from '@/components/ops/RentHistoryVerifi
 import { ActiveAdvancesPanel } from '@/components/ops/ActiveAdvancesPanel';
 import { AdvanceRepaymentsPanel } from '@/components/ops/AdvanceRepaymentsPanel';
 import { ServiceCentreVerificationQueue } from '@/components/executive/ServiceCentreVerificationQueue';
+import { SmartphoneOrderApprovalQueue } from '@/components/executive/agent-ops/SmartphoneOrderApprovalQueue';
+
 
 export const AGENT_PRODUCT_PAGES = [
   { slug: 'motor-bikes', category: 'motor_bike' as AgentProductCategory, label: 'Agent Motor Bikes', desc: 'Spiro bike issuance, deliveries & receivables', icon: Bike, color: 'bg-orange-500', to: '/agent-ops/products/motor-bikes' },
@@ -144,9 +146,11 @@ export default function AgentProductCategoryPage() {
               <TabsTrigger value="manage">Management &amp; issuance</TabsTrigger>
               <TabsTrigger value="reporting">Reporting</TabsTrigger>
             </TabsList>
-            <TabsContent value="manage">
+            <TabsContent value="manage" className="space-y-6">
+              {entry.slug === 'smart-phones' && <SmartphoneOrderApprovalQueue />}
               <AgentProductsPanel category={entry.category ?? undefined} />
             </TabsContent>
+
             <TabsContent value="reporting">
               <AgentProductsServicesReport />
             </TabsContent>
