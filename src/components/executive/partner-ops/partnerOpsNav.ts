@@ -19,6 +19,7 @@ import {
   FileText,
   ClipboardCheck,
   ClipboardList,
+  UserPlus,
   type LucideIcon,
 } from 'lucide-react';
 
