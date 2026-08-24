@@ -43,18 +43,19 @@ export function ReceiptNumberCheckDialog({
           }}
         >
           <div className="space-y-1.5">
-            <Label htmlFor="receipt-number">Receipt number</Label>
+            <Label htmlFor="receipt-number">Receipt number or receipt link code</Label>
             <Input
               id="receipt-number"
               value={query}
               onChange={e => setQuery(e.target.value.toUpperCase())}
-              placeholder="WLR-XXXXXX"
+              placeholder="WLR-XXXXXX or link code"
               className="font-mono"
               autoComplete="off"
             />
             <p className="text-[11px] text-muted-foreground">
-              Up to 5 checks per minute.
+              The landlord gets this by SMS after being paid. Up to 5 checks per minute.
             </p>
+
           </div>
 
           {errorMessage && (
