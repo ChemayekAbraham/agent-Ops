@@ -61,11 +61,11 @@ export function SmartphoneCatalogDialog() {
       const raw = amount.trim();
       const total = raw ? Math.max(0, parseInt(raw, 10) || 0) : null;
       if (brand.trim().length < 2) throw new Error('Enter a brand');
-      if (modelName.trim().length < 2) throw new Error('Enter a model name');
+      if (modelName.trim().length > 0 && modelName.trim().length < 2) throw new Error('Model name is too short');
       if (total !== null && total < 1000) throw new Error('Enter a default amount of at least UGX 1,000');
       const { error } = await db.from('smartphone_catalog').insert({
         brand: brand.trim(),
-        model_name: modelName.trim(),
+        model_name: modelName.trim() || null,
         default_amount: total,
       });
       if (error) throw error;
