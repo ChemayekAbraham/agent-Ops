@@ -106,6 +106,12 @@ export function UnifiedWalletHeroCard({
   onDeployedTap,
   quickActions,
   defaultCollapsed = true,
+  collapsible = true,
+  hideSupporterMetrics = false,
+  hideSecondaryRow = false,
+  hidePayrollGrowth = false,
+  hideFooter = false,
+  disableTap = false,
 }: UnifiedWalletHeroCardProps) {
   const { formatAmount } = useCurrency();
   const { user } = useAuth();
