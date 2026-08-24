@@ -117,10 +117,18 @@ function PhotoSlider({
       {photos.map((url, i) => (
         <div
           key={`${url}-${i}`}
-          className="absolute inset-0 transition-transform duration-300 ease-out will-change-transform"
-          style={{ transform: `translate3d(${(i - safeIndex) * 100}%, 0, 0)` }}
+          /* `photo-slider-slide` is an explicit opt-out from the Android
+             compositor-safe rule that nulls transforms inside dialogs/sheets. */
+          className="photo-slider-slide absolute inset-0 transition-transform duration-300 ease-out"
+          style={
+            {
+              '--slide-x': `${(i - safeIndex) * 100}%`,
+              transform: 'translate3d(var(--slide-x, 0%), 0, 0)',
+            } as React.CSSProperties
+          }
           aria-hidden={i !== safeIndex}
         >
+
           <img
             src={url}
             alt={`House photo ${i + 1}`}
