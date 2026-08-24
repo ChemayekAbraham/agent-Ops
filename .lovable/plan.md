@@ -1,34 +1,31 @@
-# Service Center: fix the slow load behind the "New" tag
+# Reverse today's auto-credited agent advances
 
-## What the red "New" tag actually is
+## What the records show (verified now)
 
-The tag on the Service Center button in `src/components/agent/AgentHubTabs.tsx` (line 61) is pure static markup — a styled `<span>` with the text "New" and a small yellow dot. It reads no data, runs no animation loop, and costs nothing. It is not the cause of the slow load, so nothing about the badge needs changing (unless you want it removed once the feature stops being "new").
+- 191 agent advances were created today between 05:56 and 06:00 UTC, all status `active`, none reversed.
+- Principal disbursed: UGX 9,327,000. Total repayable being tracked: UGX 14,165,598.
+- Each one has a matching `agent_advance_credit` ledger leg into the agent's **withdrawable** wallet (191 legs, UGX 9,327,000) — so the money did land in agent wallets.
+- Recoverable right now from agent withdrawable balances: UGX 6,576,600.
+  - 157 agents still hold the full principal.
+  - 33 agents have a zero withdrawable balance.
+  - Unrecoverable shortfall today: UGX 2,750,400 (already spent or withdrawn).
 
-## Where the slowness really comes from (verified)
+## What will be built
 
-Tapping the button navigates to `/agent/service-center` (`AgentServiceCenter`, a lazy route). That page fires six queries at once, and one of them — `get_agent_service_center()` — is a single monolithic RPC that builds the *entire* team dataset in one JSON blob before anything can render:
+A **bulk reverse** action in the CFO Disbursed Advances Register, on top of the existing single-advance reversal engine — no new accounting rules.
 
-- per sub-agent it embeds full `tenant_list`, `landlord_list` and `house_list` (with photo arrays), not just counts
-- for the heaviest parent agent in production today that means 96 sub-agents, 2,872 house rows, 1,815 landlords, 238 referred tenants in one response; another has 105 sub-agents / 508 landlords
-- the roster list is capped at 20 cards on screen, so nearly all of that payload is transferred and parsed for nothing
-- the whole roster tab is gated on `isLoading` of that one query, so the user stares at skeletons until the largest piece of work finishes
-
-The relevant indexes (`agent_subagents(parent_agent_id,status)`, `rent_requests(agent_id)`, `house_listings(agent_id)`, `profiles(referrer_id)`) already exist, so this is a payload-size and shape problem, not a missing-index problem.
-
-## The fix
-
-1. Split the RPC into two:
-   - `get_agent_service_center_summary()` — one row per sub-agent with profile, wallet, link status, commission/bonus totals, and the counts only (tenants, landlords, houses, pending states, pending transfers). No embedded lists.
-   - `get_agent_subagent_detail(p_sub_agent_id)` — returns the tenant, landlord and house lists for a single sub-agent, called only when that sub-agent's detail sheet opens.
-2. Point the roster page at the summary RPC so the first paint needs a small response; `SubAgentDetailSheet` and the suspend/transfer/unlink dialogs read from the new per-sub-agent detail query.
-3. Recompute the one page-level total that currently needs `tenant_list` (`tenantsPending`) inside the summary RPC as a count, so the page no longer depends on the lists at all.
-4. Prefetch: on tapping the Service Center button, warm the summary query so the data is often already in cache by the time the lazy route chunk mounts.
-5. Render progressively — header, KPI row and tabs paint immediately; only the roster list area shows skeletons, and the vetting-queue tabs load independently instead of holding up the roster.
-6. Cap detail payloads server-side (most recent N houses/landlords/tenants per sub-agent, with a "show more" path) so a sub-agent with thousands of listings can never stall the sheet.
+1. **Preview step (read-only).** A dialog lists the batch to be reversed with the totals above, per-agent rows showing Disbursed / Recoverable now / Shortfall, and a filter for the batch window (today). Nothing moves until confirmed.
+2. **Confirmation.** Mandatory reason (10+ characters), applied to every advance in the batch, plus a typed confirmation of the batch size.
+3. **Execution.** Each advance is reversed through the existing `reverse_agent_advance` function, all sharing one clawback group id so the batch is traceable as a single event. Per advance it: claws back what the agent actually holds via CFO Direct Debit, stops daily deductions, returns the request to Waiting for Approval, and records the audit entry plus system event. Wallets are never driven negative; any uncollected part is recorded as a shortfall on the advance and in the audit trail.
+4. **Result report.** After the run: number reversed, total recovered, total shortfall, and a per-agent list of shortfalls that Finance still needs to chase, exportable.
 
 ## Technical notes
 
-- New migration adds the two functions with `SECURITY DEFINER`, `STABLE`, `SET search_path = public`, keeping the existing `auth.uid()` parent check; `EXECUTE` granted to `authenticated`.
-- The old `get_agent_service_center()` stays in place until the UI is switched over, then is dropped in a follow-up so nothing breaks mid-deploy.
-- Files touched: `src/hooks/useAgentServiceCenter.ts` (split queries + a `useSubAgentDetail(id)` hook), `src/pages/AgentServiceCenter.tsx`, `src/components/agent/service-center/SubAgentDetailSheet.tsx`, `SubAgentActionDialogs.tsx`, and the tap handler in `src/components/dashboards/AgentDashboard.tsx` for prefetch.
-- No change to the "New" badge markup and no change to vetting/transfer business logic.
+- Backend: new `public.reverse_agent_advances_bulk(p_advance_ids uuid[], p_reason text)` that generates one `reversal_clawback_group_id`, loops the ids, calls the existing `reverse_agent_advance(p_advance_id, p_reason, p_clawback_amount, p_clawback_group_id)` per row inside a per-advance exception block so one failure cannot abort the batch, and returns a per-advance outcome (reversed / skipped / error, recovered, shortfall). CFO/super_admin only.
+- The existing `advance_reversal_plan(p_advance_id)` supplies the authoritative Approved / Disbursed / Recovered / Amount-to-reverse figures for the preview — no manual amounts, no wallet-balance guessing.
+- Existing guards stay intact: same-day window, row lock, `reversed_at` duplicate guard, so a re-run cannot double-claw.
+- Frontend: `BulkReverseAdvancesDialog.tsx` next to the current `ReverseAdvanceDialog.tsx`, wired into the CFO advances register with a "Reverse today's batch" action and a selection mode on the register list.
+
+## Not included
+
+No change to approval routing, permissions, fee logic, or any other advance workflow. The skip-path that created these has already been closed.
