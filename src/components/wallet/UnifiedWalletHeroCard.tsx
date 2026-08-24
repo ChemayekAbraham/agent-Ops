@@ -204,7 +204,7 @@ export function UnifiedWalletHeroCard({
       />
 
       <AnimatePresence initial={false}>
-        {collapsed && (
+        {collapsible && collapsed && (
           <motion.button
             key="collapsed-bar"
             type="button"
