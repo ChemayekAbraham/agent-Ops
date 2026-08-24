@@ -100,19 +100,26 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
   };
 
   const approve = useMutation({
-    mutationFn: async (id: string) => {
-      const { data, error } = await db.rpc('approve_smartphone_order', { p_sale_id: id });
+    mutationFn: async ({ id, amount }: { id: string; amount: number }) => {
+      const { data, error } = await db.rpc('approve_smartphone_order', {
+        p_sale_id: id,
+        p_total_amount: amount,
+      });
       if (error) throw error;
       return data;
     },
     onSuccess: (data: any) => {
-      toast.success(`Order approved. ${formatUGX(Number(data?.recovery_amount || 0))} scheduled for wallet recovery.`);
+      toast.success(
+        `Order approved at ${formatUGX(Number(data?.total_amount || 0))}. ${formatUGX(Number(data?.payment_projection || 0))}/month (33%) recovery plan activated.`,
+      );
+      setApproveTarget(null);
+      setOfficialAmount('');
       setDetailsTarget(null);
       invalidate();
-
     },
     onError: (e: any) => toast.error(e.message || 'Could not approve order'),
   });
+
 
   const reject = useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
