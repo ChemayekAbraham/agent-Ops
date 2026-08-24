@@ -101,7 +101,13 @@ export function buildAgreementHtml(data: AgreementFillData): string {
   const partnerSig = data.partnerSignatureDataUrl
     ? `<img src="${data.partnerSignatureDataUrl}" alt="Signature" style="max-height:40px; max-width:180px; object-fit:contain;" />`
     : (name ? `<span style="font-style:italic; font-weight:400;">${name.toLowerCase()}</span>` : '');
+  // Next of kin signs as a typed italic lowercase name (no captured signature image).
+  const kinNameRaw = data.kinName?.trim() || '';
+  const kinSig = kinNameRaw
+    ? `<span style="font-style:italic; font-weight:400;">${esc(kinNameRaw.toLowerCase())}</span>`
+    : '';
   const stamp = data.includeStamp ? stampHtml(date) : '';
+
 
   const tokens: Record<string, string> = {
     LogoUrl: welileLogo,
