@@ -231,7 +231,7 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     }
   };
 
-  if (cyclesLoading) {
+  if (cyclesLoading || refLoading) {
     return <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading budget cycles…</div>;
   }
 
@@ -239,12 +239,14 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     return (
       <Card>
         <CardContent className="p-6 text-sm text-muted-foreground">
-          You are not linked to a department yet, so there is no budget to prepare. Ask HR to add your
-          department assignment.
+          {allowedKeys
+            ? 'You do not have an active department assignment for this hub, so there is no budget to prepare here. Ask HR to post you to this department.'
+            : 'No active department is linked to your account, so a budget cannot be prepared. Ask HR to add your active department assignment — budgets are always filed under your own department.'}
         </CardContent>
       </Card>
     );
   }
+
 
   return (
     <div className="space-y-4">
