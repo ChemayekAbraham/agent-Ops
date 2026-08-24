@@ -61,6 +61,7 @@ export function ActiveServiceCentresList() {
               {s.ceo_comment && (
                 <p className="text-xs italic text-muted-foreground">COO note: {s.ceo_comment}</p>
               )}
+              <ServiceCentreStageTracker setup={s} className="mt-1" />
             </div>
             <a
               href={`https://www.google.com/maps?q=${s.latitude},${s.longitude}`}
