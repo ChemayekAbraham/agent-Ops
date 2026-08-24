@@ -97,6 +97,9 @@ export function DisbursedAdvancesRegister() {
   const [selected, setSelected] = useState<AdvanceRow | null>(null);
   const [cancelAdvance, setCancelAdvance] = useState<AdvanceRow | null>(null);
   const [reverseAdvance, setReverseAdvance] = useState<AdvanceRow | null>(null);
+  const [bulkIds, setBulkIds] = useState<string[] | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
 
   const { data: advances = [], isLoading } = useQuery({
