@@ -410,7 +410,7 @@ export default function MerchandiseStore() {
                 Get a company smartphone on credit. Choose how much can be deducted from your wallet — final price is set by marketing.
               </p>
             </div>
-            <Button size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => { setPhoneAmount(''); setPhoneOpen(true); }}>
+            <Button size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => setPhoneOpen(true)}>
               Order
             </Button>
           </CardContent>
