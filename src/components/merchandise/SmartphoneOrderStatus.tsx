@@ -351,7 +351,7 @@ export default function SmartphoneOrderStatus({
                           className="text-destructive focus:text-destructive focus:bg-destructive/10"
                           onClick={() => setCancelTarget(o)}
                         >
-                          <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete / Cancel
+                          <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete order
                         </DropdownMenuItem>
                       </>
                     )}
