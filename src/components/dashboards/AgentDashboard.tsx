@@ -50,7 +50,7 @@ import { toast } from 'sonner';
 import { Info, UsersRound } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Wallet, Landmark, LayoutDashboard, ChevronRight } from 'lucide-react';
-import { HandCoins } from 'lucide-react';
+import { HandCoins, Receipt } from 'lucide-react';
 import { ShieldCheck } from 'lucide-react';
 import { Trophy } from 'lucide-react';
 import { ShoppingBag, Smartphone, Bike, Store } from 'lucide-react';
