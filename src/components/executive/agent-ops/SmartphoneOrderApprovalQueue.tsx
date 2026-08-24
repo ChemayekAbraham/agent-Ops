@@ -232,8 +232,101 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
         )}
       </CardContent>
 
+      <Dialog open={!!detailsTarget} onOpenChange={(open) => { if (!open) setDetailsTarget(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Smartphone className="h-4 w-4 text-primary" />
+              Smartphone application
+            </DialogTitle>
+          </DialogHeader>
+          {detailsTarget && (() => {
+            const total = Number(detailsTarget.total_amount || 0);
+            const projection = Number(detailsTarget.payment_projection || Math.round(total * 0.33));
+            const rows: Array<[string, string]> = [
+              ['Agent', detailsTarget.client_name || 'Agent'],
+              ['Phone number', detailsTarget.client_phone || '—'],
+              ['Submitted', format(new Date(detailsTarget.created_at), 'dd MMM yyyy HH:mm')],
+              ['Brand', detailsTarget.brand || '—'],
+              ['Model', detailsTarget.model_type || '—'],
+              ['Phone amount', formatUGX(total)],
+              ['Projection (33%)', formatUGX(projection)],
+              ['Amount paid', formatUGX(Number(detailsTarget.amount_paid || 0))],
+              ['Outstanding', formatUGX(Number(detailsTarget.amount_outstanding || 0))],
+            ];
+            return (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Status</span>
+                  <Badge variant="outline" className={STATUS_TONE[detailsTarget.order_status] || ''}>
+                    {detailsTarget.order_status.replace(/_/g, ' ')}
+                  </Badge>
+                </div>
+
+                <div className="rounded-lg border divide-y">
+                  {rows.map(([label, value]) => (
+                    <div key={label} className="flex items-center justify-between gap-3 px-3 py-2">
+                      <span className="text-xs text-muted-foreground">{label}</span>
+                      <span className="text-xs font-semibold text-right truncate">{value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-lg border p-3 space-y-2">
+                  <p className="text-xs font-semibold">Agent wallet (live)</p>
+                  {!detailsTarget.customer_id ? (
+                    <p className="text-[11px] text-muted-foreground">No linked agent account.</p>
+                  ) : walletLoading ? (
+                    <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Loading balances…
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                        <p className="text-[10px] text-muted-foreground">Withdrawable</p>
+                        <p className="text-xs font-semibold">{formatUGX(Number(wallet?.withdrawable_balance || 0))}</p>
+                      </div>
+                      <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                        <p className="text-[10px] text-muted-foreground">Float</p>
+                        <p className="text-xs font-semibold">{formatUGX(Number(wallet?.float_balance || 0))}</p>
+                      </div>
+                      <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                        <p className="text-[10px] text-muted-foreground">Advance</p>
+                        <p className="text-xs font-semibold">{formatUGX(Number(wallet?.advance_balance || 0))}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {detailsTarget.rejection_reason && (
+                  <p className="text-[11px] text-destructive">Rejected: {detailsTarget.rejection_reason}</p>
+                )}
+
+                {isPending(detailsTarget.order_status) && (
+                  <DialogFooter className="gap-2 sm:gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => { setRejectTarget(detailsTarget); setRejectReason(''); }}
+                    >
+                      <X className="h-3.5 w-3.5 mr-1" /> Reject
+                    </Button>
+                    <Button
+                      disabled={approve.isPending}
+                      onClick={() => approve.mutate(detailsTarget.id)}
+                    >
+                      <Check className="h-3.5 w-3.5 mr-1" /> Approve
+                    </Button>
+                  </DialogFooter>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!rejectTarget} onOpenChange={(o) => { if (!o) setRejectTarget(null); }}>
         <DialogContent className="max-w-sm">
+
           <DialogHeader>
             <DialogTitle>Reject smartphone order</DialogTitle>
           </DialogHeader>
