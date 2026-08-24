@@ -123,6 +123,7 @@ export default function SupporterDashboard({
   const [selectedPackageCategory, setSelectedPackageCategory] = useState<RentCategory | null>(null);
   const [showPackageSheet, setShowPackageSheet] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
+  const [showFunderHub, setShowFunderHub] = useState(false);
   const [showInvestments, setShowInvestments] = useState(false);
   const [investmentsTab, setInvestmentsTab] = useState<'accounts' | 'angel'>('accounts');
   const [focusPortfolioId, setFocusPortfolioId] = useState<string | null>(null);
