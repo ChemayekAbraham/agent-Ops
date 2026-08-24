@@ -53,11 +53,11 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const { data: catalog = [], isLoading: catalogLoading } = useSmartphoneCatalog();
   const activeCatalog = catalog.filter((c) => c.is_active);
   const brands = Array.from(new Set(activeCatalog.map((c) => c.brand)));
-  const models = activeCatalog.filter((c) => c.brand === brand);
+  const models = activeCatalog.filter((c) => c.brand === brand && !!c.model_name);
 
   const totalAmount = Math.max(0, parseInt(amount || '0', 10) || 0);
-  
-  const canSubmit = !!brand && modelType.trim().length > 1 && totalAmount >= 1000;
+
+  const canSubmit = !!brand && totalAmount >= 1000;
 
   const onBrandChange = (value: string) => {
     setBrand(value);
