@@ -163,7 +163,16 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
             const total = Number(o.total_amount || 0);
             const projection = Number(o.payment_projection || Math.round(total * 0.33));
             return (
-              <div key={o.id} className="rounded-lg border p-3 space-y-2">
+              <div
+                key={o.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => setDetailsTarget(o)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailsTarget(o); }
+                }}
+                className="rounded-lg border p-3 space-y-2 cursor-pointer transition-colors hover:bg-muted/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold truncate">{o.client_name || 'Agent'}</p>
