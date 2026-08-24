@@ -31,19 +31,23 @@ const VIEWS: { id: View; label: string }[] = [
 export default function BudgetApprovalPanel() {
   const { cycles, loading: cyclesLoading, reload: reloadCycles } = useBudgetCycles();
   const [view, setView] = useState<View>('queue');
-  const [cycleId, setCycleId] = useState('');
+  const [cycleId, setCycleId] = useState('all');
   const [loading, setLoading] = useState(false);
   const [consolidation, setConsolidation] = useState<BudgetConsolidation | null>(null);
 
-  useEffect(() => { if (!cycleId && cycles.length) setCycleId(cycles[0].id); }, [cycles, cycleId]);
+  const selectedCycleId = cycleId === 'all' ? null : cycleId;
 
   useEffect(() => {
-    if (view !== 'consolidation' || !cycleId) return;
+    if (view !== 'consolidation') return;
+    if (!selectedCycleId) {
+      setConsolidation(null);
+      return;
+    }
     setConsolidation(null);
-    fetchConsolidation(cycleId)
+    fetchConsolidation(selectedCycleId)
       .then(setConsolidation)
       .catch(e => toast.error(e instanceof Error ? e.message : 'Could not build consolidation'));
-  }, [view, cycleId]);
+  }, [view, selectedCycleId]);
 
   return (
     <div className="space-y-4">
@@ -58,6 +62,7 @@ export default function BudgetApprovalPanel() {
           <Select value={cycleId} onValueChange={setCycleId}>
             <SelectTrigger className="h-8 w-[220px] text-xs"><SelectValue placeholder="Budget cycle" /></SelectTrigger>
             <SelectContent className="z-[100]">
+              <SelectItem value="all">All cycles</SelectItem>
               {cycles.map(c => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.title}{c.financial_year ? ` · ${c.financial_year}` : ''}
@@ -74,12 +79,15 @@ export default function BudgetApprovalPanel() {
         </div>
       )}
 
-      {view === 'queue' && <BudgetReviewQueue cycleId={cycleId || null} stage="cfo" />}
+      {view === 'queue' && <BudgetReviewQueue cycleId={selectedCycleId} stage="cfo" />}
 
       {view === 'consolidation' && (
         <div className="space-y-3">
-          {!consolidation && <p className="text-xs text-muted-foreground">Building consolidation…</p>}
-          {consolidation && (
+          {!selectedCycleId && (
+            <p className="text-xs text-muted-foreground">Select a specific budget cycle above to build a consolidated view.</p>
+          )}
+          {selectedCycleId && !consolidation && <p className="text-xs text-muted-foreground">Building consolidation…</p>}
+          {selectedCycleId && consolidation && (
             <>
               <div className="grid grid-cols-2 gap-2">
                 <Kpi label="Requested company-wide" value={formatUGX(consolidation.totals.requested)} />
