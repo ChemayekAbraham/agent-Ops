@@ -48,6 +48,7 @@ import { PartnerOpsSummaryCards } from './partner-ops/PartnerOpsSummaryCards';
 import { ExpiringPortfoliosPanel } from './partner-ops/ExpiringPortfoliosPanel';
 import { NearingPayoutsPanel } from './partner-ops/NearingPayoutsPanel';
 import { PartnerOpsRentRequestQueue } from './partner-ops/PartnerOpsRentRequestQueue';
+import PartnerOnboardingPanel from '@/pages/PartnerOnboarding';
 import {
   PartnerRoiProjectionChart,
   PartnerRecentWithdrawals,
@@ -78,10 +79,6 @@ export function PartnersOpsDashboard() {
   const queryClient = useQueryClient();
   const [view, setView] = useState<PartnerOpsViewKey>('overview');
   const handleSelect = (next: PartnerOpsViewKey) => {
-    if (next === 'onboarding') {
-      navigate('/partner-onboarding');
-      return;
-    }
     setView(next);
   };
   const setTab = (t: string) => setView(LEGACY_TAB_TO_VIEW[t] ?? 'overview');
@@ -249,6 +246,7 @@ export function PartnersOpsDashboard() {
           <PartnerOpsBrief onNavigate={(t) => setTab(t as Tab)} />
         </div>
       );
+      case 'onboarding': return <PartnerOnboardingPanel embedded />;
       case 'directory': return <COOPartnersPage />;
       case 'portfolios.invited': return <InvitedPortfoliosPanel />;
       case 'portfolios.pending': return (
@@ -351,7 +349,7 @@ export function PartnersOpsDashboard() {
               variant="outline"
               size="sm"
               className="hidden gap-1.5 text-xs sm:inline-flex"
-              onClick={() => navigate('/partner-onboarding')}
+              onClick={() => setView('onboarding')}
             >
               <UserPlus className="h-3.5 w-3.5" /> Onboarding
             </Button>

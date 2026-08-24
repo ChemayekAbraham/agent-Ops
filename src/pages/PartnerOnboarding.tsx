@@ -50,7 +50,7 @@ const PAGE_SIZE = 50;
 type SourceFilter = 'all' | 'referred' | 'direct';
 type ViewTab = 'funders' | 'invited';
 
-export default function FunderOnboarding() {
+export default function FunderOnboarding({ embedded = false }: { embedded?: boolean } = {}) {
   const { user, roles, loading, role } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -361,6 +361,7 @@ export default function FunderOnboarding() {
   });
 
   if (loading || !user) {
+    if (embedded) return <ScreenLoader />;
     return (
       <>
       <Helmet>
@@ -429,17 +430,8 @@ export default function FunderOnboarding() {
     queryClient.invalidateQueries({ queryKey: ['funder-onboarding-kpis'] });
   };
 
-  return (
+  const body = (
     <>
-    <Helmet>
-      <link rel="canonical" href="https://welileapp.com/partner-onboarding" />
-      <meta property="og:url" content="https://welileapp.com/partner-onboarding" />
-    </Helmet>
-    <COODetailLayout
-      title="Partner Onboarding"
-      subtitle="Self-Registered Funders"
-      status={headerStatus}
-    >
       {/* KPIs — grouped: Funders (self-registered) vs Invited Portfolios */}
       <div className="space-y-4">
         <section className="space-y-2">
@@ -870,6 +862,23 @@ export default function FunderOnboarding() {
         open={companyDefaultsOpen}
         onOpenChange={setCompanyDefaultsOpen}
       />
+    </>
+  );
+
+  if (embedded) return body;
+
+  return (
+    <>
+    <Helmet>
+      <link rel="canonical" href="https://welileapp.com/partner-onboarding" />
+      <meta property="og:url" content="https://welileapp.com/partner-onboarding" />
+    </Helmet>
+    <COODetailLayout
+      title="Partner Onboarding"
+      subtitle="Self-Registered Funders"
+      status={headerStatus}
+    >
+      {body}
     </COODetailLayout>
     </>
   );
