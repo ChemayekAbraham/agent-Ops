@@ -43,24 +43,35 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
   const principal = Number(advance?.principal || 0);
   const outstanding = Number(advance?.outstanding_balance || 0);
 
-  const { data: withdrawable = 0, isLoading: loadingBalance } = useQuery({
-    queryKey: ['advance-reversal-withdrawable', agentId],
-    enabled: !!agentId && open,
+  // Server-side truth: was this advance actually disbursed to the wallet, has a
+  // recovery already been posted, how much is recoverable, and is it still
+  // inside the same-day reversal window.
+  const { data: plan, isLoading: loadingBalance, refetch: refetchPlan } = useQuery({
+    queryKey: ['advance-reversal-plan', advance?.id],
+    enabled: !!advance?.id && open,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_user_available_balance', {
-        p_user_id: agentId!,
+      const { data, error } = await supabase.rpc('advance_reversal_plan', {
+        p_advance_id: advance!.id,
       });
       if (error) throw error;
-      return Number(data || 0);
+      return data as any;
     },
   });
 
+  const withdrawable = Number(plan?.withdrawable || 0);
+  const wasDisbursed = !!plan?.disbursed;
+  const clawbackPosted = !!plan?.clawback_posted;
+  const recommended = Number(plan?.recommended_clawback || 0);
+  const approvedToday = plan ? !!plan.approved_today : true;
+
   useEffect(() => {
-    if (!open) return;
-    setAmount(String(Math.max(0, Math.min(principal, withdrawable))));
+    if (!open || !plan) return;
+    setAmount(String(Math.max(0, recommended)));
     setReason('');
-    setNoClawback(false);
-  }, [open, principal, withdrawable]);
+    // No wallet debit is needed when nothing was disbursed, or when the
+    // recovery for this advance is already on record.
+    setNoClawback(!wasDisbursed || clawbackPosted);
+  }, [open, plan, recommended, wasDisbursed, clawbackPosted]);
 
   const clawback = noClawback ? 0 : Math.max(0, Number(amount || 0));
   const exceedsBalance = clawback > withdrawable;
@@ -71,8 +82,12 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
       toast.error('Please enter a reason (min 10 characters).');
       return;
     }
-    if (!noClawback && clawback <= 0) {
-      toast.error('Enter a clawback amount, or tick "funds already returned".');
+    if (!approvedToday) {
+      toast.error('Only advances approved today can be reverted to Waiting for Approval.');
+      return;
+    }
+    if (wasDisbursed && !clawbackPosted && clawback <= 0) {
+      toast.error('This advance reached the wallet — enter the amount to pull back.');
       return;
     }
     if (exceedsBalance) {
@@ -84,7 +99,10 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
     try {
       let groupId: string | null = null;
 
-      if (clawback > 0) {
+      // Only debit when the money really left treasury AND no recovery has been
+      // posted for this advance yet — this is what stops a second Revert click
+      // from creating a duplicate clawback / ledger entry.
+      if (wasDisbursed && !clawbackPosted && clawback > 0) {
         const { data, error } = await supabase.functions.invoke('cfo-direct-credit', {
           body: {
             target_user_id: agentId,
@@ -96,7 +114,9 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
             financial_impact: 'neutral' as const,
             category_label: 'Agent advance reversal (clawback)',
             recipient_type: 'user',
-            sub_category: advance.id,
+            // Evidence tag the reversal RPC looks for in cfo_debit_obligations.
+            sub_category: `advance_reversal:${advance.id}`,
+            manual_credit: true,
           },
         });
         if (error) throw new Error((error as any)?.message || 'Wallet clawback failed');
@@ -104,7 +124,7 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
         groupId = (data as any)?.transaction_group_id ?? null;
       }
 
-      const { error: rpcError } = await supabase.rpc('reverse_agent_advance', {
+      const { data: result, error: rpcError } = await supabase.rpc('reverse_agent_advance', {
         p_advance_id: advance.id,
         p_reason: reason.trim(),
         p_clawback_amount: clawback,
@@ -112,19 +132,24 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
       });
       if (rpcError) throw rpcError;
 
+      const recovered = Number((result as any)?.clawback_amount || 0);
       toast.success(
-        clawback > 0
-          ? `Advance reversed. ${formatUGX(clawback)} pulled back from ${agentName}'s wallet.`
-          : 'Advance reversed. No wallet clawback taken.',
+        recovered > 0
+          ? `Advance reverted to Waiting for Approval. ${formatUGX(recovered)} recovered from ${agentName}'s wallet.`
+          : 'Advance reverted to Waiting for Approval. No wallet recovery was needed.',
       );
       onOpenChange(false);
       onSuccess?.();
     } catch (e: any) {
+      // Refresh the plan so the dialog reflects any partially completed step
+      // (e.g. the debit landed but the status flip failed).
+      refetchPlan();
       toast.error(e.message || 'Reversal failed');
     } finally {
       setSubmitting(false);
     }
   };
+
 
   return (
     <AlertDialog open={open} onOpenChange={(o) => { if (!submitting) onOpenChange(o); }}>
