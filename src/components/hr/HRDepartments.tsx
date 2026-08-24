@@ -35,6 +35,7 @@ export default function HRDepartments() {
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
   const {
     data: departments,
