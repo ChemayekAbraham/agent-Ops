@@ -318,6 +318,9 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         {/* Agent Advances — Full Portfolio */}
         <AgentAdvancesStatsCard />
 
+        {/* ══════════════ RECEIPT NUMBER TRACKER ══════════════ */}
+        <ReceiptNumberLookupPanel className="rounded-2xl shadow-sm" />
+
         {/* ══════════════ CFO ACTIONS LOG ══════════════ */}
         <CFOActionsLog />
 
