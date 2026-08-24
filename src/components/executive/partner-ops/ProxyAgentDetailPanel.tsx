@@ -1,5 +1,6 @@
 /**
- * ProxyAgentDetailSheet — full proxy agent profile: bio data, promissory notes,
+ * ProxyAgentDetailPanel — full proxy agent profile rendered as an inline
+ * section (no route change, no sheet): bio data, promissory notes,
  * partners under them (status + support type), earning history, plus the
  * revoke / transfer controls. One RPC per open (no N+1).
  */
@@ -7,6 +8,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
+  ArrowLeft,
   BadgeCheck,
   Building2,
   CalendarDays,
@@ -23,7 +25,6 @@ import {
   Users,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -50,13 +51,15 @@ import {
   type ProxyDirRow,
 } from './proxyAgentDirectory';
 
+const TAB_CLS =
+  'text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm';
+
 interface Props {
-  agent: ProxyDirRow | null;
+  agent: ProxyDirRow;
   /** Other proxy agents already loaded by the directory — reused as transfer
-   *  targets so the sheet needs no extra query. */
+   *  targets so the panel needs no extra query. */
   transferTargets: ProxyDirRow[];
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  onBack: () => void;
 }
 
 function Stat({
@@ -93,16 +96,16 @@ function BioRow({ icon: Icon, label, value }: { icon: typeof Phone; label: strin
   );
 }
 
-export function ProxyAgentDetailSheet({ agent, transferTargets, open, onOpenChange }: Props) {
+export function ProxyAgentDetailPanel({ agent, transferTargets, onBack }: Props) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [reason, setReason] = useState('');
   const [transferTo, setTransferTo] = useState('');
 
   const detail = useQuery({
-    queryKey: ['proxy-agent-detail', agent?.agent_user_id],
-    enabled: open && !!agent?.agent_user_id,
-    queryFn: () => fetchProxyDetail(agent!.agent_user_id),
+    queryKey: ['proxy-agent-detail', agent.agent_user_id],
+    enabled: !!agent.agent_user_id,
+    queryFn: () => fetchProxyDetail(agent.agent_user_id),
     staleTime: 30_000,
   });
 
@@ -114,7 +117,7 @@ export function ProxyAgentDetailSheet({ agent, transferTargets, open, onOpenChan
   const revoke = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.rpc('partner_ops_decide_proxy_agent', {
-        p_agent_user_id: agent!.agent_user_id,
+        p_agent_user_id: agent.agent_user_id,
         p_decision: 'suspended',
         p_notes: reason.trim(),
       });
@@ -131,7 +134,7 @@ export function ProxyAgentDetailSheet({ agent, transferTargets, open, onOpenChan
   const transfer = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.rpc('partner_ops_transfer_proxy_book', {
-        p_from_agent_id: agent!.agent_user_id,
+        p_from_agent_id: agent.agent_user_id,
         p_to_agent_id: transferTo,
         p_reason: reason.trim(),
       });
@@ -174,15 +177,18 @@ export function ProxyAgentDetailSheet({ agent, transferTargets, open, onOpenChan
 
   const reasonOk = reason.trim().length >= 10;
   const targets = transferTargets.filter(
-    (t) => t.agent_user_id !== agent?.agent_user_id && t.status === 'approved',
+    (t) => t.agent_user_id !== agent.agent_user_id && t.status === 'approved',
   );
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl">
-        <SheetHeader className="space-y-0 pb-2">
-          <SheetTitle className="text-base">Proxy agent profile</SheetTitle>
-        </SheetHeader>
+    <div className="animate-in fade-in slide-in-from-right-2 duration-200">
+      <div className="mb-3 flex items-center gap-2">
+        <Button size="sm" variant="ghost" className="h-8 gap-1.5 px-2 text-xs" onClick={onBack}>
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to directory
+        </Button>
+        <span className="text-xs font-semibold text-muted-foreground">Proxy agent profile</span>
+      </div>
 
         {detail.isLoading && (
           <div className="space-y-3 py-4">
@@ -195,8 +201,7 @@ export function ProxyAgentDetailSheet({ agent, transferTargets, open, onOpenChan
         {bio && (
           <div className="space-y-4 pb-10">
             {/* Identity banner */}
-            <Card className="overflow-hidden border-primary/20">
-              <div className="h-1.5 w-full bg-gradient-to-r from-primary via-primary/50 to-transparent" />
+            <Card className="overflow-hidden">
               <CardContent className="flex items-center gap-3 p-4">
                 <Avatar className="h-14 w-14 border">
                   <AvatarImage src={bio.avatar_url ?? undefined} alt={bio.name} />
@@ -238,10 +243,10 @@ export function ProxyAgentDetailSheet({ agent, transferTargets, open, onOpenChan
 
             <Tabs defaultValue="bio">
               <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="bio" className="text-xs">Bio</TabsTrigger>
-                <TabsTrigger value="notes" className="text-xs">Notes ({notes.length})</TabsTrigger>
-                <TabsTrigger value="partners" className="text-xs">Partners ({partners.length})</TabsTrigger>
-                <TabsTrigger value="earnings" className="text-xs">Earnings</TabsTrigger>
+                <TabsTrigger value="bio" className={TAB_CLS}>Bio</TabsTrigger>
+                <TabsTrigger value="notes" className={TAB_CLS}>Notes ({notes.length})</TabsTrigger>
+                <TabsTrigger value="partners" className={TAB_CLS}>Partners ({partners.length})</TabsTrigger>
+                <TabsTrigger value="earnings" className={TAB_CLS}>Earnings</TabsTrigger>
               </TabsList>
 
               <TabsContent value="bio" className="mt-3">
@@ -449,9 +454,8 @@ export function ProxyAgentDetailSheet({ agent, transferTargets, open, onOpenChan
             </Card>
           </div>
         )}
-      </SheetContent>
-    </Sheet>
+    </div>
   );
 }
 
-export default ProxyAgentDetailSheet;
+export default ProxyAgentDetailPanel;
