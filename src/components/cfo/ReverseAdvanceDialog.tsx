@@ -124,11 +124,25 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
 
       const recovered = Number((result as any)?.clawback_amount || 0);
       const unrecovered = Number((result as any)?.unrecovered_shortfall || 0);
-      const parts = ['Advance reverted to Waiting for Approval.'];
-      if (recovered > 0) parts.push(`${formatUGX(recovered)} recovered from ${agentName}'s wallet.`);
-      else if (unrecovered === 0) parts.push('No wallet recovery was needed.');
-      if (unrecovered > 0) parts.push(`${formatUGX(unrecovered)} could not be recovered (insufficient withdrawable funds) and is recorded as a shortfall.`);
+      const fullyRecovered = (result as any)?.fully_recovered !== false;
+      const outstandingAfter = Number((result as any)?.outstanding_after || 0);
+      const parts: string[] = [];
+      if (fullyRecovered) {
+        parts.push('Advance reverted to Waiting for Approval.');
+        if (recovered > 0) parts.push(`${formatUGX(recovered)} recovered from ${agentName}'s wallet.`);
+        else parts.push('No wallet recovery was needed.');
+      } else {
+        parts.push(
+          recovered > 0
+            ? `${formatUGX(recovered)} recovered from ${agentName}'s wallet.`
+            : `Nothing could be recovered — ${agentName}'s wallet is empty.`,
+        );
+        parts.push(
+          `${formatUGX(unrecovered)} stays outstanding: the advance remains active (balance ${formatUGX(outstandingAfter)}) and keeps recovering from future earnings.`,
+        );
+      }
       toast.success(parts.join(' '));
+
 
       onOpenChange(false);
       onSuccess?.();
