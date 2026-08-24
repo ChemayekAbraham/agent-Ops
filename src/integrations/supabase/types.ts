@@ -30034,7 +30034,7 @@ export type Database = {
           default_amount: number | null
           id: string
           is_active: boolean
-          model_name: string
+          model_name: string | null
           updated_at: string
         }
         Insert: {
@@ -30044,7 +30044,7 @@ export type Database = {
           default_amount?: number | null
           id?: string
           is_active?: boolean
-          model_name: string
+          model_name?: string | null
           updated_at?: string
         }
         Update: {
@@ -30054,7 +30054,7 @@ export type Database = {
           default_amount?: number | null
           id?: string
           is_active?: boolean
-          model_name?: string
+          model_name?: string | null
           updated_at?: string
         }
         Relationships: []
