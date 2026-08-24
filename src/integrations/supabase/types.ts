@@ -41478,6 +41478,20 @@ export type Database = {
         Returns: Json
       }
       get_partner_total_trend: { Args: { p_preset?: string }; Returns: Json }
+      get_partner_wallet_hub: {
+        Args: { p_limit?: number; p_offset?: number; p_user_id: string }
+        Returns: {
+          advance_amount: number
+          deposits_amount: number
+          float_amount: number
+          pending_holds: number
+          recent_transactions: Json
+          restricted_held: number
+          roi_amount: number
+          total_available: number
+          withdrawable_amount: number
+        }[]
+      }
       get_payout_delivery_audit: {
         Args: { p_limit?: number; p_user_id?: string }
         Returns: {

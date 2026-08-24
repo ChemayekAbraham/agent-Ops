@@ -25,6 +25,7 @@ import { SupporterDashboardSkeleton } from '@/components/skeletons/DashboardSkel
 import { useWallet } from '@/hooks/useWallet';
 import { useAvailableBalance } from '@/hooks/useAvailableBalance';
 import { FullScreenWalletSheet } from '@/components/wallet/FullScreenWalletSheet';
+import FunderWalletHubSection from '@/components/supporter/FunderWalletHubSection';
 import PaymentPartnersDialog from '@/components/payments/PaymentPartnersDialog';
 import { InvestmentCalculator } from '@/components/supporter/InvestmentCalculator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -122,6 +123,7 @@ export default function SupporterDashboard({
   const [selectedPackageCategory, setSelectedPackageCategory] = useState<RentCategory | null>(null);
   const [showPackageSheet, setShowPackageSheet] = useState(false);
   const [showWallet, setShowWallet] = useState(false);
+  const [showFunderHub, setShowFunderHub] = useState(false);
   const [showInvestments, setShowInvestments] = useState(false);
   const [investmentsTab, setInvestmentsTab] = useState<'accounts' | 'angel'>('accounts');
   const [focusPortfolioId, setFocusPortfolioId] = useState<string | null>(null);
@@ -537,7 +539,7 @@ export default function SupporterDashboard({
               }}
               onPortfolios={() => { hapticTap(); setInvestmentsTab('accounts'); setShowInvestments(true); }}
               onCalculator={() => { hapticTap(); setShowCalculator(true); }}
-              onMore={() => { hapticTap(); setShowWallet(true); }}
+              onMore={() => { hapticTap(); setShowFunderHub(true); }}
             />
           </WidgetErrorBoundary>
 
@@ -705,7 +707,7 @@ export default function SupporterDashboard({
         onAcceptAndDeposit={() => setShowPaymentPartners(true)}
       />
 
-      <FullScreenWalletSheet open={showWallet} onOpenChange={setShowWallet} />
+      <FunderWalletHubSection open={showFunderHub} onOpenChange={setShowFunderHub} />
       <InvestmentAccountsDrawer
         open={showInvestments}
         onOpenChange={(o) => { setShowInvestments(o); if (!o) setFocusPortfolioId(null); }}
