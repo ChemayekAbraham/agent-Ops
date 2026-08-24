@@ -268,7 +268,7 @@ export function ServiceCentreVerificationQueue() {
             )}
           </TabsContent>
 
-          {/* ── Active (CEO approved) ── */}
+          {/* ── Active (COO vetted) ── */}
           <TabsContent value="active">
             <ActiveServiceCentresList />
           </TabsContent>
