@@ -264,6 +264,38 @@ export function DisbursedAdvancesRegister() {
           </div>
         )}
 
+        {/* Bulk reversal toolbar */}
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
+          <p className="text-[11px] text-muted-foreground flex-1 min-w-[180px]">
+            {checkedIds.size > 0
+              ? `${checkedIds.size} advance${checkedIds.size === 1 ? '' : 's'} selected for reversal.`
+              : 'Tick rows to reverse several advances at once, or reverse the whole batch disbursed today.'}
+          </p>
+          {checkedIds.size > 0 && (
+            <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={() => setCheckedIds(new Set())}>
+              Clear selection
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px] gap-1"
+            disabled={todaysBatch.length === 0}
+            onClick={() => openBulk(null)}
+          >
+            <Undo2 className="h-3 w-3" /> Reverse today&apos;s batch ({todaysBatch.length})
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-7 text-[11px] gap-1"
+            disabled={checkedIds.size === 0}
+            onClick={() => openBulk(Array.from(checkedIds))}
+          >
+            <Undo2 className="h-3 w-3" /> Reverse selected ({checkedIds.size})
+          </Button>
+        </div>
+
         {/* Table */}
         {isLoading ? (
           <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
@@ -274,6 +306,18 @@ export function DisbursedAdvancesRegister() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-8">
+                    <Checkbox
+                      aria-label="Select all reversible advances"
+                      checked={
+                        reversibleFiltered.length > 0 &&
+                        reversibleFiltered.every((a) => checkedIds.has(a.id))
+                      }
+                      onCheckedChange={(v) =>
+                        setCheckedIds(v ? new Set(reversibleFiltered.map((a) => a.id)) : new Set())
+                      }
+                    />
+                  </TableHead>
                   <TableHead>Agent</TableHead>
                   <TableHead className="text-right">Principal</TableHead>
                   <TableHead className="text-right hidden sm:table-cell">Outstanding</TableHead>
@@ -289,7 +333,16 @@ export function DisbursedAdvancesRegister() {
                   const risk = getRiskLevel(a);
                   return (
                     <TableRow key={a.id} className="cursor-pointer" onClick={() => setSelected(a)}>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          aria-label="Select advance for reversal"
+                          disabled={!isReversible(a)}
+                          checked={checkedIds.has(a.id)}
+                          onCheckedChange={() => toggleChecked(a.id)}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">
+
                         <div className="flex items-center gap-2">
                           <span className={cn('h-2 w-2 rounded-full shrink-0', risk === 'green' ? 'bg-green-500' : risk === 'yellow' ? 'bg-amber-500' : 'bg-red-500')} />
                           <div className="min-w-0">
