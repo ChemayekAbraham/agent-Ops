@@ -153,8 +153,15 @@ export function MerchantDashboardHome({
             hint="Money in and money out"
             onClick={onViewStatement ?? onViewWallet}
           />
+          <QuickAction
+            icon={<Sparkles className="h-5 w-5" />}
+            label="Invite & earn"
+            hint="Share your link, earn UGX 10,000"
+            onClick={() => navigate('/merchant-agent-referrals')}
+          />
         </div>
       </section>
+
 
       {/* Shared payout float + this merchant's settlement position */}
       <MerchantFloatAvailableCard />
