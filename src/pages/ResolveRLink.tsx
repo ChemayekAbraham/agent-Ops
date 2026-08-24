@@ -2,19 +2,21 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import PayoutReceipt from './PayoutReceipt';
+import LandlordRentReceipt from './LandlordRentReceipt';
 import ScreenLoader from '@/components/common/ScreenLoader';
+import type { LandlordReceiptData } from '@/lib/landlordReceiptPdf';
 
 /**
  * Unified resolver for the shared `/r/:code` namespace. Recruiting / signup
- * short links and public payout-receipt tokens both live under `/r/`. This
- * dispatcher first tries to resolve the code as a short link and redirects to
- * its target; if it's not a short link, it renders the payout receipt (which
- * reads the same `code` param as a token). This removes the earlier route
- * collision that made every short link show "Receipt not found".
+ * short links, landlord rent-payment receipts and public payout-receipt tokens
+ * all live under `/r/`. This dispatcher tries, in order: short link (redirect),
+ * landlord rent receipt, then the payout receipt (which reads the same `code`
+ * param as a token).
  */
 export default function ResolveRLink() {
   const { code } = useParams<{ code: string }>();
-  const [mode, setMode] = useState<'checking' | 'receipt'>('checking');
+  const [mode, setMode] = useState<'checking' | 'receipt' | 'landlord'>('checking');
+  const [landlord, setLandlord] = useState<LandlordReceiptData | null>(null);
 
   useEffect(() => {
     if (!code) { setMode('receipt'); return; }
@@ -37,8 +39,22 @@ export default function ResolveRLink() {
           return;
         }
       } catch {
-        /* not a short link — fall through to the receipt view */
+        /* not a short link — fall through */
       }
+
+      // Landlord rent-payment receipt codes are 10-char unguessable codes.
+      try {
+        const { data: rec } = await supabase.rpc('get_landlord_payout_receipt' as any, { p_code: code });
+        if (!active) return;
+        if (rec) {
+          setLandlord(rec as unknown as LandlordReceiptData);
+          setMode('landlord');
+          return;
+        }
+      } catch {
+        /* not a landlord receipt — fall through to the payout receipt view */
+      }
+
       if (active) setMode('receipt');
     })();
     return () => { active = false; };
@@ -48,6 +64,10 @@ export default function ResolveRLink() {
     return (
       <ScreenLoader />
     );
+  }
+
+  if (mode === 'landlord') {
+    return <LandlordRentReceipt preloaded={landlord} />;
   }
 
   return <PayoutReceipt />;
