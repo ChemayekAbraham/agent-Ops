@@ -1225,7 +1225,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                 </Card>
 
                 {/* Smartphone order status */}
-                <SmartphoneOrderStatus userId={user.id} />
+                <SmartphoneOrderStatus userId={user.id} onRequestNewOrder={() => setPhoneOpen(true)} />
 
                 {/* Order a Welile Spiro Bike */}
                 <Card className="border-primary/30 bg-primary/5">
@@ -1249,7 +1249,12 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                 </Card>
 
                 {/* Spiro bike order status */}
-                <SmartphoneOrderStatus userId={user.id} itemName="Welile Spiro Bike" title="Spiro bike order status" />
+                <SmartphoneOrderStatus
+                  userId={user.id}
+                  itemName="Welile Spiro Bike"
+                  title="Spiro bike order status"
+                  onRequestNewOrder={() => { setBikeAmount(''); setBikeOpen(true); }}
+                />
               </>
             )}
 

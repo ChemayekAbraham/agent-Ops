@@ -5,33 +5,45 @@ const db = supabase as any;
 
 /**
  * An order only blocks new orders while it is actively being repaid.
- * Pending applications never lock the button — the agent can cancel them
- * and place a fresh order.
+ * Pending, rejected, failed, or cancelled applications never lock the button —
+ * the agent can remove them and place a fresh order.
  */
 export function useMerchandiseOrderLock(userId?: string, itemName = 'Welile Smartphone') {
   const { data, isLoading } = useQuery({
     queryKey: ['merchandise-order-lock', userId, itemName],
     enabled: !!userId,
     queryFn: async () => {
-      const [plans, sales] = await Promise.all([
-        db
-          .from('merchandise_recovery_plans')
-          .select('id, outstanding_balance')
-          .eq('customer_id', userId)
-          .eq('item_name', itemName)
-          .eq('status', 'active'),
-        db
-          .from('merchandise_sales')
-          .select('id, amount_outstanding, order_status')
-          .eq('customer_id', userId)
-          .eq('item_name', itemName)
-          .in('order_status', ['approved', 'processing']),
-      ]);
-      if (plans.error) throw plans.error;
-      if (sales.error) throw sales.error;
+      const { data: plans, error: plansError } = await db
+        .from('merchandise_recovery_plans')
+        .select('id, outstanding_balance, sale_id, merchandise_sales!inner(order_status)')
+        .eq('customer_id', userId)
+        .eq('item_name', itemName)
+        .eq('status', 'active');
+      if (plansError) throw plansError;
 
-      const activePlan = (plans.data ?? []).some((p: any) => Number(p.outstanding_balance || 0) > 0);
-      const owingSale = (sales.data ?? []).some((s: any) => Number(s.amount_outstanding || 0) > 0);
+      const { data: sales, error: salesError } = await db
+        .from('merchandise_sales')
+        .select('id, amount_outstanding, order_status')
+        .eq('customer_id', userId)
+        .eq('item_name', itemName)
+        .in('order_status', ['approved', 'processing']);
+      if (salesError) throw salesError;
+
+      const repayingStatuses = ['approved', 'processing', 'completed'];
+
+      const activePlan = (plans.data ?? []).some((p: any) => {
+        const outstanding = Number(p.outstanding_balance || 0);
+        if (outstanding <= 0) return false;
+        const saleStatus = p.merchandise_sales?.order_status ?? p.sale_status ?? null;
+        // A plan only blocks when its sale is still in a repaying state.
+        // If the sale is missing or has been rejected/failed/cancelled, treat as not repaying.
+        return saleStatus == null || repayingStatuses.includes(saleStatus);
+      });
+
+      const owingSale = (sales.data ?? []).some(
+        (s: any) => Number(s.amount_outstanding || 0) > 0
+      );
+
       return { repaying: activePlan || owingSale };
     },
   });

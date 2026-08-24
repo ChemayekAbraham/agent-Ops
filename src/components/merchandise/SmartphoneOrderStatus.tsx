@@ -79,12 +79,15 @@ interface Props {
   itemName?: string;
   /** Panel heading. Defaults to 'Smartphone order status'. */
   title?: string;
+  /** Called when the user chooses to place a new order from inside the status card. */
+  onRequestNewOrder?: () => void;
 }
 
 export default function SmartphoneOrderStatus({
   userId,
   itemName = 'Welile Smartphone',
   title = 'Smartphone order status',
+  onRequestNewOrder,
 }: Props) {
   const queryClient = useQueryClient();
   const [emailingId, setEmailingId] = useState<string | null>(null);
@@ -253,15 +256,27 @@ export default function SmartphoneOrderStatus({
             <Smartphone className="h-4 w-4 text-primary" />
             <p className="text-sm font-bold">{title}</p>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0"
-            aria-label={expanded ? 'Collapse' : 'Expand'}
-            onClick={() => setExpanded((v) => !v)}
-          >
-            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </Button>
+          <div className="flex items-center gap-1">
+            {onRequestNewOrder && selected && ['rejected', 'failed'].includes(normalizeStatus(selected.order_status)) && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10"
+                onClick={onRequestNewOrder}
+              >
+                New order
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0"
+              aria-label={expanded ? 'Collapse' : 'Expand'}
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </div>
         </div>
         {expanded && orders.length > 1 && (
           <Select value={selected.id} onValueChange={setSelectedId}>
