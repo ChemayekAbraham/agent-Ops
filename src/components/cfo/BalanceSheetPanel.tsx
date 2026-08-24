@@ -32,6 +32,8 @@ interface Reconciliation {
   classification_filter_granularity?: string;
   unresolved_groups: number;
   unresolved_absolute_amount: number;
+  one_sided_equity_counterpart?: number;
+
   schedule: ScheduleRow[];
   excluded_classifications: { classification: string; legs: number; amount: number }[];
   memo_sub_ledgers: PositionLine[];
