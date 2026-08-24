@@ -180,9 +180,14 @@ export default function HRDepartments() {
   };
 
   const rows = departments ?? [];
-  const filtered = rows.filter(d =>
-    !search || d.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = rows.filter(d => {
+    const matchesSearch = !search || d.name.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus =
+      statusFilter === 'all' ? true :
+      statusFilter === 'active' ? d.active :
+      !d.active;
+    return matchesSearch && matchesStatus;
+  });
 
   const tileValue = (compute: () => number) => {
     if (departmentsError) return '—';
