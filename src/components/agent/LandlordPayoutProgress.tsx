@@ -194,7 +194,17 @@ export function LandlordPayoutProgress({ payoutId, landlordName, onDone }: Props
             </p>
           </div>
         )}
+
+        <div className="pt-1">
+          <Button variant="outline" size="sm" onClick={() => setCheckOpen(true)}>
+            <Receipt className="h-3.5 w-3.5 mr-1.5" />
+            Check a receipt number
+          </Button>
+        </div>
       </div>
+
+      <ReceiptNumberCheckDialog open={checkOpen} onOpenChange={setCheckOpen} />
     </div>
   );
 }
+
