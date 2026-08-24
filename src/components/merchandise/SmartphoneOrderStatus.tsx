@@ -306,55 +306,57 @@ export default function SmartphoneOrderStatus({
                     {meta.label}
                   </Badge>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 flex-1 gap-1.5 text-xs"
-                    onClick={() => handleReceipt(o)}
-                  >
-                    <Download className="h-3.5 w-3.5" /> Download
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 flex-1 gap-1.5 text-xs"
-                    disabled={emailingId === o.id}
-                    onClick={() => handleEmail(o)}
-                  >
-                    {emailingId === o.id
-                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      : <Mail className="h-3.5 w-3.5" />} Email
-                  </Button>
-                  {o.tracking_reference && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-7 flex-1 gap-1.5 text-xs"
-                      onClick={() => handleCopyTracking(o)}
+                      className="h-7 w-full gap-1.5 text-xs"
                     >
-                      {copiedId === o.id ? (
-                        <>
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> Copied
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-3.5 w-3.5" /> Copy tracking
-                        </>
-                      )}
+                      <MoreVertical className="h-3.5 w-3.5" /> Actions
                     </Button>
-                  )}
-                </div>
-                {cancellable && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 w-full gap-1.5 text-xs text-destructive border-destructive/40 hover:bg-destructive/10"
-                    onClick={() => setCancelTarget(o)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" /> Cancel this application
-                  </Button>
-                )}
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52">
+                    <DropdownMenuItem onClick={() => handleReceipt(o)}>
+                      <Download className="h-3.5 w-3.5 mr-2" /> Download receipt
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={emailingId === o.id}
+                      onClick={() => handleEmail(o)}
+                    >
+                      {emailingId === o.id ? (
+                        <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                      ) : (
+                        <Mail className="h-3.5 w-3.5 mr-2" />
+                      )}
+                      Email receipt
+                    </DropdownMenuItem>
+                    {o.tracking_reference && (
+                      <DropdownMenuItem onClick={() => handleCopyTracking(o)}>
+                        {copiedId === o.id ? (
+                          <>
+                            <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-emerald-600" /> Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3.5 w-3.5 mr-2" /> Copy tracking
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                    )}
+                    {cancellable && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                          onClick={() => setCancelTarget(o)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete / Cancel
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             );
           })}
