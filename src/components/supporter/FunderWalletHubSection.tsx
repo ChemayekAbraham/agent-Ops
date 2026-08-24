@@ -142,17 +142,6 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
-  const [providerApi, setProviderApi] = useState<CarouselApi>();
-  const [currentProvider, setCurrentProvider] = useState(0);
-
-  useEffect(() => {
-    if (!providerApi) return;
-    setCurrentProvider(providerApi.selectedScrollSnap());
-    providerApi.on('select', () => setCurrentProvider(providerApi.selectedScrollSnap()));
-    return () => { providerApi.off('select', () => setCurrentProvider(providerApi.selectedScrollSnap())); };
-  }, [providerApi]);
-
-  const scrollToProvider = useCallback((index: number) => providerApi?.scrollTo(index), [providerApi]);
 
   const recentTransactions = (data?.transactions ?? []).slice(0, 10);
 
