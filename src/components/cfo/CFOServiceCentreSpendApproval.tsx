@@ -52,6 +52,14 @@ interface ProfileMatch {
 const mapsUrl = (lat: number | string, lng: number | string) =>
   `https://www.google.com/maps?q=${lat},${lng}`;
 
+/** Service centre spend defaults to the operations manager account. */
+const DEFAULT_PAYEE_EMAIL = 'grace.nation78@gmail.com';
+const DEFAULT_PAYEE_FALLBACK: PayeeChoice = {
+  userId: '99890a2e-b842-4d44-8516-e2eafe0711ff',
+  name: 'Grace Paul Ochieng',
+  phone: '+254733803035',
+};
+
 export function CFOServiceCentreSpendApproval() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState('awaiting');
@@ -93,6 +101,24 @@ export function CFOServiceCentreSpendApproval() {
   }, [search, searchFor]);
 
 
+  const { data: defaultPayee } = useQuery({
+    queryKey: ['cfo-sc-default-payee'],
+    queryFn: async (): Promise<PayeeChoice> => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, phone')
+        .eq('email', DEFAULT_PAYEE_EMAIL)
+        .maybeSingle();
+      if (!data) return DEFAULT_PAYEE_FALLBACK;
+      return {
+        userId: data.id,
+        name: data.full_name || DEFAULT_PAYEE_FALLBACK.name,
+        phone: data.phone || DEFAULT_PAYEE_FALLBACK.phone,
+      };
+    },
+    staleTime: 10 * 60_000,
+  });
+
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ['cfo-service-centre-spend'],
     queryFn: async (): Promise<SCRow[]> => {
@@ -116,12 +142,18 @@ export function CFOServiceCentreSpendApproval() {
     [awaiting],
   );
 
-  const payeeFor = (s: SCRow): PayeeChoice =>
-    payees[s.id] ?? {
-      userId: s.payee_user_id ?? s.agent_id ?? null,
-      name: s.payee_name || s.agent_name || '',
-      phone: s.payee_phone || s.agent_phone || '',
-    };
+  const payeeFor = (s: SCRow): PayeeChoice => {
+    if (payees[s.id]) return payees[s.id];
+    if (s.payee_name || s.payee_user_id) {
+      return {
+        userId: s.payee_user_id ?? null,
+        name: s.payee_name || '',
+        phone: s.payee_phone || '',
+      };
+    }
+    return defaultPayee ?? DEFAULT_PAYEE_FALLBACK;
+  };
+
 
   const decide = async (row: SCRow, decision: 'approved' | 'declined') => {
     const comment = (comments[row.id] || '').trim();
@@ -155,11 +187,24 @@ export function CFOServiceCentreSpendApproval() {
         p_payee_note: (payeeNotes[row.id] || '').trim() || null,
       });
       if (error) throw error;
-      toast.success(
-        decision === 'approved'
-          ? `Spend of ${formatUGX(Number(amount))} approved — recipient ${payee.name.trim()}.`
-          : `Service centre spend declined for ${row.agent_name}.`,
-      );
+      if (decision === 'approved') {
+        const { data: smsRes, error: smsErr } = await supabase.functions.invoke(
+          'service-centre-spend-sms',
+          { body: { setup_id: row.id } },
+        );
+        if (smsErr || !(smsRes as any)?.sent) {
+          toast.warning(
+            `Spend approved, but the SMS to ${payee.name.trim() || 'the recipient'} did not go out.`,
+          );
+        } else {
+          toast.success(
+            `Spend of ${formatUGX(Number(amount))} approved — SMS sent to ${payee.name.trim()} (${payee.phone.trim()}).`,
+          );
+        }
+      } else {
+        toast.success(`Service centre spend declined for ${row.agent_name}.`);
+      }
+
       setComments((p) => ({ ...p, [row.id]: '' }));
       setSearchFor(null);
       setSearch('');
@@ -210,7 +255,7 @@ export function CFOServiceCentreSpendApproval() {
             <span className="font-medium">Money goes to:</span>{' '}
             {payeeFor(s).name || 'Not named yet'}
             {payeeFor(s).phone ? ` · ${payeeFor(s).phone}` : ''}
-            {!s.payee_name && !s.cfo_decision ? ' (defaults to the centre agent)' : ''}
+            {!s.payee_name && !s.cfo_decision ? ' (defaults to the manager account)' : ''}
           </p>
           {s.payee_note && (
             <p className="text-xs text-muted-foreground">
@@ -254,7 +299,23 @@ export function CFOServiceCentreSpendApproval() {
               {payeeFor(s).name || 'Nobody selected'}
               {payeeFor(s).phone ? ` · ${payeeFor(s).phone}` : ''}
             </p>
+            <p className="text-[10px] text-muted-foreground">
+              Defaults to the manager account. Change it to the centre agent or anyone else — the
+              recipient gets an SMS as soon as the spend is approved.
+            </p>
             <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1 text-[11px]"
+                onClick={() =>
+                  setPayees((p) => ({ ...p, [s.id]: defaultPayee ?? DEFAULT_PAYEE_FALLBACK }))
+                }
+              >
+                <User className="h-3 w-3" />
+                Pay the manager
+              </Button>
               <Button
                 type="button"
                 size="sm"
@@ -270,6 +331,7 @@ export function CFOServiceCentreSpendApproval() {
                 <User className="h-3 w-3" />
                 Pay the centre agent
               </Button>
+
               <Button
                 type="button"
                 size="sm"
