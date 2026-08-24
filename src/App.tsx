@@ -274,7 +274,7 @@ const ShareLocation = lazy(() => import('./pages/ShareLocation'));
 const InvestorPortfolioPublic = lazy(() => import('./pages/InvestorPortfolioPublic'));
 const PortfolioActionRequest = lazy(() => import('./pages/PortfolioActionRequest'));
 const RentMoney = lazy(() => import('./pages/RentMoney'));
-const TransactionsTest = lazy(() => import('./pages/TransactionsTest'));
+const Transactions = lazy(() => import('./pages/Transactions'));
 const FindAHouse = lazy(() => import('./pages/FindAHouse'));
 const LandlordAgreement = lazy(() => import('./pages/LandlordAgreement'));
 const AgentAgreement = lazy(() => import('./pages/AgentAgreement'));
