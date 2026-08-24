@@ -14,7 +14,7 @@ import {
   Loader2, ArrowLeft, Phone, Mail, MapPin, Home, User, Shield, Calendar,
   CreditCard, TrendingUp, Copy, CheckCircle2, Wallet, Banknote, History,
   UserCheck, Star, AlertTriangle, ChevronDown, ChevronUp, Navigation, Share2, Smartphone,
-  MessageCircle, Pencil, UsersRound, Zap, Bot, RefreshCw, FileText, ExternalLink,
+  MessageCircle, Pencil, Zap, Bot, RefreshCw, FileText, ExternalLink,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { toast as sonnerToast } from 'sonner';
@@ -33,7 +33,6 @@ import {
   type TenantRepaymentPlanBlock,
 } from '@/lib/tenantRepaymentReportPdf';
 import { UserAvatar } from '@/components/UserAvatar';
-import { RegisterSubAgentDialog } from './RegisterSubAgentDialog';
 import { EditTenantDialog } from './EditTenantDialog';
 import { TenantQuickActionsSheet } from './TenantQuickActionsSheet';
 import { RentAccessLimitCard } from './RentAccessLimitCard';
@@ -235,7 +234,6 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
 
   const [userRoles, setUserRoles] = useState<string[]>([]);
 
-  const [subAgentDialogOpen, setSubAgentDialogOpen] = useState(false);
   const [fieldCollectOpen, setFieldCollectOpen] = useState(false);
 
   const [autoCollecting, setAutoCollecting] = useState(false);
@@ -1763,14 +1761,6 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
             <Button
               variant="outline"
               className="gap-2 text-sm h-auto py-3.5 flex-col items-center rounded-xl"
-              onClick={() => setSubAgentDialogOpen(true)}
-            >
-              <UsersRound className="h-6 w-6 text-warning" />
-              <span className="font-semibold">Make Sub-Agent</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="gap-2 text-sm h-auto py-3.5 flex-col items-center rounded-xl"
               onClick={handleSendDashboardLink}
               disabled={sharingLink}
             >
@@ -2569,12 +2559,6 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
           refetchFloat();
           loadLastAllocation();
         }}
-      />
-
-      <RegisterSubAgentDialog
-        open={subAgentDialogOpen}
-        onOpenChange={setSubAgentDialogOpen}
-        onSuccess={loadFullProfile}
       />
 
       {profile && lastCompletedRequest && renewDocsGate && (

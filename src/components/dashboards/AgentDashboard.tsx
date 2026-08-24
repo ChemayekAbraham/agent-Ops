@@ -161,7 +161,6 @@ const AgentMenuDrawer = lazy(() => import('@/components/agent/AgentMenuDrawer').
 const RentPosterDialog = lazy(() => import('@/components/agent/RentPosterDialog'));
 const RegFormActionDialog = lazy(() => import('@/components/agent/RegFormActionDialog'));
 const AgentDepositDialog = lazy(() => import('@/components/agent/AgentDepositDialog').then(m => ({ default: m.AgentDepositDialog })));
-const RegisterSubAgentDialog = lazy(() => import('@/components/agent/RegisterSubAgentDialog').then(m => ({ default: m.RegisterSubAgentDialog })));
 const AgentRentRequestDialog = lazy(() => import('@/components/agent/AgentRentRequestDialog'));
 const BusinessAdvanceRequestDialog = lazy(() => import('@/components/agent/BusinessAdvanceRequestDialog'));
 const CommissionCelebrationModal = lazy(() => import('@/components/agent/CommissionCelebrationModal').then(m => ({ default: m.CommissionCelebrationModal })));
@@ -324,7 +323,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       }
     } catch { /* ignore */ }
   }, []);
-  const [inviteSubAgentOpen, setInviteSubAgentOpen] = useState(false);
   const [subAgentLinkOpen, setSubAgentLinkOpen] = useState(false);
   const { isMerchantAgent: isMerchantAgentEarly } = useIsMerchantAgent();
   // Weekly Listing Mission promo dialog removed — campaign expired.
@@ -731,7 +729,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // lets the agent switch to Personal Deposit through the existing
   // confirmation gate inside the form.
   const handleDeposit = () => { hapticTap(); setShowQuickDeposit(true); };
-  const handleInviteSubAgent = () => { hapticTap(); setInviteSubAgentOpen(true); };
+  // Direct sub-agent account creation was removed (it auto-created accounts and
+  // spammed users). Recruiting now happens only via the shareable invite link.
+  const handleInviteSubAgent = () => { hapticTap(); setShareLinkOpen(true); };
 
   // Registration form handlers — open a choice dialog offering both an explicit
   // Download and a Share on WhatsApp action (not share-only).
@@ -1861,13 +1861,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       {/* Existing Dialogs */}
       <LazyModal when={depositOpen}>
       <AgentDepositDialog open={depositOpen} onOpenChange={setDepositOpen} />
-      </LazyModal>
-      <LazyModal when={inviteSubAgentOpen}>
-      <RegisterSubAgentDialog
-        open={inviteSubAgentOpen}
-        onOpenChange={setInviteSubAgentOpen}
-        onSuccess={() => { refreshOfflineData(); refreshEarnings(); }}
-      />
       </LazyModal>
       <SubAgentInviteLinkDialog
         open={subAgentLinkOpen}
