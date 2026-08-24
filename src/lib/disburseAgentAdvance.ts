@@ -49,7 +49,6 @@ export async function disburseAgentAdvanceRequest(opts: {
   monthlyRate?: number;
   repaymentFrequency?: RepaymentFrequency;
   notes?: string | null;
-  skipReason?: string | null;
   /** 'wallet_daily' (default daily wallet sweep) or 'roi' (recover a % of each ROI payout). */
   recoverySource?: 'wallet_daily' | 'roi';
   /** Percentage of each ROI payout to recover (only used when recoverySource === 'roi'). */
@@ -86,7 +85,6 @@ export async function disburseAgentAdvanceRequest(opts: {
       p_monthly_rate: monthlyRate,
       p_repayment_frequency: repaymentFrequency,
       p_notes: opts.notes ?? null,
-      p_skip_reason: opts.skipReason ?? null,
       p_recovery_source: opts.recoverySource ?? 'wallet_daily',
       p_roi_recovery_percent: opts.recoverySource === 'roi' ? Number(opts.roiRecoveryPercent ?? 0) : 0,
     } as any);
