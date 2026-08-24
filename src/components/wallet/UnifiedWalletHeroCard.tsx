@@ -465,20 +465,22 @@ export function UnifiedWalletHeroCard({
         })()}
 
         {/* Footer — View Wallet link */}
-        <div className="flex items-center justify-between pt-1">
-          <div className="flex items-center gap-1.5">
-            <Shield className="h-3 w-3 text-white" />
-            <span className="text-[9px] text-white font-medium">{ROLE_TRUST[role]}</span>
+        {!hideFooter && (
+          <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center gap-1.5">
+              <Shield className="h-3 w-3 text-white" />
+              <span className="text-[9px] text-white font-medium">{ROLE_TRUST[role]}</span>
+            </div>
+            <button
+              onClick={handleViewStatement}
+              className="relative flex items-center gap-2 px-4 py-2.5 rounded-full bg-primary-foreground/15 hover:bg-primary-foreground/25 active:scale-95 text-white font-semibold text-sm shadow-lg ring-2 ring-primary-foreground/40 animate-bell-glow transition-all overflow-hidden group"
+            >
+              <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full bg-gradient-to-r from-transparent via-primary-foreground/30 to-transparent transition-transform duration-1000 ease-out" />
+              <span className="relative">View Wallet</span>
+              <ChevronRight className="relative h-4 w-4 animate-pulse" />
+            </button>
           </div>
-          <button
-            onClick={handleViewStatement}
-            className="relative flex items-center gap-2 px-4 py-2.5 rounded-full bg-primary-foreground/15 hover:bg-primary-foreground/25 active:scale-95 text-white font-semibold text-sm shadow-lg ring-2 ring-primary-foreground/40 animate-bell-glow transition-all overflow-hidden group"
-          >
-            <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full bg-gradient-to-r from-transparent via-primary-foreground/30 to-transparent transition-transform duration-1000 ease-out" />
-            <span className="relative">View Wallet</span>
-            <ChevronRight className="relative h-4 w-4 animate-pulse" />
-          </button>
-        </div>
+        )}
       </motion.div>
     </motion.div>
   );
