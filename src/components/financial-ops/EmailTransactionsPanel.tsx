@@ -38,6 +38,7 @@ import { DebitBucketAuditSearch } from './DebitBucketAuditSearch';
 
 import { ProxyDebitBreakdownDialog } from './ProxyDebitBreakdownDialog';
 import { EmailPeriodComparison } from './EmailPeriodComparison';
+import { DepositNumberConflictsPanel } from './DepositNumberConflictsPanel';
 import { SwipeableEmailRow, type SwipeAction } from './SwipeableEmailRow';
 import { GmailStyleEmailList } from './GmailStyleEmailList';
 import {
@@ -6091,6 +6092,10 @@ export function EmailTransactionsPanel() {
           }
         />
       </div>
+
+      <DepositNumberConflictsPanel />
+
+
 
       {channelBreakdown.length > 0 && (
         <div className="rounded-xl border bg-card overflow-hidden">

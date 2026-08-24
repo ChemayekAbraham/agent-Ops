@@ -33171,6 +33171,241 @@ export type Database = {
         }
         Relationships: []
       }
+      user_deposit_number_conflicts: {
+        Row: {
+          attempted_user_id: string
+          created_at: string
+          detected_via: string
+          existing_source: string
+          existing_user_id: string | null
+          gmail_transaction_id: string | null
+          id: string
+          notes: string | null
+          phone_last9: string
+          resolved_at: string | null
+          resolved_by: string | null
+        }
+        Insert: {
+          attempted_user_id: string
+          created_at?: string
+          detected_via: string
+          existing_source: string
+          existing_user_id?: string | null
+          gmail_transaction_id?: string | null
+          id?: string
+          notes?: string | null
+          phone_last9: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Update: {
+          attempted_user_id?: string
+          created_at?: string
+          detected_via?: string
+          existing_source?: string
+          existing_user_id?: string | null
+          gmail_transaction_id?: string | null
+          id?: string
+          notes?: string | null
+          phone_last9?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_deposit_number_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_number_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_number_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_number_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_number_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_number_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_number_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_number_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_number_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_number_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_number_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_number_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_number_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_number_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_number_conflicts_gmail_transaction_id_fkey"
+            columns: ["gmail_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "gmail_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_deposit_numbers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          linked_gmail_transaction_id: string | null
+          phone_last9: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          linked_gmail_transaction_id?: string | null
+          phone_last9: string
+          source: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          linked_gmail_transaction_id?: string | null
+          phone_last9?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_deposit_numbers_linked_gmail_transaction_id_fkey"
+            columns: ["linked_gmail_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "gmail_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_numbers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_numbers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_numbers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_numbers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_numbers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_numbers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_numbers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
       user_device_sessions: {
         Row: {
           created_at: string
@@ -44968,6 +45203,17 @@ export type Database = {
           is_self: boolean
           masked_email: string
           masked_phone: string
+        }[]
+      }
+      resolve_user_by_known_phone: {
+        Args: { p_last9: string }
+        Returns: {
+          email: string
+          full_name: string
+          match_count: number
+          phone: string
+          source: string
+          user_id: string
         }[]
       }
       resolve_welile_ai_id: { Args: { ai_id: string }; Returns: string }

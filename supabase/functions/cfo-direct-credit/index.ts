@@ -6,6 +6,7 @@ import { fetchShadowConfig, shouldSample } from "../_shared/shadowConfig.ts";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { resolveManagedProxy } from "../_shared/partnership-emails.ts";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
+import { learnDepositNumber, toLast9 } from "../_shared/depositNumberLearning.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -202,7 +203,12 @@ Deno.serve(async (req) => {
     }
     const userId = user.id;
 
-    const { target_user_id, amount: rawAmount, reason, operation, wallet_category, platform_category, financial_impact, category_label, sub_category, recipient_type, allow_overdraw: rawAllowOverdraw, solvency_bypass_reason: rawSolvencyReason, gmail_transaction_id: rawGmailTxId, gmail_message_id: rawGmailMsgId, email_tid: rawEmailTid, manual_credit: rawManualCredit } = body;
+    const { target_user_id, amount: rawAmount, reason, operation, wallet_category, platform_category, financial_impact, category_label, sub_category, recipient_type, allow_overdraw: rawAllowOverdraw, solvency_bypass_reason: rawSolvencyReason, gmail_transaction_id: rawGmailTxId, gmail_message_id: rawGmailMsgId, email_tid: rawEmailTid, manual_credit: rawManualCredit, source_phone: rawSourcePhone } = body;
+    // Phone number seen on the email receipt that this credit came from. When
+    // Financial Ops manually routes a deposit sent from a number that is not on
+    // the recipient's account, we learn it (below) so the NEXT deposit from that
+    // number auto-credits instead of returning to the manual queue.
+    const sourcePhoneLast9 = toLast9(typeof rawSourcePhone === "string" ? rawSourcePhone : null);
     // The manual CFO Direct Credit / Withdraw tool sets `manual_credit: true`.
     // Manual payouts must ALWAYS be allowed — any user, any time, any category,
     // any sub-category, countless times — so they are NEVER subject to the
@@ -962,6 +968,42 @@ Deno.serve(async (req) => {
         console.error("[cfo-direct-credit] recipient SMS failed:", (e as Error).message);
       }
     }
+
+    // ── Learn the depositor's number (manual Financial Ops routing) ──────
+    // Done inside the edge function so an operator can never skip it. Linking
+    // happens only after this POSITIVE identification, is idempotent, and never
+    // overwrites a number already owned by a different user (that case is
+    // flagged for review instead).
+    if (op === "credit" && sourcePhoneLast9) {
+      const learned = await learnDepositNumber(adminClient, {
+        userId: target_user_id,
+        phone: sourcePhoneLast9,
+        source: "manual_route",
+        gmailTransactionId: gmailTxId,
+        createdBy: userId,
+        notes: `manual route ref=${refId}`,
+      });
+      // One-time nudge: only on the FIRST time this number is linked.
+      if (learned.outcome === "linked" && targetProfile.phone) {
+        const msg =
+          `Welile: your deposit of UGX ${amount.toLocaleString()} was credited. ` +
+          `It came from a number not on your account - we've linked it so future ` +
+          `deposits from it are recognized automatically. For instant crediting, ` +
+          `prefer your registered number.`;
+        try {
+          await sendSMS(targetProfile.phone, msg, {
+            recipientUserId: target_user_id,
+            recipientName: targetProfile.full_name ?? null,
+            referenceId: refId,
+            source: "cfo-direct-credit-number-linked",
+          });
+        } catch (e) {
+          console.error("[cfo-direct-credit] number-linked SMS failed:", (e as Error).message);
+        }
+      }
+    }
+
+
 
     // ── Send Partner Wallet Deposit email on ROI payouts (mirrors approve-wallet-operation) ──
     if (op === "credit" && (walletCat === "roi_wallet_credit" || platformCat === "roi_expense")) {

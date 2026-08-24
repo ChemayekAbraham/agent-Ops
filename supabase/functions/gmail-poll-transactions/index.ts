@@ -4,6 +4,12 @@ import { logDepositDecision } from '../_shared/depositDecisionAudit.ts';
 import { resolvePayoutDebitTarget, logProxyFallbackAudit } from '../_shared/partnership-emails.ts';
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
 import { resolveOwnedRecipientEmail } from "../_shared/ownedRecipientEmail.ts";
+import {
+  toLast9,
+  resolveUsersByKnownPhone,
+  resolveUniqueUserByKnownPhone,
+  learnDepositNumber,
+} from "../_shared/depositNumberLearning.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -1240,15 +1246,12 @@ async function tryAutoDebitPayout(
   const looksLikePhone = /\d/.test(cp) && phoneDigits.length >= 9;
 
   if (looksLikePhone) {
-    const last9 = phoneDigits.slice(-9);
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, full_name, phone')
-      .or(`phone.ilike.%${last9},mobile_money_number.ilike.%${last9}`)
-      .limit(2);
-    // Require exactly one match to avoid charging the wrong wallet.
-    if (data && data.length === 1 && data[0]?.id) {
-      profile = data[0] as any;
+    // Consolidated lookup: profile phone, mobile-money number AND numbers
+    // previously learned from a positive identification. Requires exactly one
+    // owner to avoid charging the wrong wallet.
+    const hit = await resolveUniqueUserByKnownPhone(supabase, phoneDigits.slice(-9));
+    if (hit) {
+      profile = { id: hit.user_id, full_name: hit.full_name, phone: hit.phone } as any;
       matchMethod = 'phone';
     }
   } else {
@@ -1810,18 +1813,26 @@ async function _tryAutoCreditOperationalFloat(
     confidence_reasons: string[];
   } | null = null;
 
+  // Every Ugandan mobile number visible ANYWHERE in this email. Computed up
+  // front because it feeds both the body-phone fallback below and the
+  // number-learning hook after a high-confidence name match.
+  const emailLast9Set = new Set<string>();
+  {
+    const hay = `${cp}\n${subject ?? ''}\n${snippet ?? ''}\n${rawBody ?? ''}`;
+    for (const t of hay.match(/(?:\+?256|0)?7\d{8}/g) ?? []) {
+      const d = toLast9(t);
+      if (d) emailLast9Set.add(d);
+    }
+  }
+
   if (phoneMatch) {
-    const digits = phoneMatch[0].replace(/[^0-9]/g, '');
-    if (digits.length >= 9) {
-      const last9 = digits.slice(-9);
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, phone, full_name, email')
-        .filter('phone', 'ilike', `%${last9}`)
-        .limit(1)
-        .maybeSingle();
-      if (data?.id) {
-        profile = data as any;
+    const last9 = toLast9(phoneMatch[0]);
+    if (last9) {
+      // Consolidated lookup across profile phone, mobile-money number and
+      // numbers learned from earlier positive identifications.
+      const hit = await resolveUniqueUserByKnownPhone(supabase, last9);
+      if (hit) {
+        profile = { id: hit.user_id, phone: hit.phone, full_name: hit.full_name, email: hit.email } as any;
         matchedPhoneLast9 = last9;
         phoneSource = 'counterparty';
       }
@@ -1836,23 +1847,15 @@ async function _tryAutoCreditOperationalFloat(
   // single known user. Uniqueness is required so an unrelated number printed
   // elsewhere in the email can never mis-credit someone.
   if (!profile) {
-    const hay = `${cp}\n${subject ?? ''}\n${snippet ?? ''}\n${rawBody ?? ''}`;
-    const tokens = hay.match(/(?:\+?256|0)?7\d{8}/g) ?? [];
-    const last9Set = new Set<string>();
-    for (const t of tokens) {
-      const d = t.replace(/[^0-9]/g, '');
-      if (d.length >= 9) last9Set.add(d.slice(-9));
-    }
-    if (last9Set.size > 0) {
+    if (emailLast9Set.size > 0) {
       const found = new Map<string, { id: string; phone: string | null; full_name: string | null; email?: string | null; last9: string }>();
-      for (const last9 of last9Set) {
-        const { data: hits } = await supabase
-          .from('profiles')
-          .select('id, phone, full_name, email')
-          .filter('phone', 'ilike', `%${last9}`)
-          .limit(2);
-        for (const p of (hits ?? []) as any[]) {
-          if (p?.id && !found.has(p.id)) found.set(p.id, { ...p, last9 });
+      for (const last9 of emailLast9Set) {
+        for (const h of await resolveUsersByKnownPhone(supabase, last9)) {
+          if (!found.has(h.user_id)) {
+            found.set(h.user_id, {
+              id: h.user_id, phone: h.phone, full_name: h.full_name, email: h.email, last9,
+            });
+          }
         }
       }
       if (found.size === 1) {
@@ -2032,6 +2035,30 @@ async function _tryAutoCreditOperationalFloat(
     .maybeSingle();
   if (!gmailRow?.id) return;
   if (gmailRow.linked_deposit_request_id) return; // already linked
+
+  // ── Learn the depositor's number from a HIGH-confidence name match ────
+  // MTN "received" emails usually carry only a name. When such an email DID
+  // also contain exactly one Ugandan number, and the name match was
+  // high-confidence (exact unique name, or the only same-named profile with a
+  // phone), remember that number so the NEXT deposit resolves at the cheap
+  // phone step. Medium/low-confidence tiebreakers are best-guesses and are
+  // deliberately never learned from.
+  if (
+    matchMethod === 'name' &&
+    nameMatchAudit?.confidence === 'high' &&
+    emailLast9Set.size === 1
+  ) {
+    await learnDepositNumber(supabase, {
+      userId: profile.id,
+      phone: Array.from(emailLast9Set)[0],
+      source: 'name_match_auto',
+      gmailTransactionId: gmailRow.id,
+      createdBy: null,
+      notes: `name match: ${nameMatchAudit.tiebreaker}`,
+    });
+  }
+
+
 
   // Idempotency / late-arriving-email fix:
   // If the user ALREADY submitted a deposit_request with this TID (typical
@@ -2442,13 +2469,10 @@ async function tryThankSenderMomoSignupSms(
   // emails gets a link back to the platform.
   let existingUser: { id: string; full_name: string | null } | null = null;
   try {
-    const { data: existing } = await supabase
-      .from('profiles')
-      .select('id, full_name')
-      .or(`phone.ilike.%${last9},mobile_money_number.ilike.%${last9}`)
-      .limit(1)
-      .maybeSingle();
-    existingUser = (existing as any) ?? null;
+    // Same consolidated lookup as the matcher: profile phone, mobile-money
+    // number, or a previously learned deposit number.
+    const hit = await resolveUniqueUserByKnownPhone(supabase, last9);
+    existingUser = hit ? { id: hit.user_id, full_name: hit.full_name } : null;
   } catch (_e) {
     existingUser = null;
   }
