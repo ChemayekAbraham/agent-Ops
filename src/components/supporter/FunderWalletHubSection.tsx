@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import DepositFlow from '@/components/payments/DepositFlow';
 import WithdrawFlow from '@/components/payments/WithdrawFlow';
-import SendMoneyDialog from '@/components/wallet/SendMoneyDialog';
+import { SendMoneyDialog } from '@/components/wallet/SendMoneyDialog';
 import mtnLogoAsset from '@/assets/mtn-logo.png.asset.json';
 import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
 import equityLogoAsset from '@/assets/equity-logo.png.asset.json';
