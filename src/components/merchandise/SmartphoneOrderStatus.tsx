@@ -364,10 +364,10 @@ export default function SmartphoneOrderStatus({
         <AlertDialog open={!!cancelTarget} onOpenChange={(v) => !v && setCancelTarget(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Cancel this application?</AlertDialogTitle>
+              <AlertDialogTitle>Delete this order?</AlertDialogTitle>
               <AlertDialogDescription className="text-xs">
                 {cancelTarget
-                  ? `Your ${formatUGX(Number(cancelTarget.unit_price))} ${itemName} application from ${format(new Date(cancelTarget.created_at), 'd MMM yyyy, HH:mm')} will be withdrawn before approval, and you can place a new order right away. Applications already in repayment cannot be cancelled.`
+                  ? `Your ${formatUGX(Number(cancelTarget.unit_price))} ${itemName} order from ${format(new Date(cancelTarget.created_at), 'd MMM yyyy, HH:mm')} will be removed and you can place a new one right away. Orders already in repayment cannot be deleted.`
                   : null}
               </AlertDialogDescription>
             </AlertDialogHeader>
