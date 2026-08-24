@@ -420,7 +420,7 @@ export function UnifiedWalletHeroCard({
           </div>
         )}
 
-        {secondaryLabel && secondaryValue && !showAgentSplit && (
+        {secondaryLabel && secondaryValue && !showAgentSplit && !hideSecondaryRow && (
           <div className="flex items-center justify-between pt-1 border-t border-primary-foreground/[0.08]">
             <span className="text-[11px] text-white/50 font-medium">{secondaryLabel}</span>
             <span className="text-[11px] text-white/70 font-bold">{secondaryValue}</span>
