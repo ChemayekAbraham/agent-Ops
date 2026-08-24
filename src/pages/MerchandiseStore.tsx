@@ -305,32 +305,8 @@ export default function MerchandiseStore() {
     queryClient.invalidateQueries({ queryKey: ['wallet-view', user?.id] });
   };
 
-  const phoneAmountNum = Math.max(0, parseInt(phoneAmount || '0', 10) || 0);
 
-  const orderSmartphone = async () => {
-    if (phoneAmountNum < 1000) {
-      toast.error('Enter an amount of at least UGX 1,000');
-      return;
-    }
-    if (phoneAmountNum > availableWallet) {
-      toast.error(
-        `Amount exceeds your available wallet balance of ${formatUGX(availableWallet)}. Enter ${formatUGX(availableWallet)} or less.`
-      );
-      return;
-    }
-    setOrderingPhone(true);
-    const { error } = await db.rpc('agent_order_smartphone', { p_amount: phoneAmountNum });
-    setOrderingPhone(false);
-    if (error) {
-      toast.error(error.message || 'Could not place smartphone order');
-      return;
-    }
-    toast.success(`Welile Smartphone requested. ${formatUGX(phoneAmountNum)} will be recovered from your wallet.`);
-    setPhoneOpen(false);
-    setPhoneAmount('');
-    queryClient.invalidateQueries({ queryKey: ['my-merchandise-plans', user?.id] });
-    queryClient.invalidateQueries({ queryKey: ['my-merchandise-deductions', user?.id] });
-  };
+
 
   const bikeAmountNum = Math.max(0, parseInt(bikeAmount || '0', 10) || 0);
 
