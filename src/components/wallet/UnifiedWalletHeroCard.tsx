@@ -345,9 +345,15 @@ export function UnifiedWalletHeroCard({
           </div>
         ) : (
           /* Default: single Available Balance */
-          <button
-            onClick={handleOpenWallet}
-            className="w-full text-left active:scale-[0.98] transition-transform"
+          <div
+            role={disableTap ? undefined : 'button'}
+            tabIndex={disableTap ? -1 : 0}
+            onClick={disableTap ? undefined : handleOpenWallet}
+            onKeyDown={disableTap ? undefined : (e) => { if (e.key === 'Enter' || e.key === ' ') handleOpenWallet(); }}
+            className={cn(
+              'w-full text-left',
+              !disableTap && 'active:scale-[0.98] transition-transform cursor-pointer'
+            )}
           >
             <div className="bg-primary-foreground/[0.10] rounded-2xl p-4 border border-primary-foreground/[0.06]">
               <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-white mb-2 flex items-center gap-1.5">
@@ -370,11 +376,13 @@ export function UnifiedWalletHeroCard({
                   Wallet total: <span className="font-semibold text-white">{formatAmount(balance)}</span>
                 </p>
               )}
-              <p className="mt-2.5 text-[10px] text-white font-medium">
-                Tap to see how your money moves in and out
-              </p>
+              {!disableTap && (
+                <p className="mt-2.5 text-[10px] text-white font-medium">
+                  Tap to see how your money moves in and out
+                </p>
+              )}
             </div>
-          </button>
+          </div>
         )}
 
         {/* Explains a suppressed available balance (pending withdrawal holds). */}
