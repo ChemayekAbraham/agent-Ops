@@ -143,10 +143,10 @@ export default function SmartphoneOrderStatus({
     try {
       const { error } = await db.rpc('agent_cancel_merchandise_order', {
         p_sale_id: cancelTarget.id,
-        p_reason: 'Cancelled by the agent before approval to place a new order',
+        p_reason: 'Order deleted by the agent (pending or rejected) to place a new one',
       });
       if (error) throw error;
-      toast.success('Order cancelled — you can place a new one');
+      toast.success('Order deleted — you can place a new one');
       setCancelTarget(null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['my-smartphone-orders', userId, itemName] }),
