@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
-import { ArrowLeft, ChevronDown, Download, Loader2, Wallet } from "lucide-react";
+import { ArrowLeft, ChevronDown, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,9 +27,11 @@ import {
   fetchTxFeedPage,
   groupTxByDay,
   txCounterparty,
+  txIcon,
   txLabel,
   txMaskedNumber,
   txMethodLabel,
+  txTone,
   type TxDateFilter,
   type TxFeedRow,
   type TxMethodFilter,
@@ -169,6 +171,8 @@ export default function TransactionsTest() {
             {group.rows.map((row) => {
               const isIn = row.direction === "cash_in";
               const masked = txMaskedNumber(row);
+              const tone = txTone(row);
+              const Icon = txIcon(row);
               return (
                 <button
                   key={row.id}
@@ -176,8 +180,13 @@ export default function TransactionsTest() {
                   onClick={() => setSelected(row)}
                   className="flex w-full items-center gap-4 rounded-2xl bg-background p-4 text-left transition-transform active:scale-[0.98]"
                 >
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                    <Wallet className="h-5 w-5 text-primary" />
+                  <span
+                    className={cn(
+                      "flex h-12 w-12 shrink-0 items-center justify-center rounded-full",
+                      tone.bubble,
+                    )}
+                  >
+                    <Icon className={cn("h-5 w-5", tone.icon)} />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-bold">{txLabel(row)}</span>
@@ -195,10 +204,7 @@ export default function TransactionsTest() {
                   </span>
                   <span className="shrink-0 text-right">
                     <span
-                      className={cn(
-                        "block text-lg font-bold tabular-nums",
-                        isIn ? "text-success" : "text-foreground",
-                      )}
+                      className={cn("block text-lg font-bold tabular-nums", tone.amount)}
                     >
                       {isIn ? "+" : "−"}
                       {formatUGX(Number(row.amount)).replace(/^UGX\s*/, "")}
@@ -208,6 +214,7 @@ export default function TransactionsTest() {
                 </button>
               );
             })}
+
           </section>
         ))}
 
