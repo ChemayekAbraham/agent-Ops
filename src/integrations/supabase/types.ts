@@ -38804,29 +38804,19 @@ export type Database = {
         Args: { p_cfo_note?: string; p_decision: string; p_request_id: string }
         Returns: Json
       }
-      cfo_decide_service_centre:
-        | {
-            Args: {
-              p_amount?: number
-              p_comment: string
-              p_decision: string
-              p_id: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_amount?: number
-              p_comment: string
-              p_decision: string
-              p_id: string
-              p_payee_name?: string
-              p_payee_note?: string
-              p_payee_phone?: string
-              p_payee_user_id?: string
-            }
-            Returns: Json
-          }
+      cfo_decide_service_centre: {
+        Args: {
+          p_amount?: number
+          p_comment: string
+          p_decision: string
+          p_id: string
+          p_payee_name?: string
+          p_payee_note?: string
+          p_payee_phone?: string
+          p_payee_user_id?: string
+        }
+        Returns: Json
+      }
       cfo_promissory_bookings_report: {
         Args: { p_filter?: string; p_limit?: number; p_offset?: number }
         Returns: Json
