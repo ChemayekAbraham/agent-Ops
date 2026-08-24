@@ -273,6 +273,19 @@ export default function CFODashboardPage() {
             <BudgetApprovalPanel />
           </div>
         );
+      case 'service-centre-spend':
+        return (
+          <div className="space-y-4">
+            <div>
+              <h1 className="text-xl font-bold">Service Centre Spend Approval</h1>
+              <p className="text-sm text-muted-foreground">
+                Service centres vetted by the COO arrive here with the reason and the money to be spent.
+              </p>
+            </div>
+            <CFOServiceCentreSpendApproval />
+          </div>
+        );
+
       case 'allocation-traces':
         return <AgentAllocationTracesPanel />;
       case 'solvency':
