@@ -123,11 +123,13 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
       if (rpcError) throw rpcError;
 
       const recovered = Number((result as any)?.clawback_amount || 0);
-      toast.success(
-        recovered > 0
-          ? `Advance reverted to Waiting for Approval. ${formatUGX(recovered)} recovered from ${agentName}'s wallet.`
-          : 'Advance reverted to Waiting for Approval. No wallet recovery was needed.',
-      );
+      const unrecovered = Number((result as any)?.unrecovered_shortfall || 0);
+      const parts = ['Advance reverted to Waiting for Approval.'];
+      if (recovered > 0) parts.push(`${formatUGX(recovered)} recovered from ${agentName}'s wallet.`);
+      else if (unrecovered === 0) parts.push('No wallet recovery was needed.');
+      if (unrecovered > 0) parts.push(`${formatUGX(unrecovered)} could not be recovered (insufficient withdrawable funds) and is recorded as a shortfall.`);
+      toast.success(parts.join(' '));
+
       onOpenChange(false);
       onSuccess?.();
     } catch (e: any) {
