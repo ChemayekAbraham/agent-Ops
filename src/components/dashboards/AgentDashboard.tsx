@@ -109,6 +109,7 @@ import { AgentHubTabs, type AgentHubTab } from '@/components/agent/AgentHubTabs'
 import { useHorizontalSwipe } from '@/hooks/useHorizontalSwipe';
 import { AgentActionInsights } from '@/components/agent/AgentActionInsights';
 import { AgentLandlordFloatCard } from '@/components/agent/AgentLandlordFloatCard';
+import { ReceiptNumberCheckDialog } from '@/components/agent/ReceiptNumberCheckDialog';
 import { AgentPendingReceiptPanel } from '@/components/agent/AgentPendingReceiptPanel';
 import { AgentTenantHealthCard } from '@/components/agent/AgentTenantHealthCard';
 import { AgentVouchHighlightCard } from '@/components/agent/AgentVouchHighlightCard';
