@@ -29498,6 +29498,12 @@ export type Database = {
           latitude: number
           location_name: string | null
           longitude: number
+          payee_name: string | null
+          payee_note: string | null
+          payee_phone: string | null
+          payee_set_at: string | null
+          payee_set_by: string | null
+          payee_user_id: string | null
           photo_url: string
           rejection_reason: string | null
           status: string
@@ -29526,6 +29532,12 @@ export type Database = {
           latitude: number
           location_name?: string | null
           longitude: number
+          payee_name?: string | null
+          payee_note?: string | null
+          payee_phone?: string | null
+          payee_set_at?: string | null
+          payee_set_by?: string | null
+          payee_user_id?: string | null
           photo_url: string
           rejection_reason?: string | null
           status?: string
@@ -29554,6 +29566,12 @@ export type Database = {
           latitude?: number
           location_name?: string | null
           longitude?: number
+          payee_name?: string | null
+          payee_note?: string | null
+          payee_phone?: string | null
+          payee_set_at?: string | null
+          payee_set_by?: string | null
+          payee_user_id?: string | null
           photo_url?: string
           rejection_reason?: string | null
           status?: string
@@ -38786,15 +38804,29 @@ export type Database = {
         Args: { p_cfo_note?: string; p_decision: string; p_request_id: string }
         Returns: Json
       }
-      cfo_decide_service_centre: {
-        Args: {
-          p_amount?: number
-          p_comment: string
-          p_decision: string
-          p_id: string
-        }
-        Returns: Json
-      }
+      cfo_decide_service_centre:
+        | {
+            Args: {
+              p_amount?: number
+              p_comment: string
+              p_decision: string
+              p_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_amount?: number
+              p_comment: string
+              p_decision: string
+              p_id: string
+              p_payee_name?: string
+              p_payee_note?: string
+              p_payee_phone?: string
+              p_payee_user_id?: string
+            }
+            Returns: Json
+          }
       cfo_promissory_bookings_report: {
         Args: { p_filter?: string; p_limit?: number; p_offset?: number }
         Returns: Json
