@@ -171,18 +171,24 @@ Deno.serve(async (req) => {
 
         const recovered = Number((rpcResult as any)?.clawback_amount || 0);
         const unrecovered = Number((rpcResult as any)?.unrecovered_shortfall || 0);
+        const fullyRecovered = (rpcResult as any)?.fully_recovered !== false;
         recoveredTotal += recovered;
         shortfallTotal += unrecovered;
-        reversedCount += 1;
+        if (fullyRecovered) reversedCount += 1;
         results.push({
           advance_id: id,
           agent_id: plan.agent_id,
           agent_name: plan.agent_name,
-          outcome: "reversed",
+          outcome: fullyRecovered ? "reversed" : "partial_recovery",
           disbursed: Number(plan.disbursed_amount || 0),
           recovered,
           shortfall: unrecovered,
+          outstanding_after: Number((rpcResult as any)?.outstanding_after || 0),
+          message: fullyRecovered
+            ? undefined
+            : `Recovered ${recovered.toLocaleString()} UGX; ${unrecovered.toLocaleString()} UGX kept outstanding for future recovery`,
         });
+
       } catch (e) {
         results.push({
           advance_id: id,

@@ -41,12 +41,14 @@ export interface BulkPlanRow {
 interface ExecResult {
   advance_id: string;
   agent_name?: string | null;
-  outcome: 'reversed' | 'skipped' | 'error';
+  outcome: 'reversed' | 'partial_recovery' | 'skipped' | 'error';
   recovered?: number;
   shortfall?: number;
   disbursed?: number;
+  outstanding_after?: number;
   message?: string;
 }
+
 
 interface Props {
   open: boolean;
@@ -162,15 +164,21 @@ export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSu
       }
 
       const reversed = collected.filter((r) => r.outcome === 'reversed');
-      const recovered = reversed.reduce((s, r) => s + Number(r.recovered || 0), 0);
-      const short = reversed.reduce((s, r) => s + Number(r.shortfall || 0), 0);
+      const partial = collected.filter((r) => r.outcome === 'partial_recovery');
+      const recovered = collected.reduce((s, r) => s + Number(r.recovered || 0), 0);
+      const short = collected.reduce((s, r) => s + Number(r.shortfall || 0), 0);
       const errors = collected.filter((r) => r.outcome === 'error').length;
       toast.success(
-        `${reversed.length} advance${reversed.length === 1 ? '' : 's'} reversed. ` +
+        `${reversed.length} advance${reversed.length === 1 ? '' : 's'} fully reversed. ` +
           `${formatUGX(recovered)} recovered` +
-          (short > 0 ? `, ${formatUGX(short)} unrecovered shortfall` : '') +
+          (partial.length > 0
+            ? `. ${partial.length} kept active with ${formatUGX(short)} still outstanding for future recovery`
+            : short > 0
+              ? `, ${formatUGX(short)} still outstanding`
+              : '') +
           (errors > 0 ? `. ${errors} failed — see the list.` : '.'),
       );
+
       onSuccess?.();
       refetch();
     } catch (e: any) {
@@ -210,12 +218,14 @@ export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSu
     const list = results ?? [];
     return {
       reversed: list.filter((r) => r.outcome === 'reversed').length,
+      partial: list.filter((r) => r.outcome === 'partial_recovery').length,
       skipped: list.filter((r) => r.outcome === 'skipped').length,
       failed: list.filter((r) => r.outcome === 'error').length,
       recovered: list.reduce((s, r) => s + Number(r.recovered || 0), 0),
       shortfall: list.reduce((s, r) => s + Number(r.shortfall || 0), 0),
     };
   }, [results]);
+
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!running) onOpenChange(o); }}>
@@ -298,12 +308,19 @@ export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSu
                             <td className="p-2 text-right">
                               {res ? (
                                 <Badge
-                                  variant={res.outcome === 'reversed' ? 'default' : res.outcome === 'skipped' ? 'secondary' : 'destructive'}
+                                  variant={
+                                    res.outcome === 'reversed'
+                                      ? 'default'
+                                      : res.outcome === 'error'
+                                        ? 'destructive'
+                                        : 'secondary'
+                                  }
                                   className="text-[9px]"
                                 >
-                                  {res.outcome}
+                                  {res.outcome === 'partial_recovery' ? 'kept outstanding' : res.outcome}
                                 </Badge>
                               ) : blockedRow ? (
+
                                 <Badge variant="outline" className="text-[9px]">skipped</Badge>
                               ) : (
                                 <span className="text-muted-foreground">—</span>
@@ -329,11 +346,13 @@ export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSu
               {results && !running && (
                 <div className="rounded-lg border bg-muted/40 p-3 text-xs space-y-1">
                   <p className="font-semibold">Batch result</p>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Reversed</span><span className="font-semibold">{resultSummary.reversed}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Fully reversed</span><span className="font-semibold">{resultSummary.reversed}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Kept outstanding (partial/no recovery)</span><span className="font-semibold text-amber-600">{resultSummary.partial}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Skipped</span><span className="font-semibold">{resultSummary.skipped}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Failed</span><span className="font-semibold text-destructive">{resultSummary.failed}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Recovered from wallets</span><span className="font-semibold text-emerald-600">{formatUGX(resultSummary.recovered)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Unrecovered shortfall</span><span className="font-semibold text-amber-600">{formatUGX(resultSummary.shortfall)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Still outstanding (recovers from future earnings)</span><span className="font-semibold text-amber-600">{formatUGX(resultSummary.shortfall)}</span></div>
+
                   <Button variant="outline" size="sm" className="h-7 text-[11px] mt-2 gap-1" onClick={exportShortfalls}>
                     <Download className="h-3 w-3" /> Export shortfalls & failures
                   </Button>
