@@ -228,7 +228,7 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
           <Button
             variant="destructive"
             onClick={handleSubmit}
-            disabled={submitting || reason.trim().length < 10 || (!noClawback && exceedsBalance)}
+            disabled={submitting || loadingBalance || !approvedToday || reason.trim().length < 10 || (!noClawback && exceedsBalance)}
           >
             {submitting ? (<><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Reversing…</>) : 'Reverse advance'}
           </Button>
