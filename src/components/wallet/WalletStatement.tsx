@@ -42,6 +42,7 @@ import { cn } from '@/lib/utils';
 // jsPDF loaded dynamically when needed
 import { toast } from 'sonner';
 import { applyCustomerWalletLedgerFilters, isCustomerWalletLedgerEntryVisible } from '@/lib/customerWalletHistory';
+import TransactionsFeed from '@/components/transactions/TransactionsFeed';
 
 // ── Role-based highlight config ──
 // Each role sees the categories that matter most to them surfaced first,
