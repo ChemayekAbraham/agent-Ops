@@ -268,19 +268,21 @@ export function StaffRequisitionQueue() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="flex items-center gap-2 text-xl font-semibold">
-          <Wallet className="h-5 w-5 text-primary" /> Staff requisitions
+        <h2 className="flex items-center gap-2 text-lg sm:text-xl font-semibold">
+          <Wallet className="h-4 w-4 sm:h-5 sm:w-5 text-primary" /> Staff requisitions
         </h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs sm:text-sm text-muted-foreground">
           Raised from My Space, reviewed by the department head, then the COO, then the CFO. The requester's
           wallet is credited automatically on final approval.
         </p>
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-        <TabsList className="flex-wrap">
+        <TabsList className="flex-wrap h-auto gap-1 p-1">
           {TABS.map((t) => (
-            <TabsTrigger key={t.key} value={t.key}>{t.label}</TabsTrigger>
+            <TabsTrigger key={t.key} value={t.key} className="text-[10px] sm:text-xs px-2 py-1 h-auto">
+              {t.label}
+            </TabsTrigger>
           ))}
         </TabsList>
       </Tabs>
