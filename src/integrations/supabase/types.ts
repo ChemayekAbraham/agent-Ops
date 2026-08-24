@@ -42683,6 +42683,7 @@ export type Database = {
         Args: { _agent: string; _partner: string }
         Returns: boolean
       }
+      is_proxy_directory_viewer: { Args: { _uid: string }; Returns: boolean }
       is_proxy_for: {
         Args: { _agent_id: string; _beneficiary_id: string }
         Returns: boolean
@@ -43930,6 +43931,19 @@ export type Database = {
           scope: string
         }[]
       }
+      partner_ops_proxy_agent_detail: {
+        Args: { p_agent_user_id: string }
+        Returns: Json
+      }
+      partner_ops_proxy_agent_directory: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
       partner_ops_reject_self_topup: {
         Args: { p_reason: string; p_topup_id: string }
         Returns: Json
@@ -43957,6 +43971,14 @@ export type Database = {
           state: string
           target_value: number
         }[]
+      }
+      partner_ops_transfer_proxy_book: {
+        Args: {
+          p_from_agent_id: string
+          p_reason: string
+          p_to_agent_id: string
+        }
+        Returns: Json
       }
       partner_self_claim_plans: {
         Args: { p_idempotency_key?: string; p_rent_request_ids: string[] }
@@ -44100,6 +44122,7 @@ export type Database = {
         }[]
       }
       proxy_cc_resolve_agent: { Args: { p_agent_id: string }; Returns: string }
+      proxy_earning_categories: { Args: never; Returns: string[] }
       psm_assert_no_foreign_booking: {
         Args: { p_partner: string; p_rent_request_ids: string[] }
         Returns: undefined

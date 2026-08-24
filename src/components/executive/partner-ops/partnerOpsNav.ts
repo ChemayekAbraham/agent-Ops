@@ -39,6 +39,7 @@ export type PartnerOpsViewKey =
   | 'nearing.overview'
   | 'nearing.followup'
   | 'proxy.overview'
+  | 'proxy.directory'
   | 'proxy.vetting'
   | 'proxy.promissory'
   | 'proxy.followup'
@@ -132,6 +133,7 @@ export const PARTNER_OPS_NAV: PartnerOpsNavItem[] = [
     keywords: ['proxy', 'agents'],
     children: [
       { key: 'proxy.overview', label: 'Overview', icon: UserCog, keywords: ['manage proxies'] },
+      { key: 'proxy.directory', label: 'Proxy Agent', icon: Users, keywords: ['directory', 'proxy agents', 'bio data', 'earnings'] },
       { key: 'proxy.vetting', label: 'Vetting', icon: ShieldCheck, keywords: ['applications', 'approve proxy'] },
       { key: 'proxy.promissory', label: 'Promissory Notes', icon: FileText, keywords: ['notes', 'commitments'] },
       { key: 'proxy.followup', label: 'Followup', icon: PhoneCall, keywords: ['contact', 'chase'] },
