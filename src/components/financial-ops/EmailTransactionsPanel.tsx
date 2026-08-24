@@ -38,6 +38,7 @@ import { DebitBucketAuditSearch } from './DebitBucketAuditSearch';
 
 import { ProxyDebitBreakdownDialog } from './ProxyDebitBreakdownDialog';
 import { EmailPeriodComparison } from './EmailPeriodComparison';
+import { DepositNumberConflictsPanel } from './DepositNumberConflictsPanel';
 import { SwipeableEmailRow, type SwipeAction } from './SwipeableEmailRow';
 import { GmailStyleEmailList } from './GmailStyleEmailList';
 import {
