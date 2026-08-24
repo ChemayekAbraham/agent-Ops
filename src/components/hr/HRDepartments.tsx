@@ -35,6 +35,7 @@ export default function HRDepartments() {
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
   const {
     data: departments,
@@ -179,9 +180,14 @@ export default function HRDepartments() {
   };
 
   const rows = departments ?? [];
-  const filtered = rows.filter(d =>
-    !search || d.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = rows.filter(d => {
+    const matchesSearch = !search || d.name.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus =
+      statusFilter === 'all' ? true :
+      statusFilter === 'active' ? d.active :
+      !d.active;
+    return matchesSearch && matchesStatus;
+  });
 
   const tileValue = (compute: () => number) => {
     if (departmentsError) return '—';
@@ -223,8 +229,26 @@ export default function HRDepartments() {
         </Card>
       </div>
 
-      {/* Search */}
-      <Input placeholder="Search departments..." value={search} onChange={e => setSearch(e.target.value)} className="h-9" />
+      {/* Search and status filter */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Input placeholder="Search departments..." value={search} onChange={e => setSearch(e.target.value)} className="h-9 flex-1" />
+        <div className="inline-flex rounded-lg border border-border bg-muted/30 p-0.5">
+          {(['all', 'active', 'inactive'] as const).map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setStatusFilter(key)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                statusFilter === key
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+              }`}
+            >
+              {key === 'all' ? 'All' : key === 'active' ? 'Active' : 'Inactive'}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {departmentsError ? (
         <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
