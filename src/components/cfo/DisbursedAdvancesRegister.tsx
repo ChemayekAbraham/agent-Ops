@@ -150,6 +150,41 @@ export function DisbursedAdvancesRegister() {
     setToDate('');
   };
 
+  // Rows a reversal can still touch: not yet reversed. The same-day window and
+  // recovery amounts are decided server-side, never here.
+  const isReversible = (a: AdvanceRow) => !(a as any).reversed_at;
+  const reversibleFiltered = useMemo(() => filtered.filter(isReversible), [filtered]);
+  const isTodaysBatch = (a: AdvanceRow) =>
+    isReversible(a) && new Date(a.issued_at).toDateString() === new Date().toDateString();
+  const todaysBatch = useMemo(() => advances.filter(isTodaysBatch), [advances]);
+
+  const toggleChecked = (id: string) =>
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const openBulk = (ids: string[] | null) => {
+    setBulkIds(ids);
+    setBulkOpen(true);
+  };
+
+  const invalidateAdvanceQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ['disbursed-advances-register'] });
+    queryClient.invalidateQueries({ queryKey: ['cfo-advances'] });
+    queryClient.invalidateQueries({ queryKey: ['cfo-outstanding-advances'] });
+    // Reversed requests go back to Waiting for Approval — refresh every queue.
+    queryClient.invalidateQueries({
+      predicate: (q) => {
+        const k = String(q.queryKey?.[0] ?? '');
+        return k.includes('advance-request') || k.includes('advance_requests') || k.includes('agent-advance');
+      },
+    });
+  };
+
+
+
   return (
     <Card>
       <CardHeader className="pb-3">
