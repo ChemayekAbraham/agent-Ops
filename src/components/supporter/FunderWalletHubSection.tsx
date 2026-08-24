@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,12 +17,9 @@ import {
   TrendingUp,
   Banknote,
   ArrowRightLeft,
-  Landmark,
   Receipt,
-  CircleDollarSign,
   HandCoins,
   Building2,
-  Smartphone,
   X,
   ChevronRight,
 } from 'lucide-react';
@@ -39,27 +36,9 @@ interface FunderWalletHubSectionProps {
 }
 
 const PROVIDERS = [
-  {
-    id: 'equity',
-    name: 'Equity Bank',
-    label: 'Bank deposits & withdrawals',
-    logo: equityLogoAsset.url,
-    icon: Landmark,
-  },
-  {
-    id: 'mtn',
-    name: 'MTN MoMo',
-    label: 'Mobile money deposits',
-    logo: mtnLogoAsset.url,
-    icon: Smartphone,
-  },
-  {
-    id: 'airtel',
-    name: 'Airtel Money',
-    label: 'Mobile money deposits',
-    logo: airtelLogoAsset.url,
-    icon: Smartphone,
-  },
+  { id: 'equity', name: 'Equity Bank', logo: equityLogoAsset.url },
+  { id: 'mtn', name: 'MTN MoMo', logo: mtnLogoAsset.url },
+  { id: 'airtel', name: 'Airtel Money', logo: airtelLogoAsset.url },
 ];
 
 function categoryLabel(category: string | null, sourceTable: string | null): string {
@@ -145,17 +124,6 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
-  const [providerApi, setProviderApi] = useState<CarouselApi>();
-  const [currentProvider, setCurrentProvider] = useState(0);
-
-  useEffect(() => {
-    if (!providerApi) return;
-    setCurrentProvider(providerApi.selectedScrollSnap());
-    providerApi.on('select', () => setCurrentProvider(providerApi.selectedScrollSnap()));
-    return () => { providerApi.off('select', () => setCurrentProvider(providerApi.selectedScrollSnap())); };
-  }, [providerApi]);
-
-  const scrollToProvider = useCallback((index: number) => providerApi?.scrollTo(index), [providerApi]);
 
   const recentTransactions = (data?.transactions ?? []).slice(0, 10);
 
@@ -254,17 +222,19 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
                   </Button>
                 </div>
 
-                {/* Providers — slideshow with small pagination dots */}
-                <div className="space-y-2" data-testid="provider-logos">
-                  <Carousel
-                    setApi={setProviderApi}
-                    opts={{ align: 'center', loop: true }}
-                    className="w-full"
-                  >
-                    <CarouselContent className="-ml-2">
+                {/* Providers — wallet-card style, compact logos with names */}
+                <Card className="rounded-2xl border-border/50 shadow-sm overflow-hidden" data-testid="provider-logos">
+                  <CardContent className="p-3 sm:p-4">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">
+                      Supported Providers
+                    </p>
+                    <div className="flex items-center justify-between gap-2">
                       {PROVIDERS.map((provider) => (
-                        <CarouselItem key={provider.id} className="pl-2 basis-1/3 sm:basis-1/3">
-                          <div className="h-14 rounded-xl bg-white flex items-center justify-center overflow-hidden shadow-sm px-2">
+                        <div
+                          key={provider.id}
+                          className="flex flex-col items-center gap-1.5 flex-1 min-w-0"
+                        >
+                          <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl border border-border/60 bg-background flex items-center justify-center overflow-hidden shrink-0">
                             <img
                               src={provider.logo}
                               alt={provider.name}
@@ -272,28 +242,14 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
                               loading="lazy"
                             />
                           </div>
-                        </CarouselItem>
+                          <span className="text-[10px] font-semibold text-foreground text-center leading-none truncate w-full">
+                            {provider.name}
+                          </span>
+                        </div>
                       ))}
-                    </CarouselContent>
-                  </Carousel>
-
-                  <div className="flex items-center justify-center gap-1.5 pt-1">
-                    {PROVIDERS.map((_, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        aria-label={`Go to provider slide ${index + 1}`}
-                        onClick={() => scrollToProvider(index)}
-                        className={cn(
-                          'rounded-full transition-all duration-200',
-                          currentProvider === index
-                            ? 'w-3 h-1.5 bg-primary'
-                            : 'w-1.5 h-1.5 bg-muted-foreground/40 hover:bg-muted-foreground/70'
-                        )}
-                      />
-                    ))}
-                  </div>
-                </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
                 {/* Recent transactions — latest 10 only */}
                 <div className="space-y-3">
