@@ -38273,6 +38273,10 @@ export type Database = {
         Returns: Json
       }
       agent_can_view_trust: { Args: { _user_id: string }; Returns: boolean }
+      agent_cancel_merchandise_order: {
+        Args: { p_reason?: string; p_sale_id: string }
+        Returns: Json
+      }
       agent_cancel_rent_request: {
         Args: { p_reason: string; p_request_id: string }
         Returns: string
