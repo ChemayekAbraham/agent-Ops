@@ -29488,6 +29488,11 @@ export type Database = {
           ceo_approved_by: string | null
           ceo_comment: string | null
           ceo_rejection_reason: string | null
+          cfo_approved_amount: number | null
+          cfo_comment: string | null
+          cfo_decided_at: string | null
+          cfo_decided_by: string | null
+          cfo_decision: string | null
           created_at: string | null
           id: string
           latitude: number
@@ -29511,6 +29516,11 @@ export type Database = {
           ceo_approved_by?: string | null
           ceo_comment?: string | null
           ceo_rejection_reason?: string | null
+          cfo_approved_amount?: number | null
+          cfo_comment?: string | null
+          cfo_decided_at?: string | null
+          cfo_decided_by?: string | null
+          cfo_decision?: string | null
           created_at?: string | null
           id?: string
           latitude: number
@@ -29534,6 +29544,11 @@ export type Database = {
           ceo_approved_by?: string | null
           ceo_comment?: string | null
           ceo_rejection_reason?: string | null
+          cfo_approved_amount?: number | null
+          cfo_comment?: string | null
+          cfo_decided_at?: string | null
+          cfo_decided_by?: string | null
+          cfo_decision?: string | null
           created_at?: string | null
           id?: string
           latitude?: number
@@ -38769,6 +38784,15 @@ export type Database = {
       }
       cfo_decide_allocation_return: {
         Args: { p_cfo_note?: string; p_decision: string; p_request_id: string }
+        Returns: Json
+      }
+      cfo_decide_service_centre: {
+        Args: {
+          p_amount?: number
+          p_comment: string
+          p_decision: string
+          p_id: string
+        }
         Returns: Json
       }
       cfo_promissory_bookings_report: {

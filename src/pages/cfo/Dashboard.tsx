@@ -15,6 +15,7 @@ import { CFOROIRequests } from '@/components/cfo/CFOROIRequests';
 import { CFOOverviewDashboard } from '@/components/cfo/CFOOverviewDashboard';
 import { DirectCreditTool } from '@/components/cfo/DirectCreditTool';
 import BudgetApprovalPanel from '@/components/cfo/BudgetApprovalPanel';
+import CFOServiceCentreSpendApproval from '@/components/cfo/CFOServiceCentreSpendApproval';
 import { MerchantFloatRequestsPanel } from '@/components/cfo/MerchantFloatRequestsPanel';
 import { MerchantFloatRequisitionPanel } from '@/components/financial-ops/MerchantFloatRequisitionPanel';
 import { CFOPayoutsShareButton } from '@/components/cfo/CFOPayoutsShareButton';
@@ -273,6 +274,19 @@ export default function CFODashboardPage() {
             <BudgetApprovalPanel />
           </div>
         );
+      case 'service-centre-spend':
+        return (
+          <div className="space-y-4">
+            <div>
+              <h1 className="text-xl font-bold">Service Centre Spend Approval</h1>
+              <p className="text-sm text-muted-foreground">
+                Service centres vetted by the COO arrive here with the reason and the money to be spent.
+              </p>
+            </div>
+            <CFOServiceCentreSpendApproval />
+          </div>
+        );
+
       case 'allocation-traces':
         return <AgentAllocationTracesPanel />;
       case 'solvency':
