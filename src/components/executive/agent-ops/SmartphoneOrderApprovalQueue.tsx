@@ -56,6 +56,22 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
   const [search, setSearch] = useState('');
   const [rejectTarget, setRejectTarget] = useState<SmartphoneOrderRow | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [detailsTarget, setDetailsTarget] = useState<SmartphoneOrderRow | null>(null);
+
+  const { data: wallet, isLoading: walletLoading } = useQuery({
+    queryKey: ['smartphone-order-wallet', detailsTarget?.customer_id],
+    enabled: !!detailsTarget?.customer_id,
+    queryFn: async () => {
+      const { data, error } = await db
+        .from('wallets')
+        .select('withdrawable_balance, float_balance, advance_balance')
+        .eq('user_id', detailsTarget!.customer_id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { withdrawable_balance: number; float_balance: number; advance_balance: number } | null;
+    },
+  });
+
 
   const { data: orders = [], isLoading } = useQuery<SmartphoneOrderRow[]>({
     queryKey: ['smartphone-order-queue'],
