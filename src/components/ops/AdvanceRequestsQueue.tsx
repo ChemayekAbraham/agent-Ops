@@ -668,13 +668,6 @@ export function AdvanceRequestsQueue({ stage }: AdvanceRequestsQueueProps) {
             >
               <CheckCircle2 className="h-3.5 w-3.5" /> Approve → CFO
             </Button>
-            <Button
-              size="sm"
-              onClick={() => { setBulkAction('approve_disburse'); setBulkAckFlagged(false); setBulkSkipReason(''); }}
-              className="gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
-            >
-              <Zap className="h-3.5 w-3.5" /> Approve &amp; disburse
-            </Button>
           </div>
         </div>
       )}
