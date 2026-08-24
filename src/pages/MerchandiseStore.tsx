@@ -19,6 +19,8 @@ import {
 import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
 import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatus';
+import SmartphoneOrderDialog from '@/components/merchandise/SmartphoneOrderDialog';
+
 import { StorageImage } from '@/components/ui/StorageImage';
 import { shortMerchandiseUrl, longMerchandiseUrl } from '@/lib/merchandiseShareLink';
 import { useRestoreBodyPointerEvents } from '@/hooks/useRestoreBodyPointerEvents';
