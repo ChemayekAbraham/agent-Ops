@@ -248,6 +248,85 @@ export function CFOServiceCentreSpendApproval() {
 
       {actionable && (
         <div className="space-y-2 rounded-lg border border-border p-2.5">
+          <div className="space-y-1.5 rounded-lg bg-muted/40 p-2">
+            <p className="text-[11px] font-semibold text-foreground">Who gets this money</p>
+            <p className="text-xs text-foreground">
+              {payeeFor(s).name || 'Nobody selected'}
+              {payeeFor(s).phone ? ` · ${payeeFor(s).phone}` : ''}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1 text-[11px]"
+                onClick={() =>
+                  setPayees((p) => ({
+                    ...p,
+                    [s.id]: { userId: s.agent_id, name: s.agent_name || '', phone: s.agent_phone || '' },
+                  }))
+                }
+              >
+                <User className="h-3 w-3" />
+                Pay the centre agent
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 text-[11px]"
+                onClick={() => {
+                  setSearchFor(searchFor === s.id ? null : s.id);
+                  setSearch('');
+                  setMatches([]);
+                }}
+              >
+                {searchFor === s.id ? 'Close search' : 'Choose someone else'}
+              </Button>
+            </div>
+            {searchFor === s.id && (
+              <div className="space-y-1.5">
+                <Input
+                  autoFocus
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search recipient by name or phone"
+                  className="h-8 text-xs"
+                />
+                {searching && <p className="text-[11px] text-muted-foreground">Searching…</p>}
+                {!searching && search.trim().length >= 3 && !matches.length && (
+                  <p className="text-[11px] text-muted-foreground">No match for "{search.trim()}".</p>
+                )}
+                <div className="space-y-1">
+                  {matches.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        setPayees((p) => ({
+                          ...p,
+                          [s.id]: { userId: m.id, name: m.full_name || '', phone: m.phone || '' },
+                        }));
+                        setSearchFor(null);
+                        setSearch('');
+                        setMatches([]);
+                      }}
+                      className="w-full rounded-md border border-border px-2 py-1.5 text-left text-xs hover:bg-accent"
+                    >
+                      <span className="font-medium text-foreground">{m.full_name || 'Unnamed'}</span>
+                      <span className="text-muted-foreground"> · {m.phone || '—'}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <Input
+              value={payeeNotes[s.id] ?? ''}
+              onChange={(e) => setPayeeNotes((p) => ({ ...p, [s.id]: e.target.value }))}
+              placeholder="Recipient note (optional) — e.g. carpenter for shelving"
+              className="h-8 text-xs"
+            />
+          </div>
           <label className="text-[11px] text-muted-foreground" htmlFor={`amt-${s.id}`}>
             Amount to spend (UGX)
           </label>
@@ -259,6 +338,7 @@ export function CFOServiceCentreSpendApproval() {
             onChange={(e) => setAmounts((p) => ({ ...p, [s.id]: e.target.value }))}
             className="h-8 text-xs"
           />
+
           <label className="text-[11px] text-muted-foreground" htmlFor={`cmt-${s.id}`}>
             CFO comment (min 10 characters)
           </label>
