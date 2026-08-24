@@ -25,6 +25,7 @@ import { SupporterDashboardSkeleton } from '@/components/skeletons/DashboardSkel
 import { useWallet } from '@/hooks/useWallet';
 import { useAvailableBalance } from '@/hooks/useAvailableBalance';
 import { FullScreenWalletSheet } from '@/components/wallet/FullScreenWalletSheet';
+import FunderWalletHubSection from '@/components/supporter/FunderWalletHubSection';
 import PaymentPartnersDialog from '@/components/payments/PaymentPartnersDialog';
 import { InvestmentCalculator } from '@/components/supporter/InvestmentCalculator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
