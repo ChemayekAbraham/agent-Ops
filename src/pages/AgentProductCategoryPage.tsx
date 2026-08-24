@@ -62,13 +62,49 @@ export default function AgentProductCategoryPage() {
             <AdvanceRequestsReviewed />
             <BusinessAdvanceQueue stage="agent_ops" />
           </div>
+        ) : entry.slug === 'smart-phones' ? (
+          <SmartphoneTabs category={entry.category ?? undefined} />
         ) : (
           <div className="space-y-6">
-            {entry.slug === 'smart-phones' && <SmartphoneOrderApprovalQueue />}
             <AgentProductsPanel category={entry.category ?? undefined} />
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+const PENDING_STATUSES = ['pending_approval', 'submitted'];
+
+function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
+  const { data: pendingCount = 0 } = useQuery({
+    queryKey: ['smartphone-order-pending-count'],
+    queryFn: async () => {
+      const { data, error } = await db.rpc('list_smartphone_orders', { p_status: null });
+      if (error) throw error;
+      return ((data || []) as { order_status: string }[]).filter((o) =>
+        PENDING_STATUSES.includes(o.order_status),
+      ).length;
+    },
+  });
+
+  return (
+    <Tabs defaultValue="pending" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="pending" className="gap-2">
+          Pending Applications
+          {pendingCount > 0 && <Badge variant="secondary">{pendingCount}</Badge>}
+        </TabsTrigger>
+        <TabsTrigger value="issued">Issued devices</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="pending" className="space-y-6">
+        <SmartphoneOrderApprovalQueue pendingOnly />
+      </TabsContent>
+
+      <TabsContent value="issued" className="space-y-6">
+        <AgentProductsPanel category={category} />
+      </TabsContent>
+    </Tabs>
   );
 }
