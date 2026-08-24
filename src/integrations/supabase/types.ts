@@ -42571,6 +42571,10 @@ export type Database = {
       }
       get_treasury_snapshot: { Args: never; Returns: Json }
       get_trust_coverage_stats: { Args: never; Returns: Json }
+      get_user_advance_reversal_available: {
+        Args: { p_user_id: string }
+        Returns: number
+      }
       get_user_available_balance: {
         Args: { p_user_id: string }
         Returns: number
