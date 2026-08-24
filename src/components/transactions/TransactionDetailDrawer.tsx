@@ -5,16 +5,18 @@
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Wallet, X } from "lucide-react";
+import { Copy, X } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatUGX } from "@/lib/rentCalculations";
 import {
   txCounterparty,
+  txIcon,
   txLabel,
   txMethodLabel,
   txServiceLabel,
+  txTone,
   type TxFeedRow,
 } from "@/lib/transactionsFeed";
 
@@ -48,6 +50,9 @@ function DetailRow({
 
 export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
   const isIn = row?.direction === "cash_in";
+  const tone = row ? txTone(row) : null;
+  const Icon = row ? txIcon(row) : null;
+
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -64,21 +69,25 @@ export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
               >
                 <X className="h-4 w-4" />
               </button>
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                <Wallet className="h-7 w-7 text-primary" />
+              <div
+                className={cn(
+                  "flex h-16 w-16 items-center justify-center rounded-full",
+                  tone?.bubble,
+                )}
+              >
+                {Icon && <Icon className={cn("h-7 w-7", tone?.icon)} />}
               </div>
-              <h2 className="mt-3 text-xl font-bold text-primary">{txLabel(row)}</h2>
+              <h2 className="mt-3 text-xl font-bold text-foreground">{txLabel(row)}</h2>
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {txServiceLabel(row)} / {isIn ? "Credit" : "Debit"}
               </p>
               <p
-                className={cn(
-                  "mt-3 text-3xl font-extrabold tabular-nums",
-                  isIn ? "text-success" : "text-foreground",
-                )}
+                className={cn("mt-3 text-3xl font-extrabold tabular-nums", tone?.amount)}
               >
+                {isIn ? "+" : "−"}
                 {formatUGX(Number(row.amount))}
               </p>
+
             </div>
 
             <div className="mt-5 rounded-2xl bg-muted/50 px-4 py-1">

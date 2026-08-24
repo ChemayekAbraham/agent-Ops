@@ -38631,7 +38631,7 @@ export type Database = {
         Returns: undefined
       }
       budget_review_queue: {
-        Args: { p_call_id: string; p_stage?: string }
+        Args: { p_call_id?: string; p_stage?: string }
         Returns: Json
       }
       budget_save_draft: {

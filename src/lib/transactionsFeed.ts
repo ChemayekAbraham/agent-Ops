@@ -10,6 +10,18 @@
  *  - Presentation helpers (label, icon tone, method badge, masked number) live
  *    here so the list row and the detail sheet stay in sync (DRY).
  */
+import {
+  ArrowDownToLine,
+  ArrowLeftRight,
+  ArrowUpFromLine,
+  Briefcase,
+  CreditCard,
+  Home,
+  Percent,
+  Receipt,
+  TrendingUp,
+  type LucideIcon,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   applyCustomerWalletLedgerFilters,
@@ -138,11 +150,40 @@ export function txLabel(row: TxFeedRow): string {
   );
 }
 
+export function txService(row: TxFeedRow): Exclude<TxServiceFilter, "all"> | null {
+  return CATEGORY_TO_SERVICE.get(row.category) ?? null;
+}
+
 export function txServiceLabel(row: TxFeedRow): string {
-  const service = CATEGORY_TO_SERVICE.get(row.category);
+  const service = txService(row);
   const option = TX_SERVICE_OPTIONS.find((o) => o.value === service);
   return option?.label ?? "Other";
 }
+
+/** Service-specific icon (never the generic coins icon). */
+const SERVICE_ICONS: Record<Exclude<TxServiceFilter, "all">, LucideIcon> = {
+  advance: CreditCard,
+  deposit: ArrowDownToLine,
+  withdraw: ArrowUpFromLine,
+  commission: Percent,
+  payroll: Briefcase,
+  transfer: ArrowLeftRight,
+  rent: Home,
+  returns: TrendingUp,
+};
+
+export function txIcon(row: TxFeedRow): LucideIcon {
+  const service = txService(row);
+  return (service && SERVICE_ICONS[service]) || Receipt;
+}
+
+/** Tailwind tone tokens — debits are always red, credits green. */
+export function txTone(row: TxFeedRow): { amount: string; bubble: string; icon: string } {
+  return row.direction === "cash_in"
+    ? { amount: "text-success", bubble: "bg-success/10", icon: "text-success" }
+    : { amount: "text-destructive", bubble: "bg-destructive/10", icon: "text-destructive" };
+}
+
 
 const MOMO_PATTERNS = ["mtn", "airtel", "momo", "mobile money"];
 
