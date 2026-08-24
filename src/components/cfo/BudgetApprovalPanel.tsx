@@ -31,21 +31,23 @@ const VIEWS: { id: View; label: string }[] = [
 export default function BudgetApprovalPanel() {
   const { cycles, loading: cyclesLoading, reload: reloadCycles } = useBudgetCycles();
   const [view, setView] = useState<View>('queue');
-  const [cycleId, setCycleId] = useState('');
+  const [cycleId, setCycleId] = useState('all');
   const [loading, setLoading] = useState(false);
   const [consolidation, setConsolidation] = useState<BudgetConsolidation | null>(null);
 
+  const selectedCycleId = cycleId === 'all' ? null : cycleId;
+
   useEffect(() => {
     if (view !== 'consolidation') return;
-    if (!cycleId) {
+    if (!selectedCycleId) {
       setConsolidation(null);
       return;
     }
     setConsolidation(null);
-    fetchConsolidation(cycleId)
+    fetchConsolidation(selectedCycleId)
       .then(setConsolidation)
       .catch(e => toast.error(e instanceof Error ? e.message : 'Could not build consolidation'));
-  }, [view, cycleId]);
+  }, [view, selectedCycleId]);
 
   return (
     <div className="space-y-4">
