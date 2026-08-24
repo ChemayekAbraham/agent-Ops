@@ -361,6 +361,7 @@ export default function FunderOnboarding({ embedded = false }: { embedded?: bool
   });
 
   if (loading || !user) {
+    if (embedded) return <ScreenLoader />;
     return (
       <>
       <Helmet>
