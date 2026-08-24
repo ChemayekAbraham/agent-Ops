@@ -13,6 +13,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Banknote, Copy, CheckCircle2, XCircle, Phone, User, Loader2 } from 'lucide-react';
 import { LandlordPayoutShareCard, type LandlordPayoutShareData } from './LandlordPayoutShareCard';
 import { LandlordPaymentCompletedDialog, type LandlordPaymentCompletion } from './LandlordPaymentCompletedDialog';
+import { ReceiptNumberLookupPanel } from './ReceiptNumberLookupPanel';
 
 type Payout = {
   id: string;
