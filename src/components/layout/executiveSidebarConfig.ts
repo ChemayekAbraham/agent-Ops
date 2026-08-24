@@ -210,6 +210,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Partner Finance', icon: Receipt, id: 'partner-finance' },
         { label: 'Partner Top-ups', icon: TrendingUp, id: 'partner-topups' },
         { label: 'Staff Performance', icon: UserCheck, id: 'staff-performance' },
+        { label: 'Service Centre Vetting', icon: Building2, id: 'service-centres' },
         { label: 'Requisitions', icon: ClipboardList, id: 'requisitions' },
       ],
     },
@@ -272,8 +273,6 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Requisitions', icon: ClipboardList, id: 'requisitions' },
         { label: 'Payroll Approvals', icon: Banknote, id: 'ceo-pay-approvals', route: '/approvals' },
         { label: 'Staff Performance', icon: UserCheck, id: 'staff-performance' },
-        { label: 'Service Centres', icon: Building2, id: 'service-centres' },
-
         { label: 'Angel Pool', icon: Layers, id: 'angel-pool' },
         { label: 'Mission & Goals', icon: Target, id: 'mission-goals' },
         { label: 'Role Management', icon: UserCog, id: 'role-management' },

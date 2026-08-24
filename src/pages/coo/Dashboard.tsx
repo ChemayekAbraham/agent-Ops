@@ -30,11 +30,12 @@ import { COOScaleVisionView } from '@/components/coo/COOScaleVisionView';
 import { WelileOperationsHub } from '@/components/executive/WelileOperationsHub';
 import COOOverviewSnapshot from '@/components/coo/COOOverviewSnapshot';
 import COODepartmentBudgets from '@/components/coo/COODepartmentBudgets';
+import { COOServiceCentreVetting } from '@/components/coo/COOServiceCentreVetting';
 import { AgentNetworkBadge } from '@/components/executive/tenant-ops/AgentNetworkBadge';
 import {
   Activity, ClipboardList, Users, Wallet, BarChart3,
   FileText, Banknote, Handshake, UserCheck, UserPlus,
-  TrendingUp, ArrowLeft, ChevronRight, Receipt, Home, CalendarCheck, Megaphone, Globe2, Landmark, Wallet2
+  TrendingUp, ArrowLeft, ChevronRight, Receipt, Home, CalendarCheck, Megaphone, Globe2, Landmark, Wallet2, Building2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -64,6 +65,7 @@ const quickNavItems: QuickNavItem[] = [
   { id: 'partner-finance', label: 'Partner Finance', icon: Receipt, color: 'bg-violet-500/10 text-violet-600 border-violet-500/20', description: 'All activity' },
   { id: 'staff-performance', label: 'Staff', icon: UserCheck, color: 'bg-pink-500/10 text-pink-600 border-pink-500/20', description: 'Team metrics' },
   { id: 'advance-requests', label: 'Business Advances', icon: Banknote, color: 'bg-purple-500/10 text-purple-600 border-purple-500/20', description: 'Business advances' },
+  { id: 'service-centres', label: 'Service Centre Vetting', icon: Building2, color: 'bg-orange-500/10 text-orange-600 border-orange-500/20', description: 'Vet & activate' },
   { id: 'department-budgets', label: 'Department Budgets', icon: Wallet2, color: 'bg-teal-500/10 text-teal-600 border-teal-500/20', description: 'Approve to CFO' },
   { id: 'scale-vision', label: 'At Scale (40M+)', icon: Globe2, color: 'bg-primary/10 text-primary border-primary/20', description: 'Hyperscale vision' },
 ];
@@ -104,6 +106,15 @@ export default function COODashboardPage() {
     switch (activeTab) {
       case 'requisitions':
         return <RequisitionsWorkspace />;
+      case 'service-centres':
+        return (
+          <div className="space-y-3">
+            {isMobile && renderBackButton('Overview')}
+            {renderSectionHeader('Service Centre Vetting', Building2)}
+            <p className="text-sm text-muted-foreground -mt-2">Vet service centres verified by Agent Ops. Your approval marks them active.</p>
+            <COOServiceCentreVetting />
+          </div>
+        );
       case 'rent-approvals':
         return (
           <div className="space-y-3">
