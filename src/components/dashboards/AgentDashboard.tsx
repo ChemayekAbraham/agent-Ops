@@ -225,6 +225,10 @@ interface AgentDashboardProps {
 }
 
 export default function AgentDashboard({ user, signOut, currentRole, availableRoles, onRoleChange, addRoleComponent }: AgentDashboardProps) {
+  // Proxy Agent shortcut is only surfaced to database-approved proxy agents.
+  const { data: proxyStatus } = useMyProxyAgentStatus(user?.id);
+  const isApprovedProxyAgent = proxyStatus?.status === 'approved';
+
   // ── DEV/QA: deliberate crash switch to verify DashboardErrorBoundary fallback.
   // Trigger by visiting /dashboard/agent?crash=1 (render-time throw)
   // or ?crash=effect (post-mount throw inside a useEffect).
