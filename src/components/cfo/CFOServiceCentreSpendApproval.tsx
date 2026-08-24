@@ -31,6 +31,22 @@ interface SCRow {
   cfo_decided_at: string | null;
   cfo_approved_amount: number | null;
   cfo_comment: string | null;
+  payee_user_id: string | null;
+  payee_name: string | null;
+  payee_phone: string | null;
+  payee_note: string | null;
+}
+
+interface PayeeChoice {
+  userId: string | null;
+  name: string;
+  phone: string;
+}
+
+interface ProfileMatch {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
 }
 
 const mapsUrl = (lat: number | string, lng: number | string) =>
@@ -41,7 +57,42 @@ export function CFOServiceCentreSpendApproval() {
   const [tab, setTab] = useState('awaiting');
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [comments, setComments] = useState<Record<string, string>>({});
+  const [payees, setPayees] = useState<Record<string, PayeeChoice>>({});
+  const [payeeNotes, setPayeeNotes] = useState<Record<string, string>>({});
+  const [searchFor, setSearchFor] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [matches, setMatches] = useState<ProfileMatch[]>([]);
+  const [searching, setSearching] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!searchFor) return;
+    const term = search.trim();
+    if (term.length < 3) {
+      setMatches([]);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const t = setTimeout(async () => {
+      const like = `%${term}%`;
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, phone')
+        .or(`full_name.ilike.${like},phone.ilike.${like}`)
+        .limit(8);
+      if (!cancelled) {
+        setMatches((data || []) as ProfileMatch[]);
+        setSearching(false);
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+507
+    };
+  }, [search, searchFor]);
+
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ['cfo-service-centre-spend'],
