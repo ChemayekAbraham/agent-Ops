@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,8 +23,7 @@ import {
   Building2,
   Smartphone,
   X,
-  ChevronDown,
-  ChevronUp,
+  ChevronRight,
 } from 'lucide-react';
 import DepositFlow from '@/components/payments/DepositFlow';
 import WithdrawFlow from '@/components/payments/WithdrawFlow';
@@ -139,15 +139,14 @@ function BalanceCard({
 
 export default function FunderWalletHubSection({ open, onOpenChange }: FunderWalletHubSectionProps) {
   const { user } = useAuth();
-  const [page, setPage] = useState(0);
-  const { data, isLoading, error } = usePartnerWalletHub(user?.id, page);
+  const navigate = useNavigate();
+  const { data, isLoading, error } = usePartnerWalletHub(user?.id, 0);
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
 
-  const allTransactions = data?.transactions ?? [];
-  const hasMore = allTransactions.length === (page + 1) * 20;
-  const hasLess = page > 0;
+  const recentTransactions = (data?.transactions ?? []).slice(0, 10);
+
 
   return (
     <>
@@ -187,55 +186,30 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
               </div>
             ) : (
               <>
-                {/* Total balance hero */}
-                <div className="rounded-3xl p-6 bg-gradient-to-br from-primary/15 to-primary/5 text-center shadow-sm">
-                  <p className="text-xs font-medium text-primary/80 uppercase tracking-wider">Total Position</p>
-                  <p className="text-3xl sm:text-4xl font-bold text-foreground mt-2">
+                {/* Balance hero — spacious, non-colliding */}
+                <div className="rounded-3xl bg-gradient-to-br from-primary/15 to-primary/5 p-5 sm:p-6 shadow-sm">
+                  <p className="text-[11px] font-semibold text-primary/80 uppercase tracking-wider">Total Position</p>
+                  <p className="mt-2 text-3xl sm:text-4xl font-bold tracking-tight text-foreground tabular-nums">
                     {formatUGX(data?.totalAvailable ?? 0)}
                   </p>
-                  <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
-                    <span className="px-2.5 py-1 rounded-full bg-background/60">
-                      Withdrawable: {formatUGX(data?.withdrawableAmount ?? 0)}
-                    </span>
-                    <span className="px-2.5 py-1 rounded-full bg-background/60">
-                      Float: {formatUGX(data?.floatAmount ?? 0)}
-                    </span>
-                    <span className="px-2.5 py-1 rounded-full bg-background/60">
-                      ROI: {formatUGX(data?.roiAmount ?? 0)}
-                    </span>
+                  <div className="mt-5 grid grid-cols-2 gap-3">
+                    {[
+                      { label: 'Withdrawable', value: data?.withdrawableAmount ?? 0, icon: Wallet },
+                      { label: 'Deposits (Float)', value: data?.floatAmount ?? 0, icon: PiggyBank },
+                      { label: 'ROI Earned', value: data?.roiAmount ?? 0, icon: TrendingUp },
+                      { label: 'Principal Deployed', value: data?.depositsAmount ?? 0, icon: Building2 },
+                    ].map((row) => (
+                      <div key={row.label} className="rounded-2xl bg-background/70 px-3 py-2.5">
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <row.icon className="h-3.5 w-3.5 shrink-0" />
+                          <span className="text-[10px] font-semibold uppercase tracking-wide truncate">{row.label}</span>
+                        </div>
+                        <p className="mt-1 text-sm sm:text-base font-bold text-foreground tabular-nums truncate">
+                          {formatUGX(row.value)}
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                </div>
-
-                {/* Balance cards */}
-                <div className="grid grid-cols-2 gap-3">
-                  <BalanceCard
-                    label="Withdrawable"
-                    amount={data?.withdrawableAmount ?? 0}
-                    icon={Wallet}
-                    variant="primary"
-                    subtext="Available to withdraw or transfer"
-                  />
-                  <BalanceCard
-                    label="Deposits (Float)"
-                    amount={data?.floatAmount ?? 0}
-                    icon={PiggyBank}
-                    variant="success"
-                    subtext="Deposits held as float by default"
-                  />
-                  <BalanceCard
-                    label="ROI Earned"
-                    amount={data?.roiAmount ?? 0}
-                    icon={TrendingUp}
-                    variant="warning"
-                    subtext="Lifetime returns from portfolios"
-                  />
-                  <BalanceCard
-                    label="Principal Deployed"
-                    amount={data?.depositsAmount ?? 0}
-                    icon={Building2}
-                    variant="muted"
-                    subtext="Total portfolio capital"
-                  />
                 </div>
 
                 {/* Action buttons */}
@@ -268,42 +242,35 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
                   </Button>
                 </div>
 
-                {/* Recent transactions */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-foreground">Recent Transactions</h3>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        disabled={!hasLess}
-                        onClick={() => setPage((p) => Math.max(0, p - 1))}
-                      >
-                        <ChevronUp className="h-3.5 w-3.5 mr-1" />
-                        Prev
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        disabled={!hasMore}
-                        onClick={() => setPage((p) => p + 1)}
-                      >
-                        Next
-                        <ChevronDown className="h-3.5 w-3.5 ml-1" />
-                      </Button>
+                {/* Providers — logos only, directly under the action buttons */}
+                <div className="flex items-center justify-center gap-3" data-testid="provider-logos">
+                  {PROVIDERS.map((provider) => (
+                    <div
+                      key={provider.id}
+                      className="h-11 w-16 rounded-xl bg-white flex items-center justify-center overflow-hidden shadow-sm"
+                    >
+                      <img
+                        src={provider.logo}
+                        alt={provider.name}
+                        className="h-full w-full object-contain p-1"
+                        loading="lazy"
+                      />
                     </div>
-                  </div>
+                  ))}
+                </div>
 
-                  {allTransactions.length === 0 ? (
+                {/* Recent transactions — latest 10 only */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-foreground">Recent Transactions</h3>
+
+                  {recentTransactions.length === 0 ? (
                     <div className="rounded-2xl p-8 text-center bg-muted/50">
                       <Receipt className="h-8 w-8 mx-auto text-muted-foreground/50" />
                       <p className="text-sm text-muted-foreground mt-2">No transactions yet.</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {allTransactions.map((tx) => {
+                      {recentTransactions.map((tx) => {
                         const isCashIn = tx.direction === 'cash_in' || tx.direction === 'credit';
                         const Icon = transactionIcon(tx.category, tx.direction);
                         return (
@@ -341,35 +308,23 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
                           </div>
                         );
                       })}
+
+                      <Button
+                        variant="outline"
+                        className="h-11 w-full rounded-xl font-semibold"
+                        onClick={() => {
+                          onOpenChange(false);
+                          navigate('/transactions');
+                        }}
+                      >
+                        More
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
                     </div>
                   )}
                 </div>
 
-                {/* Providers */}
-                <div className="space-y-3" data-testid="provider-logos">
-                  <h3 className="text-sm font-semibold text-foreground">Move money with</h3>
-                  <div className="grid grid-cols-3 gap-3">
-                    {PROVIDERS.map((provider) => (
-                      <div
-                        key={provider.id}
-                        className="rounded-2xl p-3 bg-card flex flex-col items-center gap-2 shadow-sm hover:shadow-md transition-shadow"
-                      >
-                        <div className="h-10 w-10 rounded-xl overflow-hidden bg-white flex items-center justify-center">
-                          <img
-                            src={provider.logo}
-                            alt={provider.name}
-                            className="h-full w-full object-contain"
-                            loading="lazy"
-                          />
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xs font-semibold text-foreground leading-tight">{provider.name}</p>
-                          <p className="text-[10px] text-muted-foreground leading-tight">{provider.label}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+
 
                 {/* Trust / security note */}
                 <div className="rounded-2xl p-4 bg-muted/50 text-center">

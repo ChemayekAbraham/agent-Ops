@@ -274,7 +274,7 @@ const ShareLocation = lazy(() => import('./pages/ShareLocation'));
 const InvestorPortfolioPublic = lazy(() => import('./pages/InvestorPortfolioPublic'));
 const PortfolioActionRequest = lazy(() => import('./pages/PortfolioActionRequest'));
 const RentMoney = lazy(() => import('./pages/RentMoney'));
-const TransactionsTest = lazy(() => import('./pages/TransactionsTest'));
+const Transactions = lazy(() => import('./pages/Transactions'));
 const FindAHouse = lazy(() => import('./pages/FindAHouse'));
 const LandlordAgreement = lazy(() => import('./pages/LandlordAgreement'));
 const AgentAgreement = lazy(() => import('./pages/AgentAgreement'));
@@ -720,7 +720,7 @@ function AppRoutes() {
           <Route path="/activate" element={<ActivatePartner />} />
           <Route path="/business-advance/track" element={<BusinessAdvanceTrack />} />
           <Route path="/rent-money" element={<RentMoney />} />
-          <Route path="/transactions-test" element={<TransactionsTest />} />
+          <Route path="/transactions" element={<Transactions />} />
 
           {/* Bot referral short links: welileapp.com/{CODE} — must be last before catch-all */}
           <Route path="/:code" element={<TrackedRedirect />} />
