@@ -86,7 +86,12 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
   const budgetableAccounts = useMemo(() => accounts.filter(isBudgetableAccount), [accounts]);
   const cycle = useMemo(() => cycles.find(c => c.id === cycleId), [cycles, cycleId]);
   const active = useMemo(() => submissions.find(s => s.id === activeId) ?? null, [submissions, activeId]);
+  const selectedDepartment = useMemo(
+    () => myDepartments.find(d => d.id === departmentId) ?? null,
+    [myDepartments, departmentId],
+  );
   const readOnly = active ? !EDITABLE_STATUSES.includes(active.status) : false;
+
 
   useEffect(() => {
     if (!cycleId && openCycles.length) setCycleId(openCycles[0].id);
