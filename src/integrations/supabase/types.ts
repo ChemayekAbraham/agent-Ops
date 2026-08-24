@@ -38466,6 +38466,10 @@ export type Database = {
         Args: { _department_id: string; _user_id?: string }
         Returns: boolean
       }
+      budget_can_file_for_department: {
+        Args: { _department_id: string; _user_id: string }
+        Returns: boolean
+      }
       budget_coo_decide_line: {
         Args: {
           p_approved_amount: number
