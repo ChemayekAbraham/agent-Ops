@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
@@ -17,12 +17,9 @@ import {
   TrendingUp,
   Banknote,
   ArrowRightLeft,
-  Landmark,
   Receipt,
-  CircleDollarSign,
   HandCoins,
   Building2,
-  Smartphone,
   X,
   ChevronRight,
 } from 'lucide-react';
