@@ -23,7 +23,7 @@ export interface SmartphoneCatalogEntry {
   id: string;
   brand: string;
   model_name: string;
-  default_amount: number;
+  default_amount: number | null;
   is_active: boolean;
 }
 
@@ -58,10 +58,11 @@ export function SmartphoneCatalogDialog() {
 
   const addEntry = useMutation({
     mutationFn: async () => {
-      const total = Math.max(0, parseInt(amount || '0', 10) || 0);
+      const raw = amount.trim();
+      const total = raw ? Math.max(0, parseInt(raw, 10) || 0) : null;
       if (brand.trim().length < 2) throw new Error('Enter a brand');
       if (modelName.trim().length < 2) throw new Error('Enter a model name');
-      if (total < 1000) throw new Error('Enter a default amount of at least UGX 1,000');
+      if (total !== null && total < 1000) throw new Error('Enter a default amount of at least UGX 1,000');
       const { error } = await db.from('smartphone_catalog').insert({
         brand: brand.trim(),
         model_name: modelName.trim(),
@@ -117,7 +118,7 @@ export function SmartphoneCatalogDialog() {
             </div>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">Default amount (UGX)</Label>
+            <Label className="text-xs">Default amount (UGX) <span className="text-muted-foreground font-normal">— optional</span></Label>
             <Input
               type="number"
               min={1000}
@@ -125,7 +126,7 @@ export function SmartphoneCatalogDialog() {
               inputMode="numeric"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="e.g. 1200000"
+              placeholder="e.g. 1200000 (leave blank if none)"
             />
           </div>
           <Button
@@ -147,7 +148,9 @@ export function SmartphoneCatalogDialog() {
               <div key={e.id} className="flex items-center justify-between gap-2 rounded-lg border p-2">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{e.brand} · {e.model_name}</p>
-                  <p className="text-xs text-muted-foreground">{formatUGX(Number(e.default_amount))}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {e.default_amount != null ? formatUGX(Number(e.default_amount)) : 'No default amount'}
+                  </p>
                 </div>
                 <div className="flex items-center gap-1.5">
                   {!e.is_active && <Badge variant="secondary">inactive</Badge>}
