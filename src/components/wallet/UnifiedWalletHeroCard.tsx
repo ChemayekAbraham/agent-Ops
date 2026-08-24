@@ -278,9 +278,15 @@ export function UnifiedWalletHeroCard({
 
         {/* Agent Float & Commission split */}
         {showAgentSplit ? (
-          <button
-            onClick={handleOpenWallet}
-            className="w-full text-left active:scale-[0.98] transition-transform"
+          <div
+            role={disableTap ? undefined : 'button'}
+            tabIndex={disableTap ? -1 : 0}
+            onClick={disableTap ? undefined : handleOpenWallet}
+            onKeyDown={disableTap ? undefined : (e) => { if (e.key === 'Enter' || e.key === ' ') handleOpenWallet(); }}
+            className={cn(
+              'w-full text-left',
+              !disableTap && 'active:scale-[0.98] transition-transform cursor-pointer'
+            )}
           >
             <div className={`grid grid-cols-1 ${floatBalance !== undefined ? 'sm:grid-cols-2' : ''} gap-3`}>
               {/* Float section — omitted entirely when floatBalance is not
@@ -331,10 +337,12 @@ export function UnifiedWalletHeroCard({
               <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-white/40">Total Balance</span>
               <span className="text-sm font-black text-white">{formatAmount(balance)}</span>
             </div>
-            <p className="mt-2 px-1 text-[10px] text-white font-medium">
-              Tap to see how your money moves in and out
-            </p>
-          </button>
+            {!disableTap && (
+              <p className="mt-2 px-1 text-[10px] text-white font-medium">
+                Tap to see how your money moves in and out
+              </p>
+            )}
+          </div>
         ) : (
           /* Default: single Available Balance */
           <button
