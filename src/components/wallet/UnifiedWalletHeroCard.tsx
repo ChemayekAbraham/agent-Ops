@@ -46,6 +46,18 @@ interface UnifiedWalletHeroCardProps {
   quickActions?: ReactNode;
   /** Presentation only: start with the card collapsed to a single row. */
   defaultCollapsed?: boolean;
+  /** When false the card is always expanded and the collapse toggle is hidden. */
+  collapsible?: boolean;
+  /** Hide the Houses/Return/Deployed supporter metric row. */
+  hideSupporterMetrics?: boolean;
+  /** Hide the secondary label/value row (e.g. Deposits Float). */
+  hideSecondaryRow?: boolean;
+  /** Hide the payroll-growth bonus indicator. */
+  hidePayrollGrowth?: boolean;
+  /** Hide the footer trust badge and View Wallet button. */
+  hideFooter?: boolean;
+  /** Disable tap/click on the balance area and footer; card becomes purely informational. */
+  disableTap?: boolean;
 }
 
 /** Reference easing from the liquid-morph motion language. */
