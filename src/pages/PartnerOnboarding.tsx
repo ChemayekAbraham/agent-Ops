@@ -430,17 +430,8 @@ export default function FunderOnboarding({ embedded = false }: { embedded?: bool
     queryClient.invalidateQueries({ queryKey: ['funder-onboarding-kpis'] });
   };
 
-  return (
+  const body = (
     <>
-    <Helmet>
-      <link rel="canonical" href="https://welileapp.com/partner-onboarding" />
-      <meta property="og:url" content="https://welileapp.com/partner-onboarding" />
-    </Helmet>
-    <COODetailLayout
-      title="Partner Onboarding"
-      subtitle="Self-Registered Funders"
-      status={headerStatus}
-    >
       {/* KPIs — grouped: Funders (self-registered) vs Invited Portfolios */}
       <div className="space-y-4">
         <section className="space-y-2">
