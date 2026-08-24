@@ -319,6 +319,7 @@ export function PartnersOpsDashboard() {
         </div>
       );
 
+      case 'proxy.directory': return <ProxyAgentDirectory />;
       case 'proxy.vetting': return <ProxyAgentApplicationsQueue />;
       case 'rent.requests': return <PartnerOpsRentRequestQueue />;
       case 'proxy.followup': return (
