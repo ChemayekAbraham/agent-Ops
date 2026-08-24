@@ -325,6 +325,14 @@ export function DisbursedAdvancesRegister() {
           queryClient.invalidateQueries({ queryKey: ['disbursed-advances-register'] });
           queryClient.invalidateQueries({ queryKey: ['cfo-advances'] });
           queryClient.invalidateQueries({ queryKey: ['cfo-outstanding-advances'] });
+          // The request goes back to Waiting for Approval — refresh every
+          // advance-request queue so it reappears in the right stage.
+          queryClient.invalidateQueries({
+            predicate: (q) => {
+              const k = String(q.queryKey?.[0] ?? '');
+              return k.includes('advance-request') || k.includes('advance_requests') || k.includes('agent-advance');
+            },
+          });
         }}
       />
     </Card>

@@ -37842,6 +37842,7 @@ export type Database = {
         Returns: number
       }
       advance_period_days: { Args: { _frequency: string }; Returns: number }
+      advance_reversal_plan: { Args: { p_advance_id: string }; Returns: Json }
       agent_ack_returned_inactivation: {
         Args: { p_rent_request_id: string }
         Returns: undefined
