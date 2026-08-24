@@ -113,8 +113,8 @@ export function SmartphoneCatalogDialog() {
               <Input value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="e.g. Samsung" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Model name</Label>
-              <Input value={modelName} onChange={(e) => setModelName(e.target.value)} placeholder="e.g. Galaxy A14" />
+              <Label className="text-xs">Model name <span className="text-muted-foreground font-normal">— optional</span></Label>
+              <Input value={modelName} onChange={(e) => setModelName(e.target.value)} placeholder="e.g. Galaxy A14 (optional)" />
             </div>
           </div>
           <div className="space-y-1">
