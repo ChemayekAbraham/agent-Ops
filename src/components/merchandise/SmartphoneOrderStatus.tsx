@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useEffect, useMemo, useState } from 'react';
-import { Smartphone, Clock, Loader2, CheckCircle2, XCircle, Download, Mail, Copy, Trash2, MoreVertical } from 'lucide-react';
+import { Smartphone, Clock, Loader2, CheckCircle2, XCircle, Download, Mail, Copy, Trash2, MoreVertical, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
