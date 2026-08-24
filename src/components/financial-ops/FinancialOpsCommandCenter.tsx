@@ -6,6 +6,7 @@ import { IftttDiagnosticsPanel } from './IftttDiagnosticsPanel';
 import { MerchantPhoneChecklist } from './MerchantPhoneChecklist';
 import { PhoneMoneyCard } from './PhoneMoneyCard';
 import { MoneyWithAgentsCard } from './MoneyWithAgentsCard';
+import { MerchantAgentFloatAllocationPanel } from './MerchantAgentFloatAllocationPanel';
 import { MerchantBalanceDisputesPanel } from './MerchantBalanceDisputesPanel';
 import { PhonePlatformReconciliationCard } from './PhonePlatformReconciliationCard';
 import { AutoCreditSuccessRateTile } from './AutoCreditSuccessRateTile';
@@ -193,7 +194,7 @@ type Tool =
   | 'topup_audit'
   | 'float_to_withdrawable' | 'momo_sms_template' | 'cash_codes' | 'user_statements'
   | 'withdrawal_notif_log' | 'cashout_settlement' | 'merchant_claims' | 'sms_delivery_log'
-  | 'merchant_agents' | 'merchant_float' | 'merchant_float_requisition' | 'receipt_archive'
+  | 'merchant_agents' | 'merchant_float' | 'merchant_float_requisition' | 'merchant_float_allocation' | 'receipt_archive'
   | 'employee_requisition_links' | 'employee_requisition_queue'
   | 'bridge_health' | 'manual_float_credit'
   | 'earnings_explainer'
@@ -223,6 +224,7 @@ const moreActions: MoreAction[] = [
   { kind: 'tool', id: 'merchant_agents', label: 'Merchant Agents', desc: 'Manage cash-out (merchant) agents — same module as the CFO Dashboard', icon: Store },
   { kind: 'tool', id: 'merchant_float', label: 'Merchant Float', desc: 'Fund or reject merchant agent operational float requests', icon: HandCoins },
   { kind: 'tool', id: 'merchant_float_requisition', label: 'Merchant Float Requisition', desc: 'Raise a merchant float funding requisition and send it to the CFO for approval', icon: HandCoins },
+  { kind: 'tool', id: 'merchant_float_allocation', label: 'Float Allocation Report', desc: 'Rank merchant agents by measured withdrawal reliability & float efficiency — who to give more float, who to cut back', icon: TrendingUp },
   { kind: 'tool', id: 'user_statements', label: 'User Wallet Statements', desc: 'Search a user — see withdrawable, float, landlord float & advance statements + full profile', icon: ReceiptText },
   { kind: 'tool', id: 'email_tx', label: 'Email Transactions', desc: 'Live transactions extracted from connected Gmail', icon: Mail },
   { kind: 'tool', id: 'auto_credit_review', label: 'Auto-Credit Review', desc: 'Confirm or reverse best-guess auto-credited deposits', icon: AlertTriangle },
@@ -510,6 +512,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
           </div>
         )}
         {activeTool === 'merchant_float_requisition' && <MerchantFloatRequisitionPanel mode="finops" />}
+        {activeTool === 'merchant_float_allocation' && <MerchantAgentFloatAllocationPanel />}
         </Suspense>
         </ToolErrorBoundary>
       </div>
@@ -568,7 +571,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
     {
       title: 'Merchant Network',
       items: moreActions.filter(a => [
-        'merchant_agents','merchant_float','merchant_float_requisition',
+        'merchant_agents','merchant_float','merchant_float_requisition','merchant_float_allocation',
       ].includes(a.id as string)),
     },
     {
@@ -942,6 +945,9 @@ function FinOpsHome({
 
       {/* Company money sitting with merchant agents — directly below ACTUAL MONEY */}
       <MoneyWithAgentsCard onOpenTimeline={() => onOpenTool('cashout_settlement')} />
+
+      {/* Who to give more float, who to cut back — measured from real withdrawals */}
+      <MerchantAgentFloatAllocationPanel compact onOpenFull={() => onOpenTool('merchant_float_allocation')} />
 
       {/* Merchant agents reporting a wrong balance — fix it right here */}
       <MerchantBalanceDisputesPanel />
