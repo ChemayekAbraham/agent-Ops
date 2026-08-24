@@ -37843,6 +37843,10 @@ export type Database = {
       }
       advance_period_days: { Args: { _frequency: string }; Returns: number }
       advance_reversal_plan: { Args: { p_advance_id: string }; Returns: Json }
+      advance_reversal_plan_batch: {
+        Args: { p_advance_ids?: string[]; p_today_only?: boolean }
+        Returns: Json
+      }
       agent_ack_returned_inactivation: {
         Args: { p_rent_request_id: string }
         Returns: undefined
