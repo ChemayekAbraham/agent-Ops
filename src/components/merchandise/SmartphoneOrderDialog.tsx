@@ -90,8 +90,8 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
     setSubmitting(true);
     const { error } = await db.rpc('agent_order_smartphone', {
       p_total_amount: totalAmount,
-      p_brand: brand,
-      p_model_type: modelType.trim(),
+      p_brand: brand.trim(),
+      p_model_type: modelType.trim() || 'Unspecified',
     });
     setSubmitting(false);
     if (error) {
@@ -125,16 +125,23 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
           <div className="space-y-1">
             <Label className="text-xs">Product Brand</Label>
-            <Select value={brand} onValueChange={onBrandChange} disabled={catalogLoading || brands.length === 0}>
-              <SelectTrigger>
-                <SelectValue placeholder={catalogLoading ? 'Loading brands…' : brands.length ? 'Select brand' : 'No phones available yet'} />
-              </SelectTrigger>
-              <SelectContent>
-                {brands.map((b) => (
-                  <SelectItem key={b} value={b}>{b}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {brands.length > 0 && (
+              <Select value={brands.includes(brand) ? brand : ''} onValueChange={onBrandChange} disabled={catalogLoading}>
+                <SelectTrigger>
+                  <SelectValue placeholder={catalogLoading ? 'Loading brands…' : 'Select brand'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {brands.map((b) => (
+                    <SelectItem key={b} value={b}>{b}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Input
+              value={brand}
+              onChange={(e) => setBrand(e.target.value)}
+              placeholder={brands.length ? 'Or type another brand' : 'e.g. Samsung, Tecno, itel'}
+            />
           </div>
 
           <div className="space-y-1">
