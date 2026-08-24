@@ -862,6 +862,23 @@ export default function FunderOnboarding({ embedded = false }: { embedded?: bool
         open={companyDefaultsOpen}
         onOpenChange={setCompanyDefaultsOpen}
       />
+    </>
+  );
+
+  if (embedded) return body;
+
+  return (
+    <>
+    <Helmet>
+      <link rel="canonical" href="https://welileapp.com/partner-onboarding" />
+      <meta property="og:url" content="https://welileapp.com/partner-onboarding" />
+    </Helmet>
+    <COODetailLayout
+      title="Partner Onboarding"
+      subtitle="Self-Registered Funders"
+      status={headerStatus}
+    >
+      {body}
     </COODetailLayout>
     </>
   );
