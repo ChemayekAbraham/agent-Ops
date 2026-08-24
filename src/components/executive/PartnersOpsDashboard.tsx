@@ -35,6 +35,7 @@ import { NewPartnersPanel } from './NewPartnersPanel';
 import { PendingPartnerRequests } from './PendingPartnerRequests';
 import { ProxyAgentManager } from '@/components/cfo/ProxyAgentManager';
 import { ProxyAgentApplicationsQueue } from '@/components/executive/ProxyAgentApplicationsQueue';
+import { ProxyAgentDirectory } from '@/components/executive/partner-ops/ProxyAgentDirectory';
 import { MaturityRequestsQueue } from './MaturityRequestsQueue';
 import { InvitedPortfoliosPanel } from './InvitedPortfoliosPanel';
 import { PendingPortfoliosQueue } from './PendingPortfoliosQueue';
@@ -76,6 +77,13 @@ export function PartnersOpsDashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [view, setView] = useState<PartnerOpsViewKey>('overview');
+  const handleSelect = (next: PartnerOpsViewKey) => {
+    if (next === 'onboarding') {
+      navigate('/partner-onboarding');
+      return;
+    }
+    setView(next);
+  };
   const setTab = (t: string) => setView(LEGACY_TAB_TO_VIEW[t] ?? 'overview');
   const [editAccount, setEditAccount] = useState<any>(null);
   const [fundAccount, setFundAccount] = useState<any>(null);
@@ -312,6 +320,7 @@ export function PartnersOpsDashboard() {
         </div>
       );
 
+      case 'proxy.directory': return <ProxyAgentDirectory />;
       case 'proxy.vetting': return <ProxyAgentApplicationsQueue />;
       case 'rent.requests': return <PartnerOpsRentRequestQueue />;
       case 'proxy.followup': return (
@@ -329,7 +338,7 @@ export function PartnersOpsDashboard() {
       {/* ═══ TOP BAR ═══ */}
       <PartnerOpsTopBar
         active={view}
-        onSelect={setView}
+        onSelect={handleSelect}
         badges={badges}
         actions={
           <div className="flex items-center gap-1.5">
@@ -357,7 +366,7 @@ export function PartnersOpsDashboard() {
       <div className="-ml-4 flex min-h-[calc(100vh-4rem)] gap-4 pt-3">
         <aside className="hidden w-56 shrink-0 lg:block">
           <div className="sticky top-0 flex h-[calc(100vh-4rem)] flex-col rounded-l-none rounded-r-xl border border-l-0 bg-card">
-            <PartnerOpsSidebar active={view} onSelect={setView} badges={badges} className="flex-1" />
+            <PartnerOpsSidebar active={view} onSelect={handleSelect} badges={badges} className="flex-1" />
           </div>
         </aside>
         <div className="min-w-0 flex-1 space-y-4 pl-4 lg:pl-0">

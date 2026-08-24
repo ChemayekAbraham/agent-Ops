@@ -40,7 +40,14 @@ const AUTOMATION_CONTROLS: ControlDef[] = [
 const HALT_CONTROLS: ControlDef[] = [
   { key: 'credits_paused', label: 'Pause credit access', description: 'Block all new credit draws / rent plan disbursements.', danger: true },
   { key: 'withdrawals_paused', label: 'Pause withdrawals', description: 'Block all wallet withdrawals platform-wide.', danger: true },
+  {
+    key: 'advance_withdrawals_paused',
+    label: 'Halt advance withdrawals',
+    description: 'ON: money that reached an agent wallet through an advance (and has not been spent yet) is removed from the spendable balance — agents can only withdraw earned money. Commissions, rent collections and other credits keep flowing.',
+    danger: true,
+  },
 ];
+
 
 const UI_OVERRIDE_CONTROLS: ControlDef[] = [
   {

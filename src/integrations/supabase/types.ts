@@ -29488,11 +29488,22 @@ export type Database = {
           ceo_approved_by: string | null
           ceo_comment: string | null
           ceo_rejection_reason: string | null
+          cfo_approved_amount: number | null
+          cfo_comment: string | null
+          cfo_decided_at: string | null
+          cfo_decided_by: string | null
+          cfo_decision: string | null
           created_at: string | null
           id: string
           latitude: number
           location_name: string | null
           longitude: number
+          payee_name: string | null
+          payee_note: string | null
+          payee_phone: string | null
+          payee_set_at: string | null
+          payee_set_by: string | null
+          payee_user_id: string | null
           photo_url: string
           rejection_reason: string | null
           status: string
@@ -29511,11 +29522,22 @@ export type Database = {
           ceo_approved_by?: string | null
           ceo_comment?: string | null
           ceo_rejection_reason?: string | null
+          cfo_approved_amount?: number | null
+          cfo_comment?: string | null
+          cfo_decided_at?: string | null
+          cfo_decided_by?: string | null
+          cfo_decision?: string | null
           created_at?: string | null
           id?: string
           latitude: number
           location_name?: string | null
           longitude: number
+          payee_name?: string | null
+          payee_note?: string | null
+          payee_phone?: string | null
+          payee_set_at?: string | null
+          payee_set_by?: string | null
+          payee_user_id?: string | null
           photo_url: string
           rejection_reason?: string | null
           status?: string
@@ -29534,11 +29556,22 @@ export type Database = {
           ceo_approved_by?: string | null
           ceo_comment?: string | null
           ceo_rejection_reason?: string | null
+          cfo_approved_amount?: number | null
+          cfo_comment?: string | null
+          cfo_decided_at?: string | null
+          cfo_decided_by?: string | null
+          cfo_decision?: string | null
           created_at?: string | null
           id?: string
           latitude?: number
           location_name?: string | null
           longitude?: number
+          payee_name?: string | null
+          payee_note?: string | null
+          payee_phone?: string | null
+          payee_set_at?: string | null
+          payee_set_by?: string | null
+          payee_user_id?: string | null
           photo_url?: string
           rejection_reason?: string | null
           status?: string
@@ -38598,7 +38631,7 @@ export type Database = {
         Returns: undefined
       }
       budget_review_queue: {
-        Args: { p_call_id: string; p_stage?: string }
+        Args: { p_call_id?: string; p_stage?: string }
         Returns: Json
       }
       budget_save_draft: {
@@ -38769,6 +38802,19 @@ export type Database = {
       }
       cfo_decide_allocation_return: {
         Args: { p_cfo_note?: string; p_decision: string; p_request_id: string }
+        Returns: Json
+      }
+      cfo_decide_service_centre: {
+        Args: {
+          p_amount?: number
+          p_comment: string
+          p_decision: string
+          p_id: string
+          p_payee_name?: string
+          p_payee_note?: string
+          p_payee_phone?: string
+          p_payee_user_id?: string
+        }
         Returns: Json
       }
       cfo_promissory_bookings_report: {
@@ -39810,6 +39856,10 @@ export type Database = {
           phone: string
           status: string
         }[]
+      }
+      get_advance_locked_withdrawable: {
+        Args: { p_user_id: string }
+        Returns: number
       }
       get_agent_advance_activity_correlation: {
         Args: { p_days?: number }
@@ -42633,6 +42683,7 @@ export type Database = {
         Args: { _agent: string; _partner: string }
         Returns: boolean
       }
+      is_proxy_directory_viewer: { Args: { _uid: string }; Returns: boolean }
       is_proxy_for: {
         Args: { _agent_id: string; _beneficiary_id: string }
         Returns: boolean
@@ -43880,6 +43931,19 @@ export type Database = {
           scope: string
         }[]
       }
+      partner_ops_proxy_agent_detail: {
+        Args: { p_agent_user_id: string }
+        Returns: Json
+      }
+      partner_ops_proxy_agent_directory: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
       partner_ops_reject_self_topup: {
         Args: { p_reason: string; p_topup_id: string }
         Returns: Json
@@ -43907,6 +43971,14 @@ export type Database = {
           state: string
           target_value: number
         }[]
+      }
+      partner_ops_transfer_proxy_book: {
+        Args: {
+          p_from_agent_id: string
+          p_reason: string
+          p_to_agent_id: string
+        }
+        Returns: Json
       }
       partner_self_claim_plans: {
         Args: { p_idempotency_key?: string; p_rent_request_ids: string[] }
@@ -44050,6 +44122,7 @@ export type Database = {
         }[]
       }
       proxy_cc_resolve_agent: { Args: { p_agent_id: string }; Returns: string }
+      proxy_earning_categories: { Args: never; Returns: string[] }
       psm_assert_no_foreign_booking: {
         Args: { p_partner: string; p_rent_request_ids: string[] }
         Returns: undefined
@@ -44980,7 +45053,10 @@ export type Database = {
           category: string
           cr: number
           dr: number
+          group_one_sided: boolean
+          is_legacy_counterpart: boolean
           ledger_scope: string
+          source_table: string
           transaction_group_id: string
         }[]
       }

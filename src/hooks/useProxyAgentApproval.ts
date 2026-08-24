@@ -18,6 +18,11 @@ export function useMyProxyAgentStatus(userId?: string | null) {
     queryKey: ['my-proxy-agent-status', userId ?? 'anon'],
     enabled: !!userId,
     staleTime: 30_000,
+    // Access gate: always re-verify against the server on mount so revoked or
+    // suspended proxy agents cannot ride a cached "approved" verdict.
+    refetchOnMount: 'always',
+    retry: false,
+
     queryFn: async (): Promise<MyProxyStatus> => {
       const { data, error } = await supabase.rpc('my_proxy_agent_status');
       if (error) throw new Error(error.message);

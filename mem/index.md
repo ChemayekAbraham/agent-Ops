@@ -99,3 +99,4 @@
 - [Budget cycle open notifications](mem://features/budget/cycle-open-notifications) — Cycle open notifies users with department dashboard access (not HR assignments); dedup table; `budget` type allowlisted in notification suppression trigger
 - [Staff Requisition Flow](mem://features/requisitions/staff-requisition-flow) — My Space requisitions routed department head -> COO -> CFO with auto wallet credit; legacy director/employee requisition submit endpoints return 410
 - [Funder direct landlord float](mem://features/partner/funder-direct-landlord-float) — Direct tenant support debits withdrawable then operational float into agent landlord float; no balance files a `landlord_float_receivables` row with a mandatory promised deposit date
+- [SOFP leg resolver](mem://architecture/sofp-leg-resolver) — workflow-aware balance sheet mapping rules R1-R7 + equity E4; balance sheet balances to zero with no suspense plug; never plug or hide a failed balance check

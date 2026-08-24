@@ -49,6 +49,8 @@ export interface BudgetQueueRow {
   reference: string;
   title: string | null;
   purpose: string | null;
+  call_id: string | null;
+  cycle_title: string | null;
   department_id: string | null;
   department_name: string;
   department_key: string | null;
