@@ -49,6 +49,8 @@ import { differenceInDays, format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CancelAdvanceDialog } from '@/components/cfo/CancelAdvanceDialog';
 import { ReverseAdvanceDialog } from '@/components/cfo/ReverseAdvanceDialog';
+import { BulkReverseAdvancesDialog } from '@/components/cfo/BulkReverseAdvancesDialog';
+import { Checkbox } from '@/components/ui/checkbox';
 
 type StatusFilter = 'all' | 'active' | 'overdue' | 'completed';
 
