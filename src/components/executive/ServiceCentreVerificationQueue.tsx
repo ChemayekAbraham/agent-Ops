@@ -14,6 +14,8 @@ import { ServiceCentreNewEntryDialog } from './service-centres/ServiceCentreNewE
 import { ServiceCentreEntriesList } from './service-centres/ServiceCentreEntriesList';
 import { ServiceCentreAdvancesPanel } from './service-centres/ServiceCentreAdvancesPanel';
 import { ActiveServiceCentresList } from './service-centres/ActiveServiceCentresList';
+import { ServiceCentreStageTracker } from './service-centres/ServiceCentreStageTracker';
+
 
 export function ServiceCentreVerificationQueue() {
   const { user } = useAuth();
