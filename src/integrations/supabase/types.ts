@@ -19950,6 +19950,7 @@ export type Database = {
       }
       merchant_agent_referrals: {
         Row: {
+          beneficiary_id: string
           bonus_amount: number
           cashout_agent_id: string | null
           created_at: string
@@ -19959,9 +19960,11 @@ export type Database = {
           paid_at: string | null
           referrer_id: string
           status: string
+          tier: string
           updated_at: string
         }
         Insert: {
+          beneficiary_id: string
           bonus_amount?: number
           cashout_agent_id?: string | null
           created_at?: string
@@ -19971,9 +19974,11 @@ export type Database = {
           paid_at?: string | null
           referrer_id: string
           status?: string
+          tier?: string
           updated_at?: string
         }
         Update: {
+          beneficiary_id?: string
           bonus_amount?: number
           cashout_agent_id?: string | null
           created_at?: string
@@ -19983,6 +19988,7 @@ export type Database = {
           paid_at?: string | null
           referrer_id?: string
           status?: string
+          tier?: string
           updated_at?: string
         }
         Relationships: [
@@ -20010,49 +20016,49 @@ export type Database = {
           {
             foreignKeyName: "merchant_agent_referrals_invitee_id_fkey"
             columns: ["invitee_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "manager_profiles"
             referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "merchant_agent_referrals_invitee_id_fkey"
             columns: ["invitee_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "merchant_agent_referrals_invitee_id_fkey"
             columns: ["invitee_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "referral_leaderboard"
             referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "merchant_agent_referrals_invitee_id_fkey"
             columns: ["invitee_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "v_accounts_no_verified_phone"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "merchant_agent_referrals_invitee_id_fkey"
             columns: ["invitee_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "v_tenant_location_pivot"
             referencedColumns: ["tenant_id"]
           },
           {
             foreignKeyName: "merchant_agent_referrals_invitee_id_fkey"
             columns: ["invitee_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "v_tenant_ops_tenant_base"
             referencedColumns: ["tenant_id"]
           },
           {
             foreignKeyName: "merchant_agent_referrals_invitee_id_fkey"
             columns: ["invitee_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "vw_agent_ops_directory"
             referencedColumns: ["agent_id"]
           },
@@ -44271,6 +44277,14 @@ export type Database = {
       }
       pause_tenant_repayment: {
         Args: { p_days: number; p_reason: string; p_rent_request_id: string }
+        Returns: Json
+      }
+      pay_merchant_agent_referral_generations: {
+        Args: {
+          p_cashout_agent_id?: string
+          p_invitee_id: string
+          p_proof_ref?: string
+        }
         Returns: Json
       }
       pay_partner_self_cycles: { Args: { p_limit?: number }; Returns: Json }
