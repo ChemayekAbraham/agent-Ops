@@ -83,9 +83,8 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
       toast.error(error.message || 'Could not submit smartphone order');
       return;
     }
-    toast.success(
-      `Order submitted for approval. Payment projection ${formatUGX(projection)} (33% wallet recovery rate).`,
-    );
+    toast.success('Order submitted for approval.');
+
     reset();
     onOpenChange(false);
     queryClient.invalidateQueries({ queryKey: ['my-smartphone-orders', userId] });
