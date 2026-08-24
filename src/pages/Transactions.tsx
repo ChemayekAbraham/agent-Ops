@@ -24,7 +24,7 @@ export default function Transactions() {
           >
             <ArrowLeft className="h-6 w-6" />
           </button>
-          <h1 className="flex-1 truncate text-2xl font-bold tracking-tight">Transaction History</h1>
+          <h1 className="flex-1 truncate text-xl font-bold sm:text-2xl tracking-tight">Transaction History</h1>
           <Button
             className="h-11 shrink-0 rounded-full px-5 font-bold"
             onClick={() => navigate("/financial-statement")}
