@@ -57,6 +57,18 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
   const [rejectTarget, setRejectTarget] = useState<SmartphoneOrderRow | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [detailsTarget, setDetailsTarget] = useState<SmartphoneOrderRow | null>(null);
+  const [approveTarget, setApproveTarget] = useState<SmartphoneOrderRow | null>(null);
+  const [officialAmount, setOfficialAmount] = useState('');
+
+  const openApprove = (o: SmartphoneOrderRow) => {
+    setApproveTarget(o);
+    const existing = Number(o.total_amount || 0);
+    setOfficialAmount(existing > 0 ? String(Math.round(existing)) : '');
+  };
+
+  const officialAmountNumber = Math.max(0, Math.round(Number(officialAmount || 0) || 0));
+  const officialProjection = Math.round(officialAmountNumber * 0.33);
+
 
   const { data: wallet, isLoading: walletLoading } = useQuery({
     queryKey: ['smartphone-order-wallet', detailsTarget?.customer_id],
