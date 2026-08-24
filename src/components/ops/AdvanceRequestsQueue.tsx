@@ -278,7 +278,6 @@ export function AdvanceRequestsQueue({ stage }: AdvanceRequestsQueueProps) {
       setSelectedIds(new Set());
       setBulkAction(null);
       setBulkNotes('');
-      setBulkSkipReason('');
       setBulkAckFlagged(false);
     } else {
       toast.warning(`${ok} succeeded · ${failedCount} failed — see highlighted rows`);
@@ -544,7 +543,7 @@ export function AdvanceRequestsQueue({ stage }: AdvanceRequestsQueueProps) {
         onDone={() => { setDupRejectReq(null); setSelected(null); }}
       />
 
-      <AlertDialog open={!!confirm} onOpenChange={(open) => { if (!open) { setConfirm(null); setSkipCfo(false); setSkipReason(''); } }}>
+      <AlertDialog open={!!confirm} onOpenChange={(open) => { if (!open) setConfirm(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
