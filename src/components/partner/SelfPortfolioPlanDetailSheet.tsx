@@ -52,10 +52,23 @@ function PhotoSlider({
   keyboard?: boolean;
 }) {
   const total = photos.length;
+  // Clamp defensively: the parent may pass a stale index while a new plan's
+  // photos are still swapping in.
+  const safeIndex = total > 0 ? Math.min(Math.max(index, 0), total - 1) : 0;
+  const indexRef = useRef(safeIndex);
+  indexRef.current = safeIndex;
+  // Reads the live index from a ref so a stale closure (minified prod bundle,
+  // keyboard listener, or an in-flight swipe) can never fight the state.
   const go = useCallback(
-    (dir: -1 | 1) => onIndexChange((index + dir + total) % total),
-    [index, total, onIndexChange],
+    (dir: -1 | 1) => {
+      if (total < 2) return;
+      const next = (indexRef.current + dir + total) % total;
+      indexRef.current = next;
+      onIndexChange(next);
+    },
+    [total, onIndexChange],
   );
+
   const startX = useRef<number | null>(null);
   const startY = useRef<number | null>(null);
   const swiped = useRef(false);
