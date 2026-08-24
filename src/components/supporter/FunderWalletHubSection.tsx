@@ -251,6 +251,7 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
                   <Button
                     variant="secondary"
                     className="h-12 rounded-xl flex-col gap-0.5"
+                    disabled={(data?.withdrawableAmount ?? 0) <= 0}
                     onClick={() => setShowWithdraw(true)}
                   >
                     <ArrowUpRight className="h-4 w-4" />
@@ -259,6 +260,7 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
                   <Button
                     variant="outline"
                     className="h-12 rounded-xl flex-col gap-0.5"
+                    disabled={(data?.withdrawableAmount ?? 0) <= 0}
                     onClick={() => setShowTransfer(true)}
                   >
                     <ArrowRightLeft className="h-4 w-4" />
@@ -344,7 +346,7 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
                 </div>
 
                 {/* Providers */}
-                <div className="space-y-3">
+                <div className="space-y-3" data-testid="provider-logos">
                   <h3 className="text-sm font-semibold text-foreground">Move money with</h3>
                   <div className="grid grid-cols-3 gap-3">
                     {PROVIDERS.map((provider) => (
