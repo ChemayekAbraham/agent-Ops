@@ -109,14 +109,11 @@ export function AdvanceRequestsQueue({ stage }: AdvanceRequestsQueueProps) {
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<any | null>(null);
   const [confirm, setConfirm] = useState<{ id: string; amount: number; original: number } | null>(null);
-  const [skipCfo, setSkipCfo] = useState(false);
-  const [skipReason, setSkipReason] = useState('');
 
   // ---- Bulk review state ---------------------------------------------------
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkAction, setBulkAction] = useState<null | 'approve_to_cfo' | 'approve_disburse' | 'reject'>(null);
+  const [bulkAction, setBulkAction] = useState<null | 'approve_to_cfo' | 'reject'>(null);
   const [bulkNotes, setBulkNotes] = useState('');
-  const [bulkSkipReason, setBulkSkipReason] = useState('');
   const [bulkAckFlagged, setBulkAckFlagged] = useState(false);
   const [bulkRunning, setBulkRunning] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
@@ -148,21 +145,8 @@ export function AdvanceRequestsQueue({ stage }: AdvanceRequestsQueueProps) {
   const [dupRejectReq, setDupRejectReq] = useState<any | null>(null);
 
   const approveMutation = useMutation({
-    mutationFn: async ({ id, approve, principal, skip, reason }: { id: string; approve: boolean; principal?: number; skip?: boolean; reason?: string }) => {
+    mutationFn: async ({ id, approve, principal }: { id: string; approve: boolean; principal?: number }) => {
       if (!user?.id) throw new Error('Not authenticated');
-      // Short-circuit: Agent Ops chose to skip CFO and disburse immediately.
-      if (approve && skip) {
-        const req = requests.find((r: any) => r.id === id);
-        if (!req) throw new Error('Request no longer available');
-        await disburseAgentAdvanceRequest({
-          req,
-          actorId: user.id,
-          principal,
-          notes: notes[id] || null,
-          skipReason: reason || null,
-        });
-        return { disbursed: true };
-      }
       const updateData: any = {};
       if (approve) {
         updateData.status = config.nextStatus;
@@ -200,8 +184,6 @@ export function AdvanceRequestsQueue({ stage }: AdvanceRequestsQueueProps) {
       );
       setSelected(null);
       setConfirm(null);
-      setSkipCfo(false);
-      setSkipReason('');
       queryClient.invalidateQueries({ queryKey: ['advance-requests-queue'] });
       queryClient.invalidateQueries({ queryKey: ['advance-requests-reviewed'] });
       queryClient.invalidateQueries({ queryKey: ['cfo-advance-requests'] });
@@ -245,20 +227,10 @@ export function AdvanceRequestsQueue({ stage }: AdvanceRequestsQueueProps) {
   const selectedTotal = selectedRequests.reduce((s: number, r: any) => s + getEditedAmount(r), 0);
   const hasFlaggedInSelection = selectedRequests.some(isFlagged);
 
-  async function processOne(req: any, action: 'approve_to_cfo' | 'approve_disburse' | 'reject'): Promise<void> {
+  async function processOne(req: any, action: 'approve_to_cfo' | 'reject'): Promise<void> {
     if (!user?.id) throw new Error('Not authenticated');
     const amt = getEditedAmount(req);
     const note = bulkNotes.trim() || null;
-    if (action === 'approve_disburse') {
-      await disburseAgentAdvanceRequest({
-        req,
-        actorId: user.id,
-        principal: amt,
-        notes: note,
-        skipReason: bulkSkipReason.trim() || null,
-      });
-      return;
-    }
     const updateData: any = {};
     if (action === 'approve_to_cfo') {
       updateData.status = config.nextStatus;
@@ -306,7 +278,6 @@ export function AdvanceRequestsQueue({ stage }: AdvanceRequestsQueueProps) {
       setSelectedIds(new Set());
       setBulkAction(null);
       setBulkNotes('');
-      setBulkSkipReason('');
       setBulkAckFlagged(false);
     } else {
       toast.warning(`${ok} succeeded · ${failedCount} failed — see highlighted rows`);
@@ -572,7 +543,7 @@ export function AdvanceRequestsQueue({ stage }: AdvanceRequestsQueueProps) {
         onDone={() => { setDupRejectReq(null); setSelected(null); }}
       />
 
-      <AlertDialog open={!!confirm} onOpenChange={(open) => { if (!open) { setConfirm(null); setSkipCfo(false); setSkipReason(''); } }}>
+      <AlertDialog open={!!confirm} onOpenChange={(open) => { if (!open) setConfirm(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
@@ -607,41 +578,17 @@ export function AdvanceRequestsQueue({ stage }: AdvanceRequestsQueueProps) {
             </div>
           )}
 
-          <div className="rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/60 dark:bg-amber-950/20 p-3 space-y-2">
-            <label className="flex items-start gap-2 cursor-pointer select-none">
-              <Checkbox
-                checked={skipCfo}
-                onCheckedChange={(v) => setSkipCfo(!!v)}
-                className="mt-0.5"
-                disabled={approveMutation.isPending}
-              />
-              <div className="flex-1">
-                <p className="text-xs font-bold flex items-center gap-1.5">
-                  <Zap className="h-3.5 w-3.5 text-amber-600" />
-                  Skip CFO — disburse to agent wallet now
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  Approves, disburses and starts daily deductions in one step. Use for
-                  time-critical advances. A reason is required for the audit trail.
-                </p>
-              </div>
-            </label>
-            {skipCfo && (
-              <Textarea
-                placeholder="Reason for skipping CFO (min 10 chars) — e.g. urgent field float, CFO unavailable…"
-                value={skipReason}
-                onChange={(e) => setSkipReason(e.target.value)}
-                rows={2}
-                className="text-xs"
-                disabled={approveMutation.isPending}
-              />
-            )}
+          <div className="rounded-xl border bg-muted/40 p-3">
+            <p className="text-[11px] text-muted-foreground">
+              CFO approval is mandatory. Approving here sends the request to the CFO queue —
+              no money moves until the CFO approves and disburses it.
+            </p>
           </div>
 
           <AlertDialogFooter>
             <AlertDialogCancel disabled={approveMutation.isPending}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              disabled={approveMutation.isPending || (skipCfo && skipReason.trim().length < 10)}
+              disabled={approveMutation.isPending}
               onClick={(e) => {
                 e.preventDefault();
                 if (!confirm) return;
@@ -649,24 +596,18 @@ export function AdvanceRequestsQueue({ stage }: AdvanceRequestsQueueProps) {
                   id: confirm.id,
                   approve: true,
                   principal: confirm.amount,
-                  skip: skipCfo,
-                  reason: skipCfo ? skipReason.trim() : undefined,
                 });
               }}
-              className={cn(
-                'text-white',
-                skipCfo ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-600 hover:bg-emerald-700',
-              )}
+              className="text-white bg-emerald-600 hover:bg-emerald-700"
             >
               {approveMutation.isPending ? (
-                <><Loader2 className="h-4 w-4 animate-spin mr-1.5" /> {skipCfo ? 'Disbursing…' : 'Approving…'}</>
-              ) : skipCfo ? (
-                <><Zap className="h-4 w-4 mr-1.5" /> Approve &amp; disburse now</>
+                <><Loader2 className="h-4 w-4 animate-spin mr-1.5" /> Approving…</>
               ) : (
                 <>Confirm approval</>
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
+
         </AlertDialogContent>
       </AlertDialog>
 
@@ -698,13 +639,6 @@ export function AdvanceRequestsQueue({ stage }: AdvanceRequestsQueueProps) {
             >
               <CheckCircle2 className="h-3.5 w-3.5" /> Approve → CFO
             </Button>
-            <Button
-              size="sm"
-              onClick={() => { setBulkAction('approve_disburse'); setBulkAckFlagged(false); setBulkSkipReason(''); }}
-              className="gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
-            >
-              <Zap className="h-3.5 w-3.5" /> Approve &amp; disburse
-            </Button>
           </div>
         </div>
       )}
@@ -724,16 +658,12 @@ export function AdvanceRequestsQueue({ stage }: AdvanceRequestsQueueProps) {
             <AlertDialogTitle>
               {bulkAction === 'reject'
                 ? `Reject ${selectedRequests.length} advance request${selectedRequests.length === 1 ? '' : 's'}`
-                : bulkAction === 'approve_disburse'
-                  ? `Approve & disburse ${selectedRequests.length} advance${selectedRequests.length === 1 ? '' : 's'}`
-                  : `Send ${selectedRequests.length} advance${selectedRequests.length === 1 ? '' : 's'} to CFO`}
+                : `Send ${selectedRequests.length} advance${selectedRequests.length === 1 ? '' : 's'} to CFO`}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {bulkAction === 'approve_disburse'
-                ? 'Skips the CFO stage — each agent wallet is credited and daily deductions start immediately.'
-                : bulkAction === 'reject'
-                  ? 'Each agent will see the rejection reason below.'
-                  : 'Each request will move to the CFO queue with the note below (if any).'}
+              {bulkAction === 'reject'
+                ? 'Each agent will see the rejection reason below.'
+                : 'Each request will move to the CFO queue with the note below (if any). CFO approval is mandatory before any money moves.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -779,21 +709,6 @@ export function AdvanceRequestsQueue({ stage }: AdvanceRequestsQueueProps) {
             />
           </div>
 
-          {bulkAction === 'approve_disburse' && (
-            <div className="rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/60 dark:bg-amber-950/20 p-3 space-y-2">
-              <p className="text-xs font-bold flex items-center gap-1.5">
-                <Zap className="h-3.5 w-3.5 text-amber-600" />
-                Skip-CFO reason (required)
-              </p>
-              <Textarea
-                placeholder="Reason for skipping CFO for this batch (min 10 chars)…"
-                value={bulkSkipReason}
-                onChange={(e) => setBulkSkipReason(e.target.value)}
-                rows={2}
-                disabled={bulkRunning}
-              />
-            </div>
-          )}
 
           {hasFlaggedInSelection && bulkAction !== 'reject' && (
             <label className="flex items-start gap-2 cursor-pointer select-none text-[11px] mt-1">
@@ -819,7 +734,6 @@ export function AdvanceRequestsQueue({ stage }: AdvanceRequestsQueueProps) {
             <AlertDialogAction
               disabled={
                 bulkRunning ||
-                (bulkAction === 'approve_disburse' && bulkSkipReason.trim().length < 10) ||
                 (bulkAction === 'reject' && bulkNotes.trim().length < 3) ||
                 (hasFlaggedInSelection && bulkAction !== 'reject' && !bulkAckFlagged)
               }
@@ -828,15 +742,12 @@ export function AdvanceRequestsQueue({ stage }: AdvanceRequestsQueueProps) {
                 'text-white',
                 bulkAction === 'reject' && 'bg-red-600 hover:bg-red-700',
                 bulkAction === 'approve_to_cfo' && 'bg-emerald-600 hover:bg-emerald-700',
-                bulkAction === 'approve_disburse' && 'bg-amber-600 hover:bg-amber-700',
               )}
             >
               {bulkRunning ? (
                 <><Loader2 className="h-4 w-4 animate-spin mr-1.5" /> Working…</>
               ) : bulkAction === 'reject' ? (
                 <>Reject {selectedRequests.length}</>
-              ) : bulkAction === 'approve_disburse' ? (
-                <><Zap className="h-4 w-4 mr-1.5" /> Disburse {selectedRequests.length}</>
               ) : (
                 <>Approve {selectedRequests.length}</>
               )}

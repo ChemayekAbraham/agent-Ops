@@ -837,6 +837,11 @@ export type Database = {
           request_id: string | null
           resumed_at: string | null
           resumed_by: string | null
+          reversal_amount: number | null
+          reversal_clawback_group_id: string | null
+          reversal_reason: string | null
+          reversed_at: string | null
+          reversed_by: string | null
           roi_recovery_percent: number
           status: string
           updated_at: string
@@ -875,6 +880,11 @@ export type Database = {
           request_id?: string | null
           resumed_at?: string | null
           resumed_by?: string | null
+          reversal_amount?: number | null
+          reversal_clawback_group_id?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
           roi_recovery_percent?: number
           status?: string
           updated_at?: string
@@ -913,6 +923,11 @@ export type Database = {
           request_id?: string | null
           resumed_at?: string | null
           resumed_by?: string | null
+          reversal_amount?: number | null
+          reversal_clawback_group_id?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
           roi_recovery_percent?: number
           status?: string
           updated_at?: string
@@ -38466,6 +38481,10 @@ export type Database = {
         Args: { _department_id: string; _user_id?: string }
         Returns: boolean
       }
+      budget_can_file_for_department: {
+        Args: { _department_id: string; _user_id: string }
+        Returns: boolean
+      }
       budget_coo_decide_line: {
         Args: {
           p_approved_amount: number
@@ -43840,6 +43859,10 @@ export type Database = {
         }
         Returns: Json
       }
+      partner_ops_bulk_delete_proxy_agents: {
+        Args: { p_agent_ids: string[]; p_reason: string }
+        Returns: Json
+      }
       partner_ops_decide_proxy_agent: {
         Args: { p_agent_user_id: string; p_decision: string; p_notes?: string }
         Returns: Json
@@ -44725,6 +44748,15 @@ export type Database = {
       return_rent_request_for_correction: {
         Args: { p_reason: string; p_request_id: string; p_stage: string }
         Returns: string
+      }
+      reverse_agent_advance: {
+        Args: {
+          p_advance_id: string
+          p_clawback_amount?: number
+          p_clawback_group_id?: string
+          p_reason: string
+        }
+        Returns: Json
       }
       reverse_all_phantom_auto_debits: { Args: never; Returns: Json }
       reverse_phantom_auto_debit_obligation: {
