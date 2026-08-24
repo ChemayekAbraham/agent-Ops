@@ -20,7 +20,7 @@ import { generateAgentProductsInFieldPdf, type AgentProductKpis, type AgentProdu
 import { archivePdfBlob } from '@/lib/pdfVault';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Package, Users, Warehouse, Store, Download, Plus, RefreshCw, Search } from 'lucide-react';
+import { Package, Users, Warehouse, Download, Plus, RefreshCw, Search } from 'lucide-react';
 
 interface CatalogItem { id: string; item_name: string; unit_price: number; unit_cost: number }
 interface CentreItem { id: string; location_name: string | null; agent_id: string | null; agent_name: string | null; status: string }
