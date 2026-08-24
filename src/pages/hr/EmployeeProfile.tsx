@@ -132,10 +132,12 @@ export default function HREmployeeProfile() {
     },
   });
 
+  // hr_departments is the authoritative department directory (the legacy
+  // `departments` table only ever held a single seed row).
   const { data: departments = [] } = useQuery({
     queryKey: ['hr-departments-list'],
     queryFn: async () => {
-      const { data } = await supabase.from('departments').select('name').eq('is_active', true).order('name');
+      const { data } = await supabase.from('hr_departments').select('name').eq('active', true).order('name');
       return (data || []).map((d: any) => d.name);
     },
   });
