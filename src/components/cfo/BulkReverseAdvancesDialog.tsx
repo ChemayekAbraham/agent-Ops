@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Undo2, Loader2, Download } from 'lucide-react';
 
 /** Server-calculated plan for one advance — never derived on the client. */
@@ -73,28 +74,62 @@ const CHUNK = 25;
 export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSuccess }: Props) {
   const [reason, setReason] = useState('');
   const [confirmCount, setConfirmCount] = useState('');
+  const [debitAuthorized, setDebitAuthorized] = useState(false);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(0);
+  const [planLoaded, setPlanLoaded] = useState(0);
+  const [planTotal, setPlanTotal] = useState(0);
   const [results, setResults] = useState<ExecResult[] | null>(null);
   const groupIdRef = useRef<string | null>(null);
 
   const explicitIds = advanceIds && advanceIds.length > 0 ? advanceIds : null;
 
-  const { data, isLoading, refetch } = useQuery({
+  /**
+   * The plan is loaded in 25-advance slices. `advance_reversal_plan_batch`
+   * recomputes each agent's strict withdrawable balance, so asking for ~200
+   * advances in one round trip exceeds the 8s statement timeout for the
+   * authenticated role — that timeout was what left this dialog empty (and the
+   * Reverse button permanently disabled) instead of showing the preview.
+   */
+  const { data: planRows, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['advance-reversal-plan-batch', explicitIds ?? 'today'],
     enabled: open,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('advance_reversal_plan_batch', {
-        p_advance_ids: explicitIds,
-        p_today_only: true,
-      });
-      if (error) throw error;
-      return data as any;
+    retry: 0,
+    queryFn: async (): Promise<BulkPlanRow[]> => {
+      let ids = explicitIds;
+      if (!ids) {
+        // Today's un-reversed advances, Kampala day boundary (UTC+3, no DST).
+        const shifted = new Date(Date.now() + 3 * 60 * 60 * 1000);
+        const dayStart = new Date(
+          Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()) - 3 * 60 * 60 * 1000,
+        );
+        const { data: list, error: listError } = await supabase
+          .from('agent_advances')
+          .select('id')
+          .is('reversed_at', null)
+          .gte('issued_at', dayStart.toISOString());
+        if (listError) throw listError;
+        ids = (list ?? []).map((r) => r.id as string);
+      }
+      setPlanTotal(ids.length);
+      setPlanLoaded(0);
+      const out: BulkPlanRow[] = [];
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const slice = ids.slice(i, i + CHUNK);
+        const { data, error: rpcError } = await supabase.rpc('advance_reversal_plan_batch', {
+          p_advance_ids: slice,
+          p_today_only: false,
+        });
+        if (rpcError) throw rpcError;
+        out.push(...(((data as any)?.rows ?? []) as BulkPlanRow[]));
+        setPlanLoaded(Math.min(ids.length, i + slice.length));
+      }
+      return out;
     },
   });
 
   const rows: BulkPlanRow[] = useMemo(() => {
-    const all = ((data?.rows ?? []) as BulkPlanRow[]).map((r) => ({
+    const all = ((planRows ?? []) as BulkPlanRow[]).map((r) => ({
       ...r,
       principal: Number(r.principal || 0),
       disbursed_amount: Number(r.disbursed_amount || 0),
@@ -105,7 +140,8 @@ export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSu
       shortfall: Number(r.shortfall || 0),
     }));
     return all;
-  }, [data]);
+  }, [planRows]);
+
 
   const eligible = useMemo(
     () => rows.filter((r) => !r.already_reversed && r.approved_today && r.has_request),
@@ -128,6 +164,7 @@ export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSu
     if (open) {
       setReason('');
       setConfirmCount('');
+      setDebitAuthorized(false);
       setResults(null);
       setDone(0);
       groupIdRef.current = null;
@@ -137,9 +174,12 @@ export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSu
   const canRun =
     !running &&
     !isLoading &&
+    !isError &&
     eligible.length > 0 &&
     reason.trim().length >= 10 &&
+    debitAuthorized &&
     confirmCount.trim() === String(eligible.length);
+
 
   const run = async () => {
     if (!canRun) return;
@@ -243,10 +283,24 @@ export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSu
 
         <div className="flex-1 overflow-y-auto space-y-4 pr-1">
           {isLoading ? (
-            <div className="flex justify-center py-10">
+            <div className="flex flex-col items-center gap-2 py-10">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <p className="text-[11px] text-muted-foreground">
+                Building the reversal preview{planTotal > 0 ? ` — ${planLoaded} of ${planTotal} advances` : ''}…
+              </p>
+            </div>
+          ) : isError ? (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 space-y-2">
+              <p className="text-xs font-semibold text-destructive">The reversal preview could not be loaded</p>
+              <p className="text-[11px] text-muted-foreground">
+                {(error as any)?.message || 'Unknown error'}
+              </p>
+              <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => refetch()}>
+                Try again
+              </Button>
             </div>
           ) : (
+
             <>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
                 <div className="rounded-lg border p-2">
@@ -371,7 +425,31 @@ export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSu
                       disabled={running}
                     />
                   </div>
+                  <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3">
+                    <div className="flex items-start gap-2">
+                      <Checkbox
+                        id="authorize-direct-debit"
+                        checked={debitAuthorized}
+                        onCheckedChange={(v) => setDebitAuthorized(v === true)}
+                        disabled={running}
+                        className="mt-0.5"
+                      />
+                      <Label htmlFor="authorize-direct-debit" className="text-[11px] leading-relaxed font-normal">
+                        As CFO I authorize the Direct Debit clawback of{' '}
+                        <span className="font-semibold">{formatUGX(totals.recoverable)}</span> from{' '}
+                        {totals.count} agent wallet{totals.count === 1 ? '' : 's'}
+                        {totals.shortfall > 0 ? (
+                          <>
+                            , leaving <span className="font-semibold">{formatUGX(totals.shortfall)}</span> outstanding
+                            for recovery from future earnings
+                          </>
+                        ) : null}
+                        . Wallets are never driven negative.
+                      </Label>
+                    </div>
+                  </div>
                   <div>
+
                     <Label className="text-xs font-semibold">
                       Type {eligible.length} to confirm the batch size
                     </Label>
