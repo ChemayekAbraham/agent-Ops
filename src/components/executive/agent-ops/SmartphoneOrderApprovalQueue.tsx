@@ -345,6 +345,86 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={!!approveTarget}
+        onOpenChange={(o) => { if (!o && !approve.isPending) { setApproveTarget(null); setOfficialAmount(''); } }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Check className="h-4 w-4 text-primary" /> Approve smartphone order
+            </DialogTitle>
+          </DialogHeader>
+
+          {approveTarget && (
+            <div className="space-y-3">
+              <div className="rounded-lg border divide-y">
+                <div className="flex items-center justify-between gap-3 px-3 py-2">
+                  <span className="text-xs text-muted-foreground">Agent</span>
+                  <span className="text-xs font-semibold text-right truncate">
+                    {approveTarget.client_name || 'Agent'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3 px-3 py-2">
+                  <span className="text-xs text-muted-foreground">Device</span>
+                  <span className="text-xs font-semibold text-right truncate">
+                    {[approveTarget.brand, approveTarget.model_type].filter(Boolean).join(' · ') || '—'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3 px-3 py-2">
+                  <span className="text-xs text-muted-foreground">Requested amount</span>
+                  <span className="text-xs font-semibold">{formatUGX(Number(approveTarget.total_amount || 0))}</span>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Official Phone Amount (UGX)</Label>
+                <Input
+                  type="number"
+                  min={1000}
+                  step={1000}
+                  inputMode="numeric"
+                  autoFocus
+                  placeholder="e.g. 1200000"
+                  value={officialAmount}
+                  onChange={(e) => setOfficialAmount(e.target.value)}
+                />
+              </div>
+
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1">
+                <p className="text-[11px] text-muted-foreground">Monthly Recovery Projection (33%)</p>
+                <p className="text-lg font-bold text-primary">{formatUGX(officialProjection)}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Approving activates an official merchandise recovery plan of{' '}
+                  {formatUGX(officialAmountNumber)} and the agent begins 33% wallet repayments.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={approve.isPending}
+              onClick={() => { setApproveTarget(null); setOfficialAmount(''); }}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={approve.isPending || officialAmountNumber < 1000 || !approveTarget}
+              onClick={() => approveTarget && approve.mutate({ id: approveTarget.id, amount: officialAmountNumber })}
+            >
+              {approve.isPending ? (
+                <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Approving…</>
+              ) : (
+                <><Check className="h-3.5 w-3.5 mr-1" /> Confirm approval</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
       <Dialog open={!!rejectTarget} onOpenChange={(o) => { if (!o) setRejectTarget(null); }}>
         <DialogContent className="max-w-sm">
 
