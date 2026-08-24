@@ -42,11 +42,13 @@ import {
   HandCoins,
   FileClock,
   Ban,
+  Undo2,
 } from 'lucide-react';
 import { formatUGX, getRiskLevel } from '@/lib/agentAdvanceCalculations';
 import { differenceInDays, format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CancelAdvanceDialog } from '@/components/cfo/CancelAdvanceDialog';
+import { ReverseAdvanceDialog } from '@/components/cfo/ReverseAdvanceDialog';
 
 type StatusFilter = 'all' | 'active' | 'overdue' | 'completed';
 
