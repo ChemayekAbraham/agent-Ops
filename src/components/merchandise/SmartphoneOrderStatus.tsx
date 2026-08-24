@@ -92,6 +92,7 @@ export default function SmartphoneOrderStatus({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<SmartphoneOrder | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const { data: orders = [] } = useQuery<SmartphoneOrder[]>({
     queryKey: ['my-smartphone-orders', userId, itemName],
     enabled: !!userId,
