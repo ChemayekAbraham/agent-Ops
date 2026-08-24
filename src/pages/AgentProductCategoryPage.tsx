@@ -12,6 +12,7 @@ import { AdvanceRequestsQueue } from '@/components/ops/AdvanceRequestsQueue';
 import { AdvanceRequestsReviewed } from '@/components/ops/AdvanceRequestsReviewed';
 import { BusinessAdvanceQueue } from '@/components/ops/BusinessAdvanceQueue';
 
+import { SmartphoneCatalogDialog } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
 import { SmartphoneOrderApprovalQueue } from '@/components/executive/agent-ops/SmartphoneOrderApprovalQueue';
 
 
@@ -53,7 +54,10 @@ export default function AgentProductCategoryPage() {
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{entry.label}</h1>
             <p className="text-sm text-muted-foreground">{entry.desc}</p>
           </div>
-          <AgentProductsServicesExportButton className="sm:justify-end" />
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            {entry.slug === 'smart-phones' && <SmartphoneCatalogDialog />}
+            <AgentProductsServicesExportButton />
+          </div>
         </header>
 
         {isAdvances ? (
