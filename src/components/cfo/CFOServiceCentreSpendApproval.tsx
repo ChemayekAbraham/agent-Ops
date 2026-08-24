@@ -101,6 +101,24 @@ export function CFOServiceCentreSpendApproval() {
   }, [search, searchFor]);
 
 
+  const { data: defaultPayee } = useQuery({
+    queryKey: ['cfo-sc-default-payee'],
+    queryFn: async (): Promise<PayeeChoice> => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, phone')
+        .eq('email', DEFAULT_PAYEE_EMAIL)
+        .maybeSingle();
+      if (!data) return DEFAULT_PAYEE_FALLBACK;
+      return {
+        userId: data.id,
+        name: data.full_name || DEFAULT_PAYEE_FALLBACK.name,
+        phone: data.phone || DEFAULT_PAYEE_FALLBACK.phone,
+      };
+    },
+    staleTime: 10 * 60_000,
+  });
+
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ['cfo-service-centre-spend'],
     queryFn: async (): Promise<SCRow[]> => {
@@ -124,12 +142,18 @@ export function CFOServiceCentreSpendApproval() {
     [awaiting],
   );
 
-  const payeeFor = (s: SCRow): PayeeChoice =>
-    payees[s.id] ?? {
-      userId: s.payee_user_id ?? s.agent_id ?? null,
-      name: s.payee_name || s.agent_name || '',
-      phone: s.payee_phone || s.agent_phone || '',
-    };
+  const payeeFor = (s: SCRow): PayeeChoice => {
+    if (payees[s.id]) return payees[s.id];
+    if (s.payee_name || s.payee_user_id) {
+      return {
+        userId: s.payee_user_id ?? null,
+        name: s.payee_name || '',
+        phone: s.payee_phone || '',
+      };
+    }
+    return defaultPayee ?? DEFAULT_PAYEE_FALLBACK;
+  };
+
 
   const decide = async (row: SCRow, decision: 'approved' | 'declined') => {
     const comment = (comments[row.id] || '').trim();
