@@ -134,20 +134,14 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
                 <UnifiedWalletHeroCard
                   balance={data?.totalAvailable ?? 0}
                   role="supporter"
-                  secondaryLabel="Deposits (Float)"
-                  secondaryValue={formatUGX(data?.floatAmount ?? 0)}
                   withdrawableBalance={data?.withdrawableAmount ?? 0}
-                  returnPerMonth={formatUGX(data?.roiAmount ?? 0)}
-                  deployed={formatUGX(data?.depositsAmount ?? 0)}
                   defaultCollapsed={false}
-                  onOpenWallet={() => {
-                    onOpenChange(false);
-                    navigate('/transactions');
-                  }}
-                  onViewStatement={() => {
-                    onOpenChange(false);
-                    navigate('/transactions');
-                  }}
+                  collapsible={false}
+                  hideSupporterMetrics
+                  hideSecondaryRow
+                  hidePayrollGrowth
+                  hideFooter
+                  disableTap
                 />
 
                 {/* Action buttons */}

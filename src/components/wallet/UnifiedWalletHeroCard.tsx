@@ -2,6 +2,7 @@ import { ReactNode, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Wallet, ChevronRight, ChevronDown, Shield, Home, TrendingUp, Rocket, PiggyBank, Coins, Sparkles, Clock, Users } from 'lucide-react';
 import { hapticTap } from '@/lib/haptics';
+import { cn } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAuth } from '@/hooks/useAuth';
 import { usePayrollGrowth } from '@/hooks/usePayrollGrowth';
@@ -46,6 +47,18 @@ interface UnifiedWalletHeroCardProps {
   quickActions?: ReactNode;
   /** Presentation only: start with the card collapsed to a single row. */
   defaultCollapsed?: boolean;
+  /** When false the card is always expanded and the collapse toggle is hidden. */
+  collapsible?: boolean;
+  /** Hide the Houses/Return/Deployed supporter metric row. */
+  hideSupporterMetrics?: boolean;
+  /** Hide the secondary label/value row (e.g. Deposits Float). */
+  hideSecondaryRow?: boolean;
+  /** Hide the payroll-growth bonus indicator. */
+  hidePayrollGrowth?: boolean;
+  /** Hide the footer trust badge and View Wallet button. */
+  hideFooter?: boolean;
+  /** Disable tap/click on the balance area and footer; card becomes purely informational. */
+  disableTap?: boolean;
 }
 
 /** Reference easing from the liquid-morph motion language. */
@@ -94,6 +107,12 @@ export function UnifiedWalletHeroCard({
   onDeployedTap,
   quickActions,
   defaultCollapsed = true,
+  collapsible = true,
+  hideSupporterMetrics = false,
+  hideSecondaryRow = false,
+  hidePayrollGrowth = false,
+  hideFooter = false,
+  disableTap = false,
 }: UnifiedWalletHeroCardProps) {
   const { formatAmount } = useCurrency();
   const { user } = useAuth();
@@ -123,14 +142,14 @@ export function UnifiedWalletHeroCard({
   };
 
   // Always start collapsed when a dashboard loads, regardless of previous session state.
-  const [collapsed, setCollapsed] = useState<boolean>(defaultCollapsed);
+  const [collapsed, setCollapsed] = useState<boolean>(collapsible ? defaultCollapsed : false);
   const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => { setReduceMotion(prefersReducedMotion()); }, []);
 
   // Auto-collapse only when the user reaches the bottom of the page.
   useEffect(() => {
-    if (collapsed || typeof window === 'undefined') return;
+    if (!collapsible || collapsed || typeof window === 'undefined') return;
     const getY = () => window.scrollY || document.documentElement.scrollTop || 0;
     const atBottom = () => {
       const doc = document.documentElement;
@@ -148,9 +167,10 @@ export function UnifiedWalletHeroCard({
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('touchmove', onScroll);
     };
-  }, [collapsed]);
+  }, [collapsed, collapsible]);
 
   const toggleCollapsed = () => {
+    if (!collapsible) return;
     hapticTap();
     setCollapsed((prev) => {
       const next = !prev;
@@ -185,7 +205,7 @@ export function UnifiedWalletHeroCard({
       />
 
       <AnimatePresence initial={false}>
-        {collapsed && (
+        {collapsible && collapsed && (
           <motion.button
             key="collapsed-bar"
             type="button"
@@ -243,23 +263,31 @@ export function UnifiedWalletHeroCard({
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-[9px] font-bold text-emerald-300 uppercase tracking-wider">Active</span>
             </div>
-            <button
-              type="button"
-              onClick={toggleCollapsed}
-              aria-expanded={!collapsed}
-              aria-label={`Collapse ${ROLE_LABELS[role]}`}
-              className="p-1 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 transition-all"
-            >
-              <ChevronDown className="h-4 w-4 rotate-180 text-white/70" />
-            </button>
+            {collapsible && (
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                aria-expanded={!collapsed}
+                aria-label={`Collapse ${ROLE_LABELS[role]}`}
+                className="p-1 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 transition-all"
+              >
+                <ChevronDown className="h-4 w-4 rotate-180 text-white/70" />
+              </button>
+            )}
           </div>
         </div>
 
         {/* Agent Float & Commission split */}
         {showAgentSplit ? (
-          <button
-            onClick={handleOpenWallet}
-            className="w-full text-left active:scale-[0.98] transition-transform"
+          <div
+            role={disableTap ? undefined : 'button'}
+            tabIndex={disableTap ? -1 : 0}
+            onClick={disableTap ? undefined : handleOpenWallet}
+            onKeyDown={disableTap ? undefined : (e) => { if (e.key === 'Enter' || e.key === ' ') handleOpenWallet(); }}
+            className={cn(
+              'w-full text-left',
+              !disableTap && 'active:scale-[0.98] transition-transform cursor-pointer'
+            )}
           >
             <div className={`grid grid-cols-1 ${floatBalance !== undefined ? 'sm:grid-cols-2' : ''} gap-3`}>
               {/* Float section — omitted entirely when floatBalance is not
@@ -310,15 +338,23 @@ export function UnifiedWalletHeroCard({
               <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-white/40">Total Balance</span>
               <span className="text-sm font-black text-white">{formatAmount(balance)}</span>
             </div>
-            <p className="mt-2 px-1 text-[10px] text-white font-medium">
-              Tap to see how your money moves in and out
-            </p>
-          </button>
+            {!disableTap && (
+              <p className="mt-2 px-1 text-[10px] text-white font-medium">
+                Tap to see how your money moves in and out
+              </p>
+            )}
+          </div>
         ) : (
           /* Default: single Available Balance */
-          <button
-            onClick={handleOpenWallet}
-            className="w-full text-left active:scale-[0.98] transition-transform"
+          <div
+            role={disableTap ? undefined : 'button'}
+            tabIndex={disableTap ? -1 : 0}
+            onClick={disableTap ? undefined : handleOpenWallet}
+            onKeyDown={disableTap ? undefined : (e) => { if (e.key === 'Enter' || e.key === ' ') handleOpenWallet(); }}
+            className={cn(
+              'w-full text-left',
+              !disableTap && 'active:scale-[0.98] transition-transform cursor-pointer'
+            )}
           >
             <div className="bg-primary-foreground/[0.10] rounded-2xl p-4 border border-primary-foreground/[0.06]">
               <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-white mb-2 flex items-center gap-1.5">
@@ -341,18 +377,20 @@ export function UnifiedWalletHeroCard({
                   Wallet total: <span className="font-semibold text-white">{formatAmount(balance)}</span>
                 </p>
               )}
-              <p className="mt-2.5 text-[10px] text-white font-medium">
-                Tap to see how your money moves in and out
-              </p>
+              {!disableTap && (
+                <p className="mt-2.5 text-[10px] text-white font-medium">
+                  Tap to see how your money moves in and out
+                </p>
+              )}
             </div>
-          </button>
+          </div>
         )}
 
         {/* Explains a suppressed available balance (pending withdrawal holds). */}
         <WalletHoldNotice variant="hero" />
 
         {/* Supporter metric cards — individually tappable */}
-        {role === 'supporter' && (
+        {role === 'supporter' && !hideSupporterMetrics && (
           <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => { hapticTap(); onHousesTap?.(); }}
@@ -383,7 +421,7 @@ export function UnifiedWalletHeroCard({
           </div>
         )}
 
-        {secondaryLabel && secondaryValue && !showAgentSplit && (
+        {secondaryLabel && secondaryValue && !showAgentSplit && !hideSecondaryRow && (
           <div className="flex items-center justify-between pt-1 border-t border-primary-foreground/[0.08]">
             <span className="text-[11px] text-white/50 font-medium">{secondaryLabel}</span>
             <span className="text-[11px] text-white/70 font-bold">{secondaryValue}</span>
@@ -394,7 +432,7 @@ export function UnifiedWalletHeroCard({
         {quickActions}
 
         {/* Payroll Growth Bonus indicator — only renders for staff with active un-withdrawn payroll */}
-        {payrollGrowth && (() => {
+        {!hidePayrollGrowth && payrollGrowth && (() => {
           // Never claim more is "parked" than the user actually has in their wallet.
           // Withdrawals reduce the real balance immediately; the payroll_growth_balances
           // FIFO consumer may lag (or, for historical rows, never ran), so we cap the
@@ -428,20 +466,22 @@ export function UnifiedWalletHeroCard({
         })()}
 
         {/* Footer — View Wallet link */}
-        <div className="flex items-center justify-between pt-1">
-          <div className="flex items-center gap-1.5">
-            <Shield className="h-3 w-3 text-white" />
-            <span className="text-[9px] text-white font-medium">{ROLE_TRUST[role]}</span>
+        {!hideFooter && (
+          <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center gap-1.5">
+              <Shield className="h-3 w-3 text-white" />
+              <span className="text-[9px] text-white font-medium">{ROLE_TRUST[role]}</span>
+            </div>
+            <button
+              onClick={handleViewStatement}
+              className="relative flex items-center gap-2 px-4 py-2.5 rounded-full bg-primary-foreground/15 hover:bg-primary-foreground/25 active:scale-95 text-white font-semibold text-sm shadow-lg ring-2 ring-primary-foreground/40 animate-bell-glow transition-all overflow-hidden group"
+            >
+              <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full bg-gradient-to-r from-transparent via-primary-foreground/30 to-transparent transition-transform duration-1000 ease-out" />
+              <span className="relative">View Wallet</span>
+              <ChevronRight className="relative h-4 w-4 animate-pulse" />
+            </button>
           </div>
-          <button
-            onClick={handleViewStatement}
-            className="relative flex items-center gap-2 px-4 py-2.5 rounded-full bg-primary-foreground/15 hover:bg-primary-foreground/25 active:scale-95 text-white font-semibold text-sm shadow-lg ring-2 ring-primary-foreground/40 animate-bell-glow transition-all overflow-hidden group"
-          >
-            <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full bg-gradient-to-r from-transparent via-primary-foreground/30 to-transparent transition-transform duration-1000 ease-out" />
-            <span className="relative">View Wallet</span>
-            <ChevronRight className="relative h-4 w-4 animate-pulse" />
-          </button>
-        </div>
+        )}
       </motion.div>
     </motion.div>
   );
