@@ -539,11 +539,32 @@ Deno.serve(async (req) => {
     //   float        → get_user_float_available_balance (company float only)
     // Float corrections are NEVER validated against withdrawable and NEVER
     // create a personal recoverable debt.
+    //
+    // Advance-reversal clawbacks (sub_category `advance_reversal:<advance_id>`)
+    // are the one exception on the withdrawable side: while the treasury control
+    // `advance_withdrawals_paused` is on, advance-funded withdrawable money is
+    // LOCKED out of `get_user_available_balance` so agents cannot cash it out.
+    // That lock exists to protect exactly the money a reversal must recover, so
+    // the gate uses `get_user_advance_reversal_available` (projection
+    // withdrawable minus pending holds — still ledger-backed, still never
+    // negative) for these clawbacks only.
     const isFloatDebit = op === "debit" && walletBucket === "float";
-    const solvencyRule = isFloatDebit ? "float_strict" : "withdrawable_strict";
+    const isAdvanceReversalClawback =
+      op === "debit" &&
+      !isFloatDebit &&
+      typeof sub_category === "string" &&
+      sub_category.startsWith("advance_reversal:");
+    const solvencyRule = isFloatDebit
+      ? "float_strict"
+      : isAdvanceReversalClawback
+        ? "advance_reversal_strict"
+        : "withdrawable_strict";
     const validationMethod = isFloatDebit
       ? "get_user_float_available_balance"
-      : "get_user_available_balance";
+      : isAdvanceReversalClawback
+        ? "get_user_advance_reversal_available"
+        : "get_user_available_balance";
+
     let bucketBefore: number | null = null;
 
     if (op === "debit" && (isFloatDebit || !allowOverdraw)) {
