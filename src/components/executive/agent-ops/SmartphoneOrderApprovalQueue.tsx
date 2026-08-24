@@ -51,7 +51,7 @@ const isPending = (s: string) => s === 'pending_approval' || s === 'submitted';
  * Pending Approval with no wallet charge; approving one creates the
  * 33% wallet recovery plan, rejecting one requires a 10+ char reason.
  */
-export function SmartphoneOrderApprovalQueue() {
+export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingOnly?: boolean } = {}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [rejectTarget, setRejectTarget] = useState<SmartphoneOrderRow | null>(null);
@@ -98,14 +98,19 @@ export function SmartphoneOrderApprovalQueue() {
     onError: (e: any) => toast.error(e.message || 'Could not reject order'),
   });
 
+  const scoped = useMemo(
+    () => (pendingOnly ? orders.filter((o) => isPending(o.order_status)) : orders),
+    [orders, pendingOnly],
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return orders;
-    return orders.filter((o) =>
+    if (!q) return scoped;
+    return scoped.filter((o) =>
       [o.client_name, o.client_phone, o.brand, o.model_type]
         .some((v) => (v || '').toLowerCase().includes(q)),
     );
-  }, [orders, search]);
+  }, [scoped, search]);
 
   const pendingCount = useMemo(() => orders.filter((o) => isPending(o.order_status)).length, [orders]);
 
@@ -114,7 +119,7 @@ export function SmartphoneOrderApprovalQueue() {
       <CardHeader className="pb-3">
         <CardTitle className="flex flex-wrap items-center gap-2 text-base">
           <Smartphone className="h-4 w-4 text-primary" />
-          Smartphone orders awaiting approval
+          {pendingOnly ? 'Pending applications' : 'Smartphone orders awaiting approval'}
           <Badge variant="secondary">{pendingCount} pending</Badge>
         </CardTitle>
         <Input
@@ -130,7 +135,9 @@ export function SmartphoneOrderApprovalQueue() {
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading orders…
           </p>
         ) : filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No smartphone orders yet.</p>
+          <p className="text-sm text-muted-foreground">
+            {pendingOnly ? 'No applications awaiting approval.' : 'No smartphone orders yet.'}
+          </p>
         ) : (
           filtered.map((o) => {
             const total = Number(o.total_amount || 0);
