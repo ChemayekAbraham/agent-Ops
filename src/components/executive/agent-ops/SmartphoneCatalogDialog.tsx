@@ -161,7 +161,7 @@ export function SmartphoneCatalogDialog() {
                     variant="ghost"
                     onClick={() => removeEntry.mutate(e.id)}
                     disabled={removeEntry.isPending}
-                    aria-label={`Remove ${e.brand} ${e.model_name}`}
+                    aria-label={`Remove ${e.brand} ${e.model_name ?? ''}`.trim()}
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
