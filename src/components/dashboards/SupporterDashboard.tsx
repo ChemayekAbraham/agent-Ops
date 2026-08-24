@@ -707,7 +707,7 @@ export default function SupporterDashboard({
         onAcceptAndDeposit={() => setShowPaymentPartners(true)}
       />
 
-      <FullScreenWalletSheet open={showWallet} onOpenChange={setShowWallet} />
+      <FunderWalletHubSection open={showFunderHub} onOpenChange={setShowFunderHub} />
       <InvestmentAccountsDrawer
         open={showInvestments}
         onOpenChange={(o) => { setShowInvestments(o); if (!o) setFocusPortfolioId(null); }}
