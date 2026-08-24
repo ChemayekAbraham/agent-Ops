@@ -1036,14 +1036,24 @@ html.android-compositor-safe .glass-card {
 /* Kill nested GPU layer promotion inside dialogs/sheets/drawers — the
    compositor doubles sticky/fixed children when their ancestor is
    transformed. Only the outermost overlay gets a promoted layer. */
-html.android-compositor-safe [role="dialog"] *:not(.app-sheet-content):not(.app-dialog-content),
-html.android-compositor-safe [data-radix-popper-content-wrapper] * {
+html.android-compositor-safe [role="dialog"] *:not(.app-sheet-content):not(.app-dialog-content):not(.photo-slider-slide),
+html.android-compositor-safe [data-radix-popper-content-wrapper] *:not(.photo-slider-slide) {
   transform: none !important;
   -webkit-transform: none !important;
   will-change: auto !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
+
+/* Image sliders inside sheets/dialogs position their slides with a transform.
+   Restore it explicitly (the offset travels through the --slide-x variable) so
+   next/prev navigation still moves on Android/lite-mode devices. */
+html.android-compositor-safe [role="dialog"] .photo-slider-slide,
+html.lite-mode [role="dialog"] .photo-slider-slide {
+  transform: translate3d(var(--slide-x, 0%), 0, 0) !important;
+  -webkit-transform: translate3d(var(--slide-x, 0%), 0, 0) !important;
+}
+
 
 /* The overlay itself stays promoted, but constrain its paint so the
    driver never allocates a texture larger than the viewport. */
