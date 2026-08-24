@@ -12,14 +12,12 @@ import { cn } from '@/lib/utils';
 import {
   ArrowDownLeft,
   ArrowUpRight,
-  Wallet,
   PiggyBank,
   TrendingUp,
   Banknote,
   ArrowRightLeft,
   Receipt,
   HandCoins,
-  Building2,
   X,
   ChevronRight,
 } from 'lucide-react';
@@ -81,41 +79,6 @@ function transactionIcon(category: string | null, direction: string | null) {
   if (category?.includes('angel')) return PiggyBank;
   if (category?.includes('repayment')) return HandCoins;
   return isCashIn ? ArrowDownLeft : ArrowUpRight;
-}
-
-function BalanceCard({
-  label,
-  amount,
-  icon: Icon,
-  variant,
-  subtext,
-}: {
-  label: string;
-  amount: number;
-  icon: React.ElementType;
-  variant: 'primary' | 'success' | 'warning' | 'muted';
-  subtext?: string;
-}) {
-  const variants = {
-    primary: 'bg-primary/10 text-primary',
-    success: 'bg-emerald-500/10 text-emerald-600',
-    warning: 'bg-amber-500/10 text-amber-600',
-    muted: 'bg-muted text-muted-foreground',
-  };
-  return (
-    <div className="rounded-2xl p-3 sm:p-4 bg-card shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
-          <p className="text-base sm:text-xl font-bold text-foreground mt-1 truncate">{formatUGX(amount)}</p>
-          {subtext && <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-1 leading-snug">{subtext}</p>}
-        </div>
-        <div className={cn('h-8 w-8 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shrink-0', variants[variant])}>
-          <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export default function FunderWalletHubSection({ open, onOpenChange }: FunderWalletHubSectionProps) {
