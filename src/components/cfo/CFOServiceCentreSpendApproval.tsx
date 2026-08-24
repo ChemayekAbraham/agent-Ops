@@ -187,11 +187,24 @@ export function CFOServiceCentreSpendApproval() {
         p_payee_note: (payeeNotes[row.id] || '').trim() || null,
       });
       if (error) throw error;
-      toast.success(
-        decision === 'approved'
-          ? `Spend of ${formatUGX(Number(amount))} approved — recipient ${payee.name.trim()}.`
-          : `Service centre spend declined for ${row.agent_name}.`,
-      );
+      if (decision === 'approved') {
+        const { data: smsRes, error: smsErr } = await supabase.functions.invoke(
+          'service-centre-spend-sms',
+          { body: { setup_id: row.id } },
+        );
+        if (smsErr || !(smsRes as any)?.sent) {
+          toast.warning(
+            `Spend approved, but the SMS to ${payee.name.trim() || 'the recipient'} did not go out.`,
+          );
+        } else {
+          toast.success(
+            `Spend of ${formatUGX(Number(amount))} approved — SMS sent to ${payee.name.trim()} (${payee.phone.trim()}).`,
+          );
+        }
+      } else {
+        toast.success(`Service centre spend declined for ${row.agent_name}.`);
+      }
+
       setComments((p) => ({ ...p, [row.id]: '' }));
       setSearchFor(null);
       setSearch('');
