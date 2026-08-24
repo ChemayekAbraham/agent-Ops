@@ -275,6 +275,16 @@ export function DisbursedAdvancesRegister() {
                               <Ban className="h-3 w-3" /> Cancel
                             </Button>
                           )}
+                          {!(a as any).reversed_at && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="h-7 text-[11px] gap-1"
+                              onClick={(e) => { e.stopPropagation(); setReverseAdvance(a); }}
+                            >
+                              <Undo2 className="h-3 w-3" /> Reverse
+                            </Button>
+                          )}
                           <Button size="sm" variant="ghost" className="h-7 text-[11px]">View</Button>
                         </div>
                       </TableCell>
@@ -291,6 +301,7 @@ export function DisbursedAdvancesRegister() {
         advance={selected}
         onClose={() => setSelected(null)}
         onCancel={(a) => { setSelected(null); setCancelAdvance(a); }}
+        onReverse={(a) => { setSelected(null); setReverseAdvance(a); }}
       />
 
       <CancelAdvanceDialog
@@ -299,6 +310,18 @@ export function DisbursedAdvancesRegister() {
         onOpenChange={(o) => { if (!o) setCancelAdvance(null); }}
         onSuccess={() => {
           setCancelAdvance(null);
+          queryClient.invalidateQueries({ queryKey: ['disbursed-advances-register'] });
+          queryClient.invalidateQueries({ queryKey: ['cfo-advances'] });
+          queryClient.invalidateQueries({ queryKey: ['cfo-outstanding-advances'] });
+        }}
+      />
+
+      <ReverseAdvanceDialog
+        advance={reverseAdvance}
+        open={!!reverseAdvance}
+        onOpenChange={(o) => { if (!o) setReverseAdvance(null); }}
+        onSuccess={() => {
+          setReverseAdvance(null);
           queryClient.invalidateQueries({ queryKey: ['disbursed-advances-register'] });
           queryClient.invalidateQueries({ queryKey: ['cfo-advances'] });
           queryClient.invalidateQueries({ queryKey: ['cfo-outstanding-advances'] });
