@@ -32,7 +32,7 @@ export interface PartnerWalletHubData {
 export const partnerWalletHubKey = (userId: string | null | undefined, page: number) =>
   ["partner-wallet-hub", userId ?? "", page] as const;
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 15;
 
 export async function fetchPartnerWalletHub(
   userId: string,
