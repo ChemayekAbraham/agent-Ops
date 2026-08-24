@@ -4,14 +4,25 @@
 import { format } from 'date-fns';
 import { savePdfWithVault } from '@/lib/pdfVault';
 
-export type SmartphoneOrderStatus = 'submitted' | 'processing' | 'completed' | 'failed';
+export type SmartphoneOrderStatus =
+  | 'submitted'
+  | 'pending_approval'
+  | 'approved'
+  | 'rejected'
+  | 'processing'
+  | 'completed'
+  | 'failed';
 
 const STATUS_LABELS: Record<SmartphoneOrderStatus, string> = {
   submitted: 'Submitted',
+  pending_approval: 'Pending approval',
+  approved: 'Approved',
+  rejected: 'Rejected',
   processing: 'Processing',
   completed: 'Completed',
   failed: 'Failed',
 };
+
 
 export interface SmartphoneOrderReceiptData {
   /** Order id (used as the receipt reference). */
