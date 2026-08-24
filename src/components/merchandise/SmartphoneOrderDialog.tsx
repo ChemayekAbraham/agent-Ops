@@ -50,7 +50,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const [submitting, setSubmitting] = useState(false);
 
   const totalAmount = Math.max(0, parseInt(amount || '0', 10) || 0);
-  const projection = Math.round(totalAmount * SMARTPHONE_RECOVERY_RATE);
+  
   const canSubmit = !!brand && modelType.trim().length > 1 && totalAmount >= 1000;
 
   const reset = () => {
@@ -83,9 +83,8 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
       toast.error(error.message || 'Could not submit smartphone order');
       return;
     }
-    toast.success(
-      `Order submitted for approval. Payment projection ${formatUGX(projection)} (33% wallet recovery rate).`,
-    );
+    toast.success('Order submitted for approval.');
+
     reset();
     onOpenChange(false);
     queryClient.invalidateQueries({ queryKey: ['my-smartphone-orders', userId] });
@@ -145,17 +144,12 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
             />
           </div>
 
-          <div className="rounded-lg border bg-muted/50 px-3 py-2">
-            <p className="text-[11px] text-muted-foreground">
-              Payment Projection
-            </p>
-            <p className="text-base font-bold">{formatUGX(projection)}</p>
-          </div>
-
           <p className="text-[11px] text-muted-foreground">
             Your order is submitted as Pending Approval. Nothing is charged to your wallet until it is
-            approved — you can order even with a UGX 0 balance.
+            approved — you can order even with a UGX 0 balance. Your payment projection is shown once the
+            order is approved.
           </p>
+
         </div>
 
         <DialogFooter>
