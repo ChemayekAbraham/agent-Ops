@@ -1,0 +1,408 @@
+import { useState } from 'react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/hooks/useAuth';
+import { usePartnerWalletHub } from '@/hooks/wallet/usePartnerWalletHub';
+import { formatUGX } from '@/lib/rentCalculations';
+import { formatDate } from '@/lib/dateUtils';
+import { cn } from '@/lib/utils';
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Wallet,
+  PiggyBank,
+  TrendingUp,
+  Banknote,
+  ArrowRightLeft,
+  Landmark,
+  Receipt,
+  CircleDollarSign,
+  HandCoins,
+  Building2,
+  Smartphone,
+  X,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
+import DepositFlow from '@/components/payments/DepositFlow';
+import WithdrawFlow from '@/components/payments/WithdrawFlow';
+import SendMoneyDialog from '@/components/wallet/SendMoneyDialog';
+import mtnLogoAsset from '@/assets/mtn-logo.png.asset.json';
+import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
+import equityLogoAsset from '@/assets/equity-logo.png.asset.json';
+
+interface FunderWalletHubSectionProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+const PROVIDERS = [
+  {
+    id: 'equity',
+    name: 'Equity Bank',
+    label: 'Bank deposits & withdrawals',
+    logo: equityLogoAsset.url,
+    icon: Landmark,
+  },
+  {
+    id: 'mtn',
+    name: 'MTN MoMo',
+    label: 'Mobile money deposits',
+    logo: mtnLogoAsset.url,
+    icon: Smartphone,
+  },
+  {
+    id: 'airtel',
+    name: 'Airtel Money',
+    label: 'Mobile money deposits',
+    logo: airtelLogoAsset.url,
+    icon: Smartphone,
+  },
+];
+
+function categoryLabel(category: string | null, sourceTable: string | null): string {
+  if (!category) return sourceTable ? sourceTable.replace(/_/g, ' ') : 'Transaction';
+  const map: Record<string, string> = {
+    wallet_deposit: 'Deposit',
+    agent_float_deposit: 'Float Deposit',
+    wallet_withdrawal: 'Withdrawal',
+    withdrawal_request: 'Withdrawal',
+    wallet_transfer: 'Wallet Transfer',
+    p2p_transfer: 'P2P Transfer',
+    supporter_rent_fund: 'Portfolio Created',
+    partner_funding: 'Partner Funding',
+    roi_wallet_credit: 'ROI Payout',
+    roi_payout: 'ROI Payout',
+    roi_accrual: 'ROI Accrual',
+    angel_pool_contribution: 'Angel Pool Contribution',
+    angel_pool_refund: 'Angel Pool Refund',
+    portfolio_topup: 'Portfolio Top-up',
+    portfolio_redemption: 'Portfolio Redemption',
+    portfolio_principal_lock: 'Principal Lock',
+    managed_proxy_payout: 'Proxy Payout',
+    proxy_partner_withdrawal: 'Proxy Withdrawal',
+    cfo_direct_credit: 'Credit',
+    cfo_direct_debit: 'Debit',
+    system_balance_correction: 'Balance Correction',
+    rent_payment: 'Rent Payment',
+    rent_repayment: 'Rent Repayment',
+  };
+  return map[category] ?? category.replace(/_/g, ' ');
+}
+
+function transactionIcon(category: string | null, direction: string | null) {
+  const isCashIn = direction === 'cash_in' || direction === 'credit';
+  if (category?.includes('deposit')) return isCashIn ? ArrowDownLeft : Banknote;
+  if (category?.includes('withdrawal') || category?.includes('withdraw')) return isCashIn ? ArrowDownLeft : ArrowUpRight;
+  if (category?.includes('transfer') || category?.includes('p2p')) return ArrowRightLeft;
+  if (category?.includes('roi') || category?.includes('portfolio') || category?.includes('rent_fund')) return TrendingUp;
+  if (category?.includes('angel')) return PiggyBank;
+  if (category?.includes('repayment')) return HandCoins;
+  return isCashIn ? ArrowDownLeft : ArrowUpRight;
+}
+
+function BalanceCard({
+  label,
+  amount,
+  icon: Icon,
+  variant,
+  subtext,
+}: {
+  label: string;
+  amount: number;
+  icon: React.ElementType;
+  variant: 'primary' | 'success' | 'warning' | 'muted';
+  subtext?: string;
+}) {
+  const variants = {
+    primary: 'bg-primary/10 text-primary',
+    success: 'bg-emerald-500/10 text-emerald-600',
+    warning: 'bg-amber-500/10 text-amber-600',
+    muted: 'bg-muted text-muted-foreground',
+  };
+  return (
+    <div className="rounded-2xl p-4 bg-card shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+          <p className="text-xl font-bold text-foreground mt-1 truncate">{formatUGX(amount)}</p>
+          {subtext && <p className="text-[11px] text-muted-foreground mt-1 leading-snug">{subtext}</p>}
+        </div>
+        <div className={cn('h-10 w-10 rounded-xl flex items-center justify-center shrink-0', variants[variant])}>
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function FunderWalletHubSection({ open, onOpenChange }: FunderWalletHubSectionProps) {
+  const { user } = useAuth();
+  const [page, setPage] = useState(0);
+  const { data, isLoading, error } = usePartnerWalletHub(user?.id, page);
+  const [showDeposit, setShowDeposit] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
+
+  const allTransactions = data?.transactions ?? [];
+  const hasMore = allTransactions.length === (page + 1) * 20;
+  const hasLess = page > 0;
+
+  return (
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="bottom"
+          className="h-[92vh] sm:h-[85vh] sm:max-w-2xl sm:mx-auto rounded-t-3xl px-0 pb-0 flex flex-col"
+        >
+          <SheetHeader className="px-5 pt-2 pb-4 text-left">
+            <div className="flex items-center justify-between">
+              <div>
+                <SheetTitle className="text-lg font-semibold">Financial Hub</SheetTitle>
+                <SheetDescription className="text-xs text-muted-foreground">
+                  Withdrawable, deposits, ROI, and recent activity
+                </SheetDescription>
+              </div>
+              <Button variant="ghost" size="icon" className="rounded-full" onClick={() => onOpenChange(false)}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+          </SheetHeader>
+
+          <div className="flex-1 overflow-y-auto px-5 pb-8 space-y-6">
+            {isLoading && !data ? (
+              <div className="space-y-4">
+                <Skeleton className="h-24 w-full rounded-2xl" />
+                <div className="grid grid-cols-2 gap-3">
+                  <Skeleton className="h-28 rounded-2xl" />
+                  <Skeleton className="h-28 rounded-2xl" />
+                </div>
+                <Skeleton className="h-12 w-full rounded-xl" />
+                <Skeleton className="h-64 w-full rounded-2xl" />
+              </div>
+            ) : error ? (
+              <div className="rounded-2xl p-6 bg-destructive/10 text-destructive text-sm">
+                Could not load your financial hub. Please try again.
+              </div>
+            ) : (
+              <>
+                {/* Total balance hero */}
+                <div className="rounded-3xl p-6 bg-gradient-to-br from-primary/15 to-primary/5 text-center shadow-sm">
+                  <p className="text-xs font-medium text-primary/80 uppercase tracking-wider">Total Position</p>
+                  <p className="text-3xl sm:text-4xl font-bold text-foreground mt-2">
+                    {formatUGX(data?.totalAvailable ?? 0)}
+                  </p>
+                  <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground">
+                    <span className="px-2.5 py-1 rounded-full bg-background/60">
+                      Withdrawable: {formatUGX(data?.withdrawableAmount ?? 0)}
+                    </span>
+                    <span className="px-2.5 py-1 rounded-full bg-background/60">
+                      Float: {formatUGX(data?.floatAmount ?? 0)}
+                    </span>
+                    <span className="px-2.5 py-1 rounded-full bg-background/60">
+                      ROI: {formatUGX(data?.roiAmount ?? 0)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Balance cards */}
+                <div className="grid grid-cols-2 gap-3">
+                  <BalanceCard
+                    label="Withdrawable"
+                    amount={data?.withdrawableAmount ?? 0}
+                    icon={Wallet}
+                    variant="primary"
+                    subtext="Available to withdraw or transfer"
+                  />
+                  <BalanceCard
+                    label="Deposits (Float)"
+                    amount={data?.floatAmount ?? 0}
+                    icon={PiggyBank}
+                    variant="success"
+                    subtext="Deposits held as float by default"
+                  />
+                  <BalanceCard
+                    label="ROI Earned"
+                    amount={data?.roiAmount ?? 0}
+                    icon={TrendingUp}
+                    variant="warning"
+                    subtext="Lifetime returns from portfolios"
+                  />
+                  <BalanceCard
+                    label="Principal Deployed"
+                    amount={data?.depositsAmount ?? 0}
+                    icon={Building2}
+                    variant="muted"
+                    subtext="Total portfolio capital"
+                  />
+                </div>
+
+                {/* Action buttons */}
+                <div className="grid grid-cols-3 gap-3">
+                  <Button
+                    variant="default"
+                    className="h-12 rounded-xl flex-col gap-0.5"
+                    onClick={() => setShowDeposit(true)}
+                  >
+                    <ArrowDownLeft className="h-4 w-4" />
+                    <span className="text-xs">Deposit</span>
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="h-12 rounded-xl flex-col gap-0.5"
+                    onClick={() => setShowWithdraw(true)}
+                  >
+                    <ArrowUpRight className="h-4 w-4" />
+                    <span className="text-xs">Withdraw</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-12 rounded-xl flex-col gap-0.5"
+                    onClick={() => setShowTransfer(true)}
+                  >
+                    <ArrowRightLeft className="h-4 w-4" />
+                    <span className="text-xs">Transfer</span>
+                  </Button>
+                </div>
+
+                {/* Recent transactions */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-foreground">Recent Transactions</h3>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        disabled={!hasLess}
+                        onClick={() => setPage((p) => Math.max(0, p - 1))}
+                      >
+                        <ChevronUp className="h-3.5 w-3.5 mr-1" />
+                        Prev
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        disabled={!hasMore}
+                        onClick={() => setPage((p) => p + 1)}
+                      >
+                        Next
+                        <ChevronDown className="h-3.5 w-3.5 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {allTransactions.length === 0 ? (
+                    <div className="rounded-2xl p-8 text-center bg-muted/50">
+                      <Receipt className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground mt-2">No transactions yet.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {allTransactions.map((tx) => {
+                        const isCashIn = tx.direction === 'cash_in' || tx.direction === 'credit';
+                        const Icon = transactionIcon(tx.category, tx.direction);
+                        return (
+                          <div
+                            key={tx.id}
+                            className="flex items-center gap-3 p-3 rounded-2xl bg-card hover:bg-muted/60 transition-colors"
+                          >
+                            <div
+                              className={cn(
+                                'h-10 w-10 rounded-xl flex items-center justify-center shrink-0',
+                                isCashIn ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'
+                              )}
+                            >
+                              <Icon className="h-5 w-5" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground truncate">
+                                {categoryLabel(tx.category, tx.source_table)}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground truncate">
+                                {tx.description || tx.reference_id || formatDate(tx.transaction_date)}
+                              </p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p
+                                className={cn(
+                                  'text-sm font-semibold',
+                                  isCashIn ? 'text-emerald-600' : 'text-rose-600'
+                                )}
+                              >
+                                {isCashIn ? '+' : '-'} {formatUGX(tx.amount)}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">{formatDate(tx.transaction_date)}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Providers */}
+                <div className="space-y-3">
+                  <h3 className="text-sm font-semibold text-foreground">Move money with</h3>
+                  <div className="grid grid-cols-3 gap-3">
+                    {PROVIDERS.map((provider) => (
+                      <div
+                        key={provider.id}
+                        className="rounded-2xl p-3 bg-card flex flex-col items-center gap-2 shadow-sm hover:shadow-md transition-shadow"
+                      >
+                        <div className="h-10 w-10 rounded-xl overflow-hidden bg-white flex items-center justify-center">
+                          <img
+                            src={provider.logo}
+                            alt={provider.name}
+                            className="h-full w-full object-contain"
+                            loading="lazy"
+                          />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs font-semibold text-foreground leading-tight">{provider.name}</p>
+                          <p className="text-[10px] text-muted-foreground leading-tight">{provider.label}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Trust / security note */}
+                <div className="rounded-2xl p-4 bg-muted/50 text-center">
+                  <p className="text-xs text-muted-foreground">
+                    All amounts are enforced server-side. Withdrawals and transfers require available funds.
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {user?.id && (
+        <>
+          <DepositFlow
+            open={showDeposit}
+            onOpenChange={setShowDeposit}
+            onPaymentSubmitted={() => {
+              setShowDeposit(false);
+            }}
+          />
+          <WithdrawFlow
+            open={showWithdraw}
+            onOpenChange={setShowWithdraw}
+            availableBalance={data?.withdrawableAmount ?? 0}
+            onSuccess={() => setShowWithdraw(false)}
+          />
+          <SendMoneyDialog
+            open={showTransfer}
+            onOpenChange={setShowTransfer}
+            maxAmount={data?.withdrawableAmount ?? 0}
+          />
+        </>
+      )}
+    </>
+  );
+}
