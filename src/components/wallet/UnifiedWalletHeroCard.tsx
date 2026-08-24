@@ -141,14 +141,14 @@ export function UnifiedWalletHeroCard({
   };
 
   // Always start collapsed when a dashboard loads, regardless of previous session state.
-  const [collapsed, setCollapsed] = useState<boolean>(defaultCollapsed);
+  const [collapsed, setCollapsed] = useState<boolean>(collapsible ? defaultCollapsed : false);
   const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => { setReduceMotion(prefersReducedMotion()); }, []);
 
   // Auto-collapse only when the user reaches the bottom of the page.
   useEffect(() => {
-    if (collapsed || typeof window === 'undefined') return;
+    if (!collapsible || collapsed || typeof window === 'undefined') return;
     const getY = () => window.scrollY || document.documentElement.scrollTop || 0;
     const atBottom = () => {
       const doc = document.documentElement;
@@ -166,9 +166,10 @@ export function UnifiedWalletHeroCard({
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('touchmove', onScroll);
     };
-  }, [collapsed]);
+  }, [collapsed, collapsible]);
 
   const toggleCollapsed = () => {
+    if (!collapsible) return;
     hapticTap();
     setCollapsed((prev) => {
       const next = !prev;
