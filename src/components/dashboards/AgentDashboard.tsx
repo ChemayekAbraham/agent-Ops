@@ -63,6 +63,8 @@ import { ReactNode } from 'react';
 import DashboardHeader from '@/components/DashboardHeader';
 
 import { useProfile } from '@/hooks/useProfile';
+import { useMyProxyAgentStatus } from '@/hooks/useProxyAgentApproval';
+
 import { UserAvatar } from '@/components/UserAvatar';
 import { ProfileSummaryPopover } from '@/components/profile/ProfileSummaryPopover';
 import { SubAgentsPanel } from '@/components/agent/SubAgentsPanel';
