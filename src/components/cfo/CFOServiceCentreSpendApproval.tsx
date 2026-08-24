@@ -206,12 +206,24 @@ export function CFOServiceCentreSpendApproval() {
               <span className="font-medium text-foreground">COO reason:</span> {s.ceo_comment}
             </p>
           )}
+          <p className="text-xs text-foreground">
+            <span className="font-medium">Money goes to:</span>{' '}
+            {payeeFor(s).name || 'Not named yet'}
+            {payeeFor(s).phone ? ` · ${payeeFor(s).phone}` : ''}
+            {!s.payee_name && !s.cfo_decision ? ' (defaults to the centre agent)' : ''}
+          </p>
+          {s.payee_note && (
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Recipient note:</span> {s.payee_note}
+            </p>
+          )}
           {s.cfo_comment && (
             <p className="text-xs text-muted-foreground">
               <span className="font-medium text-foreground">CFO note:</span> {s.cfo_comment}
               {s.cfo_approved_amount != null && ` — ${formatUGX(Number(s.cfo_approved_amount))}`}
             </p>
           )}
+
         </div>
         <a
           href={mapsUrl(s.latitude, s.longitude)}
