@@ -36,27 +36,9 @@ interface FunderWalletHubSectionProps {
 }
 
 const PROVIDERS = [
-  {
-    id: 'equity',
-    name: 'Equity Bank',
-    label: 'Bank deposits & withdrawals',
-    logo: equityLogoAsset.url,
-    icon: Landmark,
-  },
-  {
-    id: 'mtn',
-    name: 'MTN MoMo',
-    label: 'Mobile money deposits',
-    logo: mtnLogoAsset.url,
-    icon: Smartphone,
-  },
-  {
-    id: 'airtel',
-    name: 'Airtel Money',
-    label: 'Mobile money deposits',
-    logo: airtelLogoAsset.url,
-    icon: Smartphone,
-  },
+  { id: 'equity', name: 'Equity Bank', logo: equityLogoAsset.url },
+  { id: 'mtn', name: 'MTN MoMo', logo: mtnLogoAsset.url },
+  { id: 'airtel', name: 'Airtel Money', logo: airtelLogoAsset.url },
 ];
 
 function categoryLabel(category: string | null, sourceTable: string | null): string {
