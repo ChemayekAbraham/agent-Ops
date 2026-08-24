@@ -110,7 +110,9 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
     onSuccess: () => {
       toast.success('Order rejected. No wallet charge applied.');
       setRejectTarget(null);
+      setDetailsTarget(null);
       setRejectReason('');
+
       invalidate();
     },
     onError: (e: any) => toast.error(e.message || 'Could not reject order'),
