@@ -121,19 +121,25 @@ export default function TransactionsTest() {
           </Button>
         </div>
         <div className="flex gap-3 overflow-x-auto border-t border-border/60 px-4 py-3">
-          <FilterPill label="Date" value={date} options={TX_DATE_OPTIONS} onChange={setDate} />
+          <FilterPill
+            label="Date"
+            value={date}
+            options={TX_DATE_OPTIONS}
+            onChange={(v) => setDate(v as TxDateFilter)}
+          />
           <FilterPill
             label="Services"
             value={service}
             options={TX_SERVICE_OPTIONS}
-            onChange={setService}
+            onChange={(v) => setService(v as TxServiceFilter)}
           />
           <FilterPill
             label="Method"
             value={method}
             options={TX_METHOD_OPTIONS}
-            onChange={setMethod}
+            onChange={(v) => setMethod(v as TxMethodFilter)}
           />
+
         </div>
       </header>
 
