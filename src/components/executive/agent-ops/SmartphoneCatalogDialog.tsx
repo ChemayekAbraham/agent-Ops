@@ -147,7 +147,9 @@ export function SmartphoneCatalogDialog() {
             entries.map((e) => (
               <div key={e.id} className="flex items-center justify-between gap-2 rounded-lg border p-2">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{e.brand} · {e.model_name}</p>
+                  <p className="truncate text-sm font-semibold">
+                    {e.model_name ? `${e.brand} · ${e.model_name}` : `${e.brand} · any model`}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {e.default_amount != null ? formatUGX(Number(e.default_amount)) : 'No default amount'}
                   </p>
