@@ -81,8 +81,11 @@ export default function BudgetApprovalPanel() {
 
       {view === 'consolidation' && (
         <div className="space-y-3">
-          {!consolidation && <p className="text-xs text-muted-foreground">Building consolidation…</p>}
-          {consolidation && (
+          {!cycleId && (
+            <p className="text-xs text-muted-foreground">Select a specific budget cycle above to build a consolidated view.</p>
+          )}
+          {cycleId && !consolidation && <p className="text-xs text-muted-foreground">Building consolidation…</p>}
+          {cycleId && consolidation && (
             <>
               <div className="grid grid-cols-2 gap-2">
                 <Kpi label="Requested company-wide" value={formatUGX(consolidation.totals.requested)} />
