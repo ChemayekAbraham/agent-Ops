@@ -98,14 +98,19 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
     onError: (e: any) => toast.error(e.message || 'Could not reject order'),
   });
 
+  const scoped = useMemo(
+    () => (pendingOnly ? orders.filter((o) => isPending(o.order_status)) : orders),
+    [orders, pendingOnly],
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return orders;
-    return orders.filter((o) =>
+    if (!q) return scoped;
+    return scoped.filter((o) =>
       [o.client_name, o.client_phone, o.brand, o.model_type]
         .some((v) => (v || '').toLowerCase().includes(q)),
     );
-  }, [orders, search]);
+  }, [scoped, search]);
 
   const pendingCount = useMemo(() => orders.filter((o) => isPending(o.order_status)).length, [orders]);
 
