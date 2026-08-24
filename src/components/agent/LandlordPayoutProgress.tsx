@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, CheckCircle2, AlertTriangle, ShieldCheck, Clock } from "lucide-react";
+import { Loader2, CheckCircle2, AlertTriangle, ShieldCheck, Clock, Receipt } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ReceiptNumberCheckDialog } from "@/components/agent/ReceiptNumberCheckDialog";
 import { formatUGX } from "@/lib/rentCalculations";
 import { cn } from "@/lib/utils";
 
