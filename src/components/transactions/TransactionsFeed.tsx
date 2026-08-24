@@ -113,7 +113,7 @@ export function TransactionsFeed({ userId, showFilters = true, className }: Tran
   return (
     <div className={cn("space-y-6", className)}>
       {showFilters && (
-        <div className="flex gap-3 overflow-x-auto pb-1">
+        <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <FilterPill
             label="Date"
             value={date}
