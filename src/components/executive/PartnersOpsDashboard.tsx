@@ -35,6 +35,7 @@ import { NewPartnersPanel } from './NewPartnersPanel';
 import { PendingPartnerRequests } from './PendingPartnerRequests';
 import { ProxyAgentManager } from '@/components/cfo/ProxyAgentManager';
 import { ProxyAgentApplicationsQueue } from '@/components/executive/ProxyAgentApplicationsQueue';
+import { ProxyAgentDirectory } from '@/components/executive/partner-ops/ProxyAgentDirectory';
 import { MaturityRequestsQueue } from './MaturityRequestsQueue';
 import { InvitedPortfoliosPanel } from './InvitedPortfoliosPanel';
 import { PendingPortfoliosQueue } from './PendingPortfoliosQueue';
