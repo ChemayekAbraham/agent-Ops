@@ -19,6 +19,7 @@ import {
   FileText,
   ClipboardCheck,
   ClipboardList,
+  UserPlus,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -43,6 +44,7 @@ export type PartnerOpsViewKey =
   | 'proxy.followup'
   | 'maturity'
   | 'approvals'
+  | 'onboarding'
   | 'rent.requests';
 
 export interface PartnerOpsNavChild {
@@ -66,6 +68,22 @@ export interface PartnerOpsNavItem {
 export const PARTNER_OPS_NAV: PartnerOpsNavItem[] = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard, view: 'overview', keywords: ['home', 'summary', 'brief'] },
   { key: 'directory', label: 'Partner Directory', icon: Users, view: 'directory', keywords: ['partners', 'list', 'accounts'] },
+  {
+    key: 'onboarding',
+    label: 'Partner Onboarding',
+    icon: UserPlus,
+    view: 'onboarding',
+    keywords: ['onboard', 'register', 'new partner', 'signup'],
+  },
+  { key: 'maturity', label: 'Maturity Requests', icon: CalendarClock, view: 'maturity', keywords: ['maturity', 'requests', 'queue'] },
+  {
+    key: 'rent.requests',
+    label: 'Rent Plan Vetting',
+    icon: ClipboardList,
+    view: 'rent.requests',
+    keywords: ['rent', 'requests', 'proxy', 'attach', 'coo', 'tenants', 'media'],
+  },
+  { key: 'approvals', label: 'Partner Approvals', icon: ClipboardCheck, view: 'approvals', keywords: ['approve', 'funders', 'role requests'] },
   {
     key: 'portfolios',
     label: 'Portfolios',
@@ -119,15 +137,6 @@ export const PARTNER_OPS_NAV: PartnerOpsNavItem[] = [
       { key: 'proxy.followup', label: 'Followup', icon: PhoneCall, keywords: ['contact', 'chase'] },
     ],
   },
-  { key: 'maturity', label: 'Maturity Requests', icon: CalendarClock, view: 'maturity', keywords: ['maturity', 'requests', 'queue'] },
-  {
-    key: 'rent.requests',
-    label: 'Rent Plan Vetting',
-    icon: ClipboardList,
-    view: 'rent.requests',
-    keywords: ['rent', 'requests', 'proxy', 'attach', 'coo', 'tenants', 'media'],
-  },
-  { key: 'approvals', label: 'Partner Approvals', icon: ClipboardCheck, view: 'approvals', keywords: ['approve', 'funders', 'role requests'] },
 ];
 
 export interface PartnerOpsSearchResult {
