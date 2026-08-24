@@ -183,6 +183,9 @@ export function ServiceCentreVerificationQueue() {
                     <p className="text-xs text-muted-foreground">📍 {s.location_name || 'No description'}</p>
                     <p className="text-xs text-muted-foreground">🌐 {Number(s.latitude).toFixed(5)}, {Number(s.longitude).toFixed(5)}</p>
 
+                    <ServiceCentreStageTracker setup={s} />
+
+
                     {rejectingId !== s.id && (
                       <div className="space-y-2 rounded-lg border border-dashed border-border bg-muted/40 p-2.5">
                         <p className="text-[11px] font-semibold text-foreground">Attach before verifying</p>
