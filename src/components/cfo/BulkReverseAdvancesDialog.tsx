@@ -44,6 +44,8 @@ interface ExecResult {
   agent_name?: string | null;
   outcome: 'reversed' | 'partial_recovery' | 'skipped' | 'error';
   recovered?: number;
+  /** Amount actually debited from the wallet on this run (returns to available funds). */
+  returned_to_available?: number;
   shortfall?: number;
   disbursed?: number;
   outstanding_after?: number;
@@ -233,7 +235,8 @@ export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSu
 
   const exportShortfalls = () => {
     const list = (results ?? []).filter((r) => Number(r.shortfall || 0) > 0 || r.outcome === 'error');
-    const header = 'Agent,Advance ID,Outcome,Disbursed (UGX),Recovered (UGX),Shortfall (UGX),Note';
+    const header =
+      'Agent,Advance ID,Outcome,Disbursed (UGX),Recovered (UGX),Returned to available (UGX),Shortfall (UGX),Note';
     const lines = list.map((r) =>
       [
         `"${(r.agent_name || 'Unknown').replace(/"/g, '""')}"`,
@@ -241,6 +244,7 @@ export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSu
         r.outcome,
         Number(r.disbursed || 0),
         Number(r.recovered || 0),
+        Number(r.returned_to_available || 0),
         Number(r.shortfall || 0),
         `"${(r.message || '').replace(/"/g, '""')}"`,
       ].join(','),
@@ -262,6 +266,7 @@ export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSu
       skipped: list.filter((r) => r.outcome === 'skipped').length,
       failed: list.filter((r) => r.outcome === 'error').length,
       recovered: list.reduce((s, r) => s + Number(r.recovered || 0), 0),
+      returnedToAvailable: list.reduce((s, r) => s + Number(r.returned_to_available || 0), 0),
       shortfall: list.reduce((s, r) => s + Number(r.shortfall || 0), 0),
     };
   }, [results]);
@@ -400,12 +405,15 @@ export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSu
               {results && !running && (
                 <div className="rounded-lg border bg-muted/40 p-3 text-xs space-y-1">
                   <p className="font-semibold">Batch result</p>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Fully reversed</span><span className="font-semibold">{resultSummary.reversed}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Advances reversed</span><span className="font-semibold">{resultSummary.reversed}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Wallet funds clawed back</span><span className="font-semibold text-emerald-600">{formatUGX(resultSummary.recovered)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Returned to Money We Can Use</span><span className="font-semibold text-emerald-600">{formatUGX(resultSummary.returnedToAvailable)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Outstanding shortfall (recovers from future earnings)</span><span className="font-semibold text-amber-600">{formatUGX(resultSummary.shortfall)}</span></div>
+                  <div className="h-px bg-border my-1" />
                   <div className="flex justify-between"><span className="text-muted-foreground">Kept outstanding (partial/no recovery)</span><span className="font-semibold text-amber-600">{resultSummary.partial}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Skipped</span><span className="font-semibold">{resultSummary.skipped}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Failed</span><span className="font-semibold text-destructive">{resultSummary.failed}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Recovered from wallets</span><span className="font-semibold text-emerald-600">{formatUGX(resultSummary.recovered)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Still outstanding (recovers from future earnings)</span><span className="font-semibold text-amber-600">{formatUGX(resultSummary.shortfall)}</span></div>
+
 
                   <Button variant="outline" size="sm" className="h-7 text-[11px] mt-2 gap-1" onClick={exportShortfalls}>
                     <Download className="h-3 w-3" /> Export shortfalls & failures

@@ -96,6 +96,7 @@ Deno.serve(async (req) => {
 
     const results: Array<Record<string, unknown>> = [];
     let recoveredTotal = 0;
+    let returnedToAvailableTotal = 0;
     let shortfallTotal = 0;
     let reversedCount = 0;
 
@@ -127,8 +128,46 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const recoverable = Math.max(0, Number(plan.recoverable_now || 0));
+      // Re-price the clawback immediately before debiting. The batch plan was
+      // computed once for the whole chunk, so an agent holding two advances in
+      // the same chunk would otherwise have the SAME withdrawable balance
+      // promised twice (double clawback / overdraw attempt). advance_reversal_plan
+      // recomputes the strict withdrawable balance and the already-posted
+      // clawback for this exact advance, so the amount is always
+      // min(outstanding reversal amount, currently available withdrawable) and
+      // never duplicates a clawback that already landed.
+      let recoverable = Math.max(0, Number(plan.recoverable_now || 0));
+      try {
+        const { data: fresh, error: freshError } = await userClient.rpc("advance_reversal_plan", {
+          p_advance_id: id,
+        });
+        if (freshError) throw freshError;
+        if (fresh) {
+          if ((fresh as any).already_reversed === true) {
+            results.push({
+              advance_id: id, agent_name: plan.agent_name,
+              outcome: "skipped", message: "Already reversed",
+            });
+            continue;
+          }
+          recoverable = Math.max(0, Number((fresh as any).recommended_clawback || 0));
+        }
+      } catch (e) {
+        results.push({
+          advance_id: id,
+          agent_id: plan.agent_id,
+          agent_name: plan.agent_name,
+          outcome: "error",
+          message: `Could not re-price the clawback: ${(e as Error).message}`,
+        });
+        continue;
+      }
+
       let debitGroupId: string | null = groupId;
+      // Amount actually pulled out of the wallet on THIS run — this is the money
+      // that returns to company available funds (Money We Can Use) through the
+      // balanced CFO Direct Debit ledger path.
+      let debitedNow = 0;
 
       try {
         if (recoverable > 0) {
@@ -159,6 +198,7 @@ Deno.serve(async (req) => {
             throw new Error(debitBody?.error || `Wallet clawback failed (${debitRes.status})`);
           }
           debitGroupId = debitBody?.transaction_group_id ?? groupId;
+          debitedNow = recoverable;
         }
 
         const { data: rpcResult, error: rpcError } = await userClient.rpc("reverse_agent_advance", {
@@ -173,6 +213,7 @@ Deno.serve(async (req) => {
         const unrecovered = Number((rpcResult as any)?.unrecovered_shortfall || 0);
         const fullyRecovered = (rpcResult as any)?.fully_recovered !== false;
         recoveredTotal += recovered;
+        returnedToAvailableTotal += debitedNow;
         shortfallTotal += unrecovered;
         if (fullyRecovered) reversedCount += 1;
         results.push({
@@ -182,12 +223,14 @@ Deno.serve(async (req) => {
           outcome: fullyRecovered ? "reversed" : "partial_recovery",
           disbursed: Number(plan.disbursed_amount || 0),
           recovered,
+          returned_to_available: debitedNow,
           shortfall: unrecovered,
           outstanding_after: Number((rpcResult as any)?.outstanding_after || 0),
           message: fullyRecovered
             ? undefined
             : `Recovered ${recovered.toLocaleString()} UGX; ${unrecovered.toLocaleString()} UGX kept outstanding for future recovery`,
         });
+
 
       } catch (e) {
         results.push({
@@ -205,6 +248,7 @@ Deno.serve(async (req) => {
       processed: ids.length,
       reversed: reversedCount,
       recovered_total: recoveredTotal,
+      returned_to_available_total: returnedToAvailableTotal,
       shortfall_total: shortfallTotal,
       results,
     });
