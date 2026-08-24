@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import { useCFOOverviewData } from '@/hooks/useCFOOverviewData';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import {
   Loader2, ArrowDownRight, ArrowUpRight, Scale, Wallet,
@@ -11,7 +10,7 @@ import {
   Landmark, Vault,
 } from 'lucide-react';
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   Line, ComposedChart,
 } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,8 +19,7 @@ import { KPIBreakdownSheet } from '@/components/cfo/KPIBreakdownSheet';
 import { CashSourcesSheet } from '@/components/cfo/CashSourcesSheet';
 import { ROIPayableForecast } from '@/components/cfo/ROIPayableForecast';
 import { CFOActionsLog } from '@/components/cfo/CFOActionsLog';
-import { LedgerMaintenancePanel } from '@/components/cfo/LedgerMaintenancePanel';
-import { AgentAdvancesStatsCard, AgentAdvancesTrendChart } from '@/components/cfo/AgentAdvancesStatsCard';
+import { AgentAdvancesStatsCard } from '@/components/cfo/AgentAdvancesStatsCard';
 
 interface CFOOverviewDashboardProps {
   onTabChange?: (tab: string) => void;
@@ -40,8 +38,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const [exportingCommissions, setExportingCommissions] = useState(false);
   const [activeBreakdown, setActiveBreakdown] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    ledgerMaintenance: false,
-    agentAdvances: false,
+    todayFlow: true,
   });
   // Sections default to expanded unless explicitly collapsed above; the chevron toggles.
   const isOpen = (key: string) => openSections[key] !== false;
@@ -50,22 +47,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const { user } = useAuth();
   const {
     platformCash, liabilities, revenue, receivables, moneyFlow,
-    todayCashFlow, integrityChecks, pendingApprovals, treasuryControls, refetchControls,
-    isLoading
+    todayCashFlow, isLoading
   } = useCFOOverviewData();
-
-  const handleToggleControl = useCallback(async (controlKey: string, newValue: boolean) => {
-    const { error } = await supabase
-      .from('treasury_controls' as any)
-      .update({ enabled: newValue, updated_at: new Date().toISOString() } as any)
-      .eq('control_key', controlKey);
-    if (error) {
-      toast.error(`Failed to update ${controlKey}`);
-    } else {
-      toast.success(`${controlKey.replace(/_/g, ' ')} ${newValue ? 'enabled' : 'disabled'}`);
-      refetchControls();
-    }
-  }, [refetchControls]);
 
   const handleExportCommissions = useCallback(async () => {
     setExportingCommissions(true);
@@ -158,11 +141,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const burn30d = moneyFlow?.totalOutflows ?? 0;
   const dailyBurn = burn30d / 30;
 
-  const advancesIssued = receivables?.advancesPrincipal ?? 0;
-  const advancesOutstandingAll = receivables?.advancesOutstandingAll ?? 0;
-  const recoveryRate = advancesIssued > 0
-    ? ((receivables?.advancesRecovered ?? 0) / advancesIssued) * 100
-    : 100;
 
   const trend = revenue?.trend ?? [];
 
@@ -186,11 +164,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
     revenue: t.amount,
   }));
 
-  const advancesChartData = [
-    { label: 'Issued', disbursed: advancesIssued, recovered: 0 },
-    { label: 'Recovered', disbursed: 0, recovered: receivables?.advancesRecovered ?? 0 },
-    { label: 'Outstanding', disbursed: advancesOutstandingAll, recovered: 0 },
-  ];
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -221,271 +194,178 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         </div>
       </div>
 
-      {/* Two-column shell: main financial surface on the left, live feeds on the right */}
-      {/* ══════════════ THREE HEADLINE CARDS ══════════════ */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <HeroCard
-          icon={<PiggyBank className="h-5 w-5 text-emerald-600" />}
-          iconBg="bg-emerald-50 dark:bg-emerald-950/40"
-          title="Money We Have"
-          value={fmt(totalCash)}
-          valueColor="text-emerald-600"
-          items={[
-            { dot: 'bg-emerald-500', label: 'Platform / Treasury Balance', value: fmt(platformCash?.a1 ?? 0) },
-            { dot: 'bg-emerald-500', label: 'Cash in Transit (A5)', value: fmt(platformCash?.a5 ?? 0) },
-          ]}
-          footer="Total available across all accounts"
-          footerTone="bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400"
-          onClick={() => setActiveBreakdown('cash')}
-        />
-        <HeroCard
-          icon={<Package className="h-5 w-5 text-orange-600" />}
-          iconBg="bg-orange-50 dark:bg-orange-950/40"
-          title="Money We Owe"
-          value={fmt(walletTotal)}
-          valueColor="text-orange-600"
-          items={[
-            { dot: 'bg-orange-500', label: 'Withdrawable User Wallets', value: fmt(walletTotal) },
-            { dot: 'bg-orange-500', label: 'All Recorded Liabilities', value: fmt(totalLiabilities) },
-          ]}
-          footer="Commitments not yet paid out"
-          footerTone="bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400"
-          onClick={() => setActiveBreakdown('wallets')}
-        />
-        <HeroCard
-          icon={<BarChart3 className="h-5 w-5 text-blue-600" />}
-          iconBg="bg-blue-50 dark:bg-blue-950/40"
-          title="Money We Can Use"
-          value={fmt(moneyWeCanUse)}
-          valueColor={moneyWeCanUse >= 0 ? 'text-blue-600' : 'text-destructive'}
-          items={[
-            { dot: 'bg-blue-500', label: 'Available for Operations', value: fmt(moneyWeCanUse) },
-          ]}
-          footer="After obligations and restrictions"
-          footerTone="bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400"
-          onClick={() => setActiveBreakdown('earnings')}
-        />
-      </div>
-
-      {/* Two-column shell: main financial surface on the left, live feeds on the right */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 items-start">
-      <div className="xl:col-span-2 space-y-5">
-
-      {/* ══════════════ WHERE THE MONEY SITS ══════════════ */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <HeroCard
-          icon={<Vault className="h-5 w-5 text-indigo-600" />}
-          iconBg="bg-indigo-50 dark:bg-indigo-950/40"
-          title="Money in Treasury / Platform"
-          value={fmt(treasuryPosition?.value ?? 0)}
-          valueColor="text-indigo-600"
-          items={[
-            { dot: 'bg-indigo-500', label: 'Cash held outside the bank', value: fmt(treasuryPosition?.value ?? 0) },
-            { dot: 'bg-indigo-500', label: 'Ledger entries', value: String(treasuryPosition?.count ?? 0) },
-          ]}
-          footer="Position view — part of Money We Have, not added to it"
-          footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic"
-        />
-        <HeroCard
-          icon={<Landmark className="h-5 w-5 text-sky-600" />}
-          iconBg="bg-sky-50 dark:bg-sky-950/40"
-          title="Money in Bank"
-          value={fmt(bankPosition?.value ?? 0)}
-          valueColor="text-sky-600"
-          items={[
-            { dot: 'bg-sky-500', label: 'Net banked cash', value: fmt(bankPosition?.value ?? 0) },
-            { dot: 'bg-sky-500', label: 'Ledger entries', value: String(bankPosition?.count ?? 0) },
-          ]}
-          footer="Position view — part of Money We Have, not added to it"
-          footerTone="bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic"
-        />
-      </div>
-
-
-      {/* ══════════════ COMPACT FINANCIAL SUMMARY ══════════════ */}
-      <div className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-sm">
-        <h2 className="text-sm font-semibold tracking-tight mb-4">Financial Summary</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <SummaryItem icon={<Wallet className="h-3.5 w-3.5" />} label="Cash Balance" value={fmt(totalCash)} caption="Bank + in transit" />
-          <SummaryItem icon={<ArrowUpRight className="h-3.5 w-3.5" />} label="Daily Burn" value={fmt(dailyBurn)} caption="30-day average" valueColor="text-destructive" />
-          <SummaryItem icon={<LineChartIcon className="h-3.5 w-3.5" />} label="Revenue" value={fmt(revenueTotal)} caption="Life to date" valueColor="text-emerald-600" />
-          <SummaryItem icon={<Package className="h-3.5 w-3.5" />} label="Total Expenses" value={fmt(expenseTotal)} caption="Life to date" valueColor="text-orange-600" />
-          <SummaryItem icon={<Scale className="h-3.5 w-3.5" />} label="Net Working Capital" value={fmt(netWorkingCapital)} caption="Cash + receivables − debt" valueColor={netWorkingCapital >= 0 ? undefined : 'text-destructive'} />
-          <SummaryItem icon={<PiggyBank className="h-3.5 w-3.5" />} label="Net Result" value={fmt(netProfit)} caption="Revenue − expenses" valueColor={netProfit >= 0 ? 'text-emerald-600' : 'text-destructive'} />
-          <SummaryItem icon={<BarChart3 className="h-3.5 w-3.5" />} label="Net Margin" value={`${netMargin.toFixed(1)}%`} caption="Net ÷ revenue" valueColor={netMargin >= 0 ? undefined : 'text-destructive'} />
-          <SummaryItem icon={<Landmark className="h-3.5 w-3.5" />} label="Receivables" value={fmt(totalReceivables)} caption="Tenant + advances" valueColor="text-amber-600" />
-        </div>
-      </div>
-
-      {/* ══════════════ CHARTS ══════════════ */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card className="rounded-xl shadow-sm">
-          <CardContent className="p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-2 mb-4">
-              <p className="font-semibold text-sm">Revenue — Last 7 Days</p>
-              <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                <LineChartIcon className="h-3.5 w-3.5" /> UGX
-              </span>
-            </div>
-            {trendChartData.length > 0 ? (
-              <div className="h-[260px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={trendChartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                    <YAxis tickFormatter={(v: number) => fmtShort(v)} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={52} />
-                    <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Bar name="Revenue (UGX)" dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={22} />
-                    <Line name="Trend" type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground py-10 text-center">No revenue recorded in the last 7 days.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-xl shadow-sm">
-          <CardContent className="p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-2 mb-4">
-              <p className="font-semibold text-sm">Advances — Disbursed vs Recovered</p>
-              <span className="text-[11px] font-semibold text-emerald-600">{recoveryRate.toFixed(0)}% recovered</span>
-            </div>
-            <AgentAdvancesTrendChart />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ── TODAY'S MOVEMENT ── */}
-      <Card className="rounded-lg overflow-hidden shadow-sm">
-        <CardContent className="p-0">
-          <div className="px-5 py-3 flex items-center justify-between gap-3 border-b border-border">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Today's Money Flow</p>
-            <SectionToggle open={isOpen('todayFlow')} onToggle={() => toggleSection('todayFlow')} label="Today's Money Flow" />
-          </div>
-          {isOpen('todayFlow') && (
-          <div className="grid grid-cols-3 divide-x divide-border">
-            <FlowCell
-              label="Came In"
-              value={fmtShort(todayCashFlow?.cashInToday ?? 0)}
-              color="text-emerald-600"
+      {/* Two-column shell: main financial surface on the left, ROI forecast feed on the right */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 items-start">
+        {/* Left column: all financial cards and tracking surfaces */}
+        <div className="space-y-5">
+          {/* ══════════════ THREE HEADLINE CARDS ══════════════ */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <HeroCard
+              icon={<PiggyBank className="h-5 w-5 text-emerald-600" />}
               iconBg="bg-emerald-50 dark:bg-emerald-950/40"
-              icon={<ArrowDownRight className="h-5 w-5" />}
-              onClick={() => setActiveBreakdown('cashIn')}
+              title="Money We Have"
+              value={fmt(totalCash)}
+              valueColor="text-emerald-600"
+              items={[
+                { dot: 'bg-emerald-500', label: 'Platform / Treasury Balance', value: fmt(platformCash?.a1 ?? 0) },
+                { dot: 'bg-emerald-500', label: 'Cash in Transit (A5)', value: fmt(platformCash?.a5 ?? 0) },
+              ]}
+              footer="Total available across all accounts"
+              footerTone="bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400"
+              onClick={() => setActiveBreakdown('cash')}
             />
-            <FlowCell
-              label="Went Out"
-              value={fmtShort(todayCashFlow?.cashOutToday ?? 0)}
-              color="text-destructive"
-              iconBg="bg-destructive/10"
-              icon={<ArrowUpRight className="h-5 w-5" />}
-              onClick={() => setActiveBreakdown('cashOut')}
+            <HeroCard
+              icon={<Package className="h-5 w-5 text-orange-600" />}
+              iconBg="bg-orange-50 dark:bg-orange-950/40"
+              title="Money We Owe"
+              value={fmt(walletTotal)}
+              valueColor="text-orange-600"
+              items={[
+                { dot: 'bg-orange-500', label: 'Withdrawable User Wallets', value: fmt(walletTotal) },
+                { dot: 'bg-orange-500', label: 'All Recorded Liabilities', value: fmt(totalLiabilities) },
+              ]}
+              footer="Commitments not yet paid out"
+              footerTone="bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400"
+              onClick={() => setActiveBreakdown('wallets')}
             />
-            <FlowCell
-              label="Net Change"
-              value={`${netToday >= 0 ? '+' : ''}${fmtShort(netToday)}`}
-              color={netToday >= 0 ? 'text-primary' : 'text-destructive'}
-              iconBg="bg-primary/10"
-              icon={<Scale className="h-5 w-5" />}
-              onClick={() => setActiveBreakdown('netCash')}
+            <HeroCard
+              icon={<BarChart3 className="h-5 w-5 text-blue-600" />}
+              iconBg="bg-blue-50 dark:bg-blue-950/40"
+              title="Money We Can Use"
+              value={fmt(moneyWeCanUse)}
+              valueColor={moneyWeCanUse >= 0 ? 'text-blue-600' : 'text-destructive'}
+              items={[
+                { dot: 'bg-blue-500', label: 'Available for Operations', value: fmt(moneyWeCanUse) },
+              ]}
+              footer="After obligations and restrictions"
+              footerTone="bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400"
+              onClick={() => setActiveBreakdown('earnings')}
             />
           </div>
-          )}
-        </CardContent>
-      </Card>
-      </div>
 
-      {/* ══════════════ RIGHT COLUMN — FEEDS & CONTROLS ══════════════ */}
-      <div className="space-y-5">
-
-      {/* ── ROI PAYABLE FORECAST ── */}
-      <ROIPayableForecast />
-
-      {/* ── CFO ACTIONS LOG ── */}
-      <CFOActionsLog />
-
-      {/* ── LEDGER MAINTENANCE WINDOW ── */}
-      <CollapsibleBlock title="Ledger Maintenance" open={isOpen('ledgerMaintenance')} onToggle={() => toggleSection('ledgerMaintenance')}>
-        <LedgerMaintenancePanel />
-      </CollapsibleBlock>
-
-      {/* ── SOURCES OF CASH (replaces channel breakdown) ── */}
-      <Card className="rounded-lg shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <p className="text-sm font-bold tracking-tight">Where Our Money Comes From</p>
-            <SectionToggle open={isOpen('cashSources')} onToggle={() => toggleSection('cashSources')} label="Where Our Money Comes From" />
+          {/* ══════════════ WHERE THE MONEY SITS ══════════════ */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <HeroCard
+              icon={<Vault className="h-5 w-5 text-indigo-600" />}
+              iconBg="bg-indigo-50 dark:bg-indigo-950/40"
+              title="Money in Treasury / Platform"
+              value={fmt(treasuryPosition?.value ?? 0)}
+              valueColor="text-indigo-600"
+              items={[
+                { dot: 'bg-indigo-500', label: 'Cash held outside the bank', value: fmt(treasuryPosition?.value ?? 0) },
+                { dot: 'bg-indigo-500', label: 'Ledger entries', value: String(treasuryPosition?.count ?? 0) },
+              ]}
+              footer="Position view — part of Money We Have, not added to it"
+              footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic"
+            />
+            <HeroCard
+              icon={<Landmark className="h-5 w-5 text-sky-600" />}
+              iconBg="bg-sky-50 dark:bg-sky-950/40"
+              title="Money in Bank"
+              value={fmt(bankPosition?.value ?? 0)}
+              valueColor="text-sky-600"
+              items={[
+                { dot: 'bg-sky-500', label: 'Net banked cash', value: fmt(bankPosition?.value ?? 0) },
+                { dot: 'bg-sky-500', label: 'Ledger entries', value: String(bankPosition?.count ?? 0) },
+              ]}
+              footer="Position view — part of Money We Have, not added to it"
+              footerTone="bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic"
+            />
           </div>
-          {isOpen('cashSources') && (
-          <>
-          <div className="space-y-1.5">
-            {(platformCash?.increases ?? []).slice(0, 6).map((item, i) => (
-              <div key={i} className="flex items-center justify-between text-xs gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="truncate text-foreground">{item.label}</span>
-                  <span className="text-muted-foreground shrink-0">({item.count})</span>
-                </div>
-                <span className="font-mono font-semibold text-emerald-600 shrink-0">+{fmtShort(item.value)}</span>
+
+          {/* ══════════════ COMPACT FINANCIAL SUMMARY ══════════════ */}
+          <div className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-sm">
+            <h2 className="text-sm font-semibold tracking-tight mb-4">Financial Summary</h2>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <SummaryItem icon={<Wallet className="h-3.5 w-3.5" />} label="Cash Balance" value={fmt(totalCash)} caption="Bank + in transit" />
+              <SummaryItem icon={<ArrowUpRight className="h-3.5 w-3.5" />} label="Daily Burn" value={fmt(dailyBurn)} caption="30-day average" valueColor="text-destructive" />
+              <SummaryItem icon={<LineChartIcon className="h-3.5 w-3.5" />} label="Revenue" value={fmt(revenueTotal)} caption="Life to date" valueColor="text-emerald-600" />
+              <SummaryItem icon={<Package className="h-3.5 w-3.5" />} label="Total Expenses" value={fmt(expenseTotal)} caption="Life to date" valueColor="text-orange-600" />
+              <SummaryItem icon={<Scale className="h-3.5 w-3.5" />} label="Net Working Capital" value={fmt(netWorkingCapital)} caption="Cash + receivables − debt" valueColor={netWorkingCapital >= 0 ? undefined : 'text-destructive'} />
+              <SummaryItem icon={<PiggyBank className="h-3.5 w-3.5" />} label="Net Result" value={fmt(netProfit)} caption="Revenue − expenses" valueColor={netProfit >= 0 ? 'text-emerald-600' : 'text-destructive'} />
+              <SummaryItem icon={<BarChart3 className="h-3.5 w-3.5" />} label="Net Margin" value={`${netMargin.toFixed(1)}%`} caption="Net ÷ revenue" valueColor={netMargin >= 0 ? undefined : 'text-destructive'} />
+              <SummaryItem icon={<Landmark className="h-3.5 w-3.5" />} label="Receivables" value={fmt(totalReceivables)} caption="Tenant + advances" valueColor="text-amber-600" />
+            </div>
+          </div>
+
+          {/* ══════════════ REVENUE CHART ══════════════ */}
+          <Card className="rounded-2xl shadow-sm h-full flex flex-col">
+            <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
+              <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
+                <p className="text-sm font-semibold tracking-tight">Revenue — Last 7 Days</p>
+                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <LineChartIcon className="h-3.5 w-3.5" /> UGX
+                </span>
               </div>
-            ))}
-          </div>
-          {(platformCash?.increases?.length ?? 0) > 6 && (
-            <button onClick={() => setActiveBreakdown('cash')} className="text-xs text-primary mt-2 hover:underline">
-              View all sources →
-            </button>
-          )}
-          </>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ── AUTO-PAYOUTS ── */}
-      <Card className="rounded-lg shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <p className="text-sm font-bold tracking-tight">Automatic Payments</p>
-            <SectionToggle open={isOpen('autoPayments')} onToggle={() => toggleSection('autoPayments')} label="Automatic Payments" />
-          </div>
-          {isOpen('autoPayments') && (
-          <>
-          <p className="text-xs text-muted-foreground mb-4">Toggle which payouts happen automatically. Each is checked against available cash first.</p>
-          <div className="space-y-3">
-            {[
-              { key: 'auto_roi', label: 'Investor Returns', desc: 'Pay investors automatically' },
-              { key: 'auto_salaries', label: 'Staff Salaries', desc: 'Monthly payroll' },
-              { key: 'auto_commissions', label: 'Agent Commissions', desc: 'Agent earnings payouts' },
-              { key: 'auto_advances', label: 'Advance Payments', desc: 'Pre-approved advances' },
-            ].map((ctrl) => (
-              <div key={ctrl.key} className="flex items-center justify-between gap-3 py-2 px-1">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                    <Wallet className="h-3.5 w-3.5" />
-                  </span>
-                  <div className="min-w-0">
-                  <p className="text-sm font-medium">{ctrl.label}</p>
-                  <p className="text-xs text-muted-foreground">{ctrl.desc}</p>
-                  </div>
+              {trendChartData.length > 0 ? (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={trendChartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                      <YAxis tickFormatter={(v: number) => fmtShort(v)} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={52} />
+                      <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar name="Revenue (UGX)" dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={22} />
+                      <Line name="Trend" type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
                 </div>
-                <Switch
-                  checked={treasuryControls?.[ctrl.key] ?? false}
-                  onCheckedChange={(val) => handleToggleControl(ctrl.key, val)}
-                />
-              </div>
-            ))}
-          </div>
-          </>
-          )}
-        </CardContent>
-      </Card>
+              ) : (
+                <p className="text-xs text-muted-foreground flex-1 flex items-center justify-center min-h-[16rem]">No revenue recorded in the last 7 days.</p>
+              )}
+            </CardContent>
+          </Card>
 
-      {/* ── AGENT ADVANCES — FULL PORTFOLIO STATS & CHART ── */}
-      <CollapsibleBlock title="Agent Advances — Full Portfolio" open={isOpen('agentAdvances')} onToggle={() => toggleSection('agentAdvances')}>
-        <AgentAdvancesStatsCard />
-      </CollapsibleBlock>
-      </div>
+          {/* Agent Advances — Full Portfolio */}
+          <AgentAdvancesStatsCard />
+
+          {/* ══════════════ CFO ACTIONS LOG ══════════════ */}
+          <CFOActionsLog />
+
+          {/* Today's Money Flow */}
+          <Card className="rounded-2xl shadow-sm overflow-hidden">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <p className="text-sm font-bold tracking-tight">Today's Money Flow</p>
+                <SectionToggle open={isOpen('todayFlow')} onToggle={() => toggleSection('todayFlow')} label="Today's Money Flow" />
+              </div>
+              {isOpen('todayFlow') && (
+                <div className="rounded-lg border border-border overflow-hidden grid grid-cols-3 divide-x divide-border">
+                  <FlowCell
+                    label="Came In"
+                    value={fmtShort(todayCashFlow?.cashInToday ?? 0)}
+                    color="text-emerald-600"
+                    iconBg="bg-emerald-50 dark:bg-emerald-950/40"
+                    icon={<ArrowDownRight className="h-5 w-5" />}
+                    onClick={() => setActiveBreakdown('cashIn')}
+                  />
+                  <FlowCell
+                    label="Went Out"
+                    value={fmtShort(todayCashFlow?.cashOutToday ?? 0)}
+                    color="text-destructive"
+                    iconBg="bg-destructive/10"
+                    icon={<ArrowUpRight className="h-5 w-5" />}
+                    onClick={() => setActiveBreakdown('cashOut')}
+                  />
+                  <FlowCell
+                    label="Net Change"
+                    value={`${netToday >= 0 ? '+' : ''}${fmtShort(netToday)}`}
+                    color={netToday >= 0 ? 'text-primary' : 'text-destructive'}
+                    iconBg="bg-primary/10"
+                    icon={<Scale className="h-5 w-5" />}
+                    onClick={() => setActiveBreakdown('netCash')}
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right column: ROI forecast feed */}
+        <div className="lg:sticky lg:top-4">
+          <ROIPayableForecast />
+        </div>
       </div>
 
       {/* ── BREAKDOWNS ── */}
@@ -576,22 +456,6 @@ function SectionToggle({ open, onToggle, label }: { open: boolean; onToggle: () 
   );
 }
 
-function CollapsibleBlock({ title, open, onToggle, children }: {
-  title: string;
-  open: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-lg border border-border bg-card shadow-sm">
-      <div className="flex items-center justify-between gap-3 px-4 py-3">
-        <p className="text-sm font-bold tracking-tight">{title}</p>
-        <SectionToggle open={open} onToggle={onToggle} label={title} />
-      </div>
-      {open && <div className="px-4 pb-4">{children}</div>}
-    </div>
-  );
-}
 
 function HeroCard({ icon, iconBg, title, value, valueColor, items, footer, footerTone, onClick }: {
   icon: React.ReactNode;

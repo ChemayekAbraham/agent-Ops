@@ -15,7 +15,7 @@ import {
   Copy, 
   CheckCircle2,
   Gift,
-  TrendingUp,
+  
   AlertCircle
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -73,15 +73,15 @@ export default function Referrals() {
     }
   };
 
+  // Signup bonus (UGX 100) is the only referral bonus. The former UGX 200
+  // first-transaction bonus was retired, but historic credits still count
+  // toward what a referrer already earned.
   const totalSignupBonus = referrals.reduce((sum: number, r: any) => sum + Number(r.bonus_amount), 0);
   const totalFirstTxBonus = referrals
     .filter((r: any) => r.first_transaction_bonus_credited)
     .reduce((sum: number, r: any) => sum + Number(r.first_transaction_bonus_amount || 0), 0);
   const totalEarned = totalSignupBonus + totalFirstTxBonus;
-  
-  const pendingFirstTxBonus = referrals
-    .filter((r: any) => !r.first_transaction_bonus_credited)
-    .length * 200;
+
 
   if (loading) {
     return <ReferralsSkeleton />;
@@ -105,7 +105,7 @@ export default function Referrals() {
 
       <main className="container mx-auto px-4 py-6 space-y-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -137,23 +137,8 @@ export default function Referrals() {
             </Card>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <Card className="text-center h-full overflow-hidden">
-              <CardContent className="p-3 flex flex-col items-center justify-center gap-1">
-                <TrendingUp className="h-4 w-4 text-warning" />
-                <div className="flex flex-col items-center justify-center leading-tight min-w-0">
-                  <span className="text-[10px] text-muted-foreground">UGX</span>
-                  <span className="text-sm font-bold text-warning truncate max-w-full">{formatUGX(pendingFirstTxBonus).replace(/UGX\s*/, '')}</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground leading-none">Potential</p>
-              </CardContent>
-            </Card>
-          </motion.div>
         </div>
+
 
         {/* Share Card */}
         <motion.div
@@ -169,22 +154,10 @@ export default function Referrals() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-center gap-4 p-3 bg-muted/30 rounded-lg">
-                <div className="text-center">
-                  <p className="text-lg font-bold text-primary">UGX 100</p>
-                  <p className="text-xs text-muted-foreground">On signup</p>
-                </div>
-                <span className="text-xl text-muted-foreground">+</span>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-success">UGX 200</p>
-                  <p className="text-xs text-muted-foreground">1st transaction</p>
-                </div>
-                <span className="text-xl text-muted-foreground">=</span>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-warning">UGX 300</p>
-                  <p className="text-xs text-muted-foreground">Per friend</p>
-                </div>
+              <div className="flex items-center justify-center p-3 bg-muted/30 rounded-lg">
+                <p className="text-lg font-bold text-primary">UGX 100 Per friend</p>
               </div>
+
               
               <div className="flex gap-2">
                 <div className="flex-1 bg-muted/50 rounded-lg px-3 py-2 text-sm truncate font-mono">

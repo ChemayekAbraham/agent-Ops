@@ -185,3 +185,9 @@ verify_jwt = false
 
 [functions.weekly-tenant-ops-report]
 verify_jwt = false
+
+[functions.staff-requisition-submit]
+verify_jwt = false
+
+[functions.staff-requisition-decide]
+verify_jwt = false

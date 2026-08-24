@@ -5481,6 +5481,13 @@ export type Database = {
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "budget_cycle_notifications_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
         ]
       }
       budget_department_notification_reads: {
@@ -5555,6 +5562,13 @@ export type Database = {
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "budget_department_notifications_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
         ]
       }
       budget_department_routes: {
@@ -5589,6 +5603,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_department_routes_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: true
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
           },
         ]
       }
@@ -5927,6 +5948,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_submissions_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
           },
           {
             foreignKeyName: "budget_submissions_parent_submission_id_fkey"
@@ -6916,6 +6944,7 @@ export type Database = {
           created_at: string
           current_queue_count: number | null
           float_phone: string | null
+          float_swept_at: string | null
           handles_airtel: boolean
           handles_bank: boolean
           handles_cash: boolean
@@ -6930,6 +6959,7 @@ export type Database = {
           payout_numbers_set_by: string | null
           personal_phone: string | null
           priority_threshold: number | null
+          retired_at: string | null
           updated_at: string
         }
         Insert: {
@@ -6939,6 +6969,7 @@ export type Database = {
           created_at?: string
           current_queue_count?: number | null
           float_phone?: string | null
+          float_swept_at?: string | null
           handles_airtel?: boolean
           handles_bank?: boolean
           handles_cash?: boolean
@@ -6953,6 +6984,7 @@ export type Database = {
           payout_numbers_set_by?: string | null
           personal_phone?: string | null
           priority_threshold?: number | null
+          retired_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -6962,6 +6994,7 @@ export type Database = {
           created_at?: string
           current_queue_count?: number | null
           float_phone?: string | null
+          float_swept_at?: string | null
           handles_airtel?: boolean
           handles_bank?: boolean
           handles_cash?: boolean
@@ -6976,6 +7009,7 @@ export type Database = {
           payout_numbers_set_by?: string | null
           personal_phone?: string | null
           priority_threshold?: number | null
+          retired_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -8481,6 +8515,75 @@ export type Database = {
             referencedColumns: ["agent_id"]
           },
         ]
+      }
+      deleted_accounts: {
+        Row: {
+          created_at: string
+          deleted_at: string
+          deleted_by: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          metadata: Json
+          national_id: string | null
+          phone: string | null
+          purge_reason: string | null
+          purged_at: string | null
+          purged_by: string | null
+          reason: string
+          restore_reason: string | null
+          restored_at: string | null
+          restored_by: string | null
+          roles: Json
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string
+          deleted_by?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          metadata?: Json
+          national_id?: string | null
+          phone?: string | null
+          purge_reason?: string | null
+          purged_at?: string | null
+          purged_by?: string | null
+          reason: string
+          restore_reason?: string | null
+          restored_at?: string | null
+          restored_by?: string | null
+          roles?: Json
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string
+          deleted_by?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          metadata?: Json
+          national_id?: string | null
+          phone?: string | null
+          purge_reason?: string | null
+          purged_at?: string | null
+          purged_by?: string | null
+          reason?: string
+          restore_reason?: string | null
+          restored_at?: string | null
+          restored_by?: string | null
+          roles?: Json
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       departments: {
         Row: {
@@ -11446,6 +11549,7 @@ export type Database = {
           funder_id: string
           id: string
           portfolio_id: string
+          promissory_note_id: string | null
           review_reason: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -11462,6 +11566,7 @@ export type Database = {
           funder_id: string
           id?: string
           portfolio_id: string
+          promissory_note_id?: string | null
           review_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -11478,6 +11583,7 @@ export type Database = {
           funder_id?: string
           id?: string
           portfolio_id?: string
+          promissory_note_id?: string | null
           review_reason?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -12405,6 +12511,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "hr_assignments_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
+          {
             foreignKeyName: "hr_assignments_position_id_fkey"
             columns: ["position_id"]
             isOneToOne: false
@@ -12708,6 +12821,13 @@ export type Database = {
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "hr_job_postings_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
         ]
       }
       hr_metric_definitions: {
@@ -12770,6 +12890,13 @@ export type Database = {
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "hr_metric_definitions_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
         ]
       }
       hr_metric_snapshots: {
@@ -12819,6 +12946,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_metric_snapshots_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
           },
           {
             foreignKeyName: "hr_metric_snapshots_staff_id_fkey"
@@ -12900,6 +13034,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_metric_targets_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
           },
           {
             foreignKeyName: "hr_metric_targets_source_task_id_fkey"
@@ -13640,6 +13781,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_payslips_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
           },
           {
             foreignKeyName: "hr_pay_payslips_position_id_fkey"
@@ -14577,6 +14725,13 @@ export type Database = {
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "hr_positions_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
         ]
       }
       hr_review_weeks: {
@@ -14883,6 +15038,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "hr_departments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_tasks_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
           },
         ]
       }
@@ -16051,6 +16213,60 @@ export type Database = {
           rent_request_id?: string
           status_changed_at?: string
           tenant_id?: string | null
+        }
+        Relationships: []
+      }
+      landlord_float_receivables: {
+        Row: {
+          agent_id: string | null
+          amount: number
+          commitment_id: string | null
+          created_at: string
+          funder_id: string
+          id: string
+          landlord_id: string | null
+          landlord_name: string | null
+          notes: string | null
+          promised_deposit_date: string
+          rent_request_id: string
+          settled_at: string | null
+          status: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id?: string | null
+          amount: number
+          commitment_id?: string | null
+          created_at?: string
+          funder_id: string
+          id?: string
+          landlord_id?: string | null
+          landlord_name?: string | null
+          notes?: string | null
+          promised_deposit_date: string
+          rent_request_id: string
+          settled_at?: string | null
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string | null
+          amount?: number
+          commitment_id?: string | null
+          created_at?: string
+          funder_id?: string
+          id?: string
+          landlord_id?: string | null
+          landlord_name?: string | null
+          notes?: string | null
+          promised_deposit_date?: string
+          rent_request_id?: string
+          settled_at?: string | null
+          status?: string
+          tenant_id?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -19430,6 +19646,7 @@ export type Database = {
         Row: {
           amount_outstanding: number
           amount_paid: number
+          brand: string | null
           client_name: string | null
           client_phone: string | null
           created_at: string
@@ -19438,9 +19655,11 @@ export type Database = {
           id: string
           issued_channel: string | null
           item_name: string
+          model_type: string | null
           notes: string | null
           order_status: string
           payment_plan: string
+          payment_projection: number
           payment_status: string
           quantity: number
           rejected_at: string | null
@@ -19449,6 +19668,7 @@ export type Database = {
           sale_date: string
           selected_size: string | null
           service_centre_id: string | null
+          total_amount: number
           total_revenue: number
           tracking_reference: string | null
           unit_cost: number
@@ -19458,6 +19678,7 @@ export type Database = {
         Insert: {
           amount_outstanding?: number
           amount_paid?: number
+          brand?: string | null
           client_name?: string | null
           client_phone?: string | null
           created_at?: string
@@ -19466,9 +19687,11 @@ export type Database = {
           id?: string
           issued_channel?: string | null
           item_name: string
+          model_type?: string | null
           notes?: string | null
           order_status?: string
           payment_plan?: string
+          payment_projection?: number
           payment_status?: string
           quantity: number
           rejected_at?: string | null
@@ -19477,6 +19700,7 @@ export type Database = {
           sale_date?: string
           selected_size?: string | null
           service_centre_id?: string | null
+          total_amount?: number
           total_revenue: number
           tracking_reference?: string | null
           unit_cost?: number
@@ -19486,6 +19710,7 @@ export type Database = {
         Update: {
           amount_outstanding?: number
           amount_paid?: number
+          brand?: string | null
           client_name?: string | null
           client_phone?: string | null
           created_at?: string
@@ -19494,9 +19719,11 @@ export type Database = {
           id?: string
           issued_channel?: string | null
           item_name?: string
+          model_type?: string | null
           notes?: string | null
           order_status?: string
           payment_plan?: string
+          payment_projection?: number
           payment_status?: string
           quantity?: number
           rejected_at?: string | null
@@ -19505,6 +19732,7 @@ export type Database = {
           sale_date?: string
           selected_size?: string | null
           service_centre_id?: string | null
+          total_amount?: number
           total_revenue?: number
           tracking_reference?: string | null
           unit_cost?: number
@@ -21570,6 +21798,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "partner_float_agent_notices_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["commitment_id"]
+          },
+          {
             foreignKeyName: "partner_float_agent_notices_topup_id_fkey"
             columns: ["topup_id"]
             isOneToOne: false
@@ -21882,6 +22117,7 @@ export type Database = {
           partner_id: string
           payout_anchor_at: string | null
           payout_day: number | null
+          promissory_note_id: string | null
           status: string
           term_end_at: string | null
           term_months: number
@@ -21901,6 +22137,7 @@ export type Database = {
           partner_id: string
           payout_anchor_at?: string | null
           payout_day?: number | null
+          promissory_note_id?: string | null
           status?: string
           term_end_at?: string | null
           term_months?: number
@@ -21920,6 +22157,7 @@ export type Database = {
           partner_id?: string
           payout_anchor_at?: string | null
           payout_day?: number | null
+          promissory_note_id?: string | null
           status?: string
           term_end_at?: string | null
           term_months?: number
@@ -21991,6 +22229,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "partner_self_commitments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_self_earnings_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["commitment_id"]
           },
           {
             foreignKeyName: "partner_self_earnings_line_id_fkey"
@@ -22068,6 +22313,13 @@ export type Database = {
             referencedRelation: "partner_self_commitments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "partner_self_funding_lines_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["commitment_id"]
+          },
         ]
       }
       partner_self_payout_cycles: {
@@ -22126,6 +22378,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "partner_self_commitments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_self_payout_cycles_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["commitment_id"]
           },
         ]
       }
@@ -22251,6 +22510,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "partner_self_commitments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_self_topups_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["commitment_id"]
           },
         ]
       }
@@ -24331,6 +24597,9 @@ export type Database = {
           country: string | null
           country_code: string | null
           created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          deletion_reason: string | null
           district: string | null
           district_id: number | null
           easy_read_size: number
@@ -24422,6 +24691,9 @@ export type Database = {
           country?: string | null
           country_code?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deletion_reason?: string | null
           district?: string | null
           district_id?: number | null
           easy_read_size?: number
@@ -24513,6 +24785,9 @@ export type Database = {
           country?: string | null
           country_code?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          deletion_reason?: string | null
           district?: string | null
           district_id?: number | null
           easy_read_size?: number
@@ -24731,6 +25006,93 @@ export type Database = {
           },
         ]
       }
+      promissory_commission_events: {
+        Row: {
+          agent_id: string | null
+          amount: number
+          base_amount: number
+          created_at: string
+          error_message: string | null
+          id: string
+          idempotency_key: string
+          kind: string
+          ledger_group_id: string | null
+          note_id: string | null
+          partner_id: string | null
+          rate: number
+          skip_reason: string | null
+          source_id: string
+          source_table: string
+          status: string
+        }
+        Insert: {
+          agent_id?: string | null
+          amount?: number
+          base_amount?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          idempotency_key: string
+          kind: string
+          ledger_group_id?: string | null
+          note_id?: string | null
+          partner_id?: string | null
+          rate?: number
+          skip_reason?: string | null
+          source_id: string
+          source_table: string
+          status?: string
+        }
+        Update: {
+          agent_id?: string | null
+          amount?: number
+          base_amount?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          idempotency_key?: string
+          kind?: string
+          ledger_group_id?: string | null
+          note_id?: string | null
+          partner_id?: string | null
+          rate?: number
+          skip_reason?: string | null
+          source_id?: string
+          source_table?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      promissory_commission_rates: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          kind: string
+          rate: number
+          reason: string | null
+          set_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          kind: string
+          rate: number
+          reason?: string | null
+          set_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          kind?: string
+          rate?: number
+          reason?: string | null
+          set_by?: string | null
+        }
+        Relationships: []
+      }
       promissory_note_plan_intents: {
         Row: {
           agent_id: string
@@ -24784,6 +25146,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "promissory_notes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promissory_note_plan_intents_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["note_id"]
           },
           {
             foreignKeyName: "promissory_note_plan_intents_rent_request_id_fkey"
@@ -24895,6 +25264,13 @@ export type Database = {
             referencedRelation: "promissory_notes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "promissory_note_pledge_notices_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: true
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["note_id"]
+          },
         ]
       }
       promissory_note_release_notices: {
@@ -24962,6 +25338,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "promissory_notes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promissory_note_release_notices_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: true
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["note_id"]
           },
         ]
       }
@@ -25034,6 +25417,33 @@ export type Database = {
           total_collected?: number
           updated_at?: string
           whatsapp_number?: string
+        }
+        Relationships: []
+      }
+      promissory_self_support_guard_events: {
+        Row: {
+          attempted_amount: number | null
+          context: Json
+          created_at: string
+          id: string
+          path: string
+          user_id: string
+        }
+        Insert: {
+          attempted_amount?: number | null
+          context?: Json
+          created_at?: string
+          id?: string
+          path: string
+          user_id: string
+        }
+        Update: {
+          attempted_amount?: number | null
+          context?: Json
+          created_at?: string
+          id?: string
+          path?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -29895,6 +30305,224 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      staff_requisition_department_routes: {
+        Row: {
+          approver_role: string
+          created_at: string
+          department_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          approver_role: string
+          created_at?: string
+          department_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          approver_role?: string
+          created_at?: string
+          department_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_requisition_department_routes_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: true
+            referencedRelation: "hr_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_requisition_department_routes_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: true
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
+        ]
+      }
+      staff_requisition_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string | null
+          actor_role: string | null
+          comment: string | null
+          created_at: string
+          id: string
+          metadata: Json
+          requisition_id: string
+          stage: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          comment?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          requisition_id: string
+          stage?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_role?: string | null
+          comment?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          requisition_id?: string
+          stage?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_requisition_events_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_requisitions: {
+        Row: {
+          amount: number
+          approved_amount: number | null
+          attachment_urls: string[]
+          category: string | null
+          cfo_decided_at: string | null
+          cfo_decided_by: string | null
+          cfo_note: string | null
+          coo_decided_at: string | null
+          coo_decided_by: string | null
+          coo_note: string | null
+          created_at: string
+          credited_at: string | null
+          credited_by: string | null
+          currency: string
+          current_approver_role: string | null
+          decided_at: string | null
+          department_id: string | null
+          department_key: string | null
+          final_stage: string
+          id: string
+          needed_by: string | null
+          reason: string
+          rejection_reason: string | null
+          requester_id: string
+          requester_name: string | null
+          requester_role: string | null
+          requisition_code: string
+          returned_from_stage: string | null
+          stage: string
+          supervisor_decided_at: string | null
+          supervisor_decided_by: string | null
+          supervisor_note: string | null
+          title: string
+          updated_at: string
+          wallet_credit_status: string | null
+          wallet_transaction_id: string | null
+        }
+        Insert: {
+          amount: number
+          approved_amount?: number | null
+          attachment_urls?: string[]
+          category?: string | null
+          cfo_decided_at?: string | null
+          cfo_decided_by?: string | null
+          cfo_note?: string | null
+          coo_decided_at?: string | null
+          coo_decided_by?: string | null
+          coo_note?: string | null
+          created_at?: string
+          credited_at?: string | null
+          credited_by?: string | null
+          currency?: string
+          current_approver_role?: string | null
+          decided_at?: string | null
+          department_id?: string | null
+          department_key?: string | null
+          final_stage?: string
+          id?: string
+          needed_by?: string | null
+          reason: string
+          rejection_reason?: string | null
+          requester_id: string
+          requester_name?: string | null
+          requester_role?: string | null
+          requisition_code?: string
+          returned_from_stage?: string | null
+          stage?: string
+          supervisor_decided_at?: string | null
+          supervisor_decided_by?: string | null
+          supervisor_note?: string | null
+          title: string
+          updated_at?: string
+          wallet_credit_status?: string | null
+          wallet_transaction_id?: string | null
+        }
+        Update: {
+          amount?: number
+          approved_amount?: number | null
+          attachment_urls?: string[]
+          category?: string | null
+          cfo_decided_at?: string | null
+          cfo_decided_by?: string | null
+          cfo_note?: string | null
+          coo_decided_at?: string | null
+          coo_decided_by?: string | null
+          coo_note?: string | null
+          created_at?: string
+          credited_at?: string | null
+          credited_by?: string | null
+          currency?: string
+          current_approver_role?: string | null
+          decided_at?: string | null
+          department_id?: string | null
+          department_key?: string | null
+          final_stage?: string
+          id?: string
+          needed_by?: string | null
+          reason?: string
+          rejection_reason?: string | null
+          requester_id?: string
+          requester_name?: string | null
+          requester_role?: string | null
+          requisition_code?: string
+          returned_from_stage?: string | null
+          stage?: string
+          supervisor_decided_at?: string | null
+          supervisor_decided_by?: string | null
+          supervisor_note?: string | null
+          title?: string
+          updated_at?: string
+          wallet_credit_status?: string | null
+          wallet_transaction_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_requisitions_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "hr_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_requisitions_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
+        ]
       }
       standing_order_audit_log: {
         Row: {
@@ -35679,6 +36307,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "promissory_note_plan_intents_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["note_id"]
+          },
+          {
             foreignKeyName: "promissory_note_plan_intents_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
@@ -36457,6 +37092,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "partner_float_agent_notices_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["commitment_id"]
+          },
+          {
             foreignKeyName: "partner_float_agent_notices_topup_id_fkey"
             columns: ["topup_id"]
             isOneToOne: false
@@ -36494,6 +37136,13 @@ export type Database = {
             referencedRelation: "partner_self_commitments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "partner_self_funding_lines_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["commitment_id"]
+          },
         ]
       }
       v_partner_self_fundable_plans: {
@@ -36513,6 +37162,7 @@ export type Database = {
           number_of_payments: number | null
           posted_at: string | null
           projected_end_date: string | null
+          proxy_agent_phone: string | null
           rent_amount: number | null
           rent_request_id: string | null
           repayment_cadence: string | null
@@ -36541,6 +37191,80 @@ export type Database = {
           pivot_withdrawable: number | null
           user_id: string | null
           withdrawable_delta: number | null
+        }
+        Relationships: []
+      }
+      v_promissory_agent_commissions: {
+        Row: {
+          agent_id: string | null
+          agent_name: string | null
+          agent_phone: string | null
+          amount: number | null
+          base_amount: number | null
+          created_at: string | null
+          error_message: string | null
+          id: string | null
+          kind: string | null
+          ledger_group_id: string | null
+          note_amount: number | null
+          note_id: string | null
+          note_partner_name: string | null
+          partner_id: string | null
+          partner_name: string | null
+          partner_phone: string | null
+          rate: number | null
+          skip_reason: string | null
+          source_id: string | null
+          source_table: string | null
+          status: string | null
+        }
+        Relationships: []
+      }
+      v_promissory_self_support_tracker: {
+        Row: {
+          agent_id: string | null
+          commitment_id: string | null
+          commitment_status: string | null
+          committed_amount: number | null
+          funded_amount: number | null
+          funded_plans: number | null
+          note_id: string | null
+          note_status: string | null
+          partner_account_name: string | null
+          partner_account_phone: string | null
+          partner_name: string | null
+          partner_registered: boolean | null
+          partner_user_id: string | null
+          portfolio_code: string | null
+          portfolio_id: string | null
+          portfolio_review_status: string | null
+          portfolio_source: string | null
+          portfolio_status: string | null
+          promised_amount: number | null
+          reserved_amount: number | null
+          reserved_plans: number | null
+          routing_violation: boolean | null
+          whatsapp_number: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funder_pending_portfolios_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: true
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_staff_requisition_budget_context: {
+        Row: {
+          approved_budget: number | null
+          committed_amount: number | null
+          credited_amount: number | null
+          department_id: string | null
+          department_key: string | null
+          department_name: string | null
+          remaining_budget: number | null
         }
         Relationships: []
       }
@@ -37003,6 +37727,10 @@ export type Database = {
         Args: { p_limit?: number; p_offset?: number; p_status?: string }
         Returns: Json
       }
+      admin_mark_account_purged: {
+        Args: { p_reason: string; p_user_id: string }
+        Returns: Json
+      }
       admin_purge_table_refs: {
         Args: { p_parent_pk_values: string[]; p_parent_table: string }
         Returns: number
@@ -37020,9 +37748,17 @@ export type Database = {
         Returns: undefined
       }
       admin_restore_auth_user: { Args: { p_user_id: string }; Returns: Json }
+      admin_restore_soft_deleted_account: {
+        Args: { p_reason: string; p_user_id: string }
+        Returns: Json
+      }
       admin_set_kyc_level: {
         Args: { p_new_level: number; p_reason: string; p_user_id: string }
         Returns: undefined
+      }
+      admin_soft_delete_account: {
+        Args: { p_reason: string; p_user_id: string }
+        Returns: Json
       }
       admin_unfreeze_kyc_account: {
         Args: { p_reason: string; p_user_id: string }
@@ -37179,7 +37915,16 @@ export type Database = {
         Args: { p_catalog_id: string; p_quantity: number }
         Returns: Json
       }
-      agent_order_smartphone: { Args: { p_amount: number }; Returns: Json }
+      agent_order_smartphone:
+        | { Args: { p_amount: number }; Returns: Json }
+        | {
+            Args: {
+              p_brand: string
+              p_model_type: string
+              p_total_amount: number
+            }
+            Returns: Json
+          }
       agent_order_spiro_bike: { Args: { p_amount: number }; Returns: Json }
       agent_per_tenant_max: { Args: { _agent_id: string }; Returns: number }
       agent_product_category: { Args: { p_item_name: string }; Returns: string }
@@ -37486,8 +38231,16 @@ export type Database = {
         Args: { _reason: string; _target_user: string }
         Returns: undefined
       }
+      approve_smartphone_order: {
+        Args: { p_note?: string; p_sale_id: string }
+        Returns: Json
+      }
       archive_dead_letter_batch: {
         Args: { _dead_letter_id: number }
+        Returns: undefined
+      }
+      assert_no_promissory_self_support: {
+        Args: { p_path: string; p_user: string }
         Returns: undefined
       }
       assert_no_urgent_proxy_priority: {
@@ -37911,6 +38664,10 @@ export type Database = {
         Args: { _submission_id: string; _user_id: string }
         Returns: boolean
       }
+      can_manage_deleted_accounts: {
+        Args: { p_user_id: string }
+        Returns: boolean
+      }
       can_manage_tenant_documents: {
         Args: { _user_id: string }
         Returns: boolean
@@ -37922,6 +38679,10 @@ export type Database = {
         Returns: boolean
       }
       can_replay_settlement: { Args: { _user_id: string }; Returns: boolean }
+      can_review_smartphone_orders: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       can_view_agent_data: {
         Args: { _target_agent_id: string; _viewer_id: string }
         Returns: boolean
@@ -38430,6 +39191,17 @@ export type Database = {
           }
       credit_merchant_payout_commission: {
         Args: { p_awarded_via?: string; p_withdrawal_id: string }
+        Returns: Json
+      }
+      credit_promissory_agent_commission: {
+        Args: {
+          p_base_amount: number
+          p_dedupe_key?: string
+          p_kind: string
+          p_partner_id: string
+          p_source_id: string
+          p_source_table: string
+        }
         Returns: Json
       }
       credit_proxy_approval:
@@ -38948,6 +39720,15 @@ export type Database = {
       }
       funder_pending_committed: { Args: { p_user_id: string }; Returns: number }
       funder_pending_hold: { Args: { p_user_id: string }; Returns: number }
+      funder_support_capacity: { Args: { p_user_id: string }; Returns: number }
+      funder_support_tenant_direct: {
+        Args: {
+          p_promised_deposit_date?: string
+          p_rent_request_ids: string[]
+          p_term_months?: number
+        }
+        Returns: Json
+      }
       funder_supported_tenants: {
         Args: never
         Returns: {
@@ -40342,6 +41123,10 @@ export type Database = {
         Args: { p_catalog_id: string }
         Returns: string
       }
+      get_merchant_float_email_movements: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
       get_merchant_float_ledger_variance: {
         Args: never
         Returns: {
@@ -40366,7 +41151,7 @@ export type Database = {
         Returns: Json
       }
       get_merchant_float_positions: {
-        Args: never
+        Args: { p_include_retired?: boolean }
         Returns: {
           adjustments_total: number
           agent_id: string
@@ -40396,7 +41181,7 @@ export type Database = {
         }[]
       }
       get_merchant_float_positions_signed: {
-        Args: never
+        Args: { p_include_retired?: boolean }
         Returns: {
           advance_count: number | null
           agent_id: string | null
@@ -40433,6 +41218,26 @@ export type Database = {
       get_merchant_payout_float: { Args: never; Returns: Json }
       get_mission_leaderboard: { Args: { p_limit?: number }; Returns: Json }
       get_my_ai_id_summary: { Args: never; Returns: Json }
+      get_my_borrowed_loans: {
+        Args: never
+        Returns: {
+          amount_repaid_ugx: number
+          auto_deduct_enabled: boolean
+          created_at: string
+          expected_repayment_date: string
+          id: string
+          installment_ugx: number
+          interest_rate_pct: number
+          lender_agent_id: string
+          lender_name: string
+          lender_phone: string
+          loan_purpose: string
+          next_deduction_date: string
+          principal_ugx: number
+          repayment_frequency: string
+          status: string
+        }[]
+      }
       get_my_listing_block: { Args: never; Returns: Json }
       get_my_parent_agent: {
         Args: never
@@ -41336,6 +42141,22 @@ export type Database = {
         }[]
       }
       get_user_wallet_view: { Args: { p_user_id: string }; Returns: Json }
+      get_wallet_bucket_totals: { Args: never; Returns: Json }
+      get_wallet_holder_activity_counts: {
+        Args: { p_user_ids: string[] }
+        Returns: {
+          deposit_count: number
+          deposit_total: number
+          last_deposit_at: string
+          last_transfer_at: string
+          last_withdrawal_at: string
+          transfer_count: number
+          transfer_total: number
+          user_id: string
+          withdrawal_count: number
+          withdrawal_total: number
+        }[]
+      }
       get_wallet_ledger_category_sums: {
         Args: { p_from: string; p_to: string }
         Returns: {
@@ -41373,6 +42194,16 @@ export type Database = {
       }
       get_withdraw_context: { Args: { p_user_id: string }; Returns: Json }
       get_withdrawable_total: { Args: { p_user_id: string }; Returns: number }
+      get_withdrawable_wallet_holders_by_recent_withdrawal: {
+        Args: never
+        Returns: {
+          latest_withdrawal_at: string
+          name: string
+          phone: string
+          user_id: string
+          withdrawable_balance: number
+        }[]
+      }
       get_withdrawal_history: {
         Args: { p_limit?: number; p_offset?: number; p_search?: string }
         Returns: {
@@ -41845,11 +42676,25 @@ export type Database = {
         Returns: Json
       }
       ledger_category_allowlist: { Args: never; Returns: string[] }
+      lending_find_user_by_phone: {
+        Args: { p_phone: string }
+        Returns: {
+          ai_id: string
+          city: string
+          full_name: string
+          phone: string
+          user_id: string
+        }[]
+      }
       lift_withdrawable_to_ledger: {
         Args: { p_user_id: string }
         Returns: Json
       }
       link_campaign_sub_agent: { Args: { p_user_id: string }; Returns: Json }
+      link_promissory_notes_for_user: {
+        Args: { p_user: string }
+        Returns: number
+      }
       link_referred_agent_to_parent: {
         Args: { p_sub_agent_id: string }
         Returns: boolean
@@ -41905,6 +42750,24 @@ export type Database = {
           image_urls: string[]
           rejected_at: string
           video_url: string
+        }[]
+      }
+      list_smartphone_orders: {
+        Args: { p_status?: string }
+        Returns: {
+          amount_outstanding: number
+          amount_paid: number
+          brand: string
+          client_name: string
+          client_phone: string
+          created_at: string
+          customer_id: string
+          id: string
+          model_type: string
+          order_status: string
+          payment_projection: number
+          rejection_reason: string
+          total_amount: number
         }[]
       }
       lock_campaign_attribution: { Args: { p_token: string }; Returns: Json }
@@ -41988,6 +42851,7 @@ export type Database = {
           phone: string
         }[]
       }
+      lookup_transaction_id: { Args: { p_tid: string }; Returns: Json }
       manager_vendor_pin_flags: {
         Args: never
         Returns: {
@@ -43161,6 +44025,14 @@ export type Database = {
         }
         Returns: Json
       }
+      promissory_commission_rate: {
+        Args: { p_at?: string; p_kind: string }
+        Returns: number
+      }
+      promissory_self_support_context: {
+        Args: { p_user: string }
+        Returns: Json
+      }
       proxy_agent_partner_rows: {
         Args: { p_agent_id: string }
         Returns: {
@@ -43193,16 +44065,30 @@ export type Database = {
         }
         Returns: undefined
       }
-      psm_confirm_commitment_for: {
-        Args: {
-          p_actor?: string
-          p_idempotency_key?: string
-          p_partner: string
-          p_rent_request_ids: string[]
-          p_term_months?: number
-        }
-        Returns: Json
-      }
+      psm_confirm_commitment_for:
+        | {
+            Args: {
+              p_actor?: string
+              p_idempotency_key?: string
+              p_partner: string
+              p_promissory_note_id?: string
+              p_rent_request_ids: string[]
+              p_term_months?: number
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_actor?: string
+              p_funding_mode?: string
+              p_idempotency_key?: string
+              p_partner: string
+              p_promissory_note_id?: string
+              p_rent_request_ids: string[]
+              p_term_months?: number
+            }
+            Returns: Json
+          }
       psm_disburse_landlord_float: {
         Args: {
           p_commitment_id: string
@@ -43550,6 +44436,10 @@ export type Database = {
       reject_self_registered_funder: {
         Args: { _reason: string; _target_user: string }
         Returns: undefined
+      }
+      reject_smartphone_order: {
+        Args: { p_reason: string; p_sale_id: string }
+        Returns: Json
       }
       release_agent_duplicate_flag: {
         Args: { p_agent_id: string; p_reason: string }
@@ -44068,6 +44958,11 @@ export type Database = {
         }[]
       }
       slugify_district: { Args: { p_input: string }; Returns: string }
+      smoke_promissory_commissions: {
+        Args: { p_agent_id: string; p_partner_id: string }
+        Returns: Json
+      }
+      smoke_promissory_commissions_authorized: { Args: never; Returns: boolean }
       snapshot_agent_daily_eligibility: {
         Args: { p_days?: number }
         Returns: number
@@ -44087,6 +44982,17 @@ export type Database = {
           dr: number
           ledger_scope: string
           transaction_group_id: string
+        }[]
+      }
+      staff_requisition_route: {
+        Args: { _user_id: string }
+        Returns: {
+          approver_role: string
+          department_id: string
+          department_key: string
+          department_name: string
+          final_stage: string
+          stage: string
         }[]
       }
       stamp_float_request_settlement: {
@@ -44220,6 +45126,17 @@ export type Database = {
       }
       try_award_subagent_registration_bonus: {
         Args: { p_sub_agent_id: string }
+        Returns: undefined
+      }
+      try_credit_promissory_agent_commission: {
+        Args: {
+          p_base_amount: number
+          p_dedupe_key?: string
+          p_kind: string
+          p_partner_id: string
+          p_source_id: string
+          p_source_table: string
+        }
         Returns: undefined
       }
       try_credit_qualified_referrals: {

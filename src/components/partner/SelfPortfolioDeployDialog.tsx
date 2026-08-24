@@ -9,10 +9,14 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/hooks/useAuth';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { toast } from 'sonner';
-import { CalendarClock, CheckCircle2, Info, Loader2, PlusCircle, Sparkles } from 'lucide-react';
+import { CalendarClock, CheckCircle2, HandCoins, Info, Loader2, PlusCircle, Sparkles } from 'lucide-react';
+
 
 /**
  * Self Portfolio Management — deployment decision.
@@ -46,7 +50,7 @@ interface Eligibility {
   available_balance: number;
 }
 
-type Choice = 'topup' | 'new';
+type Choice = 'topup' | 'new' | 'direct';
 
 const shortDate = (iso: string | null) =>
   iso
@@ -68,10 +72,13 @@ export function SelfPortfolioDeployDialog({
   total: number;
   onDeployed: () => void | Promise<void>;
 }) {
+  const { user } = useAuth();
   const [eligibility, setEligibility] = useState<Eligibility | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [choice, setChoice] = useState<Choice>('new');
+  const [capacity, setCapacity] = useState<number | null>(null);
+  const [depositDate, setDepositDate] = useState('');
 
   const loadEligibility = useCallback(async () => {
     if (!activeCommitmentId) {
@@ -94,9 +101,20 @@ export function SelfPortfolioDeployDialog({
     setLoading(false);
   }, [activeCommitmentId]);
 
+  /** Spendable wallet + operational float — the funds a direct release can draw on. */
+  const loadCapacity = useCallback(async () => {
+    if (!user?.id) return;
+    const { data, error } = await supabase.rpc('funder_support_capacity', { p_user_id: user.id });
+    setCapacity(error ? null : Number(data ?? 0));
+  }, [user?.id]);
+
   useEffect(() => {
-    if (open) void loadEligibility();
-  }, [open, loadEligibility]);
+    if (open) {
+      setDepositDate('');
+      void loadEligibility();
+      void loadCapacity();
+    }
+  }, [open, loadEligibility, loadCapacity]);
 
   const rate = Number(eligibility?.monthly_rate ?? 15);
   const fullMonthly = Math.round((total * rate) / 100);
@@ -113,9 +131,17 @@ export function SelfPortfolioDeployDialog({
   const topupProjection = prorata + fullMonthly * cyclesRemaining;
   const newProjection = fullMonthly;
   const canTopUp = !!eligibility?.allow_topup;
+  const covered = capacity !== null && capacity >= total && total > 0;
+  const needsDepositDate = choice === 'direct' && !covered;
+  const todayISO = new Date().toISOString().slice(0, 10);
+
 
   const deploy = async () => {
     if (selectedIds.length === 0) return;
+    if (needsDepositDate && !depositDate) {
+      toast.error('Add the date you will deposit this amount');
+      return;
+    }
     setBusy(true);
     try {
       const { error: claimError } = await supabase.rpc('partner_self_claim_plans', {
@@ -123,7 +149,26 @@ export function SelfPortfolioDeployDialog({
       });
       if (claimError) throw claimError;
 
-      if (choice === 'topup' && eligibility) {
+      if (choice === 'direct') {
+        const { data, error } = await supabase.rpc('funder_support_tenant_direct', {
+          p_rent_request_ids: selectedIds,
+          p_promised_deposit_date: depositDate || null,
+          p_term_months: 1,
+        });
+        if (error) throw error;
+        const payload = (data ?? {}) as { funding_mode?: string; from_float?: number };
+        if (payload.funding_mode === 'receivable') {
+          toast.success('Support pledged', {
+            description: `Recorded as a landlord float receivable of ${formatDynamic(total)}. Deposit it into your wallet by ${new Date(depositDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} and it releases to the landlord float.`,
+            duration: 9000,
+          });
+        } else {
+          toast.success('Sent to the landlord float', {
+            description: `${formatDynamic(total)} moved out of your ${Number(payload.from_float ?? 0) > 0 ? 'wallet and operational float' : 'spendable wallet'} onto the tenant's agent landlord float.`,
+            duration: 9000,
+          });
+        }
+      } else if (choice === 'topup' && eligibility) {
         const { error } = await supabase.rpc('partner_self_top_up', {
           p_commitment_id: eligibility.commitment_id,
           p_rent_request_ids: selectedIds,
@@ -148,6 +193,7 @@ export function SelfPortfolioDeployDialog({
         });
       }
 
+
       onOpenChange(false);
       await onDeployed();
     } catch (e) {
@@ -157,7 +203,13 @@ export function SelfPortfolioDeployDialog({
         setChoice('new');
         await loadEligibility();
         toast.error(raw.replace(/^.*PSM_TOPUP_WINDOW_CLOSED:\s*/, ''));
+      } else if (raw.includes('DEPOSIT_DATE_REQUIRED')) {
+        setChoice('direct');
+        toast.error('Add the date you will deposit this amount into your wallet');
+      } else if (raw.includes('DEPOSIT_DATE_IN_PAST')) {
+        toast.error('Pick a deposit date from today onwards');
       } else if (raw.includes('AGREEMENT_REQUIRED')) {
+
         toast.error('Sign your partner agreement first', {
           description: 'A signed partnership agreement is required before you can create a portfolio.',
         });
@@ -284,6 +336,67 @@ export function SelfPortfolioDeployDialog({
               </div>
             </button>
 
+
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setChoice('direct')}
+              aria-pressed={choice === 'direct'}
+              className={`w-full text-left rounded-2xl border p-3 transition-colors ${
+                choice === 'direct' ? 'border-primary bg-primary/5' : 'border-border'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <HandCoins className="h-4 w-4 text-primary shrink-0" />
+                    <p className="text-sm font-bold truncate">Support this landlord now</p>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    {covered
+                      ? "Moves the capital straight out of your spendable wallet or operational float onto the tenant's agent landlord float — no approval wait."
+                      : 'You have no balance to cover this. It is recorded as a landlord float receivable and releases once you deposit on the date you choose.'}
+                  </p>
+                </div>
+                <Badge variant={covered ? 'secondary' : 'outline'} className="text-[10px] shrink-0">
+                  {covered ? 'Instant' : 'Deposit date needed'}
+                </Badge>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {[
+                  { label: 'Available now', value: capacity === null ? '—' : formatDynamic(capacity) },
+                  { label: 'To landlord float', value: formatDynamic(total) },
+                  { label: 'Per month', value: formatDynamic(fullMonthly) },
+                ].map((f) => (
+                  <div key={f.label} className="rounded-xl bg-muted/40 px-2 py-1.5 min-w-0">
+                    <p className="text-[9px] uppercase tracking-wide font-semibold text-muted-foreground truncate">
+                      {f.label}
+                    </p>
+                    <p className="text-xs font-black mt-0.5 truncate">{f.value}</p>
+                  </div>
+                ))}
+              </div>
+            </button>
+
+            {needsDepositDate && (
+              <div className="space-y-1.5 rounded-2xl border border-primary/30 bg-primary/5 p-3">
+                <Label htmlFor="psm-deposit-date" className="text-[11px] font-bold">
+                  Date you will deposit {formatDynamic(total)} (required)
+                </Label>
+                <Input
+                  id="psm-deposit-date"
+                  type="date"
+                  min={todayISO}
+                  value={depositDate}
+                  onChange={(e) => setDepositDate(e.target.value)}
+                  className="h-10"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Until the deposit lands, this stays a landlord float receivable in your name.
+                </p>
+              </div>
+            )}
+
             <div className="flex items-start gap-2 rounded-xl bg-muted/30 px-2.5 py-2">
               <CalendarClock className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
               <p className="text-[10px] text-muted-foreground">
@@ -293,16 +406,27 @@ export function SelfPortfolioDeployDialog({
               </p>
             </div>
 
-            <Button className="w-full" onClick={() => void deploy()} disabled={busy || selectedIds.length === 0}>
+            <Button
+              className="w-full"
+              onClick={() => void deploy()}
+              disabled={busy || selectedIds.length === 0 || (needsDepositDate && !depositDate)}
+            >
               {busy ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <CheckCircle2 className="h-4 w-4" />
               )}
               <span className="ml-2">
-                {choice === 'topup' ? 'Add to portfolio' : 'Start new portfolio'}
+                {choice === 'topup'
+                  ? 'Add to portfolio'
+                  : choice === 'direct'
+                    ? covered
+                      ? 'Send to landlord float'
+                      : 'Pledge with deposit date'
+                    : 'Start new portfolio'}
               </span>
             </Button>
+
           </div>
         )}
       </DialogContent>

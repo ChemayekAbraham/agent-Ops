@@ -232,6 +232,10 @@ export default function Settings() {
   const [pushOpen, setPushOpen] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
   const [textSizeOpen, setTextSizeOpen] = useState(false);
+  const [vibrationOpen, setVibrationOpen] = useState(false);
+  const [motionOpen, setMotionOpen] = useState(false);
+  const [soundOpen, setSoundOpen] = useState(false);
+  const [languageOpen, setLanguageOpen] = useState(false);
 
 
 
@@ -691,27 +695,56 @@ export default function Settings() {
                     </CollapsibleContent>
                   </Collapsible>
 
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2"><Vibrate className="h-4 w-4 text-primary" /><p className="font-medium text-sm">Vibration</p></div>
-                    <RadioGroup value={hapticIntensity} onValueChange={(v) => { setHapticIntensity(v as any); if (v !== 'off') setTimeout(() => hapticSelection(), 100); }} className="grid grid-cols-2 gap-2">
-                      {hapticIntensityOptions.map((opt) => (<Label key={opt.value} htmlFor={`haptic-${opt.value}`} className={cn("flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm", hapticIntensity === opt.value ? 'border-primary bg-primary/10' : 'border-border/50')}><RadioGroupItem value={opt.value} id={`haptic-${opt.value}`} /><div><p className="font-medium text-xs">{opt.label}</p><p className="text-[10px] text-muted-foreground">{opt.description}</p></div></Label>))}
-                    </RadioGroup>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2"><Wind className="h-4 w-4 text-primary" /><p className="font-medium text-sm">Motion</p></div>
-                    <RadioGroup value={reducedMotion} onValueChange={(v) => { setReducedMotion(v as any); toast.success(v === 'reduce' ? 'Animations reduced' : v === 'no-preference' ? 'Animations on' : 'Following system'); }} className="grid grid-cols-1 gap-2">
-                      {reducedMotionOptions.map((opt) => (<Label key={opt.value} htmlFor={`motion-${opt.value}`} className={cn("flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm", reducedMotion === opt.value ? 'border-primary bg-primary/10' : 'border-border/50')}><RadioGroupItem value={opt.value} id={`motion-${opt.value}`} /><div><p className="font-medium text-xs">{opt.label}</p><p className="text-[10px] text-muted-foreground">{opt.description}</p></div></Label>))}
-                    </RadioGroup>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between"><div className="flex items-center gap-2"><Volume2 className="h-4 w-4 text-primary" /><p className="font-medium text-sm">Alert Sounds</p></div><Switch checked={preferences.notificationSounds} onCheckedChange={(c) => { updatePreference('notificationSounds', c); if (c) playNotificationSound(preferences.notificationSoundType); toast.success(c ? 'Sounds on' : 'Sounds off'); }} /></div>
-                    {preferences.notificationSounds && (
-                      <div className="space-y-3 pl-6 border-l-2 border-primary/20">
-                        <div><p className="text-xs text-muted-foreground mb-2">General Sound</p><RadioGroup value={preferences.notificationSoundType} onValueChange={(v) => { updatePreference('notificationSoundType', v as any); playNotificationSound(v as any); }} className="grid grid-cols-3 gap-2">{(['ding', 'pop', 'chime'] as const).map((s) => (<Label key={s} htmlFor={`sound-${s}`} className={cn("flex items-center justify-center p-2 rounded-lg border cursor-pointer capitalize text-xs", preferences.notificationSoundType === s ? 'border-primary bg-primary/10 font-semibold' : 'border-border/50')}><RadioGroupItem value={s} id={`sound-${s}`} className="sr-only" />{s}</Label>))}</RadioGroup></div>
-                        <div><p className="text-xs text-muted-foreground mb-2">💰 Opportunity Sound</p><RadioGroup value={preferences.opportunitySoundType} onValueChange={(v) => { updatePreference('opportunitySoundType', v as any); if (v === 'opportunity') import('@/lib/notificationSound').then(m => m.playOpportunitySound('opportunity')); else playNotificationSound(v as any); }} className="grid grid-cols-2 gap-2">{(['opportunity', 'ding', 'pop', 'chime'] as const).map((s) => (<Label key={s} htmlFor={`opp-sound-${s}`} className={cn("flex items-center justify-center p-2 rounded-lg border cursor-pointer capitalize text-xs", preferences.opportunitySoundType === s ? 'border-success bg-success/10 font-semibold' : 'border-border/50')}><RadioGroupItem value={s} id={`opp-sound-${s}`} className="sr-only" />{s === 'opportunity' ? '💰 Money' : s}</Label>))}</RadioGroup></div>
+                  <Collapsible open={vibrationOpen} onOpenChange={setVibrationOpen} className="space-y-2">
+                    <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
+                      <span className="flex items-center gap-2"><Vibrate className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Vibration</span></span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-muted-foreground capitalize">{hapticIntensityOptions.find((o) => o.value === hapticIntensity)?.label ?? hapticIntensity}</span>
+                        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", vibrationOpen && "rotate-180")} />
+                      </span>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-2 pt-1">
+                      <RadioGroup value={hapticIntensity} onValueChange={(v) => { setHapticIntensity(v as any); if (v !== 'off') setTimeout(() => hapticSelection(), 100); }} className="grid grid-cols-2 gap-2">
+                        {hapticIntensityOptions.map((opt) => (<Label key={opt.value} htmlFor={`haptic-${opt.value}`} className={cn("flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm", hapticIntensity === opt.value ? 'border-primary bg-primary/10' : 'border-border/50')}><RadioGroupItem value={opt.value} id={`haptic-${opt.value}`} /><div><p className="font-medium text-xs">{opt.label}</p><p className="text-[10px] text-muted-foreground">{opt.description}</p></div></Label>))}
+                      </RadioGroup>
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  <Collapsible open={motionOpen} onOpenChange={setMotionOpen} className="space-y-2">
+                    <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
+                      <span className="flex items-center gap-2"><Wind className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Motion</span></span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-muted-foreground capitalize">{reducedMotionOptions.find((o) => o.value === reducedMotion)?.label ?? reducedMotion}</span>
+                        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", motionOpen && "rotate-180")} />
+                      </span>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-2 pt-1">
+                      <RadioGroup value={reducedMotion} onValueChange={(v) => { setReducedMotion(v as any); toast.success(v === 'reduce' ? 'Animations reduced' : v === 'no-preference' ? 'Animations on' : 'Following system'); }} className="grid grid-cols-1 gap-2">
+                        {reducedMotionOptions.map((opt) => (<Label key={opt.value} htmlFor={`motion-${opt.value}`} className={cn("flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm", reducedMotion === opt.value ? 'border-primary bg-primary/10' : 'border-border/50')}><RadioGroupItem value={opt.value} id={`motion-${opt.value}`} /><div><p className="font-medium text-xs">{opt.label}</p><p className="text-[10px] text-muted-foreground">{opt.description}</p></div></Label>))}
+                      </RadioGroup>
+                    </CollapsibleContent>
+                  </Collapsible>
+                  <Collapsible open={soundOpen} onOpenChange={setSoundOpen} className="space-y-2">
+                    <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
+                      <span className="flex items-center gap-2"><Volume2 className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Alert Sounds</span></span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-muted-foreground">{preferences.notificationSounds ? 'On' : 'Off'}</span>
+                        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", soundOpen && "rotate-180")} />
+                      </span>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-3 pt-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm">Enable sounds</p>
+                        <Switch checked={preferences.notificationSounds} onCheckedChange={(c) => { updatePreference('notificationSounds', c); if (c) playNotificationSound(preferences.notificationSoundType); toast.success(c ? 'Sounds on' : 'Sounds off'); }} />
                       </div>
-                    )}
-                  </div>
+                      {preferences.notificationSounds && (
+                        <div className="space-y-3 pl-6 border-l-2 border-primary/20">
+                          <div><p className="text-xs text-muted-foreground mb-2">General Sound</p><RadioGroup value={preferences.notificationSoundType} onValueChange={(v) => { updatePreference('notificationSoundType', v as any); playNotificationSound(v as any); }} className="grid grid-cols-3 gap-2">{(['ding', 'pop', 'chime'] as const).map((s) => (<Label key={s} htmlFor={`sound-${s}`} className={cn("flex items-center justify-center p-2 rounded-lg border cursor-pointer capitalize text-xs", preferences.notificationSoundType === s ? 'border-primary bg-primary/10 font-semibold' : 'border-border/50')}><RadioGroupItem value={s} id={`sound-${s}`} className="sr-only" />{s}</Label>))}</RadioGroup></div>
+                          <div><p className="text-xs text-muted-foreground mb-2">💰 Opportunity Sound</p><RadioGroup value={preferences.opportunitySoundType} onValueChange={(v) => { updatePreference('opportunitySoundType', v as any); if (v === 'opportunity') import('@/lib/notificationSound').then(m => m.playOpportunitySound('opportunity')); else playNotificationSound(v as any); }} className="grid grid-cols-2 gap-2">{(['opportunity', 'ding', 'pop', 'chime'] as const).map((s) => (<Label key={s} htmlFor={`opp-sound-${s}`} className={cn("flex items-center justify-center p-2 rounded-lg border cursor-pointer capitalize text-xs", preferences.opportunitySoundType === s ? 'border-success bg-success/10 font-semibold' : 'border-border/50')}><RadioGroupItem value={s} id={`opp-sound-${s}`} className="sr-only" />{s === 'opportunity' ? '💰 Money' : s}</Label>))}</RadioGroup></div>
+                        </div>
+                      )}
+                    </CollapsibleContent>
+                  </Collapsible>
                   <Collapsible open={pushOpen} onOpenChange={setPushOpen} className="space-y-2">
                     <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
                       <span className="flex items-center gap-2"><Bell className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Push Notifications</span></span>
@@ -746,36 +779,40 @@ export default function Settings() {
                 </Card>
                 {/* Language preference */}
                 <Card className="border-border/40 rounded-2xl">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-primary" />
-                      <div>
-                        <CardTitle className="text-sm">Language</CardTitle>
-                        <CardDescription className="text-xs">Choose your preferred language</CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <RadioGroup
-                      value={language}
-                      onValueChange={(v) => { setLanguage(v as Language); toast.success(`Language: ${languageNames[v as Language]}`); }}
-                      className="grid grid-cols-2 gap-2"
-                    >
-                      {(['en', 'sw', 'fr', 'am'] as Language[]).map((lang) => (
-                        <Label
-                          key={lang}
-                          htmlFor={`lang-${lang}`}
-                          className={cn(
-                            "flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm",
-                            language === lang ? 'border-primary bg-primary/10' : 'border-border/50'
-                          )}
+                  <CardContent className="pt-5">
+                    <Collapsible open={languageOpen} onOpenChange={setLanguageOpen} className="space-y-2">
+                      <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
+                        <span className="flex items-center gap-2"><Globe className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Language</span></span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-base">{languageFlags[language]}</span>
+                          <span className="text-[11px] text-muted-foreground">{languageNames[language]}</span>
+                          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", languageOpen && "rotate-180")} />
+                        </span>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-2 pt-1">
+                        <p className="text-[11px] text-muted-foreground">Choose your preferred language</p>
+                        <RadioGroup
+                          value={language}
+                          onValueChange={(v) => { setLanguage(v as Language); toast.success(`Language: ${languageNames[v as Language]}`); }}
+                          className="grid grid-cols-2 gap-2"
                         >
-                          <RadioGroupItem value={lang} id={`lang-${lang}`} />
-                          <span className="text-base">{languageFlags[lang]}</span>
-                          <span className="font-medium text-xs">{languageNames[lang]}</span>
-                        </Label>
-                      ))}
-                    </RadioGroup>
+                          {(['en', 'sw', 'fr', 'am'] as Language[]).map((lang) => (
+                            <Label
+                              key={lang}
+                              htmlFor={`lang-${lang}`}
+                              className={cn(
+                                "flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm",
+                                language === lang ? 'border-primary bg-primary/10' : 'border-border/50'
+                              )}
+                            >
+                              <RadioGroupItem value={lang} id={`lang-${lang}`} />
+                              <span className="text-base">{languageFlags[lang]}</span>
+                              <span className="font-medium text-xs">{languageNames[lang]}</span>
+                            </Label>
+                          ))}
+                        </RadioGroup>
+                      </CollapsibleContent>
+                    </Collapsible>
                   </CardContent>
                 </Card>
 

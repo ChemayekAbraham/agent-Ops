@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
+import LenderInviteShare from './LenderInviteShare';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,8 @@ import { useMyTrustScore } from '@/hooks/useMyTrustScore';
 import { useAgentBalances } from '@/hooks/useAgentBalances';
 import { useLendingAgentAgreement } from '@/hooks/useLendingAgentAgreement';
 import { useTrustProfile } from '@/hooks/useTrustProfile';
+import BorrowerTrustScorePanel from './BorrowerTrustScorePanel';
+
 import LendingAgentAgreementModal from '@/components/vouch/agent/LendingAgentAgreementModal';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -67,11 +70,16 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
-  // Borrower lookup
+  // Borrower lookup (phone number or AI ID)
   const [aiIdInput, setAiIdInput] = useState('');
   const [activeAiId, setActiveAiId] = useState<string | null>(null);
+  const [phoneSearching, setPhoneSearching] = useState(false);
+  const [phoneMatches, setPhoneMatches] = useState<
+    { user_id: string; full_name: string | null; phone: string | null; city: string | null; ai_id: string }[]
+  >([]);
   const { profile: borrower, loading: borrowerLoading, error: borrowerError } =
     useTrustProfile(activeAiId ?? undefined, { publicMode: true });
+
 
   // Loan form
   const [showLoanForm, setShowLoanForm] = useState(false);
@@ -365,13 +373,46 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     await reloadRequests();
   };
 
-  const handleLookup = () => {
-    const cleaned = aiIdInput.trim().toUpperCase();
-    if (!cleaned) { toast.error('Enter a borrower AI ID'); return; }
-    setActiveAiId(cleaned);
+  const handleLookup = async () => {
+    const raw = aiIdInput.trim();
+    if (!raw) { toast.error('Enter a phone number or AI ID'); return; }
+    setPhoneMatches([]);
+    const digits = raw.replace(/[^0-9]/g, '');
+    const looksLikePhone = !/^WEL/i.test(raw) && digits.length >= 9;
+
+    if (looksLikePhone) {
+      setPhoneSearching(true);
+      const { data, error } = await (supabase.rpc('lending_find_user_by_phone', { p_phone: digits }) as any);
+      setPhoneSearching(false);
+      if (error) {
+        const msg = String(error.message || '');
+        toast.error(
+          msg.includes('lending_agreement_required') ? 'Sign the lending agreement first'
+          : msg.includes('phone_too_short') ? 'Enter at least 9 digits'
+          : 'Could not search that phone number',
+        );
+        return;
+      }
+      const rows = (data ?? []) as { user_id: string; full_name: string | null; phone: string | null; city: string | null; ai_id: string }[];
+      if (rows.length === 0) { toast.error('No Welile user found on that phone number'); return; }
+      if (rows.length === 1) {
+        selectBorrower(rows[0].ai_id);
+        return;
+      }
+      setPhoneMatches(rows);
+      return;
+    }
+
+    selectBorrower(raw.toUpperCase());
+  };
+
+  const selectBorrower = (aiId: string) => {
+    setPhoneMatches([]);
+    setActiveAiId(aiId);
     setShowLoanForm(false);
     setPrincipal(''); setInterestRate('10'); setDueDate(''); setPurpose('');
   };
+
 
   const handleAccept = async () => {
     const ok = await acceptAgreement(trustScore);
@@ -485,21 +526,25 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[96vh] overflow-y-auto rounded-t-3xl p-0">
+      <SheetContent
+        side="bottom"
+        className="h-[96dvh] overflow-y-auto rounded-t-3xl p-0"
+      >
         {/* Sticky header */}
         <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/60 px-4 pt-4 pb-3">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-primary flex items-center justify-center shadow-sm">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="h-10 w-10 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-500 to-primary flex items-center justify-center shadow-sm">
                 <Banknote className="h-5 w-5 text-white" />
               </div>
-              <div>
-                <p className="text-base font-bold text-foreground tracking-tight leading-none">Lending Agent</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Manage your borrowers</p>
+              <div className="min-w-0">
+                <p className="truncate text-base font-bold text-foreground tracking-tight leading-none">Lending Agent</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Score {trustScore} · Manage your borrowers</p>
               </div>
             </div>
-            <Badge variant="outline" className="text-[10px] font-bold">Score {trustScore}</Badge>
+            <LenderInviteShare aiId={myAiId} displayName={myName} variant="icon" />
           </div>
+
 
           {/* Material-style segmented tabs */}
           <div className="grid grid-cols-4 gap-1 rounded-2xl bg-muted/60 p-1">
@@ -507,14 +552,14 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
               <button
                 key={key}
                 onClick={() => setTab(key)}
-                className={`relative flex flex-col items-center gap-0.5 rounded-xl py-2 text-[10px] font-semibold transition-colors ${
+                className={`relative flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[10px] font-semibold leading-none transition-colors ${
                   tab === key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
                 }`}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-[18px] w-[18px]" />
                 {label}
                 {badge != null && badge > 0 && (
-                  <span className="absolute top-0.5 right-2 min-w-[15px] h-[15px] px-1 rounded-full bg-primary text-primary-foreground text-[8px] font-bold flex items-center justify-center">
+                  <span className="absolute top-0.5 right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[8px] font-bold flex items-center justify-center">
                     {badge}
                   </span>
                 )}
@@ -523,11 +568,17 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
           </div>
         </div>
 
-        <div className="px-4 pb-10 pt-4">
+        <div className="px-4 pt-4 pb-[calc(3rem+env(safe-area-inset-bottom))]">
           {trustLoading || agreementLoading ? (
             <Skeleton className="h-40 w-full rounded-2xl" />
           ) : (
             <>
+              {/* Borrower acquisition — shareable public link */}
+              <div className="mb-4">
+                <LenderInviteShare aiId={myAiId} displayName={myName} />
+              </div>
+
+
               {/* Principal protection guarantee — always visible & prominent.
                   Borrowers never see this; it is for the Lending Agent only. */}
               <div className="mb-4 rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-500/15 to-emerald-500/5 p-4 shadow-sm">
@@ -719,25 +770,50 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                     </CardContent>
                   </Card>
 
-                  {/* Borrower lookup */}
+                  {/* Borrower lookup — phone number (preferred) or AI ID */}
                   <div className="space-y-2 mb-4">
                     <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Create a loan — lookup borrower by AI ID
+                      Create a loan — find borrower by phone number
                     </Label>
                     <div className="flex gap-2">
                       <Input
                         ref={borrowerInputRef}
                         value={aiIdInput}
-                        onChange={(e) => setAiIdInput(e.target.value.toUpperCase())}
-                        placeholder="WEL-XXXXXX"
-                        className="h-11 text-sm font-mono rounded-2xl"
+                        onChange={(e) => setAiIdInput(e.target.value)}
+                        inputMode="tel"
+                        placeholder="0700 000 000 or WEL-XXXXXX"
+                        className="h-11 text-sm rounded-2xl"
                         onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
                       />
-                      <Button onClick={handleLookup} disabled={borrowerLoading} className="h-11 rounded-2xl">
-                        {borrowerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      <Button onClick={handleLookup} disabled={borrowerLoading || phoneSearching} className="h-11 rounded-2xl">
+                        {borrowerLoading || phoneSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                       </Button>
                     </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      Enter any Welile user's phone number — their Welile Trust Score appears before you lend.
+                    </p>
                   </div>
+
+                  {phoneMatches.length > 0 && (
+                    <div className="space-y-2 mb-4">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        {phoneMatches.length} users on that number
+                      </p>
+                      {phoneMatches.map((m) => (
+                        <button
+                          key={m.user_id}
+                          onClick={() => selectBorrower(m.ai_id)}
+                          className="w-full text-left rounded-2xl border border-border bg-card p-3 hover:bg-muted/40 transition-colors"
+                        >
+                          <p className="text-sm font-semibold truncate">{m.full_name || 'Unnamed user'}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">
+                            {m.phone || '—'} · {m.city || '—'} · {m.ai_id}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
 
                   {activeAiId && borrowerLoading && <Skeleton className="h-40 w-full rounded-xl mb-4" />}
                   {borrowerError && (
@@ -758,6 +834,8 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="pt-0 space-y-3">
+                          <BorrowerTrustScorePanel profile={borrower} />
+
                           <div className="grid grid-cols-3 gap-2 text-center">
                             <div className="rounded-lg bg-muted/40 p-2">
                               <p className="text-[9px] uppercase text-muted-foreground">Score</p>
@@ -772,6 +850,7 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                               <p className="text-xs font-bold">{formatUGX(borrower.cash_flow_capacity?.monthly_avg ?? 0)}</p>
                             </div>
                           </div>
+
 
                           <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-2.5 flex items-start gap-2">
                             <ShieldCheck className="h-3.5 w-3.5 text-emerald-700 shrink-0 mt-0.5" />

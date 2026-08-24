@@ -1,7 +1,7 @@
 import ExecutiveDashboardLayout from '@/components/layout/ExecutiveDashboardLayout';
 import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import { CMODashboard } from '@/components/executive/CMODashboard';
-import { DirectorRequisitionsPanel } from '@/components/requisitions/DirectorRequisitionsPanel';
+import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWorkspace';
 import { MerchandiseOrderNotificationsBell } from '@/components/executive/MerchandiseOrderNotificationsBell';
 
 export default function CMODashboardPage() {
@@ -15,7 +15,7 @@ export default function CMODashboardPage() {
       headerActions={<MerchandiseOrderNotificationsBell onJump={setActiveTab} />}
     >
       {activeTab === 'requisitions' ? (
-        <DirectorRequisitionsPanel />
+        <RequisitionsWorkspace />
       ) : (
         <CMODashboard activeTab={activeTab} />
       )}

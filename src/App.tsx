@@ -284,6 +284,7 @@ const AgentCommissionBenefits = lazy(() => import('./pages/AgentCommissionBenefi
 const Internship = lazy(() => import('./pages/Internship'));
 const Careers = lazy(() => import('./pages/Careers'));
 const HolisticProfile = lazy(() => import('./pages/HolisticProfile'));
+const BorrowFromAgent = lazy(() => import('./pages/BorrowFromAgent'));
 // Public funder signup (multi-step) — lives in pages/Onboarding.tsx and is exported as FunderOnboarding.
 const FunderOnboarding = lazy(() => import('./pages/Onboarding'));
 const PortfolioCompletion = lazy(() => import('./pages/PortfolioCompletion'));
@@ -291,6 +292,7 @@ const PortfolioCompletion = lazy(() => import('./pages/PortfolioCompletion'));
 const PartnerOnboarding = lazy(() => import('./pages/PartnerOnboarding'));
 const PersonalHub = lazy(() => import('./pages/me/PersonalHub'));
 const MyDocuments = lazy(() => import('./pages/me/MyDocuments'));
+const MyRequisitions = lazy(() => import('./pages/me/Requisitions'));
 const HRContractsPage = lazy(() => import('./hr/pages/ContractsPage'));
 
 // Detect iOS standalone mode for cache settings
@@ -442,6 +444,7 @@ function AppRoutes() {
           <Route path="/merchant" element={<MerchantLogin />} />
           <Route path="/merchant-agent/onboarding" element={<MerchantAgentOnboarding />} />
           <Route path="/merchant-agent-referrals" element={<MerchantAgentReferrals />} />
+          <Route path="/borrow/:aiId" element={<BorrowFromAgent />} />
           <Route path="/profile/:aiId" element={<HolisticProfile />} />
           <Route path="/id/:aiId" element={<HolisticProfile publicMode />} />
           {/* Persona-specific dashboards. URL is the source of truth for which
@@ -635,6 +638,7 @@ function AppRoutes() {
           <Route path="/my-pay" element={<RoleGuard allowedRoles={['tenant', 'agent', 'landlord', 'supporter', 'manager', 'ceo', 'coo', 'cfo', 'cto', 'cmo', 'crm', 'employee', 'operations', 'super_admin', 'hr']}><MyPayslipsPage /></RoleGuard>} />
           <Route path="/me" element={<PersonalHub />} />
           <Route path="/me/documents" element={<MyDocuments />} />
+          <Route path="/me/requisitions" element={<HRSignedInRoute><MyRequisitions /></HRSignedInRoute>} />
           <Route path="/hr/contracts" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><HRContractsPage /></RoleGuard>} />
           <Route path="/me/payslips" element={<RoleGuard allowedRoles={['tenant', 'agent', 'landlord', 'supporter', 'manager', 'ceo', 'coo', 'cfo', 'cto', 'cmo', 'crm', 'employee', 'operations', 'super_admin', 'hr']}><MyPayslipsPage /></RoleGuard>} />
           <Route path="/me/work" element={<HRSignedInRoute><HRMyWorkPage /></HRSignedInRoute>} />

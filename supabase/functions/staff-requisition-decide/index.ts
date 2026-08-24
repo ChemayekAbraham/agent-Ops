@@ -1,0 +1,326 @@
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { creditRequisitionWallet } from "../_shared/requisitionWalletCredit.ts";
+import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const OVERRIDE_ROLES = new Set(["super_admin", "manager"]);
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function fmtUGX(n: number) {
+  return `UGX ${Math.round(n).toLocaleString("en-US")}`;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+
+  try {
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    const token = req.headers.get("Authorization")?.replace("Bearer ", "") ?? "";
+    const { data: userData, error: authErr } = await admin.auth.getUser(token);
+    if (authErr || !userData?.user) return json({ error: "Not authenticated" }, 401);
+    const actor = userData.user;
+
+    const body = await req.json().catch(() => ({}));
+    const requisitionId = String(body.requisition_id || "");
+    const action = String(body.action || "");
+    const comment = String(body.comment || "").trim();
+    if (!requisitionId || !["approve", "reject", "return_info"].includes(action)) {
+      return json({ error: "bad_request" }, 400);
+    }
+    if (action !== "approve" && comment.length < 10) {
+      return json({ error: "A comment of at least 10 characters is required" }, 400);
+    }
+
+    // High-stakes transition: always read the live row, never a cached one.
+    const { data: row, error: rowErr } = await admin
+      .from("staff_requisitions")
+      .select("*")
+      .eq("id", requisitionId)
+      .maybeSingle();
+    if (rowErr) throw rowErr;
+    if (!row) return json({ error: "Requisition not found" }, 404);
+    if (["approved", "rejected"].includes(row.stage)) {
+      return json({ error: "already_final", message: `This requisition is already ${row.stage}.` }, 409);
+    }
+    if (row.stage === "returned") {
+      return json({ error: "awaiting_requester", message: "This requisition is back with the requester." }, 409);
+    }
+
+    const { data: roleRows } = await admin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", actor.id)
+      .eq("enabled", true);
+    const roles = (roleRows || []).map((r: { role: string }) => r.role);
+    const ownsStage = roles.includes(row.current_approver_role) || roles.some((r: string) => OVERRIDE_ROLES.has(r));
+    if (!ownsStage) {
+      return json({ error: "forbidden", message: `This requisition is with ${row.current_approver_role}.` }, 403);
+    }
+    if (row.requester_id === actor.id && !roles.some((r: string) => OVERRIDE_ROLES.has(r))) {
+      return json({ error: "self_approval_blocked", message: "You cannot decide your own requisition." }, 403);
+    }
+
+    const { data: actorProfile } = await admin
+      .from("profiles").select("full_name").eq("id", actor.id).maybeSingle();
+    const actorName = actorProfile?.full_name || actor.email || "Approver";
+    const now = new Date().toISOString();
+    const stageKey = row.stage as "supervisor" | "coo" | "cfo" | "ceo";
+    const decisionCols = stageKey === "supervisor"
+      ? { supervisor_decided_by: actor.id, supervisor_decided_at: now, supervisor_note: comment || null }
+      : stageKey === "coo"
+      ? { coo_decided_by: actor.id, coo_decided_at: now, coo_note: comment || null }
+      : { cfo_decided_by: actor.id, cfo_decided_at: now, cfo_note: comment || null };
+
+    // ── Reject ───────────────────────────────────────────────────────────────
+    if (action === "reject") {
+      const { data: updated } = await admin
+        .from("staff_requisitions")
+        .update({
+          ...decisionCols,
+          stage: "rejected",
+          current_approver_role: null,
+          rejection_reason: comment,
+          decided_at: now,
+        })
+        .eq("id", requisitionId)
+        .select("*")
+        .single();
+      await logEvent(admin, requisitionId, actor.id, actorName, "rejected", stageKey, comment, { amount: row.amount });
+      await auditLog(admin, actor.id, requisitionId, "staff_requisition_rejected", comment);
+      await notifyRequester(admin, updated, `Requisition ${row.requisition_code} was declined at ${stageLabel(stageKey)} review: ${comment}`);
+      return json({ ok: true, requisition: updated }, 200);
+    }
+
+    // ── Send back for more information ───────────────────────────────────────
+    if (action === "return_info") {
+      const { data: updated } = await admin
+        .from("staff_requisitions")
+        .update({
+          ...decisionCols,
+          stage: "returned",
+          returned_from_stage: stageKey,
+          current_approver_role: null,
+        })
+        .eq("id", requisitionId)
+        .select("*")
+        .single();
+      await logEvent(admin, requisitionId, actor.id, actorName, "returned", stageKey, comment, {});
+      await auditLog(admin, actor.id, requisitionId, "staff_requisition_returned", comment);
+      await notifyRequester(admin, updated, `Requisition ${row.requisition_code} needs more information: ${comment}`);
+      return json({ ok: true, requisition: updated }, 200);
+    }
+
+    // ── Approve ──────────────────────────────────────────────────────────────
+    let approvedAmount: number | null = null;
+    if (body.amount != null) {
+      const n = Math.round(Number(body.amount) * 100) / 100;
+      if (!Number.isFinite(n) || n <= 0) return json({ error: "invalid_amount" }, 400);
+      approvedAmount = n;
+    }
+
+    const isFinalStage = stageKey === row.final_stage;
+
+    if (!isFinalStage) {
+      const nextStage = stageKey === "supervisor" ? "coo" : row.final_stage;
+      const { data: updated } = await admin
+        .from("staff_requisitions")
+        .update({
+          ...decisionCols,
+          stage: nextStage,
+          current_approver_role: nextStage,
+          ...(approvedAmount != null ? { approved_amount: approvedAmount } : {}),
+        })
+        .eq("id", requisitionId)
+        .select("*")
+        .single();
+      await logEvent(admin, requisitionId, actor.id, actorName, "approved", stageKey, comment, {
+        next_stage: nextStage, approved_amount: approvedAmount,
+      });
+      await auditLog(admin, actor.id, requisitionId, "staff_requisition_stage_approved", comment || `Approved at ${stageKey}`);
+      await notifyApprovers(admin, nextStage, updated);
+      await notifyRequester(admin, updated, `Requisition ${row.requisition_code} passed ${stageLabel(stageKey)} review and is now with ${nextStage.toUpperCase()}.`);
+      return json({ ok: true, requisition: updated }, 200);
+    }
+
+    // Final approval -> wallet credit (idempotent, ledger-backed)
+    if (row.wallet_credit_status === "credited") {
+      return json({ ok: true, already_credited: true, requisition: row }, 200);
+    }
+
+    const finalAmount = approvedAmount ?? Number(row.approved_amount ?? row.amount);
+
+    const { data: approvedRow, error: apprErr } = await admin
+      .from("staff_requisitions")
+      .update({
+        ...decisionCols,
+        stage: "approved",
+        current_approver_role: null,
+        approved_amount: finalAmount,
+        decided_at: now,
+        rejection_reason: null,
+      })
+      .eq("id", requisitionId)
+      .select("*")
+      .single();
+    if (apprErr) throw apprErr;
+
+    const credit = await creditRequisitionWallet({
+      admin,
+      sourceTable: "staff_requisitions",
+      requisitionId,
+      requisitionCode: row.requisition_code,
+      userId: row.requester_id,
+      approverId: actor.id,
+      approverName: actorName,
+      amount: finalAmount,
+      currency: row.currency || "UGX",
+      purpose: row.title,
+      category: row.category,
+      status: "approved",
+      approvedAt: now,
+      ipAddress: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+      deviceInfo: req.headers.get("user-agent") ?? null,
+    });
+
+    if (!credit.ok) {
+      // No approved-but-uncredited limbo: roll the stage back to this approver.
+      await admin
+        .from("staff_requisitions")
+        .update({
+          stage: stageKey,
+          current_approver_role: stageKey,
+          decided_at: null,
+          wallet_credit_status: "failed",
+        })
+        .eq("id", requisitionId);
+      await logEvent(admin, requisitionId, actor.id, actorName, "credit_failed", stageKey, credit.message, {
+        stage_detail: credit.stage, error: credit.error,
+      });
+      return json({ ok: false, error: credit.error, message: credit.message, rolled_back: true }, 400);
+    }
+
+    await logEvent(admin, requisitionId, actor.id, actorName, "credited", stageKey, comment || "Approved and credited", {
+      amount: finalAmount, wallet_transaction_id: credit.wallet_transaction_id,
+    });
+    await auditLog(admin, actor.id, requisitionId, "staff_requisition_approved_credited", comment || `Credited ${fmtUGX(finalAmount)}`);
+
+    try {
+      await admin.from("system_events").insert({
+        event_type: "requisition.credited",
+        payload: {
+          source: "staff_requisitions",
+          id: requisitionId,
+          code: row.requisition_code,
+          amount: finalAmount,
+          wallet_transaction_id: credit.wallet_transaction_id,
+        },
+      });
+    } catch (_) { /* non-fatal */ }
+
+    return json({ ok: true, requisition: approvedRow, wallet_credit: credit }, 200);
+  } catch (e) {
+    console.error("staff-requisition-decide error", e);
+    return json({ error: String((e as Error).message ?? e) }, 500);
+  }
+});
+
+function stageLabel(stage: string) {
+  return stage === "supervisor" ? "department" : stage.toUpperCase();
+}
+
+// deno-lint-ignore no-explicit-any
+async function logEvent(
+  admin: any, requisitionId: string, actorId: string, actorName: string,
+  action: string, stage: string, comment: string | null, metadata: Record<string, unknown>,
+) {
+  try {
+    await admin.from("staff_requisition_events").insert({
+      requisition_id: requisitionId,
+      actor_id: actorId,
+      actor_name: actorName,
+      action,
+      stage,
+      comment: comment ? comment.slice(0, 2000) : null,
+      metadata,
+    });
+  } catch (e) {
+    console.error("logEvent failed (non-fatal)", e);
+  }
+}
+
+// deno-lint-ignore no-explicit-any
+async function auditLog(admin: any, actorId: string, requisitionId: string, actionType: string, reason: string) {
+  try {
+    await admin.from("audit_logs").insert({
+      user_id: actorId,
+      action_type: actionType,
+      table_name: "staff_requisitions",
+      record_id: requisitionId,
+      reason: (reason || actionType).slice(0, 300),
+    });
+  } catch (e) {
+    console.error("auditLog failed (non-fatal)", e);
+  }
+}
+
+// deno-lint-ignore no-explicit-any
+async function notifyRequester(admin: any, row: any, message: string) {
+  if (!row?.requester_id) return;
+  try {
+    await admin.from("notifications").insert({
+      user_id: row.requester_id,
+      type: "staff_requisition",
+      title: `Requisition ${row.requisition_code}`,
+      message,
+      metadata: { requisition_id: row.id, stage: row.stage },
+    });
+  } catch (_) { /* non-fatal */ }
+  try {
+    const { data: p } = await admin.from("profiles").select("phone, full_name").eq("id", row.requester_id).maybeSingle();
+    if (p?.phone) {
+      await sendSMS(p.phone, `Welile: ${message}`, {
+        admin,
+        source: "staff-requisition-decide",
+        reference_id: row.id,
+        recipient_user_id: row.requester_id,
+        recipient_name: p.full_name,
+        idempotencyKey: `staff-req-decide-${row.id}-${row.stage}`,
+      });
+    }
+  } catch (_) { /* non-fatal */ }
+}
+
+// deno-lint-ignore no-explicit-any
+async function notifyApprovers(admin: any, approverRole: string, row: any) {
+  try {
+    const { data: holders } = await admin
+      .from("user_roles").select("user_id").eq("role", approverRole).eq("enabled", true).limit(20);
+    const ids = (holders || []).map((r: { user_id: string }) => r.user_id);
+    if (!ids.length) return;
+    await admin.from("notifications").insert(ids.map((id: string) => ({
+      user_id: id,
+      type: "staff_requisition",
+      title: `Requisition ${row.requisition_code} needs your review`,
+      message: `${row.requester_name} • ${fmtUGX(Number(row.approved_amount ?? row.amount))} — ${row.title}`,
+      metadata: { requisition_id: row.id, stage: row.stage },
+    })));
+  } catch (e) {
+    console.error("notifyApprovers failed (non-fatal)", e);
+  }
+}

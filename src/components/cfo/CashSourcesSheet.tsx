@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -190,10 +190,10 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
   const reconciliationGap = totalCash - (grossIn - grossOut);
 
   return (
-    <Sheet open={open} onOpenChange={close}>
-      <SheetContent side="bottom" className="rounded-t-3xl max-h-[92vh] overflow-y-auto px-4 sm:px-6">
-        <SheetHeader className="pb-4 pt-1">
-          <SheetTitle className="text-base sm:text-lg flex items-center gap-3">
+    <Dialog open={open} onOpenChange={close}>
+      <DialogContent className="w-[calc(100%-2rem)] max-w-[640px] max-h-[75vh] overflow-y-auto rounded-2xl p-5 sm:p-6 shadow-2xl">
+        <DialogHeader className="pb-3">
+          <DialogTitle className="text-base sm:text-lg flex items-center gap-3">
             {selected && (
               <button
                 onClick={() => setSelected(null)}
@@ -207,14 +207,14 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
             <span className="truncate">
               {selected ? selected.label : 'Money We Have'}
             </span>
-          </SheetTitle>
-        </SheetHeader>
+          </DialogTitle>
+        </DialogHeader>
 
         {!selected && (
-          <div className="space-y-6 pb-6">
+          <div className="space-y-3 pb-3">
             {/* Where the money sits — position cards (A1 split + in-transit) */}
             {positions.length > 0 && (
-              <section className="space-y-3">
+            <section className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="rounded-lg bg-primary/10 p-1.5">
@@ -240,12 +240,12 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                           disabled={!canDrill}
                           onClick={() => canDrill && openLine(line)}
                           className={cn(
-                            'w-full p-4 text-left transition-colors',
+                            'w-full p-3.5 text-left transition-colors',
                             canDrill && 'hover:bg-muted/40'
                           )}
                         >
                         <div className="flex items-start justify-between gap-3">
-                          <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
+                          <div className="rounded-xl bg-primary/10 p-2 text-primary">
                             <Icon className="h-5 w-5" />
                           </div>
                           {canDrill && (
@@ -257,18 +257,18 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                             />
                           )}
                         </div>
-                        <p className="mt-3 text-[11px] uppercase tracking-wider text-muted-foreground">
+                        <p className="mt-2 text-[11px] uppercase tracking-wider text-muted-foreground">
                           {line.label}
                         </p>
-                        <p className="mt-1 font-mono text-lg font-bold">{formatUGX(line.value)}</p>
-                        <div className="mt-2 flex items-center gap-2">
+                        <p className="mt-1 font-mono text-base font-bold">{formatUGX(line.value)}</p>
+                        <div className="mt-1.5 flex items-center gap-2">
                           <Progress value={Math.min(100, Math.max(0, pct))} className="h-1.5 flex-1" />
                           <span className="text-[10px] font-medium text-muted-foreground w-9 text-right">
                             {formatPercent(pct)}
                           </span>
                         </div>
                         {line.count != null && (
-                          <p className="mt-1.5 text-[11px] text-muted-foreground">
+                          <p className="mt-1 text-[11px] text-muted-foreground">
                             {line.count.toLocaleString()} entries
                           </p>
                         )}
@@ -310,7 +310,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
             )}
 
             {/* Sources of money in */}
-            <section className="space-y-3">
+            <section className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="rounded-lg bg-success/10 p-1.5">
@@ -336,10 +336,10 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                     >
                       <button
                         onClick={() => openLine(line)}
-                        className="w-full text-left p-4 hover:bg-muted/40 transition-colors"
+                        className="w-full text-left p-3.5 hover:bg-muted/40 transition-colors"
                       >
                         <div className="flex items-start gap-3">
-                          <div className="mt-0.5 rounded-xl bg-primary/10 p-2.5 text-primary shrink-0">
+                          <div className="mt-0.5 rounded-xl bg-primary/10 p-2 text-primary shrink-0">
                             <Icon className="h-5 w-5" />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -368,7 +368,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                                 </>
                               )}
                             </div>
-                            <div className="mt-3 flex items-center gap-2">
+                            <div className="mt-2 flex items-center gap-2">
                               <Progress value={Math.min(100, pct)} className="h-1.5 flex-1" />
                               <span className="text-[10px] font-medium text-muted-foreground w-9 text-right">
                                 {formatPercent(pct)}
@@ -417,7 +417,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
 
             {/* Money out */}
             {decreases.length > 0 && (
-              <section className="space-y-3">
+              <section className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="rounded-lg bg-destructive/10 p-1.5">
@@ -435,32 +435,32 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
                     const isExpanded = expanded === line.category;
 
                     return (
-                      <div key={line.category} className="rounded-xl border border-border bg-card overflow-hidden">
-                        <button
-                          onClick={() => openLine(line)}
-                          className="w-full flex items-center justify-between gap-3 p-3 hover:bg-muted/40 transition-colors"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="rounded-lg bg-destructive/10 p-2 text-destructive shrink-0">
-                              <Icon className="h-4 w-4" />
-                            </div>
-                            <span className="text-sm text-muted-foreground truncate">
-                              {line.label}
-                              {line.count != null ? ` (${line.count.toLocaleString()})` : ''}
-                            </span>
+                    <div key={line.category} className="rounded-xl border border-border bg-card overflow-hidden">
+                      <button
+                        onClick={() => openLine(line)}
+                        className="w-full flex items-center justify-between gap-3 p-2.5 hover:bg-muted/40 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="rounded-lg bg-destructive/10 p-2 text-destructive shrink-0">
+                            <Icon className="h-4 w-4" />
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="font-mono text-sm font-semibold text-destructive">
-                              −{formatUGX(line.value)}
-                            </span>
-                            <ChevronRight
-                              className={cn(
-                                'h-4 w-4 text-muted-foreground transition-transform',
-                                hasChildren && isExpanded && 'rotate-90'
-                              )}
-                            />
-                          </div>
-                        </button>
+                          <span className="text-sm text-muted-foreground truncate">
+                            {line.label}
+                            {line.count != null ? ` (${line.count.toLocaleString()})` : ''}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="font-mono text-sm font-semibold text-destructive">
+                            −{formatUGX(line.value)}
+                          </span>
+                          <ChevronRight
+                            className={cn(
+                              'h-4 w-4 text-muted-foreground transition-transform',
+                              hasChildren && isExpanded && 'rotate-90'
+                            )}
+                          />
+                        </div>
+                      </button>
 
                         {isExpanded && hasChildren && (
                           <div className="border-t border-border bg-muted/20 divide-y divide-border">
@@ -492,7 +492,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
             <Separator />
 
             {/* Summary footer */}
-            <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+            <div className="rounded-2xl border border-border bg-card p-3 space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Total Money In</span>
                 <span className="font-mono font-medium">{formatUGX(grossIn)}</span>
@@ -520,7 +520,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
         )}
 
         {selected && (
-          <div className="space-y-4 pb-6">
+          <div className="space-y-4 pb-3">
             {/* Drill-down header card */}
             <div className="rounded-2xl border border-border bg-card p-4 flex items-center justify-between shadow-sm">
               <div>
@@ -618,8 +618,8 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
             )}
           </div>
         )}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 

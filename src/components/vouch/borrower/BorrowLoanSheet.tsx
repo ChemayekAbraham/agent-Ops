@@ -23,7 +23,10 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onOpenLendingPortal?: () => void;
+  /** Pre-target a specific lending agent (from a shared borrower link). */
+  initialLenderAiId?: string;
 }
+
 
 interface Offer {
   id: string;
@@ -40,7 +43,7 @@ interface Offer {
   active: boolean;
 }
 
-export default function BorrowLoanSheet({ open, onOpenChange, onOpenLendingPortal }: Props) {
+export default function BorrowLoanSheet({ open, onOpenChange, onOpenLendingPortal, initialLenderAiId }: Props) {
   const { user } = useAuth();
   const [offers, setOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(false);
@@ -223,8 +226,8 @@ export default function BorrowLoanSheet({ open, onOpenChange, onOpenLendingPorta
     reloadRequests();
   };
 
-  const handleDirectRequest = async () => {
-    const cleaned = normalizeAiId(lenderAiInput);
+  const handleDirectRequest = async (raw?: string) => {
+    const cleaned = normalizeAiId(raw ?? lenderAiInput);
     if (!isValidAiId(cleaned)) { toast.error('Enter a valid AI ID e.g. WEL-AB12CD'); return; }
     // Resolve AI ID -> user via public trust profile RPC
     const { data, error } = await (supabase.rpc('get_public_trust_profile', { p_ai_id: cleaned }) as any);
@@ -250,6 +253,17 @@ export default function BorrowLoanSheet({ open, onOpenChange, onOpenLendingPorta
       active: true,
     }));
   };
+
+  // Shared borrower link (/borrow/:aiId) — pre-target that lending agent once.
+  const prefilledRef = useRef(false);
+  useEffect(() => {
+    if (!open || !user || !initialLenderAiId || prefilledRef.current) return;
+    prefilledRef.current = true;
+    setLenderAiInput(initialLenderAiId);
+    void handleDirectRequest(initialLenderAiId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, user, initialLenderAiId, residenceComplete]);
+
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -317,7 +331,7 @@ export default function BorrowLoanSheet({ open, onOpenChange, onOpenLendingPorta
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Request a specific agent (AI ID)</Label>
               <div className="flex gap-2">
                 <Input value={lenderAiInput} onChange={(e) => setLenderAiInput(e.target.value.toUpperCase())} placeholder="WEL-XXXXXX" className="h-10 text-sm font-mono" onKeyDown={(e) => e.key === 'Enter' && handleDirectRequest()} />
-                <Button onClick={handleDirectRequest} className="h-10"><Search className="h-4 w-4" /></Button>
+                <Button onClick={() => handleDirectRequest()} className="h-10"><Search className="h-4 w-4" /></Button>
               </div>
             </div>
 

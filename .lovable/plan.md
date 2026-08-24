@@ -1,63 +1,34 @@
-# Step 25 — Settle evidenced own-money advances from the Step 24 report
+# Service Center: fix the slow load behind the "New" tag
 
-Financial Ops can pay an agent exactly what the books evidence, row by row, and every shilling paid traces back to the payout that created it.
+## What the red "New" tag actually is
 
-## What the screen does
+The tag on the Service Center button in `src/components/agent/AgentHubTabs.tsx` (line 61) is pure static markup — a styled `<span>` with the text "New" and a small yellow dot. It reads no data, runs no animation loop, and costs nothing. It is not the cause of the slow load, so nothing about the badge needs changing (unless you want it removed once the feature stops being "new").
 
-On each expanded agent row of the settlement report:
+## Where the slowness really comes from (verified)
 
-```text
-▾ Catherine M.                    we owe now  UGX 270,000   [ Settle selected (2) ]
-  ☑ 12 Aug 14:02  WD-8f2a1c  UGX 180,000   own money  · ledger deficit −412,000  ✓ evidenced
-  ☑ 14 Aug 09:41  WD-1b77e0  UGX  90,000   own money  · staff evidence MTN-77431 ✓ evidenced
-  ☐ 15 Aug 11:20  WD-90ce4b  UGX 120,000   not selectable — desk float never went
-                                            into deficit for this payout
-  ☐ 16 Aug 08:02  telecom    UGX   4,200   not selectable — estimated telecom charge,
-                                            no matched MTN/Airtel charge yet
-```
+Tapping the button navigates to `/agent/service-center` (`AgentServiceCenter`, a lazy route). That page fires six queries at once, and one of them — `get_agent_service_center()` — is a single monolithic RPC that builds the *entire* team dataset in one JSON blob before anything can render:
 
-- Only rows in `pending_reimbursement` that carry ledger deficit evidence (or a staff evidence reference from Step 13) get a checkbox.
-- Unevidenced rows stay visible and disabled, with the exact reason printed on the row — never hidden.
-- The settle dialog shows the selected rows, the total, a required payment reference (MoMo/bank transaction ID) and a required note of at least 10 characters. It re-reads each row fresh from the database before writing (no cached figures).
-- After settling, the rows move to a "Reimbursed" section on the same report showing date, amount, reference and who settled them.
+- per sub-agent it embeds full `tenant_list`, `landlord_list` and `house_list` (with photo arrays), not just counts
+- for the heaviest parent agent in production today that means 96 sub-agents, 2,872 house rows, 1,815 landlords, 238 referred tenants in one response; another has 105 sub-agents / 508 landlords
+- the roster list is capped at 20 cards on screen, so nearly all of that payload is transferred and parsed for nothing
+- the whole roster tab is gated on `isLoading` of that one query, so the user stares at skeletons until the largest piece of work finishes
 
-## How the reimbursement is recorded
+The relevant indexes (`agent_subagents(parent_agent_id,status)`, `rent_requests(agent_id)`, `house_listings(agent_id)`, `profiles(referrer_id)`) already exist, so this is a payload-size and shape problem, not a missing-index problem.
 
-One settlement action = one ledger transaction group per agent, plus one settlement record per advance row.
+## The fix
 
-**1. Advance rows** (`merchant_out_of_pocket_advances`), only the selected IDs:
-- `status` → `reimbursed`
-- `reimbursed_at` = now, `reimbursed_by` = the Financial Ops user
-- `evidence` gains `{ settlement_reference, settlement_group_id, settled_amount }`
-
-**2. New trace table** `merchant_oop_settlements` — one row per advance settled, `UNIQUE (advance_id)` so a row can never be paid twice:
-
-| column | meaning |
-|---|---|
-| `advance_id` | the exact own-money row settled |
-| `withdrawal_id` | the payout that created it (copied from the advance) |
-| `agent_id`, `amount` | who was paid, how much |
-| `payment_reference` | the MoMo/bank reference typed by FinOps |
-| `transaction_group_id` | links to the ledger legs below |
-| `settled_by`, `settled_at`, `note` | audit |
-
-**3. Ledger legs** — posted through `create_ledger_transaction`, one balanced pair per agent per settlement (amount = sum of selected rows):
-
-| scope | leg | direction | category | recipient_type | bucket |
-|---|---|---|---|---|---|
-| wallet | agent's wallet | `cash_in` | `merchant_oop_reimbursement` | `user` | withdrawable |
-| platform | company | `cash_out` | `merchant_oop_reimbursement` | — | — |
-
-`merchant_oop_reimbursement` is added to the locked category allowlist (database validator + `src/lib/ledgerConstants.ts`) and listed as a CFO expense line, so this money shows up as a real company cost rather than being smuggled through `wallet_deposit` or a float category. `recipient_type = 'user'` is what routes it to the withdrawable bucket — the agent is being paid back their own cash, so it is withdrawable, never float. `description` and `reference_id` carry the payment reference and the withdrawal references behind it; `idempotency_key` is derived from the settlement group so a retry cannot double-post.
-
-**4. Audit + notification**: an `audit_logs` entry (`action_type` `merchant_oop_settled`, the note as reason) and a `system_events` row, plus an SMS to the agent stating amount, reference and the payouts covered.
-
-## Guards
-
-The settle RPC rejects, per row, if: status is not `pending_reimbursement`, `reimbursed_at` is already set, the row has no ledger deficit or staff evidence, it is an unmatched estimated telecom row, or the caller is not financial ops / CFO / manager. A rejected row is reported back by ID with its reason; nothing partial is written — the whole settlement is one transaction.
+1. Split the RPC into two:
+   - `get_agent_service_center_summary()` — one row per sub-agent with profile, wallet, link status, commission/bonus totals, and the counts only (tenants, landlords, houses, pending states, pending transfers). No embedded lists.
+   - `get_agent_subagent_detail(p_sub_agent_id)` — returns the tenant, landlord and house lists for a single sub-agent, called only when that sub-agent's detail sheet opens.
+2. Point the roster page at the summary RPC so the first paint needs a small response; `SubAgentDetailSheet` and the suspend/transfer/unlink dialogs read from the new per-sub-agent detail query.
+3. Recompute the one page-level total that currently needs `tenant_list` (`tenantsPending`) inside the summary RPC as a count, so the page no longer depends on the lists at all.
+4. Prefetch: on tapping the Service Center button, warm the summary query so the data is often already in cache by the time the lazy route chunk mounts.
+5. Render progressively — header, KPI row and tabs paint immediately; only the roster list area shows skeletons, and the vetting-queue tabs load independently instead of holding up the roster.
+6. Cap detail payloads server-side (most recent N houses/landlords/tenants per sub-agent, with a "show more" path) so a sub-agent with thousands of listings can never stall the sheet.
 
 ## Technical notes
 
-- New migration: `merchant_oop_settlements` table (with GRANTs + RLS to finance roles and service_role), category allowlist addition, and `settle_merchant_out_of_pocket(p_advance_ids uuid[], p_reference text, p_note text)` as `SECURITY DEFINER`, `SET search_path = public`.
-- Frontend: selection state + `SettleEvidencedAdvancesDialog` inside the Step 24 report component, mutation hook in `src/hooks/useMerchantFloat.ts`, invalidating the report, debt and float queries.
-- Wallet balances change only through the ledger legs above — no direct wallet writes.
+- New migration adds the two functions with `SECURITY DEFINER`, `STABLE`, `SET search_path = public`, keeping the existing `auth.uid()` parent check; `EXECUTE` granted to `authenticated`.
+- The old `get_agent_service_center()` stays in place until the UI is switched over, then is dropped in a follow-up so nothing breaks mid-deploy.
+- Files touched: `src/hooks/useAgentServiceCenter.ts` (split queries + a `useSubAgentDetail(id)` hook), `src/pages/AgentServiceCenter.tsx`, `src/components/agent/service-center/SubAgentDetailSheet.tsx`, `SubAgentActionDialogs.tsx`, and the tap handler in `src/components/dashboards/AgentDashboard.tsx` for prefetch.
+- No change to the "New" badge markup and no change to vetting/transfer business logic.
