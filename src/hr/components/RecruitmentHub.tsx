@@ -1342,6 +1342,8 @@ export default function RecruitmentHub() {
   const employeeName = (id: string | null) =>
     (id ? employees.find((e) => e.id === id)?.full_name : null) ?? '—';
   const candidateById = (id: string) => candidates.find((c) => c.id === id) ?? null;
+  const activePostingsCount = postings.filter((p) => p.status === 'open').length;
+
 
   async function refreshPostings() {
     const jobs = await getJobPostings();
