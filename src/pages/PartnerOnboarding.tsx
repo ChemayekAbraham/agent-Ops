@@ -50,7 +50,7 @@ const PAGE_SIZE = 50;
 type SourceFilter = 'all' | 'referred' | 'direct';
 type ViewTab = 'funders' | 'invited';
 
-export default function FunderOnboarding() {
+export default function FunderOnboarding({ embedded = false }: { embedded?: boolean } = {}) {
   const { user, roles, loading, role } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
