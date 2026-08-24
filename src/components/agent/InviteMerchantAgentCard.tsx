@@ -71,11 +71,12 @@ export function InviteMerchantAgentCard() {
           <div className="flex items-center gap-2">
             <h3 className="text-base font-bold">Invite a Merchant Agent</h3>
             <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded-full bg-success/15 text-success text-[10px] font-bold">
-              <BadgeDollarSign className="h-3 w-3" /> UGX 50,000
+              <BadgeDollarSign className="h-3 w-3" /> UGX 10,000
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Earn UGX 50,000 when your invited Merchant Agent is approved.
+            Earn UGX 4,000 for a direct recruit, plus UGX 6,000 when they recruit someone else — like a
+            sub-agent network. Paid after your recruit processes their first payout with proof.
           </p>
           <div className="mt-3 space-y-2">
             <Button onClick={handleWhatsApp} className="w-full h-11 rounded-xl font-semibold">
