@@ -5,7 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { usePartnerWalletHub } from '@/hooks/wallet/usePartnerWalletHub';
 import { formatUGX } from '@/lib/rentCalculations';
-import { formatDate } from '@/lib/dateUtils';
+import { formatDateOnlyForDisplay } from '@/lib/portfolioDates';
 import { cn } from '@/lib/utils';
 import {
   ArrowDownLeft,
