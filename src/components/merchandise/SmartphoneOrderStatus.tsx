@@ -278,6 +278,7 @@ export default function SmartphoneOrderStatus({
             </SelectContent>
           </Select>
         )}
+        {expanded && (
         <div className="space-y-2">
           {[selected].map((o) => {
             const status = normalizeStatus(o.order_status);
