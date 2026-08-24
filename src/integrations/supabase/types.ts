@@ -30031,7 +30031,7 @@ export type Database = {
           brand: string
           created_at: string
           created_by: string | null
-          default_amount: number
+          default_amount: number | null
           id: string
           is_active: boolean
           model_name: string
@@ -30041,7 +30041,7 @@ export type Database = {
           brand: string
           created_at?: string
           created_by?: string | null
-          default_amount?: number
+          default_amount?: number | null
           id?: string
           is_active?: boolean
           model_name: string
@@ -30051,7 +30051,7 @@ export type Database = {
           brand?: string
           created_at?: string
           created_by?: string | null
-          default_amount?: number
+          default_amount?: number | null
           id?: string
           is_active?: boolean
           model_name?: string
