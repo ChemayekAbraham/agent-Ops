@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Building2, CheckCircle, XCircle, Loader2, MapPin, ExternalLink } from 'lucide-react';
+import { Building2, CheckCircle, XCircle, Loader2, MapPin, ExternalLink, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatUGX } from '@/lib/businessAdvanceCalculations';
 
@@ -31,6 +31,22 @@ interface SCRow {
   cfo_decided_at: string | null;
   cfo_approved_amount: number | null;
   cfo_comment: string | null;
+  payee_user_id: string | null;
+  payee_name: string | null;
+  payee_phone: string | null;
+  payee_note: string | null;
+}
+
+interface PayeeChoice {
+  userId: string | null;
+  name: string;
+  phone: string;
+}
+
+interface ProfileMatch {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
 }
 
 const mapsUrl = (lat: number | string, lng: number | string) =>
@@ -41,7 +57,41 @@ export function CFOServiceCentreSpendApproval() {
   const [tab, setTab] = useState('awaiting');
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [comments, setComments] = useState<Record<string, string>>({});
+  const [payees, setPayees] = useState<Record<string, PayeeChoice>>({});
+  const [payeeNotes, setPayeeNotes] = useState<Record<string, string>>({});
+  const [searchFor, setSearchFor] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [matches, setMatches] = useState<ProfileMatch[]>([]);
+  const [searching, setSearching] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!searchFor) return;
+    const term = search.trim();
+    if (term.length < 3) {
+      setMatches([]);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const t = setTimeout(async () => {
+      const like = `%${term}%`;
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, phone')
+        .or(`full_name.ilike.${like},phone.ilike.${like}`)
+        .limit(8);
+      if (!cancelled) {
+        setMatches((data || []) as ProfileMatch[]);
+        setSearching(false);
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [search, searchFor]);
+
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ['cfo-service-centre-spend'],
@@ -66,6 +116,13 @@ export function CFOServiceCentreSpendApproval() {
     [awaiting],
   );
 
+  const payeeFor = (s: SCRow): PayeeChoice =>
+    payees[s.id] ?? {
+      userId: s.payee_user_id ?? s.agent_id ?? null,
+      name: s.payee_name || s.agent_name || '',
+      phone: s.payee_phone || s.agent_phone || '',
+    };
+
   const decide = async (row: SCRow, decision: 'approved' | 'declined') => {
     const comment = (comments[row.id] || '').trim();
     if (comment.length < 10) {
@@ -80,6 +137,11 @@ export function CFOServiceCentreSpendApproval() {
       toast.error('Enter the amount to be spent.');
       return;
     }
+    const payee = payeeFor(row);
+    if (decision === 'approved' && !payee.name.trim()) {
+      toast.error('Name who will receive this money.');
+      return;
+    }
     setBusy(row.id);
     try {
       const { error } = await supabase.rpc('cfo_decide_service_centre' as any, {
@@ -87,14 +149,20 @@ export function CFOServiceCentreSpendApproval() {
         p_decision: decision,
         p_comment: comment,
         p_amount: amount,
+        p_payee_user_id: payee.userId,
+        p_payee_name: payee.name.trim() || null,
+        p_payee_phone: payee.phone.trim() || null,
+        p_payee_note: (payeeNotes[row.id] || '').trim() || null,
       });
       if (error) throw error;
       toast.success(
         decision === 'approved'
-          ? `Spend of ${formatUGX(Number(amount))} approved for ${row.agent_name}.`
+          ? `Spend of ${formatUGX(Number(amount))} approved — recipient ${payee.name.trim()}.`
           : `Service centre spend declined for ${row.agent_name}.`,
       );
       setComments((p) => ({ ...p, [row.id]: '' }));
+      setSearchFor(null);
+      setSearch('');
       queryClient.invalidateQueries({ queryKey: ['cfo-service-centre-spend'] });
       queryClient.invalidateQueries({ queryKey: ['cfo-actions-log'] });
     } catch (err: any) {
@@ -103,6 +171,7 @@ export function CFOServiceCentreSpendApproval() {
       setBusy(null);
     }
   };
+
 
   const renderCard = (s: SCRow, actionable: boolean) => (
     <div key={s.id} className="space-y-2 rounded-xl border border-border p-3">
@@ -137,12 +206,24 @@ export function CFOServiceCentreSpendApproval() {
               <span className="font-medium text-foreground">COO reason:</span> {s.ceo_comment}
             </p>
           )}
+          <p className="text-xs text-foreground">
+            <span className="font-medium">Money goes to:</span>{' '}
+            {payeeFor(s).name || 'Not named yet'}
+            {payeeFor(s).phone ? ` · ${payeeFor(s).phone}` : ''}
+            {!s.payee_name && !s.cfo_decision ? ' (defaults to the centre agent)' : ''}
+          </p>
+          {s.payee_note && (
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Recipient note:</span> {s.payee_note}
+            </p>
+          )}
           {s.cfo_comment && (
             <p className="text-xs text-muted-foreground">
               <span className="font-medium text-foreground">CFO note:</span> {s.cfo_comment}
               {s.cfo_approved_amount != null && ` — ${formatUGX(Number(s.cfo_approved_amount))}`}
             </p>
           )}
+
         </div>
         <a
           href={mapsUrl(s.latitude, s.longitude)}
@@ -167,6 +248,85 @@ export function CFOServiceCentreSpendApproval() {
 
       {actionable && (
         <div className="space-y-2 rounded-lg border border-border p-2.5">
+          <div className="space-y-1.5 rounded-lg bg-muted/40 p-2">
+            <p className="text-[11px] font-semibold text-foreground">Who gets this money</p>
+            <p className="text-xs text-foreground">
+              {payeeFor(s).name || 'Nobody selected'}
+              {payeeFor(s).phone ? ` · ${payeeFor(s).phone}` : ''}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1 text-[11px]"
+                onClick={() =>
+                  setPayees((p) => ({
+                    ...p,
+                    [s.id]: { userId: s.agent_id, name: s.agent_name || '', phone: s.agent_phone || '' },
+                  }))
+                }
+              >
+                <User className="h-3 w-3" />
+                Pay the centre agent
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 text-[11px]"
+                onClick={() => {
+                  setSearchFor(searchFor === s.id ? null : s.id);
+                  setSearch('');
+                  setMatches([]);
+                }}
+              >
+                {searchFor === s.id ? 'Close search' : 'Choose someone else'}
+              </Button>
+            </div>
+            {searchFor === s.id && (
+              <div className="space-y-1.5">
+                <Input
+                  autoFocus
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search recipient by name or phone"
+                  className="h-8 text-xs"
+                />
+                {searching && <p className="text-[11px] text-muted-foreground">Searching…</p>}
+                {!searching && search.trim().length >= 3 && !matches.length && (
+                  <p className="text-[11px] text-muted-foreground">No match for "{search.trim()}".</p>
+                )}
+                <div className="space-y-1">
+                  {matches.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        setPayees((p) => ({
+                          ...p,
+                          [s.id]: { userId: m.id, name: m.full_name || '', phone: m.phone || '' },
+                        }));
+                        setSearchFor(null);
+                        setSearch('');
+                        setMatches([]);
+                      }}
+                      className="w-full rounded-md border border-border px-2 py-1.5 text-left text-xs hover:bg-accent"
+                    >
+                      <span className="font-medium text-foreground">{m.full_name || 'Unnamed'}</span>
+                      <span className="text-muted-foreground"> · {m.phone || '—'}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <Input
+              value={payeeNotes[s.id] ?? ''}
+              onChange={(e) => setPayeeNotes((p) => ({ ...p, [s.id]: e.target.value }))}
+              placeholder="Recipient note (optional) — e.g. carpenter for shelving"
+              className="h-8 text-xs"
+            />
+          </div>
           <label className="text-[11px] text-muted-foreground" htmlFor={`amt-${s.id}`}>
             Amount to spend (UGX)
           </label>
@@ -178,6 +338,7 @@ export function CFOServiceCentreSpendApproval() {
             onChange={(e) => setAmounts((p) => ({ ...p, [s.id]: e.target.value }))}
             className="h-8 text-xs"
           />
+
           <label className="text-[11px] text-muted-foreground" htmlFor={`cmt-${s.id}`}>
             CFO comment (min 10 characters)
           </label>
