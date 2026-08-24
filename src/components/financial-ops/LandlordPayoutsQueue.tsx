@@ -233,15 +233,20 @@ export function LandlordPayoutsQueue() {
 
   if (!payouts?.length) {
     return (
-      <Card className="p-8 text-center text-muted-foreground">
-        <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
-        <p className="text-sm font-medium">No landlord payouts waiting for disbursement.</p>
-      </Card>
+      <div className="space-y-4">
+        <ReceiptNumberLookupPanel />
+        <Card className="p-8 text-center text-muted-foreground">
+          <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-emerald-500" />
+          <p className="text-sm font-medium">No landlord payouts waiting for disbursement.</p>
+        </Card>
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      <ReceiptNumberLookupPanel />
+
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-bold flex items-center gap-2">
           <Banknote className="h-4 w-4 text-orange-600" />
@@ -252,6 +257,7 @@ export function LandlordPayoutsQueue() {
       <p className="text-xs text-muted-foreground -mt-2">
         Agent has paid the landlord via MoMo (OTP-verified). Enter the MoMo TID to settle the withdrawal and release the agent's float ledger lock.
       </p>
+
 
       <div className="space-y-3">
         {payouts.map(p => (
