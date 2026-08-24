@@ -231,11 +231,12 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
                   <div className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
                     <Button
                       size="sm"
-                      onClick={() => approve.mutate(o.id)}
+                      onClick={() => openApprove(o)}
                       disabled={approve.isPending}
                     >
                       <Check className="h-3.5 w-3.5 mr-1" /> Approve
                     </Button>
+
                     <Button
                       size="sm"
                       variant="outline"
