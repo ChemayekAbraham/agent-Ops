@@ -6093,6 +6093,10 @@ export function EmailTransactionsPanel() {
         />
       </div>
 
+      <DepositNumberConflictsPanel />
+
+
+
       {channelBreakdown.length > 0 && (
         <div className="rounded-xl border bg-card overflow-hidden">
           <div className="p-4 border-b flex items-center justify-between">
