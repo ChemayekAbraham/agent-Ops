@@ -1932,6 +1932,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       <LazyModal when={otpAuditOpen}>
       <LandlordPayoutOtpAuditSheet open={otpAuditOpen} onOpenChange={setOtpAuditOpen} />
       </LazyModal>
+      <LazyModal when={receiptCheckOpen}>
+      <ReceiptNumberCheckDialog open={receiptCheckOpen} onOpenChange={setReceiptCheckOpen} />
+      </LazyModal>
       <LazyModal when={floatHistoryOpen}>
       <FloatTransactionHistory open={floatHistoryOpen} onOpenChange={setFloatHistoryOpen} />
       </LazyModal>
