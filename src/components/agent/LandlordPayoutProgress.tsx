@@ -210,12 +210,25 @@ export function LandlordPayoutProgress({ payoutId, landlordName, onDone }: Props
           </div>
         )}
 
+        {isDone && (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-left space-y-1">
+            <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+              Landlord has been paid — get the receipt from them
+            </p>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              The landlord received an SMS with a receipt number and a receipt link. Ask them for either one,
+              then enter it below to confirm this collection.
+            </p>
+          </div>
+        )}
+
         <div className="pt-1">
-          <Button variant="outline" size="sm" onClick={() => setCheckOpen(true)}>
+          <Button variant={isDone ? "default" : "outline"} size="sm" onClick={() => setCheckOpen(true)}>
             <Receipt className="h-3.5 w-3.5 mr-1.5" />
-            Check a receipt number
+            {isDone ? "Enter receipt from landlord" : "Check a receipt number"}
           </Button>
         </div>
+
       </div>
 
       <ReceiptNumberCheckDialog open={checkOpen} onOpenChange={setCheckOpen} />
