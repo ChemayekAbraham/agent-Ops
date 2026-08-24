@@ -83,10 +83,6 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
       toast.error('Select a product brand');
       return;
     }
-    if (modelType.trim().length < 2) {
-      toast.error('Enter the type of phone');
-      return;
-    }
     if (totalAmount < 1000) {
       toast.error('Enter a phone amount of at least UGX 1,000');
       return;
