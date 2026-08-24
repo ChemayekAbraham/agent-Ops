@@ -112,10 +112,17 @@ function parseTransaction(text: string): {
   if (!text) return out;
   const t = text.replace(/\s+/g, ' ').trim();
 
-  if (/\bmomo\b|mtn mobile money|mtn momo|\bmtn\b/i.test(t)) out.channel = 'mtn_momo';
+  // STRONG MTN MoMo markers win before any body-only token logic. Outbound
+  // MoMo→bank transfers mention the receiving bank ("EQUITY BANK LIMITED") in
+  // the body, which used to mis-classify them as channel='bank' and hide them
+  // from MTN reconciliation. The MTN sender/subject signature is authoritative.
+  const strongMtn = /mtnmobmoney|mtn\s?mob\s?money|mtn\s*mobile\s*money|mtn\s*momo|y'?ello|\bmomopay\b|mm\s?transaction\s?id/i.test(t);
+  if (strongMtn) out.channel = 'mtn_momo';
+  else if (/\bmomo\b|\bmtn\b/i.test(t)) out.channel = 'mtn_momo';
   else if (/airtel\s?money|\bairtel\b|airtelmoney|\btid\b/i.test(t)) out.channel = 'airtel_money';
   else if (/\bbank\b|stanbic|centenary|dfcu|equity|absa|stanchart|standard chartered|housing finance|kcb|ncba|baroda|tropical|ecobank|orient|finance trust|opportunity bank|post bank|cairo bank/i.test(t)) out.channel = 'bank';
   else out.channel = 'other';
+
 
   // Airtel Money agent terminology: "You have deposited UGX X ... Mobile
   // Number: 07XX" means the AGENT pushed cash OUT to a customer mobile
