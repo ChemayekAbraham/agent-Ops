@@ -235,7 +235,8 @@ export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSu
 
   const exportShortfalls = () => {
     const list = (results ?? []).filter((r) => Number(r.shortfall || 0) > 0 || r.outcome === 'error');
-    const header = 'Agent,Advance ID,Outcome,Disbursed (UGX),Recovered (UGX),Shortfall (UGX),Note';
+    const header =
+      'Agent,Advance ID,Outcome,Disbursed (UGX),Recovered (UGX),Returned to available (UGX),Shortfall (UGX),Note';
     const lines = list.map((r) =>
       [
         `"${(r.agent_name || 'Unknown').replace(/"/g, '""')}"`,
@@ -243,6 +244,7 @@ export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSu
         r.outcome,
         Number(r.disbursed || 0),
         Number(r.recovered || 0),
+        Number(r.returned_to_available || 0),
         Number(r.shortfall || 0),
         `"${(r.message || '').replace(/"/g, '""')}"`,
       ].join(','),
