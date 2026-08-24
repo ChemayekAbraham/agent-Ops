@@ -87,7 +87,7 @@ export function usePartnerWalletHub(userId: string | null | undefined, page = 0)
 }
 
 export function invalidatePartnerWalletHub(
-  qc: ReturnType<typeof useQuery>["queryClient"],
+  qc: QueryClient,
   userId: string | null | undefined,
 ) {
   if (!userId) return;
