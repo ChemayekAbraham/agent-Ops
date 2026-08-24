@@ -12763,6 +12763,8 @@ export type Database = {
       }
       hr_job_postings: {
         Row: {
+          closed_at: string | null
+          closed_by: string | null
           closed_message: string | null
           closes_at: string | null
           created_at: string
@@ -12785,6 +12787,8 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          closed_at?: string | null
+          closed_by?: string | null
           closed_message?: string | null
           closes_at?: string | null
           created_at?: string
@@ -12807,6 +12811,8 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          closed_at?: string | null
+          closed_by?: string | null
           closed_message?: string | null
           closes_at?: string | null
           created_at?: string
