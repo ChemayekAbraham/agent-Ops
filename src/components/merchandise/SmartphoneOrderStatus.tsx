@@ -79,12 +79,15 @@ interface Props {
   itemName?: string;
   /** Panel heading. Defaults to 'Smartphone order status'. */
   title?: string;
+  /** Called when the user chooses to place a new order from inside the status card. */
+  onRequestNewOrder?: () => void;
 }
 
 export default function SmartphoneOrderStatus({
   userId,
   itemName = 'Welile Smartphone',
   title = 'Smartphone order status',
+  onRequestNewOrder,
 }: Props) {
   const queryClient = useQueryClient();
   const [emailingId, setEmailingId] = useState<string | null>(null);
