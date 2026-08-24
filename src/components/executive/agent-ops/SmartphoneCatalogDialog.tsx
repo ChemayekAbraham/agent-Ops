@@ -22,7 +22,7 @@ const db = supabase as any;
 export interface SmartphoneCatalogEntry {
   id: string;
   brand: string;
-  model_name: string;
+  model_name: string | null;
   default_amount: number | null;
   is_active: boolean;
 }
