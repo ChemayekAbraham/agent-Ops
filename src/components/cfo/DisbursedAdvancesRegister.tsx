@@ -42,11 +42,13 @@ import {
   HandCoins,
   FileClock,
   Ban,
+  Undo2,
 } from 'lucide-react';
 import { formatUGX, getRiskLevel } from '@/lib/agentAdvanceCalculations';
 import { differenceInDays, format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CancelAdvanceDialog } from '@/components/cfo/CancelAdvanceDialog';
+import { ReverseAdvanceDialog } from '@/components/cfo/ReverseAdvanceDialog';
 
 type StatusFilter = 'all' | 'active' | 'overdue' | 'completed';
 
@@ -92,6 +94,7 @@ export function DisbursedAdvancesRegister() {
   const [toDate, setToDate] = useState('');
   const [selected, setSelected] = useState<AdvanceRow | null>(null);
   const [cancelAdvance, setCancelAdvance] = useState<AdvanceRow | null>(null);
+  const [reverseAdvance, setReverseAdvance] = useState<AdvanceRow | null>(null);
   const queryClient = useQueryClient();
 
   const { data: advances = [], isLoading } = useQuery({
@@ -100,7 +103,7 @@ export function DisbursedAdvancesRegister() {
       const { data, error } = await supabase
         .from('agent_advances')
         .select(
-          'id, agent_id, principal, outstanding_balance, arrears_balance, access_fee, access_fee_collected, access_fee_status, registration_fee, monthly_rate, cycle_days, daily_installment, status, issued_at, expires_at, issued_by, recovery_source, roi_recovery_percent, profiles:agent_id (full_name, phone)',
+          'id, agent_id, principal, outstanding_balance, arrears_balance, access_fee, access_fee_collected, access_fee_status, registration_fee, monthly_rate, cycle_days, daily_installment, status, issued_at, expires_at, issued_by, recovery_source, roi_recovery_percent, reversed_at, reversal_amount, profiles:agent_id (full_name, phone)',
         )
         .order('issued_at', { ascending: false });
       if (error) throw error;
@@ -272,6 +275,16 @@ export function DisbursedAdvancesRegister() {
                               <Ban className="h-3 w-3" /> Cancel
                             </Button>
                           )}
+                          {!(a as any).reversed_at && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="h-7 text-[11px] gap-1"
+                              onClick={(e) => { e.stopPropagation(); setReverseAdvance(a); }}
+                            >
+                              <Undo2 className="h-3 w-3" /> Reverse
+                            </Button>
+                          )}
                           <Button size="sm" variant="ghost" className="h-7 text-[11px]">View</Button>
                         </div>
                       </TableCell>
@@ -288,6 +301,7 @@ export function DisbursedAdvancesRegister() {
         advance={selected}
         onClose={() => setSelected(null)}
         onCancel={(a) => { setSelected(null); setCancelAdvance(a); }}
+        onReverse={(a) => { setSelected(null); setReverseAdvance(a); }}
       />
 
       <CancelAdvanceDialog
@@ -301,11 +315,23 @@ export function DisbursedAdvancesRegister() {
           queryClient.invalidateQueries({ queryKey: ['cfo-outstanding-advances'] });
         }}
       />
+
+      <ReverseAdvanceDialog
+        advance={reverseAdvance}
+        open={!!reverseAdvance}
+        onOpenChange={(o) => { if (!o) setReverseAdvance(null); }}
+        onSuccess={() => {
+          setReverseAdvance(null);
+          queryClient.invalidateQueries({ queryKey: ['disbursed-advances-register'] });
+          queryClient.invalidateQueries({ queryKey: ['cfo-advances'] });
+          queryClient.invalidateQueries({ queryKey: ['cfo-outstanding-advances'] });
+        }}
+      />
     </Card>
   );
 }
 
-function DisbursementDetailDrawer({ advance, onClose, onCancel }: { advance: AdvanceRow | null; onClose: () => void; onCancel: (a: AdvanceRow) => void }) {
+function DisbursementDetailDrawer({ advance, onClose, onCancel, onReverse }: { advance: AdvanceRow | null; onClose: () => void; onCancel: (a: AdvanceRow) => void; onReverse: (a: AdvanceRow) => void }) {
   const { data: ledger = [], isLoading } = useQuery({
     queryKey: ['advance-ledger', advance?.id],
     enabled: !!advance?.id,
@@ -493,6 +519,15 @@ function DisbursementDetailDrawer({ advance, onClose, onCancel }: { advance: Adv
                 onClick={() => onCancel(advance)}
               >
                 <Ban className="h-4 w-4" /> Cancel this advance
+              </Button>
+            )}
+            {!(advance as any).reversed_at && (
+              <Button
+                variant="destructive"
+                className="w-full gap-1"
+                onClick={() => onReverse(advance)}
+              >
+                <Undo2 className="h-4 w-4" /> Reverse this disbursement
               </Button>
             )}
             <Button variant="outline" className="w-full" onClick={onClose}>Close</Button>
