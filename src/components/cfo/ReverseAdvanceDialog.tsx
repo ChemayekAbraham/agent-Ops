@@ -12,10 +12,8 @@ import {
   AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
 import { Undo2, Loader2 } from 'lucide-react';
 
@@ -27,26 +25,22 @@ interface Props {
 }
 
 /**
- * Reverses a disbursed advance: pulls the money back out of the agent's
- * withdrawable wallet through the CFO Direct Debit channel (the only permitted
- * wallet -> platform debit path) and then marks the advance reversed so all
- * further deductions stop and no debt remains on the agent.
+ * Reverses a disbursed advance. The amount to reverse is derived entirely from
+ * the authoritative approval / disbursement / ledger records for that advance
+ * (Approved, Disbursed, Already recovered) — the CFO never types an amount and
+ * the agent's wallet balance is only used to size what can be pulled back right
+ * now. Recovery goes through CFO Direct Debit (the only permitted wallet ->
+ * platform debit path); the advance then returns to Waiting for Approval.
  */
 export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }: Props) {
-  const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
-  const [noClawback, setNoClawback] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const agentId: string | undefined = advance?.agent_id;
   const agentName = advance?.profiles?.full_name || 'agent';
-  const principal = Number(advance?.principal || 0);
-  const outstanding = Number(advance?.outstanding_balance || 0);
 
-  // Server-side truth: was this advance actually disbursed to the wallet, has a
-  // recovery already been posted, how much is recoverable, and is it still
-  // inside the same-day reversal window.
-  const { data: plan, isLoading: loadingBalance, refetch: refetchPlan } = useQuery({
+  // Server-side truth for this specific advance.
+  const { data: plan, isLoading: loadingPlan, refetch: refetchPlan } = useQuery({
     queryKey: ['advance-reversal-plan', advance?.id],
     enabled: !!advance?.id && open,
     queryFn: async () => {
@@ -58,23 +52,23 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
     },
   });
 
-  const withdrawable = Number(plan?.withdrawable || 0);
-  const wasDisbursed = !!plan?.disbursed;
-  const clawbackPosted = !!plan?.clawback_posted;
-  const recommended = Number(plan?.recommended_clawback || 0);
-  const approvedToday = plan ? !!plan.approved_today : true;
-
   useEffect(() => {
-    if (!open || !plan) return;
-    setAmount(String(Math.max(0, recommended)));
-    setReason('');
-    // No wallet debit is needed when nothing was disbursed, or when the
-    // recovery for this advance is already on record.
-    setNoClawback(!wasDisbursed || clawbackPosted);
-  }, [open, plan, recommended, wasDisbursed, clawbackPosted]);
+    if (open) setReason('');
+  }, [open, advance?.id]);
 
-  const clawback = noClawback ? 0 : Math.max(0, Number(amount || 0));
-  const exceedsBalance = clawback > withdrawable;
+  const approved = Number(plan?.principal ?? advance?.principal ?? 0);
+  const disbursed = Number(plan?.disbursed_amount || 0);
+  const alreadyRecovered = Number(plan?.clawback_posted_amount || 0);
+  const withdrawable = Number(plan?.withdrawable || 0);
+  const approvedToday = plan ? !!plan.approved_today : true;
+  const alreadyReversed = !!plan?.already_reversed;
+
+  // System-calculated: what still has to come back out of the wallet.
+  const amountToReverse = Math.max(0, disbursed - alreadyRecovered);
+  // Wallet balance only limits what is recoverable at this moment.
+  const recoverableNow = Math.max(0, Math.min(amountToReverse, withdrawable));
+  const shortage = Math.max(0, amountToReverse - recoverableNow);
+  const needsDebit = amountToReverse > 0 && recoverableNow > 0;
 
   const handleSubmit = async () => {
     if (!advance) return;
@@ -82,16 +76,12 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
       toast.error('Please enter a reason (min 10 characters).');
       return;
     }
+    if (alreadyReversed) {
+      toast.error('This advance has already been reversed.');
+      return;
+    }
     if (!approvedToday) {
       toast.error('Only advances approved today can be reverted to Waiting for Approval.');
-      return;
-    }
-    if (wasDisbursed && !clawbackPosted && clawback <= 0) {
-      toast.error('This advance reached the wallet — enter the amount to pull back.');
-      return;
-    }
-    if (exceedsBalance) {
-      toast.error(`Agent only has ${formatUGX(withdrawable)} withdrawable. Lower the amount.`);
       return;
     }
 
@@ -99,14 +89,14 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
     try {
       let groupId: string | null = null;
 
-      // Only debit when the money really left treasury AND no recovery has been
-      // posted for this advance yet — this is what stops a second Revert click
-      // from creating a duplicate clawback / ledger entry.
-      if (wasDisbursed && !clawbackPosted && clawback > 0) {
+      // Debit only when money really left treasury and part of it is still
+      // outstanding — this is what stops a second Revert click from creating a
+      // duplicate clawback / ledger entry.
+      if (needsDebit) {
         const { data, error } = await supabase.functions.invoke('cfo-direct-credit', {
           body: {
             target_user_id: agentId,
-            amount: clawback,
+            amount: recoverableNow,
             reason: `Advance reversal — ${reason.trim()}`,
             operation: 'debit' as const,
             wallet_category: 'wallet_transfer',
@@ -127,7 +117,7 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
       const { data: result, error: rpcError } = await supabase.rpc('reverse_agent_advance', {
         p_advance_id: advance.id,
         p_reason: reason.trim(),
-        p_clawback_amount: clawback,
+        p_clawback_amount: recoverableNow,
         p_clawback_group_id: groupId,
       });
       if (rpcError) throw rpcError;
@@ -150,7 +140,6 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
     }
   };
 
-
   return (
     <AlertDialog open={open} onOpenChange={(o) => { if (!submitting) onOpenChange(o); }}>
       <AlertDialogContent className="max-w-lg">
@@ -160,64 +149,82 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
             Reverse advance for {agentName}?
           </AlertDialogTitle>
           <AlertDialogDescription>
-            Pulls the disbursed money back out of the agent&apos;s wallet, stops all deductions and
-            clears the advance. This is an accounting reversal, not a cancellation.
+            The amount is calculated automatically from this advance&apos;s approval, disbursement and
+            recovery records. Deductions stop and the request returns to Waiting for Approval.
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+            <div className="rounded-lg border p-2">
+              <p className="text-[10px] text-muted-foreground">Approved</p>
+              <p className="text-xs font-bold">{loadingPlan ? '…' : formatUGX(approved)}</p>
+            </div>
             <div className="rounded-lg border p-2">
               <p className="text-[10px] text-muted-foreground">Disbursed</p>
-              <p className="text-xs font-bold">{formatUGX(principal)}</p>
+              <p className="text-xs font-bold">{loadingPlan ? '…' : formatUGX(disbursed)}</p>
             </div>
             <div className="rounded-lg border p-2">
-              <p className="text-[10px] text-muted-foreground">Outstanding</p>
-              <p className="text-xs font-bold text-amber-600">{formatUGX(outstanding)}</p>
+              <p className="text-[10px] text-muted-foreground">Already recovered</p>
+              <p className="text-xs font-bold text-emerald-600">
+                {loadingPlan ? '…' : formatUGX(alreadyRecovered)}
+              </p>
             </div>
-            <div className="rounded-lg border p-2">
-              <p className="text-[10px] text-muted-foreground">Wallet available</p>
-              <p className="text-xs font-bold">
-                {loadingBalance ? '…' : formatUGX(withdrawable)}
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-2">
+              <p className="text-[10px] text-muted-foreground">Amount to reverse</p>
+              <p className="text-xs font-bold text-destructive">
+                {loadingPlan ? '…' : formatUGX(amountToReverse)}
               </p>
             </div>
           </div>
 
-          <div>
-            <Label className="text-xs font-semibold">Amount to pull back from wallet</Label>
-            <Input
-              type="number"
-              min={0}
-              value={amount}
-              disabled={noClawback}
-              onChange={(e) => setAmount(e.target.value)}
-              className="mt-1"
-            />
-            {exceedsBalance && !noClawback && (
-              <p className="text-[11px] text-destructive mt-1">
-                Exceeds the agent&apos;s withdrawable balance of {formatUGX(withdrawable)}.
-              </p>
-            )}
-          </div>
+          {!loadingPlan && (
+            <div className="rounded-lg border bg-muted/40 p-3 space-y-1 text-xs">
+              {amountToReverse === 0 ? (
+                <p className="font-semibold">
+                  {disbursed === 0
+                    ? 'This advance was never disbursed — no wallet recovery is required.'
+                    : 'The full disbursed amount has already been recovered — no further wallet recovery is required.'}
+                </p>
+              ) : (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Recoverable from wallet now</span>
+                    <span className="font-semibold">{formatUGX(recoverableNow)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Agent withdrawable balance</span>
+                    <span className="font-semibold">{formatUGX(withdrawable)}</span>
+                  </div>
+                  {shortage > 0 && (
+                    <p className="text-destructive font-medium">
+                      Shortage of {formatUGX(shortage)} — the agent does not hold enough withdrawable
+                      funds. Only {formatUGX(recoverableNow)} is pulled back now; the wallet is never
+                      driven negative.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
-          <label className="flex items-start gap-2 rounded-lg border p-3 cursor-pointer">
-            <Checkbox
-              checked={noClawback}
-              onCheckedChange={(v) => setNoClawback(!!v)}
-              className="mt-0.5"
-            />
-            <span className="text-xs">
-              <span className="font-semibold">Funds already returned</span> — reverse the advance
-              record only, without debiting the wallet.
-            </span>
-          </label>
+          {!loadingPlan && alreadyReversed && (
+            <p className="text-xs font-medium text-destructive">
+              This advance was already reversed — no further action is possible.
+            </p>
+          )}
+          {!loadingPlan && !approvedToday && (
+            <p className="text-xs font-medium text-destructive">
+              Only advances approved today can be reverted to Waiting for Approval.
+            </p>
+          )}
 
           <div>
             <Label className="text-xs font-semibold">Reason (required, min 10 chars)</Label>
             <Textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. Advance disbursed in error on 24 Aug, reversing full principal"
+              placeholder="e.g. Advance disbursed in error today, reversing full principal"
               className="mt-1 min-h-[70px]"
             />
           </div>
@@ -228,7 +235,13 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
           <Button
             variant="destructive"
             onClick={handleSubmit}
-            disabled={submitting || loadingBalance || !approvedToday || reason.trim().length < 10 || (!noClawback && exceedsBalance)}
+            disabled={
+              submitting ||
+              loadingPlan ||
+              alreadyReversed ||
+              !approvedToday ||
+              reason.trim().length < 10
+            }
           >
             {submitting ? (<><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Reversing…</>) : 'Reverse advance'}
           </Button>
@@ -237,3 +250,4 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
     </AlertDialog>
   );
 }
+
