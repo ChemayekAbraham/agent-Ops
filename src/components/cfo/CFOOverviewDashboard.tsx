@@ -17,7 +17,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { KPIBreakdownSheet } from '@/components/cfo/KPIBreakdownSheet';
 import { CashSourcesSheet } from '@/components/cfo/CashSourcesSheet';
-import { ROIPayableForecast } from '@/components/cfo/ROIPayableForecast';
+
 import { CFOActionsLog } from '@/components/cfo/CFOActionsLog';
 import { AgentAdvancesStatsCard } from '@/components/cfo/AgentAdvancesStatsCard';
 
@@ -194,178 +194,170 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         </div>
       </div>
 
-      {/* Two-column shell: main financial surface on the left, ROI forecast feed on the right */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 items-start">
-        {/* Left column: all financial cards and tracking surfaces */}
-        <div className="space-y-5">
-          {/* ══════════════ THREE HEADLINE CARDS ══════════════ */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <HeroCard
-              icon={<PiggyBank className="h-5 w-5 text-emerald-600" />}
-              iconBg="bg-emerald-50 dark:bg-emerald-950/40"
-              title="Money We Have"
-              value={fmt(totalCash)}
-              valueColor="text-emerald-600"
-              items={[
-                { dot: 'bg-emerald-500', label: 'Platform / Treasury Balance', value: fmt(platformCash?.a1 ?? 0) },
-                { dot: 'bg-emerald-500', label: 'Cash in Transit (A5)', value: fmt(platformCash?.a5 ?? 0) },
-              ]}
-              footer="Total available across all accounts"
-              footerTone="bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400"
-              onClick={() => setActiveBreakdown('cash')}
-            />
-            <HeroCard
-              icon={<Package className="h-5 w-5 text-orange-600" />}
-              iconBg="bg-orange-50 dark:bg-orange-950/40"
-              title="Money We Owe"
-              value={fmt(walletTotal)}
-              valueColor="text-orange-600"
-              items={[
-                { dot: 'bg-orange-500', label: 'Withdrawable User Wallets', value: fmt(walletTotal) },
-                { dot: 'bg-orange-500', label: 'All Recorded Liabilities', value: fmt(totalLiabilities) },
-              ]}
-              footer="Commitments not yet paid out"
-              footerTone="bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400"
-              onClick={() => setActiveBreakdown('wallets')}
-            />
-            <HeroCard
-              icon={<BarChart3 className="h-5 w-5 text-blue-600" />}
-              iconBg="bg-blue-50 dark:bg-blue-950/40"
-              title="Money We Can Use"
-              value={fmt(moneyWeCanUse)}
-              valueColor={moneyWeCanUse >= 0 ? 'text-blue-600' : 'text-destructive'}
-              items={[
-                { dot: 'bg-blue-500', label: 'Available for Operations', value: fmt(moneyWeCanUse) },
-              ]}
-              footer="After obligations and restrictions"
-              footerTone="bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400"
-              onClick={() => setActiveBreakdown('earnings')}
-            />
-          </div>
+      {/* Main financial surface */}
+      <div className="space-y-5">
+        {/* ══════════════ THREE HEADLINE CARDS ══════════════ */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <HeroCard
+            icon={<PiggyBank className="h-5 w-5 text-emerald-600" />}
+            iconBg="bg-emerald-50 dark:bg-emerald-950/40"
+            title="Money We Have"
+            value={fmt(totalCash)}
+            valueColor="text-emerald-600"
+            items={[
+              { dot: 'bg-emerald-500', label: 'Platform / Treasury Balance', value: fmt(platformCash?.a1 ?? 0) },
+              { dot: 'bg-emerald-500', label: 'Cash in Transit (A5)', value: fmt(platformCash?.a5 ?? 0) },
+            ]}
+            footer="Total available across all accounts"
+            footerTone="bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400"
+            onClick={() => setActiveBreakdown('cash')}
+          />
+          <HeroCard
+            icon={<Package className="h-5 w-5 text-orange-600" />}
+            iconBg="bg-orange-50 dark:bg-orange-950/40"
+            title="Money We Owe"
+            value={fmt(walletTotal)}
+            valueColor="text-orange-600"
+            items={[
+              { dot: 'bg-orange-500', label: 'Withdrawable User Wallets', value: fmt(walletTotal) },
+              { dot: 'bg-orange-500', label: 'All Recorded Liabilities', value: fmt(totalLiabilities) },
+            ]}
+            footer="Commitments not yet paid out"
+            footerTone="bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400"
+            onClick={() => setActiveBreakdown('wallets')}
+          />
+          <HeroCard
+            icon={<BarChart3 className="h-5 w-5 text-blue-600" />}
+            iconBg="bg-blue-50 dark:bg-blue-950/40"
+            title="Money We Can Use"
+            value={fmt(moneyWeCanUse)}
+            valueColor={moneyWeCanUse >= 0 ? 'text-blue-600' : 'text-destructive'}
+            items={[
+              { dot: 'bg-blue-500', label: 'Available for Operations', value: fmt(moneyWeCanUse) },
+            ]}
+            footer="After obligations and restrictions"
+            footerTone="bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400"
+            onClick={() => setActiveBreakdown('earnings')}
+          />
+        </div>
 
-          {/* ══════════════ WHERE THE MONEY SITS ══════════════ */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <HeroCard
-              icon={<Vault className="h-5 w-5 text-indigo-600" />}
-              iconBg="bg-indigo-50 dark:bg-indigo-950/40"
-              title="Money in Treasury / Platform"
-              value={fmt(treasuryPosition?.value ?? 0)}
-              valueColor="text-indigo-600"
-              items={[
-                { dot: 'bg-indigo-500', label: 'Cash held outside the bank', value: fmt(treasuryPosition?.value ?? 0) },
-                { dot: 'bg-indigo-500', label: 'Ledger entries', value: String(treasuryPosition?.count ?? 0) },
-              ]}
-              footer="Position view — part of Money We Have, not added to it"
-              footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic"
-            />
-            <HeroCard
-              icon={<Landmark className="h-5 w-5 text-sky-600" />}
-              iconBg="bg-sky-50 dark:bg-sky-950/40"
-              title="Money in Bank"
-              value={fmt(bankPosition?.value ?? 0)}
-              valueColor="text-sky-600"
-              items={[
-                { dot: 'bg-sky-500', label: 'Net banked cash', value: fmt(bankPosition?.value ?? 0) },
-                { dot: 'bg-sky-500', label: 'Ledger entries', value: String(bankPosition?.count ?? 0) },
-              ]}
-              footer="Position view — part of Money We Have, not added to it"
-              footerTone="bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic"
-            />
-          </div>
+        {/* ══════════════ WHERE THE MONEY SITS ══════════════ */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <HeroCard
+            icon={<Vault className="h-5 w-5 text-indigo-600" />}
+            iconBg="bg-indigo-50 dark:bg-indigo-950/40"
+            title="Money in Treasury / Platform"
+            value={fmt(treasuryPosition?.value ?? 0)}
+            valueColor="text-indigo-600"
+            items={[
+              { dot: 'bg-indigo-500', label: 'Cash held outside the bank', value: fmt(treasuryPosition?.value ?? 0) },
+              { dot: 'bg-indigo-500', label: 'Ledger entries', value: String(treasuryPosition?.count ?? 0) },
+            ]}
+            footer="Position view — part of Money We Have, not added to it"
+            footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic"
+          />
+          <HeroCard
+            icon={<Landmark className="h-5 w-5 text-sky-600" />}
+            iconBg="bg-sky-50 dark:bg-sky-950/40"
+            title="Money in Bank"
+            value={fmt(bankPosition?.value ?? 0)}
+            valueColor="text-sky-600"
+            items={[
+              { dot: 'bg-sky-500', label: 'Net banked cash', value: fmt(bankPosition?.value ?? 0) },
+              { dot: 'bg-sky-500', label: 'Ledger entries', value: String(bankPosition?.count ?? 0) },
+            ]}
+            footer="Position view — part of Money We Have, not added to it"
+            footerTone="bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic"
+          />
+        </div>
 
-          {/* ══════════════ COMPACT FINANCIAL SUMMARY ══════════════ */}
-          <div className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-sm">
-            <h2 className="text-sm font-semibold tracking-tight mb-4">Financial Summary</h2>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <SummaryItem icon={<Wallet className="h-3.5 w-3.5" />} label="Cash Balance" value={fmt(totalCash)} caption="Bank + in transit" />
-              <SummaryItem icon={<ArrowUpRight className="h-3.5 w-3.5" />} label="Daily Burn" value={fmt(dailyBurn)} caption="30-day average" valueColor="text-destructive" />
-              <SummaryItem icon={<LineChartIcon className="h-3.5 w-3.5" />} label="Revenue" value={fmt(revenueTotal)} caption="Life to date" valueColor="text-emerald-600" />
-              <SummaryItem icon={<Package className="h-3.5 w-3.5" />} label="Total Expenses" value={fmt(expenseTotal)} caption="Life to date" valueColor="text-orange-600" />
-              <SummaryItem icon={<Scale className="h-3.5 w-3.5" />} label="Net Working Capital" value={fmt(netWorkingCapital)} caption="Cash + receivables − debt" valueColor={netWorkingCapital >= 0 ? undefined : 'text-destructive'} />
-              <SummaryItem icon={<PiggyBank className="h-3.5 w-3.5" />} label="Net Result" value={fmt(netProfit)} caption="Revenue − expenses" valueColor={netProfit >= 0 ? 'text-emerald-600' : 'text-destructive'} />
-              <SummaryItem icon={<BarChart3 className="h-3.5 w-3.5" />} label="Net Margin" value={`${netMargin.toFixed(1)}%`} caption="Net ÷ revenue" valueColor={netMargin >= 0 ? undefined : 'text-destructive'} />
-              <SummaryItem icon={<Landmark className="h-3.5 w-3.5" />} label="Receivables" value={fmt(totalReceivables)} caption="Tenant + advances" valueColor="text-amber-600" />
+        {/* ══════════════ COMPACT FINANCIAL SUMMARY ══════════════ */}
+        <div className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-sm">
+          <h2 className="text-sm font-semibold tracking-tight mb-4">Financial Summary</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <SummaryItem icon={<Wallet className="h-3.5 w-3.5" />} label="Cash Balance" value={fmt(totalCash)} caption="Bank + in transit" />
+            <SummaryItem icon={<ArrowUpRight className="h-3.5 w-3.5" />} label="Daily Burn" value={fmt(dailyBurn)} caption="30-day average" valueColor="text-destructive" />
+            <SummaryItem icon={<LineChartIcon className="h-3.5 w-3.5" />} label="Revenue" value={fmt(revenueTotal)} caption="Life to date" valueColor="text-emerald-600" />
+            <SummaryItem icon={<Package className="h-3.5 w-3.5" />} label="Total Expenses" value={fmt(expenseTotal)} caption="Life to date" valueColor="text-orange-600" />
+            <SummaryItem icon={<Scale className="h-3.5 w-3.5" />} label="Net Working Capital" value={fmt(netWorkingCapital)} caption="Cash + receivables − debt" valueColor={netWorkingCapital >= 0 ? undefined : 'text-destructive'} />
+            <SummaryItem icon={<PiggyBank className="h-3.5 w-3.5" />} label="Net Result" value={fmt(netProfit)} caption="Revenue − expenses" valueColor={netProfit >= 0 ? 'text-emerald-600' : 'text-destructive'} />
+            <SummaryItem icon={<BarChart3 className="h-3.5 w-3.5" />} label="Net Margin" value={`${netMargin.toFixed(1)}%`} caption="Net ÷ revenue" valueColor={netMargin >= 0 ? undefined : 'text-destructive'} />
+            <SummaryItem icon={<Landmark className="h-3.5 w-3.5" />} label="Receivables" value={fmt(totalReceivables)} caption="Tenant + advances" valueColor="text-amber-600" />
+          </div>
+        </div>
+
+        {/* ══════════════ REVENUE CHART ══════════════ */}
+        <Card className="rounded-2xl shadow-sm h-full flex flex-col">
+          <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
+            <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
+              <p className="text-sm font-semibold tracking-tight">Revenue — Last 7 Days</p>
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                <LineChartIcon className="h-3.5 w-3.5" /> UGX
+              </span>
             </div>
-          </div>
-
-          {/* ══════════════ REVENUE CHART ══════════════ */}
-          <Card className="rounded-2xl shadow-sm h-full flex flex-col">
-            <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
-              <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
-                <p className="text-sm font-semibold tracking-tight">Revenue — Last 7 Days</p>
-                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <LineChartIcon className="h-3.5 w-3.5" /> UGX
-                </span>
+            {trendChartData.length > 0 ? (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={trendChartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                    <YAxis tickFormatter={(v: number) => fmtShort(v)} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={52} />
+                    <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Bar name="Revenue (UGX)" dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={22} />
+                    <Line name="Trend" type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
+                  </ComposedChart>
+                </ResponsiveContainer>
               </div>
-              {trendChartData.length > 0 ? (
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={trendChartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                      <YAxis tickFormatter={(v: number) => fmtShort(v)} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={52} />
-                      <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Bar name="Revenue (UGX)" dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={22} />
-                      <Line name="Trend" type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <p className="text-xs text-muted-foreground flex-1 flex items-center justify-center min-h-[16rem]">No revenue recorded in the last 7 days.</p>
-              )}
-            </CardContent>
-          </Card>
+            ) : (
+              <p className="text-xs text-muted-foreground flex-1 flex items-center justify-center min-h-[16rem]">No revenue recorded in the last 7 days.</p>
+            )}
+          </CardContent>
+        </Card>
 
-          {/* Agent Advances — Full Portfolio */}
-          <AgentAdvancesStatsCard />
+        {/* Agent Advances — Full Portfolio */}
+        <AgentAdvancesStatsCard />
 
-          {/* ══════════════ CFO ACTIONS LOG ══════════════ */}
-          <CFOActionsLog />
+        {/* ══════════════ CFO ACTIONS LOG ══════════════ */}
+        <CFOActionsLog />
 
-          {/* Today's Money Flow */}
-          <Card className="rounded-2xl shadow-sm overflow-hidden">
-            <CardContent className="p-4 sm:p-5">
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <p className="text-sm font-bold tracking-tight">Today's Money Flow</p>
-                <SectionToggle open={isOpen('todayFlow')} onToggle={() => toggleSection('todayFlow')} label="Today's Money Flow" />
+        {/* Today's Money Flow */}
+        <Card className="rounded-2xl shadow-sm overflow-hidden">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <p className="text-sm font-bold tracking-tight">Today's Money Flow</p>
+              <SectionToggle open={isOpen('todayFlow')} onToggle={() => toggleSection('todayFlow')} label="Today's Money Flow" />
+            </div>
+            {isOpen('todayFlow') && (
+              <div className="rounded-lg border border-border overflow-hidden grid grid-cols-3 divide-x divide-border">
+                <FlowCell
+                  label="Came In"
+                  value={fmtShort(todayCashFlow?.cashInToday ?? 0)}
+                  color="text-emerald-600"
+                  iconBg="bg-emerald-50 dark:bg-emerald-950/40"
+                  icon={<ArrowDownRight className="h-5 w-5" />}
+                  onClick={() => setActiveBreakdown('cashIn')}
+                />
+                <FlowCell
+                  label="Went Out"
+                  value={fmtShort(todayCashFlow?.cashOutToday ?? 0)}
+                  color="text-destructive"
+                  iconBg="bg-destructive/10"
+                  icon={<ArrowUpRight className="h-5 w-5" />}
+                  onClick={() => setActiveBreakdown('cashOut')}
+                />
+                <FlowCell
+                  label="Net Change"
+                  value={`${netToday >= 0 ? '+' : ''}${fmtShort(netToday)}`}
+                  color={netToday >= 0 ? 'text-primary' : 'text-destructive'}
+                  iconBg="bg-primary/10"
+                  icon={<Scale className="h-5 w-5" />}
+                  onClick={() => setActiveBreakdown('netCash')}
+                />
               </div>
-              {isOpen('todayFlow') && (
-                <div className="rounded-lg border border-border overflow-hidden grid grid-cols-3 divide-x divide-border">
-                  <FlowCell
-                    label="Came In"
-                    value={fmtShort(todayCashFlow?.cashInToday ?? 0)}
-                    color="text-emerald-600"
-                    iconBg="bg-emerald-50 dark:bg-emerald-950/40"
-                    icon={<ArrowDownRight className="h-5 w-5" />}
-                    onClick={() => setActiveBreakdown('cashIn')}
-                  />
-                  <FlowCell
-                    label="Went Out"
-                    value={fmtShort(todayCashFlow?.cashOutToday ?? 0)}
-                    color="text-destructive"
-                    iconBg="bg-destructive/10"
-                    icon={<ArrowUpRight className="h-5 w-5" />}
-                    onClick={() => setActiveBreakdown('cashOut')}
-                  />
-                  <FlowCell
-                    label="Net Change"
-                    value={`${netToday >= 0 ? '+' : ''}${fmtShort(netToday)}`}
-                    color={netToday >= 0 ? 'text-primary' : 'text-destructive'}
-                    iconBg="bg-primary/10"
-                    icon={<Scale className="h-5 w-5" />}
-                    onClick={() => setActiveBreakdown('netCash')}
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right column: ROI forecast feed */}
-        <div className="lg:sticky lg:top-4">
-          <ROIPayableForecast />
-        </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* ── BREAKDOWNS ── */}
