@@ -39857,6 +39857,10 @@ export type Database = {
           status: string
         }[]
       }
+      get_advance_locked_withdrawable: {
+        Args: { p_user_id: string }
+        Returns: number
+      }
       get_agent_advance_activity_correlation: {
         Args: { p_days?: number }
         Returns: {
