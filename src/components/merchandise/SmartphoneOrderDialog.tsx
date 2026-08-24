@@ -53,11 +53,11 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const { data: catalog = [], isLoading: catalogLoading } = useSmartphoneCatalog();
   const activeCatalog = catalog.filter((c) => c.is_active);
   const brands = Array.from(new Set(activeCatalog.map((c) => c.brand)));
-  const models = activeCatalog.filter((c) => c.brand === brand);
+  const models = activeCatalog.filter((c) => c.brand === brand && !!c.model_name);
 
   const totalAmount = Math.max(0, parseInt(amount || '0', 10) || 0);
-  
-  const canSubmit = !!brand && modelType.trim().length > 1 && totalAmount >= 1000;
+
+  const canSubmit = !!brand && totalAmount >= 1000;
 
   const onBrandChange = (value: string) => {
     setBrand(value);
@@ -81,10 +81,6 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const submit = async () => {
     if (!brand) {
       toast.error('Select a product brand');
-      return;
-    }
-    if (modelType.trim().length < 2) {
-      toast.error('Enter the type of phone');
       return;
     }
     if (totalAmount < 1000) {
@@ -142,17 +138,27 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
           </div>
 
           <div className="space-y-1">
-            <Label className="text-xs">Phone Model</Label>
-            <Select value={modelType} onValueChange={onModelChange} disabled={!brand || models.length === 0}>
-              <SelectTrigger>
-                <SelectValue placeholder={!brand ? 'Select a brand first' : models.length ? 'Select model' : 'No models for this brand'} />
-              </SelectTrigger>
-              <SelectContent>
-                {models.map((m) => (
-                  <SelectItem key={m.id} value={m.model_name}>{m.model_name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label className="text-xs">
+              Phone Model <span className="text-muted-foreground font-normal">— optional</span>
+            </Label>
+            {models.length > 0 && (
+              <Select value={models.some((m) => m.model_name === modelType) ? modelType : ''} onValueChange={onModelChange} disabled={!brand}>
+                <SelectTrigger>
+                  <SelectValue placeholder={!brand ? 'Select a brand first' : 'Select a listed model'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {models.map((m) => (
+                    <SelectItem key={m.id} value={m.model_name as string}>{m.model_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Input
+              value={modelType}
+              onChange={(e) => setModelType(e.target.value)}
+              disabled={!brand}
+              placeholder={!brand ? 'Select a brand first' : 'Or type your own model name'}
+            />
           </div>
 
           <div className="space-y-1">

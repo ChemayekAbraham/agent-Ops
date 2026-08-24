@@ -22,7 +22,7 @@ const db = supabase as any;
 export interface SmartphoneCatalogEntry {
   id: string;
   brand: string;
-  model_name: string;
+  model_name: string | null;
   default_amount: number | null;
   is_active: boolean;
 }
@@ -61,11 +61,11 @@ export function SmartphoneCatalogDialog() {
       const raw = amount.trim();
       const total = raw ? Math.max(0, parseInt(raw, 10) || 0) : null;
       if (brand.trim().length < 2) throw new Error('Enter a brand');
-      if (modelName.trim().length < 2) throw new Error('Enter a model name');
+      if (modelName.trim().length > 0 && modelName.trim().length < 2) throw new Error('Model name is too short');
       if (total !== null && total < 1000) throw new Error('Enter a default amount of at least UGX 1,000');
       const { error } = await db.from('smartphone_catalog').insert({
         brand: brand.trim(),
-        model_name: modelName.trim(),
+        model_name: modelName.trim() || null,
         default_amount: total,
       });
       if (error) throw error;
@@ -113,8 +113,8 @@ export function SmartphoneCatalogDialog() {
               <Input value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="e.g. Samsung" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Model name</Label>
-              <Input value={modelName} onChange={(e) => setModelName(e.target.value)} placeholder="e.g. Galaxy A14" />
+              <Label className="text-xs">Model name <span className="text-muted-foreground font-normal">— optional</span></Label>
+              <Input value={modelName} onChange={(e) => setModelName(e.target.value)} placeholder="e.g. Galaxy A14 (optional)" />
             </div>
           </div>
           <div className="space-y-1">
@@ -147,7 +147,9 @@ export function SmartphoneCatalogDialog() {
             entries.map((e) => (
               <div key={e.id} className="flex items-center justify-between gap-2 rounded-lg border p-2">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{e.brand} · {e.model_name}</p>
+                  <p className="truncate text-sm font-semibold">
+                    {e.model_name ? `${e.brand} · ${e.model_name}` : `${e.brand} · any model`}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {e.default_amount != null ? formatUGX(Number(e.default_amount)) : 'No default amount'}
                   </p>
@@ -159,7 +161,7 @@ export function SmartphoneCatalogDialog() {
                     variant="ghost"
                     onClick={() => removeEntry.mutate(e.id)}
                     disabled={removeEntry.isPending}
-                    aria-label={`Remove ${e.brand} ${e.model_name}`}
+                    aria-label={`Remove ${e.brand} ${e.model_name ?? ''}`.trim()}
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
