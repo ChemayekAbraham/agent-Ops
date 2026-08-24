@@ -40,6 +40,10 @@ const STATUS_META: Record<OrderStatus, { label: string; icon: typeof Clock; clas
 
 const KNOWN_STATUSES: OrderStatus[] = ['submitted', 'pending_approval', 'approved', 'rejected', 'processing', 'completed', 'failed'];
 
+/** Payment projection is only revealed once an executive approves the order. */
+const APPROVED_STATUSES: OrderStatus[] = ['approved', 'processing', 'completed'];
+
+
 function normalizeStatus(value: unknown): OrderStatus {
   return KNOWN_STATUSES.includes(value as OrderStatus) ? (value as OrderStatus) : 'submitted';
 }
