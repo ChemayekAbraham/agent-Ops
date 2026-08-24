@@ -23,8 +23,7 @@ import {
   Building2,
   Smartphone,
   X,
-  ChevronDown,
-  ChevronUp,
+  ChevronRight,
 } from 'lucide-react';
 import DepositFlow from '@/components/payments/DepositFlow';
 import WithdrawFlow from '@/components/payments/WithdrawFlow';
