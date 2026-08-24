@@ -36,16 +36,16 @@ import {
   type TxServiceFilter,
 } from "@/lib/transactionsFeed";
 
-function FilterPill<T extends string>({
+function FilterPill({
   label,
   value,
   options,
   onChange,
 }: {
   label: string;
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (v: T) => void;
+  value: string;
+  options: readonly { value: string; label: string }[];
+  onChange: (v: string) => void;
 }) {
   const active = value !== "all";
   const current = options.find((o) => o.value === value);
