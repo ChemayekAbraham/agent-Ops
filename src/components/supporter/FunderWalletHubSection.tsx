@@ -12,17 +12,16 @@ import { cn } from '@/lib/utils';
 import {
   ArrowDownLeft,
   ArrowUpRight,
-  Wallet,
   PiggyBank,
   TrendingUp,
   Banknote,
   ArrowRightLeft,
   Receipt,
   HandCoins,
-  Building2,
   X,
   ChevronRight,
 } from 'lucide-react';
+import { UnifiedWalletHeroCard } from '@/components/wallet/UnifiedWalletHeroCard';
 import DepositFlow from '@/components/payments/DepositFlow';
 import WithdrawFlow from '@/components/payments/WithdrawFlow';
 import { SendMoneyDialog } from '@/components/wallet/SendMoneyDialog';
@@ -82,41 +81,6 @@ function transactionIcon(category: string | null, direction: string | null) {
   return isCashIn ? ArrowDownLeft : ArrowUpRight;
 }
 
-function BalanceCard({
-  label,
-  amount,
-  icon: Icon,
-  variant,
-  subtext,
-}: {
-  label: string;
-  amount: number;
-  icon: React.ElementType;
-  variant: 'primary' | 'success' | 'warning' | 'muted';
-  subtext?: string;
-}) {
-  const variants = {
-    primary: 'bg-primary/10 text-primary',
-    success: 'bg-emerald-500/10 text-emerald-600',
-    warning: 'bg-amber-500/10 text-amber-600',
-    muted: 'bg-muted text-muted-foreground',
-  };
-  return (
-    <div className="rounded-2xl p-3 sm:p-4 bg-card shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
-          <p className="text-base sm:text-xl font-bold text-foreground mt-1 truncate">{formatUGX(amount)}</p>
-          {subtext && <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-1 leading-snug">{subtext}</p>}
-        </div>
-        <div className={cn('h-8 w-8 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shrink-0', variants[variant])}>
-          <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function FunderWalletHubSection({ open, onOpenChange }: FunderWalletHubSectionProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -166,31 +130,25 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
               </div>
             ) : (
               <>
-                {/* Balance hero — spacious, non-colliding */}
-                <div className="rounded-3xl bg-gradient-to-br from-primary/15 to-primary/5 p-5 sm:p-6 shadow-sm">
-                  <p className="text-[11px] font-semibold text-primary/80 uppercase tracking-wider">Total Position</p>
-                  <p className="mt-2 text-3xl sm:text-4xl font-bold tracking-tight text-foreground tabular-nums">
-                    {formatUGX(data?.totalAvailable ?? 0)}
-                  </p>
-                  <div className="mt-5 grid grid-cols-2 gap-3">
-                    {[
-                      { label: 'Withdrawable', value: data?.withdrawableAmount ?? 0, icon: Wallet },
-                      { label: 'Deposits (Float)', value: data?.floatAmount ?? 0, icon: PiggyBank },
-                      { label: 'ROI Earned', value: data?.roiAmount ?? 0, icon: TrendingUp },
-                      { label: 'Principal Deployed', value: data?.depositsAmount ?? 0, icon: Building2 },
-                    ].map((row) => (
-                      <div key={row.label} className="rounded-2xl bg-background/70 px-3 py-2.5">
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <row.icon className="h-3.5 w-3.5 shrink-0" />
-                          <span className="text-[10px] font-semibold uppercase tracking-wide truncate">{row.label}</span>
-                        </div>
-                        <p className="mt-1 text-sm sm:text-base font-bold text-foreground tabular-nums truncate">
-                          {formatUGX(row.value)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                {/* Balance hero — unified wallet hero card (same card as the dashboard) */}
+                <UnifiedWalletHeroCard
+                  balance={data?.totalAvailable ?? 0}
+                  role="supporter"
+                  secondaryLabel="Deposits (Float)"
+                  secondaryValue={formatUGX(data?.floatAmount ?? 0)}
+                  withdrawableBalance={data?.withdrawableAmount ?? 0}
+                  returnPerMonth={formatUGX(data?.roiAmount ?? 0)}
+                  deployed={formatUGX(data?.depositsAmount ?? 0)}
+                  defaultCollapsed={false}
+                  onOpenWallet={() => {
+                    onOpenChange(false);
+                    navigate('/transactions');
+                  }}
+                  onViewStatement={() => {
+                    onOpenChange(false);
+                    navigate('/transactions');
+                  }}
+                />
 
                 {/* Action buttons */}
                 <div className="grid grid-cols-3 gap-3">
