@@ -299,7 +299,23 @@ export function CFOServiceCentreSpendApproval() {
               {payeeFor(s).name || 'Nobody selected'}
               {payeeFor(s).phone ? ` · ${payeeFor(s).phone}` : ''}
             </p>
+            <p className="text-[10px] text-muted-foreground">
+              Defaults to the manager account. Change it to the centre agent or anyone else — the
+              recipient gets an SMS as soon as the spend is approved.
+            </p>
             <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1 text-[11px]"
+                onClick={() =>
+                  setPayees((p) => ({ ...p, [s.id]: defaultPayee ?? DEFAULT_PAYEE_FALLBACK }))
+                }
+              >
+                <User className="h-3 w-3" />
+                Pay the manager
+              </Button>
               <Button
                 type="button"
                 size="sm"
@@ -315,6 +331,7 @@ export function CFOServiceCentreSpendApproval() {
                 <User className="h-3 w-3" />
                 Pay the centre agent
               </Button>
+
               <Button
                 type="button"
                 size="sm"
