@@ -57,6 +57,9 @@ const KNOWN_STATUSES: OrderStatus[] = ['submitted', 'pending_approval', 'approve
 /** Payment projection is only revealed once an executive approves the order. */
 const APPROVED_STATUSES: OrderStatus[] = ['approved', 'processing', 'completed'];
 
+/** Agents may withdraw their own application while it is still waiting for approval. */
+const CANCELLABLE_STATUSES: OrderStatus[] = ['submitted', 'pending_approval'];
+
 
 function normalizeStatus(value: unknown): OrderStatus {
   return KNOWN_STATUSES.includes(value as OrderStatus) ? (value as OrderStatus) : 'submitted';
