@@ -39,6 +39,7 @@ export type PartnerOpsViewKey =
   | 'nearing.overview'
   | 'nearing.followup'
   | 'proxy.overview'
+  | 'proxy.directory'
   | 'proxy.vetting'
   | 'proxy.promissory'
   | 'proxy.followup'
