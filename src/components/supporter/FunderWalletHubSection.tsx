@@ -326,31 +326,6 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
                 </div>
 
 
-                {/* Providers */}
-                <div className="space-y-3" data-testid="provider-logos">
-                  <h3 className="text-sm font-semibold text-foreground">Move money with</h3>
-                  <div className="grid grid-cols-3 gap-3">
-                    {PROVIDERS.map((provider) => (
-                      <div
-                        key={provider.id}
-                        className="rounded-2xl p-3 bg-card flex flex-col items-center gap-2 shadow-sm hover:shadow-md transition-shadow"
-                      >
-                        <div className="h-10 w-10 rounded-xl overflow-hidden bg-white flex items-center justify-center">
-                          <img
-                            src={provider.logo}
-                            alt={provider.name}
-                            className="h-full w-full object-contain"
-                            loading="lazy"
-                          />
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xs font-semibold text-foreground leading-tight">{provider.name}</p>
-                          <p className="text-[10px] text-muted-foreground leading-tight">{provider.label}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
 
                 {/* Trust / security note */}
                 <div className="rounded-2xl p-4 bg-muted/50 text-center">
