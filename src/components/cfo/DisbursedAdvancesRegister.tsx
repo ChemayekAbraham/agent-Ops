@@ -103,7 +103,7 @@ export function DisbursedAdvancesRegister() {
       const { data, error } = await supabase
         .from('agent_advances')
         .select(
-          'id, agent_id, principal, outstanding_balance, arrears_balance, access_fee, access_fee_collected, access_fee_status, registration_fee, monthly_rate, cycle_days, daily_installment, status, issued_at, expires_at, issued_by, recovery_source, roi_recovery_percent, profiles:agent_id (full_name, phone)',
+          'id, agent_id, principal, outstanding_balance, arrears_balance, access_fee, access_fee_collected, access_fee_status, registration_fee, monthly_rate, cycle_days, daily_installment, status, issued_at, expires_at, issued_by, recovery_source, roi_recovery_percent, reversed_at, reversal_amount, profiles:agent_id (full_name, phone)',
         )
         .order('issued_at', { ascending: false });
       if (error) throw error;
