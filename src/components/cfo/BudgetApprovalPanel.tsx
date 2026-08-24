@@ -79,15 +79,15 @@ export default function BudgetApprovalPanel() {
         </div>
       )}
 
-      {view === 'queue' && <BudgetReviewQueue cycleId={cycleId || null} stage="cfo" />}
+      {view === 'queue' && <BudgetReviewQueue cycleId={selectedCycleId} stage="cfo" />}
 
       {view === 'consolidation' && (
         <div className="space-y-3">
-          {!cycleId && (
+          {!selectedCycleId && (
             <p className="text-xs text-muted-foreground">Select a specific budget cycle above to build a consolidated view.</p>
           )}
-          {cycleId && !consolidation && <p className="text-xs text-muted-foreground">Building consolidation…</p>}
-          {cycleId && consolidation && (
+          {selectedCycleId && !consolidation && <p className="text-xs text-muted-foreground">Building consolidation…</p>}
+          {selectedCycleId && consolidation && (
             <>
               <div className="grid grid-cols-2 gap-2">
                 <Kpi label="Requested company-wide" value={formatUGX(consolidation.totals.requested)} />
