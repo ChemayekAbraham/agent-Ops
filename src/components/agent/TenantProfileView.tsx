@@ -14,7 +14,7 @@ import {
   Loader2, ArrowLeft, Phone, Mail, MapPin, Home, User, Shield, Calendar,
   CreditCard, TrendingUp, Copy, CheckCircle2, Wallet, Banknote, History,
   UserCheck, Star, AlertTriangle, ChevronDown, ChevronUp, Navigation, Share2, Smartphone,
-  MessageCircle, Pencil, UsersRound, Zap, Bot, RefreshCw, FileText, ExternalLink,
+  MessageCircle, Pencil, Zap, Bot, RefreshCw, FileText, ExternalLink,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { toast as sonnerToast } from 'sonner';
