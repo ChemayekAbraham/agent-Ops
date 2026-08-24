@@ -12,6 +12,7 @@ import { AdvanceRequestsQueue } from '@/components/ops/AdvanceRequestsQueue';
 import { AdvanceRequestsReviewed } from '@/components/ops/AdvanceRequestsReviewed';
 import { BusinessAdvanceQueue } from '@/components/ops/BusinessAdvanceQueue';
 
+import { SmartphoneCatalogDialog } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
 import { SmartphoneOrderApprovalQueue } from '@/components/executive/agent-ops/SmartphoneOrderApprovalQueue';
 
 

@@ -22,13 +22,14 @@ import {
 import { Smartphone } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import smartphonePromoAsset from '@/assets/smartphone-promo.jpg.asset.json';
+import { useSmartphoneCatalog } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
 
 const db = supabase as any;
 
 /** Wallet recovery rate applied to every approved smartphone order. */
 export const SMARTPHONE_RECOVERY_RATE = 0.33;
 
-const BRANDS = ['iPhone', 'Samsung'] as const;
+
 
 interface Props {
   open: boolean;
@@ -49,9 +50,25 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const [amount, setAmount] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const { data: catalog = [], isLoading: catalogLoading } = useSmartphoneCatalog();
+  const activeCatalog = catalog.filter((c) => c.is_active);
+  const brands = Array.from(new Set(activeCatalog.map((c) => c.brand)));
+  const models = activeCatalog.filter((c) => c.brand === brand);
+
   const totalAmount = Math.max(0, parseInt(amount || '0', 10) || 0);
   
   const canSubmit = !!brand && modelType.trim().length > 1 && totalAmount >= 1000;
+
+  const onBrandChange = (value: string) => {
+    setBrand(value);
+    setModelType('');
+  };
+
+  const onModelChange = (value: string) => {
+    setModelType(value);
+    const match = activeCatalog.find((c) => c.brand === brand && c.model_name === value);
+    if (match && Number(match.default_amount) > 0) setAmount(String(Math.round(Number(match.default_amount))));
+  };
 
   const reset = () => {
     setBrand('');
@@ -110,12 +127,12 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
           <div className="space-y-1">
             <Label className="text-xs">Product Brand</Label>
-            <Select value={brand} onValueChange={setBrand}>
+            <Select value={brand} onValueChange={onBrandChange} disabled={catalogLoading || brands.length === 0}>
               <SelectTrigger>
-                <SelectValue placeholder="Select brand" />
+                <SelectValue placeholder={catalogLoading ? 'Loading brands…' : brands.length ? 'Select brand' : 'No phones available yet'} />
               </SelectTrigger>
               <SelectContent>
-                {BRANDS.map((b) => (
+                {brands.map((b) => (
                   <SelectItem key={b} value={b}>{b}</SelectItem>
                 ))}
               </SelectContent>
@@ -123,12 +140,17 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
           </div>
 
           <div className="space-y-1">
-            <Label className="text-xs">Type Of Phone</Label>
-            <Input
-              value={modelType}
-              onChange={(e) => setModelType(e.target.value)}
-              placeholder="e.g. iPhone 13 Pro Max or Samsung Galaxy A14"
-            />
+            <Label className="text-xs">Phone Model</Label>
+            <Select value={modelType} onValueChange={onModelChange} disabled={!brand || models.length === 0}>
+              <SelectTrigger>
+                <SelectValue placeholder={!brand ? 'Select a brand first' : models.length ? 'Select model' : 'No models for this brand'} />
+              </SelectTrigger>
+              <SelectContent>
+                {models.map((m) => (
+                  <SelectItem key={m.id} value={m.model_name}>{m.model_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1">
