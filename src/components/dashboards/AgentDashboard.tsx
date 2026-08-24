@@ -1209,9 +1209,16 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                         Get a company smartphone on credit. Choose how much can be deducted from your wallet.
                       </p>
                     </div>
-                    <Button size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => setPhoneOpen(true)}>
-                      Order
+                    <Button
+                      size="sm"
+                      className="h-8 text-xs gap-1 shrink-0"
+                      disabled={smartphoneRepaying}
+                      title={smartphoneRepaying ? 'You have a smartphone still being repaid' : undefined}
+                      onClick={() => setPhoneOpen(true)}
+                    >
+                      {smartphoneRepaying ? 'In repayment' : 'Order'}
                     </Button>
+
                   </CardContent>
                 </Card>
 
