@@ -4,6 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, MapPin, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatUGX } from '@/lib/businessAdvanceCalculations';
+import { ServiceCentreStageTracker } from './ServiceCentreStageTracker';
+import { getServiceCentreStage } from '@/lib/serviceCentreStage';
 
 /** Service centres the COO has vetted and marked active. */
 export function ActiveServiceCentresList() {
@@ -13,7 +15,7 @@ export function ActiveServiceCentresList() {
       const { data, error } = await supabase
         .from('service_centre_setups' as any)
         .select('*')
-        .eq('status', 'active')
+        .in('status', ['active', 'paid'])
         .order('ceo_approved_at', { ascending: false, nullsFirst: false });
       if (error) throw error;
       return (data || []) as any[];
@@ -45,7 +47,11 @@ export function ActiveServiceCentresList() {
             <div className="min-w-0 space-y-0.5">
               <div className="flex items-center gap-2">
                 <p className="truncate text-sm font-semibold text-foreground">{s.agent_name}</p>
-                <Badge className="bg-emerald-500/15 text-emerald-600 text-[10px]">Active</Badge>
+                {getServiceCentreStage(s).isFunded ? (
+                  <Badge className="bg-emerald-600 text-white text-[10px]">Funded</Badge>
+                ) : (
+                  <Badge className="bg-emerald-500/15 text-emerald-600 text-[10px]">Active</Badge>
+                )}
               </div>
               <p className="text-xs text-muted-foreground">{s.agent_phone}</p>
               <p className="text-xs text-muted-foreground">{s.location_name || 'No description'}</p>
@@ -61,6 +67,7 @@ export function ActiveServiceCentresList() {
               {s.ceo_comment && (
                 <p className="text-xs italic text-muted-foreground">COO note: {s.ceo_comment}</p>
               )}
+              <ServiceCentreStageTracker setup={s} className="mt-1" />
             </div>
             <a
               href={`https://www.google.com/maps?q=${s.latitude},${s.longitude}`}

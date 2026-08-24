@@ -14,6 +14,8 @@ import { ServiceCentreNewEntryDialog } from './service-centres/ServiceCentreNewE
 import { ServiceCentreEntriesList } from './service-centres/ServiceCentreEntriesList';
 import { ServiceCentreAdvancesPanel } from './service-centres/ServiceCentreAdvancesPanel';
 import { ActiveServiceCentresList } from './service-centres/ActiveServiceCentresList';
+import { ServiceCentreStageTracker } from './service-centres/ServiceCentreStageTracker';
+
 
 export function ServiceCentreVerificationQueue() {
   const { user } = useAuth();
@@ -182,6 +184,9 @@ export function ServiceCentreVerificationQueue() {
                     <img src={s.photo_url} alt="Service Centre" className="rounded-lg max-h-40 w-full object-cover border" />
                     <p className="text-xs text-muted-foreground">📍 {s.location_name || 'No description'}</p>
                     <p className="text-xs text-muted-foreground">🌐 {Number(s.latitude).toFixed(5)}, {Number(s.longitude).toFixed(5)}</p>
+
+                    <ServiceCentreStageTracker setup={s} />
+
 
                     {rejectingId !== s.id && (
                       <div className="space-y-2 rounded-lg border border-dashed border-border bg-muted/40 p-2.5">
