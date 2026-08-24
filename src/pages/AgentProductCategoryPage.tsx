@@ -144,9 +144,11 @@ export default function AgentProductCategoryPage() {
               <TabsTrigger value="manage">Management &amp; issuance</TabsTrigger>
               <TabsTrigger value="reporting">Reporting</TabsTrigger>
             </TabsList>
-            <TabsContent value="manage">
+            <TabsContent value="manage" className="space-y-6">
+              {entry.slug === 'smart-phones' && <SmartphoneOrderApprovalQueue />}
               <AgentProductsPanel category={entry.category ?? undefined} />
             </TabsContent>
+
             <TabsContent value="reporting">
               <AgentProductsServicesReport />
             </TabsContent>
