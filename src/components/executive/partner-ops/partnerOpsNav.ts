@@ -43,6 +43,7 @@ export type PartnerOpsViewKey =
   | 'proxy.followup'
   | 'maturity'
   | 'approvals'
+  | 'onboarding'
   | 'rent.requests';
 
 export interface PartnerOpsNavChild {
