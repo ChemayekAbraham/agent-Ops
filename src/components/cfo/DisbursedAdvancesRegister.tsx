@@ -49,6 +49,8 @@ import { differenceInDays, format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CancelAdvanceDialog } from '@/components/cfo/CancelAdvanceDialog';
 import { ReverseAdvanceDialog } from '@/components/cfo/ReverseAdvanceDialog';
+import { BulkReverseAdvancesDialog } from '@/components/cfo/BulkReverseAdvancesDialog';
+import { Checkbox } from '@/components/ui/checkbox';
 
 type StatusFilter = 'all' | 'active' | 'overdue' | 'completed';
 
@@ -95,6 +97,9 @@ export function DisbursedAdvancesRegister() {
   const [selected, setSelected] = useState<AdvanceRow | null>(null);
   const [cancelAdvance, setCancelAdvance] = useState<AdvanceRow | null>(null);
   const [reverseAdvance, setReverseAdvance] = useState<AdvanceRow | null>(null);
+  const [bulkIds, setBulkIds] = useState<string[] | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
 
   const { data: advances = [], isLoading } = useQuery({
@@ -144,6 +149,41 @@ export function DisbursedAdvancesRegister() {
     setFromDate('');
     setToDate('');
   };
+
+  // Rows a reversal can still touch: not yet reversed. The same-day window and
+  // recovery amounts are decided server-side, never here.
+  const isReversible = (a: AdvanceRow) => !(a as any).reversed_at;
+  const reversibleFiltered = useMemo(() => filtered.filter(isReversible), [filtered]);
+  const isTodaysBatch = (a: AdvanceRow) =>
+    isReversible(a) && new Date(a.issued_at).toDateString() === new Date().toDateString();
+  const todaysBatch = useMemo(() => advances.filter(isTodaysBatch), [advances]);
+
+  const toggleChecked = (id: string) =>
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+
+  const openBulk = (ids: string[] | null) => {
+    setBulkIds(ids);
+    setBulkOpen(true);
+  };
+
+  const invalidateAdvanceQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ['disbursed-advances-register'] });
+    queryClient.invalidateQueries({ queryKey: ['cfo-advances'] });
+    queryClient.invalidateQueries({ queryKey: ['cfo-outstanding-advances'] });
+    // Reversed requests go back to Waiting for Approval — refresh every queue.
+    queryClient.invalidateQueries({
+      predicate: (q) => {
+        const k = String(q.queryKey?.[0] ?? '');
+        return k.includes('advance-request') || k.includes('advance_requests') || k.includes('agent-advance');
+      },
+    });
+  };
+
+
 
   return (
     <Card>
@@ -224,6 +264,38 @@ export function DisbursedAdvancesRegister() {
           </div>
         )}
 
+        {/* Bulk reversal toolbar */}
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 p-2">
+          <p className="text-[11px] text-muted-foreground flex-1 min-w-[180px]">
+            {checkedIds.size > 0
+              ? `${checkedIds.size} advance${checkedIds.size === 1 ? '' : 's'} selected for reversal.`
+              : 'Tick rows to reverse several advances at once, or reverse the whole batch disbursed today.'}
+          </p>
+          {checkedIds.size > 0 && (
+            <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={() => setCheckedIds(new Set())}>
+              Clear selection
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px] gap-1"
+            disabled={todaysBatch.length === 0}
+            onClick={() => openBulk(null)}
+          >
+            <Undo2 className="h-3 w-3" /> Reverse today&apos;s batch ({todaysBatch.length})
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-7 text-[11px] gap-1"
+            disabled={checkedIds.size === 0}
+            onClick={() => openBulk(Array.from(checkedIds))}
+          >
+            <Undo2 className="h-3 w-3" /> Reverse selected ({checkedIds.size})
+          </Button>
+        </div>
+
         {/* Table */}
         {isLoading ? (
           <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
@@ -234,6 +306,18 @@ export function DisbursedAdvancesRegister() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-8">
+                    <Checkbox
+                      aria-label="Select all reversible advances"
+                      checked={
+                        reversibleFiltered.length > 0 &&
+                        reversibleFiltered.every((a) => checkedIds.has(a.id))
+                      }
+                      onCheckedChange={(v) =>
+                        setCheckedIds(v ? new Set(reversibleFiltered.map((a) => a.id)) : new Set())
+                      }
+                    />
+                  </TableHead>
                   <TableHead>Agent</TableHead>
                   <TableHead className="text-right">Principal</TableHead>
                   <TableHead className="text-right hidden sm:table-cell">Outstanding</TableHead>
@@ -249,7 +333,16 @@ export function DisbursedAdvancesRegister() {
                   const risk = getRiskLevel(a);
                   return (
                     <TableRow key={a.id} className="cursor-pointer" onClick={() => setSelected(a)}>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          aria-label="Select advance for reversal"
+                          disabled={!isReversible(a)}
+                          checked={checkedIds.has(a.id)}
+                          onCheckedChange={() => toggleChecked(a.id)}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">
+
                         <div className="flex items-center gap-2">
                           <span className={cn('h-2 w-2 rounded-full shrink-0', risk === 'green' ? 'bg-green-500' : risk === 'yellow' ? 'bg-amber-500' : 'bg-red-500')} />
                           <div className="min-w-0">
@@ -322,20 +415,24 @@ export function DisbursedAdvancesRegister() {
         onOpenChange={(o) => { if (!o) setReverseAdvance(null); }}
         onSuccess={() => {
           setReverseAdvance(null);
-          queryClient.invalidateQueries({ queryKey: ['disbursed-advances-register'] });
-          queryClient.invalidateQueries({ queryKey: ['cfo-advances'] });
-          queryClient.invalidateQueries({ queryKey: ['cfo-outstanding-advances'] });
-          // The request goes back to Waiting for Approval — refresh every
-          // advance-request queue so it reappears in the right stage.
-          queryClient.invalidateQueries({
-            predicate: (q) => {
-              const k = String(q.queryKey?.[0] ?? '');
-              return k.includes('advance-request') || k.includes('advance_requests') || k.includes('agent-advance');
-            },
-          });
+          invalidateAdvanceQueries();
         }}
       />
+
+      <BulkReverseAdvancesDialog
+        open={bulkOpen}
+        advanceIds={bulkIds}
+        onOpenChange={(o) => {
+          setBulkOpen(o);
+          if (!o) {
+            setBulkIds(null);
+            setCheckedIds(new Set());
+          }
+        }}
+        onSuccess={invalidateAdvanceQueries}
+      />
     </Card>
+
   );
 }
 
