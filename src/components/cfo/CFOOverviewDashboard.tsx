@@ -19,6 +19,7 @@ import { KPIBreakdownSheet } from '@/components/cfo/KPIBreakdownSheet';
 import { CashSourcesSheet } from '@/components/cfo/CashSourcesSheet';
 
 import { CFOActionsLog } from '@/components/cfo/CFOActionsLog';
+import { ReceiptNumberLookupPanel } from '@/components/financial-ops/ReceiptNumberLookupPanel';
 import { AgentAdvancesStatsCard } from '@/components/cfo/AgentAdvancesStatsCard';
 
 interface CFOOverviewDashboardProps {
@@ -317,6 +318,9 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
 
         {/* Agent Advances — Full Portfolio */}
         <AgentAdvancesStatsCard />
+
+        {/* ══════════════ RECEIPT NUMBER TRACKER ══════════════ */}
+        <ReceiptNumberLookupPanel className="rounded-2xl shadow-sm" />
 
         {/* ══════════════ CFO ACTIONS LOG ══════════════ */}
         <CFOActionsLog />

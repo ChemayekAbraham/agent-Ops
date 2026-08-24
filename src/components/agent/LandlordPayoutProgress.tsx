@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, CheckCircle2, AlertTriangle, ShieldCheck, Clock } from "lucide-react";
+import { Loader2, CheckCircle2, AlertTriangle, ShieldCheck, Clock, Receipt } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ReceiptNumberCheckDialog } from "@/components/agent/ReceiptNumberCheckDialog";
 import { formatUGX } from "@/lib/rentCalculations";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +30,7 @@ interface Props {
 export function LandlordPayoutProgress({ payoutId, landlordName, onDone }: Props) {
   const [payout, setPayout] = useState<PayoutRow | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(300);
+  const [checkOpen, setCheckOpen] = useState(false);
 
   // Realtime subscription + initial fetch
   useEffect(() => {
@@ -194,7 +197,17 @@ export function LandlordPayoutProgress({ payoutId, landlordName, onDone }: Props
             </p>
           </div>
         )}
+
+        <div className="pt-1">
+          <Button variant="outline" size="sm" onClick={() => setCheckOpen(true)}>
+            <Receipt className="h-3.5 w-3.5 mr-1.5" />
+            Check a receipt number
+          </Button>
+        </div>
       </div>
+
+      <ReceiptNumberCheckDialog open={checkOpen} onOpenChange={setCheckOpen} />
     </div>
   );
 }
+
