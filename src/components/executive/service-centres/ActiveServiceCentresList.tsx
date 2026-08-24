@@ -4,6 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, MapPin, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatUGX } from '@/lib/businessAdvanceCalculations';
+import { ServiceCentreStageTracker } from './ServiceCentreStageTracker';
+import { getServiceCentreStage } from '@/lib/serviceCentreStage';
 
 /** Service centres the COO has vetted and marked active. */
 export function ActiveServiceCentresList() {
