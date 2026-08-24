@@ -31,6 +31,8 @@ export function LandlordPayoutProgress({ payoutId, landlordName, onDone }: Props
   const [payout, setPayout] = useState<PayoutRow | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(300);
   const [checkOpen, setCheckOpen] = useState(false);
+  const [autoPrompted, setAutoPrompted] = useState(false);
+
 
   // Realtime subscription + initial fetch
   useEffect(() => {
@@ -87,6 +89,16 @@ export function LandlordPayoutProgress({ payoutId, landlordName, onDone }: Props
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payout?.status]);
+
+  // Auto-surface the receipt-number dialog once the landlord payout is confirmed paid
+  useEffect(() => {
+    if (payout?.status === "completed" && !autoPrompted) {
+      setAutoPrompted(true);
+      setCheckOpen(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payout?.status]);
+
 
   if (!payout) {
     return (
