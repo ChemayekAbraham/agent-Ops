@@ -122,15 +122,15 @@ function BalanceCard({
     muted: 'bg-muted text-muted-foreground',
   };
   return (
-    <div className="rounded-2xl p-4 bg-card shadow-sm hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
-          <p className="text-xl font-bold text-foreground mt-1 truncate">{formatUGX(amount)}</p>
-          {subtext && <p className="text-[11px] text-muted-foreground mt-1 leading-snug">{subtext}</p>}
+    <div className="rounded-2xl p-3 sm:p-4 bg-card shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</p>
+          <p className="text-base sm:text-xl font-bold text-foreground mt-1 truncate">{formatUGX(amount)}</p>
+          {subtext && <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-1 leading-snug">{subtext}</p>}
         </div>
-        <div className={cn('h-10 w-10 rounded-xl flex items-center justify-center shrink-0', variants[variant])}>
-          <Icon className="h-5 w-5" />
+        <div className={cn('h-8 w-8 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shrink-0', variants[variant])}>
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
       </div>
     </div>
