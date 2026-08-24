@@ -52,6 +52,14 @@ interface ProfileMatch {
 const mapsUrl = (lat: number | string, lng: number | string) =>
   `https://www.google.com/maps?q=${lat},${lng}`;
 
+/** Service centre spend defaults to the operations manager account. */
+const DEFAULT_PAYEE_EMAIL = 'grace.nation78@gmail.com';
+const DEFAULT_PAYEE_FALLBACK: PayeeChoice = {
+  userId: '99890a2e-b842-4d44-8516-e2eafe0711ff',
+  name: 'Grace Paul Ochieng',
+  phone: '+254733803035',
+};
+
 export function CFOServiceCentreSpendApproval() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState('awaiting');
