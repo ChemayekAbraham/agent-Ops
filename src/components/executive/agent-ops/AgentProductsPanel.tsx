@@ -47,11 +47,14 @@ const CATEGORY_SUGGESTIONS: Record<AgentProductCategory, string[]> = {
   boutique: ['Welile Jumper', 'Welile Jacket', 'Welile Polo', 'Welile T-Shirt', 'Welile Cap', 'Company ID', 'Umbrella', 'Branded Bag'],
 };
 
-export function AgentProductsPanel({ category }: { category?: AgentProductCategory } = {}) {
+export function AgentProductsPanel({ category, mode = 'full' }: { category?: AgentProductCategory; mode?: 'overview' | 'issued' | 'full' } = {}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [addOpen, setAddOpen] = useState(false);
   const scopeLabel = category ? CATEGORY_LABELS[category] : null;
+  const showOverview = mode !== 'issued';
+  const showIssued = mode !== 'overview';
+
 
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['agent-products-overview', category ?? 'all'],
@@ -100,15 +103,17 @@ export function AgentProductsPanel({ category }: { category?: AgentProductCatego
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         {scopeLabel && <Badge variant="secondary" className="text-[11px]">{scopeLabel}</Badge>}
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={scopeLabel ? `Search agent, location or ${scopeLabel.toLowerCase()}` : 'Search agent, location or product'}
-            className="pl-8"
-          />
-        </div>
+        {showIssued && (
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={scopeLabel ? `Search agent, location or ${scopeLabel.toLowerCase()}` : 'Search agent, location or product'}
+              className="pl-8"
+            />
+          </div>
+        )}
         <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="gap-1.5">
           <RefreshCw className={isFetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
           Refresh
@@ -117,44 +122,49 @@ export function AgentProductsPanel({ category }: { category?: AgentProductCatego
           <Download className="h-4 w-4" />
           Export PDF
         </Button>
-        <Dialog open={addOpen} onOpenChange={setAddOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="gap-1.5">
-              <Plus className="h-4 w-4" />
-              New entry
-            </Button>
-          </DialogTrigger>
-          <IssueProductDialog
-            catalog={data?.catalog ?? []}
-            centres={data?.centres ?? []}
-            category={category}
-            onDone={() => {
-              setAddOpen(false);
-              queryClient.invalidateQueries({ queryKey: ['agent-products-overview'], exact: false });
-            }}
-          />
-        </Dialog>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {isLoading || !kpis ? (
-          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[110px] rounded-2xl" />)
-        ) : (
-          <>
-            <MetricCard label={scopeLabel ? `${scopeLabel} in catalog` : 'Total products'} value={String(kpis.total_products ?? 0)} icon={Package} variant="primary" />
-            <MetricCard
-              label={`In field · ${kpis.in_field_agents ?? 0} agents`}
-              value={String(kpis.in_field_items ?? 0)}
-              icon={Users}
-              variant="warning"
+        {showIssued && (
+          <Dialog open={addOpen} onOpenChange={setAddOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-1.5">
+                <Plus className="h-4 w-4" />
+                New entry
+              </Button>
+            </DialogTrigger>
+            <IssueProductDialog
+              catalog={data?.catalog ?? []}
+              centres={data?.centres ?? []}
+              category={category}
+              onDone={() => {
+                setAddOpen(false);
+                queryClient.invalidateQueries({ queryKey: ['agent-products-overview'], exact: false });
+              }}
             />
-            <MetricCard label="Purchased (in stock)" value={String(kpis.stock_qty ?? 0)} icon={Warehouse} variant="success" />
-            <MetricCard label="Service centers" value={String(kpis.service_centres ?? 0)} icon={Store} variant="default" />
-          </>
+          </Dialog>
         )}
       </div>
 
-      {kpis && (
+
+      {showOverview && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {isLoading || !kpis ? (
+            Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[110px] rounded-2xl" />)
+          ) : (
+            <>
+              <MetricCard label={scopeLabel ? `${scopeLabel} in catalog` : 'Total products'} value={String(kpis.total_products ?? 0)} icon={Package} variant="primary" />
+              <MetricCard
+                label={`In field · ${kpis.in_field_agents ?? 0} agents`}
+                value={String(kpis.in_field_items ?? 0)}
+                icon={Users}
+                variant="warning"
+              />
+              <MetricCard label="Purchased (in stock)" value={String(kpis.stock_qty ?? 0)} icon={Warehouse} variant="success" />
+              <MetricCard label="Service centers" value={String(kpis.service_centres ?? 0)} icon={Store} variant="default" />
+            </>
+          )}
+        </div>
+      )}
+
+      {showOverview && kpis && (
         <div className="grid grid-cols-3 gap-3">
           <Card><CardContent className="p-3">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Held amount</p>
@@ -171,51 +181,55 @@ export function AgentProductsPanel({ category }: { category?: AgentProductCatego
         </div>
       )}
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold">
-            {scopeLabel ? `${scopeLabel} in the field` : 'Products in the field'} ({rows.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="p-4 space-y-2">
-              {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
-            </div>
-          ) : rows.length === 0 ? (
-            <p className="p-6 text-sm text-muted-foreground text-center">
-              {scopeLabel
-                ? `No ${scopeLabel.toLowerCase()} issued to agents yet. Use “New entry” to record one.`
-                : 'No products issued to agents yet. Use “New entry” to record one.'}
-            </p>
-          ) : (
-            <div className="divide-y divide-border">
-              {rows.map((r) => (
-                <div key={r.agent_id} className="p-3 flex items-start gap-3">
-                  <UserAvatar avatarUrl={r.avatar_url} fullName={r.full_name || undefined} size="md" />
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-sm truncate">{r.full_name || r.agent_id.slice(0, 8)}</p>
-                      <Badge variant="secondary" className="text-[10px]">{r.location_name || 'No center'}</Badge>
+
+      {showIssued && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">
+              {scopeLabel ? `${scopeLabel} in the field` : 'Products in the field'} ({rows.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {isLoading ? (
+              <div className="p-4 space-y-2">
+                {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+              </div>
+            ) : rows.length === 0 ? (
+              <p className="p-6 text-sm text-muted-foreground text-center">
+                {scopeLabel
+                  ? `No ${scopeLabel.toLowerCase()} issued to agents yet. Use “New entry” to record one.`
+                  : 'No products issued to agents yet. Use “New entry” to record one.'}
+              </p>
+            ) : (
+              <div className="divide-y divide-border">
+                {rows.map((r) => (
+                  <div key={r.agent_id} className="p-3 flex items-start gap-3">
+                    <UserAvatar avatarUrl={r.avatar_url} fullName={r.full_name || undefined} size="md" />
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-sm truncate">{r.full_name || r.agent_id.slice(0, 8)}</p>
+                        <Badge variant="secondary" className="text-[10px]">{r.location_name || 'No center'}</Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-2">
+                        {(r.product_names || []).join(', ') || '—'} · {r.items_held} item(s)
+                      </p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+                        <span>Held: <span className="font-semibold tabular-nums">{formatUGX(Number(r.held_amount || 0))}</span></span>
+                        <span className="text-success">Repaid: <span className="font-semibold tabular-nums">{formatUGX(Number(r.repaid_amount || 0))}</span></span>
+                        <span className="text-destructive">Outstanding: <span className="font-semibold tabular-nums">{formatUGX(Number(r.outstanding_amount || 0))}</span></span>
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {(r.product_names || []).join(', ') || '—'} · {r.items_held} item(s)
-                    </p>
-                    <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
-                      <span>Held: <span className="font-semibold tabular-nums">{formatUGX(Number(r.held_amount || 0))}</span></span>
-                      <span className="text-success">Repaid: <span className="font-semibold tabular-nums">{formatUGX(Number(r.repaid_amount || 0))}</span></span>
-                      <span className="text-destructive">Outstanding: <span className="font-semibold tabular-nums">{formatUGX(Number(r.outstanding_amount || 0))}</span></span>
+                    <div className="text-[11px] text-muted-foreground shrink-0">
+                      {r.last_issued_on ? format(new Date(`${String(r.last_issued_on).slice(0, 10)}T00:00:00`), 'dd MMM yyyy') : '—'}
                     </div>
                   </div>
-                  <div className="text-[11px] text-muted-foreground shrink-0">
-                    {r.last_issued_on ? format(new Date(`${String(r.last_issued_on).slice(0, 10)}T00:00:00`), 'dd MMM yyyy') : '—'}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
     </div>
   );
 }
