@@ -38675,7 +38675,7 @@ export type Database = {
         Returns: undefined
       }
       approve_smartphone_order: {
-        Args: { p_note?: string; p_sale_id: string }
+        Args: { p_note?: string; p_sale_id: string; p_total_amount?: number }
         Returns: Json
       }
       archive_dead_letter_batch: {
