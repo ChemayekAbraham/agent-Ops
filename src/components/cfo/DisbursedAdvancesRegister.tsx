@@ -94,6 +94,7 @@ export function DisbursedAdvancesRegister() {
   const [toDate, setToDate] = useState('');
   const [selected, setSelected] = useState<AdvanceRow | null>(null);
   const [cancelAdvance, setCancelAdvance] = useState<AdvanceRow | null>(null);
+  const [reverseAdvance, setReverseAdvance] = useState<AdvanceRow | null>(null);
   const queryClient = useQueryClient();
 
   const { data: advances = [], isLoading } = useQuery({
