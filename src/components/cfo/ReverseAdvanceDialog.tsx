@@ -166,8 +166,10 @@ export function ReverseAdvanceDialog({ advance, open, onOpenChange, onSuccess }:
           </AlertDialogTitle>
           <AlertDialogDescription>
             The amount is calculated automatically from this advance&apos;s approval, disbursement and
-            recovery records. Deductions stop and the request returns to Waiting for Approval.
+            recovery records. If the wallet cannot cover the full amount, only what is available is
+            recovered and the rest stays outstanding on the active advance for future earnings.
           </AlertDialogDescription>
+
         </AlertDialogHeader>
 
         <div className="space-y-4">
