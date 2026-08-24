@@ -111,63 +111,86 @@ function PhotoSlider({
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
-      <div
-        className="flex h-full transition-transform duration-300 ease-out"
-        style={{
-          width: `${total * 100}%`,
-          transform: `translateX(-${index * (100 / total)}%)`,
-        }}
-      >
-        {photos.map((url, i) => (
-          <div
-            key={`${url}-${i}`}
-            className="h-full flex-none"
-            style={{ width: `${100 / total}%` }}
-          >
-            <img
-              src={url}
-              alt={`House photo ${i + 1}`}
-              loading="eager"
-              decoding="async"
-              draggable={false}
-              onClick={() => {
-                if (swiped.current) return;
-                onSelect?.(i);
-              }}
-              className={cn(
-                'h-full w-full',
-                fit === 'cover' ? 'object-cover' : 'object-contain',
-                onSelect && 'cursor-zoom-in',
-                imgClassName,
-              )}
-            />
-          </div>
-        ))}
-      </div>
+      {/* Each slide is absolutely stacked and shifted by its own width, so the
+          slider never depends on a percentage track width (which silently
+          collapses when the container height/width is resolved late). */}
+      {photos.map((url, i) => (
+        <div
+          key={`${url}-${i}`}
+          className="absolute inset-0 transition-transform duration-300 ease-out will-change-transform"
+          style={{ transform: `translate3d(${(i - safeIndex) * 100}%, 0, 0)` }}
+          aria-hidden={i !== safeIndex}
+        >
+          <img
+            src={url}
+            alt={`House photo ${i + 1}`}
+            loading="eager"
+            decoding="async"
+            draggable={false}
+            onClick={() => {
+              if (swiped.current || i !== safeIndex) return;
+              onSelect?.(i);
+            }}
+            className={cn(
+              'h-full w-full',
+              fit === 'cover' ? 'object-cover' : 'object-contain',
+              onSelect && 'cursor-zoom-in',
+              imgClassName,
+            )}
+          />
+        </div>
+      ))}
 
       {total > 1 && (
         <>
           <button
             type="button"
-            onClick={() => go(-1)}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              go(-1);
+            }}
             aria-label="Previous photo"
-            className="absolute left-3 top-1/2 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-full bg-background/85 text-foreground shadow-md backdrop-blur transition hover:bg-background"
+            className="absolute left-3 top-1/2 z-20 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-full bg-background/85 text-foreground shadow-md backdrop-blur transition hover:bg-background"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
           <button
             type="button"
-            onClick={() => go(1)}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              go(1);
+            }}
             aria-label="Next photo"
-            className="absolute right-3 top-1/2 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-full bg-background/85 text-foreground shadow-md backdrop-blur transition hover:bg-background"
+            className="absolute right-3 top-1/2 z-20 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-full bg-background/85 text-foreground shadow-md backdrop-blur transition hover:bg-background"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
-          <span className="absolute bottom-3 right-3 rounded-md bg-foreground/70 px-2 py-1 text-[11px] font-semibold text-background">
-            {index + 1} / {total}
+          <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5">
+            {photos.map((_, i) => (
+              <button
+                key={`dot-${i}`}
+                type="button"
+                aria-label={`Go to photo ${i + 1}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  indexRef.current = i;
+                  onIndexChange(i);
+                }}
+                className={cn(
+                  'h-1.5 rounded-full transition-all',
+                  i === safeIndex ? 'w-5 bg-background' : 'w-1.5 bg-background/60',
+                )}
+              />
+            ))}
+          </div>
+          <span className="absolute bottom-3 right-3 z-20 rounded-md bg-foreground/70 px-2 py-1 text-[11px] font-semibold text-background">
+            {safeIndex + 1} / {total}
           </span>
         </>
       )}
+
     </div>
   );
 }
