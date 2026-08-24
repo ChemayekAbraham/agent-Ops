@@ -95,7 +95,9 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
     },
     onSuccess: (data: any) => {
       toast.success(`Order approved. ${formatUGX(Number(data?.recovery_amount || 0))} scheduled for wallet recovery.`);
+      setDetailsTarget(null);
       invalidate();
+
     },
     onError: (e: any) => toast.error(e.message || 'Could not approve order'),
   });
