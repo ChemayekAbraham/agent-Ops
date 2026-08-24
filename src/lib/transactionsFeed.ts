@@ -1,6 +1,6 @@
 /**
  * transactionsFeed — single source of truth for the customer-facing
- * "Transaction History" feed (used by /transactions-test).
+ * "Transaction History" feed (used by /transactions).
  *
  * Design rules:
  *  - ONE round trip per page (keyset pagination on transaction_date, no counts,
