@@ -43859,6 +43859,10 @@ export type Database = {
         }
         Returns: Json
       }
+      partner_ops_bulk_delete_proxy_agents: {
+        Args: { p_agent_ids: string[]; p_reason: string }
+        Returns: Json
+      }
       partner_ops_decide_proxy_agent: {
         Args: { p_agent_user_id: string; p_decision: string; p_notes?: string }
         Returns: Json
