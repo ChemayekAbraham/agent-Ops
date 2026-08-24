@@ -198,11 +198,20 @@ export default function SmartphoneOrderStatus({
                         ? ` · ${formatUGX(Number(o.amount_outstanding))} to recover`
                         : ' · fully recovered'}
                     </p>
+                    {APPROVED_STATUSES.includes(status) && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Payment projection:{' '}
+                        <span className="text-foreground font-semibold">
+                          {formatUGX(Math.round(Number(o.unit_price) * SMARTPHONE_RECOVERY_RATE))}
+                        </span>
+                      </p>
+                    )}
                     {o.tracking_reference && (
                       <p className="text-[11px] font-mono text-muted-foreground mt-0.5">
                         Tracking: <span className="text-foreground font-semibold">{o.tracking_reference}</span>
                       </p>
                     )}
+
                   </div>
                   <Badge variant="outline" className={`gap-1 shrink-0 ${meta.className}`}>
                     <Icon className={`h-3 w-3 ${status === 'processing' ? 'animate-spin' : ''}`} />
