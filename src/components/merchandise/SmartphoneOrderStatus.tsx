@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useEffect, useMemo, useState } from 'react';
-import { Smartphone, Clock, Loader2, CheckCircle2, XCircle, Download, Mail, Copy, Trash2, MoreVertical } from 'lucide-react';
+import { Smartphone, Clock, Loader2, CheckCircle2, XCircle, Download, Mail, Copy, Trash2, MoreVertical, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -92,6 +92,7 @@ export default function SmartphoneOrderStatus({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cancelTarget, setCancelTarget] = useState<SmartphoneOrder | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const { data: orders = [] } = useQuery<SmartphoneOrder[]>({
     queryKey: ['my-smartphone-orders', userId, itemName],
     enabled: !!userId,
@@ -247,11 +248,22 @@ export default function SmartphoneOrderStatus({
   return (
     <Card className="border-border">
       <CardContent className="p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Smartphone className="h-4 w-4 text-primary" />
-          <p className="text-sm font-bold">{title}</p>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Smartphone className="h-4 w-4 text-primary" />
+            <p className="text-sm font-bold">{title}</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            aria-label={expanded ? 'Collapse' : 'Expand'}
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
         </div>
-        {orders.length > 1 && (
+        {expanded && orders.length > 1 && (
           <Select value={selected.id} onValueChange={setSelectedId}>
             <SelectTrigger className="h-8 text-xs">
               <SelectValue placeholder="Select an order" />
@@ -266,6 +278,7 @@ export default function SmartphoneOrderStatus({
             </SelectContent>
           </Select>
         )}
+        {expanded && (
         <div className="space-y-2">
           {[selected].map((o) => {
             const status = normalizeStatus(o.order_status);
@@ -361,6 +374,7 @@ export default function SmartphoneOrderStatus({
             );
           })}
         </div>
+        )}
         <AlertDialog open={!!cancelTarget} onOpenChange={(v) => !v && setCancelTarget(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
