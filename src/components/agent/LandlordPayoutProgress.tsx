@@ -31,6 +31,8 @@ export function LandlordPayoutProgress({ payoutId, landlordName, onDone }: Props
   const [payout, setPayout] = useState<PayoutRow | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(300);
   const [checkOpen, setCheckOpen] = useState(false);
+  const [autoPrompted, setAutoPrompted] = useState(false);
+
 
   // Realtime subscription + initial fetch
   useEffect(() => {
