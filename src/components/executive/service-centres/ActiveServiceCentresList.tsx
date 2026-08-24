@@ -5,7 +5,7 @@ import { Loader2, MapPin, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatUGX } from '@/lib/businessAdvanceCalculations';
 
-/** Service centres the CEO has approved and marked active. */
+/** Service centres the COO has vetted and marked active. */
 export function ActiveServiceCentresList() {
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ['service-centres-active'],
@@ -32,7 +32,7 @@ export function ActiveServiceCentresList() {
   if (!rows.length) {
     return (
       <p className="py-4 text-center text-sm text-muted-foreground">
-        No active service centres yet. Verified centres become active once the CEO approves them.
+        No active service centres yet. Verified centres become active once the COO vets them.
       </p>
     );
   }
@@ -59,7 +59,7 @@ export function ActiveServiceCentresList() {
                 {s.ceo_approved_at ? format(new Date(s.ceo_approved_at), 'dd MMM yyyy HH:mm') : 'n/a'}
               </p>
               {s.ceo_comment && (
-                <p className="text-xs italic text-muted-foreground">CEO note: {s.ceo_comment}</p>
+                <p className="text-xs italic text-muted-foreground">COO note: {s.ceo_comment}</p>
               )}
             </div>
             <a

@@ -33,7 +33,7 @@ interface SCRow {
 const mapsUrl = (lat: number | string, lng: number | string) =>
   `https://www.google.com/maps?q=${lat},${lng}`;
 
-export function CEOServiceCentreApprovals() {
+export function COOServiceCentreVetting() {
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [comment, setComment] = useState('');
@@ -41,7 +41,7 @@ export function CEOServiceCentreApprovals() {
   const [tab, setTab] = useState('awaiting');
 
   const { data: rows = [], isLoading } = useQuery({
-    queryKey: ['ceo-service-centres'],
+    queryKey: ['coo-service-centres'],
     queryFn: async (): Promise<SCRow[]> => {
       const { data, error } = await supabase
         .from('service_centre_setups' as any)
@@ -90,7 +90,7 @@ export function CEOServiceCentreApprovals() {
       );
       setSelected({});
       setComment('');
-      queryClient.invalidateQueries({ queryKey: ['ceo-service-centres'] });
+      queryClient.invalidateQueries({ queryKey: ['coo-service-centres'] });
       queryClient.invalidateQueries({ queryKey: ['service-centres-all'] });
       queryClient.invalidateQueries({ queryKey: ['service-centres-active'] });
     } catch (err: any) {
@@ -115,7 +115,7 @@ export function CEOServiceCentreApprovals() {
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold text-foreground truncate">{s.agent_name}</p>
             <Badge variant="outline" className="text-[10px]">
-              {s.status === 'active' ? 'Active' : 'Awaiting CEO approval'}
+              {s.status === 'active' ? 'Active' : 'Awaiting COO vetting'}
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground">{s.agent_phone}</p>
@@ -133,7 +133,7 @@ export function CEOServiceCentreApprovals() {
             <p className="text-xs text-muted-foreground italic">Ops note: {s.verification_comment}</p>
           )}
           {s.ceo_comment && (
-            <p className="text-xs text-muted-foreground italic">CEO note: {s.ceo_comment}</p>
+            <p className="text-xs text-muted-foreground italic">COO note: {s.ceo_comment}</p>
           )}
         </div>
         <a
@@ -163,7 +163,7 @@ export function CEOServiceCentreApprovals() {
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm">
           <Building2 className="h-4 w-4 text-primary" />
-          Service Centres — CEO approval
+          Service Centres — COO vetting
           {awaiting.length > 0 && (
             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
               {awaiting.length}
@@ -189,7 +189,7 @@ export function CEOServiceCentreApprovals() {
               </div>
             ) : !awaiting.length ? (
               <p className="py-4 text-center text-sm text-muted-foreground">
-                No verified service centres are waiting for CEO approval.
+                No verified service centres are waiting for COO vetting.
               </p>
             ) : (
               <>
@@ -212,11 +212,11 @@ export function CEOServiceCentreApprovals() {
                 <div className="space-y-3">{awaiting.map((s) => renderCard(s, true))}</div>
 
                 <div className="space-y-2 rounded-lg border border-border p-2.5">
-                  <label className="text-[11px] text-muted-foreground" htmlFor="ceo-sc-comment">
+                  <label className="text-[11px] text-muted-foreground" htmlFor="coo-sc-comment">
                     Comment (min 10 characters, applies to every selected centre)
                   </label>
                   <Textarea
-                    id="ceo-sc-comment"
+                    id="coo-sc-comment"
                     rows={3}
                     maxLength={1000}
                     value={comment}
@@ -273,4 +273,4 @@ export function CEOServiceCentreApprovals() {
   );
 }
 
-export default CEOServiceCentreApprovals;
+export default COOServiceCentreVetting;
