@@ -13,7 +13,7 @@ export function ActiveServiceCentresList() {
       const { data, error } = await supabase
         .from('service_centre_setups' as any)
         .select('*')
-        .eq('status', 'active')
+        .in('status', ['active', 'paid'])
         .order('ceo_approved_at', { ascending: false, nullsFirst: false });
       if (error) throw error;
       return (data || []) as any[];
