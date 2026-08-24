@@ -1701,6 +1701,18 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
       // The reference the backend reconciles against: the email's own TID
       // when present, otherwise the manual reference the operator typed in.
       const effectiveReference = (row.transaction_id?.trim() || manualReference.trim()) || null;
+      // Phone number the money actually came from, so the backend can learn it
+      // for this user and auto-credit their next deposit from the same number.
+      // Preference: the phone matched in the email body, else the single
+      // Ugandan number visible in counterparty / subject / snippet.
+      const sourcePhone = (() => {
+        if (user.matched_phone) return user.matched_phone;
+        const hay = `${row.counterparty ?? ''}\n${row.subject ?? ''}\n${row.snippet ?? ''}`;
+        const found = new Set(
+          (hay.match(/(?:\+?256|0)?7\d{8}/g) ?? []).map((t) => t.replace(/\D/g, '').slice(-9)),
+        );
+        return found.size === 1 ? Array.from(found)[0] : null;
+      })();
       const body = {
         target_user_id: user.id,
         amount: amt,
@@ -1718,6 +1730,7 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
         gmail_transaction_id: row.id ?? null,
         gmail_message_id: row.gmail_message_id ?? null,
         email_tid: effectiveReference,
+        source_phone: sourcePhone,
       };
       // ── Authoritative backend pre-flight ──────────────────────────
       // Re-checks credited status from the DB (not React Query cache)
