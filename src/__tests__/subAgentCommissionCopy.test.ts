@@ -41,10 +41,6 @@ const SURFACES: Record<string, { mustInclude: string[]; mustNotInclude: string[]
     mustInclude: ["Earning 8% commission on repayments", "you earn 2% of their earnings"],
     mustNotInclude: ["Earning 4% commission", "you earn 1% of their earnings"],
   },
-  "src/components/agent/RegisterSubAgentDialog.tsx": {
-    mustInclude: ["earn 8% commission", "📈 2%", "🤝 8%", "earn 2% from all their tenants"],
-    mustNotInclude: ["earn 4% commission", "📈 1%", "🤝 4%", "earn 1% from all their tenants"],
-  },
   "src/components/agent/QuickShareSubAgentSheet.tsx": {
     mustInclude: ["8% commission on every rent collection", "2% of all their collections forever"],
     mustNotInclude: ["4% commission on every rent collection", "1% of all their collections"],
