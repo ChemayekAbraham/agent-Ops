@@ -192,7 +192,7 @@ export default function HROverview({ onNavigate }: HROverviewProps) {
               <CardContent className="p-3.5">
                 {kpi.label === 'All Users' ? (
                   <div className="flex items-stretch gap-2">
-                    <div className="flex flex-col gap-1 justify-center">
+                    <div className="flex flex-col gap-0.5 justify-start">
                       {[1, 7, 30, 90].map((w) => (
                         <button
                           key={w}
@@ -201,7 +201,7 @@ export default function HROverview({ onNavigate }: HROverviewProps) {
                             e.stopPropagation();
                             setSelectedWindow(w as 1 | 7 | 30 | 90);
                           }}
-                          className={`text-[9px] leading-none px-1.5 py-1 rounded border transition-colors ${
+                          className={`text-[9px] leading-none px-1.5 py-0.5 rounded border transition-colors ${
                             selectedWindow === w
                               ? 'bg-primary text-primary-foreground border-primary'
                               : 'bg-card text-muted-foreground border-border hover:bg-muted/50'
