@@ -116,6 +116,13 @@ export function CFOServiceCentreSpendApproval() {
     [awaiting],
   );
 
+  const payeeFor = (s: SCRow): PayeeChoice =>
+    payees[s.id] ?? {
+      userId: s.payee_user_id ?? s.agent_id ?? null,
+      name: s.payee_name || s.agent_name || '',
+      phone: s.payee_phone || s.agent_phone || '',
+    };
+
   const decide = async (row: SCRow, decision: 'approved' | 'declined') => {
     const comment = (comments[row.id] || '').trim();
     if (comment.length < 10) {
@@ -130,6 +137,11 @@ export function CFOServiceCentreSpendApproval() {
       toast.error('Enter the amount to be spent.');
       return;
     }
+    const payee = payeeFor(row);
+    if (decision === 'approved' && !payee.name.trim()) {
+      toast.error('Name who will receive this money.');
+      return;
+    }
     setBusy(row.id);
     try {
       const { error } = await supabase.rpc('cfo_decide_service_centre' as any, {
@@ -137,14 +149,20 @@ export function CFOServiceCentreSpendApproval() {
         p_decision: decision,
         p_comment: comment,
         p_amount: amount,
+        p_payee_user_id: payee.userId,
+        p_payee_name: payee.name.trim() || null,
+        p_payee_phone: payee.phone.trim() || null,
+        p_payee_note: (payeeNotes[row.id] || '').trim() || null,
       });
       if (error) throw error;
       toast.success(
         decision === 'approved'
-          ? `Spend of ${formatUGX(Number(amount))} approved for ${row.agent_name}.`
+          ? `Spend of ${formatUGX(Number(amount))} approved — recipient ${payee.name.trim()}.`
           : `Service centre spend declined for ${row.agent_name}.`,
       );
       setComments((p) => ({ ...p, [row.id]: '' }));
+      setSearchFor(null);
+      setSearch('');
       queryClient.invalidateQueries({ queryKey: ['cfo-service-centre-spend'] });
       queryClient.invalidateQueries({ queryKey: ['cfo-actions-log'] });
     } catch (err: any) {
@@ -153,6 +171,7 @@ export function CFOServiceCentreSpendApproval() {
       setBusy(null);
     }
   };
+
 
   const renderCard = (s: SCRow, actionable: boolean) => (
     <div key={s.id} className="space-y-2 rounded-xl border border-border p-3">
