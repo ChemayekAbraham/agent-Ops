@@ -60,6 +60,7 @@ export default function BudgetApprovalPanel() {
           <Select value={cycleId} onValueChange={setCycleId}>
             <SelectTrigger className="h-8 w-[220px] text-xs"><SelectValue placeholder="Budget cycle" /></SelectTrigger>
             <SelectContent className="z-[100]">
+              <SelectItem value="">All cycles</SelectItem>
               {cycles.map(c => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.title}{c.financial_year ? ` · ${c.financial_year}` : ''}
