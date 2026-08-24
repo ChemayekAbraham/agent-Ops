@@ -1419,6 +1419,24 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               onOpenOtpAudit={() => { hapticTap(); setOtpAuditOpen(true); }}
             />
             )}
+            {!isMerchant && (
+              <button
+                onClick={() => { hapticTap(); setReceiptCheckOpen(true); }}
+                className="w-full flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/60 ring-1 ring-[#9234EA]/30 active:scale-[0.98] transition-all touch-manipulation"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                <div className="p-2.5 rounded-xl bg-[#9234EA]/10">
+                  <Receipt className="h-5 w-5 text-[#9234EA]" strokeWidth={2.2} />
+                </div>
+                <div className="flex-1 text-left">
+                  <div className="font-bold text-sm text-foreground">Confirm landlord payment</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Enter the receipt number the landlord received by SMS to confirm the landlord float payment
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
+            )}
             <button
               onClick={() => { hapticTap(); setBusinessAdvanceOpen(true); }}
               className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-primary/15 via-primary/10 to-primary/5 ring-1 ring-primary/30 active:scale-[0.98] transition-all touch-manipulation"
