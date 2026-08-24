@@ -12,7 +12,10 @@ import { useNavigate } from 'react-router-dom';
 
 /**
  * "Invite Merchant Agent" card — only rendered for active Merchant Agents.
- * Pays UGX 50,000 once the invitee is approved (active cashout_agents row).
+ * Reward pool per new Merchant Agent is UGX 10,000, split across two generations:
+ * UGX 4,000 to the direct recruiter and UGX 6,000 to the recruiter's own recruiter
+ * (the full UGX 10,000 goes to the direct recruiter when there is no upline).
+ * Paid only after the new Merchant Agent processes their first payout with proof.
  */
 export function InviteMerchantAgentCard() {
   const { user } = useAuth();
