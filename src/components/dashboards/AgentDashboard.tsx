@@ -50,7 +50,7 @@ import { toast } from 'sonner';
 import { Info, UsersRound } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Wallet, Landmark, LayoutDashboard, ChevronRight } from 'lucide-react';
-import { HandCoins } from 'lucide-react';
+import { HandCoins, Receipt } from 'lucide-react';
 import { ShieldCheck } from 'lucide-react';
 import { Trophy } from 'lucide-react';
 import { ShoppingBag, Smartphone, Bike, Store } from 'lucide-react';
@@ -109,6 +109,7 @@ import { AgentHubTabs, type AgentHubTab } from '@/components/agent/AgentHubTabs'
 import { useHorizontalSwipe } from '@/hooks/useHorizontalSwipe';
 import { AgentActionInsights } from '@/components/agent/AgentActionInsights';
 import { AgentLandlordFloatCard } from '@/components/agent/AgentLandlordFloatCard';
+import { ReceiptNumberCheckDialog } from '@/components/agent/ReceiptNumberCheckDialog';
 import { AgentPendingReceiptPanel } from '@/components/agent/AgentPendingReceiptPanel';
 import { AgentTenantHealthCard } from '@/components/agent/AgentTenantHealthCard';
 import { AgentVouchHighlightCard } from '@/components/agent/AgentVouchHighlightCard';
@@ -453,6 +454,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const [recoveryLedgerOpen, setRecoveryLedgerOpen] = useState(false);
   const [payoutStatusOpen, setPayoutStatusOpen] = useState(false);
   const [otpAuditOpen, setOtpAuditOpen] = useState(false);
+  // Standalone landlord-receipt confirmation, reachable any time from the
+  // Money tab (not only right after a payout dialog).
+  const [receiptCheckOpen, setReceiptCheckOpen] = useState(false);
   const [floatHistoryOpen, setFloatHistoryOpen] = useState(false);
   const [requisitionOpen, setRequisitionOpen] = useState(false);
   const [angelPoolInvestOpen, setAngelPoolInvestOpen] = useState(false);
@@ -1415,6 +1419,24 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               onOpenOtpAudit={() => { hapticTap(); setOtpAuditOpen(true); }}
             />
             )}
+            {!isMerchant && (
+              <button
+                onClick={() => { hapticTap(); setReceiptCheckOpen(true); }}
+                className="w-full flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/60 ring-1 ring-[#9234EA]/30 active:scale-[0.98] transition-all touch-manipulation"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                <div className="p-2.5 rounded-xl bg-[#9234EA]/10">
+                  <Receipt className="h-5 w-5 text-[#9234EA]" strokeWidth={2.2} />
+                </div>
+                <div className="flex-1 text-left">
+                  <div className="font-bold text-sm text-foreground">Confirm landlord payment</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Enter the receipt number the landlord received by SMS to confirm the landlord float payment
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
+            )}
             <button
               onClick={() => { hapticTap(); setBusinessAdvanceOpen(true); }}
               className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-primary/15 via-primary/10 to-primary/5 ring-1 ring-primary/30 active:scale-[0.98] transition-all touch-manipulation"
@@ -1909,6 +1931,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       </LazyModal>
       <LazyModal when={otpAuditOpen}>
       <LandlordPayoutOtpAuditSheet open={otpAuditOpen} onOpenChange={setOtpAuditOpen} />
+      </LazyModal>
+      <LazyModal when={receiptCheckOpen}>
+      <ReceiptNumberCheckDialog open={receiptCheckOpen} onOpenChange={setReceiptCheckOpen} />
       </LazyModal>
       <LazyModal when={floatHistoryOpen}>
       <FloatTransactionHistory open={floatHistoryOpen} onOpenChange={setFloatHistoryOpen} />
