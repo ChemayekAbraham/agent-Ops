@@ -270,12 +270,6 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
 
 
 
-                {/* Trust / security note */}
-                <div className="rounded-2xl p-4 bg-muted/50 text-center">
-                  <p className="text-xs text-muted-foreground">
-                    All amounts are enforced server-side. Withdrawals and transfers require available funds.
-                  </p>
-                </div>
               </>
             )}
           </div>
