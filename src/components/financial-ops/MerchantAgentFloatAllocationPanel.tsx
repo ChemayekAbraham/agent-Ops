@@ -1,11 +1,24 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { TrendingUp, TrendingDown, Minus, HelpCircle, RefreshCw, ArrowRightLeft } from 'lucide-react';
+import {
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  HelpCircle,
+  RefreshCw,
+  ArrowRightLeft,
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  Wifi,
+  WifiOff,
+} from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
   useMerchantAgentFloatAllocation,
+  useMerchantFloatAllocationEvidence,
   type MerchantFloatAllocationRow,
   type MerchantFloatAllocationRecommendation,
 } from '@/hooks/useMerchantAgentFloatAllocation';
@@ -48,33 +61,121 @@ function RecommendationBadge({ rec }: { rec: MerchantFloatAllocationRecommendati
   );
 }
 
-function AgentRow({ row }: { row: MerchantFloatAllocationRow }) {
-  const [showReason, setShowReason] = useState(false);
+function Metric({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-background px-2.5 py-2 min-w-0">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground truncate">{label}</p>
+      <p className={cn('text-xs sm:text-sm font-bold tabular-nums mt-0.5 break-words', tone)}>{value}</p>
+    </div>
+  );
+}
+
+/** The exact payout + ledger rows behind an agent's numbers. */
+function EvidenceTrail({ agentId, days }: { agentId: string; days: number }) {
+  const { data, isLoading, error } = useMerchantFloatAllocationEvidence(agentId, days);
+
+  if (isLoading) return <p className="text-xs text-muted-foreground">Loading evidence trail…</p>;
+  if (error) return <p className="text-xs text-destructive">Evidence trail failed: {(error as Error).message}</p>;
+  if (!data || data.length === 0)
+    return <p className="text-xs text-muted-foreground">No paid payouts in this window.</p>;
+
+  return (
+    <div className="rounded-lg border border-border overflow-x-auto">
+      <table className="w-full text-left text-[11px]">
+        <thead className="bg-muted/50">
+          <tr className="text-muted-foreground font-bold uppercase tracking-wide">
+            <th className="px-2 py-1.5">Payout</th>
+            <th className="px-2 py-1.5">Settlement</th>
+            <th className="px-2 py-1.5 text-right">Request</th>
+            <th className="px-2 py-1.5 text-right">Customer debit (ledger)</th>
+            <th className="px-2 py-1.5 text-right">Float used</th>
+            <th className="px-2 py-1.5 text-right">Telecom</th>
+            <th className="px-2 py-1.5 text-right">Commission</th>
+            <th className="px-2 py-1.5">Evidence</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((e) => (
+            <tr key={e.withdrawalId} className="border-t border-border">
+              <td className="px-2 py-1.5">
+                <span className="font-mono">{e.withdrawalId.slice(0, 8)}</span>
+                <span className="block text-muted-foreground">
+                  {new Date(e.createdAt).toLocaleDateString()} · {e.status}
+                </span>
+              </td>
+              <td className="px-2 py-1.5">{e.settlementState ?? '—'}</td>
+              <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">{formatUGX(e.requestAmount)}</td>
+              <td
+                className={cn(
+                  'px-2 py-1.5 text-right tabular-nums font-semibold',
+                  e.hasDebitLeg ? '' : 'text-red-700 dark:text-red-400',
+                )}
+              >
+                {e.hasDebitLeg ? formatUGX(e.customerDebit) : 'no debit leg'}
+              </td>
+              <td className="px-2 py-1.5 text-right tabular-nums">{formatUGX(e.floatPrincipal)}</td>
+              <td className="px-2 py-1.5 text-right tabular-nums">{formatUGX(e.floatTelecom)}</td>
+              <td className="px-2 py-1.5 text-right tabular-nums">{formatUGX(e.commissionAmount)}</td>
+              <td className="px-2 py-1.5 whitespace-nowrap">
+                <span className={e.hasDebitLeg ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}>debit</span>
+                {' · '}
+                <span className={e.hasFundingRecord ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}>fund</span>
+                {' · '}
+                <span className={e.hasCommissionAward ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}>comm</span>
+                <span className="block text-muted-foreground">{e.ledgerLegIds.length} ledger leg(s)</span>
+                {e.shortfallAmount > 0 && (
+                  <span className="block text-amber-700 dark:text-amber-400">
+                    own cash {formatUGX(e.shortfallAmount)} ({e.shortfallKind}/{e.shortfallStatus})
+                  </span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function AgentRow({ row, days }: { row: MerchantFloatAllocationRow; days: number }) {
+  const [open, setOpen] = useState(false);
   return (
     <>
       <tr
         className="hover:bg-muted/30 cursor-pointer border-b border-border last:border-0"
-        onClick={() => setShowReason((v) => !v)}
+        onClick={() => setOpen((v) => !v)}
       >
-        <td className="py-2.5 pr-3">
-          <p className="text-sm font-semibold text-foreground truncate max-w-[180px]">{row.merchantName}</p>
-          <p className="text-[11px] text-muted-foreground">{row.merchantPhone || row.label || '—'}</p>
+        <td className="py-2.5 pr-3 pl-3">
+          <div className="flex items-center gap-1.5">
+            {open ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground truncate max-w-[180px]">{row.merchantName}</p>
+              <p className="text-[11px] text-muted-foreground truncate max-w-[180px]">
+                {row.merchantPhone || row.label || '—'}
+              </p>
+            </div>
+          </div>
         </td>
         <td className="py-2.5 pr-3">
           <Badge variant={GRADE_BADGE[row.grade] as any} size="sm">{GRADE_LABEL[row.grade] ?? row.grade}</Badge>
         </td>
-        <td className="py-2.5 pr-3 text-right tabular-nums text-sm">{row.paid.toLocaleString()}</td>
+        <td className="py-2.5 pr-3 text-right tabular-nums text-sm">
+          {row.payoutsVerified.toLocaleString()}
+          {row.payoutsVerified !== row.paid && (
+            <span className="block text-[10px] text-red-700 dark:text-red-400">of {row.paid} claimed</span>
+          )}
+        </td>
         <td className="py-2.5 pr-3 text-right tabular-nums text-sm font-medium">{formatUGX(row.totalPaid)}</td>
         <td className="py-2.5 pr-3 text-right tabular-nums text-sm">{formatUGX(row.totalFloatConsumed)}</td>
         <td className="py-2.5 pr-3 text-right tabular-nums text-sm">
           {row.floatTurnover == null ? '—' : `${row.floatTurnover.toFixed(2)}x`}
         </td>
         <td className="py-2.5 pr-3 text-right tabular-nums text-sm">
-          {row.pctFullyRecorded == null ? '—' : `${row.pctFullyRecorded.toFixed(0)}%`}
+          {row.settlementCleanPct == null ? '—' : `${row.settlementCleanPct.toFixed(0)}%`}
         </td>
         <td className="py-2.5 pr-3 text-right tabular-nums text-sm">
-          {row.shortfallCount > 0 ? (
-            <span className="text-amber-700 dark:text-amber-400 font-semibold">{row.shortfallCount}</span>
+          {row.needsReviewCount > 0 ? (
+            <span className="text-amber-700 dark:text-amber-400 font-semibold">{row.needsReviewCount}</span>
           ) : '0'}
         </td>
         <td className="py-2.5 pr-3 text-right tabular-nums text-sm">
@@ -83,26 +184,103 @@ function AgentRow({ row }: { row: MerchantFloatAllocationRow }) {
           ) : '0'}
         </td>
         <td className="py-2.5 pr-3 text-right">
+          <Badge variant={row.state === 'OWED' ? 'destructive' : 'muted'} size="sm">{row.state}</Badge>
+        </td>
+        <td className="py-2.5 pr-3 text-right">
           <span className="text-sm font-bold tabular-nums">{row.allocationScore.toFixed(0)}</span>
           <span className="text-[10px] text-muted-foreground">/100</span>
         </td>
-        <td className="py-2.5 pr-1">
+        <td className="py-2.5 pr-3">
           <RecommendationBadge rec={row.recommendation} />
         </td>
       </tr>
-      {showReason && (
+      {open && (
         <tr className="border-b border-border last:border-0 bg-muted/20">
-          <td colSpan={11} className="px-3 py-2.5 text-xs text-muted-foreground leading-relaxed">
-            <span className={cn('font-semibold', RECOMMENDATION_META[row.recommendation].text)}>
-              {RECOMMENDATION_META[row.recommendation].label}:
-            </span>{' '}
-            {row.reason}
-            {(row.owedToAgent ?? 0) > 0 && (
-              <span className="block mt-1 text-amber-700 dark:text-amber-400">
-                Lifetime figure: the company may owe this agent ~{formatUGX(row.owedToAgent ?? 0)} (unconfirmed
-                lifetime differential — never used to pay anyone; see Money With Agents for the confirmed debt).
-              </span>
+          <td colSpan={12} className="px-3 py-3 space-y-3">
+            <p className="text-xs leading-relaxed">
+              <span className={cn('font-semibold', RECOMMENDATION_META[row.recommendation].text)}>
+                {RECOMMENDATION_META[row.recommendation].label}:
+              </span>{' '}
+              <span className="text-muted-foreground">{row.reason}</span>
+            </p>
+            {row.blocker && (
+              <p className="flex items-start gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-800 dark:text-amber-300">
+                <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" /> {row.blocker}
+              </p>
             )}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+              <Metric label="Payouts (verified / claimed)" value={`${row.payoutsVerified} / ${row.paid}`} />
+              <Metric label="Paid out (ledger)" value={formatUGX(row.totalPaid)} />
+              <Metric label="Float consumed" value={formatUGX(row.totalFloatConsumed)} />
+              <Metric label="Telecom charges" value={formatUGX(row.totalTelecom)} />
+              <Metric label={`Commission (${row.commissionAwards} awards)`} value={formatUGX(row.totalCommission)} />
+              <Metric label="Float delivered in window" value={formatUGX(row.floatDelivered)} />
+              <Metric label="Turnover" value={row.floatTurnover == null ? '—' : `${row.floatTurnover.toFixed(2)}x`} />
+              <Metric label="Paid of actioned" value={row.pctPaid == null ? '—' : `${row.pctPaid}%`} />
+              <Metric
+                label="Customer debited"
+                value={row.pctCustomerDebited == null ? '—' : `${row.pctCustomerDebited}%`}
+                tone={(row.pctCustomerDebited ?? 100) < 100 ? 'text-red-700 dark:text-red-400' : undefined}
+              />
+              <Metric label="Fully recorded" value={row.pctFullyRecorded == null ? '—' : `${row.pctFullyRecorded}%`} />
+              <Metric
+                label="Stranded processing"
+                value={String(row.strandedProcessing)}
+                tone={row.strandedProcessing > 0 ? 'text-red-700 dark:text-red-400' : undefined}
+              />
+              <Metric
+                label="Settlement clean"
+                value={
+                  row.settlementCleanPct == null
+                    ? '—'
+                    : `${row.settlementCleanPct}% (${row.settledCount}/${row.settledCount + row.unsettledCount + row.failedSettlements})`
+                }
+              />
+              <Metric
+                label="Failed settlements"
+                value={String(row.failedSettlements)}
+                tone={row.failedSettlements > 0 ? 'text-red-700 dark:text-red-400' : undefined}
+              />
+              <Metric
+                label="Own-cash under review"
+                value={`${row.needsReviewCount} · ${formatUGX(row.needsReviewAmount)}`}
+                tone={row.needsReviewCount > 0 ? 'text-amber-700 dark:text-amber-400' : undefined}
+              />
+              <Metric
+                label="Awaiting reimbursement"
+                value={`${row.pendingReimbursementCount} · ${formatUGX(row.pendingReimbursementAmount)}`}
+              />
+              <Metric label="Available float now" value={formatUGX(row.availableFloat)} />
+              <Metric label="Reserved float" value={formatUGX(row.reservedFloat)} />
+              <Metric
+                label="Net position"
+                value={formatUGX(row.netPosition)}
+                tone={row.netPosition < 0 ? 'text-red-700 dark:text-red-400' : undefined}
+              />
+              <Metric label="Owed to agent (own cash)" value={formatUGX(row.outOfPocketOutstanding)} />
+              <Metric
+                label="Float cache vs ledger"
+                value={`${formatUGX(row.floatCache)} / ${formatUGX(row.floatLedger)}`}
+                tone={row.floatCache > row.floatLedger ? 'text-amber-700 dark:text-amber-400' : undefined}
+              />
+              <Metric
+                label="Capacity used"
+                value={
+                  row.capacityUtilizationPct == null
+                    ? '—'
+                    : `${row.capacityUtilizationPct}% (cap ${row.maxDailyPayouts}/day)`
+                }
+              />
+              <Metric label="Queue now" value={String(row.currentQueueCount ?? 0)} />
+              <Metric label="Channels" value={row.channels || '—'} />
+              <Metric label="Status" value={row.isOnline ? 'Online' : 'Offline'} />
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground mb-1.5">
+                Evidence trail — payouts and their ledger legs (last {days} days)
+              </p>
+              <EvidenceTrail agentId={row.agentId} days={days} />
+            </div>
           </td>
         </tr>
       )}
@@ -114,16 +292,11 @@ function AgentRow({ row }: { row: MerchantFloatAllocationRow }) {
  * Ranks merchant (cash-out) agents on measured withdrawal/payout history so
  * Financial Ops can decide who gets MORE float and who gets LESS.
  *
- * Data sources (all read-only, ledger-backed):
- * - `merchant_payout_success_matrix` — reliability grade, proven from a real
- *   customer wallet debit, not just a request status flag.
- * - `general_ledger` — money actually moved (float consumed, commission,
- *   float delivered), never the cached wallet balance.
- * - `merchant_out_of_pocket_advances` / `merchant_balance_disputes` — risk
- *   signals that cap the score regardless of volume.
- *
- * `compact` shows the top movers only, for the FinOps home page; the full
- * table (same component) is reachable as its own tool.
+ * Every money figure is a `general_ledger` leg tied to the payout — never
+ * `withdrawal_requests.amount` and never the cached float balance. A payout
+ * only counts once a matching customer-debit leg exists, and cached float is
+ * clamped to the ledger figure. This is the merchant cash-out domain only; it
+ * shares nothing with the tenant rent-collection agent performance report.
  */
 export function MerchantAgentFloatAllocationPanel({
   compact = false,
@@ -216,18 +389,20 @@ export function MerchantAgentFloatAllocationPanel({
     );
   }
 
+  const onlineCount = rows.filter((r) => r.isOnline).length;
+
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2.5">
             <ArrowRightLeft className="h-6 w-6 text-primary" />
-            Merchant Agent Float Allocation
+            Merchant Agent Performance & Float Allocation
           </h2>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
             Every active merchant (cash-out) agent, ranked by measured withdrawal reliability and float
-            efficiency — not by request status alone. Use this to decide who gets more float and who gets
-            less.
+            efficiency — all money from the general ledger, never a request status or a cached balance. Use
+            this to decide who gets more float and who gets less.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -255,12 +430,22 @@ export function MerchantAgentFloatAllocationPanel({
         </div>
       </div>
 
+      {!isLoading && rows.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <Metric label="Active desks" value={String(rows.length)} />
+          <Metric label="Increase float" value={String(increase.length)} tone="text-emerald-700 dark:text-emerald-400" />
+          <Metric label="Reduce / freeze" value={String(reduce.length)} tone="text-red-700 dark:text-red-400" />
+          <Metric label="Online now" value={`${onlineCount} / ${rows.length}`} />
+        </div>
+      )}
+
       <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 text-xs text-muted-foreground leading-relaxed">
         <strong className="text-foreground">How the score works:</strong> reliability grade (proven customer
         debit + full recording, 50 pts) + settlement cleanliness (25 pts) + debit correctness (15 pts) + float
-        turnover in-window (10 pts), minus penalties for unresolved shortfalls and open balance disputes.
-        Money figures come from the general ledger, never the cached float balance. A grade of "Money risk" or
-        "Stranded claims" caps the recommendation at reduce/freeze regardless of volume.
+        turnover in-window (10 pts), minus penalties for own-cash shortfalls under review, open balance disputes
+        and failed settlements. A grade of "Money risk" or "Stranded claims", or an OWED desk with open
+        disputes, caps the verdict at reduce/freeze regardless of volume. Click any agent for the metric
+        breakdown and the exact payout + ledger rows behind the numbers.
       </div>
 
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
@@ -276,19 +461,20 @@ export function MerchantAgentFloatAllocationPanel({
                   <th className="py-2.5 px-3 font-bold">Agent</th>
                   <th className="py-2.5 px-3 font-bold">Grade</th>
                   <th className="py-2.5 px-3 font-bold text-right">Payouts</th>
-                  <th className="py-2.5 px-3 font-bold text-right">Total Paid</th>
-                  <th className="py-2.5 px-3 font-bold text-right">Float Consumed</th>
+                  <th className="py-2.5 px-3 font-bold text-right">Paid out</th>
+                  <th className="py-2.5 px-3 font-bold text-right">Float used</th>
                   <th className="py-2.5 px-3 font-bold text-right">Turnover</th>
                   <th className="py-2.5 px-3 font-bold text-right">Clean %</th>
-                  <th className="py-2.5 px-3 font-bold text-right">Shortfalls</th>
+                  <th className="py-2.5 px-3 font-bold text-right">Own cash</th>
                   <th className="py-2.5 px-3 font-bold text-right">Disputes</th>
+                  <th className="py-2.5 px-3 font-bold text-right">Position</th>
                   <th className="py-2.5 px-3 font-bold text-right">Score</th>
                   <th className="py-2.5 px-3 font-bold">Recommendation</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <AgentRow key={r.agentId} row={r} />
+                  <AgentRow key={r.agentId} row={r} days={days} />
                 ))}
               </tbody>
             </table>
@@ -296,8 +482,9 @@ export function MerchantAgentFloatAllocationPanel({
         )}
       </div>
       {dataUpdatedAt > 0 && (
-        <p className="text-[11px] text-muted-foreground text-right">
-          Updated {new Date(dataUpdatedAt).toLocaleTimeString()} · click a row for the reasoning
+        <p className="text-[11px] text-muted-foreground text-right flex items-center justify-end gap-1.5">
+          {onlineCount > 0 ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+          Updated {new Date(dataUpdatedAt).toLocaleTimeString()} · click a row for the reasoning and evidence
         </p>
       )}
     </div>
