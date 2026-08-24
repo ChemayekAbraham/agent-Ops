@@ -136,15 +136,6 @@ export const PARTNER_OPS_NAV: PartnerOpsNavItem[] = [
       { key: 'proxy.followup', label: 'Followup', icon: PhoneCall, keywords: ['contact', 'chase'] },
     ],
   },
-  { key: 'maturity', label: 'Maturity Requests', icon: CalendarClock, view: 'maturity', keywords: ['maturity', 'requests', 'queue'] },
-  {
-    key: 'rent.requests',
-    label: 'Rent Plan Vetting',
-    icon: ClipboardList,
-    view: 'rent.requests',
-    keywords: ['rent', 'requests', 'proxy', 'attach', 'coo', 'tenants', 'media'],
-  },
-  { key: 'approvals', label: 'Partner Approvals', icon: ClipboardCheck, view: 'approvals', keywords: ['approve', 'funders', 'role requests'] },
 ];
 
 export interface PartnerOpsSearchResult {
