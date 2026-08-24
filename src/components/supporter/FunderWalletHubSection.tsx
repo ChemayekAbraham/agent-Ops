@@ -322,7 +322,7 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
                                 {categoryLabel(tx.category, tx.source_table)}
                               </p>
                               <p className="text-[11px] text-muted-foreground truncate">
-                                {tx.description || tx.reference_id || formatDate(tx.transaction_date)}
+                                {tx.description || tx.reference_id || formatDateOnlyForDisplay(tx.transaction_date)}
                               </p>
                             </div>
                             <div className="text-right shrink-0">
@@ -334,7 +334,7 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
                               >
                                 {isCashIn ? '+' : '-'} {formatUGX(tx.amount)}
                               </p>
-                              <p className="text-[10px] text-muted-foreground">{formatDate(tx.transaction_date)}</p>
+                              <p className="text-[10px] text-muted-foreground">{formatDateOnlyForDisplay(tx.transaction_date)}</p>
                             </div>
                           </div>
                         );
