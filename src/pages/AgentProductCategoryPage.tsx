@@ -89,22 +89,28 @@ function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
   });
 
   return (
-    <Tabs defaultValue="pending" className="space-y-4">
+    <Tabs defaultValue="overview" className="space-y-4">
       <TabsList>
+        <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="pending" className="gap-2">
           Pending Applications
           {pendingCount > 0 && <Badge variant="secondary">{pendingCount}</Badge>}
         </TabsTrigger>
-        <TabsTrigger value="issued">Issued devices</TabsTrigger>
+        <TabsTrigger value="issued">Issued Devices</TabsTrigger>
       </TabsList>
+
+      <TabsContent value="overview" className="space-y-6">
+        <AgentProductsPanel category={category} mode="overview" />
+      </TabsContent>
 
       <TabsContent value="pending" className="space-y-6">
         <SmartphoneOrderApprovalQueue pendingOnly />
       </TabsContent>
 
       <TabsContent value="issued" className="space-y-6">
-        <AgentProductsPanel category={category} />
+        <AgentProductsPanel category={category} mode="issued" />
       </TabsContent>
     </Tabs>
   );
+
 }
