@@ -374,6 +374,7 @@ export default function SmartphoneOrderStatus({
             );
           })}
         </div>
+        )}
         <AlertDialog open={!!cancelTarget} onOpenChange={(v) => !v && setCancelTarget(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
