@@ -281,6 +281,9 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
           <DepositFlow
             open={showDeposit}
             onOpenChange={setShowDeposit}
+            allowedPurposes={['partnership_deposit'] as const}
+            defaultPurpose="partnership_deposit"
+            lockPurpose
           />
           <WithdrawFlow
             open={showWithdraw}
