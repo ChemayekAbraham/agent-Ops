@@ -539,7 +539,7 @@ export default function SupporterDashboard({
               }}
               onPortfolios={() => { hapticTap(); setInvestmentsTab('accounts'); setShowInvestments(true); }}
               onCalculator={() => { hapticTap(); setShowCalculator(true); }}
-              onMore={() => { hapticTap(); setShowWallet(true); }}
+              onMore={() => { hapticTap(); setShowFunderHub(true); }}
             />
           </WidgetErrorBoundary>
 
