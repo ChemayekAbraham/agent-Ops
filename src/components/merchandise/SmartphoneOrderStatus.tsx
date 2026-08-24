@@ -248,11 +248,22 @@ export default function SmartphoneOrderStatus({
   return (
     <Card className="border-border">
       <CardContent className="p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Smartphone className="h-4 w-4 text-primary" />
-          <p className="text-sm font-bold">{title}</p>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Smartphone className="h-4 w-4 text-primary" />
+            <p className="text-sm font-bold">{title}</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            aria-label={expanded ? 'Collapse' : 'Expand'}
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </Button>
         </div>
-        {orders.length > 1 && (
+        {expanded && orders.length > 1 && (
           <Select value={selected.id} onValueChange={setSelectedId}>
             <SelectTrigger className="h-8 text-xs">
               <SelectValue placeholder="Select an order" />
