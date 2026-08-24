@@ -42988,6 +42988,46 @@ export type Database = {
         }
         Returns: boolean
       }
+      merchant_agent_float_allocation_report: {
+        Args: { p_days?: number }
+        Returns: {
+          actioned: number
+          agent_id: string
+          allocation_score: number
+          attempts: number
+          capacity_utilization_pct: number
+          company_cash_with_agent: number
+          current_queue_count: number
+          float_delivered: number
+          float_turnover: number
+          grade: string
+          is_active: boolean
+          is_online: boolean
+          label: string
+          ledger_float_held: number
+          max_daily_payouts: number
+          merchant_name: string
+          merchant_phone: string
+          open_disputes: number
+          owed_to_agent: number
+          paid: number
+          payouts_without_float_evidence: number
+          pct_customer_debited: number
+          pct_fully_recorded: number
+          pct_paid: number
+          pending_reimbursement_amount: number
+          reason: string
+          recommendation: string
+          shortfall_amount: number
+          shortfall_count: number
+          stranded_processing: number
+          total_commission: number
+          total_float_consumed: number
+          total_paid: number
+          total_telecom: number
+          window_days: number
+        }[]
+      }
       merchant_attach_payout_proof: {
         Args: {
           p_bucket?: string
