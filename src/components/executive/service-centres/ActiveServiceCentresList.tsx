@@ -47,7 +47,11 @@ export function ActiveServiceCentresList() {
             <div className="min-w-0 space-y-0.5">
               <div className="flex items-center gap-2">
                 <p className="truncate text-sm font-semibold text-foreground">{s.agent_name}</p>
-                <Badge className="bg-emerald-500/15 text-emerald-600 text-[10px]">Active</Badge>
+                {getServiceCentreStage(s).isFunded ? (
+                  <Badge className="bg-emerald-600 text-white text-[10px]">Funded</Badge>
+                ) : (
+                  <Badge className="bg-emerald-500/15 text-emerald-600 text-[10px]">Active</Badge>
+                )}
               </div>
               <p className="text-xs text-muted-foreground">{s.agent_phone}</p>
               <p className="text-xs text-muted-foreground">{s.location_name || 'No description'}</p>
