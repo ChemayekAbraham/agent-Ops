@@ -64,8 +64,8 @@ const KNOWN_STATUSES: OrderStatus[] = ['submitted', 'pending_approval', 'approve
 /** Payment projection is only revealed once an executive approves the order. */
 const APPROVED_STATUSES: OrderStatus[] = ['approved', 'processing', 'completed'];
 
-/** Agents may withdraw their own application while it is still waiting for approval. */
-const CANCELLABLE_STATUSES: OrderStatus[] = ['submitted', 'pending_approval'];
+/** Agents may remove their own application while pending, or once rejected/failed. */
+const CANCELLABLE_STATUSES: OrderStatus[] = ['submitted', 'pending_approval', 'rejected', 'failed'];
 
 
 function normalizeStatus(value: unknown): OrderStatus {
@@ -143,10 +143,10 @@ export default function SmartphoneOrderStatus({
     try {
       const { error } = await db.rpc('agent_cancel_merchandise_order', {
         p_sale_id: cancelTarget.id,
-        p_reason: 'Cancelled by the agent before approval to place a new order',
+        p_reason: 'Order deleted by the agent (pending or rejected) to place a new one',
       });
       if (error) throw error;
-      toast.success('Order cancelled — you can place a new one');
+      toast.success('Order deleted — you can place a new one');
       setCancelTarget(null);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['my-smartphone-orders', userId, itemName] }),
@@ -351,7 +351,7 @@ export default function SmartphoneOrderStatus({
                           className="text-destructive focus:text-destructive focus:bg-destructive/10"
                           onClick={() => setCancelTarget(o)}
                         >
-                          <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete / Cancel
+                          <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete order
                         </DropdownMenuItem>
                       </>
                     )}
@@ -364,10 +364,10 @@ export default function SmartphoneOrderStatus({
         <AlertDialog open={!!cancelTarget} onOpenChange={(v) => !v && setCancelTarget(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Cancel this application?</AlertDialogTitle>
+              <AlertDialogTitle>Delete this order?</AlertDialogTitle>
               <AlertDialogDescription className="text-xs">
                 {cancelTarget
-                  ? `Your ${formatUGX(Number(cancelTarget.unit_price))} ${itemName} application from ${format(new Date(cancelTarget.created_at), 'd MMM yyyy, HH:mm')} will be withdrawn before approval, and you can place a new order right away. Applications already in repayment cannot be cancelled.`
+                  ? `Your ${formatUGX(Number(cancelTarget.unit_price))} ${itemName} order from ${format(new Date(cancelTarget.created_at), 'd MMM yyyy, HH:mm')} will be removed and you can place a new one right away. Orders already in repayment cannot be deleted.`
                   : null}
               </AlertDialogDescription>
             </AlertDialogHeader>
@@ -380,7 +380,7 @@ export default function SmartphoneOrderStatus({
                   handleCancel();
                 }}
               >
-                {cancelling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Cancel application'}
+                {cancelling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Delete order'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
