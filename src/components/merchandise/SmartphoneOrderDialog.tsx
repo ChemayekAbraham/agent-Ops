@@ -50,7 +50,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const [submitting, setSubmitting] = useState(false);
 
   const totalAmount = Math.max(0, parseInt(amount || '0', 10) || 0);
-  const projection = Math.round(totalAmount * SMARTPHONE_RECOVERY_RATE);
+  
   const canSubmit = !!brand && modelType.trim().length > 1 && totalAmount >= 1000;
 
   const reset = () => {
