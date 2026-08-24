@@ -139,15 +139,14 @@ function BalanceCard({
 
 export default function FunderWalletHubSection({ open, onOpenChange }: FunderWalletHubSectionProps) {
   const { user } = useAuth();
-  const [page, setPage] = useState(0);
-  const { data, isLoading, error } = usePartnerWalletHub(user?.id, page);
+  const navigate = useNavigate();
+  const { data, isLoading, error } = usePartnerWalletHub(user?.id, 0);
   const [showDeposit, setShowDeposit] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
 
-  const allTransactions = data?.transactions ?? [];
-  const hasMore = allTransactions.length === (page + 1) * 20;
-  const hasLess = page > 0;
+  const recentTransactions = (data?.transactions ?? []).slice(0, 10);
+
 
   return (
     <>
