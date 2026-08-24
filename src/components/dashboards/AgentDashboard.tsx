@@ -454,6 +454,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const [recoveryLedgerOpen, setRecoveryLedgerOpen] = useState(false);
   const [payoutStatusOpen, setPayoutStatusOpen] = useState(false);
   const [otpAuditOpen, setOtpAuditOpen] = useState(false);
+  // Standalone landlord-receipt confirmation, reachable any time from the
+  // Money tab (not only right after a payout dialog).
+  const [receiptCheckOpen, setReceiptCheckOpen] = useState(false);
   const [floatHistoryOpen, setFloatHistoryOpen] = useState(false);
   const [requisitionOpen, setRequisitionOpen] = useState(false);
   const [angelPoolInvestOpen, setAngelPoolInvestOpen] = useState(false);
