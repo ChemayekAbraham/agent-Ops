@@ -19,6 +19,7 @@ import {
 import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
 import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatus';
+import { useMerchandiseOrderLock } from '@/hooks/useMerchandiseOrderLock';
 import SmartphoneOrderDialog from '@/components/merchandise/SmartphoneOrderDialog';
 
 import { StorageImage } from '@/components/ui/StorageImage';
@@ -78,6 +79,7 @@ export default function MerchandiseStore() {
   const [confirmStep, setConfirmStep] = useState(false);
   const [ordering, setOrdering] = useState(false);
   const [phoneOpen, setPhoneOpen] = useState(false);
+  const { repaying: smartphoneRepaying } = useMerchandiseOrderLock(user?.id);
 
 
   const [bikeOpen, setBikeOpen] = useState(false);
