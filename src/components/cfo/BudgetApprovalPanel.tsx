@@ -35,10 +35,12 @@ export default function BudgetApprovalPanel() {
   const [loading, setLoading] = useState(false);
   const [consolidation, setConsolidation] = useState<BudgetConsolidation | null>(null);
 
-  useEffect(() => { if (!cycleId && cycles.length) setCycleId(cycles[0].id); }, [cycles, cycleId]);
-
   useEffect(() => {
-    if (view !== 'consolidation' || !cycleId) return;
+    if (view !== 'consolidation') return;
+    if (!cycleId) {
+      setConsolidation(null);
+      return;
+    }
     setConsolidation(null);
     fetchConsolidation(cycleId)
       .then(setConsolidation)
