@@ -93,7 +93,6 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const DashboardRedirect = lazy(() => import("./pages/DashboardRedirect"));
 const SelectRole = lazy(() => import("./pages/SelectRole"));
 const DepartmentBudgets = lazy(() => import("./pages/DepartmentBudgets"));
-const TransactionHistory = lazy(() => import("./pages/TransactionHistory"));
 const Settings = lazy(() => import("./pages/Settings"));
 const YourProfile = lazy(() => import("./pages/YourProfile"));
 const NotificationsScreen = lazy(() => import("./pages/NotificationsScreen"));
@@ -525,7 +524,6 @@ function AppRoutes() {
             />
           )}
           <Route path="/select-role" element={<SelectRole />} />
-          <Route path="/transactions" element={<TransactionHistory />} />
           <Route path="/financial-statement" element={<FinancialStatement />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/your-profile" element={<YourProfile />} />

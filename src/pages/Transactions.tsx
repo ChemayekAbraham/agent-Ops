@@ -3,7 +3,8 @@
  * 15 rows per fetch, keyset "Load more" (one query per page, no N+1).
  */
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import TransactionsFeed from "@/components/transactions/TransactionsFeed";
 
@@ -23,7 +24,14 @@ export default function Transactions() {
           >
             <ArrowLeft className="h-6 w-6" />
           </button>
-          <h1 className="flex-1 text-2xl font-bold tracking-tight">Transaction History</h1>
+          <h1 className="flex-1 truncate text-xl font-bold sm:text-2xl tracking-tight">Transaction History</h1>
+          <Button
+            className="h-11 shrink-0 rounded-full px-5 font-bold"
+            onClick={() => navigate("/financial-statement")}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Statement
+          </Button>
         </div>
       </header>
 
