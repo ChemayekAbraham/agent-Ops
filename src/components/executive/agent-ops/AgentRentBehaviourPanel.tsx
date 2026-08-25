@@ -283,6 +283,22 @@ function KpiCard({ icon: Icon, label, value, hint }: { icon: typeof Users; label
   );
 }
 
+function MiniStat({ label, value, tone = 'default' }: { label: string; value: string; tone?: 'default' | 'success' | 'warning' }) {
+  const toneClass =
+    tone === 'success'
+      ? 'text-success'
+      : tone === 'warning'
+        ? 'text-warning'
+        : 'text-foreground';
+  return (
+    <div className="rounded-xl border border-border bg-card p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={`mt-1 text-lg font-black tabular-nums break-words ${toneClass}`}>{value}</p>
+    </div>
+  );
+}
+
+
 export function AgentRentBehaviourPanel() {
   const [page, setPage] = useState(0);
   const [data, setData] = useState<RentBehaviourResponse>(() => asRows(null));
