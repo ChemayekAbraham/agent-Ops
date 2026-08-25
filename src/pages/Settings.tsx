@@ -403,24 +403,6 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Hero — profile summary */}
-        <div className="rounded-2xl border border-border/40 bg-card p-4 flex items-center gap-4">
-          <Avatar className="h-14 w-14 border-2 border-primary/20">
-            <AvatarImage src={profile?.avatar_url || undefined} alt={fullName} />
-            <AvatarFallback className="text-base bg-primary/10 text-primary font-bold">{getInitials(fullName || 'U')}</AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="font-bold truncate">{fullName || 'Your Name'}</p>
-            {profile?.email && <p className="text-xs text-muted-foreground truncate">{profile.email}</p>}
-            <div className="flex flex-wrap gap-1 mt-1.5">
-              {roles.slice(0, 3).map((r) => {
-                const config = roleConfig[r];
-                return config ? <Badge key={r} className={`${config.color} text-[9px] px-1.5 py-0 border`}>{config.label}</Badge> : null;
-              })}
-              {roles.length > 3 && <Badge variant="outline" className="text-[9px] px-1.5 py-0">+{roles.length - 3}</Badge>}
-            </div>
-          </div>
-        </div>
 
         {/* Active section content — ONLY one section renders at a time */}
         <div className="mt-3">
