@@ -1,3 +1,4 @@
+import "../_shared/noSignupPrompt.ts";
 import "../_shared/smsFooterInterceptor.ts";
 // Sends a sign-up invite SMS to a tenant and/or landlord when an agent posts a
 // rent request. For each recipient we:
