@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
@@ -8,6 +8,7 @@ import {
   Download,
   Eye,
   FileText,
+  AlertTriangle,
   Loader2,
   RefreshCw,
   TrendingUp,
@@ -284,6 +285,10 @@ function KpiCard({ icon: Icon, label, value, hint }: { icon: typeof Users; label
 
 export function AgentRentBehaviourPanel() {
   const [page, setPage] = useState(0);
+  const [data, setData] = useState<RentBehaviourResponse>(() => asRows(null));
+  const [isLoading, setIsLoading] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<RentBehaviourRow | null>(null);
   const [profileUser, setProfileUser] = useState<{
     id: string;
@@ -302,27 +307,39 @@ export function AgentRentBehaviourPanel() {
 
   const offset = page * PAGE_SIZE;
 
-  const { data = asRows(null), isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['agent-ops-rent-behaviour', offset],
-    queryFn: async () => {
-      const rpc = supabase.rpc as unknown as (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
-      const { data: payload, error } = await rpc('get_agent_ops_rent_behaviour', {
+  const loadRows = useCallback(async (nextOffset: number, silent = false) => {
+    if (!silent) setIsLoading(true);
+    setIsFetching(true);
+    setLoadError(null);
+
+    try {
+      const { data: payload, error } = await supabase.rpc('get_agent_ops_rent_behaviour', {
         p_limit: PAGE_SIZE,
-        p_offset: offset,
+        p_offset: nextOffset,
       });
       if (error) throw new Error(error.message);
-      return asRows(payload);
-    },
-    staleTime: 30_000,
-  });
+      setData(asRows(payload));
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Rent behaviour failed to load.');
+      setData(asRows(null));
+    } finally {
+      setIsLoading(false);
+      setIsFetching(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadRows(offset);
+  }, [loadRows, offset]);
+
+  const refetch = () => loadRows(offset, true);
 
   const detailQuery = useQuery({
     queryKey: ['agent-ops-rent-behaviour-detail', selected?.tenant_id, selected?.agent_id],
     enabled: Boolean(selected?.tenant_id && selected?.agent_id),
     queryFn: async () => {
       if (!selected) return asDetail(null);
-      const rpc = supabase.rpc as unknown as (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
-      const { data: payload, error } = await rpc('get_agent_ops_rent_behaviour_detail', {
+      const { data: payload, error } = await supabase.rpc('get_agent_ops_rent_behaviour_detail', {
         p_tenant_id: selected.tenant_id,
         p_agent_id: selected.agent_id,
       });
@@ -413,6 +430,18 @@ export function AgentRentBehaviourPanel() {
         {isLoading ? (
           <div className="h-64 flex items-center justify-center text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading rent behaviour
+          </div>
+        ) : loadError ? (
+          <div className="min-h-64 flex flex-col items-center justify-center gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-center">
+            <AlertTriangle className="h-6 w-6 text-destructive" />
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-foreground">Rent behaviour could not load.</p>
+              <p className="text-xs text-muted-foreground">{loadError}</p>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+              {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Retry
+            </Button>
           </div>
         ) : rows.length === 0 ? (
           <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">No repayment behaviour rows found.</div>
@@ -506,6 +535,12 @@ export function AgentRentBehaviourPanel() {
           {detailQuery.isLoading ? (
             <div className="h-64 flex items-center justify-center text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading tenant statement
+            </div>
+          ) : detailQuery.isError ? (
+            <div className="h-64 flex flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+              <AlertTriangle className="h-6 w-6 text-destructive" />
+              <p className="text-sm font-semibold text-foreground">Tenant statement could not load.</p>
+              <p className="text-xs">{detailQuery.error instanceof Error ? detailQuery.error.message : 'Refresh and try again.'}</p>
             </div>
           ) : (
             <div className="space-y-4 pt-4">
