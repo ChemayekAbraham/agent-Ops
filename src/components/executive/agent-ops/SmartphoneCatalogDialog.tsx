@@ -235,6 +235,7 @@ export function SmartphoneCatalogDialog() {
     setEditBrand(e.brand);
     setEditModel(e.model_name ?? '');
     setEditAmount(e.default_amount != null ? String(Number(e.default_amount)) : '');
+    setEditSpecifications(e.specifications ?? '');
   };
 
   return (
