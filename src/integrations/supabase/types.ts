@@ -39799,6 +39799,10 @@ export type Database = {
         Args: { delay_seconds?: number; message_id: number; queue_name: string }
         Returns: boolean
       }
+      delete_agent_product_holdings: {
+        Args: { p_agent_id: string; p_category: string; p_reason: string }
+        Returns: Json
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
