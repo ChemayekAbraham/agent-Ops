@@ -87,7 +87,7 @@ export const TX_METHOD_OPTIONS: { value: TxMethodFilter; label: string }[] = [
 const SERVICE_CATEGORIES: Record<Exclude<TxServiceFilter, "all">, string[]> = {
   advance: ["agent_advance_credit", "debt_recovery"],
   deposit: ["wallet_deposit", "agent_float_deposit", "partner_funding", "share_capital"],
-  withdraw: ["wallet_withdrawal", "agent_commission_withdrawal", "wallet_deduction", "agent_float_settlement"],
+  withdraw: ["wallet_withdrawal", "agent_commission_withdrawal", "wallet_deduction"],
   commission: [
     "agent_commission_earned",
     "agent_commission_used_for_rent",
