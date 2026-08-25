@@ -98,10 +98,53 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
         rows: payload.rows ?? [],
         catalog: payload.catalog ?? [],
         centres: payload.centres ?? [],
+        pending: payload.pending ?? [],
+        breakdown: payload.breakdown ?? [],
+        activity: payload.activity ?? [],
       };
     },
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    placeholderData: (prev) => prev,
+    refetchOnWindowFocus: false,
   });
+
+  const approveApp = useMutation({
+    mutationFn: async (row: PendingApp) => {
+      const { error } = await supabase.rpc('approve_smartphone_order' as any, {
+        p_sale_id: row.sale_id,
+        p_total_amount: Math.round(Number(row.requested_amount || 0)),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Application approved');
+      queryClient.invalidateQueries({ queryKey: ['agent-products-overview'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['smartphone-order-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['smartphone-order-pending-count'] });
+    },
+    onError: (e: any) => toast.error(e?.message || 'Could not approve application'),
+  });
+
+  const rejectApp = useMutation({
+    mutationFn: async ({ row, reason }: { row: PendingApp; reason: string }) => {
+      const { error } = await supabase.rpc('reject_smartphone_order' as any, {
+        p_sale_id: row.sale_id,
+        p_reason: reason.trim(),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Application rejected');
+      setRejectTarget(null);
+      setRejectReason('');
+      queryClient.invalidateQueries({ queryKey: ['agent-products-overview'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['smartphone-order-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['smartphone-order-pending-count'] });
+    },
+    onError: (e: any) => toast.error(e?.message || 'Could not reject application'),
+  });
+
 
   const kpis = data?.kpis as AgentProductKpis | undefined;
   const rows = useMemo(() => {
