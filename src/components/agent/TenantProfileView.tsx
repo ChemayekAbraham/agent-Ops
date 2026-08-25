@@ -832,15 +832,28 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
     }
   };
 
-  /** Pull every remaining repayment row so exports cover the full history. */
-  const ensureAllRepaymentsLoaded = async () => {
-    let guard = 0;
-    while (repayHasMoreServer && guard < 50) {
-      const page = await fetchNextRepaymentPage();
-      if (page.length < REPAY_FETCH_SIZE) break;
-      guard += 1;
+  /**
+   * Pull every repayment row for this tenant so exports cover the full history
+   * regardless of what is currently cached in state.
+   */
+  const fetchAllRepayments = async (): Promise<RepaymentRow[]> => {
+    const all: RepaymentRow[] = [];
+    for (let page = 0; page < 50; page += 1) {
+      const from = page * REPAY_FETCH_SIZE;
+      const { data, error } = await supabase
+        .from('repayments')
+        .select('id, amount, created_at, rent_request_id')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .range(from, from + REPAY_FETCH_SIZE - 1);
+      if (error) throw error;
+      const rows = (data as RepaymentRow[]) || [];
+      all.push(...rows);
+      if (rows.length < REPAY_FETCH_SIZE) break;
     }
+    return all;
   };
+
 
 
   /**
