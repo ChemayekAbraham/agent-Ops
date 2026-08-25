@@ -125,26 +125,6 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
               </div>
             ) : (
               <>
-                {/* Balance hero — unified wallet hero card (same card as the dashboard) */}
-                <UnifiedWalletHeroCard
-                  balance={data?.totalAvailable ?? 0}
-                  role="supporter"
-                  withdrawableBalance={data?.withdrawableAmount ?? 0}
-                  defaultCollapsed={false}
-                  collapsible={false}
-                  hideSupporterMetrics
-                  hideSecondaryRow
-                  hidePayrollGrowth
-                  hideFooter
-                  disableTap
-                  quickActions={
-                    <FunderQuickActions
-                      variant="hero"
-                      availableBalance={data?.withdrawableAmount ?? 0}
-                      onChanged={() => void refetch?.()}
-                    />
-                  }
-                />
 
                 {/* Providers — wallet-card style, compact logos with names */}
                 <Card className="rounded-2xl border-border/50 shadow-sm overflow-hidden" data-testid="provider-logos">
