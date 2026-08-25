@@ -610,6 +610,8 @@ export default function Settings() {
                 <Card className="border-border/40 rounded-2xl">
                   <CardHeader className="pb-2"><div className="flex items-center gap-2"><LayoutDashboard className="h-4 w-4 text-primary" /><div><CardTitle className="text-sm">Home Screen</CardTitle><CardDescription className="text-xs">Pick which page opens when you log in</CardDescription></div></div></CardHeader>
                   <CardContent>
+
+
                     <RadioGroup value={preferences.defaultRole} onValueChange={(v) => { updatePreference('defaultRole', v as any); toast.success(`Default set to ${v}`); }} className="grid grid-cols-2 gap-2">
                       <div className="flex items-center space-x-2 p-2.5 rounded-lg border border-border/50"><RadioGroupItem value="auto" id="role-auto" /><Label htmlFor="role-auto" className="text-sm cursor-pointer flex items-center gap-1.5"><RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />Auto</Label></div>
                       {roles.map((r) => { const rc = roleConfig[r]; if (!rc) return null; return (<div key={r} className="flex items-center space-x-2 p-2.5 rounded-lg border border-border/50"><RadioGroupItem value={r} id={`role-${r}`} /><Label htmlFor={`role-${r}`} className="text-sm cursor-pointer flex items-center gap-1.5">{rc.icon}{rc.label}</Label></div>); })}

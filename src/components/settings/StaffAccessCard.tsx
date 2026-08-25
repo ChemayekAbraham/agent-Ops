@@ -95,6 +95,8 @@ export default function StaffAccessCard() {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+
+
         {hasStaffAccess ? (
           <Button
             onClick={() => handleQuickSwitch()}
