@@ -55,9 +55,11 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const brands = Array.from(new Set(activeCatalog.map((c) => c.brand)));
   const models = activeCatalog.filter((c) => c.brand === brand && !!c.model_name);
 
-  const totalAmount = Math.max(0, parseInt(amount || '0', 10) || 0);
+  const matched = activeCatalog.find((c) => c.brand === brand && c.model_name === modelType);
+  const totalAmount = Math.max(0, Math.round(Number(matched?.default_amount ?? 0)) || 0);
+  const accessAmount = Math.round(totalAmount * SMARTPHONE_RECOVERY_RATE + totalAmount);
 
-  const canSubmit = !!brand && totalAmount >= 1000;
+  const canSubmit = !!brand && !!modelType && totalAmount >= 1000;
 
   const onBrandChange = (value: string) => {
     setBrand(value);
@@ -66,10 +68,6 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
   const onModelChange = (value: string) => {
     setModelType(value);
-    const match = activeCatalog.find((c) => c.brand === brand && c.model_name === value);
-    if (match && match.default_amount != null && Number(match.default_amount) > 0) {
-      setAmount(String(Math.round(Number(match.default_amount))));
-    }
   };
 
   const reset = () => {
@@ -77,6 +75,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
     setModelType('');
     setAmount('');
   };
+
 
   const submit = async () => {
     if (!brand) {
