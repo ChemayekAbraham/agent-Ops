@@ -126,25 +126,13 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const totalCash = platformCash?.totalCash ?? 0;
   const treasuryPosition = (platformCash?.positions ?? []).find((p: any) => p.category === 'treasury_platform_cash');
   const bankPosition = (platformCash?.positions ?? []).find((p: any) => p.category === 'bank_cash');
-  const totalReceivables = receivables?.totalReceivables ?? 0;
   const totalLiabilities = liabilities?.totalLiabilities ?? 0;
   const walletTotal = liabilities?.tenantFunds ?? 0;
   const moneyWeCanUse = Math.max(0, totalCash - walletTotal);
   const netToday = todayCashFlow?.netToday ?? 0;
 
-  /* ── reporting-layer derivations (no new data sources) ── */
-  const revenueTotal = revenue?.totalRevenue ?? 0;
-  const expenseTotal = revenue?.totalExpenses ?? 0;
-  const netProfit = revenue?.netProfit ?? 0;
-  const netMargin = revenueTotal > 0 ? (netProfit / revenueTotal) * 100 : 0;
-
-  const netWorkingCapital = totalCash + totalReceivables - totalLiabilities;
-
-  const burn30d = moneyFlow?.totalOutflows ?? 0;
-  const dailyBurn = burn30d / 30;
-
-
   const trend = revenue?.trend ?? [];
+
 
   const liabilityItems = [
     { label: 'Total Wallet Balances', value: liabilities?.tenantFunds ?? 0, icon: <Wallet className="h-4 w-4" /> },
@@ -504,20 +492,7 @@ function HeroCard({ icon, iconBg, title, value, valueColor, items, footer, foote
 }
 
 
-function SummaryItem({ label, value, caption, valueColor, icon }: {
-  label: string; value: string; caption: string; valueColor?: string; icon?: React.ReactNode;
-}) {
-  return (
-    <div className="min-w-0 rounded-lg border border-border/70 bg-muted/20 p-3">
-      <div className="flex items-center gap-1.5 text-muted-foreground">
-        {icon}
-        <p className="text-[10px] font-medium uppercase tracking-wider leading-tight truncate">{label}</p>
-      </div>
-      <p className={`text-sm sm:text-base font-bold tabular-nums leading-tight mt-1.5 ${valueColor || ''}`}>{value}</p>
-      <p className="text-[10px] text-muted-foreground mt-1 leading-tight">{caption}</p>
-    </div>
-  );
-}
+
 
 function FlowCell({ label, value, color, icon, iconBg, onClick }: {
   label: string; value: string; color: string; icon: React.ReactNode; iconBg?: string; onClick?: () => void;
