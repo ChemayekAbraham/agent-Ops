@@ -286,7 +286,7 @@ export function DisbursedAdvancesRegister() {
             disabled={todaysBatch.length === 0}
             onClick={() => openBulk(null)}
           >
-            <Undo2 className="h-3 w-3" /> Reverse today&apos;s batch ({todaysBatch.length})
+            <Undo2 className="h-3 w-3" /> Reverse recent batch ({todaysBatch.length})
           </Button>
           <Button
             size="sm"
