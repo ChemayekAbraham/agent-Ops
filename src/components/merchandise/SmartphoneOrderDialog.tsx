@@ -10,7 +10,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -47,7 +46,6 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const queryClient = useQueryClient();
   const [brand, setBrand] = useState<string>('');
   const [modelType, setModelType] = useState('');
-  const [amount, setAmount] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const { data: catalog = [], isLoading: catalogLoading } = useSmartphoneCatalog();
@@ -55,9 +53,11 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const brands = Array.from(new Set(activeCatalog.map((c) => c.brand)));
   const models = activeCatalog.filter((c) => c.brand === brand && !!c.model_name);
 
-  const totalAmount = Math.max(0, parseInt(amount || '0', 10) || 0);
+  const matched = activeCatalog.find((c) => c.brand === brand && c.model_name === modelType);
+  const totalAmount = Math.max(0, Math.round(Number(matched?.default_amount ?? 0)) || 0);
+  const accessAmount = Math.round(totalAmount * SMARTPHONE_RECOVERY_RATE + totalAmount);
 
-  const canSubmit = !!brand && totalAmount >= 1000;
+  const canSubmit = !!brand && !!modelType && totalAmount >= 1000;
 
   const onBrandChange = (value: string) => {
     setBrand(value);
@@ -66,27 +66,24 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
   const onModelChange = (value: string) => {
     setModelType(value);
-    const match = activeCatalog.find((c) => c.brand === brand && c.model_name === value);
-    if (match && match.default_amount != null && Number(match.default_amount) > 0) {
-      setAmount(String(Math.round(Number(match.default_amount))));
-    }
   };
 
   const reset = () => {
     setBrand('');
     setModelType('');
-    setAmount('');
   };
 
+
   const submit = async () => {
-    if (!brand) {
-      toast.error('Select a product brand');
+    if (!brand || !modelType) {
+      toast.error('Select a brand and phone model from the catalog');
       return;
     }
     if (totalAmount < 1000) {
-      toast.error('Enter a phone amount of at least UGX 1,000');
+      toast.error('This model has no catalog price yet — contact Agent Ops');
       return;
     }
+
     setSubmitting(true);
     const { error } = await db.rpc('agent_order_smartphone', {
       p_total_amount: totalAmount,
@@ -125,61 +122,43 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
           <div className="space-y-1">
             <Label className="text-xs">Product Brand</Label>
-            {brands.length > 0 && (
-              <Select value={brands.includes(brand) ? brand : ''} onValueChange={onBrandChange} disabled={catalogLoading}>
-                <SelectTrigger>
-                  <SelectValue placeholder={catalogLoading ? 'Loading brands…' : 'Select brand'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {brands.map((b) => (
-                    <SelectItem key={b} value={b}>{b}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <Input
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-              placeholder={brands.length ? 'Or type another brand' : 'e.g. Samsung, Tecno, itel'}
-            />
+            <Select value={brands.includes(brand) ? brand : ''} onValueChange={onBrandChange} disabled={catalogLoading}>
+              <SelectTrigger>
+                <SelectValue placeholder={catalogLoading ? 'Loading brands…' : 'Select brand'} />
+              </SelectTrigger>
+              <SelectContent>
+                {brands.map((b) => (
+                  <SelectItem key={b} value={b}>{b}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1">
-            <Label className="text-xs">
-              Phone Model <span className="text-muted-foreground font-normal">— optional</span>
-            </Label>
-            {models.length > 0 && (
-              <Select value={models.some((m) => m.model_name === modelType) ? modelType : ''} onValueChange={onModelChange} disabled={!brand}>
-                <SelectTrigger>
-                  <SelectValue placeholder={!brand ? 'Select a brand first' : 'Select a listed model'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {models.map((m) => (
-                    <SelectItem key={m.id} value={m.model_name as string}>{m.model_name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <Input
-              value={modelType}
-              onChange={(e) => setModelType(e.target.value)}
-              disabled={!brand}
-              placeholder={!brand ? 'Select a brand first' : 'Or type your own model name'}
-            />
+            <Label className="text-xs">Phone Model</Label>
+            <Select
+              value={models.some((m) => m.model_name === modelType) ? modelType : ''}
+              onValueChange={onModelChange}
+              disabled={!brand || models.length === 0}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={!brand ? 'Select a brand first' : models.length ? 'Select a listed model' : 'No models listed'} />
+              </SelectTrigger>
+              <SelectContent>
+                {models.map((m) => (
+                  <SelectItem key={m.id} value={m.model_name as string}>{m.model_name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="space-y-1">
-            <Label className="text-xs">Input Phone Amount (UGX)</Label>
-            <Input
-              type="number"
-              min={1000}
-              step={1000}
-              inputMode="numeric"
-              placeholder="e.g. 1200000"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-          </div>
+          {totalAmount > 0 && (
+            <div className="rounded-lg border border-border bg-muted/40 p-3">
+              <p className="text-xs text-muted-foreground">Total access amount</p>
+              <p className="text-lg font-bold tabular-nums">{formatUGX(accessAmount)}</p>
+            </div>
+          )}
+
 
           <p className="text-[11px] text-muted-foreground">
             Your order is submitted as Pending Approval. Nothing is charged to your wallet until it is
