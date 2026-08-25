@@ -34,8 +34,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserAvatar } from '@/components/UserAvatar';
-import { UserProfileDialog } from '@/components/supporter/UserProfileDialog';
 import { downloadAuditPdf } from '@/lib/pdfAuditReport';
 import { formatUGX } from '@/lib/rentCalculations';
 
@@ -290,20 +290,7 @@ export function AgentRentBehaviourPanel() {
   const [isFetching, setIsFetching] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<RentBehaviourRow | null>(null);
-  const [profileUser, setProfileUser] = useState<{
-    id: string;
-    name: string;
-    avatarUrl?: string;
-    type: 'tenant';
-    createdAt?: string;
-    phone?: string;
-    email?: string;
-    verified?: boolean;
-    city?: string;
-    country?: string;
-    district?: string;
-    region?: string;
-  } | null>(null);
+  const [detailTab, setDetailTab] = useState('overview');
 
   const offset = page * PAGE_SIZE;
 
@@ -377,24 +364,6 @@ export function AgentRentBehaviourPanel() {
     );
   };
 
-  const openTenantProfile = (detail: RentBehaviourDetail | undefined) => {
-    const tenant = detail?.tenant;
-    if (!selected?.tenant_id) return;
-    setProfileUser({
-      id: selected.tenant_id,
-      name: tenant?.full_name || selected.tenant_name,
-      avatarUrl: tenant?.avatar_url || selected.tenant_avatar_url || undefined,
-      type: 'tenant',
-      createdAt: tenant?.created_at || selected.tenant_created_at || undefined,
-      phone: tenant?.phone || selected.tenant_phone || undefined,
-      email: tenant?.email || selected.tenant_email || undefined,
-      verified: tenant?.verified ?? undefined,
-      city: tenant?.city || tenant?.village || tenant?.territory || undefined,
-      country: tenant?.country || undefined,
-      district: tenant?.district || undefined,
-      region: tenant?.region || undefined,
-    });
-  };
 
   return (
     <div className="space-y-4">
