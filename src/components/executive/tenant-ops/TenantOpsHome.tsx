@@ -1,78 +1,298 @@
-import { Card, CardContent } from '@/components/ui/card';
+import { useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import {
   ClipboardList,
   CalendarCheck,
   Users,
   Activity,
-  Gauge,
-  Shield,
   Download,
-  Landmark,
   CalendarX2,
+  ChevronRight,
+  ShieldCheck,
+  TrendingUp,
+  Wallet,
 } from 'lucide-react';
 import { HubEntryCard } from '@/components/ops/HubEntryCard';
+import { RepaymentTrendChart } from '@/components/executive/RepaymentTrendChart';
 import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
+import { useTenantRepaymentReliability } from '@/hooks/useTenantRepaymentReliability';
 import { formatUGX } from '@/lib/rentCalculations';
+import { cn } from '@/lib/utils';
 import type { TenantOpsViewKey } from './tenantOpsNav';
 
 /**
- * Landing page for Tenant Ops → Classic. Live counts come from the same
- * `ops_tenant_ops_tool_counts` RPC the Classic cards already use; every tile
- * simply navigates the shell to an existing Classic view.
+ * Landing page for Tenant Ops → Classic.
+ *
+ * Read-only. Live counts come from the same `ops_tenant_ops_tool_counts` RPC the
+ * Classic cards already use, the 7-day trend reuses the shared
+ * `RepaymentTrendChart`, and the reliability mix reuses
+ * `get_tenant_repayment_reliability`. Every number on this page is a link into an
+ * existing Classic view — no new logic, no new backend.
  */
 export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsViewKey) => void }) {
   const { data: counts, isLoading } = useTenantOpsToolCounts();
+  const { data: reliability, isLoading: loadingReliability } = useTenantRepaymentReliability(800);
   const c = counts;
 
-  const kpis: { label: string; value: string; hint?: string; tone?: string }[] = [
-    { label: 'Awaiting review', value: String(c?.review_requests ?? 0), hint: `${c?.new_requests ?? 0} new`, tone: 'text-warning' },
-    { label: 'Active plans', value: String(c?.active_plans ?? 0), hint: `${c?.repaying_plans ?? 0} repaying` },
-    { label: 'Tenants', value: String(c?.tenant_count ?? 0), hint: `${c?.active_tenants ?? 0} active` },
-    { label: 'Collected today', value: formatUGX(c?.collected_today ?? 0), hint: `of ${formatUGX(c?.expected_today ?? 0)} expected` },
-    { label: 'Paid today', value: String(c?.paid_today_tenants ?? 0), hint: `${c?.unpaid_today_tenants ?? 0} unpaid` },
-    { label: 'Critical tenants', value: String(c?.critical_tenants ?? 0), hint: `${c?.missed_days_tenants ?? 0} missing days`, tone: 'text-destructive' },
+  const expected = c?.expected_today ?? 0;
+  const collected = c?.collected_today ?? 0;
+  const coverage = expected > 0 ? Math.min(100, Math.round((collected / expected) * 100)) : 0;
+  const shortfall = Math.max(0, expected - collected);
+
+  const reliabilityData = useMemo(() => {
+    const s = reliability?.summary;
+    if (!s) return [];
+    return [
+      { name: 'Reliable', value: s.reliable, color: 'hsl(var(--success))' },
+      { name: 'Watch', value: s.watch, color: 'hsl(var(--warning))' },
+      { name: 'At risk', value: s.risk, color: 'hsl(var(--destructive))' },
+    ].filter((d) => d.value > 0);
+  }, [reliability]);
+
+  const stats: { label: string; value: string; hint: string; icon: typeof Users; view: TenantOpsViewKey; tone?: string }[] = [
+    {
+      label: 'Awaiting review',
+      value: String(c?.review_requests ?? 0),
+      hint: `${c?.new_requests ?? 0} brand new`,
+      icon: ClipboardList,
+      view: 'pipeline',
+      tone: 'bg-warning/10 text-warning',
+    },
+    {
+      label: 'Active plans',
+      value: String(c?.active_plans ?? 0),
+      hint: `${c?.repaying_plans ?? 0} repaying`,
+      icon: TrendingUp,
+      view: 'pipeline-hub',
+      tone: 'bg-primary/10 text-primary',
+    },
+    {
+      label: 'Tenants',
+      value: String(c?.tenant_count ?? 0),
+      hint: `${c?.active_tenants ?? 0} active`,
+      icon: Users,
+      view: 'all-tenants-hub',
+      tone: 'bg-primary/10 text-primary',
+    },
+    {
+      label: 'Paid today',
+      value: String(c?.paid_today_tenants ?? 0),
+      hint: `${c?.unpaid_today_tenants ?? 0} still unpaid`,
+      icon: CalendarCheck,
+      view: 'daily',
+      tone: 'bg-success/10 text-success',
+    },
+  ];
+
+  const attention: { label: string; description: string; value: number; view: TenantOpsViewKey; tone: string }[] = [
+    {
+      label: 'Requests in review',
+      description: 'Vet, approve or return incoming rent requests',
+      value: c?.review_requests ?? 0,
+      view: 'pipeline',
+      tone: 'text-warning',
+    },
+    {
+      label: 'Unpaid today',
+      description: 'Tenants with no payment recorded for today',
+      value: c?.unpaid_today_tenants ?? 0,
+      view: 'daily',
+      tone: 'text-warning',
+    },
+    {
+      label: 'Tenants with missed days',
+      description: 'Behind on the daily repayment schedule',
+      value: c?.missed_days_tenants ?? 0,
+      view: 'missed',
+      tone: 'text-destructive',
+    },
+    {
+      label: 'Critical behaviour',
+      description: `${c?.behavior_warning ?? 0} on warning`,
+      value: c?.behavior_critical ?? 0,
+      view: 'behavior',
+      tone: 'text-destructive',
+    },
+    {
+      label: 'Service centre review',
+      description: 'Requests parked with the service centre',
+      value: c?.service_center_review ?? 0,
+      view: 'pipeline-hub',
+      tone: 'text-muted-foreground',
+    },
   ];
 
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-base font-bold">Tenant Operations</h2>
+        <h2 className="text-base font-bold tracking-tight">Tenant Operations</h2>
         <p className="text-xs text-muted-foreground">
-          Live position across requests, repayments and tenants. Pick a tool on the left, or jump straight in below.
+          Live position across requests, repayments and tenants. Every figure below opens the tool behind it.
         </p>
       </div>
 
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-        {kpis.map((k) => (
-          <Card key={k.label} className="shadow-sm">
-            <CardContent className="p-3">
-              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{k.label}</p>
-              <p className={`mt-1 text-base font-bold leading-none ${k.tone || 'text-foreground'}`}>
-                {isLoading ? '—' : k.value}
+      {/* Today's collection hero + KPI strip */}
+      <div className="grid gap-3 lg:grid-cols-3">
+        <Card className="lg:col-span-1 border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <div className="rounded-xl bg-primary/15 p-2">
+                <Wallet className="h-4 w-4 text-primary" />
+              </div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Collected today
               </p>
-              {k.hint && <p className="mt-1 text-[10px] text-muted-foreground">{k.hint}</p>}
-            </CardContent>
-          </Card>
-        ))}
+            </div>
+            <p className="mt-3 text-2xl font-bold tabular-nums leading-none">
+              {isLoading ? '—' : formatUGX(collected)}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              of {formatUGX(expected)} expected
+            </p>
+            <Progress value={coverage} className="mt-3 h-2" />
+            <div className="mt-2 flex items-center justify-between text-[11px]">
+              <span className="font-semibold text-foreground">{coverage}% covered</span>
+              <span className={cn(shortfall > 0 ? 'text-destructive' : 'text-success', 'font-semibold')}>
+                {shortfall > 0 ? `${formatUGX(shortfall)} short` : 'Target met'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigate('daily-collections')}
+              className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-primary hover:underline"
+            >
+              Open collection monitoring
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </CardContent>
+        </Card>
+
+        <div className="grid grid-cols-2 gap-2 lg:col-span-2 lg:grid-cols-2">
+          {stats.map((s) => (
+            <button
+              key={s.label}
+              type="button"
+              onClick={() => onNavigate(s.view)}
+              className="group rounded-2xl border border-border/60 bg-card p-3.5 text-left shadow-sm transition-all hover:border-primary/50 hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+            >
+              <div className="flex items-center gap-2">
+                <div className={cn('rounded-xl p-2 shrink-0', s.tone)}>
+                  <s.icon className="h-4 w-4" />
+                </div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
+                  {s.label}
+                </p>
+              </div>
+              <p className="mt-2 text-xl font-bold tabular-nums leading-none">{isLoading ? '—' : s.value}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground truncate">{s.hint}</p>
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Priority shortcuts */}
+      {/* Charts */}
+      <div className="grid gap-3 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <RepaymentTrendChart dailyExpected={expected} />
+        </div>
+        <Card className="border shadow-sm">
+          <CardHeader className="pb-2 px-3 sm:px-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              Repayment Reliability Mix
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-2 sm:px-4 pb-3">
+            <div className="h-[220px]">
+              {loadingReliability ? (
+                <div className="h-full w-full animate-pulse rounded-xl bg-muted" />
+              ) : reliabilityData.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                  No reliability data yet
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={reliabilityData} dataKey="value" nameKey="name" innerRadius={48} outerRadius={78} paddingAngle={2}>
+                      {reliabilityData.map((d) => (
+                        <Cell key={d.name} fill={d.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                      }}
+                      formatter={(value: number, name: string) => [`${value} tenants`, name]}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '11px' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigate('reliability-hub')}
+              className="mt-1 inline-flex items-center gap-1 px-1 text-[11px] font-bold text-primary hover:underline"
+            >
+              Open reliability score
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Needs attention */}
+      <Card className="border shadow-sm">
+        <CardHeader className="pb-2 px-3 sm:px-4">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Activity className="h-4 w-4 text-primary" />
+            Needs attention
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-2 sm:px-3 pb-3">
+          <div className="divide-y">
+            {attention.map((a) => (
+              <button
+                key={a.label}
+                type="button"
+                onClick={() => onNavigate(a.view)}
+                className="group flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+              >
+                <span className={cn('w-12 shrink-0 text-lg font-bold tabular-nums', a.tone)}>
+                  {isLoading ? '—' : a.value}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-bold text-foreground">{a.label}</span>
+                  <span className="block text-[11px] text-muted-foreground truncate">{a.description}</span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quick actions */}
       <div className="space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Start here</p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Quick actions</p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <HubEntryCard
             title="Review Requests"
             description="Vet, approve or return incoming rent requests"
             icon={ClipboardList}
-            stats={[{ label: 'in review', value: c?.review_requests ?? 0 }, { label: 'new', value: c?.new_requests ?? 0 }]}
+            stats={[{ label: 'in review', value: c?.review_requests ?? 0 }]}
             onClick={() => onNavigate('pipeline')}
           />
           <HubEntryCard
             title="Daily Payments"
             description="Who paid today and who still owes"
             icon={CalendarCheck}
-            stats={[{ label: 'paid', value: c?.paid_today_tenants ?? 0 }, { label: 'unpaid', value: c?.unpaid_today_tenants ?? 0 }]}
+            stats={[{ label: 'unpaid', value: c?.unpaid_today_tenants ?? 0 }]}
             onClick={() => onNavigate('daily')}
           />
           <HubEntryCard
@@ -81,38 +301,6 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
             icon={CalendarX2}
             stats={[{ label: 'tenants', value: c?.missed_days_tenants ?? 0 }]}
             onClick={() => onNavigate('missed')}
-          />
-          <HubEntryCard
-            title="Tenant Behavior"
-            description="Risk signals, warnings and critical accounts"
-            icon={Activity}
-            stats={[{ label: 'critical', value: c?.behavior_critical ?? 0 }, { label: 'warning', value: c?.behavior_warning ?? 0 }]}
-            onClick={() => onNavigate('behavior')}
-          />
-          <HubEntryCard
-            title="Global Verification Center"
-            description="Landlord, LC1 and house verification queues"
-            icon={Shield}
-            onClick={() => onNavigate('global-verification')}
-          />
-          <HubEntryCard
-            title="Welile Operations"
-            description="Every user profile across tenants, landlords and agents"
-            icon={Landmark}
-            onClick={() => onNavigate('welile-operations')}
-          />
-          <HubEntryCard
-            title="All Tenants"
-            description="Search, register and manage the whole tenant base"
-            icon={Users}
-            stats={[{ label: 'tenants', value: c?.tenant_count ?? 0 }]}
-            onClick={() => onNavigate('all-tenants-hub')}
-          />
-          <HubEntryCard
-            title="Agent Rent Capacity"
-            description="Daily eligibility and collection capacity per agent"
-            icon={Gauge}
-            onClick={() => onNavigate('agent-capacity-hub')}
           />
           <HubEntryCard
             title="Reports & Exports"
