@@ -115,7 +115,19 @@ export const LandlordAutocompleteInput = forwardRef<HTMLInputElement, LandlordAu
 
   const showDropdown = mode === 'dropdown' && focused && debounced.length >= 3;
   const showStatus = mode === 'status' && debounced.length >= 3;
-  const match = results[0];
+  // The "Already on record" label must NEVER fire on a partial/first-name hit —
+  // "Nakanwagi Edith" is a different landlord from "Nakanwagi Evelyn". Require an
+  // exact full-name match (case- and whitespace-insensitive) for the name field,
+  // and an exact digit match for the phone field.
+  const normName = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+  const normDigits = (s: string) => s.replace(/\D/g, '').replace(/^256/, '0');
+  const exactMatch = results.find((r) =>
+    field === 'name'
+      ? normName(r.name ?? '') === normName(debounced)
+      : normDigits(r.phone ?? '') === normDigits(debounced)
+  );
+  const match = mode === 'status' ? exactMatch : results[0];
+
 
   return (
     <div className="relative">
