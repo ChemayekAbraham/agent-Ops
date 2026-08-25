@@ -131,7 +131,7 @@ export interface TenantOpsSearchResult {
 
 /** Flat, searchable index of every navigable destination (parents + children). */
 export const TENANT_OPS_SEARCH_INDEX: (TenantOpsSearchResult & { haystack: string })[] =
-  TENANT_OPS_NAV.flatMap((item) => {
+  TENANT_OPS_NAV.flatMap((item): (TenantOpsSearchResult & { haystack: string })[] => {
     if (item.children?.length) {
       return item.children.map((child) => ({
         view: child.key,
