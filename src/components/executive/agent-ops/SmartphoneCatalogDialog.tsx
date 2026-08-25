@@ -165,6 +165,7 @@ export function SmartphoneCatalogDialog() {
         brand: brand.trim(),
         model_name: modelName.trim() || null,
         default_amount: total,
+        specifications: specifications.trim() || null,
       });
       if (error) throw error;
     },
@@ -173,6 +174,7 @@ export function SmartphoneCatalogDialog() {
       setBrand('');
       setModelName('');
       setAmount('');
+      setSpecifications('');
       invalidate();
     },
     onError: (e: any) => toast.error(e.message || 'Could not add phone'),
