@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sparkles, History, MapPin, Home, BarChart3, FileText, Loader2, ArrowLeft } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { TenantOpsDashboard } from './TenantOpsDashboard';
 import { TenantOpsDashboardV2 } from './TenantOpsDashboardV2';
 import { TenantOpsGeoCommandCenter } from './tenant-ops/TenantOpsGeoCommandCenter';
+import { TenantOpsClassicShell } from './tenant-ops/TenantOpsClassicShell';
 import { AgentInactiveAlertBanner } from '@/components/ops/AgentInactiveAlertBanner';
 import { BehaviorDrawer } from '@/components/ops/BehaviorDrawer';
 import { TenantPhoneDuplicatePanel } from '@/components/ops/TenantPhoneDuplicatePanel';
@@ -17,6 +17,7 @@ const STORAGE_KEY = 'tenant-ops-view-mode';
 
 type Mode = 'v2' | 'intel' | 'classic';
 
+
 export function TenantOpsHub() {
   const [mode, setMode] = useState<Mode>('v2');
   const [opsUserId, setOpsUserId] = useState<string | null>(null);
@@ -25,11 +26,19 @@ export function TenantOpsHub() {
   const [docxBusy, setDocxBusy] = useState(false);
   const [duplicatesHubOpen, setDuplicatesHubOpen] = useState(false);
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
 
+  // URL wins over the stored preference so deep links land on the right mode.
   useEffect(() => {
+    const fromUrl = params.get('mode');
+    if (fromUrl === 'classic' || fromUrl === 'v2' || fromUrl === 'intel') {
+      setMode(fromUrl as Mode);
+      return;
+    }
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved === 'classic' || saved === 'v2' || saved === 'intel') setMode(saved as Mode);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.get('mode')]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setOpsUserId(data.user?.id ?? null));
@@ -38,7 +47,12 @@ export function TenantOpsHub() {
   const setAndSave = (m: Mode) => {
     setMode(m);
     localStorage.setItem(STORAGE_KEY, m);
+    const next = new URLSearchParams(params);
+    next.set('mode', m);
+    next.delete('view');
+    setParams(next);
   };
+
 
   const generateWordReport = async () => {
     setDocxBusy(true);
@@ -82,10 +96,13 @@ export function TenantOpsHub() {
     <div className="space-y-3">
       <AgentInactiveAlertBanner opsUserId={opsUserId} onOpenBehavior={setBehaviorTenantId} />
 
-      <TenantPhoneDuplicatePanel
-        variant="summary"
-        onOpenHub={() => { setDuplicatesHubOpen(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-      />
+      {mode !== 'classic' && (
+        <TenantPhoneDuplicatePanel
+          variant="summary"
+          onOpenHub={() => { setDuplicatesHubOpen(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+        />
+      )}
+
 
       <div className="space-y-2">
         {/* Workspace switcher — segmented, full-width on mobile, inline on desktop */}
