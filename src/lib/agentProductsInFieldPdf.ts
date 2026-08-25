@@ -12,6 +12,7 @@ export interface AgentProductKpis {
   purchased_value: number;
   stock_qty: number;
   service_centres: number;
+  pending_applications?: number;
 }
 
 export interface AgentProductRow {
