@@ -43,8 +43,9 @@ const ProxyPartnerWithdrawalHarness = lazyWithRetry(
   () => import("@/pages/__e2e/ProxyPartnerWithdrawalHarness"),
 );
 
-// Deferred language — not needed for first paint
-const LanguageProvider = lazyWithRetry(() => import("@/hooks/useLanguage").then(m => ({ default: m.LanguageProvider })));
+// Language provider is imported statically: as a lazy chunk its module namespace
+// could resolve undefined under manual chunking, blanking the whole app.
+import { LanguageProvider } from "@/hooks/useLanguage";
 
 // Auth providers — deferred since they're not needed for first paint
 const PinAuthProvider = lazyWithRetry(() => import("@/hooks/usePinAuth").then(m => ({ default: m.PinAuthProvider })));
