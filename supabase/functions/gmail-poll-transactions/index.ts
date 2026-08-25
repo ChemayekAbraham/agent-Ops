@@ -104,6 +104,44 @@ function normDate(raw: string): string | undefined {
   if (dmy) { let [,d,m,y]=dmy; if (y.length===2) y=`20${y}`; return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
   return undefined;
 }
+// ── Helper: pull the beneficiary account out of a bank notification ──
+// Banks mask the account, revealing the first digit and the last four:
+//   "7400000.00 UGX was sent to BAYO MERCY 1********7542 at Equity on ..."
+// Returns the match key used against cashout_agents.bank_account_number,
+// plus the beneficiary name for the audit trail. Returns null when the text
+// has no masked account — notably every MTN/Airtel → bank SMS, which names
+// only the receiving BANK ("to EQUITY BANK LIMITED") and never the account,
+// and so can never be attributed to a desk.
+function extractBankBeneficiary(text: string): {
+  accountFirst: string;
+  accountTail: string;
+  accountLen: number;
+  maskedAccount: string;
+  beneficiaryName?: string;
+} | null {
+  if (!text) return null;
+  const t = text.replace(/\s+/g, ' ');
+  // A masked account is a leading digit, a run of mask characters, then the
+  // last four digits. Accept *, x, X and the bullet/•-style masks banks use.
+  const m = t.match(/(\d)([*xX•·]{3,})(\d{4})/);
+  if (!m) return null;
+  const accountFirst = m[1];
+  const accountTail = m[3];
+  const maskedAccount = m[0];
+  const accountLen = 1 + m[2].length + 4;
+
+  // Beneficiary name sits between "sent to" and the masked account. Slice on
+  // the match index rather than building a regex out of `maskedAccount` —
+  // the mask is full of regex metacharacters (`*`) and interpolating it
+  // produces an invalid pattern ("Nothing to repeat").
+  let beneficiaryName: string | undefined;
+  const before = t.slice(0, m.index ?? 0);
+  const nameM = before.match(/\bsent\s+to\s+(.{2,80}?)\s*$/i);
+  if (nameM) beneficiaryName = nameM[1].trim().replace(/[,;:]+$/, '') || undefined;
+
+  return { accountFirst, accountTail, accountLen, maskedAccount, beneficiaryName };
+}
+
 function parseTransaction(text: string): {
   amount?: number; fee?: number; balance?: number; transaction_id?: string;
   tx_date?: string; tx_time?: string; direction?: string; channel?: string; counterparty?: string;
@@ -1051,7 +1089,9 @@ async function tryAutoDebitPayout(
   // skips) can be recorded against the source email.
   const { data: gmailRow } = await supabase
     .from('gmail_transactions')
-    .select('id, from_name, from_email, subject')
+    // snippet + raw_body are needed by the bank-rail match below: the masked
+    // beneficiary account lives in the message text, not on `parsed`.
+    .select('id, from_name, from_email, subject, snippet, raw_body')
     .eq('gmail_message_id', gmailMessageId)
     .maybeSingle();
   if (!gmailRow?.id) return;
@@ -1090,6 +1130,143 @@ async function tryAutoDebitPayout(
         });
         return;
       }
+    }
+  }
+
+  // ── Merchant float delivery, BANK rail (runs BEFORE the phone rail) ──
+  // Bank-rail counterpart of the float_phone match below. An outbound bank
+  // transfer to a desk's registered `bank_account_number` is a float
+  // DELIVERY to that desk, exactly like an outbound MoMo send to its
+  // float_phone.
+  //
+  // Bank emails mask the account to first digit + last four
+  // ("1********7076" for 1046202587076), so the match keys on
+  // (first digit, length, last 4). A partial unique index on those three
+  // guarantees at most one ACTIVE desk can match; we still assert it here
+  // and refuse to credit on ambiguity rather than guessing a desk.
+  //
+  // NOTE: this deliberately does NOT fire on the MoMo→bank leg. MTN's
+  // "transferred UGX X to EQUITY BANK LIMITED" carries no beneficiary name
+  // and no account number, so it cannot be attributed to a desk from the
+  // message. Only the receiving bank's own notification names the account.
+  {
+    const bank = extractBankBeneficiary(
+      [gmailRow.subject, (gmailRow as any).snippet, (gmailRow as any).raw_body]
+        .filter(Boolean).join(' '),
+    );
+    // Require the "sent to <NAME> <masked account>" shape, not merely SOME
+    // masked account in the body. An inbound Equity receipt carries the
+    // SENDER's masked account ("received ... from JOSEPH LUKODDA 1****5062")
+    // and the company's own account; crediting float off either would be
+    // wrong. `direction !== 'out'` already gates those out at the top of this
+    // function, but this makes the block correct on its own terms rather than
+    // dependent on a caller-side check.
+    if (bank?.accountTail && bank.beneficiaryName) {
+      const { data: bankDesks } = await supabase
+        .from('cashout_agents')
+        .select('agent_id, bank_account_number, bank_account_name, bank_name, label')
+        .eq('is_active', true)
+        .not('bank_account_number', 'is', null)
+        .filter('bank_account_number', 'like', `${bank.accountFirst}%${bank.accountTail}`);
+
+      // Re-check the full key in JS: PostgREST `like` cannot express the
+      // length component, and a tail-only match is not specific enough to
+      // move money on.
+      const matches = (bankDesks ?? []).filter((d: any) => {
+        const acct = String(d.bank_account_number ?? '');
+        return acct.length === bank.accountLen &&
+               acct.startsWith(bank.accountFirst) &&
+               acct.endsWith(bank.accountTail);
+      });
+
+      if (matches.length === 1) {
+        const desk = matches[0] as any;
+        console.log(
+          `[gmail-poll] outbound bank transfer to registered desk account ` +
+          `${bank.accountFirst}***${bank.accountTail} → crediting float for agent=${desk.agent_id}`,
+        );
+        try {
+          await creditMerchantFloatFromOutboundSms(supabase, {
+            agentId: String(desk.agent_id),
+            parsed,
+            gmailMessageId,
+            internalMs,
+            providerOverride: String(desk.bank_name ?? 'bank').toLowerCase(),
+          });
+          await logPayoutMatchAttempt(supabase, {
+            emailId: gmailRow.id,
+            emailTid: parsed.transaction_id ?? null,
+            emailAmount: parsed.amount ?? null,
+            recipientPhoneEmail: bank.beneficiaryName ?? null,
+            recipientPhoneTarget: String(desk.bank_account_number ?? ''),
+            paymentMethod: 'bank',
+            outcome: 'merchant_float_credited',
+            metadata: {
+              gmail_message_id: gmailMessageId,
+              agent_id: desk.agent_id,
+              desk_label: desk.label ?? null,
+              matched_account_tail: bank.accountTail,
+              beneficiary_name_in_email: bank.beneficiaryName ?? null,
+              registered_account_name: desk.bank_account_name ?? null,
+              reason: 'Outbound bank transfer matched a registered merchant desk bank account; routed as a float credit.',
+            },
+          });
+        } catch (e) {
+          await logPayoutMatchAttempt(supabase, {
+            emailId: gmailRow.id,
+            emailTid: parsed.transaction_id ?? null,
+            emailAmount: parsed.amount ?? null,
+            recipientPhoneEmail: bank.beneficiaryName ?? null,
+            paymentMethod: 'bank',
+            outcome: 'merchant_float_credit_failed',
+            errorMessage: e instanceof Error ? e.message : String(e),
+            metadata: { gmail_message_id: gmailMessageId, agent_id: desk.agent_id },
+          });
+        }
+        return;
+      }
+
+      if (matches.length > 1) {
+        // Should be unreachable while the unique index holds. Never guess.
+        console.warn(
+          `[gmail-poll] bank account ${bank.accountFirst}***${bank.accountTail} matched ` +
+          `${matches.length} active desks — refusing to auto-credit`,
+        );
+        await logPayoutMatchAttempt(supabase, {
+          emailId: gmailRow.id,
+          emailTid: parsed.transaction_id ?? null,
+          emailAmount: parsed.amount ?? null,
+          recipientPhoneEmail: bank.beneficiaryName ?? null,
+          paymentMethod: 'bank',
+          outcome: 'bank_account_ambiguous',
+          metadata: {
+            gmail_message_id: gmailMessageId,
+            matched_account_tail: bank.accountTail,
+            candidate_agent_ids: matches.map((m: any) => m.agent_id),
+            reason: 'Masked bank account resolved to more than one active desk; no credit posted.',
+          },
+        });
+        return;
+      }
+
+      console.log(
+        `[gmail-poll] outbound bank transfer to ${bank.accountFirst}***${bank.accountTail}: ` +
+        `no registered merchant desk account`,
+      );
+      await logPayoutMatchAttempt(supabase, {
+        emailId: gmailRow.id,
+        emailTid: parsed.transaction_id ?? null,
+        emailAmount: parsed.amount ?? null,
+        recipientPhoneEmail: bank.beneficiaryName ?? null,
+        paymentMethod: 'bank',
+        outcome: 'bank_account_no_match',
+        metadata: {
+          gmail_message_id: gmailMessageId,
+          matched_account_tail: bank.accountTail,
+          beneficiary_name_in_email: bank.beneficiaryName ?? null,
+          reason: 'Beneficiary account is not registered to any active desk; continued to the debit path.',
+        },
+      });
     }
   }
 
@@ -1577,9 +1754,13 @@ async function creditMerchantFloatFromOutboundSms(
     parsed: ReturnType<typeof parseTransaction>;
     gmailMessageId: string;
     internalMs: number;
+    /** Bank-rail callers pass the bank name; channel alone cannot distinguish
+     *  a bank transfer from an Airtel send, and the provider is recorded on
+     *  the delivery row and in the ledger description. */
+    providerOverride?: string;
   },
 ): Promise<void> {
-  const { agentId, parsed, gmailMessageId, internalMs } = args;
+  const { agentId, parsed, gmailMessageId, internalMs, providerOverride } = args;
   if (!parsed.amount || parsed.amount <= 0) {
     await logDepositDecision(supabase, {
       source: 'matcher',
@@ -1644,7 +1825,8 @@ async function creditMerchantFloatFromOutboundSms(
     return;
   }
 
-  const provider = parsed.channel === 'mtn_momo' ? 'mtn' : 'airtel';
+  const provider = providerOverride
+    ?? (parsed.channel === 'mtn_momo' ? 'mtn' : 'airtel');
 
   // 3. Record merchant float delivery via RPC.
   const { data: rpcData, error: rpcErr } = await supabase.rpc('record_merchant_float_delivery', {
