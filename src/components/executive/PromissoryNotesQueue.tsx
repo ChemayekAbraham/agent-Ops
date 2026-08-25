@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+
 import { Textarea } from '@/components/ui/textarea';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
@@ -48,6 +50,11 @@ export function PromissoryNotesQueue() {
   const [rejecting, setRejecting] = useState(false);
   const [leadSearch, setLeadSearch] = useState('');
   const [selectedLead, setSelectedLead] = useState<any>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkReason, setBulkReason] = useState('');
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
 
   const { data: leadCandidates = [], isFetching: leadLoading } = useQuery({
     queryKey: ['partner-lead-candidates', leadSearch],
@@ -230,6 +237,44 @@ export function PromissoryNotesQueue() {
   const pagedNotes = filtered.slice((safePage - 1) * NOTES_PER_PAGE, safePage * NOTES_PER_PAGE);
   useEffect(() => { setPage(1); }, [search, statusFilter, range]);
 
+  const allPageSelected = pagedNotes.length > 0 && pagedNotes.every(n => selectedIds.includes(n.id));
+  const toggleSelect = (id: string) =>
+    setSelectedIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
+  const toggleSelectPage = () =>
+    setSelectedIds(prev => {
+      const pageIds = pagedNotes.map(n => n.id);
+      return allPageSelected ? prev.filter(id => !pageIds.includes(id)) : Array.from(new Set([...prev, ...pageIds]));
+    });
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0 || bulkReason.trim().length < 10) return;
+    setBulkDeleting(true);
+    try {
+      const { data, error } = await supabase.rpc('bulk_delete_promissory_notes' as any, {
+        p_note_ids: selectedIds,
+        p_reason: bulkReason.trim(),
+      });
+      if (error) throw error;
+      const res = (data as any) || {};
+      if (res.status === 'error') throw new Error(res.message || 'Bulk delete failed');
+      const blocked = (res.blocked as any[]) || [];
+      toast.success(`${res.deleted || 0} promissory note(s) deleted`);
+      if (blocked.length > 0) {
+        toast.warning(`${blocked.length} note(s) skipped — ${blocked[0]?.reason || 'linked to partner money'}`);
+      }
+      setSelectedIds([]);
+      setBulkOpen(false);
+      setBulkReason('');
+      queryClient.invalidateQueries({ queryKey: ['promissory-ops-report'] });
+      refetch();
+    } catch (e: any) {
+      toast.error(e.message || 'Could not delete the selected notes');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+
   const statusConfig: Record<string, { icon: any; color: string; label: string }> = {
     pending: { icon: Clock, color: 'bg-amber-100 text-amber-700 border-amber-200', label: 'Pending' },
     activated: { icon: CheckCircle, color: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'Activated' },
@@ -340,11 +385,41 @@ export function PromissoryNotesQueue() {
             <div className="text-center py-8 text-muted-foreground text-sm">No promissory notes found</div>
           ) : (
             <>
+              {/* Bulk selection bar */}
+              <div className="flex flex-wrap items-center gap-2 pb-2 mb-2 border-b">
+                <label className="flex items-center gap-2 text-[11px] text-muted-foreground cursor-pointer">
+                  <Checkbox
+                    checked={allPageSelected}
+                    onCheckedChange={toggleSelectPage}
+                    aria-label="Select all notes on this page"
+                  />
+                  Select page
+                </label>
+                <span className="text-[11px] text-muted-foreground">{selectedIds.length} selected</span>
+                {selectedIds.length > 0 && (
+                  <>
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={() => setSelectedIds([])}>
+                      Clear
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-7 px-2 text-[11px] ml-auto"
+                      onClick={() => { setBulkReason(''); setBulkOpen(true); }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1" />
+                      Delete {selectedIds.length}
+                    </Button>
+                  </>
+                )}
+              </div>
+
               {/* Desktop table */}
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="text-left text-muted-foreground border-b">
+                      <th className="py-2 pr-2 w-8"></th>
                       <th className="py-2 pr-3 font-medium">Agent</th>
                       <th className="py-2 pr-3 font-medium">Partner</th>
                       <th className="py-2 pr-3 font-medium text-right">Promised</th>
@@ -359,11 +434,19 @@ export function PromissoryNotesQueue() {
                       const StatusIcon = config.icon;
                       return (
                         <tr key={note.id} className="border-b last:border-0 cursor-pointer hover:bg-muted/40" onClick={() => setSelectedNote(note)}>
+                          <td className="py-2 pr-2" onClick={(e) => e.stopPropagation()}>
+                            <Checkbox
+                              checked={selectedIds.includes(note.id)}
+                              onCheckedChange={() => toggleSelect(note.id)}
+                              aria-label={`Select note for ${note.partner_name}`}
+                            />
+                          </td>
                           <td className="py-2 pr-3 truncate max-w-[160px]">{note.agent_name}</td>
                           <td className="py-2 pr-3">
                             <span className="font-medium block truncate max-w-[160px]">{note.partner_name}</span>
                             <span className="text-[10px] text-muted-foreground">{note.whatsapp_number}</span>
                           </td>
+
                           <td className="py-2 pr-3 text-right font-medium"><CompactAmount value={Number(note.amount)} /></td>
                           <td className="py-2 pr-3 text-right font-medium text-emerald-600"><CompactAmount value={Number(note.total_collected)} /></td>
                           <td className="py-2 pr-3">{format(new Date(note.created_at), 'dd MMM yyyy')}</td>
@@ -393,22 +476,33 @@ export function PromissoryNotesQueue() {
                   const config = statusConfig[note.status] || statusConfig.pending;
                   const StatusIcon = config.icon;
                   return (
-                    <button
+                    <div
                       key={note.id}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setSelectedNote(note)}
                       className="w-full text-left rounded-lg border p-3 hover:bg-muted/40 transition-colors"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{note.partner_name}</p>
-                          <p className="text-[11px] text-muted-foreground truncate">Agent: {note.agent_name}</p>
+                        <div className="flex items-start gap-2 min-w-0">
+                          <span onClick={(e) => e.stopPropagation()} className="pt-0.5">
+                            <Checkbox
+                              checked={selectedIds.includes(note.id)}
+                              onCheckedChange={() => toggleSelect(note.id)}
+                              aria-label={`Select note for ${note.partner_name}`}
+                            />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{note.partner_name}</p>
+                            <p className="text-[11px] text-muted-foreground truncate">Agent: {note.agent_name}</p>
+                          </div>
                         </div>
                         <Badge variant="outline" className={cn('text-[10px] shrink-0', config.color)}>
                           <StatusIcon className="h-3 w-3 mr-1" />
                           {config.label}
                         </Badge>
                       </div>
+
                       <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
                         <div>
                           <span className="text-muted-foreground">Promised: </span>
@@ -424,9 +518,10 @@ export function PromissoryNotesQueue() {
                           {note.came_in && <span className="ml-auto text-emerald-700 font-medium">Came in</span>}
                         </div>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
+
               </div>
 
               {/* Pagination */}
@@ -764,6 +859,43 @@ export function PromissoryNotesQueue() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Bulk delete confirmation */}
+      <AlertDialog open={bulkOpen} onOpenChange={(open) => { if (!open && !bulkDeleting) { setBulkOpen(false); setBulkReason(''); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.length} promissory note(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the selected notes for both Partner Ops and the agents who created them, together with their release, pledge, plan-intent, override and reversal records so no orphan data is left behind.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Notes tied to partner money (self-support commitments or pending portfolios) are skipped automatically.
+            </p>
+            <Label htmlFor="bulk-delete-reason">Reason (min 10 characters)</Label>
+            <Textarea
+              id="bulk-delete-reason"
+              value={bulkReason}
+              onChange={(e) => setBulkReason(e.target.value)}
+              placeholder="e.g. Duplicate test notes captured during agent training"
+              rows={3}
+            />
+            <p className="text-[11px] text-muted-foreground text-right">{bulkReason.trim().length}/10 characters</p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleBulkDelete(); }}
+              disabled={bulkDeleting || bulkReason.trim().length < 10}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkDeleting ? 'Deleting…' : `Delete ${selectedIds.length}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+
   );
 }
