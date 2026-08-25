@@ -2948,6 +2948,13 @@ export type Database = {
             foreignKeyName: "agent_float_withdrawals_landlord_id_fkey"
             columns: ["landlord_id"]
             isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "agent_float_withdrawals_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
             referencedRelation: "v_landlord_ops_status"
             referencedColumns: ["landlord_id"]
           },
@@ -3390,6 +3397,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "landlords_directory"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_landlord_assignments_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
           },
           {
             foreignKeyName: "agent_landlord_assignments_landlord_id_fkey"
@@ -12351,6 +12365,13 @@ export type Database = {
             foreignKeyName: "house_listings_landlord_id_fkey"
             columns: ["landlord_id"]
             isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "house_listings_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
             referencedRelation: "v_landlord_ops_status"
             referencedColumns: ["landlord_id"]
           },
@@ -16279,6 +16300,78 @@ export type Database = {
         }
         Relationships: []
       }
+      landlord_call_reports: {
+        Row: {
+          called_at: string
+          called_by: string
+          comment: string | null
+          created_at: string
+          follow_up_at: string | null
+          house_listing_id: string | null
+          id: string
+          landlord_id: string
+          status: string
+        }
+        Insert: {
+          called_at?: string
+          called_by: string
+          comment?: string | null
+          created_at?: string
+          follow_up_at?: string | null
+          house_listing_id?: string | null
+          id?: string
+          landlord_id: string
+          status?: string
+        }
+        Update: {
+          called_at?: string
+          called_by?: string
+          comment?: string | null
+          created_at?: string
+          follow_up_at?: string | null
+          house_listing_id?: string | null
+          id?: string
+          landlord_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_call_reports_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "landlords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_call_reports_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "landlords_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_call_reports_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "landlord_call_reports_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_ops_status"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "landlord_call_reports_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_landlord_base"
+            referencedColumns: ["landlord_id"]
+          },
+        ]
+      }
       landlord_float_receivables: {
         Row: {
           agent_id: string | null
@@ -16512,6 +16605,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "landlords_directory"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_onboarding_targets_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
           },
           {
             foreignKeyName: "landlord_onboarding_targets_landlord_id_fkey"
@@ -17168,6 +17268,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "landlords_directory"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_verification_requests_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
           },
           {
             foreignKeyName: "landlord_verification_requests_landlord_id_fkey"
@@ -25076,6 +25183,13 @@ export type Database = {
             foreignKeyName: "profiles_borrower_landlord_id_fkey"
             columns: ["borrower_landlord_id"]
             isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "profiles_borrower_landlord_id_fkey"
+            columns: ["borrower_landlord_id"]
+            isOneToOne: false
             referencedRelation: "v_landlord_ops_status"
             referencedColumns: ["landlord_id"]
           },
@@ -25793,6 +25907,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "landlords_directory"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_viewings_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
           },
           {
             foreignKeyName: "property_viewings_landlord_id_fkey"
@@ -28274,6 +28395,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "landlords_directory"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_requests_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
           },
           {
             foreignKeyName: "rent_requests_landlord_id_fkey"
@@ -36567,6 +36695,13 @@ export type Database = {
             foreignKeyName: "house_listings_landlord_id_fkey"
             columns: ["landlord_id"]
             isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "house_listings_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
             referencedRelation: "v_landlord_ops_status"
             referencedColumns: ["landlord_id"]
           },
@@ -36970,6 +37105,95 @@ export type Database = {
           rejected_at: string | null
           rejected_by: string | null
           rejection_reason: string | null
+        }
+        Relationships: []
+      }
+      v_landlord_call_summary: {
+        Row: {
+          call_count: number | null
+          closed_count: number | null
+          landlord_id: string | null
+          last_call_at: string | null
+          last_follow_up_at: string | null
+          last_status: string | null
+          latest_comment: string | null
+          latest_comment_at: string | null
+          missed_count: number | null
+          pending_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_call_reports_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "landlords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_call_reports_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "landlords_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_call_reports_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "landlord_call_reports_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_ops_status"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "landlord_call_reports_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_landlord_base"
+            referencedColumns: ["landlord_id"]
+          },
+        ]
+      }
+      v_landlord_calling_base: {
+        Row: {
+          account_number: string | null
+          bank_name: string | null
+          caretaker_name: string | null
+          caretaker_phone: string | null
+          created_at: string | null
+          district: string | null
+          empty_houses: number | null
+          funded_plans: number | null
+          has_smartphone: boolean | null
+          house_category: string | null
+          houses: number | null
+          houses_monthly_rent: number | null
+          landlord_id: string | null
+          last_paid_at: string | null
+          last_plan_at: string | null
+          managed_by_agent_id: string | null
+          mobile_money_name: string | null
+          mobile_money_number: string | null
+          monthly_rent: number | null
+          name: string | null
+          number_of_houses: number | null
+          occupied_houses: number | null
+          paid_total: number | null
+          payout_count: number | null
+          phone: string | null
+          plan_rent_total: number | null
+          plans: number | null
+          property_address: string | null
+          region: string | null
+          registered_by: string | null
+          verified: boolean | null
+          verified_houses: number | null
+          village: string | null
         }
         Relationships: []
       }
@@ -37840,6 +38064,13 @@ export type Database = {
             foreignKeyName: "rent_requests_landlord_id_fkey"
             columns: ["landlord_id"]
             isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "rent_requests_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
             referencedRelation: "v_landlord_ops_status"
             referencedColumns: ["landlord_id"]
           },
@@ -37887,6 +38118,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "landlords_directory"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_requests_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
           },
           {
             foreignKeyName: "rent_requests_landlord_id_fkey"
@@ -37956,6 +38194,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "landlords_directory"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "house_listings_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
           },
           {
             foreignKeyName: "house_listings_landlord_id_fkey"

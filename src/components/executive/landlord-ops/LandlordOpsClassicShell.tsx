@@ -4,6 +4,7 @@ import { LandlordOpsDashboard, type LandlordOpsClassicView } from '../LandlordOp
 import { LandlordOpsSidebar } from './LandlordOpsSidebar';
 import { LandlordOpsTopBar } from './LandlordOpsTopBar';
 import { LandlordOpsHome } from './LandlordOpsHome';
+import { LandlordCallingHub } from './LandlordCallingHub';
 import { useLandlordOpsBadgeCounts } from '@/hooks/useLandlordOpsBadgeCounts';
 import {
   landlordOpsLabelFor,
@@ -69,6 +70,8 @@ export function LandlordOpsDashboardShell() {
           {label && <h2 className="mb-2 text-sm font-bold text-foreground lg:text-base">{label}</h2>}
           {active === 'home' ? (
             <LandlordOpsHome onNavigate={goTo} />
+          ) : active === 'calling-hub' ? (
+            <LandlordCallingHub />
           ) : (
             <LandlordOpsDashboard
               view={active as LandlordOpsClassicView}
