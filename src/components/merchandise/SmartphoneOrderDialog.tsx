@@ -114,60 +114,79 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <img
-            src={smartphonePromoAsset.url}
-            alt="Welile Smartphone selection"
-            className="w-full h-36 object-cover rounded-lg border border-border"
-          />
+        <Tabs defaultValue="order" className="w-full">
+          <TabsList className="w-full">
+            <TabsTrigger value="order" className="flex-1">Order</TabsTrigger>
+            <TabsTrigger value="tnc" className="flex-1">
+              <FileText className="h-3.5 w-3.5 mr-1.5" /> View T&C
+            </TabsTrigger>
+          </TabsList>
 
-          <div className="space-y-1">
-            <Label className="text-xs">Product Brand</Label>
-            <Select value={brands.includes(brand) ? brand : ''} onValueChange={onBrandChange} disabled={catalogLoading}>
-              <SelectTrigger>
-                <SelectValue placeholder={catalogLoading ? 'Loading brands…' : 'Select brand'} />
-              </SelectTrigger>
-              <SelectContent>
-                {brands.map((b) => (
-                  <SelectItem key={b} value={b}>{b}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <TabsContent value="order" className="space-y-3 mt-3">
+            <img
+              src={smartphonePromoAsset.url}
+              alt="Welile Smartphone selection"
+              className="w-full h-36 object-cover rounded-lg border border-border"
+            />
 
-          <div className="space-y-1">
-            <Label className="text-xs">Phone Model</Label>
-            <Select
-              value={models.some((m) => m.model_name === modelType) ? modelType : ''}
-              onValueChange={onModelChange}
-              disabled={!brand || models.length === 0}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={!brand ? 'Select a brand first' : models.length ? 'Select a listed model' : 'No models listed'} />
-              </SelectTrigger>
-              <SelectContent>
-                {models.map((m) => (
-                  <SelectItem key={m.id} value={m.model_name as string}>{m.model_name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {totalAmount > 0 && (
-            <div className="rounded-lg border border-border bg-muted/40 p-3">
-              <p className="text-xs text-muted-foreground">Total access amount</p>
-              <p className="text-lg font-bold tabular-nums">{formatUGX(accessAmount)}</p>
+            <div className="space-y-1">
+              <Label className="text-xs">Product Brand</Label>
+              <Select value={brands.includes(brand) ? brand : ''} onValueChange={onBrandChange} disabled={catalogLoading}>
+                <SelectTrigger>
+                  <SelectValue placeholder={catalogLoading ? 'Loading brands…' : 'Select brand'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {brands.map((b) => (
+                    <SelectItem key={b} value={b}>{b}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
 
+            <div className="space-y-1">
+              <Label className="text-xs">Phone Model</Label>
+              <Select
+                value={models.some((m) => m.model_name === modelType) ? modelType : ''}
+                onValueChange={onModelChange}
+                disabled={!brand || models.length === 0}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={!brand ? 'Select a brand first' : models.length ? 'Select a listed model' : 'No models listed'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {models.map((m) => (
+                    <SelectItem key={m.id} value={m.model_name as string}>{m.model_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <p className="text-[11px] text-muted-foreground">
-            Your order is submitted as Pending Approval. Nothing is charged to your wallet until it is
-            approved — you can order even with a UGX 0 balance. Your payment projection is shown once the
-            order is approved.
-          </p>
+            {totalAmount > 0 && (
+              <div className="rounded-lg border border-border bg-muted/40 p-3">
+                <p className="text-xs text-muted-foreground">Total access amount</p>
+                <p className="text-lg font-bold tabular-nums">{formatUGX(accessAmount)}</p>
+              </div>
+            )}
 
-        </div>
+            <p className="text-[11px] text-muted-foreground">
+              Your order is submitted as Pending Approval. Nothing is charged to your wallet until it is
+              approved — you can order even with a UGX 0 balance. Your payment projection is shown once the
+              order is approved.
+            </p>
+          </TabsContent>
+
+          <TabsContent value="tnc" className="mt-3">
+            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3 text-sm">
+              <h4 className="font-semibold">Terms & Conditions</h4>
+              <ol className="list-decimal pl-4 space-y-2 text-muted-foreground">
+                <li><span className="font-medium text-foreground">Eligibility:</span> Must have an active Welile Wallet and active tenants.</li>
+                <li><span className="font-medium text-foreground">Access Fee Only:</span> Welile pays only the Access Fee. You pay any remaining supplier balance directly.</li>
+                <li><span className="font-medium text-foreground">Repayment:</span> You must repay the Access Fee back to Welile through your wallet.</li>
+                <li><span className="font-medium text-foreground">Auto-Deduction:</span> Daily repayments (min. UGX 1,000) will be automatically deducted from your Welile Wallet.</li>
+              </ol>
+            </div>
+          </TabsContent>
+        </Tabs>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
