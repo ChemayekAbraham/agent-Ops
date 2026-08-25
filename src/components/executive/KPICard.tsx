@@ -33,14 +33,14 @@ export function KPICard({ title, value, icon: Icon, trend, color = 'bg-primary/1
         {loading ? (
           <div className="h-9 w-28 bg-muted animate-pulse rounded mt-0.5" />
         ) : (
-          <p className="text-2xl font-bold tracking-tight leading-tight break-words">{value}</p>
+          <p className="text-2xl font-bold tracking-tight leading-tight break-normal tabular-nums">{value}</p>
         )}
         {trend && (
           <p className={cn('text-xs mt-1.5 font-medium', trend.value >= 0 ? 'text-green-600' : 'text-red-500')}>
             {trend.value >= 0 ? '↑' : '↓'} {Math.abs(trend.value)}% {trend.label}
           </p>
         )}
-        {subtitle && <p className="text-xs text-muted-foreground mt-1.5 leading-snug">{subtitle}</p>}
+        {subtitle && <p className="text-xs text-muted-foreground mt-1.5 leading-snug break-normal">{subtitle}</p>}
       </div>
     </Comp>
   );

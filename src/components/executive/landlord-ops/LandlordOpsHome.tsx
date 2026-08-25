@@ -299,7 +299,7 @@ export function LandlordOpsHome({ onNavigate }: { onNavigate: (view: LandlordOps
               </div>
               <div>
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Funded</p>
-                <p className="text-sm font-bold tabular-nums [overflow-wrap:anywhere]">{formatUGX(funded?.summary?.total_funded ?? 0)}</p>
+                <p className="text-sm font-bold tabular-nums break-normal">{formatUGX(funded?.summary?.total_funded ?? 0)}</p>
               </div>
               <div>
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Districts</p>
