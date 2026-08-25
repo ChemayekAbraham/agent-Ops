@@ -23,7 +23,7 @@ import {
   downloadSmartphoneOrderReceipt,
   shareSmartphoneOrderReceipt,
 } from '@/lib/smartphoneOrderReceiptPdf';
-import { SMARTPHONE_RECOVERY_RATE } from './SmartphoneOrderDialog';
+
 import {
   DropdownMenu,
   DropdownMenuContent,
