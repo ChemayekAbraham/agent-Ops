@@ -276,6 +276,16 @@ export function SmartphoneCatalogDialog() {
                 />
               </div>
             </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Phone specifications <span className="text-muted-foreground font-normal">— optional</span></Label>
+              <textarea
+                value={specifications}
+                onChange={(e) => setSpecifications(e.target.value)}
+                placeholder="e.g. 6.5\" display, 128GB storage, 4GB RAM, Black"
+                rows={3}
+                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+              />
+            </div>
             <Button className="w-full" onClick={() => addEntry.mutate()} disabled={addEntry.isPending}>
               {addEntry.isPending ? 'Saving…' : 'Add to catalog'}
             </Button>
