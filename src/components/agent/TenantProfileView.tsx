@@ -212,6 +212,17 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
   /** Per-plan "load more" counters for the in-plan repayment history (10 per load). */
   const [planRepayVisible, setPlanRepayVisible] = useState<Record<string, number>>({});
   const [exportingRepayReport, setExportingRepayReport] = useState(false);
+  /**
+   * Flat repayment history paging.
+   * The first burst pulls `REPAY_FETCH_SIZE` rows (newest first); "Load more"
+   * reveals another `REPAY_VISIBLE_STEP` rows and, when the local cache runs
+   * out, pulls the next page straight from the database so long histories are
+   * never silently truncated.
+   */
+  const [repayVisible, setRepayVisible] = useState(REPAY_VISIBLE_STEP);
+  const [repayHasMoreServer, setRepayHasMoreServer] = useState(false);
+  const [loadingMoreRepayments, setLoadingMoreRepayments] = useState(false);
+
 
   const [collectDialogOpen, setCollectDialogOpen] = useState(false);
 
