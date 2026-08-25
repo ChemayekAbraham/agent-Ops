@@ -32,23 +32,27 @@ interface PendingAccessOrder {
 
 interface Props {
   userId?: string;
+  /** Controlled visibility — the dialog never opens on its own. */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Optional specific merchandise_sales.id to accept. */
+  saleId?: string | null;
 }
 
 /**
- * Shown on the agent dashboard as soon as an executive approves a device order.
- * The agent sees the access amount (price + 33%) and picks the daily wallet
- * deduction before the device is released.
+ * Opened explicitly from the smartphone order status card once an executive
+ * approves a device order. The agent sees the access amount and picks the daily
+ * wallet deduction before the device is released.
  */
-export default function DeviceAccessDialog({ userId }: Props) {
+export default function DeviceAccessDialog({ userId, open, onOpenChange, saleId }: Props) {
   const queryClient = useQueryClient();
-  const [dismissed, setDismissed] = useState<string[]>([]);
   const [mode, setMode] = useState<'min' | 'custom'>('min');
   const [custom, setCustom] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const { data: orders = [] } = useQuery<PendingAccessOrder[]>({
     queryKey: ['device-access-pending', userId],
-    enabled: !!userId,
+    enabled: !!userId && open,
     queryFn: async () => {
       const { data, error } = await db
         .from('merchandise_sales')
@@ -63,8 +67,8 @@ export default function DeviceAccessDialog({ userId }: Props) {
   });
 
   const order = useMemo(
-    () => orders.find((o) => !dismissed.includes(o.id)) ?? null,
-    [orders, dismissed],
+    () => (saleId ? orders.find((o) => o.id === saleId) ?? null : orders[0] ?? null),
+    [orders, saleId],
   );
 
   useEffect(() => {
@@ -72,7 +76,8 @@ export default function DeviceAccessDialog({ userId }: Props) {
     setCustom('');
   }, [order?.id]);
 
-  if (!userId || !order) return null;
+  if (!userId || !open || !order) return null;
+
 
   const totalPrice = Number(
     order.total_amount ?? Number(order.unit_price) * Math.max(Number(order.quantity ?? 1), 1),
