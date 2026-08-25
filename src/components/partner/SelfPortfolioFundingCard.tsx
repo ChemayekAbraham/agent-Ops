@@ -61,78 +61,98 @@ interface FundablePlan {
  * Privacy: tenant first name only, landlord name shown, no contact details ever leave the server.
  */
 export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
-  const [plans, setPlans] = useState<FundablePlan[]>([]);
-  const [available, setAvailable] = useState(0);
   const [selected, setSelected] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [fundedIds, setFundedIds] = useState<string[]>([]);
-  const [earnings, setEarnings] = useState<EarningsSummary | null>(null);
-  const [activeCommitmentId, setActiveCommitmentId] = useState<string | null>(null);
   const [deployOpen, setDeployOpen] = useState(false);
   const [detailPlan, setDetailPlan] = useState<FundablePlan | null>(null);
   const [page, setPage] = useState(0);
   // Short code arriving from a branded /s/<code> share link (?share=<code>).
   const [sharedPlanId, setSharedPlanId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const { data, error } = await supabase.rpc('partner_self_list_fundable_plans', {
-      p_limit: 20,
-      p_offset: 0,
-    });
-    if (error) {
-      setPlans([]);
-    } else {
+  // Cached so returning to this tab paints instantly; refreshes happen silently.
+  const plansQuery = useQuery({
+    queryKey: ['psm-fundable-plans'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('partner_self_list_fundable_plans', {
+        p_limit: 20,
+        p_offset: 0,
+      });
+      if (error) throw error;
       const payload = (data ?? {}) as { plans?: FundablePlan[]; available_balance?: number };
-      setPlans(payload.plans ?? []);
-      setPage(0);
-      setAvailable(Number(payload.available_balance ?? 0));
-    }
-    setLoading(false);
-  }, []);
+      return {
+        plans: payload.plans ?? [],
+        available: Number(payload.available_balance ?? 0),
+      };
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const fundedQuery = useQuery({
+    queryKey: ['psm-self-portfolio', partnerId],
+    enabled: !!partnerId,
+    queryFn: async () => {
+      const { data } = await supabase.rpc('partner_self_portfolio', { p_partner_id: partnerId });
+      const payload = (data ?? {}) as {
+        lines?: { rent_request_id: string; status?: string; principal?: number }[];
+        commitments?: {
+          id?: string;
+          status?: string;
+          next_payout_at?: string | null;
+          monthly_rate?: number;
+          created_at?: string;
+        }[];
+        totals?: { total_earned?: number; total_paid?: number; active?: number };
+      };
+
+      const activeCommitments = (payload.commitments ?? []).filter((c) => c.status === 'active');
+      // Newest active portfolio is the top-up target.
+      const activeCommitmentId =
+        [...activeCommitments].sort((a, b) =>
+          String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')),
+        )[0]?.id ?? null;
+      const nextPayoutDate =
+        activeCommitments
+          .map((c) => c.next_payout_at)
+          .filter((d): d is string => !!d)
+          .sort()[0] ?? null;
+      const rate = Number(activeCommitments[0]?.monthly_rate ?? 15);
+      const activePrincipal = Number(payload.totals?.active ?? 0);
+
+      return {
+        fundedIds: (payload.lines ?? []).map((l) => l.rent_request_id),
+        activeCommitmentId,
+        earnings: {
+          nextPayoutDate,
+          expectedThisCycle: Math.round((activePrincipal * rate) / 100),
+          totalEarned: Number(payload.totals?.total_earned ?? 0),
+          totalPaid: Number(payload.totals?.total_paid ?? 0),
+        } as EarningsSummary,
+      };
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const plans = plansQuery.data?.plans ?? [];
+  const available = plansQuery.data?.available ?? 0;
+  const fundedIds = fundedQuery.data?.fundedIds ?? [];
+  const activeCommitmentId = fundedQuery.data?.activeCommitmentId ?? null;
+  const earnings = fundedQuery.data?.earnings ?? null;
+  // Only the very first load blocks the card; refetches keep the cards on screen.
+  const loading = plansQuery.isLoading && !plansQuery.data;
+
+  const load = useCallback(async () => {
+    await plansQuery.refetch();
+    setPage(0);
+  }, [plansQuery]);
 
   const loadFunded = useCallback(async () => {
-    const { data } = await supabase.rpc('partner_self_portfolio', { p_partner_id: partnerId });
-    const payload = (data ?? {}) as {
-      lines?: { rent_request_id: string; status?: string; principal?: number }[];
-      commitments?: {
-        id?: string;
-        status?: string;
-        next_payout_at?: string | null;
-        monthly_rate?: number;
-        created_at?: string;
-      }[];
-      totals?: { total_earned?: number; total_paid?: number; active?: number };
-    };
-    setFundedIds((payload.lines ?? []).map((l) => l.rent_request_id));
+    await fundedQuery.refetch();
+  }, [fundedQuery]);
 
-    const activeCommitments = (payload.commitments ?? []).filter((c) => c.status === 'active');
-    // Newest active portfolio is the top-up target.
-    setActiveCommitmentId(
-      [...activeCommitments]
-        .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))[0]?.id ??
-        null,
-    );
-    const nextPayoutDate = activeCommitments
-      .map((c) => c.next_payout_at)
-      .filter((d): d is string => !!d)
-      .sort()[0] ?? null;
-    const rate = Number(activeCommitments[0]?.monthly_rate ?? 15);
-    const activePrincipal = Number(payload.totals?.active ?? 0);
-
-    setEarnings({
-      nextPayoutDate,
-      expectedThisCycle: Math.round((activePrincipal * rate) / 100),
-      totalEarned: Number(payload.totals?.total_earned ?? 0),
-      totalPaid: Number(payload.totals?.total_paid ?? 0),
-    });
-  }, [partnerId]);
-
-  useEffect(() => {
-    void load();
-    void loadFunded();
-  }, [load, loadFunded]);
 
   // Resolve ?share=<code> to the plan it points at, then clean the URL.
   useEffect(() => {
