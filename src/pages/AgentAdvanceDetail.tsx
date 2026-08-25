@@ -199,9 +199,10 @@ export default function AgentAdvanceDetail() {
               <div className="space-y-2">
                 {topups.map((t: any) => (
                   <div key={t.id} className="flex items-center justify-between py-2 border-b border-border/30 last:border-0">
-                    <div>
+                    <div className="pr-3">
                       <p className="font-medium">{formatUGX(t.amount)}</p>
                       <p className="text-xs text-muted-foreground">By {t.profiles?.full_name || 'Manager'}</p>
+                      {t.reason && <p className="text-xs text-muted-foreground mt-0.5 italic">"{t.reason}"</p>}
                     </div>
                     <p className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleDateString()}</p>
                   </div>
