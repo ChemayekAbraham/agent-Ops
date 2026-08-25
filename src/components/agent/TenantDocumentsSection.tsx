@@ -145,6 +145,25 @@ export function TenantDocumentsSection({
     if (file) void upload(docType, file, existing);
   };
 
+  /** Retires a document (kept in history, hidden from the profile). */
+  const removeDoc = async (doc: DocRow) => {
+    setBusy(doc.doc_type + doc.id);
+    try {
+      const { error } = await supabase
+        .from('tenant_documents')
+        .update({ is_current: false })
+        .eq('id', doc.id);
+      if (error) throw error;
+      toast.success('Photo removed');
+      await load();
+    } catch (err: any) {
+      console.error('Document removal failed:', err);
+      toast.error(err?.message ?? 'Could not remove the photo');
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const missing = [
     !passport && 'passport photo',
     houseImages.length < REQUIRED_HOUSE_IMAGES && `house photos (${houseImages.length} of ${REQUIRED_HOUSE_IMAGES})`,
