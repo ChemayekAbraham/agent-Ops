@@ -352,6 +352,11 @@ function ImagePreviewDialog({ images, open, onClose, title, startIndex = 0 }: { 
 
 type View = 'home' | 'landlords' | 'locations' | 'lc1' | 'lc1-requests' | 'residence-verify' | 'lc1-duplicates' | 'empty' | 'occupied' | 'verify' | 'pipeline' | 'chain' | 'matching' | 'agents' | 'analytics' | 'cities' | 'no-landlord' | 'advance-requests' | 'landlords-paid' | 'landlords-tenants' | 'all-requests' | 'houses-by-landlord' | 'agent-verify-requests' | 'lc1-inbox' | 'rent-pipeline-queue' | 'rejected-queue' | 'payout-review' | 'agent-capacity' | 'service-centres' | 'reports';
 
+/** Public alias so the sidebar shell can type its nav keys against the exact
+ *  same view union Classic already routes on. */
+export type LandlordOpsClassicView = View;
+
+
 // ─── Hub section titles (dedicated workspaces reached from the dashboard) ───
 const hubTitles: Partial<Record<View, string>> = {
   'agent-verify-requests': 'Agent Verification Requests',
