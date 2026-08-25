@@ -2214,9 +2214,19 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
         {repayments.length > 0 && (
           <SectionCard
             icon={History}
-            title="Repayment History"
-            badge={<Badge variant="outline" className="text-xs">{repayments.length}</Badge>}
+            title="Repayment / Collection History"
+            badge={<Badge variant="outline" className="text-xs">{repayments.length}{repayHasMoreServer ? '+' : ''}</Badge>}
           >
+            <Button
+              variant="soft"
+              className="w-full h-10 gap-2 text-sm"
+              onClick={handleExportRepaymentReport}
+              disabled={exportingRepayReport}
+            >
+              {exportingRepayReport
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Building PDF…</>
+                : <><FileText className="h-4 w-4" /> Export collections history (PDF)</>}
+            </Button>
             <div className="space-y-1.5">
               {visibleRepayments.map(r => (
                 <div key={r.id} className="flex items-center justify-between py-2.5 px-3 bg-muted/40 rounded-xl gap-2">
@@ -2228,13 +2238,32 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                 </div>
               ))}
             </div>
-            {repayments.length > PAGE_SIZE && (
-              <Button variant="ghost" className="w-full text-sm gap-1 h-11" onClick={() => setShowAllRepayments(!showAllRepayments)}>
-                {showAllRepayments ? <><ChevronUp className="h-4 w-4" /> Show Less</> : <><ChevronDown className="h-4 w-4" /> Show All ({repayments.length})</>}
-              </Button>
-            )}
+            <div className="flex flex-col gap-1.5">
+              {(repayVisible < repayments.length || repayHasMoreServer) && (
+                <Button
+                  variant="ghost"
+                  className="w-full text-sm gap-1 h-11"
+                  onClick={handleLoadMoreRepayments}
+                  disabled={loadingMoreRepayments}
+                >
+                  {loadingMoreRepayments
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Loading…</>
+                    : <><ChevronDown className="h-4 w-4" /> Load more payments</>}
+                </Button>
+              )}
+              {repayVisible > REPAY_VISIBLE_STEP && (
+                <Button
+                  variant="ghost"
+                  className="w-full text-sm gap-1 h-10"
+                  onClick={() => setRepayVisible(REPAY_VISIBLE_STEP)}
+                >
+                  <ChevronUp className="h-4 w-4" /> Show less
+                </Button>
+              )}
+            </div>
           </SectionCard>
         )}
+
 
         {/* ── Monthly Rent ── */}
         {profile.monthly_rent && profile.monthly_rent > 0 && (
