@@ -63,7 +63,7 @@ import { useSupportedTenants } from '@/hooks/useSupportedTenants';
 
 import { InvestmentAccountsDrawer } from '@/components/supporter/InvestmentAccountsDrawer';
 import { FunderApprovalBanner } from '@/components/supporter/FunderApprovalGate';
-import { FunderQuickActions } from '@/components/supporter/FunderQuickActions';
+
 import { FunderActivationModal } from '@/components/supporter/FunderActivationModal';
 import { useFunderApprovalStatus } from '@/hooks/useFunderApprovalStatus';
 
@@ -515,15 +515,6 @@ export default function SupporterDashboard({
                 setInvestmentsTab('accounts');
                 setShowInvestments(true);
               }}
-              quickActions={
-                <FunderQuickActions
-                  variant="hero"
-                  availableBalance={wallet?.balance ?? 0}
-                  roiBalance={totalRoiEarned}
-                  onChanged={() => { refreshWallet(); }}
-                  highlightDeposit={highlightDeposit}
-                />
-              }
             />
             </div>
           ) : (
