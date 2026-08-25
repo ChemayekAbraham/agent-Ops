@@ -211,7 +211,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
   // Secondary (financial history) datasets stream in after the sheet paints.
   const [secondaryLoading, setSecondaryLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [showAllRepayments, setShowAllRepayments] = useState(false);
+  
   const [showAllRequests, setShowAllRequests] = useState(false);
   /** Per-plan "load more" counters for the in-plan repayment history (10 per load). */
   const [planRepayVisible, setPlanRepayVisible] = useState<Record<string, number>>({});
