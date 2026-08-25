@@ -112,6 +112,10 @@ interface WalletData {
 }
 
 const PAGE_SIZE = 5;
+/** Rows pulled per database page for the repayment/collection history. */
+const REPAY_FETCH_SIZE = 200;
+/** Rows revealed per "Load more" click in the flat repayment history. */
+const REPAY_VISIBLE_STEP = 20;
 
 /* ---------- Small presentational helpers (local, no new files) ---------- */
 
@@ -207,11 +211,22 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
   // Secondary (financial history) datasets stream in after the sheet paints.
   const [secondaryLoading, setSecondaryLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [showAllRepayments, setShowAllRepayments] = useState(false);
+  
   const [showAllRequests, setShowAllRequests] = useState(false);
   /** Per-plan "load more" counters for the in-plan repayment history (10 per load). */
   const [planRepayVisible, setPlanRepayVisible] = useState<Record<string, number>>({});
   const [exportingRepayReport, setExportingRepayReport] = useState(false);
+  /**
+   * Flat repayment history paging.
+   * The first burst pulls `REPAY_FETCH_SIZE` rows (newest first); "Load more"
+   * reveals another `REPAY_VISIBLE_STEP` rows and, when the local cache runs
+   * out, pulls the next page straight from the database so long histories are
+   * never silently truncated.
+   */
+  const [repayVisible, setRepayVisible] = useState(REPAY_VISIBLE_STEP);
+  const [repayHasMoreServer, setRepayHasMoreServer] = useState(false);
+  const [loadingMoreRepayments, setLoadingMoreRepayments] = useState(false);
+
 
   const [collectDialogOpen, setCollectDialogOpen] = useState(false);
 
@@ -354,7 +369,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
           .select('id, amount, created_at, rent_request_id')
           .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false })
-          .limit(400),
+          .limit(REPAY_FETCH_SIZE + 1),
         supabase
           .from('wallets')
           .select('balance')
@@ -391,7 +406,10 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
           daily_repayment: effective.dailyRepayment,
         };
       }));
-      setRepayments((repaymentRes?.data as RepaymentRow[]) || []);
+      const repayRows = (repaymentRes?.data as RepaymentRow[]) || [];
+      setRepayHasMoreServer(repayRows.length > REPAY_FETCH_SIZE);
+      setRepayments(repayRows.slice(0, REPAY_FETCH_SIZE));
+      setRepayVisible(REPAY_VISIBLE_STEP);
 
       const ledgerEntries = (ledgerRes?.data || []) as any[];
       const totalIn = ledgerEntries.filter(e => e.direction === 'cash_in').reduce((s: number, e: any) => s + (e.amount || 0), 0);
@@ -776,8 +794,67 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
     }
   };
 
-  const visibleRepayments = showAllRepayments ? repayments : repayments.slice(0, PAGE_SIZE);
+  const visibleRepayments = repayments.slice(0, repayVisible);
   const visibleRequests = showAllRequests ? requests : requests.slice(0, PAGE_SIZE);
+
+  /** Pull the next database page of repayments (oldest beyond what is cached). */
+  const fetchNextRepaymentPage = async (): Promise<RepaymentRow[]> => {
+    const { data, error } = await supabase
+      .from('repayments')
+      .select('id, amount, created_at, rent_request_id')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .range(repayments.length, repayments.length + REPAY_FETCH_SIZE);
+    if (error) throw error;
+    const rows = (data as RepaymentRow[]) || [];
+    setRepayHasMoreServer(rows.length > REPAY_FETCH_SIZE);
+    const page = rows.slice(0, REPAY_FETCH_SIZE);
+    if (page.length) setRepayments((prev) => [...prev, ...page]);
+    return page;
+  };
+
+  /** "Load more" — reveal the next batch, fetching from the server when needed. */
+  const handleLoadMoreRepayments = async () => {
+    if (loadingMoreRepayments) return;
+    const needsServer = repayVisible >= repayments.length && repayHasMoreServer;
+    if (!needsServer) {
+      setRepayVisible((v) => v + REPAY_VISIBLE_STEP);
+      return;
+    }
+    setLoadingMoreRepayments(true);
+    try {
+      await fetchNextRepaymentPage();
+      setRepayVisible((v) => v + REPAY_VISIBLE_STEP);
+    } catch (err: any) {
+      toast({ title: 'Could not load more payments', description: err?.message, variant: 'destructive' });
+    } finally {
+      setLoadingMoreRepayments(false);
+    }
+  };
+
+  /**
+   * Pull every repayment row for this tenant so exports cover the full history
+   * regardless of what is currently cached in state.
+   */
+  const fetchAllRepayments = async (): Promise<RepaymentRow[]> => {
+    const all: RepaymentRow[] = [];
+    for (let page = 0; page < 50; page += 1) {
+      const from = page * REPAY_FETCH_SIZE;
+      const { data, error } = await supabase
+        .from('repayments')
+        .select('id, amount, created_at, rent_request_id')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .range(from, from + REPAY_FETCH_SIZE - 1);
+      if (error) throw error;
+      const rows = (data as RepaymentRow[]) || [];
+      all.push(...rows);
+      if (rows.length < REPAY_FETCH_SIZE) break;
+    }
+    return all;
+  };
+
+
 
   /**
    * Repayment history aggregated per rent plan.
@@ -793,7 +870,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
    *   difference is surfaced as an "other sources" note instead of being silently
    *   folded into a payment row.
    */
-  const planRepaymentHistory = useMemo(() => {
+  const buildPlanRepaymentHistory = (rows: RepaymentRow[]) => {
     const map = new Map<string, {
       rows: { id: string; date: string; amount: number; remaining: number }[];
       ledgerPaid: number;
@@ -803,13 +880,13 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
 
     for (const req of requests) {
       const totalDue = Number(req.total_repayment) || 0;
-      const planRows = repayments
+      const planRows = rows
         .filter((r) => r.rent_request_id === req.id)
         .slice()
         .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
       let cumulative = 0;
-      const rows = planRows.map((r) => {
+      const built = planRows.map((r) => {
         const amount = Number(r.amount) || 0;
         cumulative += amount;
         return {
@@ -823,22 +900,30 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
       const amountRepaid = Number(req.amount_repaid) || 0;
       map.set(req.id, {
         // newest-first for display
-        rows: rows.reverse(),
+        rows: built.reverse(),
         ledgerPaid: cumulative,
         otherSources: Math.max(0, amountRepaid - cumulative),
         remaining: Math.max(0, totalDue - Math.max(cumulative, amountRepaid)),
       });
     }
     return map;
-  }, [requests, repayments]);
+  };
+
+  const planRepaymentHistory = useMemo(
+    () => buildPlanRepaymentHistory(repayments),
+    [requests, repayments],
+  );
 
   /** Export the full per-plan repayment history (all rows, not just loaded ones). */
   const handleExportRepaymentReport = async () => {
     if (!profile) return;
     setExportingRepayReport(true);
     try {
+      // Always export against the complete server-side history.
+      const allRows = await fetchAllRepayments();
+      const fullHistory = buildPlanRepaymentHistory(allRows);
       const plans: TenantRepaymentPlanBlock[] = requests.map((req) => {
-        const agg = planRepaymentHistory.get(req.id);
+        const agg = fullHistory.get(req.id);
         return {
           planDate: req.created_at,
           status: req.status || 'unknown',
@@ -851,6 +936,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
           rows: (agg?.rows ?? []).map((r) => ({ date: r.date, amount: r.amount, remaining: r.remaining })),
         };
       });
+
 
       const blob = await generateTenantRepaymentReportPdf({
         tenantName: profile.full_name,
@@ -2128,9 +2214,19 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
         {repayments.length > 0 && (
           <SectionCard
             icon={History}
-            title="Repayment History"
-            badge={<Badge variant="outline" className="text-xs">{repayments.length}</Badge>}
+            title="Repayment / Collection History"
+            badge={<Badge variant="outline" className="text-xs">{repayments.length}{repayHasMoreServer ? '+' : ''}</Badge>}
           >
+            <Button
+              variant="soft"
+              className="w-full h-10 gap-2 text-sm"
+              onClick={handleExportRepaymentReport}
+              disabled={exportingRepayReport}
+            >
+              {exportingRepayReport
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Building PDF…</>
+                : <><FileText className="h-4 w-4" /> Export collections history (PDF)</>}
+            </Button>
             <div className="space-y-1.5">
               {visibleRepayments.map(r => (
                 <div key={r.id} className="flex items-center justify-between py-2.5 px-3 bg-muted/40 rounded-xl gap-2">
@@ -2142,13 +2238,32 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                 </div>
               ))}
             </div>
-            {repayments.length > PAGE_SIZE && (
-              <Button variant="ghost" className="w-full text-sm gap-1 h-11" onClick={() => setShowAllRepayments(!showAllRepayments)}>
-                {showAllRepayments ? <><ChevronUp className="h-4 w-4" /> Show Less</> : <><ChevronDown className="h-4 w-4" /> Show All ({repayments.length})</>}
-              </Button>
-            )}
+            <div className="flex flex-col gap-1.5">
+              {(repayVisible < repayments.length || repayHasMoreServer) && (
+                <Button
+                  variant="ghost"
+                  className="w-full text-sm gap-1 h-11"
+                  onClick={handleLoadMoreRepayments}
+                  disabled={loadingMoreRepayments}
+                >
+                  {loadingMoreRepayments
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Loading…</>
+                    : <><ChevronDown className="h-4 w-4" /> Load more payments</>}
+                </Button>
+              )}
+              {repayVisible > REPAY_VISIBLE_STEP && (
+                <Button
+                  variant="ghost"
+                  className="w-full text-sm gap-1 h-10"
+                  onClick={() => setRepayVisible(REPAY_VISIBLE_STEP)}
+                >
+                  <ChevronUp className="h-4 w-4" /> Show less
+                </Button>
+              )}
+            </div>
           </SectionCard>
         )}
+
 
         {/* ── Monthly Rent ── */}
         {profile.monthly_rent && profile.monthly_rent > 0 && (
