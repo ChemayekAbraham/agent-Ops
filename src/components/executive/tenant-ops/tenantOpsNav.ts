@@ -21,6 +21,7 @@ import {
   Copy,
   Home,
   FileText,
+  PhoneCall,
   type LucideIcon,
 } from 'lucide-react';
 import type { TenantOpsClassicView } from '../TenantOpsDashboard';
@@ -30,7 +31,7 @@ import type { TenantOpsClassicView } from '../TenantOpsDashboard';
  * view keys (so selecting one simply drives `TenantOpsDashboard`) or one of the
  * shell-owned keys below.
  */
-export type TenantOpsShellOnlyView = 'home' | 'phone-duplicates';
+export type TenantOpsShellOnlyView = 'home' | 'phone-duplicates' | 'calling-hub';
 export type TenantOpsViewKey = TenantOpsShellOnlyView | TenantOpsClassicView;
 
 /** Actions that are not views — they open a sheet or leave the dashboard. */
@@ -74,6 +75,7 @@ export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
     children: [
       { key: 'pipeline', label: 'Review Requests', icon: ClipboardList, keywords: ['approve', 'vet', 'queue', 'pipeline'] },
       { key: 'daily', label: 'Daily Payments', icon: CalendarCheck, keywords: ['today', 'paid', 'unpaid'] },
+      { key: 'calling-hub', label: 'Calling Hub', icon: PhoneCall, keywords: ['call', 'calls', 'phone', 'follow up', 'pending', 'closed', 'missed calls'] },
       { key: 'missed', label: 'Missed Days', icon: CalendarX2, keywords: ['behind', 'arrears', 'late'] },
       { key: 'behavior', label: 'Tenant Behavior', icon: Activity, keywords: ['risk', 'score', 'patterns'] },
       { key: 'history', label: 'Approval History', icon: History, keywords: ['log', 'approvals', 'rejections'] },

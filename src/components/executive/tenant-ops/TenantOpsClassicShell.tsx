@@ -4,6 +4,7 @@ import { TenantOpsDashboard, type TenantOpsClassicView } from '../TenantOpsDashb
 import { TenantOpsSidebar } from './TenantOpsSidebar';
 import { TenantOpsTopBar } from './TenantOpsTopBar';
 import { TenantOpsHome } from './TenantOpsHome';
+import { TenantCallingHub } from './TenantCallingHub';
 import { TenantPhoneDuplicatePanel } from '@/components/ops/TenantPhoneDuplicatePanel';
 import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 import {
@@ -63,6 +64,7 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
 
   const body = () => {
     if (active === 'home') return <TenantOpsHome onNavigate={goTo} />;
+    if (active === 'calling-hub') return <TenantCallingHub />;
     if (active === 'phone-duplicates') return <TenantPhoneDuplicatePanel variant="full" />;
     return (
       <TenantOpsDashboard
