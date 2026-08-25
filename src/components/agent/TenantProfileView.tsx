@@ -870,7 +870,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
    *   difference is surfaced as an "other sources" note instead of being silently
    *   folded into a payment row.
    */
-  const planRepaymentHistory = useMemo(() => {
+  const buildPlanRepaymentHistory = (rows: RepaymentRow[]) => {
     const map = new Map<string, {
       rows: { id: string; date: string; amount: number; remaining: number }[];
       ledgerPaid: number;
@@ -880,13 +880,13 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
 
     for (const req of requests) {
       const totalDue = Number(req.total_repayment) || 0;
-      const planRows = repayments
+      const planRows = rows
         .filter((r) => r.rent_request_id === req.id)
         .slice()
         .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
       let cumulative = 0;
-      const rows = planRows.map((r) => {
+      const built = planRows.map((r) => {
         const amount = Number(r.amount) || 0;
         cumulative += amount;
         return {
@@ -900,22 +900,30 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
       const amountRepaid = Number(req.amount_repaid) || 0;
       map.set(req.id, {
         // newest-first for display
-        rows: rows.reverse(),
+        rows: built.reverse(),
         ledgerPaid: cumulative,
         otherSources: Math.max(0, amountRepaid - cumulative),
         remaining: Math.max(0, totalDue - Math.max(cumulative, amountRepaid)),
       });
     }
     return map;
-  }, [requests, repayments]);
+  };
+
+  const planRepaymentHistory = useMemo(
+    () => buildPlanRepaymentHistory(repayments),
+    [requests, repayments],
+  );
 
   /** Export the full per-plan repayment history (all rows, not just loaded ones). */
   const handleExportRepaymentReport = async () => {
     if (!profile) return;
     setExportingRepayReport(true);
     try {
+      // Always export against the complete server-side history.
+      const allRows = await fetchAllRepayments();
+      const fullHistory = buildPlanRepaymentHistory(allRows);
       const plans: TenantRepaymentPlanBlock[] = requests.map((req) => {
-        const agg = planRepaymentHistory.get(req.id);
+        const agg = fullHistory.get(req.id);
         return {
           planDate: req.created_at,
           status: req.status || 'unknown',
@@ -928,6 +936,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
           rows: (agg?.rows ?? []).map((r) => ({ date: r.date, amount: r.amount, remaining: r.remaining })),
         };
       });
+
 
       const blob = await generateTenantRepaymentReportPdf({
         tenantName: profile.full_name,
