@@ -1,3 +1,4 @@
+import "../_shared/noSignupPrompt.ts";
 import "../_shared/smsFooterInterceptor.ts";
 // Cash-with-agent deposit — Step 1.
 // The depositor enters an amount and the agent's phone number. We resolve the

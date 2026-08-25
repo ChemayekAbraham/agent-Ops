@@ -1,3 +1,4 @@
+import "../_shared/noSignupPrompt.ts";
 import "../_shared/smsFooterInterceptor.ts";
 // Cash deposit — Step 2: the depositor enters the receipt code that the
 // verifier (weliletenants@gmail.com) read back to them after receiving the
