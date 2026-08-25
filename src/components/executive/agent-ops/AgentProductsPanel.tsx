@@ -20,11 +20,55 @@ import { generateAgentProductsInFieldPdf, type AgentProductKpis, type AgentProdu
 import { archivePdfBlob } from '@/lib/pdfVault';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Package, Users, Warehouse, Download, Plus, RefreshCw, Search, Wallet, TrendingUp, Trash2 } from 'lucide-react';
+import { Package, Users, Warehouse, Download, Plus, RefreshCw, Search, Wallet, TrendingUp, Trash2, Clock, Layers, Activity, Check, X, Loader2 } from 'lucide-react';
 
 interface CatalogItem { id: string; item_name: string; unit_price: number; unit_cost: number }
 interface CentreItem { id: string; location_name: string | null; agent_id: string | null; agent_name: string | null; status: string }
-interface Overview { kpis: AgentProductKpis; rows: AgentProductRow[]; catalog: CatalogItem[]; centres: CentreItem[] }
+export interface PendingApp {
+  sale_id: string;
+  agent_id: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  phone: string | null;
+  item_name: string | null;
+  brand: string | null;
+  model_type: string | null;
+  quantity: number;
+  requested_amount: number;
+  order_status: string;
+  created_at: string;
+}
+interface BreakdownRow {
+  label: string;
+  models: number;
+  reference_price: number;
+  issued_qty: number;
+  issued_value: number;
+  outstanding: number;
+}
+interface ActivityRow {
+  sale_id: string;
+  agent_id: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  item_name: string | null;
+  brand: string | null;
+  model_type: string | null;
+  amount: number;
+  outstanding: number;
+  order_status: string;
+  happened_at: string;
+}
+interface Overview {
+  kpis: AgentProductKpis;
+  rows: AgentProductRow[];
+  catalog: CatalogItem[];
+  centres: CentreItem[];
+  pending: PendingApp[];
+  breakdown: BreakdownRow[];
+  activity: ActivityRow[];
+}
+
 
 const PRODUCT_SUGGESTIONS = [
   'Welile Jumper', 'Welile Jacket', 'Welile Polo', 'Welile T-Shirt', 'Welile Cap',
@@ -53,6 +97,9 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
   const [addOpen, setAddOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AgentProductRow | null>(null);
   const [deleteReason, setDeleteReason] = useState('');
+  const [rejectTarget, setRejectTarget] = useState<PendingApp | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+
   const scopeLabel = category ? CATEGORY_LABELS[category] : null;
   const showOverview = mode !== 'issued';
   const showIssued = mode !== 'overview';
@@ -98,12 +145,60 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
         rows: payload.rows ?? [],
         catalog: payload.catalog ?? [],
         centres: payload.centres ?? [],
+        pending: payload.pending ?? [],
+        breakdown: payload.breakdown ?? [],
+        activity: payload.activity ?? [],
       };
     },
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    placeholderData: (prev) => prev,
+    refetchOnWindowFocus: false,
   });
 
+  const approveApp = useMutation({
+    mutationFn: async (row: PendingApp) => {
+      const { error } = await supabase.rpc('approve_smartphone_order' as any, {
+        p_sale_id: row.sale_id,
+        p_total_amount: Math.round(Number(row.requested_amount || 0)),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Application approved');
+      queryClient.invalidateQueries({ queryKey: ['agent-products-overview'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['smartphone-order-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['smartphone-order-pending-count'] });
+    },
+    onError: (e: any) => toast.error(e?.message || 'Could not approve application'),
+  });
+
+  const rejectApp = useMutation({
+    mutationFn: async ({ row, reason }: { row: PendingApp; reason: string }) => {
+      const { error } = await supabase.rpc('reject_smartphone_order' as any, {
+        p_sale_id: row.sale_id,
+        p_reason: reason.trim(),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Application rejected');
+      setRejectTarget(null);
+      setRejectReason('');
+      queryClient.invalidateQueries({ queryKey: ['agent-products-overview'], exact: false });
+      queryClient.invalidateQueries({ queryKey: ['smartphone-order-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['smartphone-order-pending-count'] });
+    },
+    onError: (e: any) => toast.error(e?.message || 'Could not reject application'),
+  });
+
+
   const kpis = data?.kpis as AgentProductKpis | undefined;
+  const pendingApps = data?.pending ?? [];
+  const breakdown = data?.breakdown ?? [];
+  const activity = data?.activity ?? [];
+  const isSmartphone = category === 'smart_phone';
+
   const rows = useMemo(() => {
     const list = data?.rows ?? [];
     const term = search.trim().toLowerCase();
@@ -261,6 +356,189 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
           )}
         </div>
       )}
+
+      {showOverview && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          {/* Pending applications quick-action queue */}
+          <Card className="lg:col-span-2">
+            <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Clock className="h-4 w-4 text-amber-500" />
+                Pending applications
+                <Badge variant="secondary" className="text-[10px]">{pendingApps.length}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {isLoading && pendingApps.length === 0 ? (
+                <div className="p-4 space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+                </div>
+              ) : pendingApps.length === 0 ? (
+                <p className="p-6 text-sm text-muted-foreground text-center">Nothing awaiting approval right now.</p>
+              ) : (
+                <div className="divide-y divide-border">
+                  {pendingApps.slice(0, 8).map((p) => {
+                    const busy =
+                      (approveApp.isPending && approveApp.variables?.sale_id === p.sale_id) ||
+                      (rejectApp.isPending && rejectApp.variables?.row.sale_id === p.sale_id);
+                    return (
+                      <div key={p.sale_id} className="p-3 flex items-center gap-3">
+                        <UserAvatar avatarUrl={p.avatar_url} fullName={p.full_name || undefined} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold truncate">{p.full_name || 'Unknown agent'}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {[p.brand, p.model_type].filter(Boolean).join(' ') || p.item_name || '—'} ·{' '}
+                            {formatUGX(Number(p.requested_amount || 0))}
+                          </p>
+                        </div>
+                        <span className="hidden sm:block text-[11px] text-muted-foreground shrink-0">
+                          {p.created_at ? format(new Date(p.created_at), 'dd MMM') : '—'}
+                        </span>
+                        {isSmartphone ? (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 gap-1 text-success"
+                              disabled={busy}
+                              onClick={() => approveApp.mutate(p)}
+                            >
+                              {approveApp.isPending && approveApp.variables?.sale_id === p.sale_id
+                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                : <Check className="h-3.5 w-3.5" />}
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 gap-1 text-destructive hover:text-destructive"
+                              disabled={busy}
+                              onClick={() => { setRejectTarget(p); setRejectReason(''); }}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                              Reject
+                            </Button>
+                          </div>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] shrink-0">Awaiting review</Badge>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Catalog & brand inventory breakdown */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Layers className="h-4 w-4 text-primary" />
+                {isSmartphone ? 'Brand inventory' : 'Catalog inventory'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {isLoading && breakdown.length === 0 ? (
+                <div className="p-4 space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+                </div>
+              ) : breakdown.length === 0 ? (
+                <p className="p-6 text-sm text-muted-foreground text-center">No catalog items yet.</p>
+              ) : (
+                <div className="divide-y divide-border">
+                  {breakdown.map((b) => (
+                    <div key={b.label} className="p-3 space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold truncate">{b.label}</p>
+                        <span className="text-xs font-medium tabular-nums">{Number(b.issued_qty || 0)} issued</span>
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                        {isSmartphone && <span>{Number(b.models || 0)} model(s)</span>}
+                        <span>Ref: {formatUGX(Number(b.reference_price || 0))}</span>
+                        <span>Value: {formatUGX(Number(b.issued_value || 0))}</span>
+                        <span className="text-destructive">Out: {formatUGX(Number(b.outstanding || 0))}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Recent field devices activity feed */}
+          <Card className="lg:col-span-3">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Activity className="h-4 w-4 text-info" />
+                Recent field activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {isLoading && activity.length === 0 ? (
+                <div className="p-4 space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+                </div>
+              ) : activity.length === 0 ? (
+                <p className="p-6 text-sm text-muted-foreground text-center">No activity recorded yet.</p>
+              ) : (
+                <div className="divide-y divide-border">
+                  {activity.map((a) => (
+                    <div key={a.sale_id} className="p-3 flex items-center gap-3">
+                      <UserAvatar avatarUrl={a.avatar_url} fullName={a.full_name || undefined} size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold truncate">{a.full_name || 'Unknown agent'}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {[a.brand, a.model_type].filter(Boolean).join(' ') || a.item_name || '—'}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-semibold tabular-nums">{formatUGX(Number(a.amount || 0))}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {a.happened_at ? format(new Date(a.happened_at), 'dd MMM yyyy HH:mm') : '—'}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] capitalize shrink-0">
+                        {(a.order_status || '').replace(/_/g, ' ') || 'issued'}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <Dialog open={!!rejectTarget} onOpenChange={(o) => { if (!o) { setRejectTarget(null); setRejectReason(''); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reject application</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Rejecting {rejectTarget?.full_name || 'this agent'}'s request applies no wallet charge.
+            </p>
+            <div className="space-y-1.5">
+              <Label>Reason (min 10 characters)</Label>
+              <Input value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Why is this rejected?" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectTarget(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={rejectReason.trim().length < 10 || rejectApp.isPending}
+              onClick={() => rejectTarget && rejectApp.mutate({ row: rejectTarget, reason: rejectReason })}
+            >
+              {rejectApp.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              Reject
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
 
 
       {showIssued && (
