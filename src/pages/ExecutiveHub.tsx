@@ -29,7 +29,8 @@ const TenantOpsHub = lazyWithRetry(() =>
   import('@/components/executive/TenantOpsHub').then((m) => ({ default: m.TenantOpsHub })),
 );
 const LandlordOpsDashboard = lazyWithRetry(() =>
-  import('@/components/executive/LandlordOpsDashboard').then((m) => ({ default: m.LandlordOpsDashboard })),
+  import('@/components/executive/landlord-ops/LandlordOpsClassicShell').then((m) => ({ default: m.LandlordOpsDashboardShell })),
+
 );
 const PartnersOpsDashboard = lazyWithRetry(() =>
   import('@/components/executive/PartnersOpsDashboard').then((m) => ({ default: m.PartnersOpsDashboard })),
