@@ -545,7 +545,7 @@ export default function MyWork({ embedded = false }: MyWorkProps) {
       }
       await addTaskEvent({ taskId, eventType, note: note && note.trim() ? note.trim() : null });
       toast.success(`Task ${eventType}`);
-      await load();
+      await load({ silent: true });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not update the task');
     } finally {
@@ -567,7 +567,8 @@ export default function MyWork({ embedded = false }: MyWorkProps) {
         metadata: { flag: 'acknowledged', acknowledges_event_id: item.eventId },
       });
       toast.success('Acknowledged');
-      await load();
+      await load({ silent: true });
+
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not acknowledge');
     } finally {
