@@ -146,38 +146,89 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
 
 
       {showOverview && (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {isLoading || !kpis ? (
-            Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-[110px] rounded-2xl" />)
+            Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[110px] rounded-2xl" />)
           ) : (
             <>
-              <MetricCard label={scopeLabel ? `${scopeLabel} in catalog` : 'Total products'} value={String(kpis.total_products ?? 0)} icon={Package} variant="primary" />
-              <MetricCard
-                label={`In field · ${kpis.in_field_agents ?? 0} agents`}
-                value={String(kpis.in_field_items ?? 0)}
-                icon={Users}
-                variant="warning"
-              />
-              <MetricCard label="Purchased (in stock)" value={String(kpis.stock_qty ?? 0)} icon={Warehouse} variant="success" />
+              <Card className="relative overflow-hidden">
+                <CardContent className="p-3 flex flex-col justify-between h-full">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Pending Applications</p>
+                      <p className="text-2xl font-bold tabular-nums">{kpis.pending_applications ?? 0}</p>
+                    </div>
+                    <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                      <Package className="h-4 w-4" />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Awaiting approval</p>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden">
+                <CardContent className="p-3 flex flex-col justify-between h-full">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Active Field Fleet</p>
+                      <p className="text-2xl font-bold tabular-nums">{kpis.in_field_agents ?? 0}</p>
+                    </div>
+                    <div className="rounded-lg bg-warning/10 p-2 text-warning">
+                      <Users className="h-4 w-4" />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">{kpis.in_field_items ?? 0} item(s) issued</p>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden">
+                <CardContent className="p-3 flex flex-col justify-between h-full">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Financial Portfolio</p>
+                      <p className="text-lg font-bold tabular-nums">{formatUGX(Number(kpis.in_field_outstanding || 0))}</p>
+                    </div>
+                    <div className="rounded-lg bg-success/10 p-2 text-success">
+                      <Wallet className="h-4 w-4" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-muted-foreground">Outstanding</span>
+                      <span className="font-medium">{formatUGX(Number(kpis.in_field_amount || 0))} total</span>
+                    </div>
+                    <Progress
+                      value={Number(kpis.in_field_amount || 0) > 0 ? Math.round(((Number(kpis.in_field_amount || 0) - Number(kpis.in_field_outstanding || 0)) / Number(kpis.in_field_amount || 0)) * 100) : 0}
+                      className="h-1.5"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="relative overflow-hidden">
+                <CardContent className="p-3 flex flex-col justify-between h-full">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Repayment Recovery Rate</p>
+                      <p className="text-2xl font-bold tabular-nums">
+                        {Number(kpis.in_field_amount || 0) > 0 ? Math.round((Number(kpis.in_field_repaid || 0) / Number(kpis.in_field_amount || 0)) * 100) : 0}%
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-info/10 p-2 text-info">
+                      <TrendingUp className="h-4 w-4" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Progress
+                      value={Number(kpis.in_field_amount || 0) > 0 ? Math.round((Number(kpis.in_field_repaid || 0) / Number(kpis.in_field_amount || 0)) * 100) : 0}
+                      className="h-1.5"
+                    />
+                    <p className="text-[11px] text-muted-foreground">{formatUGX(Number(kpis.in_field_repaid || 0))} repaid</p>
+                  </div>
+                </CardContent>
+              </Card>
             </>
           )}
-        </div>
-      )}
-
-      {showOverview && kpis && (
-        <div className="grid grid-cols-3 gap-3">
-          <Card><CardContent className="p-3">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Held amount</p>
-            <p className="text-base font-bold tabular-nums">{formatUGX(Number(kpis.in_field_amount || 0))}</p>
-          </CardContent></Card>
-          <Card><CardContent className="p-3">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Repaid so far</p>
-            <p className="text-base font-bold tabular-nums text-success">{formatUGX(Number(kpis.in_field_repaid || 0))}</p>
-          </CardContent></Card>
-          <Card><CardContent className="p-3">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Outstanding</p>
-            <p className="text-base font-bold tabular-nums text-destructive">{formatUGX(Number(kpis.in_field_outstanding || 0))}</p>
-          </CardContent></Card>
         </div>
       )}
 
