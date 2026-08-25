@@ -204,11 +204,27 @@ export function PartnersOpsDashboard() {
     staleTime: 30000,
   });
 
+  // ═══ TOP-UP VERIFICATION pending badge (partner-initiated top-ups) ═══
+  const { data: topUpVerificationPending = 0 } = useQuery({
+    queryKey: ['partner-ops-topup-verification-count'],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('pending_wallet_operations')
+        .select('id', { count: 'exact', head: true })
+        .eq('source_table', 'investor_portfolios')
+        .eq('operation_type', 'portfolio_topup')
+        .eq('status', 'awaiting_verification');
+      return count || 0;
+    },
+    staleTime: 30000,
+  });
+
   // ═══ SIDEBAR BADGES ═══
   const badges: Partial<Record<PartnerOpsViewKey, number>> = {
     'portfolios.invited': invitedCount,
     maturity: maturityPending,
     'portfolios.maturity': maturityPending,
+    'portfolios.topups': topUpVerificationPending,
     'nearing.overview': nearingPayouts,
   };
 
