@@ -61,7 +61,7 @@ const STATUS_META: Record<OrderStatus, { label: string; icon: typeof Clock; clas
 
 const KNOWN_STATUSES: OrderStatus[] = ['submitted', 'pending_approval', 'approved', 'rejected', 'processing', 'completed', 'failed'];
 
-/** Payment projection is only revealed once an executive approves the order. */
+/** Access amount is only revealed once an executive approves the order. */
 const APPROVED_STATUSES: OrderStatus[] = ['approved', 'processing', 'completed'];
 
 /** Agents may remove their own application while pending, or once rejected/failed. */
@@ -316,12 +316,13 @@ export default function SmartphoneOrderStatus({
                     </p>
                     {APPROVED_STATUSES.includes(status) && (
                       <p className="text-[11px] text-muted-foreground mt-0.5">
-                        Payment projection:{' '}
+                        Access amount:{' '}
                         <span className="text-foreground font-semibold">
-                          {formatUGX(Math.round(Number(o.unit_price) * SMARTPHONE_RECOVERY_RATE))}
+                          {formatUGX(Math.round(Number(o.unit_price) * 1.33))}
                         </span>
                       </p>
                     )}
+
                     {o.tracking_reference && (
                       <p className="text-[11px] font-mono text-muted-foreground mt-0.5">
                         Tracking: <span className="text-foreground font-semibold">{o.tracking_reference}</span>
