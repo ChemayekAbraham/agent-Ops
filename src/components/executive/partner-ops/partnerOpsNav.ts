@@ -97,6 +97,13 @@ export const PARTNER_OPS_NAV: PartnerOpsNavItem[] = [
       { key: 'portfolios.expiring', label: 'Expiring Portfolios', icon: CalendarX2, keywords: ['maturing', 'due'] },
       { key: 'portfolios.renewed', label: 'Renewed Portfolios', icon: History, keywords: ['renewals', 'rollover'] },
       {
+      {
+        key: 'portfolios.topups',
+        label: 'Top-Up Verification',
+        icon: ShieldCheck,
+        keywords: ['topup', 'top-up', 'verify', 'verification', 'approve', 'add capital'],
+      },
+      {
         key: 'portfolios.maturity',
         label: 'Redemption & Renewal',
         icon: CalendarClock,
