@@ -9,7 +9,11 @@ import { Badge } from '@/components/ui/badge';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Plus } from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ChevronDown, Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
