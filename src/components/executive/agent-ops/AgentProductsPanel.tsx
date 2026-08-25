@@ -194,6 +194,11 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
 
 
   const kpis = data?.kpis as AgentProductKpis | undefined;
+  const pendingApps = data?.pending ?? [];
+  const breakdown = data?.breakdown ?? [];
+  const activity = data?.activity ?? [];
+  const isSmartphone = category === 'smart_phone';
+
   const rows = useMemo(() => {
     const list = data?.rows ?? [];
     const term = search.trim().toLowerCase();
