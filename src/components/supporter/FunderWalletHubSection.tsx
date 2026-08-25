@@ -23,9 +23,6 @@ import {
 } from 'lucide-react';
 import { UnifiedWalletHeroCard } from '@/components/wallet/UnifiedWalletHeroCard';
 import { FunderQuickActions } from '@/components/supporter/FunderQuickActions';
-import DepositFlow from '@/components/payments/DepositFlow';
-import WithdrawFlow from '@/components/payments/WithdrawFlow';
-import { SendMoneyDialog } from '@/components/wallet/SendMoneyDialog';
 import mtnLogoAsset from '@/assets/mtn-logo.png.asset.json';
 import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
 import equityLogoAsset from '@/assets/equity-logo.png.asset.json';
@@ -85,10 +82,7 @@ function transactionIcon(category: string | null, direction: string | null) {
 export default function FunderWalletHubSection({ open, onOpenChange }: FunderWalletHubSectionProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { data, isLoading, error } = usePartnerWalletHub(user?.id, 0);
-  const [showDeposit, setShowDeposit] = useState(false);
-  const [showWithdraw, setShowWithdraw] = useState(false);
-  const [showTransfer, setShowTransfer] = useState(false);
+  const { data, isLoading, error, refetch } = usePartnerWalletHub(user?.id, 0);
 
   const recentTransactions = (data?.transactions ?? []).slice(0, 10);
 
@@ -254,27 +248,6 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
         </SheetContent>
       </Sheet>
 
-      {user?.id && (
-        <>
-          <DepositFlow
-            open={showDeposit}
-            onOpenChange={setShowDeposit}
-            allowedPurposes={['partnership_deposit'] as const}
-            defaultPurpose="partnership_deposit"
-            lockPurpose
-          />
-          <WithdrawFlow
-            open={showWithdraw}
-            onOpenChange={setShowWithdraw}
-            availableBalance={data?.withdrawableAmount ?? 0}
-            onSuccess={() => setShowWithdraw(false)}
-          />
-          <SendMoneyDialog
-            open={showTransfer}
-            onOpenChange={setShowTransfer}
-          />
-        </>
-      )}
     </>
   );
 }
