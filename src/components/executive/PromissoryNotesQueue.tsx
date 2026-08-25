@@ -230,6 +230,44 @@ export function PromissoryNotesQueue() {
   const pagedNotes = filtered.slice((safePage - 1) * NOTES_PER_PAGE, safePage * NOTES_PER_PAGE);
   useEffect(() => { setPage(1); }, [search, statusFilter, range]);
 
+  const allPageSelected = pagedNotes.length > 0 && pagedNotes.every(n => selectedIds.includes(n.id));
+  const toggleSelect = (id: string) =>
+    setSelectedIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
+  const toggleSelectPage = () =>
+    setSelectedIds(prev => {
+      const pageIds = pagedNotes.map(n => n.id);
+      return allPageSelected ? prev.filter(id => !pageIds.includes(id)) : Array.from(new Set([...prev, ...pageIds]));
+    });
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0 || bulkReason.trim().length < 10) return;
+    setBulkDeleting(true);
+    try {
+      const { data, error } = await supabase.rpc('bulk_delete_promissory_notes' as any, {
+        p_note_ids: selectedIds,
+        p_reason: bulkReason.trim(),
+      });
+      if (error) throw error;
+      const res = (data as any) || {};
+      if (res.status === 'error') throw new Error(res.message || 'Bulk delete failed');
+      const blocked = (res.blocked as any[]) || [];
+      toast.success(`${res.deleted || 0} promissory note(s) deleted`);
+      if (blocked.length > 0) {
+        toast.warning(`${blocked.length} note(s) skipped — ${blocked[0]?.reason || 'linked to partner money'}`);
+      }
+      setSelectedIds([]);
+      setBulkOpen(false);
+      setBulkReason('');
+      queryClient.invalidateQueries({ queryKey: ['promissory-ops-report'] });
+      refetch();
+    } catch (e: any) {
+      toast.error(e.message || 'Could not delete the selected notes');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+
   const statusConfig: Record<string, { icon: any; color: string; label: string }> = {
     pending: { icon: Clock, color: 'bg-amber-100 text-amber-700 border-amber-200', label: 'Pending' },
     activated: { icon: CheckCircle, color: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'Activated' },
