@@ -150,13 +150,16 @@ export function DisbursedAdvancesRegister() {
     setToDate('');
   };
 
-  // Rows a reversal can still touch: not yet reversed. The same-day window and
+  // Rows a reversal can still touch: not yet reversed. The reversal window and
   // recovery amounts are decided server-side, never here.
   const isReversible = (a: AdvanceRow) => !(a as any).reversed_at;
   const reversibleFiltered = useMemo(() => filtered.filter(isReversible), [filtered]);
+  const REVERSAL_WINDOW_DAYS = 3;
   const isTodaysBatch = (a: AdvanceRow) =>
-    isReversible(a) && new Date(a.issued_at).toDateString() === new Date().toDateString();
+    isReversible(a) &&
+    new Date(a.issued_at).getTime() >= Date.now() - REVERSAL_WINDOW_DAYS * 86_400_000;
   const todaysBatch = useMemo(() => advances.filter(isTodaysBatch), [advances]);
+
 
   const toggleChecked = (id: string) =>
     setCheckedIds((prev) => {
