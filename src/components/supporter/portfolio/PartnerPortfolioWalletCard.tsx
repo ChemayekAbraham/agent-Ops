@@ -58,7 +58,17 @@ export function PartnerPortfolioWalletCard({ onAddCard, onPortfolios, onCalculat
   const { portfolios, loading } = usePartnerPortfolios();
   const { tenants, isLoading: tenantsLoading } = useSupportedTenants();
   const { available: availableBalance, refresh: refreshAvailable } = useAvailableBalance(user?.id);
-  const [showAmount, setShowAmount] = useState(true);
+  const [showAmount, setShowAmount] = useState(false);
+  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (showAmount) {
+      hideTimeoutRef.current = setTimeout(() => setShowAmount(false), 2000);
+    }
+    return () => {
+      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+    };
+  }, [showAmount]);
 
   const active = useMemo(
     // Locked portfolios (open redemption) stop accruing but the capital is still
