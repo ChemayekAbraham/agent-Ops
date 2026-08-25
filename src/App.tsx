@@ -1,4 +1,3 @@
-import DevPlanSheetProbe from '@/pages/DevPlanSheetProbe';
 // Realtime: enabled
 
 
@@ -582,7 +581,6 @@ function AppRoutes() {
           <Route path="/reinvestment-history" element={<ReinvestmentHistory />} />
           <Route path="/investment-portfolio" element={<InvestmentPortfolio />} />
           <Route path="/my-watchlist" element={<MyWatchlist />} />
-          <Route path="/dev-plan-sheet-probe" element={<DevPlanSheetProbe />} />
           <Route path="/opportunities" element={<Opportunities />} />
           <Route path="/houses" element={<AvailableHouses />} />
           <Route path="/audit-log" element={<AuditLog />} />
