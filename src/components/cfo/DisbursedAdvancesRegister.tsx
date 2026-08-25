@@ -272,7 +272,7 @@ export function DisbursedAdvancesRegister() {
           <p className="text-[11px] text-muted-foreground flex-1 min-w-[180px]">
             {checkedIds.size > 0
               ? `${checkedIds.size} advance${checkedIds.size === 1 ? '' : 's'} selected for reversal.`
-              : 'Tick rows to reverse several advances at once, or reverse the whole batch disbursed today.'}
+              : 'Tick rows to reverse several advances at once, or reverse the whole recent batch (last 3 days).'}
           </p>
           {checkedIds.size > 0 && (
             <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={() => setCheckedIds(new Set())}>
