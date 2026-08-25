@@ -27,8 +27,10 @@ Since 2026-08-20 (point-in-time evidence rule), corrected 2026-08-25 (symmetric 
   never as owed. Never use lifetime paid-out minus float credits (the pre-2026-08-20 formula).
 - Every displayed claim must name the payout: date and time, TID, recipient name and phone,
   amount fronted, and the desk's float position at that moment.
-- Historical note: the 2026-08-20 change dropped Emma Maiso's stale UGX 3,894,379 to 0 owed with
-  no data, wallet or ledger writes; fleet-wide evidenced owed was UGX 0.
+- Historical note: the 2026-08-20 change correctly replaced the old lifetime paid-out-minus-float-credits
+  formula with point-in-time evidence, but its exclusion of correction legs produced the now-superseded
+  Emma Maiso UGX 3,894,379 → 0 result. The 2026-08-25 symmetric-inclusion fix keeps the point-in-time
+  model while counting both write-ups and write-downs from the ledger.
 - Known accepted residual risk: upward manual opening-balance assertions still count as
   evidence of funding (production-tagged path), so a careless large opening-balance entry can
   still make a desk look wrongly funded. Deliberately out of scope for the 2026-08-25 fix.
