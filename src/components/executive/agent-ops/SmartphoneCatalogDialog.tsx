@@ -474,7 +474,7 @@ export function SmartphoneCatalogDialog() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => pendingDelete && removeEntry.mutate(pendingDelete.id)}
+              onClick={() => pendingDelete && removeEntry.mutate(pendingDelete)}
               disabled={removeEntry.isPending}
             >
               {removeEntry.isPending ? 'Removing…' : 'Remove'}
