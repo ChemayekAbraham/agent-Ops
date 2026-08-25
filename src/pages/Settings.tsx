@@ -186,7 +186,7 @@ export default function Settings() {
   const { fontSize, setFontSize } = useFontSize();
   const { intensity: hapticIntensity, setIntensity: setHapticIntensity } = useHapticSettings();
   const { reducedMotion, setReducedMotion } = useReducedMotion();
-  const { preferences, updatePreference, resetPreferences } = useAppPreferences();
+  const { preferences, updatePreference } = useAppPreferences();
   const { language, setLanguage } = useLanguage();
   const { currency, setCurrency } = useCurrency();
   const [profile, setProfile] = useState<Profile | null>(null);
