@@ -43,7 +43,7 @@ export default function AgentAdvanceDetail() {
     enabled: !!id,
   });
 
-  const { data: topups = [] } = useQuery({
+  const { data: topups = [], refetch: refetchTopups } = useQuery({
     queryKey: ['agent-advance-topups', id],
     queryFn: async () => {
       const { data, error } = await supabase
