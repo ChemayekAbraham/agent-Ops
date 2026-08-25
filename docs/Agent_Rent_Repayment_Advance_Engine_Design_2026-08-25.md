@@ -259,3 +259,165 @@ Legacy 30d+ and never-paid rows never enter the cron. They go to a manual Agent 
 | Agent Ops legacy worklist | Manual path for pre-baseline backlog |
 
 Nothing here invents new financial primitives. It connects three things the platform already has — tenant expectation (`v_tenant_daily_eligibility`), collection truth (`agent_collections`), and agent liability (`agent_advances`) — with an explicit, capped, reversible, forward-only rule between them.
+
+---
+
+## 9. What happens when the agent repays the guarantor advance
+
+This is the question the design above left open. Raising the debt is the easy half; the repayment path is where the engine either stays honest or quietly corrupts two ledgers at once.
+
+### 9.1 The debt is agent debt, not tenant debt
+
+The moment a guarantor advance is raised, the platform holds **two separate claims on the same original gap**:
+
+| Claim | Lives in | Owed by | Reduced by |
+|---|---|---|---|
+| Rent contract outstanding | `rent_requests.total_repayment − amount_repaid` | The tenant | `agent_collections` rows for that request |
+| Guarantor advance outstanding | `agent_advances.outstanding_balance` | The agent | Advance recovery (`agent_advance_ledger` rows) |
+
+They must never be netted in one step, and neither one may be silently written down by activity on the other. The advance is Welile taking the agent's promise instead of the tenant's cash; the tenant still owes the rent.
+
+### 9.2 The three ways the advance comes back
+
+1. **Automatic recovery from earnings (default).** No new machinery. The advance is created with `recovery_source` pointing at the existing sweep, and `sweep_agent_advance_recovery` / `tg_recover_advance_arrears_on_earning` drain it from incoming commission, bonuses and payroll exactly as any other advance. The agent never sees a bill; their next earnings arrive net.
+2. **Voluntary early payment.** The existing `VoluntaryRepayAdvanceDialog` / `voluntary-repay-advance` path already works on any `agent_advances` row, so it works on a guarantor advance with no change. The agent pays N days ahead from withdrawable balance and the next N scheduled deductions are skipped.
+3. **The tenant finally pays.** This is the new case and it is handled in 9.3.
+
+Every one of the three writes an `agent_advance_ledger` row **first**, checks the error, and only then debits the wallet — the double-charge guard (`zz_guard_agent_advance_double_charge`) requires that order and will reject a stale opening balance.
+
+### 9.3 When the tenant pays after the advance was raised (settlement offset)
+
+The rule: **tenant money always lands on the tenant's contract first, then flows through to the agent's advance as a credit.**
+
+Sequence for a collection on a rent request that has an outstanding guarantor advance:
+
+```text
+1. Insert agent_collections row            (collection truth, unchanged)
+2. Reduce rent_requests.amount_repaid      (tenant contract, unchanged)
+3. Detect: does this request have a guarantor advance with outstanding > 0?
+4. If yes, offset the advance by
+     min(collection_amount, advance_outstanding_attributable_to_this_request)
+   via an agent_advance_ledger row of kind `guarantor_offset`
+5. Post the ledger transaction; apply_wallet_movement reduces advance_balance
+6. Any surplus above the attributable advance stays as ordinary
+   tenant repayment and pays the agent commission as normal
+```
+
+Two consequences worth stating plainly:
+
+- The agent is made whole in the same order the debt was raised. They are not paid commission on the offset portion — that money is repaying their own guarantor debt, not new production. Commission resumes on the surplus.
+- If the tenant over-pays past both the advance and the contract, the excess follows the existing overpayment path. The offset never creates a negative advance.
+
+### 9.4 What happens on full settlement
+
+When a guarantor advance reaches zero it closes with an outcome recorded, not just a status:
+
+- `settled_by_tenant` — cleared by offsets under 9.3. The agent carried timing risk only. **No trust-score penalty.**
+- `settled_by_agent` — cleared by earnings sweep or voluntary payment. The agent absorbed a real default. This is the number the guarantor model actually costs, and it should feed the agent's rating and the recovery-yield metric in section 5.
+- `reversed` — Ops or a back-dated collection invalidated the advance; `reverse_agent_advance` clawback applies and any shortfall stays active debt.
+
+Without that outcome field, "recovery yield" is unmeasurable, because a tenant-settled advance and an agent-settled advance look identical once outstanding hits zero.
+
+---
+
+## 10. Multi-tenant attribution: which tenant is this payment for?
+
+An agent with 20 tenants can accumulate several guarantor advances. "I can pay this amount and this amount to this tenant" has to be answerable by the system, not by the agent's memory.
+
+### 10.1 One advance per (rent request, window) — never one blended advance per agent
+
+The idempotency key from 4.4, `(rent_request_id, window_start_date)`, is also the attribution key. Each guarantor advance therefore carries:
+
+- `rent_request_id` — the exact contract the gap came from
+- `tenant_id` — the tenant whose silence caused it
+- `window_start_date` / `window_end_date` — the quiet period charged
+- `flag_id` — the day-2 flag that legitimised it
+
+This is a deliberate rejection of the simpler design (one rolling "guarantor debt" balance per agent). A blended balance is cheaper to build and impossible to defend: the agent cannot see which tenant they are paying for, a single back-dated collection cannot be cleanly reversed, and the tenant-pays offset in 9.3 has no target.
+
+Consequence: `enforce_no_double_agent_advance` must treat guarantor advances as scoped by `rent_request_id`, not one-per-agent, or the second tenant's advance will be blocked by the first.
+
+### 10.2 Deterministic allocation order
+
+The agent does not choose. Free-choice allocation is where field staff would park the oldest debt forever, and it is also unauditable. Incoming recovery money is applied by a fixed waterfall:
+
+1. **Explicit target wins.** A tenant collection offsets that tenant's advance only (9.3). Never spills to another tenant's advance.
+2. **Untargeted money (commission sweep, payroll, voluntary payment) is applied FIFO by `window_start_date`** — oldest quiet window first.
+3. **Tie-break on the same date:** larger `outstanding_balance` first, so exposure falls fastest.
+4. **Arrears before principal** inside each advance, matching existing advance behaviour.
+
+The same waterfall applies whether the money arrives from a cron, a sweep or a dialog. One order, one place in code.
+
+### 10.3 Agent-directed early payment
+
+The agent may still say "clear Nakato's advance first" — via the pay-ahead dialog with a tenant selected, which sets an explicit target and therefore takes path 1. Directed payment is allowed; **directed avoidance is not.** The agent can pay a specific advance early, but cannot stop the FIFO waterfall from touching the oldest one when untargeted money arrives.
+
+### 10.4 What the agent must be able to see
+
+Attribution is only real if it is visible. The agent's advance surface needs, per row: tenant name, house, the quiet window charged, amount, how much has come back, and by which route (tenant paid vs you paid). Anything less and 10.1's ledger correctness is invisible to the person being charged, which reproduces the trust failure in section 7.
+
+---
+
+## 11. Advance types: a tracking taxonomy
+
+Guarantor advances must not be indistinguishable from credit advances in `agent_advances`. They are priced differently (min rate, section 4.2), created differently (cron, no application), justified differently (a flag, not an approval chain) and reported differently (a cost of the guarantor model, not credit revenue).
+
+A single `advance_type` discriminator on `agent_advances`, mandatory and constrained:
+
+| `advance_type` | Origin | Priced at | Approval | Recovery |
+|---|---|---|---|---|
+| `credit_access` | Agent application via `agent_advance_requests` | `default_monthly_rate`, CFO-adjustable 28–33% | 4-stage, CFO approves | Daily installment + sweep |
+| `guarantor_recovery` | Nightly evaluation cron (this engine) | `min_rate` | None — flag is the precondition | Sweep + tenant offset (9.3) |
+| `overdraft_recovery` | `create_overdraft_recovery_advance` | Existing behaviour | None — system-raised | Sweep |
+| `manual_ops` | Ops/CFO raises by hand with a reason | Set at creation | Explicit reason ≥10 chars | Sweep |
+
+Rules that follow from having the type:
+
+- Every filter, report, KPI and PDF that currently says "advances" must state which types it counts. The CFO advance report, the Agent Ops repayment monitor and the agent's own list all currently assume one kind of advance exists.
+- The activity gate and duplicate-account blocks that apply to `credit_access` must **not** block `guarantor_recovery` — a system-raised recovery cannot be refused for failing an eligibility test.
+- `min_principal` enforcement has to allow small guarantor amounts. A single missed weekly instalment can be well under the credit-product floor, and rejecting it would silently drop real exposure.
+- Trust-score and rating effects differ by type: carrying a `credit_access` advance is normal business; accumulating `guarantor_recovery` advances settled as `settled_by_agent` is a quality signal about the agent's book.
+- Sub-type detail (cadence at time of charge, window length) lives on the guarantor flag row, not as more enum values. Four types is the whole taxonomy; anything finer belongs in a column.
+
+---
+
+## 12. The collection day lock: when a payment counts as a new day
+
+Section 3.1 set evaluation at 00:30 Kampala. That is only half the rule. The other half is deciding which calendar day a given payment belongs to, and when that day stops being editable.
+
+### 12.1 The day boundary
+
+**A collection belongs to the Kampala calendar day of its `agent_collections.created_at`.** Day boundary: 00:00–23:59:59 Africa/Kampala. This matches `v_agent_daily_eligibility`, which already buckets in Kampala time, and it is the only definition allowed anywhere in the engine — no UTC dates, no `date_trunc` without a timezone.
+
+The 20:00–23:00 volume in 3.1 is back-office entry of the same day's field cash, so it correctly lands on that day. The ~1.5% arriving 00:00–05:00 is spillover entry for the previous evening and is accepted as belonging to the new day; it is too small to justify a shifted boundary, and a shifted boundary would make "today" mean two different things in two places.
+
+### 12.2 Three distinct times, deliberately separated
+
+| Time (Kampala) | Event | What it means |
+|---|---|---|
+| 23:59:59 | **Collection window closes** | Last moment a payment counts toward that day's target |
+| 00:30 | **Evaluation runs** | Flags and advances computed from the closed day |
+| 03:00 | **Day locks** | The day becomes immutable for target/rating purposes |
+
+The 30-minute gap between close and evaluation absorbs clock skew and offline-sync flushes. The 2.5-hour gap between evaluation and lock is the correction window: if a collection is entered late or a payment is voided, Ops can still fix the day before it hardens.
+
+### 12.3 What "locked" actually forbids
+
+A locked day is **not** read-only in the raw tables — offline sync and legitimate back-dating still happen. Locking means:
+
+- The day's collection totals, target attainment and agent daily rating are read from the snapshot (`agent_daily_eligibility_history`), never recomputed. Yesterday's rating cannot change because a payment was entered today.
+- A collection inserted after lock with a `created_at` inside the locked day counts toward the **current** open day for target and rating, while remaining attributed to its true timestamp for audit and for the quiet-window reset in 12.4.
+- Any locked-day change large enough to affect a flag or an advance goes to Ops as a reversal decision (`reverse_agent_advance`), not as a silent recomputation.
+
+Without a lock, an agent's rating and every guarantor decision built on it would be permanently re-writable by late entry, and no report printed today would still be true tomorrow.
+
+### 12.4 Effect on the quiet-window clock
+
+Silence is measured from the **last collection timestamp**, not from the last locked day — so a back-dated payment does reset the quiet clock retroactively. That is correct: the tenant genuinely paid. The consequences are bounded:
+
+- Back-dated payment lands **before** an advance was raised → the flag clears on the next evaluation, no money moved.
+- Back-dated payment lands **after** an advance was raised, inside the charged window → the advance is reversed under 4.5 and the outcome is recorded as `reversed`, feeding the under-5% reversal target in Phase 4.
+
+### 12.5 Same-day top-ups are not new collection days
+
+The 1,394 zero-day intervals in 3.2 are multiple payments on one request in one day. They are **one collection day**, several collection events. The quiet clock uses the latest event; the day's attainment uses the sum. A tenant paying three times on Monday and nothing until Friday has been quiet for three days, not zero.
