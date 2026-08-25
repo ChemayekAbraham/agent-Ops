@@ -381,7 +381,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
               {/* Photo */}
               <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-2xl bg-muted sm:aspect-square sm:w-32">
                 {images.length > 0 ? (
-                  <img src={images[0]} alt={titleLine} loading="lazy" className="h-full w-full object-cover" />
+                  <img src={images[0]} alt={titleLine} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center">
                     <Home className="h-7 w-7 text-muted-foreground" />
