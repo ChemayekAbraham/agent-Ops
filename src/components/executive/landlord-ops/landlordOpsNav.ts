@@ -20,6 +20,8 @@ import {
   Gauge,
   Download,
   ClipboardList,
+  PhoneCall,
+
   type LucideIcon,
 } from 'lucide-react';
 import type { LandlordOpsClassicView } from '../LandlordOpsDashboard';
@@ -29,7 +31,9 @@ import type { LandlordOpsClassicView } from '../LandlordOpsDashboard';
  * own view keys, so selecting one simply drives `LandlordOpsDashboard`; `home`
  * is owned by the shell (its landing page).
  */
-export type LandlordOpsViewKey = LandlordOpsClassicView;
+export type LandlordOpsShellOnlyView = 'calling-hub';
+export type LandlordOpsViewKey = LandlordOpsClassicView | LandlordOpsShellOnlyView;
+
 
 export interface LandlordOpsNavChild {
   key: LandlordOpsViewKey;
@@ -76,7 +80,9 @@ export const LANDLORD_OPS_NAV: LandlordOpsNavItem[] = [
       { key: 'all-requests', label: 'All Requests', icon: Table2, keywords: ['table', 'rent requests', 'landlord lens'] },
       { key: 'no-landlord', label: 'No Landlord Listed', icon: UserX, keywords: ['missing landlord', 'contact', 'bonus'] },
       { key: 'matching', label: 'Tenant Matching', icon: Handshake, keywords: ['match', 'empty houses', 'tenants'] },
+      { key: 'calling-hub', label: 'Calling Hub', icon: PhoneCall, keywords: ['call', 'calls', 'phone', 'follow up', 'pending', 'closed', 'missed calls', 'landlord calls'] },
       { key: 'advance-requests', label: 'Business Advances', icon: Banknote, keywords: ['advance', 'rent history'] },
+
       { key: 'lc1', label: 'LC1 Chairpersons', icon: ShieldCheck, keywords: ['register', 'approved', 'rejected', 'reports'] },
     ],
   },
