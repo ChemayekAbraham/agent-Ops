@@ -39,6 +39,7 @@ import { UserProfileDialog } from '@/components/supporter/UserProfileDialog';
 import { TrustCaptureTab } from './TrustCaptureTab';
 import { AgentProductsServicesReport } from './agent-ops/AgentProductsServicesReport';
 import { AgentGuarantorFloatPanel } from './agent-ops/AgentGuarantorFloatPanel';
+import { AgentRentBehaviourPanel } from './agent-ops/AgentRentBehaviourPanel';
 import { SubAgentCommissionWhitelistPanel } from './agent-ops/SubAgentCommissionWhitelistPanel';
 import { AgentFeatureFlagsPanel } from './AgentFeatureFlagsPanel';
 import { AgentBulkOpsConsole } from './AgentBulkOpsConsole';
@@ -64,7 +65,7 @@ import {
   Users, Banknote, DollarSign, Search, UserPlus, Trophy, BarChart3, 
   ClipboardList, AlertTriangle, Building2, Wallet, Bell, ArrowLeftRight,
   ChevronLeft, Briefcase, TrendingUp, TrendingDown, UsersRound, PiggyBank, HandCoins, ShieldCheck, FileBarChart,
-  LayoutGrid, ChevronDown, ToggleRight, Layers, Gauge, Target, Activity
+  LayoutGrid, ChevronDown, ToggleRight, Layers, Gauge, Target, Activity, Clock3
   , Coins, Megaphone, Lock, Store, MapPinned, Workflow, Package,
   Bike, ShoppingBag, Signpost, Smartphone
 } from 'lucide-react';
@@ -79,7 +80,7 @@ import {
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-type ActiveView = null | 'products-services-report' | 'sc-products' | 'pipeline' | 'directory' | 'rent-capacity' | 'connector' | 'performance' | 'lifecycle' | 'tasks' | 'escalations' | 'service-centres' | 'sc-overview' | 'sc-directory' | 'sc-payouts' | 'sc-requests' | 'sc-operating-model' | 'sub-agents' | 'promote-tenant' | 'float-payouts' | 'leaderboard' | 'earnings' | 'transfers' | 'locked-transfers' | 'advances-analytics' | 'advance-requests' | 'active-advances' | 'advance-potential' | 'advance-limits' | 'advance-repayments' | 'balances' | 'lending-agents' | 'trust-capture' | 'feature-flags' | 'bulk-ops' | 'listing-campaign' | 'daily-collections-report' | 'advance-activity-correlation' | 'agent-service-centres' | 'agent-products-services' | 'guarantor-float' | 'subagent-commission-whitelist';
+type ActiveView = null | 'products-services-report' | 'sc-products' | 'pipeline' | 'directory' | 'rent-capacity' | 'connector' | 'performance' | 'lifecycle' | 'tasks' | 'escalations' | 'service-centres' | 'sc-overview' | 'sc-directory' | 'sc-payouts' | 'sc-requests' | 'sc-operating-model' | 'sub-agents' | 'promote-tenant' | 'float-payouts' | 'leaderboard' | 'earnings' | 'transfers' | 'locked-transfers' | 'advances-analytics' | 'advance-requests' | 'active-advances' | 'advance-potential' | 'advance-limits' | 'advance-repayments' | 'balances' | 'lending-agents' | 'trust-capture' | 'feature-flags' | 'bulk-ops' | 'listing-campaign' | 'daily-collections-report' | 'advance-activity-correlation' | 'agent-service-centres' | 'agent-products-services' | 'guarantor-float' | 'rent-behaviour' | 'subagent-commission-whitelist';
 
 const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; priority?: boolean }[] = [
   { key: 'guarantor-float', icon: AlertTriangle, label: 'Guarantor Float Tracker', color: 'bg-rose-800', priority: true },
@@ -106,6 +107,7 @@ const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; pri
   { key: 'promote-tenant', icon: ArrowLeftRight, label: 'Tenant → Sub-Agent', color: 'bg-fuchsia-600', priority: true },
   { key: 'directory', icon: Search, label: 'Directory', color: 'bg-blue-500', priority: true },
   { key: 'rent-capacity', icon: Gauge, label: 'Rent Capacity', color: 'bg-cyan-500', priority: true },
+  { key: 'rent-behaviour', icon: Clock3, label: 'Rent Behaviour', color: 'bg-teal-600', priority: true },
   { key: 'tasks', icon: ClipboardList, label: 'Tasks', color: 'bg-emerald-500', priority: true },
   { key: 'escalations', icon: AlertTriangle, label: 'Escalations', color: 'bg-red-500' },
   { key: 'connector', icon: UserPlus, label: 'Tenant Transfer', color: 'bg-violet-500' },
@@ -259,6 +261,7 @@ export function AgentOpsDashboard() {
       case 'pipeline': return <AgentOpsPipelineHub />;
       case 'directory': return <AgentDirectory />;
       case 'rent-capacity': return <AgentRentCapacityPanel />;
+      case 'rent-behaviour': return <AgentRentBehaviourPanel />;
       case 'connector': return <AgentTenantConnector />;
       case 'performance': return <AgentCollectionsCommandCenter />;
       case 'lifecycle': return <AgentLifecyclePipeline />;
@@ -367,13 +370,14 @@ export function AgentOpsDashboard() {
   };
 
   const handleOpenSection = (key: string) => {
-    setActiveView(key as ActiveView);
+    const next = NAV_ITEMS.some((item) => item.key === key) ? key as ActiveView : null;
+    setActiveView(next);
   };
 
   // Grouped sections for the "More" tab (mobile dropdown + grid)
   const MORE_GROUPS: { title: string; keys: ActiveView[] }[] = [
     { title: 'Agents', keys: ['directory', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'lending-agents', 'bulk-ops'] },
-    { title: 'Field Operations', keys: ['pipeline', 'rent-capacity', 'daily-collections-report', 'tasks', 'escalations', 'connector'] },
+    { title: 'Field Operations', keys: ['pipeline', 'rent-capacity', 'rent-behaviour', 'daily-collections-report', 'tasks', 'escalations', 'connector'] },
     { title: 'Service Centers', keys: ['sc-overview', 'service-centres', 'sc-directory', 'sc-payouts', 'sc-requests', 'sc-operating-model', 'sc-products'] },
     { title: 'Agent Products & Services', keys: ['agent-products-services'] },
     { title: 'Financials', keys: ['balances', 'float-payouts', 'earnings', 'locked-transfers'] },
@@ -540,7 +544,7 @@ function AgentOpsSideNav({
   // below Priority and is open by default (this dashboard is agent-centric).
   const SIDE_GROUPS: { title: string; keys: ActiveView[]; pinned?: boolean; defaultOpen?: boolean }[] = [
     { title: 'Agents', defaultOpen: true, keys: ['directory', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'lending-agents', 'bulk-ops'] },
-    { title: 'Field Operations', defaultOpen: true, keys: ['pipeline', 'rent-capacity', 'daily-collections-report', 'tasks', 'escalations', 'connector', 'guarantor-float'] },
+    { title: 'Field Operations', defaultOpen: true, keys: ['pipeline', 'rent-capacity', 'rent-behaviour', 'daily-collections-report', 'tasks', 'escalations', 'connector', 'guarantor-float'] },
     { title: 'Service Centers', keys: ['sc-overview', 'service-centres', 'sc-directory', 'sc-payouts', 'sc-requests', 'sc-operating-model', 'sc-products'] },
     { title: 'Agent Products & Services', keys: ['agent-products-services'] },
     { title: 'Financials', keys: ['balances', 'float-payouts', 'earnings', 'locked-transfers'] },
