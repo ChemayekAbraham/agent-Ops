@@ -104,6 +104,8 @@ export default function DeviceAccessDialog({ userId, open, onOpenChange, saleId 
         queryClient.invalidateQueries({ queryKey: ['device-access-pending', userId] }),
         queryClient.invalidateQueries({ queryKey: ['my-smartphone-orders', userId, order.item_name] }),
       ]);
+      onOpenChange(false);
+
     } catch (e: any) {
       console.error('[DeviceAccessDialog] confirm error', e);
       toast.error(e?.message || 'Could not confirm device access');
