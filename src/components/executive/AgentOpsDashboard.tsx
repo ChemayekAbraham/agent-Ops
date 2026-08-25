@@ -138,7 +138,8 @@ export function AgentOpsDashboard() {
   useEffect(() => {
     const s = searchParams.get('section');
     if (!s) return;
-    setActiveView((s === 'products' ? 'sc-products' : s) as ActiveView);
+    const requested = s === 'products' ? 'sc-products' : s;
+    setActiveView(NAV_ITEMS.some((item) => item.key === requested) ? requested as ActiveView : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
