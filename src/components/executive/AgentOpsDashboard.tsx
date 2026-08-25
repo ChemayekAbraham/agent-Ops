@@ -38,6 +38,7 @@ import { LendingAgentsPanel } from './LendingAgentsPanel';
 import { UserProfileDialog } from '@/components/supporter/UserProfileDialog';
 import { TrustCaptureTab } from './TrustCaptureTab';
 import { AgentProductsServicesReport } from './agent-ops/AgentProductsServicesReport';
+import { AgentGuarantorFloatPanel } from './agent-ops/AgentGuarantorFloatPanel';
 import { AgentFeatureFlagsPanel } from './AgentFeatureFlagsPanel';
 import { AgentBulkOpsConsole } from './AgentBulkOpsConsole';
 import { AgentDailyOverviewReportButton } from './AgentDailyOverviewReportButton';
@@ -77,9 +78,10 @@ import {
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-type ActiveView = null | 'products-services-report' | 'sc-products' | 'pipeline' | 'directory' | 'rent-capacity' | 'connector' | 'performance' | 'lifecycle' | 'tasks' | 'escalations' | 'service-centres' | 'sc-overview' | 'sc-directory' | 'sc-payouts' | 'sc-requests' | 'sc-operating-model' | 'sub-agents' | 'promote-tenant' | 'float-payouts' | 'leaderboard' | 'earnings' | 'transfers' | 'locked-transfers' | 'advances-analytics' | 'advance-requests' | 'active-advances' | 'advance-potential' | 'advance-limits' | 'advance-repayments' | 'balances' | 'lending-agents' | 'trust-capture' | 'feature-flags' | 'bulk-ops' | 'listing-campaign' | 'daily-collections-report' | 'advance-activity-correlation' | 'agent-service-centres' | 'agent-products-services';
+type ActiveView = null | 'products-services-report' | 'sc-products' | 'pipeline' | 'directory' | 'rent-capacity' | 'connector' | 'performance' | 'lifecycle' | 'tasks' | 'escalations' | 'service-centres' | 'sc-overview' | 'sc-directory' | 'sc-payouts' | 'sc-requests' | 'sc-operating-model' | 'sub-agents' | 'promote-tenant' | 'float-payouts' | 'leaderboard' | 'earnings' | 'transfers' | 'locked-transfers' | 'advances-analytics' | 'advance-requests' | 'active-advances' | 'advance-potential' | 'advance-limits' | 'advance-repayments' | 'balances' | 'lending-agents' | 'trust-capture' | 'feature-flags' | 'bulk-ops' | 'listing-campaign' | 'daily-collections-report' | 'advance-activity-correlation' | 'agent-service-centres' | 'agent-products-services' | 'guarantor-float';
 
 const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; priority?: boolean }[] = [
+  { key: 'guarantor-float', icon: AlertTriangle, label: 'Guarantor Float Tracker', color: 'bg-rose-800', priority: true },
   { key: 'products-services-report', icon: FileBarChart, label: 'Products & Services Report', color: 'bg-purple-900', priority: true },
   { key: 'advances-analytics', icon: BarChart3, label: 'Advances Overview', color: 'bg-purple-800', priority: true },
   { key: 'advance-potential', icon: Target, label: 'Advance Potential', color: 'bg-purple-700', priority: true },
@@ -246,6 +248,7 @@ export function AgentOpsDashboard() {
   // Render sub-view content
   const renderSubView = () => {
     switch (activeView) {
+      case 'guarantor-float': return <AgentGuarantorFloatPanel />;
       case 'products-services-report': return <AgentProductsServicesReport />;
       case 'trust-capture': return <TrustCaptureTab />;
       case 'daily-collections-report': return <DailyRentReport mode="agent" />;

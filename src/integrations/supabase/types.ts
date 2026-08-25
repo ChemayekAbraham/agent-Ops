@@ -40589,6 +40589,10 @@ export type Database = {
           total_count: number
         }[]
       }
+      get_agent_guarantor_float_preview: {
+        Args: { p_as_of?: string; p_baseline_date?: string }
+        Returns: Json
+      }
       get_agent_leaderboard_stats: {
         Args: { p_period?: string }
         Returns: Json
