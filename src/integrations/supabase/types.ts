@@ -39109,6 +39109,10 @@ export type Database = {
         Args: { p_created_at: string; p_user_id: string }
         Returns: string
       }
+      bulk_delete_promissory_notes: {
+        Args: { p_note_ids: string[]; p_reason: string }
+        Returns: Json
+      }
       bulk_recover_gap_alerts: {
         Args: { p_alert_ids: string[] }
         Returns: Json
