@@ -32031,9 +32031,11 @@ export type Database = {
           called_by: string
           comment: string | null
           created_at: string
+          follow_up_at: string | null
           id: string
           outcome: string
           rent_request_id: string | null
+          status: string | null
           tenant_id: string
         }
         Insert: {
@@ -32041,9 +32043,11 @@ export type Database = {
           called_by: string
           comment?: string | null
           created_at?: string
+          follow_up_at?: string | null
           id?: string
           outcome: string
           rent_request_id?: string | null
+          status?: string | null
           tenant_id: string
         }
         Update: {
@@ -32051,9 +32055,11 @@ export type Database = {
           called_by?: string
           comment?: string | null
           created_at?: string
+          follow_up_at?: string | null
           id?: string
           outcome?: string
           rent_request_id?: string | null
+          status?: string | null
           tenant_id?: string
         }
         Relationships: []
@@ -37786,12 +37792,16 @@ export type Database = {
       v_tenant_call_summary: {
         Row: {
           call_count: number | null
+          closed_count: number | null
           last_call_at: string | null
+          last_follow_up_at: string | null
           last_outcome: string | null
           last_picked_up_at: string | null
+          last_status: string | null
           latest_comment: string | null
           latest_comment_at: string | null
           missed_count: number | null
+          pending_count: number | null
           picked_up_count: number | null
           tenant_id: string | null
         }
