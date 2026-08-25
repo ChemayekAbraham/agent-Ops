@@ -210,18 +210,56 @@ export function TenantDocumentsSection({
         </p>
         <div className="grid grid-cols-4 gap-2">
           {houseImages.map((d) => (
-            <a key={d.id} href={urlOf(d)} target="_blank" rel="noopener noreferrer" className="block">
-              <img src={urlOf(d)} alt="House photo" loading="lazy"
-                className="h-20 w-full rounded-lg object-cover border border-border" />
-            </a>
+            <div key={d.id} className="relative group">
+              <a href={urlOf(d)} target="_blank" rel="noopener noreferrer" className="block">
+                <img src={urlOf(d)} alt="House photo" loading="lazy"
+                  className="h-20 w-full rounded-lg object-cover border border-border" />
+              </a>
+              {busy === 'house_image' + d.id ? (
+                <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-background/70">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <div className="absolute inset-x-0 bottom-0 flex items-stretch rounded-b-lg overflow-hidden bg-background/85 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                  <label className="flex-1 cursor-pointer inline-flex items-center justify-center gap-1 py-1 text-[10px] font-medium text-foreground hover:bg-muted"
+                    title="Take a new photo">
+                    <Camera className="h-3 w-3" />
+                    <input type="file" accept="image/*" capture="environment" className="hidden"
+                      onChange={pick('house_image', d)} disabled={!!busy} />
+                  </label>
+                  <label className="flex-1 cursor-pointer inline-flex items-center justify-center gap-1 py-1 text-[10px] font-medium text-foreground hover:bg-muted"
+                    title="Upload from gallery">
+                    <Upload className="h-3 w-3" />
+                    <input type="file" accept="image/*" className="hidden"
+                      onChange={pick('house_image', d)} disabled={!!busy} />
+                  </label>
+                  <button type="button" title="Remove photo" disabled={!!busy}
+                    onClick={() => void removeDoc(d)}
+                    className="flex-1 inline-flex items-center justify-center py-1 text-destructive hover:bg-destructive/10">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
+            </div>
           ))}
-          <label className="flex h-20 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-border text-muted-foreground">
-            {busy === 'house_image' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
-            <input type="file" accept="image/*" capture="environment" className="hidden"
-              onChange={pick('house_image')} disabled={!!busy} />
-          </label>
+          <div className="flex h-20 flex-col overflow-hidden rounded-lg border-2 border-dashed border-border text-muted-foreground">
+            <label className="flex flex-1 cursor-pointer items-center justify-center gap-1 text-[10px] hover:bg-muted/50">
+              {busy === 'house_image' ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Camera className="h-3.5 w-3.5" /> Camera</>}
+              <input type="file" accept="image/*" capture="environment" className="hidden"
+                onChange={pick('house_image')} disabled={!!busy} />
+            </label>
+            <label className="flex flex-1 cursor-pointer items-center justify-center gap-1 border-t border-dashed border-border text-[10px] hover:bg-muted/50">
+              <Upload className="h-3.5 w-3.5" /> Upload
+              <input type="file" accept="image/*" className="hidden"
+                onChange={pick('house_image')} disabled={!!busy} />
+            </label>
+          </div>
         </div>
+        <p className="text-[11px] text-muted-foreground">
+          Hover a photo to retake, replace or remove it. Replaced photos are versioned, never lost.
+        </p>
       </div>
+
 
       {/* LC letter */}
       <div className="space-y-2">
