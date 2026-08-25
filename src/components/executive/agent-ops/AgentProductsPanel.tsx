@@ -97,6 +97,9 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
   const [addOpen, setAddOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AgentProductRow | null>(null);
   const [deleteReason, setDeleteReason] = useState('');
+  const [rejectTarget, setRejectTarget] = useState<PendingApp | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+
   const scopeLabel = category ? CATEGORY_LABELS[category] : null;
   const showOverview = mode !== 'issued';
   const showIssued = mode !== 'overview';
