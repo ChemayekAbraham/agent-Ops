@@ -225,7 +225,12 @@ export function SelfPortfolioPlanDetailSheet({
     : 'Uganda';
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="relative max-h-[92vh] overflow-y-auto rounded-t-none p-0">
+      {/* No `relative` here: it would override the sheet's own `fixed`
+          positioning (Tailwind orders `relative` after `fixed`) and drop the
+          panel into normal flow below the viewport — the sheet would open as a
+          blank, washed-out screen. Children position against this fixed box. */}
+      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-none p-0">
+
         <SheetHeader className="sr-only">
           <SheetTitle>Rent plan details</SheetTitle>
         </SheetHeader>
