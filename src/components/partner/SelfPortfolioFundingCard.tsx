@@ -436,7 +436,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
                       <Button
                         size="icon"
                         variant={isSelected ? 'secondary' : 'default'}
-                        disabled={heldByOther || busy || unaffordable}
+                        disabled={heldByOther || busy}
                         onClick={(e) => {
                           e.stopPropagation();
                           toggle(plan.rent_request_id);
