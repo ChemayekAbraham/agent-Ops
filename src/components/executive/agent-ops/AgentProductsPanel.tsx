@@ -292,8 +292,19 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                         <span className="text-destructive">Outstanding: <span className="font-semibold tabular-nums">{formatUGX(Number(r.outstanding_amount || 0))}</span></span>
                       </div>
                     </div>
-                    <div className="text-[11px] text-muted-foreground shrink-0">
-                      {r.last_issued_on ? format(new Date(`${String(r.last_issued_on).slice(0, 10)}T00:00:00`), 'dd MMM yyyy') : '—'}
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <div className="text-[11px] text-muted-foreground">
+                        {r.last_issued_on ? format(new Date(`${String(r.last_issued_on).slice(0, 10)}T00:00:00`), 'dd MMM yyyy') : '—'}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 gap-1 text-destructive hover:text-destructive"
+                        onClick={() => { setDeleteTarget(r); setDeleteReason(''); }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -302,6 +313,41 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete issued records</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              This permanently removes {scopeLabel ? scopeLabel.toLowerCase() : 'product'} records issued to{' '}
+              <span className="font-semibold text-foreground">{deleteTarget?.full_name || 'this agent'}</span>, including
+              their recovery plans. This cannot be undone.
+            </p>
+            <div className="space-y-1.5">
+              <Label>Reason (min 10 characters)</Label>
+              <Input
+                value={deleteReason}
+                onChange={(e) => setDeleteReason(e.target.value)}
+                placeholder="Why is this record being deleted?"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteReason.trim().length < 10 || deleteHolding.isPending}
+              onClick={() => deleteHolding.mutate()}
+            >
+              {deleteHolding.isPending ? 'Deleting…' : 'Delete records'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+
 
     </div>
   );
