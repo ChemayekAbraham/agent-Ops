@@ -497,3 +497,85 @@ Add three operational controls:
 3. **Float issuance gate** — while a `guarantor_recovery` advance is open, any new float allocation to that agent requires CFO or Agent Ops approval, and the approval dialog shows the outstanding advance. This stops agents from continuously refilling float while personal debt is unpaid.
 
 This approach does not solve the problem by pretending float and withdrawable are the same bucket. It solves it by making the bucket choice visible, costly, and operationally controlled. The ledger stays balanced, the company does not silently eat agent debt, and the agent still has a clear path to settle the advance from either bucket — but only through honest, auditable conversions.
+
+---
+
+## 14. Operational-float distribution as the primary repayment path
+
+This section addresses the operational reality that **operational float is the money actually used to pay for the tenant**. When a tenant has been paid for the days under the guarantor-advance window, the system must reconcile that float against the missing collections in a way that preserves the wallet-bucket model and the ledger's source-of-truth role.
+
+### 14.1 The core idea
+
+Instead of immediately raising a personal `advance_balance` debt against the agent on day 8, the engine first checks whether the agent still holds enough operational float to cover the shortfall. If float exists, the system calculates how much each flagged tenant is missing and distributes the available float across those tenants up to the 8-day maximum window. Only the uncovered residual becomes a guarantor advance.
+
+The sequence at 00:30 Kampala evaluation:
+
+1. Identify all flagged rent requests for the agent where the quiet window has reached the advance threshold (day 8 for `daily` cadence, cadence-scaled for `weekly` / `fortnightly`).
+2. For each flagged request, compute the missing amount: `Σ daily_repayment` over the quiet days, capped at remaining outstanding and at the 8-day (or cadence-scaled) window.
+3. Sum the missing amounts per agent → `total_shortfall`.
+4. Read the agent's `float_balance`.
+5. Distribute `float_balance` across the flagged requests using the same deterministic FIFO waterfall from section 10.2 (oldest window first, then larger outstanding).
+6. Post ledger legs for the float consumption:
+   - Debit `float_balance` (`recipient_type = 'operational_wallet'`, `wallet_bucket = 'float'`)
+   - Credit the tenant's rent request as a collection via `agent_collections`
+7. The remaining uncovered amount, after float is exhausted, becomes a `guarantor_recovery` advance on the agent's `advance_balance`.
+
+### 14.2 Why this preserves the buckets
+
+The float was originally issued to fund tenant operations. Using it to cover a tenant shortfall is therefore a reclassification of operational money into tenant repayment, not a raid on the agent's personal wallet. The ledger shows:
+
+- `recipient_type = 'operational_wallet'`, `wallet_bucket = 'float'` on the debit side.
+- A corresponding credit to the tenant contract via `agent_collections` (collection truth).
+
+This does not touch `withdrawable_balance` or `advance_balance` for the covered portion. The agent is not personally charged for money that was already company money deployed in the field.
+
+### 14.3 The 8-day (cadence-scaled) boundary still applies
+
+Float distribution is only attempted once the advance threshold is crossed. Before that, only the flag exists (section 4.2). This preserves the day-2/day-8 tripwire discipline: the agent is warned early, and the system only acts on float after the full evaluation window has passed.
+
+The window cap means the float distribution never attempts to cover more than the configured maximum quiet days. Any shortfall beyond the window is not silently charged — it routes to the manual Agent Ops worklist, just like legacy backlog.
+
+### 14.4 What happens when the tenant later pays
+
+If the tenant pays after float was used to cover their shortfall:
+
+1. The tenant collection first reduces `rent_requests.amount_repaid` as normal.
+2. Because the float was posted as a collection, the tenant is now over-collected relative to the original gap.
+3. The system creates a refundable surplus record. The surplus is first used to replenish the agent's `float_balance` up to the amount originally distributed.
+4. Only surplus beyond the replenishment amount follows normal overpayment / commission logic.
+
+This ensures float distribution does not become a hidden subsidy: if the tenant pays, the company gets its float back first.
+
+### 14.5 Why the "auto-deposit" alternative is rejected
+
+An alternative discussed was: whenever an agent makes a deposit, automatically use it to pay down rent repayments before it becomes withdrawable. This was rejected because it would destroy the agent's incentive to deposit at all.
+
+If deposits are instantly swept into tenant repayments, the agent loses visibility and control over their own earnings. A field agent who has worked all week and deposits cash would see the money disappear into tenant gaps before they can withdraw their legitimate commission or float needs. The rational response is to stop depositing through official channels and hold cash outside the system, which increases leakage, fraud, and reconciliation error.
+
+The float-distribution model avoids this by:
+
+- Using company money (float) first, not agent deposits.
+- Leaving agent deposits to follow their normal path into withdrawable balance.
+- Only converting withdrawable to advance recovery through the existing, transparent sweep and voluntary-payment paths.
+
+### 14.6 Reconciliation and reporting
+
+Every float distribution must be traceable:
+
+- `agent_collections` row with `payment_method = 'float_bridge'` and a link to the guarantor flag.
+- Ledger legs with `category = 'float_tenant_collection'` and a reference to the flag / advance.
+- If an advance is still raised for the residual, the advance record notes the float amount already applied.
+
+Reports should show:
+
+- Float used as bridge: total, per agent, per tenant.
+- Residual converted to guarantor advance: total, per agent, per tenant.
+- Replenishment rate: how much float came back when tenants later paid.
+
+This makes the float-distribution path auditable and distinguishes it from both normal collections and personal agent advances.
+
+### 14.7 Summary rule
+
+> When the advance threshold is reached, the system first tries to cover the tenant shortfall from the agent's operational float, distributed across flagged tenants by missing amount and age. Only the residual that float cannot cover becomes a personal guarantor advance. Agent deposits are never auto-swept into tenant repayments, because that would break the deposit incentive.
+
+This keeps the ledger honest, the wallet buckets intact, and the agent's economic relationship with the platform predictable.
