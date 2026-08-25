@@ -22,6 +22,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { UnifiedWalletHeroCard } from '@/components/wallet/UnifiedWalletHeroCard';
+import { FunderQuickActions } from '@/components/supporter/FunderQuickActions';
 import DepositFlow from '@/components/payments/DepositFlow';
 import WithdrawFlow from '@/components/payments/WithdrawFlow';
 import { SendMoneyDialog } from '@/components/wallet/SendMoneyDialog';
@@ -142,37 +143,14 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
                   hidePayrollGrowth
                   hideFooter
                   disableTap
+                  quickActions={
+                    <FunderQuickActions
+                      variant="hero"
+                      availableBalance={data?.withdrawableAmount ?? 0}
+                      onChanged={() => void refetch?.()}
+                    />
+                  }
                 />
-
-                {/* Action buttons */}
-                <div className="grid grid-cols-3 gap-3">
-                  <Button
-                    variant="default"
-                    className="h-12 rounded-xl flex-col gap-0.5"
-                    onClick={() => setShowDeposit(true)}
-                  >
-                    <ArrowDownLeft className="h-4 w-4" />
-                    <span className="text-xs">Deposit</span>
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    className="h-12 rounded-xl flex-col gap-0.5"
-                    disabled={(data?.withdrawableAmount ?? 0) <= 0}
-                    onClick={() => setShowWithdraw(true)}
-                  >
-                    <ArrowUpRight className="h-4 w-4" />
-                    <span className="text-xs">Withdraw</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-12 rounded-xl flex-col gap-0.5"
-                    disabled={(data?.withdrawableAmount ?? 0) <= 0}
-                    onClick={() => setShowTransfer(true)}
-                  >
-                    <ArrowRightLeft className="h-4 w-4" />
-                    <span className="text-xs">Transfer</span>
-                  </Button>
-                </div>
 
                 {/* Providers — wallet-card style, compact logos with names */}
                 <Card className="rounded-2xl border-border/50 shadow-sm overflow-hidden" data-testid="provider-logos">
