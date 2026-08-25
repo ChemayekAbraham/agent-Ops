@@ -1252,7 +1252,17 @@ export function EmailTransactionsPanel() {
       probe && probeDigits.length >= 9 && probeDigits.length >= probe.length - 2
         ? probeDigits.slice(-9)
         : null;
-    const rawProbe = phoneShapedProbe ?? probe;
+    // An explicit "TID …" (Airtel) or "Transaction ID: …" (MTN) label pasted
+    // straight out of an SMS is an unambiguous transaction-id search — pull
+    // the FULL digit run out and use it verbatim instead of the generic
+    // longest-token guess above. Using the full id (not the last-9-digit
+    // phone heuristic) matters here: gmail_transactions.transaction_id is
+    // stored inconsistently across templates (sometimes pure digits like
+    // "154796826011", sometimes the label baked in like "TID154796672772"),
+    // so truncating to last-9 risks a false match against an unrelated
+    // transaction that happens to share those same trailing digits.
+    const tidLabelMatch = searchQuery.match(/\b(?:TID|Trans(?:action)?\s*ID)[:.\s-]*(\d{4,18})/i);
+    const rawProbe = tidLabelMatch ? tidLabelMatch[1] : (phoneShapedProbe ?? probe);
     const esc = rawProbe ? rawProbe.replace(/[%_,()]/g, (m) => '\\' + m) : null;
 
     // Each page must be built from a FRESH query builder — reusing the
