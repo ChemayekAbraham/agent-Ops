@@ -10,7 +10,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -47,7 +46,6 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const queryClient = useQueryClient();
   const [brand, setBrand] = useState<string>('');
   const [modelType, setModelType] = useState('');
-  const [amount, setAmount] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const { data: catalog = [], isLoading: catalogLoading } = useSmartphoneCatalog();
@@ -73,7 +71,6 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const reset = () => {
     setBrand('');
     setModelType('');
-    setAmount('');
   };
 
 
