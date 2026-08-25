@@ -153,6 +153,9 @@ function Row({ label, a, b }: { label: string; a: number; b: number }) {
   );
 }
 
+/** Departments that map to the executive dashboards a cycle is sent to. */
+const DEFAULT_TARGET_DEPARTMENTS = ['Marketing', 'Engineering & Product', 'Operations'];
+
 function CycleManager({ cycles, onCreated }: { cycles: ReturnType<typeof useBudgetCycles>['cycles']; onCreated: () => Promise<void> }) {
   const [title, setTitle] = useState('');
   const [fy, setFy] = useState('');
@@ -163,10 +166,38 @@ function CycleManager({ cycles, onCreated }: { cycles: ReturnType<typeof useBudg
   const [instructions, setInstructions] = useState('');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+  const [targetIds, setTargetIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('hr_departments')
+        .select('id,name')
+        .eq('active', true)
+        .order('name');
+      const list = (data ?? []) as { id: string; name: string }[];
+      setDepartments(list);
+      setTargetIds(list.filter(d => DEFAULT_TARGET_DEPARTMENTS.includes(d.name)).map(d => d.id));
+    })();
+  }, []);
+
+  const toggleDept = (id: string) =>
+    setTargetIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
+
+  const targetLabel = targetIds.length === 0
+    ? 'Select departments'
+    : targetIds.length === departments.length
+      ? 'All departments'
+      : departments.filter(d => targetIds.includes(d.id)).map(d => d.name).join(', ');
 
   const create = async () => {
     if (!title || !start || !end) {
       setFormError('Title, start and end dates are required');
+      return;
+    }
+    if (targetIds.length === 0) {
+      setFormError('Select at least one department to send the cycle to');
       return;
     }
     setFormError('');
@@ -180,9 +211,10 @@ function CycleManager({ cycles, onCreated }: { cycles: ReturnType<typeof useBudg
         p_period_end: end,
         p_deadline: deadline ? new Date(deadline).toISOString() : null,
         p_instructions: instructions || null,
-      });
+        p_department_ids: targetIds,
+      } as any);
       if (error) throw error;
-      toast.success('Budget cycle opened — departments can now submit');
+      toast.success(`Budget cycle opened — sent to ${targetIds.length} department(s)`);
       setTitle(''); setFy(''); setStart(''); setEnd(''); setDeadline(''); setInstructions('');
       await onCreated();
     } catch (e) {
@@ -191,6 +223,7 @@ function CycleManager({ cycles, onCreated }: { cycles: ReturnType<typeof useBudg
       setSaving(false);
     }
   };
+
 
   const setStatus = async (id: string, status: string) => {
     const { error } = await supabase.rpc('budget_set_cycle_status', { p_call_id: id, p_status: status });
