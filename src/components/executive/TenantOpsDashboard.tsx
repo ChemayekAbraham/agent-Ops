@@ -70,6 +70,10 @@ import { Gauge } from 'lucide-react';
 
 type ActiveView = 'overview' | 'pipeline' | 'pipeline-hub' | 'daily' | 'missed' | 'behavior' | 'history' | 'all-requests' | 'link-agent' | 'transfer-audit' | 'collect-rent' | 'agent-tenants' | 'tenant-detail' | 'registration-review' | 'advance-requests' | 'agent-allocations' | 'daily-collections' | 'landlord-float' | 'landlord-float-timeline' | 'location-browser' | 'tenant-location-browser' | 'global-verification' | 'welile-operations' | 'daily-repayments-report' | 'agent-capacity-hub' | 'all-tenants-hub' | 'reports-hub' | 'tenant-products-report' | 'reliability-hub';
 
+/** Public alias so the sidebar shell can type its nav keys against the exact
+ *  same view union Classic already routes on. */
+export type TenantOpsClassicView = ActiveView;
+
 interface NavCard {
   id: ActiveView;
   label: string;
@@ -80,8 +84,29 @@ interface NavCard {
   badgeColor?: string;
 }
 
-export function TenantOpsDashboard() {
-  const [activeView, setActiveView] = useState<ActiveView>('overview');
+/**
+ * Classic Tenant Ops. Standalone by default (own `activeView` state, own
+ * overview + "Back to Overview" row). When `view` / `onViewChange` are passed
+ * the parent shell owns navigation instead, and `hideOverview` suppresses the
+ * overview block plus the back row because the shell's sidebar replaces them.
+ * Every working view, query, dialog and handler below is unchanged.
+ */
+export function TenantOpsDashboard({
+  view: controlledView,
+  onViewChange,
+  hideOverview = false,
+}: {
+  view?: ActiveView;
+  onViewChange?: (view: ActiveView) => void;
+  hideOverview?: boolean;
+} = {}) {
+  const [internalView, setInternalView] = useState<ActiveView>('overview');
+  const activeView = controlledView ?? internalView;
+  const setActiveView = (next: ActiveView) => {
+    if (controlledView === undefined) setInternalView(next);
+    onViewChange?.(next);
+  };
+
   const queryClient = useQueryClient();
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; tenantId: string; tenantName: string }>({ open: false, tenantId: '', tenantName: '' });
   const [locationDialog, setLocationDialog] = useState<{ open: boolean; tenantId: string; tenantName: string }>({ open: false, tenantId: '', tenantName: '' });
@@ -1554,7 +1579,7 @@ export function TenantOpsDashboard() {
   return (
     <div className="space-y-3">
       <AnimatePresence mode="wait">
-        {activeView === 'overview' ? (
+        {activeView === 'overview' ? (hideOverview ? null : (
           <motion.div
             key="overview"
             initial={{ opacity: 0 }}
@@ -1769,7 +1794,8 @@ export function TenantOpsDashboard() {
             </div>
 
           </motion.div>
-        ) : (
+        )) : (
+
           <motion.div
             key={activeView}
             initial={{ opacity: 0, x: 20 }}
@@ -1778,8 +1804,10 @@ export function TenantOpsDashboard() {
             transition={{ duration: 0.15 }}
             className="space-y-3"
           >
-            {/* Back button - skip for tenant-detail which has its own */}
-            {activeView !== 'tenant-detail' && (
+            {/* Back button - skip for tenant-detail which has its own, and when
+                a parent shell provides sidebar navigation instead. */}
+            {!hideOverview && activeView !== 'tenant-detail' && (
+
               <Button
                 variant="ghost"
                 onClick={goBack}
