@@ -291,6 +291,21 @@ export default function Settings() {
   useEffect(() => { if (user) fetchProfile(); }, [user]);
   useEffect(() => { const t = setTimeout(() => setDeferredReady(true), 300); return () => clearTimeout(t); }, []);
 
+  // Warm every section's lazy chunks shortly after mount so tab switches are instant.
+  useEffect(() => {
+    const ids = Object.keys(SECTION_PREFETCH);
+    const idle = (cb: () => void) =>
+      typeof (window as any).requestIdleCallback === 'function'
+        ? (window as any).requestIdleCallback(cb, { timeout: 1500 })
+        : window.setTimeout(cb, 400);
+    const handle = idle(() => ids.forEach(prefetchSection));
+    return () => {
+      if (typeof (window as any).cancelIdleCallback === 'function') (window as any).cancelIdleCallback(handle);
+      else clearTimeout(handle);
+    };
+  }, []);
+
+
   const fetchProfile = async () => {
     if (!user) return;
     const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
