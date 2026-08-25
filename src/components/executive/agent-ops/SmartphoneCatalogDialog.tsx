@@ -94,10 +94,11 @@ async function exportCatalogPdf(rows: SmartphoneCatalogEntry[], from: string, to
 
   autoTable(doc, {
     startY: 46,
-    head: [['Brand', 'Model', 'Default amount', 'Status', 'Added']],
+    head: [['Brand', 'Model', 'Specifications', 'Default amount', 'Status', 'Added']],
     body: rows.map((r) => [
       r.brand,
       r.model_name || 'Any model',
+      r.specifications || '—',
       r.default_amount != null ? formatUGX(Number(r.default_amount)) : '—',
       r.is_active ? 'Active' : 'Inactive',
       fmtDate(r.created_at),
@@ -105,6 +106,7 @@ async function exportCatalogPdf(rows: SmartphoneCatalogEntry[], from: string, to
     styles: { fontSize: 8.5, cellPadding: 2 },
     headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
     margin: { left: margin, right: margin },
+    columnStyles: { 2: { cellWidth: 'auto' } },
   });
 
   doc.save(`welile-smartphone-catalog-${new Date().toISOString().slice(0, 10)}.pdf`);
