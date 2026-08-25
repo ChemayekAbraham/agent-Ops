@@ -103,3 +103,4 @@
 - [Bulk advance reversal](mem://features/cfo/bulk-advance-reversal) — CFO bulk reversal of disbursed agent advances: `advance_reversal_plan_batch` preview + chunked `bulk-reverse-agent-advances` edge fn (Direct Debit clawback + `reverse_agent_advance`), one clawback group per batch, shortfalls recorded not blocked
 - [Landlord rent receipt](mem://features/financial-ops/landlord-rent-receipt) — Immutable receipt per completed landlord float disbursement, public /r/<code> page, idempotent SMS from merchant + FinOps paths
 - [Learned deposit numbers](mem://features/financial-ops/learned-deposit-numbers) — `user_deposit_numbers` third phone→user source learned from manual FinOps routing / high-confidence name match; single `resolve_user_by_known_phone` lookup; conflicts flagged not relinked
+- [Tenant Calling Hub](mem://features/ops/tenant-calling-hub) — Classic → Calling Hub: three-status (pending/closed/missed) append-only tenant call workflow + CSV call reports
