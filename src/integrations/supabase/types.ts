@@ -4280,6 +4280,36 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_subagent_commission_whitelist: {
+        Row: {
+          created_at: string
+          id: string
+          reason: string
+          sub_agent_id: string
+          updated_at: string
+          updated_by: string | null
+          whitelisted: boolean
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reason: string
+          sub_agent_id: string
+          updated_at?: string
+          updated_by?: string | null
+          whitelisted?: boolean
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason?: string
+          sub_agent_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          whitelisted?: boolean
+        }
+        Relationships: []
+      }
       agent_subagent_link_archive: {
         Row: {
           archive_reason: string
@@ -38361,6 +38391,22 @@ export type Database = {
         }
         Returns: string
       }
+      agent_ops_list_subagent_commission_whitelist: {
+        Args: { p_search?: string }
+        Returns: {
+          collections_30d: number
+          commission_30d: number
+          link_status: string
+          parent_agent_id: string
+          parent_agent_name: string
+          reason: string
+          sub_agent_id: string
+          sub_agent_name: string
+          sub_agent_phone: string
+          updated_at: string
+          whitelisted: boolean
+        }[]
+      }
       agent_ops_qualifying_agent_ids: {
         Args: never
         Returns: {
@@ -38380,11 +38426,23 @@ export type Database = {
         Args: { p_agent_id: string; p_frozen: boolean; p_reason?: string }
         Returns: Json
       }
+      agent_ops_set_subagent_commission_whitelist: {
+        Args: {
+          p_reason: string
+          p_sub_agent_id: string
+          p_whitelisted: boolean
+        }
+        Returns: Json
+      }
       agent_ops_strict_agent_ids: {
         Args: never
         Returns: {
           agent_id: string
         }[]
+      }
+      agent_ops_whitelist_admin: {
+        Args: { _user_id: string }
+        Returns: boolean
       }
       agent_order_merchandise: {
         Args: { p_catalog_id: string; p_quantity: number }
@@ -43196,6 +43254,10 @@ export type Database = {
       }
       is_service_role_request: { Args: never; Returns: boolean }
       is_sub_agent: { Args: { _agent_id: string }; Returns: boolean }
+      is_subagent_commission_whitelisted: {
+        Args: { p_sub_agent_id: string }
+        Returns: boolean
+      }
       is_supporter:
         | { Args: never; Returns: boolean }
         | { Args: { p_user_id: string }; Returns: boolean }
