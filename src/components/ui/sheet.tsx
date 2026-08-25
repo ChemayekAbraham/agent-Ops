@@ -5,6 +5,7 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 import { useBackAwareOpenState } from "@/hooks/useBackGestureClose";
+import { scheduleOverlayLockRelease } from "@/lib/overlayCleanup";
 
 const Sheet = (props: React.ComponentProps<typeof SheetPrimitive.Root>) => {
   const { rootProps, rest } = useBackAwareOpenState(props);
@@ -59,15 +60,22 @@ interface SheetContentProps
 }
 
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = "right", className, overlayClassName, children, ...props }, ref) => (
-    <SheetPortal>
-      <SheetOverlay className={overlayClassName} />
-      <SheetPrimitive.Content ref={ref} data-sheet-side={side} className={cn("app-sheet-content", sheetVariants({ side }), className)} {...props}>
-        {children}
-      </SheetPrimitive.Content>
-    </SheetPortal>
-  ),
+  ({ side = "right", className, overlayClassName, children, ...props }, ref) => {
+    // If this sheet is torn down while still open (parent subtree remount, route
+    // swap, lazy chunk landing) Radix never restores the body — the page ends up
+    // frozen behind a washed-out backdrop. Release the lock on unmount.
+    React.useEffect(() => scheduleOverlayLockRelease, []);
+    return (
+      <SheetPortal>
+        <SheetOverlay className={overlayClassName} />
+        <SheetPrimitive.Content ref={ref} data-sheet-side={side} className={cn("app-sheet-content", sheetVariants({ side }), className)} {...props}>
+          {children}
+        </SheetPrimitive.Content>
+      </SheetPortal>
+    );
+  },
 );
+
 SheetContent.displayName = SheetPrimitive.Content.displayName;
 
 const SheetHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (

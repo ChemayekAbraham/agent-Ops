@@ -1,3 +1,4 @@
+import DevPlanSheetProbe from '@/pages/DevPlanSheetProbe';
 // Realtime: enabled
 
 
@@ -581,6 +582,7 @@ function AppRoutes() {
           <Route path="/reinvestment-history" element={<ReinvestmentHistory />} />
           <Route path="/investment-portfolio" element={<InvestmentPortfolio />} />
           <Route path="/my-watchlist" element={<MyWatchlist />} />
+          <Route path="/dev-plan-sheet-probe" element={<DevPlanSheetProbe />} />
           <Route path="/opportunities" element={<Opportunities />} />
           <Route path="/houses" element={<AvailableHouses />} />
           <Route path="/audit-log" element={<AuditLog />} />
@@ -747,21 +749,68 @@ class DeferredErrorBoundary extends Component<{ children: ReactNode; fallback?: 
   render() { return this.state.failed ? (this.props.fallback ?? null) : this.props.children; }
 }
 
-// Deferred wrapper — loads providers after first paint via idle callback
+// Deferred wrapper — loads providers after first paint via idle callback.
+//
+// Switching `ready` remounts the whole app subtree (children move under new
+// providers), which wipes page state. Two protections:
+//  1. Preload every provider chunk BEFORE flipping, so Suspense never falls
+//     back to the un-wrapped children (that would remount twice).
+//  2. Never flip while an overlay (dialog/sheet) is open — a remount mid-open
+//     leaves Radix's body lock behind and the screen looks frozen. Retry once
+//     the user closes it.
 function DeferredProviders({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
-  
+
   useEffect(() => {
-    const activate = () => setReady(true);
+    let cancelled = false;
+    let retry: number | undefined;
+
+    const overlayOpen = () =>
+      !!document.querySelector(
+        '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
+      );
+
+    const flip = () => {
+      if (cancelled) return;
+      if (overlayOpen()) {
+        retry = window.setTimeout(flip, 600);
+        return;
+      }
+      setReady(true);
+    };
+
+    const activate = () => {
+      Promise.all([
+        import('@/hooks/usePinAuth'),
+        import('@/hooks/useBiometricAuth'),
+        import('@/contexts/OfflineContext'),
+        import('@/contexts/FeatureFlagsContext'),
+        import('@/hooks/useCart'),
+        import('@/hooks/useProductComparison'),
+      ])
+        .then(flip)
+        .catch(flip);
+    };
+
     if ('requestIdleCallback' in window) {
       const id = (window as any).requestIdleCallback(activate, { timeout: 800 });
-      return () => (window as any).cancelIdleCallback(id);
+      return () => {
+        cancelled = true;
+        if (retry) window.clearTimeout(retry);
+        (window as any).cancelIdleCallback(id);
+      };
     }
     const id = setTimeout(activate, 100);
-    return () => clearTimeout(id);
+    return () => {
+      cancelled = true;
+      if (retry) window.clearTimeout(retry);
+      clearTimeout(id);
+    };
   }, []);
-  
+
   if (!ready) return <>{children}</>;
+
+
   
   return (
     <DeferredErrorBoundary fallback={<>{children}</>}>
