@@ -5234,6 +5234,8 @@ export type Database = {
           created_at: string | null
           id: string
           metadata: Json | null
+          new_values: Json | null
+          old_values: Json | null
           reason: string | null
           record_id: string | null
           table_name: string | null
@@ -5245,6 +5247,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           metadata?: Json | null
+          new_values?: Json | null
+          old_values?: Json | null
           reason?: string | null
           record_id?: string | null
           table_name?: string | null
@@ -5256,6 +5260,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           metadata?: Json | null
+          new_values?: Json | null
+          old_values?: Json | null
           reason?: string | null
           record_id?: string | null
           table_name?: string | null
