@@ -51,6 +51,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
     platformCash, liabilities, revenue, receivables, moneyFlow,
     todayCashFlow, isLoading
   } = useCFOOverviewData();
+  const { data: sevenDayCashFlow } = useCFO7DayCashFlow();
+
 
   const handleExportCommissions = useCallback(async () => {
     setExportingCommissions(true);
