@@ -278,7 +278,7 @@ export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSu
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <Undo2 className="h-4 w-4 text-destructive" />
-            Reverse {explicitIds ? 'selected advances' : "today's disbursed advances"}
+            Reverse {explicitIds ? 'selected advances' : 'recently disbursed advances'}
           </DialogTitle>
           <DialogDescription className="text-xs">
             Amounts are calculated from each advance&apos;s approval, disbursement and recovery records.

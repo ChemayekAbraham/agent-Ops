@@ -150,13 +150,16 @@ export function DisbursedAdvancesRegister() {
     setToDate('');
   };
 
-  // Rows a reversal can still touch: not yet reversed. The same-day window and
+  // Rows a reversal can still touch: not yet reversed. The reversal window and
   // recovery amounts are decided server-side, never here.
   const isReversible = (a: AdvanceRow) => !(a as any).reversed_at;
   const reversibleFiltered = useMemo(() => filtered.filter(isReversible), [filtered]);
+  const REVERSAL_WINDOW_DAYS = 3;
   const isTodaysBatch = (a: AdvanceRow) =>
-    isReversible(a) && new Date(a.issued_at).toDateString() === new Date().toDateString();
+    isReversible(a) &&
+    new Date(a.issued_at).getTime() >= Date.now() - REVERSAL_WINDOW_DAYS * 86_400_000;
   const todaysBatch = useMemo(() => advances.filter(isTodaysBatch), [advances]);
+
 
   const toggleChecked = (id: string) =>
     setCheckedIds((prev) => {
@@ -269,7 +272,7 @@ export function DisbursedAdvancesRegister() {
           <p className="text-[11px] text-muted-foreground flex-1 min-w-[180px]">
             {checkedIds.size > 0
               ? `${checkedIds.size} advance${checkedIds.size === 1 ? '' : 's'} selected for reversal.`
-              : 'Tick rows to reverse several advances at once, or reverse the whole batch disbursed today.'}
+              : 'Tick rows to reverse several advances at once, or reverse the whole recent batch (last 3 days).'}
           </p>
           {checkedIds.size > 0 && (
             <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={() => setCheckedIds(new Set())}>
@@ -283,7 +286,7 @@ export function DisbursedAdvancesRegister() {
             disabled={todaysBatch.length === 0}
             onClick={() => openBulk(null)}
           >
-            <Undo2 className="h-3 w-3" /> Reverse today&apos;s batch ({todaysBatch.length})
+            <Undo2 className="h-3 w-3" /> Reverse recent batch ({todaysBatch.length})
           </Button>
           <Button
             size="sm"
