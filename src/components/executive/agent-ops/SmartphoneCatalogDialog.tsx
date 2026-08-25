@@ -140,7 +140,12 @@ export function SmartphoneCatalogDialog() {
 
   const { data: entries = [], isLoading } = useSmartphoneCatalog();
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: SMARTPHONE_CATALOG_QUERY_KEY });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: SMARTPHONE_CATALOG_QUERY_KEY });
+    // Brand inventory / products overview reads the catalog server-side too
+    queryClient.invalidateQueries({ queryKey: ['agent-products-overview'], exact: false });
+    queryClient.invalidateQueries({ queryKey: ['smartphone-order-queue'], exact: false });
+  };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -234,8 +239,15 @@ export function SmartphoneCatalogDialog() {
 
   const removeEntry = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await db.from('smartphone_catalog').delete().eq('id', id);
+      const { data, error } = await db
+        .from('smartphone_catalog')
+        .delete()
+        .eq('id', id)
+        .select('id');
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('Nothing was deleted — you may not have permission to remove catalog models.');
+      }
     },
     onSuccess: () => {
       toast.success('Phone removed');
