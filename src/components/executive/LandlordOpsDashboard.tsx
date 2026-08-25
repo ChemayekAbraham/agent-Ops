@@ -352,6 +352,11 @@ function ImagePreviewDialog({ images, open, onClose, title, startIndex = 0 }: { 
 
 type View = 'home' | 'landlords' | 'locations' | 'lc1' | 'lc1-requests' | 'residence-verify' | 'lc1-duplicates' | 'empty' | 'occupied' | 'verify' | 'pipeline' | 'chain' | 'matching' | 'agents' | 'analytics' | 'cities' | 'no-landlord' | 'advance-requests' | 'landlords-paid' | 'landlords-tenants' | 'all-requests' | 'houses-by-landlord' | 'agent-verify-requests' | 'lc1-inbox' | 'rent-pipeline-queue' | 'rejected-queue' | 'payout-review' | 'agent-capacity' | 'service-centres' | 'reports';
 
+/** Public alias so the sidebar shell can type its nav keys against the exact
+ *  same view union Classic already routes on. */
+export type LandlordOpsClassicView = View;
+
+
 // ─── Hub section titles (dedicated workspaces reached from the dashboard) ───
 const hubTitles: Partial<Record<View, string>> = {
   'agent-verify-requests': 'Agent Verification Requests',
@@ -481,10 +486,31 @@ function TenantStatusFilter({
   );
 }
 
-export function LandlordOpsDashboard() {
+/**
+ * Classic Landlord Ops. Standalone by default (own `view` state + the mobile
+ * card overview). When `view` / `onViewChange` are passed the parent shell owns
+ * navigation instead, and `hideOverview` suppresses the legacy overview because
+ * the shell's sidebar and landing page replace it. Every working view, query,
+ * dialog and handler below is unchanged.
+ */
+export function LandlordOpsDashboard({
+  view: controlledView,
+  onViewChange,
+  hideOverview = false,
+}: {
+  view?: View;
+  onViewChange?: (view: View) => void;
+  hideOverview?: boolean;
+} = {}) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [view, setView] = useState<View>('home');
+  const [internalView, setInternalView] = useState<View>('home');
+  const view = controlledView ?? internalView;
+  const setView = (next: View) => {
+    if (controlledView === undefined) setInternalView(next);
+    onViewChange?.(next);
+  };
+
   const [search, setSearch] = useState('');
   const [navSheetOpen, setNavSheetOpen] = useState(false);
   const [landlordPage, setLandlordPage] = useState(1);
@@ -4785,7 +4811,12 @@ export function LandlordOpsDashboard() {
   }
 
   // ─── HOME: Mobile-first card navigation ───
+  // When a shell owns navigation it renders its own landing page, so the
+  // legacy overview below is suppressed (every other view is untouched).
+  if (hideOverview) return null;
+
   return (
+
     <div className="space-y-6">
       {/* Sticky header with quick section switcher */}
       <div className="flex items-center justify-between gap-2 sticky top-0 z-30 -mx-4 px-4 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b border-border/50">
