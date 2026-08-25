@@ -204,11 +204,27 @@ export function PartnersOpsDashboard() {
     staleTime: 30000,
   });
 
+  // ═══ TOP-UP VERIFICATION pending badge (partner-initiated top-ups) ═══
+  const { data: topUpVerificationPending = 0 } = useQuery({
+    queryKey: ['partner-ops-topup-verification-count'],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('pending_wallet_operations')
+        .select('id', { count: 'exact', head: true })
+        .eq('source_table', 'investor_portfolios')
+        .eq('operation_type', 'portfolio_topup')
+        .eq('status', 'awaiting_verification');
+      return count || 0;
+    },
+    staleTime: 30000,
+  });
+
   // ═══ SIDEBAR BADGES ═══
   const badges: Partial<Record<PartnerOpsViewKey, number>> = {
     'portfolios.invited': invitedCount,
     maturity: maturityPending,
     'portfolios.maturity': maturityPending,
+    'portfolios.topups': topUpVerificationPending,
     'nearing.overview': nearingPayouts,
   };
 
@@ -257,6 +273,12 @@ export function PartnersOpsDashboard() {
       );
       case 'portfolios.expiring': return <ExpiringPortfoliosPanel />;
       case 'portfolios.renewed': return <PortfolioRenewalsPanel />;
+      case 'portfolios.topups': return (
+        <div className="space-y-6">
+          {/* Partner-initiated top-ups land here for Partner Operations approval. */}
+          <PortfolioTopUpVerification />
+        </div>
+      );
       case 'financial.capital': return <PartnerCapitalFlow />;
       case 'financial.payouts': return (
         <div className="space-y-3">

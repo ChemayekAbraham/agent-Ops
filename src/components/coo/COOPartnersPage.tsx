@@ -3058,13 +3058,8 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                                    Auto-clears daily — merges into capital only after the next Returns payout is approved (cron runs 7:00 PM EAT)
                                  </p>
                               )}
-                              {awaitingVerification[p.id] && (
-                                <div className="flex items-center gap-1.5 mb-2.5">
-                                  <Badge variant="outline" className="text-[10px] px-2 py-0.5 border-blue-500/40 text-blue-600 bg-blue-500/5">
-                                    🔍 {awaitingVerification[p.id].count} awaiting verification: {formatUGX(awaitingVerification[p.id].total)}
-                                  </Badge>
-                                </div>
-                              )}
+                              {/* Partner-initiated top-ups awaiting verification are reviewed in
+                                  Partner Operations → Portfolios → Top-Up Verification, so no badge here. */}
                               {approvedTopUps[p.id] && (
                                 <div className="flex items-center gap-1.5 mb-2.5">
                                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 border-amber-500/40 text-amber-600 bg-amber-500/5">
@@ -3292,7 +3287,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                                 {awaitingVerification[p.id] && (
                                   <Badge variant="outline" className="text-[10px] px-2 py-1 border-blue-500/40 text-blue-600 bg-blue-500/5 gap-1">
                                     <Clock className="h-3 w-3" />
-                                    Awaiting Financial Ops
+                                    Awaiting Partner Ops
                                   </Badge>
                                 )}
                                 {!readOnly && (
