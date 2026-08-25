@@ -155,6 +155,11 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
 
   const pendingCount = useMemo(() => orders.filter((o) => isPending(o.order_status)).length, [orders]);
 
+  const rowBusy = (id: string) =>
+    (approve.isPending && approve.variables?.id === id) ||
+    (reject.isPending && reject.variables?.id === id);
+
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -234,20 +239,30 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
                     <Button
                       size="sm"
                       onClick={() => openApprove(o)}
-                      disabled={approve.isPending}
+                      disabled={rowBusy(o.id)}
                     >
-                      <Check className="h-3.5 w-3.5 mr-1" /> Approve
+                      {approve.isPending && approve.variables?.id === o.id ? (
+                        <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Approving…</>
+                      ) : (
+                        <><Check className="h-3.5 w-3.5 mr-1" /> Approve</>
+                      )}
                     </Button>
 
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => { setRejectTarget(o); setRejectReason(''); }}
+                      disabled={rowBusy(o.id)}
                     >
-                      <X className="h-3.5 w-3.5 mr-1" /> Reject
+                      {reject.isPending && reject.variables?.id === o.id ? (
+                        <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Rejecting…</>
+                      ) : (
+                        <><X className="h-3.5 w-3.5 mr-1" /> Reject</>
+                      )}
                     </Button>
                   </div>
                 )}
+
               </div>
             );
           })
@@ -440,14 +455,17 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
             className="min-h-[80px]"
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectTarget(null)}>Cancel</Button>
+            <Button variant="outline" disabled={reject.isPending} onClick={() => setRejectTarget(null)}>Cancel</Button>
             <Button
               variant="destructive"
               disabled={reject.isPending || rejectReason.trim().length < 10 || !rejectTarget}
               onClick={() => rejectTarget && reject.mutate({ id: rejectTarget.id, reason: rejectReason.trim() })}
             >
-              Reject order
+              {reject.isPending ? (
+                <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Rejecting…</>
+              ) : 'Reject order'}
             </Button>
+
           </DialogFooter>
         </DialogContent>
       </Dialog>
