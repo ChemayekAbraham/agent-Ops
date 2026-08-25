@@ -393,22 +393,33 @@ export function PromissoryNotesQueue() {
                   const config = statusConfig[note.status] || statusConfig.pending;
                   const StatusIcon = config.icon;
                   return (
-                    <button
+                    <div
                       key={note.id}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setSelectedNote(note)}
                       className="w-full text-left rounded-lg border p-3 hover:bg-muted/40 transition-colors"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{note.partner_name}</p>
-                          <p className="text-[11px] text-muted-foreground truncate">Agent: {note.agent_name}</p>
+                        <div className="flex items-start gap-2 min-w-0">
+                          <span onClick={(e) => e.stopPropagation()} className="pt-0.5">
+                            <Checkbox
+                              checked={selectedIds.includes(note.id)}
+                              onCheckedChange={() => toggleSelect(note.id)}
+                              aria-label={`Select note for ${note.partner_name}`}
+                            />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{note.partner_name}</p>
+                            <p className="text-[11px] text-muted-foreground truncate">Agent: {note.agent_name}</p>
+                          </div>
                         </div>
                         <Badge variant="outline" className={cn('text-[10px] shrink-0', config.color)}>
                           <StatusIcon className="h-3 w-3 mr-1" />
                           {config.label}
                         </Badge>
                       </div>
+
                       <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
                         <div>
                           <span className="text-muted-foreground">Promised: </span>
