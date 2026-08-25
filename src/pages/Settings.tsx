@@ -68,6 +68,54 @@ const DriveVaultCard = lazy(() => import('@/components/manager/DriveVaultCard').
 const DriveDocumentReviewPanel = lazy(() => import('@/components/manager/DriveDocumentReviewPanel').then(m => ({ default: m.DriveDocumentReviewPanel })));
 const PushNotificationButton = lazy(() => import('@/components/PushNotificationButton').then(m => ({ default: m.PushNotificationButton })));
 
+/**
+ * Chunk prefetch map — dynamic imports are module-cached, so calling these
+ * ahead of time warms the chunk and makes tab switches instant (no skeleton).
+ */
+const SECTION_PREFETCH: Record<string, Array<() => Promise<unknown>>> = {
+  account: [
+    () => import('@/components/profile/EmailEditor'),
+    () => import('@/components/profile/ResidenceAddressForm'),
+    () => import('@/components/settings/MobileMoneyNameCard'),
+    () => import('@/components/wallet/WalletCard'),
+    () => import('@/components/settings/AccountLinkingCard'),
+    () => import('@/components/settings/ArchivedPdfsCard'),
+  ],
+  roles: [
+    () => import('@/components/settings/StaffAccessCard'),
+    () => import('@/components/tenant/RentDiscountToggle'),
+    () => import('@/components/tenant/MyLandlordsSection'),
+    () => import('@/components/landlord/MyTenantsSection'),
+    () => import('@/components/agent/AgentRentCapacitySelfCard'),
+    () => import('@/components/agent/AgentCapacityBreakdownPanel'),
+    () => import('@/components/manager/MapKeySettingsCard'),
+    () => import('@/components/manager/DriveVaultCard'),
+    () => import('@/components/manager/DriveDocumentReviewPanel'),
+  ],
+  appearance: [
+    () => import('@/components/PushNotificationButton'),
+    () => import('@/components/CurrencyConverter'),
+  ],
+  security: [
+    () => import('@/components/settings/PinSecuritySection'),
+    () => import('@/components/settings/BiometricSecuritySection'),
+    () => import('@/components/settings/TwoFactorSection'),
+    () => import('@/components/settings/DeviceSessionsSection'),
+    () => import('@/components/settings/TrustPrivacySection'),
+  ],
+  legal: [() => import('@/components/settings/LegalSection')],
+  advanced: [() => import('@/components/settings/DiagnosticsSection')],
+};
+
+const prefetched = new Set<string>();
+function prefetchSection(id: string) {
+  if (prefetched.has(id)) return;
+  prefetched.add(id);
+  (SECTION_PREFETCH[id] ?? []).forEach((load) => { void load().catch(() => {}); });
+}
+
+
+
 class SectionBoundary extends Component<{ children: ReactNode; name: string }, { hasError: boolean }> {
   state = { hasError: false };
   static getDerivedStateFromError() { return { hasError: true }; }
@@ -243,6 +291,21 @@ export default function Settings() {
   useEffect(() => { if (user) fetchProfile(); }, [user]);
   useEffect(() => { const t = setTimeout(() => setDeferredReady(true), 300); return () => clearTimeout(t); }, []);
 
+  // Warm every section's lazy chunks shortly after mount so tab switches are instant.
+  useEffect(() => {
+    const ids = Object.keys(SECTION_PREFETCH);
+    const idle = (cb: () => void) =>
+      typeof (window as any).requestIdleCallback === 'function'
+        ? (window as any).requestIdleCallback(cb, { timeout: 1500 })
+        : window.setTimeout(cb, 400);
+    const handle = idle(() => ids.forEach(prefetchSection));
+    return () => {
+      if (typeof (window as any).cancelIdleCallback === 'function') (window as any).cancelIdleCallback(handle);
+      else clearTimeout(handle);
+    };
+  }, []);
+
+
   const fetchProfile = async () => {
     if (!user) return;
     const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
@@ -392,10 +455,15 @@ export default function Settings() {
           <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 pb-2">
             <div className="inline-flex items-center gap-1 rounded-2xl bg-muted/50 p-1">
               {visibleSections.map(({ id, label, icon: Icon }) => (
-                <button key={id} onClick={() => setActiveSection(id)} className={cn(
+                <button key={id} onClick={() => setActiveSection(id)}
+                  onPointerEnter={() => prefetchSection(id)}
+                  onPointerDown={() => prefetchSection(id)}
+                  onFocus={() => prefetchSection(id)}
+                  className={cn(
                   "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all min-h-[36px] shrink-0 touch-manipulation active:scale-95",
                   activeSection === id ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-background/70"
                 )}>
+
                   <Icon className="h-3.5 w-3.5" />{label}
                 </button>
               ))}
