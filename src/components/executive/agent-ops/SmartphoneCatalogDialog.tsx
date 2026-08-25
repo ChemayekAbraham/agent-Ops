@@ -36,9 +36,11 @@ export interface SmartphoneCatalogEntry {
   model_name: string | null;
   default_amount: number | null;
   specifications: string | null;
+  more_specifications: string | null;
   is_active: boolean;
   created_at?: string | null;
 }
+
 
 export const SMARTPHONE_CATALOG_QUERY_KEY = ['smartphone-catalog'];
 
@@ -48,9 +50,10 @@ export function useSmartphoneCatalog() {
     queryFn: async (): Promise<SmartphoneCatalogEntry[]> => {
       const { data, error } = await db
         .from('smartphone_catalog')
-        .select('id, brand, model_name, default_amount, specifications, is_active, created_at')
+        .select('id, brand, model_name, default_amount, specifications, more_specifications, is_active, created_at')
         .order('brand', { ascending: true })
         .order('model_name', { ascending: true });
+
       if (error) throw error;
       return (data || []) as SmartphoneCatalogEntry[];
     },
@@ -94,11 +97,12 @@ async function exportCatalogPdf(rows: SmartphoneCatalogEntry[], from: string, to
 
   autoTable(doc, {
     startY: 46,
-    head: [['Brand', 'Model', 'Specifications', 'Default amount', 'Status', 'Added']],
+    head: [['Brand', 'Model', 'Specifications', 'More specifications', 'Default amount', 'Status', 'Added']],
     body: rows.map((r) => [
       r.brand,
       r.model_name || 'Any model',
       r.specifications || '—',
+      r.more_specifications || '—',
       r.default_amount != null ? formatUGX(Number(r.default_amount)) : '—',
       r.is_active ? 'Active' : 'Inactive',
       fmtDate(r.created_at),
@@ -106,8 +110,9 @@ async function exportCatalogPdf(rows: SmartphoneCatalogEntry[], from: string, to
     styles: { fontSize: 8.5, cellPadding: 2 },
     headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
     margin: { left: margin, right: margin },
-    columnStyles: { 2: { cellWidth: 'auto' } },
+    columnStyles: { 2: { cellWidth: 'auto' }, 3: { cellWidth: 'auto' } },
   });
+
 
   doc.save(`welile-smartphone-catalog-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
