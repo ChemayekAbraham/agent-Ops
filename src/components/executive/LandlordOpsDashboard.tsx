@@ -481,10 +481,31 @@ function TenantStatusFilter({
   );
 }
 
-export function LandlordOpsDashboard() {
+/**
+ * Classic Landlord Ops. Standalone by default (own `view` state + the mobile
+ * card overview). When `view` / `onViewChange` are passed the parent shell owns
+ * navigation instead, and `hideOverview` suppresses the legacy overview because
+ * the shell's sidebar and landing page replace it. Every working view, query,
+ * dialog and handler below is unchanged.
+ */
+export function LandlordOpsDashboard({
+  view: controlledView,
+  onViewChange,
+  hideOverview = false,
+}: {
+  view?: View;
+  onViewChange?: (view: View) => void;
+  hideOverview?: boolean;
+} = {}) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [view, setView] = useState<View>('home');
+  const [internalView, setInternalView] = useState<View>('home');
+  const view = controlledView ?? internalView;
+  const setView = (next: View) => {
+    if (controlledView === undefined) setInternalView(next);
+    onViewChange?.(next);
+  };
+
   const [search, setSearch] = useState('');
   const [navSheetOpen, setNavSheetOpen] = useState(false);
   const [landlordPage, setLandlordPage] = useState(1);
