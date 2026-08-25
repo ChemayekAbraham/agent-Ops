@@ -254,9 +254,39 @@ function CycleManager({ cycles, onCreated }: { cycles: ReturnType<typeof useBudg
             <div><Label className="text-xs">Period end</Label><Input type="date" value={end} onChange={e => setEnd(e.target.value)} /></div>
           </div>
           <div><Label className="text-xs">Instructions to departments</Label><Textarea rows={2} value={instructions} onChange={e => setInstructions(e.target.value)} /></div>
+          <div>
+            <Label className="text-xs">Send to departments</Label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="mt-1 w-full justify-between gap-2 text-xs font-normal">
+                  <span className="truncate">{targetLabel}</span>
+                  <ChevronDown className="h-4 w-4 shrink-0 opacity-60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="z-[100] max-h-72 w-64 overflow-y-auto">
+                <DropdownMenuLabel className="text-xs">Departments</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {departments.map(d => (
+                  <DropdownMenuCheckboxItem
+                    key={d.id}
+                    checked={targetIds.includes(d.id)}
+                    onCheckedChange={() => toggleDept(d.id)}
+                    onSelect={e => e.preventDefault()}
+                    className="text-xs"
+                  >
+                    {d.name}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Only the selected departments get the cycle on their dashboard.
+            </p>
+          </div>
           <Button onClick={create} disabled={saving} className="gap-2">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Open cycle
           </Button>
+
           {formError && <p className="text-xs text-destructive">{formError}</p>}
         </CardContent>
       </Card>
