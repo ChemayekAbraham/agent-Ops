@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 import {
   Line,
   LineChart,
@@ -545,7 +545,7 @@ export default function MyWork({ embedded = false }: MyWorkProps) {
       }
       await addTaskEvent({ taskId, eventType, note: note && note.trim() ? note.trim() : null });
       toast.success(`Task ${eventType}`);
-      await load();
+      await load({ silent: true });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not update the task');
     } finally {
@@ -567,7 +567,8 @@ export default function MyWork({ embedded = false }: MyWorkProps) {
         metadata: { flag: 'acknowledged', acknowledges_event_id: item.eventId },
       });
       toast.success('Acknowledged');
-      await load();
+      await load({ silent: true });
+
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not acknowledge');
     } finally {
@@ -631,8 +632,9 @@ export default function MyWork({ embedded = false }: MyWorkProps) {
                   disabled={busyTaskId === task.id}
                   onClick={() => act(task.id, 'started')}
                 >
-                  Start
+                  {busyTaskId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Start'}
                 </Button>
+
               </div>
             ))}
           </CardContent>
@@ -772,7 +774,9 @@ export default function MyWork({ embedded = false }: MyWorkProps) {
                             disabled={busyTaskId === task.id}
                             onClick={() => act(task.id, 'started')}
                           >
-                            Start
+                            {busyTaskId === task.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : 'Start'}
                           </Button>
                         )}
                         {['in_progress', 'blocked'].includes(String(task.status)) && (
@@ -783,7 +787,9 @@ export default function MyWork({ embedded = false }: MyWorkProps) {
                             disabled={busyTaskId === task.id}
                             onClick={() => act(task.id, 'submitted')}
                           >
-                            Submit
+                            {busyTaskId === task.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : 'Submit'}
                           </Button>
                         )}
                         {task.status === 'submitted' && (
@@ -794,9 +800,12 @@ export default function MyWork({ embedded = false }: MyWorkProps) {
                             disabled={busyTaskId === task.id}
                             onClick={() => setNotePrompt({ taskId: task.id, eventType: 'completed' })}
                           >
-                            Complete
+                            {busyTaskId === task.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : 'Complete'}
                           </Button>
                         )}
+
                       </div>
                     </TableCell>
                   </TableRow>
