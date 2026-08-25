@@ -234,20 +234,30 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
                     <Button
                       size="sm"
                       onClick={() => openApprove(o)}
-                      disabled={approve.isPending}
+                      disabled={rowBusy(o.id)}
                     >
-                      <Check className="h-3.5 w-3.5 mr-1" /> Approve
+                      {approve.isPending && approve.variables?.id === o.id ? (
+                        <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Approving…</>
+                      ) : (
+                        <><Check className="h-3.5 w-3.5 mr-1" /> Approve</>
+                      )}
                     </Button>
 
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => { setRejectTarget(o); setRejectReason(''); }}
+                      disabled={rowBusy(o.id)}
                     >
-                      <X className="h-3.5 w-3.5 mr-1" /> Reject
+                      {reject.isPending && reject.variables?.id === o.id ? (
+                        <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Rejecting…</>
+                      ) : (
+                        <><X className="h-3.5 w-3.5 mr-1" /> Reject</>
+                      )}
                     </Button>
                   </div>
                 )}
+
               </div>
             );
           })
