@@ -3292,7 +3292,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                                 {awaitingVerification[p.id] && (
                                   <Badge variant="outline" className="text-[10px] px-2 py-1 border-blue-500/40 text-blue-600 bg-blue-500/5 gap-1">
                                     <Clock className="h-3 w-3" />
-                                    Awaiting Financial Ops
+                                    Awaiting Partner Ops
                                   </Badge>
                                 )}
                                 {!readOnly && (
