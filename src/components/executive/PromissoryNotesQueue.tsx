@@ -859,6 +859,43 @@ export function PromissoryNotesQueue() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Bulk delete confirmation */}
+      <AlertDialog open={bulkOpen} onOpenChange={(open) => { if (!open && !bulkDeleting) { setBulkOpen(false); setBulkReason(''); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedIds.length} promissory note(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the selected notes for both Partner Ops and the agents who created them, together with their release, pledge, plan-intent, override and reversal records so no orphan data is left behind.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Notes tied to partner money (self-support commitments or pending portfolios) are skipped automatically.
+            </p>
+            <Label htmlFor="bulk-delete-reason">Reason (min 10 characters)</Label>
+            <Textarea
+              id="bulk-delete-reason"
+              value={bulkReason}
+              onChange={(e) => setBulkReason(e.target.value)}
+              placeholder="e.g. Duplicate test notes captured during agent training"
+              rows={3}
+            />
+            <p className="text-[11px] text-muted-foreground text-right">{bulkReason.trim().length}/10 characters</p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleBulkDelete(); }}
+              disabled={bulkDeleting || bulkReason.trim().length < 10}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {bulkDeleting ? 'Deleting…' : `Delete ${selectedIds.length}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+
   );
 }
