@@ -103,7 +103,7 @@ export const CurrencyConverter: React.FC<CurrencyConverterProps> = ({ variant = 
         </div>
         
         <div className="flex items-center gap-2">
-          <div className="flex-1 p-2 rounded-lg bg-muted/50 text-center font-mono font-semibold">
+          <div className="flex-1 p-2 rounded-lg bg-muted/50 text-center font-mono font-semibold text-sm">
             {toSymbol} {formatNumber(convertedAmount)}
           </div>
           <Select value={toCurrency} onValueChange={setToCurrency}>
