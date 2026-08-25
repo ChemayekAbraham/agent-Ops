@@ -32,23 +32,27 @@ interface PendingAccessOrder {
 
 interface Props {
   userId?: string;
+  /** Controlled visibility — the dialog never opens on its own. */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Optional specific merchandise_sales.id to accept. */
+  saleId?: string | null;
 }
 
 /**
- * Shown on the agent dashboard as soon as an executive approves a device order.
- * The agent sees the access amount (price + 33%) and picks the daily wallet
- * deduction before the device is released.
+ * Opened explicitly from the smartphone order status card once an executive
+ * approves a device order. The agent sees the access amount and picks the daily
+ * wallet deduction before the device is released.
  */
-export default function DeviceAccessDialog({ userId }: Props) {
+export default function DeviceAccessDialog({ userId, open, onOpenChange, saleId }: Props) {
   const queryClient = useQueryClient();
-  const [dismissed, setDismissed] = useState<string[]>([]);
   const [mode, setMode] = useState<'min' | 'custom'>('min');
   const [custom, setCustom] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const { data: orders = [] } = useQuery<PendingAccessOrder[]>({
     queryKey: ['device-access-pending', userId],
-    enabled: !!userId,
+    enabled: !!userId && open,
     queryFn: async () => {
       const { data, error } = await db
         .from('merchandise_sales')
@@ -63,8 +67,8 @@ export default function DeviceAccessDialog({ userId }: Props) {
   });
 
   const order = useMemo(
-    () => orders.find((o) => !dismissed.includes(o.id)) ?? null,
-    [orders, dismissed],
+    () => (saleId ? orders.find((o) => o.id === saleId) ?? null : orders[0] ?? null),
+    [orders, saleId],
   );
 
   useEffect(() => {
@@ -72,7 +76,8 @@ export default function DeviceAccessDialog({ userId }: Props) {
     setCustom('');
   }, [order?.id]);
 
-  if (!userId || !order) return null;
+  if (!userId || !open || !order) return null;
+
 
   const totalPrice = Number(
     order.total_amount ?? Number(order.unit_price) * Math.max(Number(order.quantity ?? 1), 1),
@@ -99,6 +104,8 @@ export default function DeviceAccessDialog({ userId }: Props) {
         queryClient.invalidateQueries({ queryKey: ['device-access-pending', userId] }),
         queryClient.invalidateQueries({ queryKey: ['my-smartphone-orders', userId, order.item_name] }),
       ]);
+      onOpenChange(false);
+
     } catch (e: any) {
       console.error('[DeviceAccessDialog] confirm error', e);
       toast.error(e?.message || 'Could not confirm device access');
@@ -108,7 +115,7 @@ export default function DeviceAccessDialog({ userId }: Props) {
   };
 
   return (
-    <Dialog open onOpenChange={(open) => !open && setDismissed((d) => [...d, order.id])}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
@@ -127,9 +134,6 @@ export default function DeviceAccessDialog({ userId }: Props) {
               Access amount
             </p>
             <p className="text-2xl font-bold text-primary">{formatUGX(accessAmount)}</p>
-            <p className="text-[11px] text-muted-foreground">
-              Device price {formatUGX(totalPrice)} + 33% access fee
-            </p>
           </div>
 
           <div className="space-y-2">
@@ -177,7 +181,7 @@ export default function DeviceAccessDialog({ userId }: Props) {
             variant="outline"
             size="sm"
             disabled={submitting}
-            onClick={() => setDismissed((d) => [...d, order.id])}
+            onClick={() => onOpenChange(false)}
           >
             Later
           </Button>
