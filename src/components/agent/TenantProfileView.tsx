@@ -406,7 +406,10 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
           daily_repayment: effective.dailyRepayment,
         };
       }));
-      setRepayments((repaymentRes?.data as RepaymentRow[]) || []);
+      const repayRows = (repaymentRes?.data as RepaymentRow[]) || [];
+      setRepayHasMoreServer(repayRows.length > REPAY_FETCH_SIZE);
+      setRepayments(repayRows.slice(0, REPAY_FETCH_SIZE));
+      setRepayVisible(REPAY_VISIBLE_STEP);
 
       const ledgerEntries = (ledgerRes?.data || []) as any[];
       const totalIn = ledgerEntries.filter(e => e.direction === 'cash_in').reduce((s: number, e: any) => s + (e.amount || 0), 0);
