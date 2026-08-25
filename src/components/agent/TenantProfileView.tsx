@@ -112,6 +112,10 @@ interface WalletData {
 }
 
 const PAGE_SIZE = 5;
+/** Rows pulled per database page for the repayment/collection history. */
+const REPAY_FETCH_SIZE = 200;
+/** Rows revealed per "Load more" click in the flat repayment history. */
+const REPAY_VISIBLE_STEP = 20;
 
 /* ---------- Small presentational helpers (local, no new files) ---------- */
 
