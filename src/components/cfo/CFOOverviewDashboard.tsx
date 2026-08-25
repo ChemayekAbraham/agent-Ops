@@ -21,6 +21,7 @@ import { CashSourcesSheet } from '@/components/cfo/CashSourcesSheet';
 import { CFOActionsLog } from '@/components/cfo/CFOActionsLog';
 import { ReceiptNumberLookupPanel } from '@/components/financial-ops/ReceiptNumberLookupPanel';
 import { AgentAdvancesStatsCard } from '@/components/cfo/AgentAdvancesStatsCard';
+import { DailyReceivablesPayablesSection } from '@/components/cfo/DailyReceivablesPayablesSection';
 
 interface CFOOverviewDashboardProps {
   onTabChange?: (tab: string) => void;
@@ -241,6 +242,9 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
             onClick={() => setActiveBreakdown('earnings')}
           />
         </div>
+
+        {/* ══════════════ DAILY RECEIVABLES & PAYABLES ══════════════ */}
+        <DailyReceivablesPayablesSection />
 
         {/* ══════════════ WHERE THE MONEY SITS ══════════════ */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
