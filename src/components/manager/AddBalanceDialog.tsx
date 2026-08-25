@@ -70,20 +70,10 @@ export default function AddBalanceDialog({
   const selectedBucketBalance = bucket === 'float' ? bucketBalances.float : bucketBalances.withdrawable;
 
   // ── Ledger categories ────────────────────────────────────────────────
-  // Both legs of the double entry carry the SAME category — the convention
-  // approve-deposit and approve-withdrawal already use. That keeps the pair
-  // self-describing in the general ledger and makes the user-facing Wallet
-  // Statement render the row from `category` alone:
-  //
-  //   credit → wallet_deposit     → "Wallet Deposit"    (+amount, cash_in)
-  //   debit  → wallet_withdrawal  → "Wallet Withdrawal" (-amount, cash_out)
-  //
-  // Float is the company's operational bucket, not the user's own money, so
-  // it keeps the float-specific pair (locked to `operational_wallet` routing
-  // by cfo-direct-credit's CATEGORY_BUCKET_LOCK / FLOAT_ROUTE_CATEGORIES).
-  const ledgerCategory = bucket === 'float'
-    ? (type === 'credit' ? 'agent_float_deposit' : 'agent_float_settlement')
-    : (type === 'credit' ? 'wallet_deposit' : 'wallet_withdrawal');
+  // Float credits must sit in cfo-direct-credit's FLOAT_ROUTE_CATEGORIES
+  // allow-list, so they carry the explicit float category. Everything else
+  // lets the edge function pick its own default category.
+
 
   const handleAdjustBalance = async () => {
     const amountNum = parseFloat(amount);
