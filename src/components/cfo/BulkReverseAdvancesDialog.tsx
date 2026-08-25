@@ -207,12 +207,12 @@ export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSu
 
       const reversed = collected.filter((r) => r.outcome === 'reversed');
       const partial = collected.filter((r) => r.outcome === 'partial_recovery');
-      const recovered = collected.reduce((s, r) => s + Number(r.recovered || 0), 0);
+      const returnedToTreasury = collected.reduce((s, r) => s + Number(r.returned_to_available || 0), 0);
       const short = collected.reduce((s, r) => s + Number(r.shortfall || 0), 0);
       const errors = collected.filter((r) => r.outcome === 'error').length;
       toast.success(
         `${reversed.length} advance${reversed.length === 1 ? '' : 's'} fully reversed. ` +
-          `${formatUGX(recovered)} recovered` +
+          `${formatUGX(returnedToTreasury)} returned to Money We Can Use` +
           (partial.length > 0
             ? `. ${partial.length} kept active with ${formatUGX(short)} still outstanding for future recovery`
             : short > 0
@@ -406,7 +406,7 @@ export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSu
                 <div className="rounded-lg border bg-muted/40 p-3 text-xs space-y-1">
                   <p className="font-semibold">Batch result</p>
                   <div className="flex justify-between"><span className="text-muted-foreground">Advances reversed</span><span className="font-semibold">{resultSummary.reversed}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Wallet funds clawed back</span><span className="font-semibold text-emerald-600">{formatUGX(resultSummary.recovered)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Wallet funds clawed back this run</span><span className="font-semibold text-emerald-600">{formatUGX(resultSummary.returnedToAvailable)}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Returned to Money We Can Use</span><span className="font-semibold text-emerald-600">{formatUGX(resultSummary.returnedToAvailable)}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Outstanding shortfall (recovers from future earnings)</span><span className="font-semibold text-amber-600">{formatUGX(resultSummary.shortfall)}</span></div>
                   <div className="h-px bg-border my-1" />
