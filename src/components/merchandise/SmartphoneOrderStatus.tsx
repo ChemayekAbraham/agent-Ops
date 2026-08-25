@@ -102,15 +102,39 @@ export default function SmartphoneOrderStatus({
   const [cancelling, setCancelling] = useState(false);
   const [expanded, setExpanded] = useState(true);
   const [accessOrderId, setAccessOrderId] = useState<string | null>(null);
+  const isSmartphonePanel = itemName === 'Welile Smartphone';
+
+  // Ops-issued devices are recorded with the catalog model name (e.g. "Samsung A07"),
+  // so the agent's smartphone panel must match those names too.
+  const { data: catalogNames = [] } = useQuery<string[]>({
+    queryKey: ['smartphone-catalog-names'],
+    enabled: isSmartphonePanel,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await db
+        .from('smartphone_catalog')
+        .select('brand, model_name');
+      if (error) throw error;
+      return ((data || []) as { brand: string; model_name: string | null }[])
+        .map((c) => `${c.brand} ${c.model_name ?? ''}`.trim())
+        .filter(Boolean);
+    },
+  });
+
+  const itemNames = useMemo(
+    () => Array.from(new Set([itemName, ...(isSmartphonePanel ? catalogNames : [])])),
+    [itemName, isSmartphonePanel, catalogNames],
+  );
+
   const { data: orders = [] } = useQuery<SmartphoneOrder[]>({
-    queryKey: ['my-smartphone-orders', userId, itemName],
+    queryKey: ['my-smartphone-orders', userId, itemName, itemNames.join('|')],
     enabled: !!userId,
     queryFn: async () => {
       const { data, error } = await db
         .from('merchandise_sales')
         .select('id, unit_price, amount_outstanding, order_status, created_at, client_name, client_phone, tracking_reference, access_accepted_at')
         .eq('customer_id', userId)
-        .eq('item_name', itemName)
+        .in('item_name', itemNames)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
