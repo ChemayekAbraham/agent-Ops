@@ -774,6 +774,12 @@ Deno.serve(async (req) => {
           routing_source: routingSource,
           source_table: 'cfo_direct_credit',
           reference_id: refId,
+          // Required by enforce_no_negative_wallet_ledger to identify the
+          // narrow advance-reversal exception while withdrawals are paused.
+          // Previously this only lived on platform_wallet_corrections metadata,
+          // so the ledger trigger saw NULL and incorrectly used the normal
+          // strict-available balance (zero for locked advance funds).
+          sub_category: sub_category || undefined,
           description: `${allowOverdraw ? 'CFO Forced Reversal' : 'CFO Debit'} [${category_label || walletCat}]: ${reason}`,
           currency: 'UGX',
           transaction_date: nowIso,
@@ -797,6 +803,7 @@ Deno.serve(async (req) => {
           ledger_scope: 'platform',
           source_table: 'cfo_direct_credit',
           reference_id: refId,
+          sub_category: sub_category || undefined,
           description: `${targetProfile.full_name} → Platform [${impact}]: ${reason}`,
           currency: 'UGX',
           transaction_date: nowIso,
