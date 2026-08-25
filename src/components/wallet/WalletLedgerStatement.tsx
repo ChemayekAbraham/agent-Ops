@@ -31,7 +31,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   agent_remittance: 'Agent Remittance',
   platform_service_income: 'Service Income',
   deposit: 'Wallet Deposit',
-  wallet_deposit: 'Wallet Deposit',
+  
   referral_bonus: 'Referral Bonus',
   agent_commission: 'Agent Commission',
   agent_commission_earned: 'Commission Earned',
