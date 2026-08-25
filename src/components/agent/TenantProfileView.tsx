@@ -369,7 +369,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
           .select('id, amount, created_at, rent_request_id')
           .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false })
-          .limit(400),
+          .limit(REPAY_FETCH_SIZE + 1),
         supabase
           .from('wallets')
           .select('balance')
