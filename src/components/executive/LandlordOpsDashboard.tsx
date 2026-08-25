@@ -4785,7 +4785,12 @@ export function LandlordOpsDashboard() {
   }
 
   // ─── HOME: Mobile-first card navigation ───
+  // When a shell owns navigation it renders its own landing page, so the
+  // legacy overview below is suppressed (every other view is untouched).
+  if (hideOverview) return null;
+
   return (
+
     <div className="space-y-6">
       {/* Sticky header with quick section switcher */}
       <div className="flex items-center justify-between gap-2 sticky top-0 z-30 -mx-4 px-4 py-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b border-border/50">
