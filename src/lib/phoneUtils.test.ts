@@ -72,8 +72,8 @@ describe('isValidPhoneNumber', () => {
 
 describe('isValidPhoneNumberGlobal', () => {
   it('accepts full non-sequential numbers', () => {
-    expect(isValidPhoneNumberGlobal('+256791234567').valid).toBe(true);
-    expect(isValidPhoneNumberGlobal('+25779123456').valid).toBe(true);
+    expect(isValidPhoneNumberGlobal('+256791837465').valid).toBe(true);
+    expect(isValidPhoneNumberGlobal('+25779183746').valid).toBe(true);
   });
 
   it('rejects repeated or sequential digits', () => {
