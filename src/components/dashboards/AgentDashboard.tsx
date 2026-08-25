@@ -57,6 +57,7 @@ import { ShoppingBag, Smartphone, Bike, Store } from 'lucide-react';
 import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatus';
 import { useMerchandiseOrderLock } from '@/hooks/useMerchandiseOrderLock';
 import SmartphoneOrderDialog from '@/components/merchandise/SmartphoneOrderDialog';
+import DeviceAccessDialog from '@/components/merchandise/DeviceAccessDialog';
 
 import spiroBikeAsset from '@/assets/spiro-bike.jpg.asset.json';
 import smartphonePromoAsset from '@/assets/smartphone-promo.jpg.asset.json';
@@ -802,6 +803,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
     <AgentFrozenGate>
     <OperatingLocationGate />
     <div className="agent-dashboard-shell h-[100dvh] bg-background flex flex-col overflow-hidden">
+      <DeviceAccessDialog userId={user?.id} />
       <OfflineBanner />
       <PendingDraftsBanner />
       <DashboardDataErrorBanner

@@ -19726,6 +19726,7 @@ export type Database = {
           customer_id: string
           customer_name: string | null
           customer_phone: string | null
+          daily_deduction_amount: number
           daily_rate: number
           id: string
           item_name: string
@@ -19744,6 +19745,7 @@ export type Database = {
           customer_id: string
           customer_name?: string | null
           customer_phone?: string | null
+          daily_deduction_amount?: number
           daily_rate?: number
           id?: string
           item_name: string
@@ -19762,6 +19764,7 @@ export type Database = {
           customer_id?: string
           customer_name?: string | null
           customer_phone?: string | null
+          daily_deduction_amount?: number
           daily_rate?: number
           id?: string
           item_name?: string
@@ -19784,6 +19787,8 @@ export type Database = {
       }
       merchandise_sales: {
         Row: {
+          access_accepted_at: string | null
+          access_daily_amount: number | null
           amount_outstanding: number
           amount_paid: number
           brand: string | null
@@ -19816,6 +19821,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          access_accepted_at?: string | null
+          access_daily_amount?: number | null
           amount_outstanding?: number
           amount_paid?: number
           brand?: string | null
@@ -19848,6 +19855,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          access_accepted_at?: string | null
+          access_daily_amount?: number | null
           amount_outstanding?: number
           amount_paid?: number
           brand?: string | null
@@ -38250,6 +38259,10 @@ export type Database = {
       advance_reversal_plan: { Args: { p_advance_id: string }; Returns: Json }
       advance_reversal_plan_batch: {
         Args: { p_advance_ids?: string[]; p_today_only?: boolean }
+        Returns: Json
+      }
+      agent_accept_device_access: {
+        Args: { p_daily_amount: number; p_sale_id: string }
         Returns: Json
       }
       agent_ack_returned_inactivation: {
