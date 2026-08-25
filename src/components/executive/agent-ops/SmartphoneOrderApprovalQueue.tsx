@@ -455,14 +455,17 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
             className="min-h-[80px]"
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectTarget(null)}>Cancel</Button>
+            <Button variant="outline" disabled={reject.isPending} onClick={() => setRejectTarget(null)}>Cancel</Button>
             <Button
               variant="destructive"
               disabled={reject.isPending || rejectReason.trim().length < 10 || !rejectTarget}
               onClick={() => rejectTarget && reject.mutate({ id: rejectTarget.id, reason: rejectReason.trim() })}
             >
-              Reject order
+              {reject.isPending ? (
+                <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Rejecting…</>
+              ) : 'Reject order'}
             </Button>
+
           </DialogFooter>
         </DialogContent>
       </Dialog>
