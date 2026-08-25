@@ -377,7 +377,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                 <p className="p-6 text-sm text-muted-foreground text-center">Nothing awaiting approval right now.</p>
               ) : (
                 <div className="divide-y divide-border">
-                  {pendingApps.slice(0, 8).map((p) => {
+                  {pendingApps.slice(0, 10).map((p) => {
                     const busy =
                       (approveApp.isPending && approveApp.variables?.sale_id === p.sale_id) ||
                       (rejectApp.isPending && rejectApp.variables?.row.sale_id === p.sale_id);
@@ -483,7 +483,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                 <p className="p-6 text-sm text-muted-foreground text-center">No activity recorded yet.</p>
               ) : (
                 <div className="divide-y divide-border">
-                  {activity.map((a) => (
+                  {activity.slice(0, 10).map((a) => (
                     <div key={a.sale_id} className="p-3 flex items-center gap-3">
                       <UserAvatar avatarUrl={a.avatar_url} fullName={a.full_name || undefined} size="sm" />
                       <div className="min-w-0 flex-1">
