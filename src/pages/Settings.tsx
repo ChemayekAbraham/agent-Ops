@@ -68,6 +68,54 @@ const DriveVaultCard = lazy(() => import('@/components/manager/DriveVaultCard').
 const DriveDocumentReviewPanel = lazy(() => import('@/components/manager/DriveDocumentReviewPanel').then(m => ({ default: m.DriveDocumentReviewPanel })));
 const PushNotificationButton = lazy(() => import('@/components/PushNotificationButton').then(m => ({ default: m.PushNotificationButton })));
 
+/**
+ * Chunk prefetch map — dynamic imports are module-cached, so calling these
+ * ahead of time warms the chunk and makes tab switches instant (no skeleton).
+ */
+const SECTION_PREFETCH: Record<string, Array<() => Promise<unknown>>> = {
+  account: [
+    () => import('@/components/profile/EmailEditor'),
+    () => import('@/components/profile/ResidenceAddressForm'),
+    () => import('@/components/settings/MobileMoneyNameCard'),
+    () => import('@/components/wallet/WalletCard'),
+    () => import('@/components/settings/AccountLinkingCard'),
+    () => import('@/components/settings/ArchivedPdfsCard'),
+  ],
+  roles: [
+    () => import('@/components/settings/StaffAccessCard'),
+    () => import('@/components/tenant/RentDiscountToggle'),
+    () => import('@/components/tenant/MyLandlordsSection'),
+    () => import('@/components/landlord/MyTenantsSection'),
+    () => import('@/components/agent/AgentRentCapacitySelfCard'),
+    () => import('@/components/agent/AgentCapacityBreakdownPanel'),
+    () => import('@/components/manager/MapKeySettingsCard'),
+    () => import('@/components/manager/DriveVaultCard'),
+    () => import('@/components/manager/DriveDocumentReviewPanel'),
+  ],
+  appearance: [
+    () => import('@/components/PushNotificationButton'),
+    () => import('@/components/CurrencyConverter'),
+  ],
+  security: [
+    () => import('@/components/settings/PinSecuritySection'),
+    () => import('@/components/settings/BiometricSecuritySection'),
+    () => import('@/components/settings/TwoFactorSection'),
+    () => import('@/components/settings/DeviceSessionsSection'),
+    () => import('@/components/settings/TrustPrivacySection'),
+  ],
+  legal: [() => import('@/components/settings/LegalSection')],
+  advanced: [() => import('@/components/settings/DiagnosticsSection')],
+};
+
+const prefetched = new Set<string>();
+function prefetchSection(id: string) {
+  if (prefetched.has(id)) return;
+  prefetched.add(id);
+  (SECTION_PREFETCH[id] ?? []).forEach((load) => { void load().catch(() => {}); });
+}
+
+
+
 class SectionBoundary extends Component<{ children: ReactNode; name: string }, { hasError: boolean }> {
   state = { hasError: false };
   static getDerivedStateFromError() { return { hasError: true }; }
