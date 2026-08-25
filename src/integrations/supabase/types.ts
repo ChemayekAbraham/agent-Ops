@@ -41002,6 +41002,14 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_cfo_daily_cash_flow: {
+        Args: { p_days?: number }
+        Returns: {
+          day: string
+          inflow: number
+          outflow: number
+        }[]
+      }
       get_cfo_ledger_trail: {
         Args: {
           p_categories?: string[]
