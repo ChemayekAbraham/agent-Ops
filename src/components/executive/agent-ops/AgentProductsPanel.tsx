@@ -20,11 +20,55 @@ import { generateAgentProductsInFieldPdf, type AgentProductKpis, type AgentProdu
 import { archivePdfBlob } from '@/lib/pdfVault';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Package, Users, Warehouse, Download, Plus, RefreshCw, Search, Wallet, TrendingUp, Trash2 } from 'lucide-react';
+import { Package, Users, Warehouse, Download, Plus, RefreshCw, Search, Wallet, TrendingUp, Trash2, Clock, Layers, Activity, Check, X, Loader2 } from 'lucide-react';
 
 interface CatalogItem { id: string; item_name: string; unit_price: number; unit_cost: number }
 interface CentreItem { id: string; location_name: string | null; agent_id: string | null; agent_name: string | null; status: string }
-interface Overview { kpis: AgentProductKpis; rows: AgentProductRow[]; catalog: CatalogItem[]; centres: CentreItem[] }
+export interface PendingApp {
+  sale_id: string;
+  agent_id: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  phone: string | null;
+  item_name: string | null;
+  brand: string | null;
+  model_type: string | null;
+  quantity: number;
+  requested_amount: number;
+  order_status: string;
+  created_at: string;
+}
+interface BreakdownRow {
+  label: string;
+  models: number;
+  reference_price: number;
+  issued_qty: number;
+  issued_value: number;
+  outstanding: number;
+}
+interface ActivityRow {
+  sale_id: string;
+  agent_id: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  item_name: string | null;
+  brand: string | null;
+  model_type: string | null;
+  amount: number;
+  outstanding: number;
+  order_status: string;
+  happened_at: string;
+}
+interface Overview {
+  kpis: AgentProductKpis;
+  rows: AgentProductRow[];
+  catalog: CatalogItem[];
+  centres: CentreItem[];
+  pending: PendingApp[];
+  breakdown: BreakdownRow[];
+  activity: ActivityRow[];
+}
+
 
 const PRODUCT_SUGGESTIONS = [
   'Welile Jumper', 'Welile Jacket', 'Welile Polo', 'Welile T-Shirt', 'Welile Cap',
