@@ -436,8 +436,9 @@ export function PromissoryNotesQueue() {
                         </div>
                       </div>
                     </div>
-
+                  );
                 })}
+
               </div>
 
               {/* Pagination */}
