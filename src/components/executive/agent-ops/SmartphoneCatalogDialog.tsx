@@ -116,6 +116,7 @@ export function SmartphoneCatalogDialog() {
   const [brand, setBrand] = useState('');
   const [modelName, setModelName] = useState('');
   const [amount, setAmount] = useState('');
+  const [specifications, setSpecifications] = useState('');
   const [search, setSearch] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -123,6 +124,7 @@ export function SmartphoneCatalogDialog() {
   const [editBrand, setEditBrand] = useState('');
   const [editModel, setEditModel] = useState('');
   const [editAmount, setEditAmount] = useState('');
+  const [editSpecifications, setEditSpecifications] = useState('');
   const [pendingDelete, setPendingDelete] = useState<SmartphoneCatalogEntry | null>(null);
   const queryClient = useQueryClient();
 
