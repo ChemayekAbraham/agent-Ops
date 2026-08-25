@@ -134,39 +134,52 @@ export function TenantOpsHub() {
           ))}
         </div>
 
-        {/* Secondary tools */}
-        <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center sm:justify-start">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate('/executive-hub?tab=locations')}
-            className="gap-1.5 w-full sm:w-auto min-w-0"
-          >
-            <MapPin className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate text-[11px] sm:text-xs">Locations</span>
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void generateWordReport()}
-            disabled={docxBusy}
-            className="gap-1.5 w-full sm:w-auto min-w-0"
-          >
-            {docxBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /> : <FileText className="h-3.5 w-3.5 shrink-0" />}
-            <span className="truncate text-[11px] sm:text-xs">Word Report</span>
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setWelileHomesOpen(true)}
-            className="gap-1.5 w-full sm:w-auto min-w-0"
-          >
-            <Home className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate text-[11px] sm:text-xs">Welile Homes</span>
-          </Button>
-        </div>
+        {/* Secondary tools — in Classic these live in the sidebar instead */}
+        {mode !== 'classic' && (
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center sm:justify-start">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/executive-hub?tab=locations')}
+              className="gap-1.5 w-full sm:w-auto min-w-0"
+            >
+              <MapPin className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate text-[11px] sm:text-xs">Locations</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void generateWordReport()}
+              disabled={docxBusy}
+              className="gap-1.5 w-full sm:w-auto min-w-0"
+            >
+              {docxBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" /> : <FileText className="h-3.5 w-3.5 shrink-0" />}
+              <span className="truncate text-[11px] sm:text-xs">Word Report</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setWelileHomesOpen(true)}
+              className="gap-1.5 w-full sm:w-auto min-w-0"
+            >
+              <Home className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate text-[11px] sm:text-xs">Welile Homes</span>
+            </Button>
+          </div>
+        )}
       </div>
-      {mode === 'v2' ? <TenantOpsDashboardV2 /> : mode === 'intel' ? <TenantOpsGeoCommandCenter /> : <TenantOpsDashboard />}
+      {mode === 'v2' ? (
+        <TenantOpsDashboardV2 />
+      ) : mode === 'intel' ? (
+        <TenantOpsGeoCommandCenter />
+      ) : (
+        <TenantOpsClassicShell
+          onOpenLocations={() => navigate('/executive-hub?tab=locations')}
+          onOpenWelileHomes={() => setWelileHomesOpen(true)}
+          onGenerateWordReport={() => void generateWordReport()}
+        />
+      )}
+
 
       <BehaviorDrawer
         tenantId={behaviorTenantId}
