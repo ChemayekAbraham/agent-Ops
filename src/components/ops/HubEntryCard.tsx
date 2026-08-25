@@ -34,8 +34,8 @@ export function HubEntryCard({
         <Icon className="h-5 w-5 text-primary" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-bold text-sm text-foreground leading-tight break-words">{title}</p>
-        <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{description}</p>
+        <p className="font-bold text-sm text-foreground leading-tight [overflow-wrap:anywhere]">{title}</p>
+        <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug [overflow-wrap:anywhere]">{description}</p>
         {stats && stats.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {stats.map((s) => (

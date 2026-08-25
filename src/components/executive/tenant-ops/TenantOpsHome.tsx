@@ -54,7 +54,7 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
   const stats: { label: string; value: string; hint: string; icon: typeof Users; view: TenantOpsViewKey; tone?: string }[] = [
     {
       label: 'Awaiting review',
-      value: String(c?.review_requests ?? 0),
+      value: (c?.review_requests ?? 0).toLocaleString('en-US'),
       hint: `${c?.new_requests ?? 0} brand new`,
       icon: ClipboardList,
       view: 'pipeline',
@@ -62,7 +62,7 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
     },
     {
       label: 'Active plans',
-      value: String(c?.active_plans ?? 0),
+      value: (c?.active_plans ?? 0).toLocaleString('en-US'),
       hint: `${c?.repaying_plans ?? 0} repaying`,
       icon: TrendingUp,
       view: 'pipeline-hub',
@@ -70,7 +70,7 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
     },
     {
       label: 'Tenants',
-      value: String(c?.tenant_count ?? 0),
+      value: (c?.tenant_count ?? 0).toLocaleString('en-US'),
       hint: `${c?.active_tenants ?? 0} active`,
       icon: Users,
       view: 'all-tenants-hub',
@@ -78,7 +78,7 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
     },
     {
       label: 'Paid today',
-      value: String(c?.paid_today_tenants ?? 0),
+      value: (c?.paid_today_tenants ?? 0).toLocaleString('en-US'),
       hint: `${c?.unpaid_today_tenants ?? 0} still unpaid`,
       icon: CalendarCheck,
       view: 'daily',
@@ -181,12 +181,12 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
                 <div className={cn('rounded-xl p-2 shrink-0', s.tone)}>
                   <s.icon className="h-4 w-4" />
                 </div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
+                <p className="min-w-0 text-[10px] font-semibold uppercase leading-tight tracking-wider text-muted-foreground [overflow-wrap:anywhere] line-clamp-2">
                   {s.label}
                 </p>
               </div>
               <p className="mt-2 text-xl font-bold tabular-nums leading-none">{isLoading ? '—' : s.value}</p>
-              <p className="mt-1 text-[11px] text-muted-foreground truncate">{s.hint}</p>
+              <p className="mt-1 text-[11px] leading-snug text-muted-foreground [overflow-wrap:anywhere] line-clamp-2">{s.hint}</p>
             </button>
           ))}
         </div>
@@ -261,14 +261,16 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
                 key={a.label}
                 type="button"
                 onClick={() => onNavigate(a.view)}
-                className="group flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                className="group flex w-full items-center gap-2.5 rounded-lg px-2 py-2.5 sm:gap-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
               >
-                <span className={cn('w-12 shrink-0 text-lg font-bold tabular-nums', a.tone)}>
+                <span className={cn('w-10 shrink-0 text-base font-bold tabular-nums sm:w-12 sm:text-lg', a.tone)}>
                   {isLoading ? '—' : a.value}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-xs font-bold text-foreground">{a.label}</span>
-                  <span className="block text-[11px] text-muted-foreground truncate">{a.description}</span>
+                  <span className="block text-xs font-bold leading-snug text-foreground [overflow-wrap:anywhere]">{a.label}</span>
+                  <span className="block text-[11px] leading-snug text-muted-foreground [overflow-wrap:anywhere] line-clamp-2">
+                    {a.description}
+                  </span>
                 </span>
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
               </button>
