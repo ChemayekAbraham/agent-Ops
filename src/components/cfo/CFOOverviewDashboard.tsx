@@ -131,7 +131,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const moneyWeCanUse = Math.max(0, totalCash - walletTotal);
   const netToday = todayCashFlow?.netToday ?? 0;
 
-  const trend = revenue?.trend ?? [];
+  
 
 
   const liabilityItems = [
