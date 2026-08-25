@@ -816,13 +816,6 @@ Deno.serve(async (req) => {
       });
       if (rpcErr) {
         console.error("[cfo-direct-credit] Debit ledger error:", rpcErr.message);
-        // The correction row is authorization evidence for a ledger movement,
-        // not a durable record of a failed attempt. Remove it when posting
-        // fails so retries do not leave false completed-looking evidence.
-        await adminClient
-          .from("platform_wallet_corrections")
-          .delete()
-          .eq("reference_id", refId);
         // Roll back the idempotency reservation so a failed debit can be
         // legitimately retried (mirrors the credit branch above).
         if (isEmailOriginGuarded) {
