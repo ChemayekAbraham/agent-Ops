@@ -115,7 +115,7 @@ export default function DeviceAccessDialog({ userId, open, onOpenChange, saleId 
   };
 
   return (
-    <Dialog open onOpenChange={(open) => !open && setDismissed((d) => [...d, order.id])}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
@@ -134,9 +134,6 @@ export default function DeviceAccessDialog({ userId, open, onOpenChange, saleId 
               Access amount
             </p>
             <p className="text-2xl font-bold text-primary">{formatUGX(accessAmount)}</p>
-            <p className="text-[11px] text-muted-foreground">
-              Device price {formatUGX(totalPrice)} + 33% access fee
-            </p>
           </div>
 
           <div className="space-y-2">
@@ -184,7 +181,7 @@ export default function DeviceAccessDialog({ userId, open, onOpenChange, saleId 
             variant="outline"
             size="sm"
             disabled={submitting}
-            onClick={() => setDismissed((d) => [...d, order.id])}
+            onClick={() => onOpenChange(false)}
           >
             Later
           </Button>
