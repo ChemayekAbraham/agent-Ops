@@ -567,18 +567,23 @@ export function useCFOOverviewData() {
     staleTime: STALE_TIME,
   });
 
-  // TODAY's cash flow from general_ledger
+  // TODAY's cash flow from general_ledger (posting date, Uganda local day)
   const todayCashFlow = useQuery({
     queryKey: ['cfo-overview-today'],
     queryFn: async () => {
-      const todayStr = new Date().toISOString().split('T')[0];
+      // Uganda local (EAT / UTC+3) calendar day, expressed as explicit +03:00 bounds
+      const todayStr = new Date(Date.now() + 3 * 3600_000).toISOString().split('T')[0];
+      const tomorrow = new Date(new Date(`${todayStr}T00:00:00+03:00`).getTime() + 86400_000)
+        .toISOString();
 
       const { data: entries } = await supabase
         .from('general_ledger')
         .select('amount, direction, category')
-        .gte('created_at', `${todayStr}T00:00:00`)
-        .lt('created_at', `${todayStr}T23:59:59.999`)
-        .in('classification', ['production', 'legacy_real']);
+        .gte('transaction_date', `${todayStr}T00:00:00+03:00`)
+        .lt('transaction_date', tomorrow)
+        .in('classification', ['production', 'legacy_real'])
+        .range(0, 99999);
+
 
       let cashInToday = 0;
       let cashOutToday = 0;
