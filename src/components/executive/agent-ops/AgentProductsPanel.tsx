@@ -15,7 +15,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { UserAvatar } from '@/components/UserAvatar';
-import { MetricCard } from '@/components/MetricCard';
 import { formatUGX } from '@/lib/rentCalculations';
 import { generateAgentProductsInFieldPdf, type AgentProductKpis, type AgentProductRow } from '@/lib/agentProductsInFieldPdf';
 import { archivePdfBlob } from '@/lib/pdfVault';
