@@ -38381,6 +38381,10 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: Json
       }
+      agent_ops_can_view_rent_behaviour: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       agent_ops_directory_guard: { Args: never; Returns: string }
       agent_ops_issue_agent_product: {
         Args: {
@@ -40751,6 +40755,14 @@ export type Database = {
         Returns: Json
       }
       get_agent_ops_receivables_report: { Args: never; Returns: Json }
+      get_agent_ops_rent_behaviour: {
+        Args: { p_limit?: number; p_offset?: number }
+        Returns: Json
+      }
+      get_agent_ops_rent_behaviour_detail: {
+        Args: { p_agent_id: string; p_tenant_id: string }
+        Returns: Json
+      }
       get_agent_ops_top_agents: {
         Args: { p_days?: number; p_limit?: number }
         Returns: Json
