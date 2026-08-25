@@ -238,11 +238,11 @@ export function SmartphoneCatalogDialog() {
   });
 
   const removeEntry = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (entry: SmartphoneCatalogEntry) => {
       const { data, error } = await db
         .from('smartphone_catalog')
         .delete()
-        .eq('id', id)
+        .eq('id', entry.id)
         .select('id');
       if (error) throw error;
       if (!data || data.length === 0) {
@@ -474,7 +474,7 @@ export function SmartphoneCatalogDialog() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => pendingDelete && removeEntry.mutate(pendingDelete.id)}
+              onClick={() => pendingDelete && removeEntry.mutate(pendingDelete)}
               disabled={removeEntry.isPending}
             >
               {removeEntry.isPending ? 'Removing…' : 'Remove'}
