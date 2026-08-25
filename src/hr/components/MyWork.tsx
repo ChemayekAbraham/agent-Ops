@@ -632,8 +632,9 @@ export default function MyWork({ embedded = false }: MyWorkProps) {
                   disabled={busyTaskId === task.id}
                   onClick={() => act(task.id, 'started')}
                 >
-                  Start
+                  {busyTaskId === task.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Start'}
                 </Button>
+
               </div>
             ))}
           </CardContent>
