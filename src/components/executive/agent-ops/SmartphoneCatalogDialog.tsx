@@ -48,7 +48,7 @@ export function useSmartphoneCatalog() {
     queryFn: async (): Promise<SmartphoneCatalogEntry[]> => {
       const { data, error } = await db
         .from('smartphone_catalog')
-        .select('id, brand, model_name, default_amount, is_active, created_at')
+        .select('id, brand, model_name, default_amount, specifications, is_active, created_at')
         .order('brand', { ascending: true })
         .order('model_name', { ascending: true });
       if (error) throw error;
