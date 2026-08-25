@@ -48,6 +48,11 @@ export function PromissoryNotesQueue() {
   const [rejecting, setRejecting] = useState(false);
   const [leadSearch, setLeadSearch] = useState('');
   const [selectedLead, setSelectedLead] = useState<any>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkReason, setBulkReason] = useState('');
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
 
   const { data: leadCandidates = [], isFetching: leadLoading } = useQuery({
     queryKey: ['partner-lead-candidates', leadSearch],
