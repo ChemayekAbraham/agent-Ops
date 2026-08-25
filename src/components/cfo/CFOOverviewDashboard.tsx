@@ -265,31 +265,43 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         </div>
 
 
-        {/* ══════════════ REVENUE CHART ══════════════ */}
+        {/* ══════════════ CASH INFLOWS & OUTFLOWS CHART ══════════════ */}
         <Card className="rounded-2xl shadow-sm h-full flex flex-col">
           <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
             <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
-              <p className="text-sm font-semibold tracking-tight">Revenue — Last 7 Days</p>
+              <p className="text-sm font-semibold tracking-tight">Cash Inflows &amp; Outflows — Last 7 Days</p>
               <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                <LineChartIcon className="h-3.5 w-3.5" /> UGX
+                <BarChart3 className="h-3.5 w-3.5" /> UGX
               </span>
             </div>
-            {trendChartData.length > 0 ? (
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={trendChartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                    <YAxis tickFormatter={(v: number) => fmtShort(v)} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={52} />
-                    <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Bar name="Revenue (UGX)" dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={22} />
-                    <Line name="Trend" type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
+            {cashFlowDays.length > 0 && (sevenDayCashFlow?.totalInflow || sevenDayCashFlow?.totalOutflow) ? (
+              <>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={cashFlowDays} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                      <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                      <YAxis tickFormatter={(v: number) => fmtShort(v)} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={52} />
+                      <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar name="Cash In" dataKey="inflow" fill="#10b981" radius={[4, 4, 0, 0]} barSize={14} />
+                      <Bar name="Cash Out" dataKey="outflow" fill="#f97316" radius={[4, 4, 0, 0]} barSize={14} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                  <span className="text-[11px] font-medium text-muted-foreground">Net Cash Flow (7 days)</span>
+                  <span
+                    className={`text-sm font-semibold tabular-nums ${
+                      netSevenDayCashFlow >= 0 ? 'text-emerald-600' : 'text-destructive'
+                    }`}
+                  >
+                    {netSevenDayCashFlow >= 0 ? '+' : '-'}UGX {fmtShort(Math.abs(netSevenDayCashFlow))}
+                  </span>
+                </div>
+              </>
             ) : (
-              <p className="text-xs text-muted-foreground flex-1 flex items-center justify-center min-h-[16rem]">No revenue recorded in the last 7 days.</p>
+              <p className="text-xs text-muted-foreground flex-1 flex items-center justify-center min-h-[16rem]">No cash movement recorded in the last 7 days.</p>
             )}
           </CardContent>
         </Card>
