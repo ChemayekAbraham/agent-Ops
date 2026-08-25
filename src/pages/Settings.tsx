@@ -926,14 +926,6 @@ export default function Settings() {
             {activeSection === 'advanced' && (
               <div className="space-y-4">
                 <Card className="border-border/40 rounded-2xl">
-                  <CardContent className="py-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2"><RefreshCw className="h-4 w-4 text-muted-foreground" /><div><p className="font-medium text-sm">Start Fresh</p><p className="text-xs text-muted-foreground">Reset all preferences</p></div></div>
-                      <Button variant="outline" size="sm" onClick={() => { resetPreferences(); toast.success('Preferences reset'); }} className="gap-1.5 text-xs"><RefreshCw className="h-3 w-3" />Reset</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border-border/40 rounded-2xl">
                   <CardHeader className="pb-2">
                     <div className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4 text-primary" />
