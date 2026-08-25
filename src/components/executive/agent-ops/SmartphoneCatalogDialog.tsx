@@ -239,8 +239,15 @@ export function SmartphoneCatalogDialog() {
 
   const removeEntry = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await db.from('smartphone_catalog').delete().eq('id', id);
+      const { data, error } = await db
+        .from('smartphone_catalog')
+        .delete()
+        .eq('id', id)
+        .select('id');
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('Nothing was deleted — you may not have permission to remove catalog models.');
+      }
     },
     onSuccess: () => {
       toast.success('Phone removed');
