@@ -35,6 +35,7 @@ export interface SmartphoneCatalogEntry {
   brand: string;
   model_name: string | null;
   default_amount: number | null;
+  specifications: string | null;
   is_active: boolean;
   created_at?: string | null;
 }
