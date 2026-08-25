@@ -295,11 +295,17 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
                   {selectedDepartment?.name ?? '—'}
                 </div>
               )}
+              {myDepartments.length > 1 && !departmentId && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Your home department could not be resolved — pick the department this budget belongs to.
+                </p>
+              )}
               {route && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   Approval route: {BUDGET_ROUTE_LABEL[route]}
                 </p>
               )}
+
             </div>
 
           </div>
