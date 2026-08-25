@@ -39813,7 +39813,7 @@ export type Database = {
         Returns: boolean
       }
       delete_agent_product_holdings: {
-        Args: { p_agent_id: string; p_category: string; p_reason: string }
+        Args: { p_agent_id: string; p_category?: string; p_reason?: string }
         Returns: Json
       }
       delete_email: {
