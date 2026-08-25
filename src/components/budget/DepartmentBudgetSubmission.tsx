@@ -97,13 +97,20 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     if (!cycleId && openCycles.length) setCycleId(openCycles[0].id);
   }, [openCycles, cycleId]);
   useEffect(() => {
+    // Never guess: the field prepopulates with the user's own (home) department
+    // only. When the home department cannot be resolved and more than one
+    // posting exists, the field stays empty so an alphabetically-first
+    // department is never silently pre-selected on the user's behalf.
+    if (refLoading) return;
     if (!myDepartments.length) { if (departmentId) setDepartmentId(''); return; }
     if (myDepartments.some(d => d.id === departmentId)) return;
     const preferred = primaryDepartmentId
       ? myDepartments.find(d => d.id === primaryDepartmentId)
       : null;
-    setDepartmentId(preferred?.id ?? myDepartments[0].id);
-  }, [myDepartments, departmentId, primaryDepartmentId]);
+    if (preferred) { setDepartmentId(preferred.id); return; }
+    setDepartmentId(myDepartments.length === 1 ? myDepartments[0].id : '');
+  }, [myDepartments, departmentId, primaryDepartmentId, refLoading]);
+
 
   useEffect(() => {
     if (!departmentId) { setRoute(null); return; }
