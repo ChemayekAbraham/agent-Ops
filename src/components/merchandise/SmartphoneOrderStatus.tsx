@@ -74,6 +74,9 @@ function normalizeStatus(value: unknown): OrderStatus {
   return KNOWN_STATUSES.includes(value as OrderStatus) ? (value as OrderStatus) : 'submitted';
 }
 
+/** Access Fee = smartphone cost plus the 1.33× markup shown to agents. */
+const accessFee = (unitPrice: number) => Math.round(Number(unitPrice) * 1.33);
+
 
 interface Props {
   userId?: string;
