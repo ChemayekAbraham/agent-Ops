@@ -336,15 +336,7 @@ Deno.serve(async (req) => {
       'research_development_expense', 'tax_expense', 'interest_expense', 'equipment_expense',
       // Agent float top-ups initiated by CFO when the standard agent deposit
       // approval path is unavailable. Routes to operational_wallet → float.
-      'agent_float_deposit', 'agent_float_settlement', 'rent_disbursement',
-      // Plain wallet money-in / money-out. These are the two categories the
-      // user-facing Wallet Statement renders as "Wallet Deposit" and
-      // "Wallet Withdrawal" (see WalletLedgerStatement.CATEGORY_LABELS), and
-      // they are the same pair approve-deposit / approve-withdrawal post on
-      // both legs. Manual credits/debits from the Platform Users wallet card
-      // ride this rail so they read identically to an organic deposit or
-      // withdrawal instead of appearing as an accounting correction.
-      'wallet_deposit', 'wallet_withdrawal',
+      'agent_float_deposit', 'rent_disbursement',
     ];
     // Default the wallet leg to `wallet_deposit` (user-visible) instead of
     // `system_balance_correction`, which `v_user_wallet_strict` and every
@@ -366,14 +358,7 @@ Deno.serve(async (req) => {
         }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
-    // Direction-aware fallback. A credit that names no category is a plain
-    // wallet deposit; a debit that names none is a plain wallet withdrawal.
-    // The old code defaulted BOTH to 'wallet_deposit', which stamped every
-    // uncategorised debit's cash_out leg as a deposit — the Wallet Statement
-    // then rendered "Wallet Deposit -UGX x". Every current caller passes an
-    // explicit category, so this only closes the latent trap.
-    const DEFAULT_WALLET_CATEGORY = op === 'debit' ? 'wallet_withdrawal' : 'wallet_deposit';
-    const walletCatRaw = ALLOWED_CATEGORIES.includes(wallet_category) ? wallet_category : DEFAULT_WALLET_CATEGORY;
+    const walletCatRaw = ALLOWED_CATEGORIES.includes(wallet_category) ? wallet_category : 'wallet_deposit';
     const platformCat = ALLOWED_CATEGORIES.includes(platform_category) ? platform_category : 'system_balance_correction';
 
     // Expense categories (payroll, marketing, tax, etc.) describe the PLATFORM

@@ -69,22 +69,6 @@ export default function AddBalanceDialog({
 
   const selectedBucketBalance = bucket === 'float' ? bucketBalances.float : bucketBalances.withdrawable;
 
-  // ── Ledger categories ────────────────────────────────────────────────
-  // Both legs of the double entry carry the SAME category — the convention
-  // approve-deposit and approve-withdrawal already use. That keeps the pair
-  // self-describing in the general ledger and makes the user-facing Wallet
-  // Statement render the row from `category` alone:
-  //
-  //   credit → wallet_deposit     → "Wallet Deposit"    (+amount, cash_in)
-  //   debit  → wallet_withdrawal  → "Wallet Withdrawal" (-amount, cash_out)
-  //
-  // Float is the company's operational bucket, not the user's own money, so
-  // it keeps the float-specific pair (locked to `operational_wallet` routing
-  // by cfo-direct-credit's CATEGORY_BUCKET_LOCK / FLOAT_ROUTE_CATEGORIES).
-  const ledgerCategory = bucket === 'float'
-    ? (type === 'credit' ? 'agent_float_deposit' : 'agent_float_settlement')
-    : (type === 'credit' ? 'wallet_deposit' : 'wallet_withdrawal');
-
   const handleAdjustBalance = async () => {
     const amountNum = parseFloat(amount);
 
@@ -122,14 +106,11 @@ export default function AddBalanceDialog({
           reason: reason.trim(),
           operation: type,
           recipient_type: bucket === 'float' ? 'operational_wallet' : 'user',
-          // Same category on both legs so the ledger pair is self-describing
-          // and the wallet statement labels the row correctly. Float credits
-          // must additionally sit in the edge function's FLOAT_ROUTE_CATEGORIES
-          // allow-list or the request is rejected.
-          wallet_category: ledgerCategory,
-          platform_category: ledgerCategory,
+          // Float credits must use a category in the edge function's
+          // FLOAT_ROUTE_CATEGORIES allow-list or it rejects the request.
+          wallet_category: bucket === 'float' ? 'agent_float_deposit' : undefined,
           financial_impact: 'neutral',
-          category_label: type === 'credit' ? 'Wallet Deposit' : 'Wallet Withdrawal',
+          category_label: `Manager Wallet ${type === 'credit' ? 'Credit' : 'Debit'} (${bucket === 'float' ? 'Float' : 'Withdrawable'})`,
           manual_credit: true,
         },
       });
