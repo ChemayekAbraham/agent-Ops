@@ -397,6 +397,9 @@ export function SmartphoneCatalogDialog() {
                         {' · added '}
                         {fmtDate(e.created_at)}
                       </p>
+                      {e.specifications && (
+                        <p className="truncate text-xs text-muted-foreground mt-0.5">{e.specifications}</p>
+                      )}
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
                       <Badge variant={e.is_active ? 'default' : 'secondary'}>
