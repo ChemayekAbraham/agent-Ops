@@ -273,6 +273,12 @@ export function PartnersOpsDashboard() {
       );
       case 'portfolios.expiring': return <ExpiringPortfoliosPanel />;
       case 'portfolios.renewed': return <PortfolioRenewalsPanel />;
+      case 'portfolios.topups': return (
+        <div className="space-y-6">
+          {/* Partner-initiated top-ups land here for Partner Operations approval. */}
+          <PortfolioTopUpVerification />
+        </div>
+      );
       case 'financial.capital': return <PartnerCapitalFlow />;
       case 'financial.payouts': return (
         <div className="space-y-3">
