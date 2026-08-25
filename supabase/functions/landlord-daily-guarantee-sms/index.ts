@@ -12,7 +12,7 @@ const ALLOWED_ROLES = ["coo", "ceo", "cto", "cmo", "super_admin", "manager"];
 
 // Daily marketing message to every landlord.
 const MESSAGE =
-  `Your house shouldn't stay empty. Your rent shouldn't be delayed. WELILE connects you to verified tenants and guarantees your monthly rent. List your property now: welileapp.com/landlord-signup WhatsApp: +256 748 747134`;
+  `Your house shouldn't stay empty. Your rent shouldn't be delayed. WELILE connects you to verified tenants and guarantees your monthly rent. List your property now: welileapp.com/wjoin WhatsApp: +256 748 747134`;
 
 const SMS_ATTEMPT_TIMEOUT_MS = 5000;
 const SMS_MAX_ATTEMPTS = 2;
