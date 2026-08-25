@@ -718,6 +718,7 @@ export type Database = {
           extend_days: number | null
           id: string
           monthly_rate: number
+          reason: string | null
           request_id: string | null
           topped_up_by: string
         }
@@ -729,6 +730,7 @@ export type Database = {
           extend_days?: number | null
           id?: string
           monthly_rate?: number
+          reason?: string | null
           request_id?: string | null
           topped_up_by: string
         }
@@ -740,6 +742,7 @@ export type Database = {
           extend_days?: number | null
           id?: string
           monthly_rate?: number
+          reason?: string | null
           request_id?: string | null
           topped_up_by?: string
         }
@@ -38593,15 +38596,27 @@ export type Database = {
         }
         Returns: Json
       }
-      apply_advance_topup: {
-        Args: {
-          p_advance_id: string
-          p_amount: number
-          p_extend_days: number
-          p_request_id?: string
-        }
-        Returns: Json
-      }
+      apply_advance_topup:
+        | {
+            Args: {
+              p_advance_id: string
+              p_amount: number
+              p_extend_days: number
+              p_request_id?: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_advance_id: string
+              p_amount: number
+              p_extend_days: number
+              p_override_eligibility?: boolean
+              p_reason?: string
+              p_request_id?: string
+            }
+            Returns: Json
+          }
       apply_layer_a_writedown: {
         Args: { p_dry_run?: boolean; p_user_id: string }
         Returns: Json

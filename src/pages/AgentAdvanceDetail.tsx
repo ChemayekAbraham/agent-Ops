@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatUGX, getRiskLevel, calculateCompoundProjection, calculateRegistrationFee, calculateAccessFee, calculateTotalPayable, calculateDailyPayment } from '@/lib/agentAdvanceCalculations';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useState } from 'react';
-import IssueAdvanceSheet from '@/components/manager/IssueAdvanceSheet';
+import CFOAdvanceTopupDialog from '@/components/cfo/CFOAdvanceTopupDialog';
 
 export default function AgentAdvanceDetail() {
   const { id } = useParams();
@@ -43,7 +43,7 @@ export default function AgentAdvanceDetail() {
     enabled: !!id,
   });
 
-  const { data: topups = [] } = useQuery({
+  const { data: topups = [], refetch: refetchTopups } = useQuery({
     queryKey: ['agent-advance-topups', id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -199,9 +199,10 @@ export default function AgentAdvanceDetail() {
               <div className="space-y-2">
                 {topups.map((t: any) => (
                   <div key={t.id} className="flex items-center justify-between py-2 border-b border-border/30 last:border-0">
-                    <div>
+                    <div className="pr-3">
                       <p className="font-medium">{formatUGX(t.amount)}</p>
                       <p className="text-xs text-muted-foreground">By {t.profiles?.full_name || 'Manager'}</p>
+                      {t.reason && <p className="text-xs text-muted-foreground mt-0.5 italic">"{t.reason}"</p>}
                     </div>
                     <p className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleDateString()}</p>
                   </div>
@@ -246,11 +247,11 @@ export default function AgentAdvanceDetail() {
         </Card>
       </div>
 
-      <IssueAdvanceSheet
+      <CFOAdvanceTopupDialog
         open={topupOpen}
         onOpenChange={setTopupOpen}
-        onSuccess={refetch}
-        preselectedAgentId={advance.agent_id}
+        advance={advance}
+        onSuccess={() => { refetch(); refetchTopups(); }}
       />
     </div>
   );
