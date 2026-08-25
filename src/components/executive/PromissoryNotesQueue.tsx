@@ -340,11 +340,41 @@ export function PromissoryNotesQueue() {
             <div className="text-center py-8 text-muted-foreground text-sm">No promissory notes found</div>
           ) : (
             <>
+              {/* Bulk selection bar */}
+              <div className="flex flex-wrap items-center gap-2 pb-2 mb-2 border-b">
+                <label className="flex items-center gap-2 text-[11px] text-muted-foreground cursor-pointer">
+                  <Checkbox
+                    checked={allPageSelected}
+                    onCheckedChange={toggleSelectPage}
+                    aria-label="Select all notes on this page"
+                  />
+                  Select page
+                </label>
+                <span className="text-[11px] text-muted-foreground">{selectedIds.length} selected</span>
+                {selectedIds.length > 0 && (
+                  <>
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={() => setSelectedIds([])}>
+                      Clear
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-7 px-2 text-[11px] ml-auto"
+                      onClick={() => { setBulkReason(''); setBulkOpen(true); }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1" />
+                      Delete {selectedIds.length}
+                    </Button>
+                  </>
+                )}
+              </div>
+
               {/* Desktop table */}
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="text-left text-muted-foreground border-b">
+                      <th className="py-2 pr-2 w-8"></th>
                       <th className="py-2 pr-3 font-medium">Agent</th>
                       <th className="py-2 pr-3 font-medium">Partner</th>
                       <th className="py-2 pr-3 font-medium text-right">Promised</th>
@@ -359,11 +389,19 @@ export function PromissoryNotesQueue() {
                       const StatusIcon = config.icon;
                       return (
                         <tr key={note.id} className="border-b last:border-0 cursor-pointer hover:bg-muted/40" onClick={() => setSelectedNote(note)}>
+                          <td className="py-2 pr-2" onClick={(e) => e.stopPropagation()}>
+                            <Checkbox
+                              checked={selectedIds.includes(note.id)}
+                              onCheckedChange={() => toggleSelect(note.id)}
+                              aria-label={`Select note for ${note.partner_name}`}
+                            />
+                          </td>
                           <td className="py-2 pr-3 truncate max-w-[160px]">{note.agent_name}</td>
                           <td className="py-2 pr-3">
                             <span className="font-medium block truncate max-w-[160px]">{note.partner_name}</span>
                             <span className="text-[10px] text-muted-foreground">{note.whatsapp_number}</span>
                           </td>
+
                           <td className="py-2 pr-3 text-right font-medium"><CompactAmount value={Number(note.amount)} /></td>
                           <td className="py-2 pr-3 text-right font-medium text-emerald-600"><CompactAmount value={Number(note.total_collected)} /></td>
                           <td className="py-2 pr-3">{format(new Date(note.created_at), 'dd MMM yyyy')}</td>
