@@ -246,11 +246,11 @@ export default function AgentAdvanceDetail() {
         </Card>
       </div>
 
-      <IssueAdvanceSheet
+      <CFOAdvanceTopupDialog
         open={topupOpen}
         onOpenChange={setTopupOpen}
-        onSuccess={refetch}
-        preselectedAgentId={advance.agent_id}
+        advance={advance}
+        onSuccess={() => { refetch(); refetchTopups(); }}
       />
     </div>
   );
