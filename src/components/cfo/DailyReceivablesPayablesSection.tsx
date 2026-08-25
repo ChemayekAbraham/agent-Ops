@@ -71,7 +71,7 @@ export function DailyReceivablesPayablesSection() {
       {/* header + filter */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-sm font-semibold tracking-tight">Daily Receivables &amp; Payables</h2>
+          <h2 className="text-sm font-semibold tracking-tight">Receivables &amp; Payables</h2>
           <p className="text-[11px] text-muted-foreground mt-0.5">{rangeLabel}</p>
         </div>
         <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-sm">
@@ -133,7 +133,7 @@ export function DailyReceivablesPayablesSection() {
                   <span className="rounded-lg bg-emerald-50 dark:bg-emerald-950/40 p-1.5">
                     <ArrowDownCircle className="h-4 w-4 text-emerald-600" />
                   </span>
-                  <p className="text-xs font-semibold">Receivables Today</p>
+                  <p className="text-xs font-semibold">Receivables</p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </div>
@@ -161,7 +161,7 @@ export function DailyReceivablesPayablesSection() {
                   <span className="rounded-lg bg-orange-50 dark:bg-orange-950/40 p-1.5">
                     <ArrowUpCircle className="h-4 w-4 text-orange-600" />
                   </span>
-                  <p className="text-xs font-semibold">Payables Today</p>
+                  <p className="text-xs font-semibold">Payables</p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
               </div>
