@@ -1,3 +1,4 @@
+import "../_shared/noSignupPrompt.ts";
 import "../_shared/smsFooterInterceptor.ts";
 // Issue OTP for agent-initiated landlord rent payout.
 // Validates float, creates an OTP challenge, sends SMS to landlord.

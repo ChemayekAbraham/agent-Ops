@@ -1,3 +1,4 @@
+import "../_shared/noSignupPrompt.ts";
 import "../_shared/smsFooterInterceptor.ts";
 // Financial Ops initiated cash deposit — Step 1.
 //

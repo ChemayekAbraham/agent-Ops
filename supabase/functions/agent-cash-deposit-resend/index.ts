@@ -1,3 +1,4 @@
+import "../_shared/noSignupPrompt.ts";
 import "../_shared/smsFooterInterceptor.ts";
 // Cash-with-agent deposit — Resend OTP.
 // The depositor can request a fresh confirmation code for an existing

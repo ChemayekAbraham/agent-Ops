@@ -1,3 +1,4 @@
+import "../_shared/noSignupPrompt.ts";
 import "../_shared/smsFooterInterceptor.ts";
 // Financial Ops — resend/reissue a cash deposit code.
 //
