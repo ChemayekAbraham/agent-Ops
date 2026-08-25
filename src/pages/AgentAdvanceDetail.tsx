@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatUGX, getRiskLevel, calculateCompoundProjection, calculateRegistrationFee, calculateAccessFee, calculateTotalPayable, calculateDailyPayment } from '@/lib/agentAdvanceCalculations';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useState } from 'react';
-import IssueAdvanceSheet from '@/components/manager/IssueAdvanceSheet';
+import CFOAdvanceTopupDialog from '@/components/cfo/CFOAdvanceTopupDialog';
 
 export default function AgentAdvanceDetail() {
   const { id } = useParams();
