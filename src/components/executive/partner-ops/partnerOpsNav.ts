@@ -31,6 +31,7 @@ export type PartnerOpsViewKey =
   | 'portfolios.expiring'
   | 'portfolios.renewed'
   | 'portfolios.maturity'
+  | 'portfolios.topups'
   | 'financial.payouts'
   | 'financial.topups'
   | 'financial.withdrawals'
