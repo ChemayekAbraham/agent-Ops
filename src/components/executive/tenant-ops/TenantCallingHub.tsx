@@ -227,7 +227,13 @@ export function TenantCallingHub() {
         </CardContent>
       </Card>
 
-      <TenantCallReportsPanel rows={rows} />
+      <TenantCallReportsPanel
+        rows={rows}
+        filteredRows={visible}
+        filterLabel={tabs.find(t => t.key === tab)?.label}
+        searchLabel={search.trim() || undefined}
+      />
+
 
       <TenantCallDrawer row={open} open={!!open} onClose={() => setOpen(null)} />
     </div>
