@@ -5455,6 +5455,7 @@ export type Database = {
           period_start: string
           period_type: string
           status: string
+          target_department_ids: string[] | null
           title: string
           updated_at: string
         }
@@ -5470,6 +5471,7 @@ export type Database = {
           period_start: string
           period_type?: string
           status?: string
+          target_department_ids?: string[] | null
           title: string
           updated_at?: string
         }
@@ -5485,6 +5487,7 @@ export type Database = {
           period_start?: string
           period_type?: string
           status?: string
+          target_department_ids?: string[] | null
           title?: string
           updated_at?: string
         }
@@ -39018,18 +39021,32 @@ export type Database = {
         }
         Returns: string
       }
-      budget_create_cycle: {
-        Args: {
-          p_deadline: string
-          p_financial_year: string
-          p_instructions: string
-          p_period_end: string
-          p_period_start: string
-          p_period_type: string
-          p_title: string
-        }
-        Returns: string
-      }
+      budget_create_cycle:
+        | {
+            Args: {
+              p_deadline: string
+              p_financial_year: string
+              p_instructions: string
+              p_period_end: string
+              p_period_start: string
+              p_period_type: string
+              p_title: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_deadline: string
+              p_department_ids: string[]
+              p_financial_year: string
+              p_instructions: string
+              p_period_end: string
+              p_period_start: string
+              p_period_type: string
+              p_title: string
+            }
+            Returns: string
+          }
       budget_create_submission: {
         Args: {
           _call_id?: string
