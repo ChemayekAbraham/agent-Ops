@@ -87,15 +87,15 @@ export function LandlordOpsHome({ onNavigate }: { onNavigate: (view: LandlordOps
   }[] = [
     {
       label: 'Landlords',
-      value: String(total),
-      hint: `${verified} verified · ${totals?.pending ?? 0} pending`,
+      value: total.toLocaleString('en-US'),
+      hint: `${verified.toLocaleString('en-US')} verified · ${(totals?.pending ?? 0).toLocaleString('en-US')} pending`,
       icon: Building2,
       view: 'landlords',
       tone: 'bg-primary/10 text-primary',
     },
     {
       label: 'With tenants',
-      value: String(totals?.has_tenants ?? 0),
+      value: (totals?.has_tenants ?? 0).toLocaleString('en-US'),
       hint: `${formatUGX(totals?.occupied_monthly_revenue ?? 0)}/mo`,
       icon: UserCheck,
       view: 'occupied',
@@ -103,7 +103,7 @@ export function LandlordOpsHome({ onNavigate }: { onNavigate: (view: LandlordOps
     },
     {
       label: 'Without tenants',
-      value: String(totals?.no_tenants ?? 0),
+      value: (totals?.no_tenants ?? 0).toLocaleString('en-US'),
       hint: `${formatUGX(totals?.empty_monthly_revenue ?? 0)}/mo not earning`,
       icon: DoorOpen,
       view: 'empty',
@@ -111,7 +111,7 @@ export function LandlordOpsHome({ onNavigate }: { onNavigate: (view: LandlordOps
     },
     {
       label: 'Landlords paid',
-      value: String(paidLandlords),
+      value: paidLandlords.toLocaleString('en-US'),
       hint: 'disbursements from tenant rent',
       icon: Banknote,
       view: 'landlords-paid',
@@ -191,7 +191,7 @@ export function LandlordOpsHome({ onNavigate }: { onNavigate: (view: LandlordOps
                   </span>
                 </div>
                 <p className="mt-1 text-2xl font-bold leading-none tabular-nums">
-                  {countsLoading ? '—' : pendingHouses}
+                  {countsLoading ? '—' : pendingHouses.toLocaleString('en-US')}
                 </p>
                 <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
                   {formatUGX(pendingHouses * 2000)} in bonuses
@@ -209,7 +209,7 @@ export function LandlordOpsHome({ onNavigate }: { onNavigate: (view: LandlordOps
                   </span>
                 </div>
                 <p className="mt-1 text-2xl font-bold leading-none tabular-nums">
-                  {countsLoading ? '—' : pendingLandlords}
+                  {countsLoading ? '—' : pendingLandlords.toLocaleString('en-US')}
                 </p>
                 <p className="mt-1 text-[10px] leading-snug text-muted-foreground">pending review</p>
               </button>
@@ -299,7 +299,7 @@ export function LandlordOpsHome({ onNavigate }: { onNavigate: (view: LandlordOps
               </div>
               <div>
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Funded</p>
-                <p className="text-sm font-bold tabular-nums">{formatUGX(funded?.summary?.total_funded ?? 0)}</p>
+                <p className="text-sm font-bold tabular-nums [overflow-wrap:anywhere]">{formatUGX(funded?.summary?.total_funded ?? 0)}</p>
               </div>
               <div>
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Districts</p>
@@ -360,13 +360,17 @@ export function LandlordOpsHome({ onNavigate }: { onNavigate: (view: LandlordOps
               key={a.label}
               type="button"
               onClick={() => onNavigate(a.view)}
-              className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/50"
+              className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-muted/50 sm:gap-3 sm:px-4"
             >
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-semibold">{a.label}</p>
-                <p className="truncate text-[11px] text-muted-foreground">{a.description}</p>
+                <p className="text-xs font-semibold leading-snug [overflow-wrap:anywhere]">{a.label}</p>
+                <p className="text-[11px] leading-snug text-muted-foreground [overflow-wrap:anywhere] line-clamp-2">
+                  {a.description}
+                </p>
               </div>
-              <span className={cn('text-base font-bold tabular-nums', a.tone)}>{a.value}</span>
+              <span className={cn('shrink-0 text-base font-bold tabular-nums', a.tone)}>
+                {a.value.toLocaleString('en-US')}
+              </span>
               <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
             </button>
           ))}

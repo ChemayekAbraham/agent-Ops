@@ -27,7 +27,7 @@ export function KPICard({ title, value, icon: Icon, trend, color = 'bg-primary/1
         <div className={cn('p-2 rounded-xl shrink-0', color)}>
           <Icon className="h-5 w-5" />
         </div>
-        <p className="text-xs font-medium text-muted-foreground truncate leading-tight">{title}</p>
+        <p className="min-w-0 text-xs font-medium text-muted-foreground leading-tight [overflow-wrap:anywhere] line-clamp-2">{title}</p>
       </div>
       <div className="min-w-0">
         {loading ? (
