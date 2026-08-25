@@ -22,9 +22,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { UnifiedWalletHeroCard } from '@/components/wallet/UnifiedWalletHeroCard';
-import DepositFlow from '@/components/payments/DepositFlow';
-import WithdrawFlow from '@/components/payments/WithdrawFlow';
-import { SendMoneyDialog } from '@/components/wallet/SendMoneyDialog';
+import { FunderQuickActions } from '@/components/supporter/FunderQuickActions';
 import mtnLogoAsset from '@/assets/mtn-logo.png.asset.json';
 import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
 import equityLogoAsset from '@/assets/equity-logo.png.asset.json';
@@ -84,10 +82,7 @@ function transactionIcon(category: string | null, direction: string | null) {
 export default function FunderWalletHubSection({ open, onOpenChange }: FunderWalletHubSectionProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { data, isLoading, error } = usePartnerWalletHub(user?.id, 0);
-  const [showDeposit, setShowDeposit] = useState(false);
-  const [showWithdraw, setShowWithdraw] = useState(false);
-  const [showTransfer, setShowTransfer] = useState(false);
+  const { data, isLoading, error, refetch } = usePartnerWalletHub(user?.id, 0);
 
   const recentTransactions = (data?.transactions ?? []).slice(0, 10);
 
@@ -142,37 +137,14 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
                   hidePayrollGrowth
                   hideFooter
                   disableTap
+                  quickActions={
+                    <FunderQuickActions
+                      variant="hero"
+                      availableBalance={data?.withdrawableAmount ?? 0}
+                      onChanged={() => void refetch?.()}
+                    />
+                  }
                 />
-
-                {/* Action buttons */}
-                <div className="grid grid-cols-3 gap-3">
-                  <Button
-                    variant="default"
-                    className="h-12 rounded-xl flex-col gap-0.5"
-                    onClick={() => setShowDeposit(true)}
-                  >
-                    <ArrowDownLeft className="h-4 w-4" />
-                    <span className="text-xs">Deposit</span>
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    className="h-12 rounded-xl flex-col gap-0.5"
-                    disabled={(data?.withdrawableAmount ?? 0) <= 0}
-                    onClick={() => setShowWithdraw(true)}
-                  >
-                    <ArrowUpRight className="h-4 w-4" />
-                    <span className="text-xs">Withdraw</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-12 rounded-xl flex-col gap-0.5"
-                    disabled={(data?.withdrawableAmount ?? 0) <= 0}
-                    onClick={() => setShowTransfer(true)}
-                  >
-                    <ArrowRightLeft className="h-4 w-4" />
-                    <span className="text-xs">Transfer</span>
-                  </Button>
-                </div>
 
                 {/* Providers — wallet-card style, compact logos with names */}
                 <Card className="rounded-2xl border-border/50 shadow-sm overflow-hidden" data-testid="provider-logos">
@@ -276,27 +248,6 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
         </SheetContent>
       </Sheet>
 
-      {user?.id && (
-        <>
-          <DepositFlow
-            open={showDeposit}
-            onOpenChange={setShowDeposit}
-            allowedPurposes={['partnership_deposit'] as const}
-            defaultPurpose="partnership_deposit"
-            lockPurpose
-          />
-          <WithdrawFlow
-            open={showWithdraw}
-            onOpenChange={setShowWithdraw}
-            availableBalance={data?.withdrawableAmount ?? 0}
-            onSuccess={() => setShowWithdraw(false)}
-          />
-          <SendMoneyDialog
-            open={showTransfer}
-            onOpenChange={setShowTransfer}
-          />
-        </>
-      )}
     </>
   );
 }
