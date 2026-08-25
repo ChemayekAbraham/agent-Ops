@@ -44,8 +44,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   operational_expenses: 'Operating Expenses',
   withdrawal: 'Wallet Withdrawal',
   wallet_withdrawal: 'Wallet Withdrawal',
-  agent_float_deposit: 'Float Deposit',
-  agent_float_settlement: 'Float Withdrawal',
   transfer_out: 'Wallet Transfer',
   transfer_in: 'Wallet Transfer',
   wallet_transfer: 'Wallet Transfer',
