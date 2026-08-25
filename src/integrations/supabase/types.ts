@@ -7011,6 +7011,11 @@ export type Database = {
         Row: {
           agent_id: string
           assigned_by: string
+          bank_account_name: string | null
+          bank_account_number: string | null
+          bank_account_set_at: string | null
+          bank_account_set_by: string | null
+          bank_name: string | null
           config: Json
           created_at: string
           current_queue_count: number | null
@@ -7036,6 +7041,11 @@ export type Database = {
         Insert: {
           agent_id: string
           assigned_by: string
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_account_set_at?: string | null
+          bank_account_set_by?: string | null
+          bank_name?: string | null
           config?: Json
           created_at?: string
           current_queue_count?: number | null
@@ -7061,6 +7071,11 @@ export type Database = {
         Update: {
           agent_id?: string
           assigned_by?: string
+          bank_account_name?: string | null
+          bank_account_number?: string | null
+          bank_account_set_at?: string | null
+          bank_account_set_by?: string | null
+          bank_name?: string | null
           config?: Json
           created_at?: string
           current_queue_count?: number | null
@@ -7178,6 +7193,55 @@ export type Database = {
           {
             foreignKeyName: "cashout_agents_assigned_by_fkey"
             columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "cashout_agents_bank_account_set_by_fkey"
+            columns: ["bank_account_set_by"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "cashout_agents_bank_account_set_by_fkey"
+            columns: ["bank_account_set_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cashout_agents_bank_account_set_by_fkey"
+            columns: ["bank_account_set_by"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "cashout_agents_bank_account_set_by_fkey"
+            columns: ["bank_account_set_by"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cashout_agents_bank_account_set_by_fkey"
+            columns: ["bank_account_set_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cashout_agents_bank_account_set_by_fkey"
+            columns: ["bank_account_set_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "cashout_agents_bank_account_set_by_fkey"
+            columns: ["bank_account_set_by"]
             isOneToOne: false
             referencedRelation: "vw_agent_ops_directory"
             referencedColumns: ["agent_id"]
