@@ -112,14 +112,14 @@ export default function AddBalanceDialog({
           reason: reason.trim(),
           operation: type,
           recipient_type: bucket === 'float' ? 'operational_wallet' : 'user',
-          // Same category on both legs so the ledger pair is self-describing
-          // and the wallet statement labels the row correctly. Float credits
-          // must additionally sit in the edge function's FLOAT_ROUTE_CATEGORIES
-          // allow-list or the request is rejected.
-          wallet_category: ledgerCategory,
-          platform_category: ledgerCategory,
+          // Float credits must sit in the edge function's
+          // FLOAT_ROUTE_CATEGORIES allow-list or the request is rejected.
+          ...(bucket === 'float' && type === 'credit'
+            ? { wallet_category: 'agent_float_deposit' }
+            : {}),
           financial_impact: 'neutral',
-          category_label: type === 'credit' ? 'Wallet Deposit' : 'Wallet Withdrawal',
+          category_label: `Manager Wallet ${type === 'credit' ? 'Credit' : 'Debit'} (${bucket === 'float' ? 'Float' : 'Withdrawable'})`,
+
           manual_credit: true,
         },
       });
