@@ -155,6 +155,11 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
 
   const pendingCount = useMemo(() => orders.filter((o) => isPending(o.order_status)).length, [orders]);
 
+  const rowBusy = (id: string) =>
+    (approve.isPending && approve.variables?.id === id) ||
+    (reject.isPending && reject.variables?.id === id);
+
+
   return (
     <Card>
       <CardHeader className="pb-3">
