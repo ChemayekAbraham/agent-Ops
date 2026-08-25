@@ -149,10 +149,9 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const todayLabel = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
 
-  const trendChartData = trend.map((t) => ({
-    label: t.date.slice(5),
-    revenue: t.amount,
-  }));
+  const cashFlowDays = sevenDayCashFlow?.days ?? [];
+  const netSevenDayCashFlow = sevenDayCashFlow?.netFlow ?? 0;
+
 
 
   return (
