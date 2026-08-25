@@ -435,8 +435,8 @@ export function PromissoryNotesQueue() {
                           {note.came_in && <span className="ml-auto text-emerald-700 font-medium">Came in</span>}
                         </div>
                       </div>
-                    </button>
-                  );
+                    </div>
+
                 })}
               </div>
 
