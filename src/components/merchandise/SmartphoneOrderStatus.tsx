@@ -31,6 +31,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import DeviceAccessDialog from '@/components/merchandise/DeviceAccessDialog';
 
 
 const db = supabase as any;
@@ -47,6 +48,7 @@ interface SmartphoneOrder {
   client_name: string | null;
   client_phone: string | null;
   tracking_reference: string | null;
+  access_accepted_at: string | null;
 }
 
 const STATUS_META: Record<OrderStatus, { label: string; icon: typeof Clock; className: string }> = {
@@ -96,13 +98,14 @@ export default function SmartphoneOrderStatus({
   const [cancelTarget, setCancelTarget] = useState<SmartphoneOrder | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [expanded, setExpanded] = useState(true);
+  const [accessOrderId, setAccessOrderId] = useState<string | null>(null);
   const { data: orders = [] } = useQuery<SmartphoneOrder[]>({
     queryKey: ['my-smartphone-orders', userId, itemName],
     enabled: !!userId,
     queryFn: async () => {
       const { data, error } = await db
         .from('merchandise_sales')
-        .select('id, unit_price, amount_outstanding, order_status, created_at, client_name, client_phone, tracking_reference')
+        .select('id, unit_price, amount_outstanding, order_status, created_at, client_name, client_phone, tracking_reference, access_accepted_at')
         .eq('customer_id', userId)
         .eq('item_name', itemName)
         .order('created_at', { ascending: false });
@@ -335,6 +338,15 @@ export default function SmartphoneOrderStatus({
                     {meta.label}
                   </Badge>
                 </div>
+                {status === 'approved' && !o.access_accepted_at && (
+                  <Button
+                    size="sm"
+                    className="h-8 w-full gap-1.5 text-xs"
+                    onClick={() => setAccessOrderId(o.id)}
+                  >
+                    <Smartphone className="h-3.5 w-3.5" /> Proceed to access device
+                  </Button>
+                )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -391,6 +403,13 @@ export default function SmartphoneOrderStatus({
           })}
         </div>
         )}
+        <DeviceAccessDialog
+          userId={userId}
+          saleId={accessOrderId}
+          open={!!accessOrderId}
+          onOpenChange={(v) => !v && setAccessOrderId(null)}
+        />
+
         <AlertDialog open={!!cancelTarget} onOpenChange={(v) => !v && setCancelTarget(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
