@@ -36,9 +36,11 @@ export interface SmartphoneCatalogEntry {
   model_name: string | null;
   default_amount: number | null;
   specifications: string | null;
+  more_specifications: string | null;
   is_active: boolean;
   created_at?: string | null;
 }
+
 
 export const SMARTPHONE_CATALOG_QUERY_KEY = ['smartphone-catalog'];
 
@@ -48,9 +50,10 @@ export function useSmartphoneCatalog() {
     queryFn: async (): Promise<SmartphoneCatalogEntry[]> => {
       const { data, error } = await db
         .from('smartphone_catalog')
-        .select('id, brand, model_name, default_amount, specifications, is_active, created_at')
+        .select('id, brand, model_name, default_amount, specifications, more_specifications, is_active, created_at')
         .order('brand', { ascending: true })
         .order('model_name', { ascending: true });
+
       if (error) throw error;
       return (data || []) as SmartphoneCatalogEntry[];
     },
@@ -94,11 +97,12 @@ async function exportCatalogPdf(rows: SmartphoneCatalogEntry[], from: string, to
 
   autoTable(doc, {
     startY: 46,
-    head: [['Brand', 'Model', 'Specifications', 'Default amount', 'Status', 'Added']],
+    head: [['Brand', 'Model', 'Specifications', 'More specifications', 'Default amount', 'Status', 'Added']],
     body: rows.map((r) => [
       r.brand,
       r.model_name || 'Any model',
       r.specifications || '—',
+      r.more_specifications || '—',
       r.default_amount != null ? formatUGX(Number(r.default_amount)) : '—',
       r.is_active ? 'Active' : 'Inactive',
       fmtDate(r.created_at),
@@ -106,8 +110,9 @@ async function exportCatalogPdf(rows: SmartphoneCatalogEntry[], from: string, to
     styles: { fontSize: 8.5, cellPadding: 2 },
     headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
     margin: { left: margin, right: margin },
-    columnStyles: { 2: { cellWidth: 'auto' } },
+    columnStyles: { 2: { cellWidth: 'auto' }, 3: { cellWidth: 'auto' } },
   });
+
 
   doc.save(`welile-smartphone-catalog-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
@@ -119,6 +124,7 @@ export function SmartphoneCatalogDialog() {
   const [modelName, setModelName] = useState('');
   const [amount, setAmount] = useState('');
   const [specifications, setSpecifications] = useState('');
+  const [moreSpecifications, setMoreSpecifications] = useState('');
   const [search, setSearch] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -127,7 +133,9 @@ export function SmartphoneCatalogDialog() {
   const [editModel, setEditModel] = useState('');
   const [editAmount, setEditAmount] = useState('');
   const [editSpecifications, setEditSpecifications] = useState('');
+  const [editMoreSpecifications, setEditMoreSpecifications] = useState('');
   const [pendingDelete, setPendingDelete] = useState<SmartphoneCatalogEntry | null>(null);
+
   const queryClient = useQueryClient();
 
   const { data: entries = [], isLoading } = useSmartphoneCatalog();
@@ -168,6 +176,7 @@ export function SmartphoneCatalogDialog() {
         model_name: modelName.trim() || null,
         default_amount: total,
         specifications: specifications.trim() || null,
+        more_specifications: moreSpecifications.trim() || null,
       });
       if (error) throw error;
     },
@@ -177,10 +186,12 @@ export function SmartphoneCatalogDialog() {
       setModelName('');
       setAmount('');
       setSpecifications('');
+      setMoreSpecifications('');
       invalidate();
     },
     onError: (e: any) => toast.error(e.message || 'Could not add phone'),
   });
+
 
   const updateEntry = useMutation({
     mutationFn: async (id: string) => {
@@ -194,6 +205,7 @@ export function SmartphoneCatalogDialog() {
           model_name: editModel.trim() || null,
           default_amount: total,
           specifications: editSpecifications.trim() || null,
+          more_specifications: editMoreSpecifications.trim() || null,
         })
         .eq('id', id);
       if (error) throw error;
@@ -205,6 +217,7 @@ export function SmartphoneCatalogDialog() {
     },
     onError: (e: any) => toast.error(e.message || 'Could not update phone'),
   });
+
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, next }: { id: string; next: boolean }) => {
@@ -238,7 +251,9 @@ export function SmartphoneCatalogDialog() {
     setEditModel(e.model_name ?? '');
     setEditAmount(e.default_amount != null ? String(Number(e.default_amount)) : '');
     setEditSpecifications(e.specifications ?? '');
+    setEditMoreSpecifications(e.more_specifications ?? '');
   };
+
 
   return (
     <>
@@ -288,7 +303,18 @@ export function SmartphoneCatalogDialog() {
                 className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
               />
             </div>
+            <div className="space-y-1">
+              <Label className="text-xs">More specifications <span className="text-muted-foreground font-normal">— optional</span></Label>
+              <textarea
+                value={moreSpecifications}
+                onChange={(e) => setMoreSpecifications(e.target.value)}
+                placeholder="e.g. Battery 5000mAh, dual SIM, 1 year warranty"
+                rows={3}
+                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+              />
+            </div>
             <Button className="w-full" onClick={() => addEntry.mutate()} disabled={addEntry.isPending}>
+
               {addEntry.isPending ? 'Saving…' : 'Add to catalog'}
             </Button>
           </div>
@@ -381,7 +407,15 @@ export function SmartphoneCatalogDialog() {
                       rows={2}
                       className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
                     />
+                    <textarea
+                      value={editMoreSpecifications}
+                      onChange={(ev) => setEditMoreSpecifications(ev.target.value)}
+                      placeholder="More specifications (optional)"
+                      rows={2}
+                      className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                    />
                     <div className="flex items-center justify-end gap-1.5">
+
                       <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
                         <X className="mr-1 h-3.5 w-3.5" /> Cancel
                       </Button>
@@ -399,9 +433,12 @@ export function SmartphoneCatalogDialog() {
                         {' · added '}
                         {fmtDate(e.created_at)}
                       </p>
-                      {e.specifications && (
-                        <p className="truncate text-xs text-muted-foreground mt-0.5">{e.specifications}</p>
+                      {(e.specifications || e.more_specifications) && (
+                        <p className="truncate text-xs text-muted-foreground mt-0.5">
+                          {[e.specifications, e.more_specifications].filter(Boolean).join(' · ')}
+                        </p>
                       )}
+
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
                       <Badge variant={e.is_active ? 'default' : 'secondary'}>
