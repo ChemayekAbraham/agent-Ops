@@ -52,7 +52,7 @@ const EmailEditor = lazy(() => import('@/components/profile/EmailEditor'));
 const MobileMoneyNameCard = lazy(() => import('@/components/settings/MobileMoneyNameCard'));
 const AccountLinkingCard = lazy(() => import('@/components/settings/AccountLinkingCard'));
 
-const ShareCardThemeSettings = lazy(() => import('@/components/agent/ShareCardThemeSettings'));
+
 const AgentRentCapacitySelfCard = lazy(() =>
   import('@/components/agent/AgentRentCapacitySelfCard').then((m) => ({ default: m.AgentRentCapacitySelfCard })),
 );
@@ -853,11 +853,6 @@ export default function Settings() {
                 <LazySection name="CurrencyConverter">
                   <CurrencyConverter variant="compact" />
                 </LazySection>
-                {roles.includes('agent') && (
-                  <LazySection name="ShareCardTheme">
-                    <ShareCardThemeSettings />
-                  </LazySection>
-                )}
               </div>
             )}
 
