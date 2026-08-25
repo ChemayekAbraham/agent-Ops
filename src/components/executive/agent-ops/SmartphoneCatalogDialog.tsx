@@ -303,7 +303,18 @@ export function SmartphoneCatalogDialog() {
                 className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
               />
             </div>
+            <div className="space-y-1">
+              <Label className="text-xs">More specifications <span className="text-muted-foreground font-normal">— optional</span></Label>
+              <textarea
+                value={moreSpecifications}
+                onChange={(e) => setMoreSpecifications(e.target.value)}
+                placeholder="e.g. Battery 5000mAh, dual SIM, 1 year warranty"
+                rows={3}
+                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+              />
+            </div>
             <Button className="w-full" onClick={() => addEntry.mutate()} disabled={addEntry.isPending}>
+
               {addEntry.isPending ? 'Saving…' : 'Add to catalog'}
             </Button>
           </div>
@@ -396,7 +407,15 @@ export function SmartphoneCatalogDialog() {
                       rows={2}
                       className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
                     />
+                    <textarea
+                      value={editMoreSpecifications}
+                      onChange={(ev) => setEditMoreSpecifications(ev.target.value)}
+                      placeholder="More specifications (optional)"
+                      rows={2}
+                      className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                    />
                     <div className="flex items-center justify-end gap-1.5">
+
                       <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
                         <X className="mr-1 h-3.5 w-3.5" /> Cancel
                       </Button>
@@ -414,9 +433,12 @@ export function SmartphoneCatalogDialog() {
                         {' · added '}
                         {fmtDate(e.created_at)}
                       </p>
-                      {e.specifications && (
-                        <p className="truncate text-xs text-muted-foreground mt-0.5">{e.specifications}</p>
+                      {(e.specifications || e.more_specifications) && (
+                        <p className="truncate text-xs text-muted-foreground mt-0.5">
+                          {[e.specifications, e.more_specifications].filter(Boolean).join(' · ')}
+                        </p>
                       )}
+
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
                       <Badge variant={e.is_active ? 'default' : 'secondary'}>
