@@ -140,7 +140,12 @@ export function SmartphoneCatalogDialog() {
 
   const { data: entries = [], isLoading } = useSmartphoneCatalog();
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: SMARTPHONE_CATALOG_QUERY_KEY });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: SMARTPHONE_CATALOG_QUERY_KEY });
+    // Brand inventory / products overview reads the catalog server-side too
+    queryClient.invalidateQueries({ queryKey: ['agent-products-overview'], exact: false });
+    queryClient.invalidateQueries({ queryKey: ['smartphone-order-queue'], exact: false });
+  };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
