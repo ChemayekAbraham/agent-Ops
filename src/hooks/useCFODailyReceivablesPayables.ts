@@ -1,0 +1,209 @@
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+
+export type DailyRange = { from: Date; to: Date };
+
+const PENDING_PAYABLE_STATUSES = ['pending', 'approved', 'processing', 're_approved_for_recovery'];
+const PAID_PAYABLE_STATUSES = ['completed', 'paid'];
+
+const startOfDay = (d: Date) => {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+};
+const endOfDay = (d: Date) => {
+  const x = new Date(d);
+  x.setHours(23, 59, 59, 999);
+  return x;
+};
+
+export interface ReceivableRow {
+  id: string;
+  tenant_id: string | null;
+  tenant_name: string;
+  daily_repayment: number;
+  amount_repaid: number;
+  total_repayment: number;
+  expected_to_date: number;
+  overdue: number;
+  outstanding: number;
+  status: string;
+}
+
+export interface PayableRow {
+  id: string;
+  user_id: string | null;
+  name: string;
+  amount: number;
+  status: string;
+  created_at: string;
+  processed_at: string | null;
+  payout_method: string | null;
+}
+
+export interface DailyReceivablesPayables {
+  receivables: {
+    dueInRange: number;
+    collectedInRange: number;
+    overdue: number;
+    outstanding: number;
+    rows: ReceivableRow[];
+  };
+  payables: {
+    dueInRange: number;
+    paidInRange: number;
+    overdue: number;
+    outstanding: number;
+    rows: PayableRow[];
+  };
+  days: number;
+}
+
+/**
+ * Daily receivables & payables derived strictly from existing sources:
+ *  - receivables: v_tenant_daily_eligibility (active repaying plans) + agent_collections (money actually collected)
+ *  - payables:    withdrawal_requests pipeline (pending vs paid)
+ * No accounting logic is changed here — this is a reporting-layer aggregation only.
+ */
+export function useCFODailyReceivablesPayables(range: DailyRange) {
+  const from = startOfDay(range.from);
+  const to = endOfDay(range.to);
+  const days = Math.max(1, Math.round((startOfDay(range.to).getTime() - from.getTime()) / 86_400_000) + 1);
+
+  return useQuery<DailyReceivablesPayables>({
+    queryKey: ['cfo-daily-receivables-payables', from.toISOString(), to.toISOString()],
+    staleTime: 120_000,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      const [eligRes, collectedRes, payablesRes] = await Promise.all([
+        (supabase.from('v_tenant_daily_eligibility') as any)
+          .select('rent_request_id, tenant_id, daily_repayment, amount_repaid, total_repayment, start_at, status'),
+        supabase
+          .from('agent_collections')
+          .select('amount')
+          .gte('created_at', from.toISOString())
+          .lte('created_at', to.toISOString()),
+        supabase
+          .from('withdrawal_requests')
+          .select('id, user_id, amount, status, created_at, processed_at, payout_method')
+          .in('status', [...PENDING_PAYABLE_STATUSES, ...PAID_PAYABLE_STATUSES])
+          .gte('created_at', new Date(from.getTime() - 180 * 86_400_000).toISOString())
+          .order('created_at', { ascending: false })
+          .limit(2000),
+      ]);
+
+      if (eligRes.error) throw eligRes.error;
+      if (collectedRes.error) throw collectedRes.error;
+      if (payablesRes.error) throw payablesRes.error;
+
+      const elig = (eligRes.data || []) as any[];
+      const payableRaw = (payablesRes.data || []) as any[];
+
+      /* ── names ── */
+      const ids = [
+        ...new Set([
+          ...elig.map((r) => r.tenant_id),
+          ...payableRaw.map((r) => r.user_id),
+        ].filter(Boolean)),
+      ] as string[];
+
+      const nameMap = new Map<string, string>();
+      for (let i = 0; i < ids.length; i += 300) {
+        const chunk = ids.slice(i, i + 300);
+        const { data } = await supabase.from('profiles').select('id, full_name').in('id', chunk);
+        (data || []).forEach((p: any) => nameMap.set(p.id, p.full_name || 'Unknown'));
+      }
+
+      /* ── receivables ── */
+      const receivableRows: ReceivableRow[] = elig.map((r) => {
+        const daily = Number(r.daily_repayment || 0);
+        const repaid = Number(r.amount_repaid || 0);
+        const total = Number(r.total_repayment || 0);
+        const startAt = r.start_at ? startOfDay(new Date(r.start_at)) : null;
+        const elapsed = startAt
+          ? Math.max(0, Math.floor((startOfDay(range.to).getTime() - startAt.getTime()) / 86_400_000) + 1)
+          : 0;
+        const expected = total > 0 ? Math.min(total, daily * elapsed) : daily * elapsed;
+        const outstanding = Math.max(0, total - repaid);
+        return {
+          id: r.rent_request_id,
+          tenant_id: r.tenant_id,
+          tenant_name: nameMap.get(r.tenant_id) || 'Unknown',
+          daily_repayment: daily,
+          amount_repaid: repaid,
+          total_repayment: total,
+          expected_to_date: expected,
+          overdue: Math.max(0, expected - repaid),
+          outstanding,
+          status: r.status || '',
+        };
+      });
+
+      const dueInRange = receivableRows.reduce(
+        (s, r) => s + Math.min(r.daily_repayment * days, r.outstanding),
+        0,
+      );
+      const collectedInRange = (collectedRes.data || []).reduce(
+        (s: number, c: any) => s + Number(c.amount || 0),
+        0,
+      );
+      const overdueReceivables = receivableRows.reduce((s, r) => s + r.overdue, 0);
+      const outstandingReceivables = receivableRows.reduce((s, r) => s + r.outstanding, 0);
+
+      /* ── payables ── */
+      const payableRows: PayableRow[] = payableRaw.map((r) => ({
+        id: r.id,
+        user_id: r.user_id,
+        name: nameMap.get(r.user_id) || 'Unknown',
+        amount: Number(r.amount || 0),
+        status: r.status,
+        created_at: r.created_at,
+        processed_at: r.processed_at,
+        payout_method: r.payout_method,
+      }));
+
+      const inRange = (iso: string | null) => {
+        if (!iso) return false;
+        const t = new Date(iso).getTime();
+        return t >= from.getTime() && t <= to.getTime();
+      };
+
+      const pending = payableRows.filter((r) => PENDING_PAYABLE_STATUSES.includes(r.status));
+      const paid = payableRows.filter((r) => PAID_PAYABLE_STATUSES.includes(r.status));
+
+      const payablesDue = pending
+        .filter((r) => inRange(r.created_at))
+        .reduce((s, r) => s + r.amount, 0);
+      const payablesPaid = paid
+        .filter((r) => inRange(r.processed_at) || inRange(r.created_at))
+        .reduce((s, r) => s + r.amount, 0);
+      const payablesOverdue = pending
+        .filter((r) => new Date(r.created_at).getTime() < from.getTime())
+        .reduce((s, r) => s + r.amount, 0);
+      const payablesOutstanding = pending.reduce((s, r) => s + r.amount, 0);
+
+      return {
+        days,
+        receivables: {
+          dueInRange,
+          collectedInRange,
+          overdue: overdueReceivables,
+          outstanding: outstandingReceivables,
+          rows: receivableRows
+            .slice()
+            .sort((a, b) => b.overdue - a.overdue || b.outstanding - a.outstanding)
+            .slice(0, 300),
+        },
+        payables: {
+          dueInRange: payablesDue,
+          paidInRange: payablesPaid,
+          overdue: payablesOverdue,
+          outstanding: payablesOutstanding,
+          rows: [...pending, ...paid.filter((r) => inRange(r.processed_at) || inRange(r.created_at))]
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+            .slice(0, 300),
+        },
+      };
+    },
+  });
+}
