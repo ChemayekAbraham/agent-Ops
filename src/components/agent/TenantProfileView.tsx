@@ -794,8 +794,54 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
     }
   };
 
-  const visibleRepayments = showAllRepayments ? repayments : repayments.slice(0, PAGE_SIZE);
+  const visibleRepayments = repayments.slice(0, repayVisible);
   const visibleRequests = showAllRequests ? requests : requests.slice(0, PAGE_SIZE);
+
+  /** Pull the next database page of repayments (oldest beyond what is cached). */
+  const fetchNextRepaymentPage = async (): Promise<RepaymentRow[]> => {
+    const { data, error } = await supabase
+      .from('repayments')
+      .select('id, amount, created_at, rent_request_id')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .range(repayments.length, repayments.length + REPAY_FETCH_SIZE);
+    if (error) throw error;
+    const rows = (data as RepaymentRow[]) || [];
+    setRepayHasMoreServer(rows.length > REPAY_FETCH_SIZE);
+    const page = rows.slice(0, REPAY_FETCH_SIZE);
+    if (page.length) setRepayments((prev) => [...prev, ...page]);
+    return page;
+  };
+
+  /** "Load more" — reveal the next batch, fetching from the server when needed. */
+  const handleLoadMoreRepayments = async () => {
+    if (loadingMoreRepayments) return;
+    const needsServer = repayVisible >= repayments.length && repayHasMoreServer;
+    if (!needsServer) {
+      setRepayVisible((v) => v + REPAY_VISIBLE_STEP);
+      return;
+    }
+    setLoadingMoreRepayments(true);
+    try {
+      await fetchNextRepaymentPage();
+      setRepayVisible((v) => v + REPAY_VISIBLE_STEP);
+    } catch (err: any) {
+      toast({ title: 'Could not load more payments', description: err?.message, variant: 'destructive' });
+    } finally {
+      setLoadingMoreRepayments(false);
+    }
+  };
+
+  /** Pull every remaining repayment row so exports cover the full history. */
+  const ensureAllRepaymentsLoaded = async () => {
+    let guard = 0;
+    while (repayHasMoreServer && guard < 50) {
+      const page = await fetchNextRepaymentPage();
+      if (page.length < REPAY_FETCH_SIZE) break;
+      guard += 1;
+    }
+  };
+
 
   /**
    * Repayment history aggregated per rent plan.
