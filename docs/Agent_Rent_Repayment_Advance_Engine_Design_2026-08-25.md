@@ -391,7 +391,16 @@ Section 3.1 set evaluation at 00:30 Kampala. That is only half the rule. The oth
 
 The 20:00–23:00 volume in 3.1 is back-office entry of the same day's field cash, so it correctly lands on that day. The ~1.5% arriving 00:00–05:00 is spillover entry for the previous evening and is accepted as belonging to the new day; it is too small to justify a shifted boundary, and a shifted boundary would make "today" mean two different things in two places.
 
-### 12.2 Three distinct times, deliberately separated
+### 12.2 What the live system does today
+
+In production today the collection day is effectively cut off at **00:00 midnight EAT**. The daily eligibility snapshot and capacity calculations treat anything after midnight as belonging to the new day. That is a clean, easy-to-explain boundary, but it has two practical costs:
+
+1. **The 23:00–00:00 reconciliation tail** is split from the same day's field work. A payment entered at 23:45 and one entered at 00:15 are 15 minutes apart in reality but two different "collection days" in the system. That distorts daily capacity and can push a tenant who paid late into the next day's silence count.
+2. **There is no correction window.** Because the day flips at midnight and downstream reports read the new day's snapshot, a payment back-dated across midnight immediately changes yesterday's numbers with no Ops review window.
+
+The proposed model in 12.3 keeps midnight as the **calendar** boundary but adds a 30-minute evaluation delay and a 03:00 lock. The practical cut-off for "what counts as today" therefore moves from 00:00 to 23:59:59, while the cut-off for "what is frozen" stays at 03:00. This is a deliberate change from today's behaviour, not just a clarification.
+
+### 12.3 Three distinct times, deliberately separated
 
 | Time (Kampala) | Event | What it means |
 |---|---|---|
@@ -401,23 +410,90 @@ The 20:00–23:00 volume in 3.1 is back-office entry of the same day's field cas
 
 The 30-minute gap between close and evaluation absorbs clock skew and offline-sync flushes. The 2.5-hour gap between evaluation and lock is the correction window: if a collection is entered late or a payment is voided, Ops can still fix the day before it hardens.
 
-### 12.3 What "locked" actually forbids
+### 12.4 What "locked" actually forbids
 
 A locked day is **not** read-only in the raw tables — offline sync and legitimate back-dating still happen. Locking means:
 
 - The day's collection totals, target attainment and agent daily rating are read from the snapshot (`agent_daily_eligibility_history`), never recomputed. Yesterday's rating cannot change because a payment was entered today.
-- A collection inserted after lock with a `created_at` inside the locked day counts toward the **current** open day for target and rating, while remaining attributed to its true timestamp for audit and for the quiet-window reset in 12.4.
+- A collection inserted after lock with a `created_at` inside the locked day counts toward the **current** open day for target and rating, while remaining attributed to its true timestamp for audit and for the quiet-window reset in 12.5.
 - Any locked-day change large enough to affect a flag or an advance goes to Ops as a reversal decision (`reverse_agent_advance`), not as a silent recomputation.
 
 Without a lock, an agent's rating and every guarantor decision built on it would be permanently re-writable by late entry, and no report printed today would still be true tomorrow.
 
-### 12.4 Effect on the quiet-window clock
+### 12.5 Effect on the quiet-window clock
 
 Silence is measured from the **last collection timestamp**, not from the last locked day — so a back-dated payment does reset the quiet clock retroactively. That is correct: the tenant genuinely paid. The consequences are bounded:
 
 - Back-dated payment lands **before** an advance was raised → the flag clears on the next evaluation, no money moved.
 - Back-dated payment lands **after** an advance was raised, inside the charged window → the advance is reversed under 4.5 and the outcome is recorded as `reversed`, feeding the under-5% reversal target in Phase 4.
 
-### 12.5 Same-day top-ups are not new collection days
+### 12.6 Same-day top-ups are not new collection days
 
 The 1,394 zero-day intervals in 3.2 are multiple payments on one request in one day. They are **one collection day**, several collection events. The quiet clock uses the latest event; the day's attainment uses the sum. A tenant paying three times on Monday and nothing until Friday has been quiet for three days, not zero.
+
+---
+
+## 13. The bucket dilemma: why advances cannot be recovered from float
+
+This is the hardest financial question in the whole engine. The platform already enforces a strict wallet-bucket model: `withdrawable_balance` is the agent's money, `float_balance` is Welile's money held by the agent for operational use, and `advance_balance` is personal debt. Recovery from an agent advance is currently allowed only from `withdrawable_balance`. The immediate objection is obvious: an agent who sees a guarantor advance coming can simply keep cash in `float_balance` instead of moving it to `withdrawable_balance`, and the recovery sweep will find nothing. That is a real exploit, and it needs a real answer. But the answer is not "let the sweep debit float." That path breaks the ledger.
+
+### 13.1 Why float is the wrong bucket for personal debt recovery
+
+`float_balance` is not a second wallet for the agent. It is a custody account: money the company has placed with the agent to fund tenant deposits, merchant payouts, field reimbursements and similar operational outflows. Every float credit has a corresponding ledger leg classifying it as operational money. If the platform silently uses float to settle a personal guarantor advance, three things happen:
+
+1. **The company pays the agent's debt.** A float debit for `agent_advance_repayment` would mean Welile is recovering its own money from itself. The agent's liability falls, but the company's operational cash also falls. The balance sheet does not improve; it is reshuffled in a way that hides the real loss.
+2. **The ledger loses its meaning.** `recipient_type = 'operational_wallet'` and `wallet_bucket = 'float'` exist precisely so reports can separate "money that belongs to agents" from "money that belongs to the company. A recovery leg with `recipient_type = 'operational_wallet'` and category `agent_advance_repayment` would be a category/recipient contradiction. The existing trigger `assert_routing_compatible` already rejects this with `INVALID_ROUTING`, and that rejection is correct.
+3. **It creates a perverse incentive in the opposite direction.** If float can be used to settle personal advances, the CFO has effectively made float a tax-advantaged wallet. Agents would prefer float over withdrawable for every dollar they can influence, not just to avoid advances but to avoid any future personal liability. The bucket boundary would erode across every product, not just this one.
+
+The memory constraint is therefore right: `agent_repayment`, `agent_advance_repayment`, `salary_advance_repayment` and `debt_recovery` must be blocked from `recipient_type = 'operational_wallet'`. Float recovery is not a missing feature; it is a forbidden one.
+
+### 13.2 The exploit vector is still real
+
+An agent can, today, take these steps to shield money from advance recovery:
+
+- Request that commissions and bonuses be booked as float rather than withdrawable. Some products already route to float by design (merchant reimbursements, operational advances), so this is not always suspicious.
+- Delay converting float to withdrawable. If the agent is a merchant or field agent with legitimate float needs, a large float balance is normal and hard to challenge.
+- Use withdrawable for immediate personal needs and let float accumulate. The sweep only sees withdrawable, so the advance ages while the agent holds company cash.
+
+This is not a code bug. It is a **business-model tension**: the guarantor advance model assumes the agent has personal earnings at risk, but the same agent also holds company money that looks economically identical from the agent's point of view.
+
+### 13.3 What can be done without breaking the bucket model
+
+The right controls stay inside the ledger architecture and change the agent's incentives without reclassifying money:
+
+| Control | Mechanism | Ledger effect |
+|---|---|---|
+| **Float hold on flag** | When a tenant is flagged (day 2), freeze a matching amount of the agent's float. The float is not debited; it is reserved. | A hold row, not a ledger leg. No bucket change. |
+| **Float-to-withdrawable conversion requirement before new float is issued** | An agent with outstanding guarantor advances must first convert withdrawable to clear or reduce the advance before receiving new float allocations. | Conversion posts a normal `wallet_transfer` leg, then recovery from withdrawable. Both are existing, allowed categories. |
+| **Withhold future commissions until advance is addressed** | Route new earnings to a suspended-withdrawable sub-state rather than to active withdrawable, releasing only after the advance is paid down. | Still withdrawable bucket; just held. |
+| **Cap total float for agents with active guarantor advances** | Limit `float_balance` to a function of daily expected collections while any `guarantor_recovery` advance is open. | Prevents shielding; no ledger mutation. |
+| **Require explicit float reconciliation before withdrawal** | Before an agent can withdraw, reconcile float against outstanding advances: either convert the excess float to withdrawable and let the sweep take it, or document why the float is still needed. | Conversion + recovery, both existing paths. |
+
+None of these debit float directly. They make it costly or impossible to keep large float balances while personal debt is unpaid.
+
+### 13.4 The one legitimate exception — and why it still needs two legs
+
+There is a narrow case where using float to settle an advance is financially honest: the agent explicitly instructs the platform to "use my float to pay this advance." That is not a recovery; it is a **directed conversion followed by a recovery**. The ledger must show both steps:
+
+```text
+1. Debit float_balance, credit withdrawable_balance
+   category: wallet_transfer, recipient_type operational_wallet → user
+2. Debit withdrawable_balance, credit advance_balance
+   category: agent_advance_repayment, recipient_type user
+```
+
+Step 1 is the agent moving company money back to the company (because float was never theirs) and simultaneously receiving it as personal withdrawable. Step 2 is the normal advance recovery. The net effect is that the agent's personal debt is cleared, but the company's float is also reduced — the company is not secretly subsidising the agent. This two-leg treatment is the only way to keep the balance sheet honest.
+
+The engine should not do this automatically. It should be an explicit agent action ("Convert UGX X of my float to repay advance Y") with a mandatory reason, because the agent is effectively choosing to reduce their future operational capacity.
+
+### 13.5 Recommendation
+
+Keep the hard rule: **guarantor advance recovery never debits float directly.**
+
+Add three operational controls:
+
+1. **Flag-time float hold** (section 4.2) — at day 2, reserve the estimated shortfall in float. This is the earliest, least aggressive signal and it prevents new float from being issued on top of a likely advance.
+2. **Advance-time conversion prompt** — at day 8, before raising the advance, offer the agent a one-time conversion of available float to withdrawable to cover the gap. If they decline or have no float, raise the advance normally.
+3. **Float issuance gate** — while a `guarantor_recovery` advance is open, any new float allocation to that agent requires CFO or Agent Ops approval, and the approval dialog shows the outstanding advance. This stops agents from continuously refilling float while personal debt is unpaid.
+
+This approach does not solve the problem by pretending float and withdrawable are the same bucket. It solves it by making the bucket choice visible, costly, and operationally controlled. The ledger stays balanced, the company does not silently eat agent debt, and the agent still has a clear path to settle the advance from either bucket — but only through honest, auditable conversions.
