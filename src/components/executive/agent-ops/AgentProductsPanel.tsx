@@ -51,9 +51,32 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [addOpen, setAddOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AgentProductRow | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
   const scopeLabel = category ? CATEGORY_LABELS[category] : null;
   const showOverview = mode !== 'issued';
   const showIssued = mode !== 'overview';
+
+  const deleteHolding = useMutation({
+    mutationFn: async () => {
+      if (!deleteTarget) return;
+      const { error } = await supabase.rpc('delete_agent_product_holdings' as any, {
+        p_agent_id: deleteTarget.agent_id,
+        p_category: category ?? null,
+        p_reason: deleteReason.trim(),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Records deleted');
+      setDeleteTarget(null);
+      setDeleteReason('');
+      queryClient.invalidateQueries({ queryKey: ['agent-products-overview'], exact: false });
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to delete records'),
+  });
+
+
 
 
   const { data, isLoading, isFetching, refetch } = useQuery({
