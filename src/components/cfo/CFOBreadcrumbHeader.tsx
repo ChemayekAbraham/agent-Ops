@@ -67,7 +67,7 @@ export function CFOBreadcrumbHeader({
   return (
     <nav
       aria-label="Breadcrumb"
-      className="-mx-2 sm:-mx-4 lg:-mx-6 mb-1 bg-card border-b border-border"
+      className="-mx-2 sm:-mx-4 lg:-mx-6 -mt-2 sm:-mt-4 lg:-mt-6 mb-1 bg-card border-b border-border"
     >
       {/* Screen-reader live announcement of the current section + position. */}
       <p aria-live="polite" className="sr-only">
@@ -75,7 +75,7 @@ export function CFOBreadcrumbHeader({
           ? `${sectionLabel}, section ${position.index} of ${position.total}`
           : sectionLabel}
       </p>
-      <div className="flex items-center gap-1 px-2 sm:px-4 lg:px-6 py-2">
+      <div className="flex items-center gap-1 px-2 sm:px-4 lg:px-6 py-3 sm:py-4">
         {!isOverview && (
           <button
             type="button"
