@@ -7,6 +7,8 @@ import { generateWelileAiId } from '@/lib/welileAiId';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useSupportedTenants } from '@/hooks/useSupportedTenants';
+import { useAvailableBalance } from '@/hooks/useAvailableBalance';
+import { FunderQuickActions } from '@/components/supporter/FunderQuickActions';
 const welileLogo = '/welile-colored.png';
 
 // Taller card (354x200) to give the Add Card button more room on mobile.
@@ -55,6 +57,7 @@ export function PartnerPortfolioWalletCard({ onAddCard, onPortfolios, onCalculat
   const { profile } = useProfile();
   const { portfolios, loading } = usePartnerPortfolios();
   const { tenants, isLoading: tenantsLoading } = useSupportedTenants();
+  const { available: availableBalance, refresh: refreshAvailable } = useAvailableBalance(user?.id);
   const [showAmount, setShowAmount] = useState(true);
 
   const active = useMemo(
@@ -267,6 +270,12 @@ export function PartnerPortfolioWalletCard({ onAddCard, onPortfolios, onCalculat
         />
         <ActionButton label="More" onClick={onMore} icon={<Menu className="w-4 h-4" />} />
       </div>
+
+      {/* WALLET ACTIONS — same Deposit / Withdraw / Transfer flows as the wallet hero card */}
+      <FunderQuickActions
+        availableBalance={availableBalance}
+        onChanged={() => { refreshAvailable?.(); }}
+      />
     </div>
   );
 }
