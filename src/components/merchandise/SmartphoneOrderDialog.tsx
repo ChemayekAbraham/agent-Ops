@@ -78,14 +78,15 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
 
   const submit = async () => {
-    if (!brand) {
-      toast.error('Select a product brand');
+    if (!brand || !modelType) {
+      toast.error('Select a brand and phone model from the catalog');
       return;
     }
     if (totalAmount < 1000) {
-      toast.error('Enter a phone amount of at least UGX 1,000');
+      toast.error('This model has no catalog price yet — contact Agent Ops');
       return;
     }
+
     setSubmitting(true);
     const { error } = await db.rpc('agent_order_smartphone', {
       p_total_amount: totalAmount,
