@@ -337,23 +337,61 @@ export function isValidUgandanPhoneNumber(phone: string): {
 }
 
 /**
- * Auto-format a Ugandan phone number AS the user types, supporting both masks:
- *   • Local:         07XX XXX XXX   (when the input starts with 0)
- *   • International:  +256 XXX XXX XXX (when the input starts with + or 256)
- * Strips non-digits, caps the national part at 9 digits, and inserts spaces
- * for readability. Returns empty string for empty input.
+ * Auto-format a phone number AS the user types.
+ * Supports:
+ *   • Local Ugandan: 07XX XXX XXX   (when the input starts with 0)
+ *   • International: +256 XXX XXX XXX (when the input starts with +256 or 256)
+ *   • Other E.164:   +CCX XXX XXX XXX (when the input starts with a different + country code)
+ * Strips non-digits, caps the national part at 9 digits for Uganda, and inserts
+ * spaces for readability. Returns empty string for empty input.
  */
 export function formatUgandaPhone(raw: string): string {
   const trimmed = raw.trimStart();
   const allDigits = trimmed.replace(/\D/g, '');
 
-  // International format: user typed a leading "+" or a "256" country code.
-  if (trimmed.startsWith('+') || allDigits.startsWith('256')) {
-    const national = (allDigits.startsWith('256') ? allDigits.slice(3) : allDigits).slice(0, 9);
-    if (national.length === 0) return '+256';
-    if (national.length <= 3) return `+256 ${national}`;
-    if (national.length <= 6) return `+256 ${national.slice(0, 3)} ${national.slice(3)}`;
-    return `+256 ${national.slice(0, 3)} ${national.slice(3, 6)} ${national.slice(6)}`;
+  // Explicit international with a leading "+". Detect the actual country code
+  // so we don't force non-Ugandan numbers (e.g. +257 79...) into a +256 mask.
+  if (trimmed.startsWith('+')) {
+    if (allDigits.length === 0) return '+';
+
+    // Find the longest matching country prefix (longest first to avoid 1 matching before 257)
+    let matchedPrefix = '';
+    for (const prefix of Object.keys(COUNTRY_PREFIXES).sort((a, b) => b.length - a.length)) {
+      if (allDigits.startsWith(prefix)) {
+        matchedPrefix = prefix;
+        break;
+      }
+    }
+
+    if (matchedPrefix === '256') {
+      const national = allDigits.slice(3).slice(0, 9);
+      if (national.length === 0) return '+256';
+      if (national.length <= 3) return `+256 ${national}`;
+      if (national.length <= 6) return `+256 ${national.slice(0, 3)} ${national.slice(3)}`;
+      return `+256 ${national.slice(0, 3)} ${national.slice(3, 6)} ${national.slice(6)}`;
+    }
+
+    if (matchedPrefix) {
+      // Generic international formatting: +CC <rest grouped in 3s>
+      const rest = allDigits.slice(matchedPrefix.length);
+      const chunks: string[] = [];
+      for (let i = 0; i < rest.length; i += 3) {
+        chunks.push(rest.slice(i, i + 3));
+      }
+      return chunks.length ? `+${matchedPrefix} ${chunks.join(' ')}` : `+${matchedPrefix}`;
+    }
+
+    // Unknown + prefix: just return the digits after +
+    return `+${allDigits}`;
+  }
+
+  // International format without leading "+": user typed "256..."
+  if (allDigits.startsWith('256')) {
+    const national = allDigits.slice(3).slice(0, 9);
+    if (national.length === 0) return '256';
+    if (national.length <= 3) return `256 ${national}`;
+    if (national.length <= 6) return `256 ${national.slice(0, 3)} ${national.slice(3)}`;
+    return `256 ${national.slice(0, 3)} ${national.slice(3, 6)} ${national.slice(6)}`;
   }
 
   // Local format: 07XX XXX XXX
