@@ -588,6 +588,11 @@ export function AgentCashPayoutsTab() {
   // hold is released and normal withdrawals are claimable in the usual order.
   const { enforced: proxyPriorityEnforced } = useProxyPayoutPriority();
 
+  useEffect(() => {
+    setPage(0);
+    invalidateQueue();
+  }, [proxyPriorityEnforced]);
+
   const { data: blockingUrgentProxyRow = null } = useQuery({
     queryKey: ['cashout-blocking-urgent-proxy'],
     queryFn: async () => {
@@ -641,7 +646,7 @@ export function AgentCashPayoutsTab() {
 
   // Per-channel filtered counts (All / MoMo / Cash) for the tab badges.
   const { data: queueCounts } = useQuery({
-    queryKey: ['cashout-queue-counts', isCashoutAgent?.id, queueStatus, queueMerchant, minAmount, maxAmount, fromIso, toIso, debouncedSearch, categoryOrClause, channelProviderOrClause, frozenUserIds],
+    queryKey: ['cashout-queue-counts', isCashoutAgent?.id, queueStatus, queueMerchant, minAmount, maxAmount, fromIso, toIso, debouncedSearch, categoryOrClause, channelProviderOrClause, frozenUserIds, proxyPriorityEnforced, blockingUrgentProxy?.id],
     queryFn: async () => {
       const cutoffIso = new Date(Date.now() - QUEUE_RECLAIM_WINDOW_MS).toISOString();
       const searchUserIds = debouncedSearch.trim() ? await resolveSearchUserIds(debouncedSearch) : null;
@@ -649,11 +654,15 @@ export function AgentCashPayoutsTab() {
         cutoffIso, status: queueStatus, merchant: queueMerchant,
         minAmount, maxAmount, fromIso, toIso, searchUserIds, searchTerm: debouncedSearch.trim(), categoryOrClause, channelProviderOrClause, frozenUserIds,
       };
-      const mk = (channel: 'all' | 'momo' | 'cash' | 'bank') =>
-        applyQueueFilters(
+      const proxyOnly = proxyPriorityEnforced && !!blockingUrgentProxy;
+      const mk = (channel: 'all' | 'momo' | 'cash' | 'bank') => {
+        let q = applyQueueFilters(
           supabase.from('withdrawal_requests').select('id', { count: 'exact', head: true }),
           { ...base, channel },
-        ).then((r: any) => r.count || 0);
+        );
+        if (proxyOnly) q = q.eq('priority_level', 'urgent_proxy');
+        return q.then((r: any) => r.count || 0);
+      };
       const [all, momo, cash, bank] = await Promise.all([mk('all'), mk('momo'), mk('cash'), mk('bank')]);
       return { all, momo, cash, bank };
     },
@@ -663,7 +672,7 @@ export function AgentCashPayoutsTab() {
 
   // The current, server-paginated page of the Pending Queue for the active tab.
   const { data: queuePage, isLoading: loadingAll, isFetching: fetchingQueue, isError: queueError, refetch: refetchQueue } = useQuery({
-    queryKey: ['cashout-queue-page', isCashoutAgent?.id, channelTab, queueStatus, queueMerchant, minAmount, maxAmount, fromIso, toIso, debouncedSearch, queueSort, page, categoryOrClause, channelProviderOrClause, frozenUserIds],
+    queryKey: ['cashout-queue-page', isCashoutAgent?.id, channelTab, queueStatus, queueMerchant, minAmount, maxAmount, fromIso, toIso, debouncedSearch, queueSort, page, categoryOrClause, channelProviderOrClause, frozenUserIds, proxyPriorityEnforced, blockingUrgentProxy?.id],
     queryFn: async () => {
       // NOTE: we intentionally do NOT release other agents' expired claims here.
       // Cross-agent releases from the browser caused paid-out withdrawals to
@@ -680,7 +689,11 @@ export function AgentCashPayoutsTab() {
         supabase.from('withdrawal_requests').select('*', { count: 'exact' }),
         opts,
       );
-      q = applyQueueSort(q, queueSort);
+      if (proxyPriorityEnforced && blockingUrgentProxy) {
+        q = q.eq('priority_level', 'urgent_proxy').order('created_at', { ascending: true });
+      } else {
+        q = applyQueueSort(q, queueSort);
+      }
       const { data, error, count } = await q.range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
       if (error) throw error;
       const rows = await attachProfiles(data || []);
