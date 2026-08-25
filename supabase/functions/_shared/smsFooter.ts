@@ -10,6 +10,8 @@
 // centrally in the SMS sender without worrying about callers that composed
 // their own footer.
 
+import { isSignupPromptSuppressed, looksLikeOtpMessage } from "./smsSignupPrompt.ts";
+
 export const DEFAULT_SUPPORT_PHONE = "0748747134";
 
 export function getSupportPhone(): string {
