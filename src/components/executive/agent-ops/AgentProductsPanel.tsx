@@ -59,16 +59,24 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
 
   const deleteHolding = useMutation({
     mutationFn: async () => {
-      if (!deleteTarget) return;
-      const { error } = await supabase.rpc('delete_agent_product_holdings' as any, {
+      if (!deleteTarget) throw new Error('No record selected for deletion');
+      const { data, error } = await supabase.rpc('delete_agent_product_holdings' as any, {
         p_agent_id: deleteTarget.agent_id,
         p_category: category ?? null,
         p_reason: deleteReason.trim(),
       });
       if (error) throw error;
+      return (data ?? {}) as { deleted_sales?: number; deleted_plans?: number; deleted_deductions?: number };
     },
-    onSuccess: () => {
-      toast.success('Records deleted');
+    onSuccess: (result) => {
+      const sales = Number(result?.deleted_sales ?? 0);
+      const plans = Number(result?.deleted_plans ?? 0);
+      const deductions = Number(result?.deleted_deductions ?? 0);
+      if (sales === 0 && plans === 0 && deductions === 0) {
+        toast.warning('No records were deleted');
+      } else {
+        toast.success(`Deleted ${sales} sale(s), ${plans} plan(s), ${deductions} deduction(s)`);
+      }
       setDeleteTarget(null);
       setDeleteReason('');
       queryClient.invalidateQueries({ queryKey: ['agent-products-overview'], exact: false });
