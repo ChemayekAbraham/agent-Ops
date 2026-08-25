@@ -319,28 +319,8 @@ export function SmartphoneCatalogDialog() {
             </Button>
           </div>
 
-          <div className="mt-1 grid grid-cols-1 sm:grid-cols-4 gap-2 rounded-lg border bg-muted/30 p-2">
-            <div className="sm:col-span-2 space-y-1">
-              <Label className="text-xs">Search</Label>
-              <div className="relative">
-                <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  className="pl-7"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Brand or model"
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Added from</Label>
-              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Added to</Label>
-              <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-            </div>
-          </div>
+
+
 
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs text-muted-foreground">
