@@ -537,7 +537,7 @@ function AgentOpsSideNav({
   // below Priority and is open by default (this dashboard is agent-centric).
   const SIDE_GROUPS: { title: string; keys: ActiveView[]; pinned?: boolean; defaultOpen?: boolean }[] = [
     { title: 'Agents', defaultOpen: true, keys: ['directory', 'performance', 'sub-agents', 'bulk-ops'] },
-    { title: 'Field Operations', defaultOpen: true, keys: ['pipeline', 'rent-capacity', 'daily-collections-report', 'tasks', 'escalations', 'connector'] },
+    { title: 'Field Operations', defaultOpen: true, keys: ['pipeline', 'rent-capacity', 'daily-collections-report', 'tasks', 'escalations', 'connector', 'guarantor-float'] },
     { title: 'Service Centers', keys: ['sc-overview', 'service-centres', 'sc-directory', 'sc-payouts', 'sc-requests', 'sc-operating-model', 'sc-products'] },
     { title: 'Agent Products & Services', keys: ['agent-products-services'] },
     { title: 'Financials', keys: ['balances', 'float-payouts', 'earnings', 'locked-transfers', 'lending-agents'] },
