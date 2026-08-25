@@ -74,6 +74,9 @@ function normalizeStatus(value: unknown): OrderStatus {
   return KNOWN_STATUSES.includes(value as OrderStatus) ? (value as OrderStatus) : 'submitted';
 }
 
+/** Access Fee = smartphone cost plus the 1.33× markup shown to agents. */
+const accessFee = (unitPrice: number) => Math.round(Number(unitPrice) * 1.33);
+
 
 interface Props {
   userId?: string;
@@ -175,7 +178,7 @@ export default function SmartphoneOrderStatus({
 
   const getReceipt = (o: SmartphoneOrder) => ({
     orderId: o.id,
-    amount: Number(o.unit_price),
+    amount: accessFee(o.unit_price),
     outstanding: Number(o.amount_outstanding),
     status: normalizeStatus(o.order_status),
     orderedAt: new Date(o.created_at),
@@ -217,7 +220,7 @@ export default function SmartphoneOrderStatus({
           idempotencyKey: `smartphone-order-receipt-${o.id}-${status}`,
           templateData: {
             recipient_name: profile?.full_name || o.client_name || 'there',
-            amount: Number(o.unit_price),
+            amount: accessFee(o.unit_price),
             outstanding: Number(o.amount_outstanding),
             currency: 'UGX',
             order_status: status,
@@ -289,7 +292,7 @@ export default function SmartphoneOrderStatus({
             <SelectContent>
               {orders.map((o) => (
                 <SelectItem key={o.id} value={o.id} className="text-xs">
-                  {format(new Date(o.created_at), 'd MMM yyyy, HH:mm')} · {formatUGX(Number(o.unit_price))} ·{' '}
+                  {format(new Date(o.created_at), 'd MMM yyyy, HH:mm')} · {formatUGX(accessFee(o.unit_price))} ·{' '}
                   {STATUS_META[normalizeStatus(o.order_status)].label}
                 </SelectItem>
               ))}
@@ -310,21 +313,13 @@ export default function SmartphoneOrderStatus({
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold">{formatUGX(Number(o.unit_price))}</p>
+                    <p className="text-sm font-semibold">{formatUGX(accessFee(o.unit_price))}</p>
                     <p className="text-[11px] text-muted-foreground">
                       Ordered {format(new Date(o.created_at), 'd MMM yyyy, HH:mm')}
                       {Number(o.amount_outstanding) > 0
                         ? ` · ${formatUGX(Number(o.amount_outstanding))} to recover`
                         : ' · fully recovered'}
                     </p>
-                    {APPROVED_STATUSES.includes(status) && (
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        Access amount:{' '}
-                        <span className="text-foreground font-semibold">
-                          {formatUGX(Math.round(Number(o.unit_price) * 1.33))}
-                        </span>
-                      </p>
-                    )}
 
                     {o.tracking_reference && (
                       <p className="text-[11px] font-mono text-muted-foreground mt-0.5">
@@ -416,7 +411,7 @@ export default function SmartphoneOrderStatus({
               <AlertDialogTitle>Delete this order?</AlertDialogTitle>
               <AlertDialogDescription className="text-xs">
                 {cancelTarget
-                  ? `Your ${formatUGX(Number(cancelTarget.unit_price))} ${itemName} order from ${format(new Date(cancelTarget.created_at), 'd MMM yyyy, HH:mm')} will be removed and you can place a new one right away. Orders already in repayment cannot be deleted.`
+                  ? `Your ${formatUGX(accessFee(cancelTarget.unit_price))} ${itemName} order from ${format(new Date(cancelTarget.created_at), 'd MMM yyyy, HH:mm')} will be removed and you can place a new one right away. Orders already in repayment cannot be deleted.`
                   : null}
               </AlertDialogDescription>
             </AlertDialogHeader>
