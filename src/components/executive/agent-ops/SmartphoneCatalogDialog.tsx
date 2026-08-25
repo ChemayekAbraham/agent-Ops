@@ -124,6 +124,7 @@ export function SmartphoneCatalogDialog() {
   const [modelName, setModelName] = useState('');
   const [amount, setAmount] = useState('');
   const [specifications, setSpecifications] = useState('');
+  const [moreSpecifications, setMoreSpecifications] = useState('');
   const [search, setSearch] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -132,7 +133,9 @@ export function SmartphoneCatalogDialog() {
   const [editModel, setEditModel] = useState('');
   const [editAmount, setEditAmount] = useState('');
   const [editSpecifications, setEditSpecifications] = useState('');
+  const [editMoreSpecifications, setEditMoreSpecifications] = useState('');
   const [pendingDelete, setPendingDelete] = useState<SmartphoneCatalogEntry | null>(null);
+
   const queryClient = useQueryClient();
 
   const { data: entries = [], isLoading } = useSmartphoneCatalog();
@@ -173,6 +176,7 @@ export function SmartphoneCatalogDialog() {
         model_name: modelName.trim() || null,
         default_amount: total,
         specifications: specifications.trim() || null,
+        more_specifications: moreSpecifications.trim() || null,
       });
       if (error) throw error;
     },
@@ -182,10 +186,12 @@ export function SmartphoneCatalogDialog() {
       setModelName('');
       setAmount('');
       setSpecifications('');
+      setMoreSpecifications('');
       invalidate();
     },
     onError: (e: any) => toast.error(e.message || 'Could not add phone'),
   });
+
 
   const updateEntry = useMutation({
     mutationFn: async (id: string) => {
@@ -199,6 +205,7 @@ export function SmartphoneCatalogDialog() {
           model_name: editModel.trim() || null,
           default_amount: total,
           specifications: editSpecifications.trim() || null,
+          more_specifications: editMoreSpecifications.trim() || null,
         })
         .eq('id', id);
       if (error) throw error;
@@ -210,6 +217,7 @@ export function SmartphoneCatalogDialog() {
     },
     onError: (e: any) => toast.error(e.message || 'Could not update phone'),
   });
+
 
   const toggleActive = useMutation({
     mutationFn: async ({ id, next }: { id: string; next: boolean }) => {
@@ -243,7 +251,9 @@ export function SmartphoneCatalogDialog() {
     setEditModel(e.model_name ?? '');
     setEditAmount(e.default_amount != null ? String(Number(e.default_amount)) : '');
     setEditSpecifications(e.specifications ?? '');
+    setEditMoreSpecifications(e.more_specifications ?? '');
   };
+
 
   return (
     <>
