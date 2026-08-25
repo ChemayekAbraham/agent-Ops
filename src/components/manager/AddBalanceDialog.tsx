@@ -119,7 +119,6 @@ export default function AddBalanceDialog({
             : {}),
           financial_impact: 'neutral',
           category_label: `Manager Wallet ${type === 'credit' ? 'Credit' : 'Debit'} (${bucket === 'float' ? 'Float' : 'Withdrawable'})`,
-
           manual_credit: true,
         },
       });
