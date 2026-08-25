@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Calculator, Eye, EyeOff, Menu, Plus, Users, Wallet } from 'lucide-react';
 import { usePartnerPortfolios } from '@/hooks/usePartnerPortfolios';
 import { computeAccrual, normalizePortfolioState } from '@/lib/portfolioAccrual';
