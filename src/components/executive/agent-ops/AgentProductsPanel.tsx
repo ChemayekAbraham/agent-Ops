@@ -639,9 +639,17 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
   );
 }
 
+interface SmartphoneCatalogItem {
+  id: string;
+  brand: string;
+  model_name: string;
+  default_amount: number;
+}
+
 function IssueProductDialog({
   catalog, centres, onDone, category,
 }: { catalog: CatalogItem[]; centres: CentreItem[]; onDone: () => void; category?: AgentProductCategory }) {
+  const isSmartphone = category === 'smart_phone';
   const [agentTerm, setAgentTerm] = useState('');
   const [agent, setAgent] = useState<{ id: string; full_name: string } | null>(null);
   const [itemName, setItemName] = useState('');
@@ -664,28 +672,48 @@ function IssueProductDialog({
     staleTime: 30_000,
   });
 
+  const { data: phoneCatalog } = useQuery({
+    queryKey: ['smartphone-catalog-active'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('smartphone_catalog')
+        .select('id,brand,model_name,default_amount')
+        .eq('is_active', true)
+        .order('brand', { ascending: true })
+        .order('model_name', { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as SmartphoneCatalogItem[];
+    },
+    enabled: isSmartphone,
+    staleTime: 60_000,
+  });
+
   const productOptions = useMemo(() => {
+    if (isSmartphone && phoneCatalog) {
+      return phoneCatalog.map((p) => `${p.brand} ${p.model_name}`);
+    }
     const names = new Set<string>(category ? CATEGORY_SUGGESTIONS[category] : PRODUCT_SUGGESTIONS);
     catalog.forEach((c) => names.add(c.item_name));
     return Array.from(names).sort();
-  }, [catalog, category]);
+  }, [catalog, category, phoneCatalog, isSmartphone]);
 
-  // Every issued product carries a 33% interest markup on the base price.
+  // Smartphones are issued at cost + 33% markup (Access Amount). Other products keep the legacy markup UI.
   const INTEREST_RATE = 0.33;
   const baseValue = (Number(quantity) || 0) * (Number(unitPrice) || 0);
-  const interestAmount = Math.round(baseValue * INTEREST_RATE);
-  const total = baseValue + interestAmount;
-  const outstanding = Math.max(total - (plan === 'full' ? total : Number(amountPaid) || 0), 0);
+  const interestAmount = isSmartphone ? 0 : Math.round(baseValue * INTEREST_RATE);
+  const total = isSmartphone ? baseValue : baseValue + interestAmount;
+  const outstanding = isSmartphone
+    ? total
+    : Math.max(total - (plan === 'full' ? total : Number(amountPaid) || 0), 0);
 
   // Smartphones and Welile Bikes recover at a fixed 33% rate from the agent wallet.
   const isFixedRecoveryProduct = useMemo(() => {
+    if (isSmartphone) return true;
     const name = itemName.trim().toLowerCase();
     if (!name) return false;
     return name.includes('phone') || name.includes('bike');
-  }, [itemName]);
+  }, [itemName, isSmartphone]);
   const recoveryRate = isFixedRecoveryProduct ? 0.33 : null;
-
-
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -695,12 +723,11 @@ function IssueProductDialog({
         p_quantity: Number(quantity),
         p_unit_price: (Number(quantity) || 1) > 0 ? total / (Number(quantity) || 1) : 0,
         p_unit_cost: Number(unitCost) || 0,
-        p_service_centre_id: centreId === 'none' ? null : centreId,
-        p_payment_plan: plan,
-        p_amount_paid: plan === 'full' ? total : Number(amountPaid) || 0,
+        p_service_centre_id: isSmartphone ? null : (centreId === 'none' ? null : centreId),
+        p_payment_plan: isSmartphone ? 'installment' : plan,
+        p_amount_paid: isSmartphone ? 0 : (plan === 'full' ? total : Number(amountPaid) || 0),
         p_notes: notes || null,
         p_recovery_rate: recoveryRate,
-
       });
       if (error) throw error;
       return data;
@@ -754,10 +781,19 @@ function IssueProductDialog({
             value={itemName}
             onValueChange={(v) => {
               setItemName(v);
-              const hit = catalog.find((c) => c.item_name === v);
-              if (hit) {
-                setUnitPrice(String(hit.unit_price ?? ''));
-                setUnitCost(String(hit.unit_cost ?? ''));
+              if (isSmartphone) {
+                const hit = phoneCatalog?.find((p) => `${p.brand} ${p.model_name}` === v);
+                if (hit) {
+                  const accessAmount = Math.round(Number(hit.default_amount || 0) * 1.33);
+                  setUnitCost(String(hit.default_amount ?? ''));
+                  setUnitPrice(String(accessAmount));
+                }
+              } else {
+                const hit = catalog.find((c) => c.item_name === v);
+                if (hit) {
+                  setUnitPrice(String(hit.unit_price ?? ''));
+                  setUnitCost(String(hit.unit_cost ?? ''));
+                }
               }
             }}
           >
@@ -783,75 +819,95 @@ function IssueProductDialog({
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <Label>Service center</Label>
-          <Select value={centreId} onValueChange={setCentreId}>
-            <SelectTrigger><SelectValue placeholder="Select service center" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No center</SelectItem>
-              {centres.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.location_name || 'Unnamed'} · {c.agent_name || '—'}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
+        {!isSmartphone && (
           <div className="space-y-1.5">
-            <Label>Payment</Label>
-            <Select value={plan} onValueChange={(v) => setPlan(v as 'installment' | 'full')}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+            <Label>Service center</Label>
+            <Select value={centreId} onValueChange={setCentreId}>
+              <SelectTrigger><SelectValue placeholder="Select service center" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="installment">Installments (wallet recovery)</SelectItem>
-                <SelectItem value="full">Paid in full</SelectItem>
+                <SelectItem value="none">No center</SelectItem>
+                {centres.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.location_name || 'Unnamed'} · {c.agent_name || '—'}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5">
-            <Label>Paid upfront</Label>
-            <Input
-              type="number"
-              min="0"
-              value={plan === 'full' ? String(total) : amountPaid}
-              disabled={plan === 'full'}
-              onChange={(e) => setAmountPaid(e.target.value)}
-            />
+        )}
+
+        {!isSmartphone && (
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1.5">
+              <Label>Payment</Label>
+              <Select value={plan} onValueChange={(v) => setPlan(v as 'installment' | 'full')}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="installment">Installments (wallet recovery)</SelectItem>
+                  <SelectItem value="full">Paid in full</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Paid upfront</Label>
+              <Input
+                type="number"
+                min="0"
+                value={plan === 'full' ? String(total) : amountPaid}
+                disabled={plan === 'full'}
+                onChange={(e) => setAmountPaid(e.target.value)}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="space-y-1.5">
           <Label>Notes</Label>
           <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
         </div>
 
-        <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
-          <div className="flex justify-between"><span>Base price</span><span className="tabular-nums">{formatUGX(baseValue)}</span></div>
-          <div className="flex items-center justify-between">
-            <span>Interest (33%)</span>
-            <span className="tabular-nums">{formatUGX(interestAmount)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Total value</span>
-            <span className="font-semibold tabular-nums">{formatUGX(total)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>To recover from wallet</span>
-            <span className="font-semibold tabular-nums">{formatUGX(outstanding)}</span>
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            Total value = base price + 33% interest. Wallet recovery is total value less any amount paid upfront.
-          </p>
-          {recoveryRate !== null && (
-            <div className="flex items-center justify-between pt-1">
-              <span>Recovery rule</span>
-              <Badge variant="secondary" className="text-[11px]">Recovery Rate: 33%</Badge>
+        {isSmartphone ? (
+          <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Access Amount (UGX)</span>
+              <span className="font-bold tabular-nums text-lg">{formatUGX(total)}</span>
             </div>
-          )}
-        </div>
-
-
+            <p className="text-[11px] text-muted-foreground">
+              Final amount = cost price × 1.33, recovered from the agent wallet.
+            </p>
+            {recoveryRate !== null && (
+              <div className="flex items-center justify-between pt-1">
+                <span>Recovery rule</span>
+                <Badge variant="secondary" className="text-[11px]">Recovery Rate: 33%</Badge>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
+            <div className="flex justify-between"><span>Base price</span><span className="tabular-nums">{formatUGX(baseValue)}</span></div>
+            <div className="flex items-center justify-between">
+              <span>Interest (33%)</span>
+              <span className="tabular-nums">{formatUGX(interestAmount)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Total value</span>
+              <span className="font-semibold tabular-nums">{formatUGX(total)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>To recover from wallet</span>
+              <span className="font-semibold tabular-nums">{formatUGX(outstanding)}</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Total value = base price + 33% interest. Wallet recovery is total value less any amount paid upfront.
+            </p>
+            {recoveryRate !== null && (
+              <div className="flex items-center justify-between pt-1">
+                <span>Recovery rule</span>
+                <Badge variant="secondary" className="text-[11px]">Recovery Rate: 33%</Badge>
+              </div>
+            )}
+          </div>
+        )}
       </div>
       <DialogFooter>
         <Button onClick={() => mutation.mutate()} disabled={!valid || mutation.isPending} className="w-full">
