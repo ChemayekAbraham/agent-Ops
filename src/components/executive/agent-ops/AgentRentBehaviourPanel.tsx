@@ -34,8 +34,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserAvatar } from '@/components/UserAvatar';
-import { UserProfileDialog } from '@/components/supporter/UserProfileDialog';
 import { downloadAuditPdf } from '@/lib/pdfAuditReport';
 import { formatUGX } from '@/lib/rentCalculations';
 
@@ -283,6 +283,22 @@ function KpiCard({ icon: Icon, label, value, hint }: { icon: typeof Users; label
   );
 }
 
+function MiniStat({ label, value, tone = 'default' }: { label: string; value: string; tone?: 'default' | 'success' | 'warning' }) {
+  const toneClass =
+    tone === 'success'
+      ? 'text-success'
+      : tone === 'warning'
+        ? 'text-warning'
+        : 'text-foreground';
+  return (
+    <div className="rounded-xl border border-border bg-card p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={`mt-1 text-lg font-black tabular-nums break-words ${toneClass}`}>{value}</p>
+    </div>
+  );
+}
+
+
 export function AgentRentBehaviourPanel() {
   const [page, setPage] = useState(0);
   const [data, setData] = useState<RentBehaviourResponse>(() => asRows(null));
@@ -290,20 +306,7 @@ export function AgentRentBehaviourPanel() {
   const [isFetching, setIsFetching] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<RentBehaviourRow | null>(null);
-  const [profileUser, setProfileUser] = useState<{
-    id: string;
-    name: string;
-    avatarUrl?: string;
-    type: 'tenant';
-    createdAt?: string;
-    phone?: string;
-    email?: string;
-    verified?: boolean;
-    city?: string;
-    country?: string;
-    district?: string;
-    region?: string;
-  } | null>(null);
+  const [detailTab, setDetailTab] = useState('overview');
 
   const offset = page * PAGE_SIZE;
 
@@ -377,24 +380,6 @@ export function AgentRentBehaviourPanel() {
     );
   };
 
-  const openTenantProfile = (detail: RentBehaviourDetail | undefined) => {
-    const tenant = detail?.tenant;
-    if (!selected?.tenant_id) return;
-    setProfileUser({
-      id: selected.tenant_id,
-      name: tenant?.full_name || selected.tenant_name,
-      avatarUrl: tenant?.avatar_url || selected.tenant_avatar_url || undefined,
-      type: 'tenant',
-      createdAt: tenant?.created_at || selected.tenant_created_at || undefined,
-      phone: tenant?.phone || selected.tenant_phone || undefined,
-      email: tenant?.email || selected.tenant_email || undefined,
-      verified: tenant?.verified ?? undefined,
-      city: tenant?.city || tenant?.village || tenant?.territory || undefined,
-      country: tenant?.country || undefined,
-      district: tenant?.district || undefined,
-      region: tenant?.region || undefined,
-    });
-  };
 
   return (
     <div className="space-y-4">
@@ -525,108 +510,172 @@ export function AgentRentBehaviourPanel() {
         </div>
       </Card>
 
-      <Sheet open={Boolean(selected)} onOpenChange={(open) => { if (!open) setSelected(null); }}>
-        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Rent behaviour drilldown</SheetTitle>
-            <SheetDescription>{selected ? `${selected.tenant_name} · ${selected.agent_name}` : 'Tenant repayment statement'}</SheetDescription>
-          </SheetHeader>
+      <Sheet open={Boolean(selected)} onOpenChange={(open) => { if (!open) { setSelected(null); setDetailTab('overview'); } }}>
+        <SheetContent side="right" className="w-full sm:max-w-3xl p-0 flex flex-col gap-0">
+          <SheetHeader className="sticky top-0 z-10 border-b border-border bg-gradient-to-br from-primary/10 via-card to-card px-4 py-4 sm:px-6 text-left space-y-3">
+            <div>
+              <SheetTitle className="text-base sm:text-lg font-black">Rent behaviour drilldown</SheetTitle>
+              <SheetDescription className="text-xs">
+                {selected ? `${selected.tenant_name} · collected by ${selected.agent_name}` : 'Tenant repayment statement'}
+              </SheetDescription>
+            </div>
 
-          {detailQuery.isLoading ? (
-            <div className="h-64 flex items-center justify-center text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading tenant statement
-            </div>
-          ) : detailQuery.isError ? (
-            <div className="h-64 flex flex-col items-center justify-center gap-2 text-center text-muted-foreground">
-              <AlertTriangle className="h-6 w-6 text-destructive" />
-              <p className="text-sm font-semibold text-foreground">Tenant statement could not load.</p>
-              <p className="text-xs">{detailQuery.error instanceof Error ? detailQuery.error.message : 'Refresh and try again.'}</p>
-            </div>
-          ) : (
-            <div className="space-y-4 pt-4">
-              <div className="flex items-start justify-between gap-3 rounded-lg border border-border bg-card p-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <UserAvatar avatarUrl={selected?.tenant_avatar_url} fullName={selected?.tenant_name} size="lg" />
-                  <div className="min-w-0">
-                    <p className="text-base font-bold truncate">{selected?.tenant_name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{selected?.tenant_phone || 'No phone'} · Agent: {selected?.agent_name}</p>
+            {selected ? (
+              <div className="flex items-center gap-3 rounded-xl border border-border bg-card/80 p-3 backdrop-blur">
+                <UserAvatar avatarUrl={selected.tenant_avatar_url} fullName={selected.tenant_name} size="lg" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold truncate">{selected.tenant_name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{selected.tenant_phone || 'No phone'}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    <Badge variant={modeVariant(selected.collection_mode)}>{selected.collection_mode}</Badge>
+                    <Badge variant={selected.on_time_rate >= 60 ? 'success' : 'destructive'}>{selected.on_time_rate}% on time</Badge>
+                    <Badge variant="outline">typical {formatHour(selected.avg_payment_hour)}</Badge>
                   </div>
                 </div>
-                <Button type="button" size="sm" variant="outline" onClick={() => openTenantProfile(detailQuery.data)}>
-                  Full profile
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <Card className="p-3"><p className="text-xs text-muted-foreground">Rent requests</p><p className="text-xl font-black">{detailQuery.data?.summary.rent_request_count ?? 0}</p></Card>
-                <Card className="p-3"><p className="text-xs text-muted-foreground">Collected</p><p className="text-xl font-black">{formatUGX(detailQuery.data?.summary.total_collected ?? 0)}</p></Card>
-                <Card className="p-3"><p className="text-xs text-muted-foreground">Remaining</p><p className="text-xl font-black">{formatUGX(detailQuery.data?.summary.remaining_balance ?? 0)}</p></Card>
-                <Card className="p-3"><p className="text-xs text-muted-foreground">Agent commission</p><p className="text-xl font-black">{formatUGX(detailQuery.data?.summary.agent_commission_total ?? 0)}</p></Card>
-              </div>
-
-              <Card className="p-3 space-y-2">
-                <h4 className="text-sm font-bold">Collection financial statement</h4>
-                {(detailQuery.data?.collections ?? []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No collection rows found.</p>
-                ) : (
-                  <div className="max-h-[360px] overflow-y-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Method</TableHead>
-                          <TableHead>2-day gap</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {(detailQuery.data?.collections ?? []).map((row) => (
-                          <TableRow key={row.id}>
-                            <TableCell className="min-w-[150px]">{formatDateTime(row.created_at)}</TableCell>
-                            <TableCell className="font-bold tabular-nums">{formatUGX(row.amount)}</TableCell>
-                            <TableCell>{row.payment_method || row.tracking_id || '—'}</TableCell>
-                            <TableCell>
-                              <Badge variant={row.within_two_day_window ? 'success' : 'destructive'}>
-                                {row.within_two_day_window ? 'In time' : 'Late'}
-                              </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                <div className="hidden sm:flex items-center gap-2 shrink-0">
+                  <UserAvatar avatarUrl={selected.agent_avatar_url} fullName={selected.agent_name} size="sm" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Agent</p>
+                    <p className="text-xs font-semibold truncate max-w-[140px]">{selected.agent_name}</p>
                   </div>
-                )}
-              </Card>
+                </div>
+              </div>
+            ) : null}
+          </SheetHeader>
 
-              <Card className="p-3 space-y-2">
-                <h4 className="text-sm font-bold">Rent requests posted</h4>
-                {(detailQuery.data?.rent_requests ?? []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No rent requests found.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {(detailQuery.data?.rent_requests ?? []).map((request) => (
-                      <div key={request.id} className="rounded-lg border border-border p-3 space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <Badge variant="outline">{request.status || 'unknown'}</Badge>
-                          <span className="text-xs text-muted-foreground">{formatDateTime(request.created_at)}</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div><span className="text-muted-foreground">Rent</span><p className="font-bold">{formatUGX(request.rent_amount)}</p></div>
-                          <div><span className="text-muted-foreground">Daily</span><p className="font-bold">{formatUGX(request.daily_repayment)}</p></div>
-                          <div><span className="text-muted-foreground">Repaid</span><p className="font-bold">{formatUGX(request.amount_repaid)}</p></div>
-                          <div><span className="text-muted-foreground">Remaining</span><p className="font-bold">{formatUGX(request.remaining_balance)}</p></div>
+          <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+            {detailQuery.isLoading ? (
+              <div className="h-64 flex items-center justify-center text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading tenant statement
+              </div>
+            ) : detailQuery.isError ? (
+              <div className="h-64 flex flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+                <AlertTriangle className="h-6 w-6 text-destructive" />
+                <p className="text-sm font-semibold text-foreground">Tenant statement could not load.</p>
+                <p className="text-xs">{detailQuery.error instanceof Error ? detailQuery.error.message : 'Refresh and try again.'}</p>
+              </div>
+            ) : (
+              <Tabs value={detailTab} onValueChange={setDetailTab} className="space-y-4">
+                <TabsList className="w-full grid grid-cols-4">
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="collections">Collections</TabsTrigger>
+                  <TabsTrigger value="requests">Requests</TabsTrigger>
+                  <TabsTrigger value="profile">Profile</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="overview" className="space-y-3 mt-0">
+                  <div className="grid grid-cols-2 gap-2">
+                    <MiniStat label="Rent requests" value={String(detailQuery.data?.summary.rent_request_count ?? 0)} />
+                    <MiniStat label="Collected" value={formatUGX(detailQuery.data?.summary.total_collected ?? 0)} />
+                    <MiniStat label="Remaining" value={formatUGX(detailQuery.data?.summary.remaining_balance ?? 0)} tone="warning" />
+                    <MiniStat label="Agent commission" value={formatUGX(detailQuery.data?.summary.agent_commission_total ?? 0)} tone="success" />
+                  </div>
+                  <Card className="p-3 space-y-2">
+                    <h4 className="text-sm font-bold">Repayment rhythm</h4>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div><span className="text-xs text-muted-foreground">Collections</span><p className="font-bold tabular-nums">{detailQuery.data?.summary.collection_count ?? 0}</p></div>
+                      <div><span className="text-xs text-muted-foreground">Daily expected</span><p className="font-bold tabular-nums">{formatUGX(detailQuery.data?.summary.daily_expected ?? 0)}</p></div>
+                      <div><span className="text-xs text-muted-foreground">Total to collect</span><p className="font-bold tabular-nums">{formatUGX(detailQuery.data?.summary.total_to_collect ?? 0)}</p></div>
+                      <div><span className="text-xs text-muted-foreground">Total repaid</span><p className="font-bold tabular-nums">{formatUGX(detailQuery.data?.summary.total_repaid ?? 0)}</p></div>
+                      <div><span className="text-xs text-muted-foreground">Last collection</span><p className="font-bold">{formatDateTime(selected?.last_collection_at)}</p></div>
+                      <div><span className="text-xs text-muted-foreground">Average gap</span><p className="font-bold tabular-nums">{Math.round(num(selected?.avg_gap_hours))}h</p></div>
+                    </div>
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="collections" className="mt-0">
+                  <Card className="p-3 space-y-2">
+                    <h4 className="text-sm font-bold">Collection financial statement</h4>
+                    {(detailQuery.data?.collections ?? []).length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No collection rows found.</p>
+                    ) : (
+                      <div className="overflow-y-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Date</TableHead>
+                              <TableHead>Amount</TableHead>
+                              <TableHead>Method</TableHead>
+                              <TableHead>2-day gap</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {(detailQuery.data?.collections ?? []).map((row) => (
+                              <TableRow key={row.id}>
+                                <TableCell className="min-w-[150px]">{formatDateTime(row.created_at)}</TableCell>
+                                <TableCell className="font-bold tabular-nums">{formatUGX(row.amount)}</TableCell>
+                                <TableCell>{row.payment_method || row.tracking_id || '—'}</TableCell>
+                                <TableCell>
+                                  <Badge variant={row.within_two_day_window ? 'success' : 'destructive'}>
+                                    {row.within_two_day_window ? 'In time' : 'Late'}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="requests" className="mt-0">
+                  <Card className="p-3 space-y-2">
+                    <h4 className="text-sm font-bold">Rent requests posted</h4>
+                    {(detailQuery.data?.rent_requests ?? []).length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No rent requests found.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {(detailQuery.data?.rent_requests ?? []).map((request) => (
+                          <div key={request.id} className="rounded-lg border border-border p-3 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <Badge variant="outline">{request.status || 'unknown'}</Badge>
+                              <span className="text-xs text-muted-foreground">{formatDateTime(request.created_at)}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div><span className="text-muted-foreground">Rent</span><p className="font-bold">{formatUGX(request.rent_amount)}</p></div>
+                              <div><span className="text-muted-foreground">Daily</span><p className="font-bold">{formatUGX(request.daily_repayment)}</p></div>
+                              <div><span className="text-muted-foreground">Repaid</span><p className="font-bold">{formatUGX(request.amount_repaid)}</p></div>
+                              <div><span className="text-muted-foreground">Remaining</span><p className="font-bold">{formatUGX(request.remaining_balance)}</p></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="profile" className="mt-0">
+                  <Card className="p-3 space-y-3">
+                    <h4 className="text-sm font-bold">Tenant profile</h4>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div><span className="text-xs text-muted-foreground">Full name</span><p className="font-semibold">{detailQuery.data?.tenant.full_name || selected?.tenant_name || '—'}</p></div>
+                      <div><span className="text-xs text-muted-foreground">Phone</span><p className="font-semibold">{detailQuery.data?.tenant.phone || selected?.tenant_phone || '—'}</p></div>
+                      <div><span className="text-xs text-muted-foreground">Email</span><p className="font-semibold break-all">{detailQuery.data?.tenant.email || selected?.tenant_email || '—'}</p></div>
+                      <div><span className="text-xs text-muted-foreground">Joined</span><p className="font-semibold">{formatDateTime(detailQuery.data?.tenant.created_at || selected?.tenant_created_at)}</p></div>
+                      <div><span className="text-xs text-muted-foreground">District</span><p className="font-semibold">{detailQuery.data?.tenant.district || '—'}</p></div>
+                      <div><span className="text-xs text-muted-foreground">Region</span><p className="font-semibold">{detailQuery.data?.tenant.region || '—'}</p></div>
+                      <div><span className="text-xs text-muted-foreground">City / village</span><p className="font-semibold">{detailQuery.data?.tenant.city || detailQuery.data?.tenant.village || '—'}</p></div>
+                      <div><span className="text-xs text-muted-foreground">Country</span><p className="font-semibold">{detailQuery.data?.tenant.country || '—'}</p></div>
+                    </div>
+                    <div className="rounded-lg border border-border p-3 space-y-1">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">Responsible agent</p>
+                      <div className="flex items-center gap-2">
+                        <UserAvatar avatarUrl={selected?.agent_avatar_url} fullName={selected?.agent_name} size="sm" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate">{detailQuery.data?.agent.full_name || selected?.agent_name || '—'}</p>
+                          <p className="text-xs text-muted-foreground truncate">{detailQuery.data?.agent.phone || selected?.agent_phone || 'No phone'}</p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-            </div>
-          )}
+                    </div>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            )}
+          </div>
         </SheetContent>
       </Sheet>
-
-      <UserProfileDialog open={Boolean(profileUser)} onOpenChange={(open) => { if (!open) setProfileUser(null); }} user={profileUser} />
     </div>
   );
 }
+
