@@ -1,0 +1,1 @@
+ALTER TABLE public.smartphone_catalog ADD COLUMN more_specifications text;

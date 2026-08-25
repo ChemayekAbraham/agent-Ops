@@ -30038,6 +30038,7 @@ export type Database = {
           id: string
           is_active: boolean
           model_name: string | null
+          more_specifications: string | null
           specifications: string | null
           updated_at: string
         }
@@ -30049,6 +30050,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           model_name?: string | null
+          more_specifications?: string | null
           specifications?: string | null
           updated_at?: string
         }
@@ -30060,6 +30062,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           model_name?: string | null
+          more_specifications?: string | null
           specifications?: string | null
           updated_at?: string
         }
