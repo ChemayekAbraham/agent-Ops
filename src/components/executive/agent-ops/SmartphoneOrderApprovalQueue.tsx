@@ -65,8 +65,10 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
   const openApprove = (o: SmartphoneOrderRow) => {
     setApproveTarget(o);
     const existing = Number(o.total_amount || 0);
-    setOfficialAmount(existing > 0 ? String(Math.round(existing)) : '');
+    // Access Amount = phone amount + 33% markup; saved as the approved total price
+    setOfficialAmount(existing > 0 ? String(Math.round(existing * 1.33)) : '');
   };
+
 
   const officialAmountNumber = Math.max(0, Math.round(Number(officialAmount || 0) || 0));
   const officialProjection = Math.round(officialAmountNumber * 0.33);
