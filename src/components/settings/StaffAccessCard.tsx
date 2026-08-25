@@ -85,7 +85,7 @@ export default function StaffAccessCard() {
 
   return (
     <Card className="border-border/40 rounded-2xl">
-      <CardHeader className="pb-2 pt-4">
+      <CardHeader className="pb-2">
         <div className="flex items-center gap-2">
           <Shield className="h-4 w-4 text-warning" />
           <div>
@@ -94,7 +94,8 @@ export default function StaffAccessCard() {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3 pt-0 pb-4">
+      <CardContent className="space-y-3">
+
 
         {hasStaffAccess ? (
           <Button
