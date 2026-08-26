@@ -439,22 +439,30 @@ export function AgentRentBehaviourPanel() {
   const canNext = offset + PAGE_SIZE < data.total;
   const exportBody = useMemo(() => exportRows(rows), [rows]);
 
-  const handleCsv = () => downloadCsv(`agent-rent-behaviour-page-${page + 1}.csv`, exportHeaders, exportBody);
+  const rangeLabel = `${fromDate} to ${toDate}`;
+  const fileSlug = `${fromDate}_to_${toDate}`;
+
+  const handleCsv = () => downloadCsv(`Welile_Rent-Behaviour_${fileSlug}_page-${page + 1}.csv`, exportHeaders, exportBody);
 
   const handlePdf = async () => {
     await downloadAuditPdf(
-      `agent-rent-behaviour-page-${page + 1}.pdf`,
+      `Welile_Rent-Behaviour_${fileSlug}_page-${page + 1}.pdf`,
       exportHeaders,
       exportBody,
       {
         title: 'Agent Ops Rent Behaviour',
         subtitle: 'Tenant repayment behaviour and two-day collection-gap monitoring',
         footerLabel: 'Welile · Agent Ops',
-        filters: [`Page: ${page + 1} of ${totalPages}`, `Rows: ${rows.length} of ${data.total}`],
+        filters: [
+          `Period: ${rangeLabel}`,
+          `Sort: ${SORT_OPTIONS.find((option) => option.value === sortKey)?.label ?? sortKey}`,
+          `Page: ${page + 1} of ${totalPages}`,
+          `Rows: ${rows.length} of ${data.total}`,
+        ],
         kpis: [
-          { label: 'Tenants Tracked', value: String(data.kpis.tenants_tracked), hint: `${data.kpis.collection_count} collections` },
-          { label: 'Total Collected', value: formatUGX(data.kpis.total_collected), hint: 'agent_collections' },
-          { label: 'On-Time Rate', value: `${data.kpis.on_time_rate}%`, hint: 'within 2-day gap' },
+          { label: 'Paid Today', value: formatUGX(data.kpis.paid_today), hint: `expected ${formatUGX(data.kpis.expected_today)}` },
+          { label: 'Collected In Period', value: formatUGX(data.kpis.paid_in_period), hint: `expected ${formatUGX(data.kpis.expected_in_period)}` },
+          { label: 'Days Missed', value: String(data.kpis.missed_days), hint: `${data.days} day window` },
           { label: 'Remaining Balance', value: formatUGX(data.kpis.remaining_balance), hint: 'still to collect' },
         ],
       },
@@ -465,17 +473,17 @@ export function AgentRentBehaviourPanel() {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-        <KpiCard icon={Users} label="Tenants tracked" value={String(data.kpis.tenants_tracked)} hint={`${data.kpis.collection_count} repayment events`} />
-        <KpiCard icon={Wallet} label="Total collected" value={formatUGX(data.kpis.total_collected)} hint="from agent collections" />
-        <KpiCard icon={Clock3} label="On-time rate" value={`${data.kpis.on_time_rate}%`} hint="paid within the 2-day gap" />
-        <KpiCard icon={TrendingUp} label="Remaining balance" value={formatUGX(data.kpis.remaining_balance)} hint="amount still to be collected" />
+        <KpiCard icon={Wallet} label="Paid today" value={formatUGX(data.kpis.paid_today)} hint={`expected today ${formatUGX(data.kpis.expected_today)}`} />
+        <KpiCard icon={TrendingUp} label="Collected in period" value={formatUGX(data.kpis.paid_in_period)} hint={`expected ${formatUGX(data.kpis.expected_in_period)}`} />
+        <KpiCard icon={AlertTriangle} label="Days missed" value={data.kpis.missed_days.toLocaleString()} hint={`across ${data.days || 1} day window`} />
+        <KpiCard icon={Users} label="Tenants tracked" value={data.kpis.tenants_tracked.toLocaleString()} hint={`${data.kpis.on_time_rate}% on time · ${formatUGX(data.kpis.remaining_balance)} left`} />
       </div>
 
       <Card className="p-3 sm:p-4 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
             <h3 className="text-sm font-bold text-foreground">Tenant repayment behaviour</h3>
-            <p className="text-xs text-muted-foreground">15 rows per fetch · agent and tenant data is joined server-side.</p>
+            <p className="text-xs text-muted-foreground break-words">15 rows per fetch · {rangeLabel} · joined server-side.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
@@ -492,6 +500,62 @@ export function AgentRentBehaviourPanel() {
             </Button>
           </div>
         </div>
+
+        <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 p-2 sm:p-3 xl:flex-row xl:items-end xl:justify-between">
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="space-y-1">
+              <label htmlFor="rent-behaviour-from" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">From</label>
+              <Input
+                id="rent-behaviour-from"
+                type="date"
+                value={fromDate}
+                max={toDate}
+                onChange={(event) => { setPage(0); setFromDate(event.target.value || isoDaysAgo(29)); }}
+                className="h-9 w-[9.5rem]"
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="rent-behaviour-to" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">To</label>
+              <Input
+                id="rent-behaviour-to"
+                type="date"
+                value={toDate}
+                min={fromDate}
+                max={todayIso()}
+                onChange={(event) => { setPage(0); setToDate(event.target.value || todayIso()); }}
+                className="h-9 w-[9.5rem]"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
+              {RANGE_PRESETS.map((preset) => (
+                <Button
+                  key={preset.label}
+                  type="button"
+                  size="sm"
+                  variant={fromDate === isoDaysAgo(preset.days) && toDate === todayIso() ? 'default' : 'outline'}
+                  className="h-9"
+                  onClick={() => applyPreset(preset.days)}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Sort by</label>
+            <Select value={sortKey} onValueChange={(value) => { setPage(0); setSortKey(value as SortKey); }}>
+              <SelectTrigger className="h-9 w-full xl:w-[15rem]">
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
 
         {isLoading ? (
           <div className="h-64 flex items-center justify-center text-muted-foreground">
