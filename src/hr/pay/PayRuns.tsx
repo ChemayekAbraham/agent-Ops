@@ -25,6 +25,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  closePeriod,
   createPeriod,
   createRun,
   listPeriods,
