@@ -1267,18 +1267,21 @@ export function AgentCashPayoutsTab() {
 
   // Server-driven queue values. The active tab's page comes from `queuePage`,
   // counts come from `queueCounts`, and the unfiltered total from `availableTotal`.
-  // Urgent proxy-agent payouts are Priority #1 at the top of the queue while the
-  // CTO control "Show Proxy Agent withdrawals first" is ON. When OFF, the queue
-  // keeps its normal (server) order so normal withdrawals are worked first.
+  // Landlord float payouts are Priority #1 while the CTO control
+  // "Show Landlord Payouts first" is ON. Urgent proxy-agent payouts are Priority
+  // #2. When both controls are OFF, the queue keeps its normal server order.
   const actionableRows: any[] = (queuePage?.rows ?? []).filter((row: any) => isMerchantQueueActionable(row));
-  // While the control is ON, ordinary (non-proxy) withdrawals must NOT surface
-  // in the queue at all as long as any proxy-agent withdrawal is present —
-  // merchant agents only see the priority proxy payouts. Once no proxy row is
-  // left, the normal queue reappears.
+  // While landlord priority is ON, ordinary withdrawals must NOT surface as
+  // long as any landlord payout is present — merchant agents only see landlord
+  // payouts. Once none remain, proxy priority (if ON) takes over; otherwise the
+  // normal queue reappears.
+  const landlordOnlyRows: any[] = actionableRows.filter((row: any) => isUrgentLandlordPayout(row));
   const proxyOnlyRows: any[] = actionableRows.filter((row: any) => isUrgentProxyWithdrawal(row));
-  const pageRows: any[] = proxyPriorityEnforced
-    ? (proxyOnlyRows.length > 0 ? sortProxyPriorityFirst(proxyOnlyRows) : actionableRows)
-    : actionableRows;
+  const pageRows: any[] = (landlordPriorityEnforced && landlordOnlyRows.length > 0)
+    ? sortLandlordPriorityFirst(landlordOnlyRows)
+    : (proxyPriorityEnforced && proxyOnlyRows.length > 0)
+      ? sortProxyPriorityFirst(proxyOnlyRows)
+      : actionableRows;
   const pageCount = queuePage?.count ?? 0;
   const channelCounts = queueCounts ?? { all: 0, momo: 0, cash: 0, bank: 0 };
   const totalPending = availableTotal;
