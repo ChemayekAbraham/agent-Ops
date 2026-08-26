@@ -22,6 +22,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 
+import { UnifiedWalletHeroCard } from '@/components/wallet/UnifiedWalletHeroCard';
 import { FunderQuickActions } from '@/components/supporter/FunderQuickActions';
 import mtnLogoAsset from '@/assets/mtn-logo.png.asset.json';
 import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
@@ -125,6 +126,25 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
               </div>
             ) : (
               <>
+                {/* Balance hero — unified wallet hero card (same card as the dashboard) */}
+                <UnifiedWalletHeroCard
+                  balance={data?.totalAvailable ?? 0}
+                  role="supporter"
+                  secondaryLabel="Deposits (Float)"
+                  secondaryValue={formatUGX(data?.floatAmount ?? 0)}
+                  withdrawableBalance={data?.withdrawableAmount ?? 0}
+                  returnPerMonth={formatUGX(data?.roiAmount ?? 0)}
+                  deployed={formatUGX(data?.depositsAmount ?? 0)}
+                  defaultCollapsed={false}
+                  onOpenWallet={() => {
+                    onOpenChange(false);
+                    navigate('/transactions');
+                  }}
+                  onViewStatement={() => {
+                    onOpenChange(false);
+                    navigate('/transactions');
+                  }}
+                />
 
                 {/* Providers — wallet-card style, compact logos with names */}
                 <Card className="rounded-2xl border-border/50 shadow-sm overflow-hidden" data-testid="provider-logos">
