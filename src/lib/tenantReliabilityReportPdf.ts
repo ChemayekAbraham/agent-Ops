@@ -202,6 +202,9 @@ export function generateTenantReliabilityReportPdf(
         x += c.w;
       });
       y += 6;
+   
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
     };
     bHead();
     doc.setFont('helvetica', 'normal');
@@ -341,6 +344,9 @@ export function generateTenantReliabilityReportPdf(
         x += c.w;
       });
       y += 6;
+   
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
     };
     aHead();
     doc.setFont('helvetica', 'normal');
@@ -414,6 +420,8 @@ export function generateTenantReliabilityReportPdf(
       x += widths[i];
     });
     y += 6;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.8);
   };
   drawHead();
   doc.setFont('helvetica', 'normal');
