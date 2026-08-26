@@ -93,12 +93,25 @@ export function TenantCallReportsPanel({
   filterLabel?: string;
   searchLabel?: string;
 }) {
+  const { user } = useAuth();
   const [preset, setPreset] = useState<Preset>('30d');
   const [from, setFrom] = useState<Date | undefined>(subDays(new Date(), 30));
   const [to, setTo] = useState<Date | undefined>(new Date());
   const [scope, setScope] = useState<'filtered' | 'everyone'>('filtered');
-  const [fmt, setFmt] = useState<'csv' | 'xlsx'>('csv');
+  const [fmt, setFmt] = useState<'csv' | 'xlsx' | 'pdf'>('csv');
   const [busy, setBusy] = useState<ReportKind | null>(null);
+  const [actorName, setActorName] = useState('');
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
+      if (!cancelled) setActorName(data?.full_name || user.email || 'Tenant Ops user');
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id, user?.email]);
+
 
   const applyPreset = (key: Preset) => {
     const now = new Date();
