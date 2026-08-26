@@ -38219,6 +38219,15 @@ export type Database = {
           },
         ]
       }
+      v_receivables_collection_history: {
+        Row: {
+          amount: number | null
+          category_key: string | null
+          d: string | null
+          product_key: string | null
+        }
+        Relationships: []
+      }
       v_receivables_lines: {
         Row: {
           category_key: string | null
@@ -42804,6 +42813,14 @@ export type Database = {
       get_receivables_breakdown: { Args: never; Returns: Json }
       get_receivables_forecast: {
         Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
+      get_receivables_forecast_accuracy: {
+        Args: {
+          p_horizons?: number[]
+          p_origins?: number
+          p_step_days?: number
+        }
         Returns: Json
       }
       get_receivables_predictive_forecast: {
