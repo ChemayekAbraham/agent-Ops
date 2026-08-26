@@ -1956,9 +1956,12 @@ export function AgentCashPayoutsTab() {
                   const methodLabel = channel === 'momo' ? 'Mobile Money' : channel === 'bank' ? 'Bank Transfer' : 'Cash';
                   const isLandlordPayout =
                     typeof w.reason === 'string' && w.reason.startsWith('Landlord float payout');
+                  const isUrgentLandlord = landlordPriorityEnforced && isUrgentLandlordPayout(w);
                   const isUrgentProxy = proxyPriorityEnforced && isUrgentProxyWithdrawal(w);
+                  const landlordBlocked =
+                    !isUrgentLandlord && !!blockingUrgentLandlord && blockingUrgentLandlord.id !== w.id;
                   const proxyBlocked =
-                    !isUrgentProxy && !!blockingUrgentProxy && blockingUrgentProxy.id !== w.id;
+                    !isUrgentLandlord && !isUrgentProxy && !!blockingUrgentProxy && blockingUrgentProxy.id !== w.id;
                   const name = isLandlordPayout
                     ? (w.mobile_money_name || 'Landlord')
                     : (w.profiles?.full_name
