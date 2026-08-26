@@ -9,6 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, FileDown, FileSpreadsheet, RefreshCw, TrendingUp, Users, HandCoins, Trophy } from 'lucide-react';
 import { format } from 'date-fns';
 import { downloadAuditPdf } from '@/lib/pdfAuditReport';
+import { downloadCsv } from '@/lib/csvExport';
+import { downloadXlsx, downloadXlsxWorkbook } from '@/lib/xlsxExport';
+
 
 const formatUGX = (n: number) => `UGX ${Math.round(Number(n) || 0).toLocaleString('en-UG')}`;
 import {
@@ -51,6 +54,7 @@ function toCsv(headers: string[], rows: (string | number)[][]) {
 export function DailyRentReport({ mode }: Props) {
   const qc = useQueryClient();
   const [date, setDate] = useState<string>(todayIso());
+  const [dateTo, setDateTo] = useState<string>(todayIso());
   const [agentFilter, setAgentFilter] = useState<string>('all');
   const [tenantFilter, setTenantFilter] = useState<string>('all');
   const [landlordFilter, setLandlordFilter] = useState<string>('all');
@@ -58,13 +62,17 @@ export function DailyRentReport({ mode }: Props) {
   const [methodFilter, setMethodFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
+  // Per-section report windows (narrowed inside the loaded period only).
+  const [secRange, setSecRange] = useState<Record<string, { from: string; to: string }>>({});
 
-  // ---- Load agent_collections for the selected day ----
+  // ---- Load agent_collections for the selected period (defaults to one day) ----
   const { data: rawCollections = [], isLoading, refetch } = useQuery({
-    queryKey: ['daily-rent-report', date],
+    queryKey: ['daily-rent-report', date, dateTo],
     queryFn: async () => {
-      const from = new Date(`${date}T00:00:00`).toISOString();
-      const to = new Date(`${date}T23:59:59.999`).toISOString();
+      const start = date <= dateTo ? date : dateTo;
+      const end = date <= dateTo ? dateTo : date;
+      const from = new Date(`${start}T00:00:00`).toISOString();
+      const to = new Date(`${end}T23:59:59.999`).toISOString();
       const { data, error } = await supabase
         .from('agent_collections')
         .select('id, created_at, amount, payment_method, tracking_id, momo_transaction_id, notes, float_before, float_after, agent_id, tenant_id, rent_request_id')
@@ -76,6 +84,7 @@ export function DailyRentReport({ mode }: Props) {
     },
     staleTime: 30_000,
   });
+
 
   // ---- Realtime: refetch on any new agent_collections row today ----
   useEffect(() => {
@@ -641,8 +650,12 @@ export function DailyRentReport({ mode }: Props) {
       {/* Controls */}
       <Card className="p-3 flex flex-wrap items-end gap-2">
         <div className="space-y-1">
-          <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Date</label>
-          <Input type="date" value={date} onChange={e => setDate(e.target.value)} className="h-9 w-40" />
+          <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">From</label>
+          <Input type="date" value={date} onChange={e => { setDate(e.target.value); setSecRange({}); }} className="h-9 w-40" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">To</label>
+          <Input type="date" value={dateTo} min={date} onChange={e => { setDateTo(e.target.value); setSecRange({}); }} className="h-9 w-40" />
         </div>
         <div className="space-y-1">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Agent</label>
@@ -724,6 +737,10 @@ export function DailyRentReport({ mode }: Props) {
         </div>
       )}
 
+      <Card className="p-0 overflow-hidden">
+        {bar('summary', 'Summary')}
+      </Card>
+
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <Card className="p-3">
@@ -739,6 +756,7 @@ export function DailyRentReport({ mode }: Props) {
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <div className="-mx-3 -mb-3 mt-2">{bar('hour', 'Hourly')}</div>
         </Card>
         <Card className="p-3">
           <div className="text-xs font-semibold mb-2">By Payment Method</div>
@@ -753,6 +771,7 @@ export function DailyRentReport({ mode }: Props) {
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <div className="-mx-3 -mb-3 mt-2">{bar('method', 'Methods')}</div>
         </Card>
         <Card className="p-3">
           <div className="text-xs font-semibold mb-2">Top Properties</div>
@@ -767,6 +786,7 @@ export function DailyRentReport({ mode }: Props) {
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <div className="-mx-3 -mb-3 mt-2">{bar('property', 'Properties')}</div>
         </Card>
       </div>
 
@@ -812,7 +832,9 @@ export function DailyRentReport({ mode }: Props) {
             )}
           </table>
         </div>
+        {bar('transactions', mode === 'tenant' ? 'Repayments table' : 'Collections table')}
       </Card>
+
 
       {/* Agent performance (agent mode only) */}
       {mode === 'agent' && (
@@ -847,7 +869,9 @@ export function DailyRentReport({ mode }: Props) {
               </tbody>
             </table>
           </div>
+          {bar('agents', 'Agent performance')}
         </Card>
+
       )}
 
       {/* Totals footer */}
@@ -859,7 +883,34 @@ export function DailyRentReport({ mode }: Props) {
           <div><div className="text-muted-foreground">Pending</div><div className="text-lg font-bold text-amber-700">{totals.pending}</div></div>
         </div>
       </Card>
+
+      {/* Comprehensive report — every section of this page in one file */}
+      <Card className="p-0 overflow-hidden">
+        <div className="p-3 border-b">
+          <div className="text-sm font-semibold">Comprehensive Report — whole page</div>
+          <div className="text-[11px] text-muted-foreground">
+            Summary, hourly, payment methods, properties, transactions and agent performance for the
+            selected period and filters. Excel exports one sheet per section.
+          </div>
+        </div>
+        <SectionReportBar
+          title="Comprehensive"
+          from={rangeFor('comprehensive').from}
+          to={rangeFor('comprehensive').to}
+          minDate={date}
+          maxDate={dateTo}
+          onFromChange={v => setRange('comprehensive', { ...rangeFor('comprehensive'), from: v })}
+          onToChange={v => setRange('comprehensive', { ...rangeFor('comprehensive'), to: v })}
+          onReset={() => setRange('comprehensive', { from: date, to: dateTo })}
+          onCsv={exportComprehensiveCsv}
+          onXlsx={exportComprehensiveXlsx}
+          onPdf={exportComprehensivePdf}
+          disabled={!rowsFor('comprehensive').length}
+          extra={`${rowsFor('comprehensive').length} rows`}
+        />
+      </Card>
     </div>
+
   );
 }
 
