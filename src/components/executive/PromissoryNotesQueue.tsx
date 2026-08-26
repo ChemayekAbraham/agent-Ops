@@ -671,6 +671,38 @@ export function PromissoryNotesQueue() {
                       <User className="h-4 w-4 text-muted-foreground" />
                       <span className="font-semibold">{selectedNote.partner_name}</span>
                     </div>
+                    {(() => {
+                      const ci = cameInIdentity(selectedNote);
+                      if (!ci) {
+                        return (
+                          <p className="text-[11px] text-muted-foreground">
+                            No registered account matched this note's phone or email yet.
+                          </p>
+                        );
+                      }
+                      return (
+                        <div className={cn('rounded-md border p-2 text-xs', ci.matches ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50')}>
+                          <p className="font-medium">
+                            Came in as: {ci.registeredName}
+                          </p>
+                          <p className="text-muted-foreground">
+                            Matched on {ci.matchedOn} · note name: {selectedNote.partner_name}
+                          </p>
+                          {!ci.matches && (
+                            <p className="mt-1 font-medium text-amber-700">
+                              Registered name differs from the promissory note — verify before approval.
+                            </p>
+                          )}
+                          {selectedNote.came_in_at && (
+                            <p className="text-muted-foreground">
+                              Registered {format(new Date(selectedNote.came_in_at), 'dd MMM yyyy HH:mm')}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <MessageCircle className="h-3.5 w-3.5" />
                       <span>{selectedNote.whatsapp_number}</span>
