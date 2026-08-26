@@ -592,11 +592,14 @@ export function AgentCashPayoutsTab() {
   // CTO Platform Control: "Show Proxy Agent withdrawals first". When OFF the
   // hold is released and normal withdrawals are claimable in the usual order.
   const { enforced: proxyPriorityEnforced } = useProxyPayoutPriority();
+  // CTO Platform Control: "Show Landlord Payouts first". When OFF landlord float
+  // payouts process in the usual order alongside other withdrawals.
+  const { enforced: landlordPriorityEnforced } = useLandlordPayoutPriority();
 
   useEffect(() => {
     setPage(0);
     invalidateQueue();
-  }, [proxyPriorityEnforced]);
+  }, [proxyPriorityEnforced, landlordPriorityEnforced]);
 
   const { data: blockingUrgentProxyRow = null } = useQuery({
     queryKey: ['cashout-blocking-urgent-proxy'],
