@@ -69,6 +69,13 @@ type RentBehaviourRow = {
   total_to_collect: number;
   total_repaid: number;
   daily_expected: number;
+  paid_today: number;
+  paid_in_period: number;
+  period_collection_count: number;
+  expected_today: number;
+  expected_in_period: number;
+  missed_days: number;
+  paid_days: number;
   collection_count: number;
   rent_request_count: number;
   agent_commission_total: number;
@@ -86,9 +93,13 @@ type RentBehaviourResponse = {
   limit: number;
   offset: number;
   total: number;
+  from: string | null;
+  to: string | null;
+  days: number;
   kpis: RentBehaviourKpis;
   rows: RentBehaviourRow[];
 };
+
 
 type DetailCollection = {
   id: string;
