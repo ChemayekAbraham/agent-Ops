@@ -20,6 +20,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   UserPlus,
+  Percent,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -43,6 +44,7 @@ export type PartnerOpsViewKey =
   | 'proxy.directory'
   | 'proxy.vetting'
   | 'proxy.promissory'
+  | 'proxy.commissions'
   | 'proxy.followup'
   | 'maturity'
   | 'approvals'
@@ -143,6 +145,7 @@ export const PARTNER_OPS_NAV: PartnerOpsNavItem[] = [
       { key: 'proxy.directory', label: 'Proxy Agent', icon: Users, keywords: ['directory', 'proxy agents', 'bio data', 'earnings'] },
       { key: 'proxy.vetting', label: 'Vetting', icon: ShieldCheck, keywords: ['applications', 'approve proxy'] },
       { key: 'proxy.promissory', label: 'Promissory Notes', icon: FileText, keywords: ['notes', 'commitments'] },
+      { key: 'proxy.commissions', label: 'Commissions', icon: Percent, keywords: ['commission', '2%', '1%', 'portfolio', 'top-up', 'topup', 'marketing expense', 'approve'] },
       { key: 'proxy.followup', label: 'Followup', icon: PhoneCall, keywords: ['contact', 'chase'] },
     ],
   },
