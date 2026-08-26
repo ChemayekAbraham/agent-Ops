@@ -14,7 +14,8 @@ import {
   TrendingUp,
   Users,
   Wallet,
-} from 'lucide-react';
+  X,
+
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
