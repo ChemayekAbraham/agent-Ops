@@ -73,7 +73,7 @@ function presetRange(preset: PresetKey): { from: string; to: string } {
   }
 }
 
-export function ReceivablesBreakdownForecast() {
+export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHeadline?: boolean } = {}) {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [openProduct, setOpenProduct] = useState<string | null>(null);
   const [preset, setPreset] = useState<PresetKey>('next_7');
@@ -94,6 +94,7 @@ export function ReceivablesBreakdownForecast() {
   return (
     <div className="space-y-3">
       {/* Headline */}
+      {!hideHeadline && (
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="p-4 space-y-2">
           <div className="flex items-start justify-between gap-3">
@@ -134,6 +135,7 @@ export function ReceivablesBreakdownForecast() {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Categories with drill-down */}
       <Card>

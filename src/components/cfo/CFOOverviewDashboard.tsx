@@ -24,7 +24,7 @@ import { CFOActionsLog } from '@/components/cfo/CFOActionsLog';
 import { ReceiptNumberLookupPanel } from '@/components/financial-ops/ReceiptNumberLookupPanel';
 import { AgentAdvancesStatsCard } from '@/components/cfo/AgentAdvancesStatsCard';
 import { DailyReceivablesPayablesSection } from '@/components/cfo/DailyReceivablesPayablesSection';
-import { ReceivablesBreakdownForecast } from '@/components/cfo/ReceivablesBreakdownForecast';
+import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilldown';
 
 
 interface CFOOverviewDashboardProps {
@@ -239,15 +239,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         {/* ══════════════ DAILY RECEIVABLES & PAYABLES ══════════════ */}
         <DailyReceivablesPayablesSection />
 
-        {/* ══════════════ RECEIVABLES BREAKDOWN & FORECAST ══════════════ */}
-        <div className="space-y-2">
-          <SectionToggle
-            open={isOpen('receivablesBreakdown')}
-            onToggle={() => toggleSection('receivablesBreakdown')}
-            label="Receivables Breakdown & Forecast"
-          />
-          {isOpen('receivablesBreakdown') && <ReceivablesBreakdownForecast />}
-        </div>
+        {/* ══════════════ RECEIVABLES CARD (tap for breakdown & forecast) ══════════════ */}
+        <ReceivablesCardDrilldown />
 
 
         {/* ══════════════ WHERE THE MONEY SITS ══════════════ */}
