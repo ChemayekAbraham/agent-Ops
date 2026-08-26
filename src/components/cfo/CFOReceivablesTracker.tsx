@@ -7,6 +7,8 @@ import { Banknote, TrendingUp, PieChart, ChevronDown, ChevronUp, Receipt } from 
 import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { Progress } from '@/components/ui/progress';
+import { useReceivablesTotal } from '@/hooks/useReceivables';
+
 
 interface Receivable {
   id: string;
