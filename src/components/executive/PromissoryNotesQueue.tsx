@@ -213,6 +213,8 @@ export function PromissoryNotesQueue() {
       n.partner_name, n.whatsapp_number, n.phone_number, n.email,
       n.agent_name, n.came_in_name, n.lead_partner_name,
       n.came_in ? 'came in registered' : 'not registered',
+      n.journey_stage,
+      (n.portfolio_count ?? 0) > 0 ? 'portfolio' : '',
     ].filter(Boolean).join(' ').toLowerCase();
     const matchesSearch = !search || haystack.includes(search.toLowerCase());
     const matchesStatus =
@@ -222,6 +224,8 @@ export function PromissoryNotesQueue() {
         ? !!n.came_in
         : statusFilter === 'not_registered'
         ? !n.came_in
+        : statusFilter === 'portfolio_pending' || statusFilter === 'portfolio_active'
+        ? n.journey_stage === statusFilter
         : n.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -283,11 +287,22 @@ export function PromissoryNotesQueue() {
     cancelled: { icon: XCircle, color: 'bg-muted text-muted-foreground border-border', label: 'Cancelled' },
   };
 
+  // Partner journey after a promissory note: matched by phone/email on registration,
+  // then a portfolio awaiting approval, then a live portfolio.
+  const stageConfig: Record<string, { label: string; color: string }> = {
+    not_registered: { label: 'Not registered', color: 'bg-muted text-muted-foreground border-border' },
+    came_in: { label: 'Came in', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+    portfolio_pending: { label: 'Portfolio pending', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+    portfolio_active: { label: 'Portfolio active', color: 'bg-primary/10 text-primary border-primary/20' },
+  };
+  const stageOf = (n: any) => stageConfig[n?.journey_stage as string] || (n?.came_in ? stageConfig.came_in : stageConfig.not_registered);
+
   const statuses = ['all', 'pending', 'activated', 'fulfilled', 'defaulted', 'cancelled'];
 
   const kpiCards: { label: string; value: React.ReactNode; hint?: string; tone: string }[] = [
     { label: 'Promissory notes', value: kpis.notes_count, hint: `${kpis.approved_notes} approved`, tone: 'bg-primary/5 border-primary/20' },
     { label: 'Partners came in', value: kpis.partners_came_in, hint: `of ${kpis.notes_count} notes`, tone: 'bg-emerald-50 border-emerald-200' },
+    { label: 'Created a portfolio', value: kpis.partners_with_portfolio, hint: `${kpis.partners_portfolio_active} active · ${kpis.partners_portfolio_pending} pending`, tone: 'bg-sky-50 border-sky-200' },
     { label: 'Receivable', value: <CompactAmount value={Number(kpis.receivable)} />, hint: 'outstanding on live notes', tone: 'bg-amber-50 border-amber-200' },
     { label: 'Promised vs fulfilled', value: <CompactAmount value={Number(kpis.promised_total)} />, hint: `fulfilled ${Math.round(Number(kpis.promised_total) > 0 ? (Number(kpis.fulfilled_total) / Number(kpis.promised_total)) * 100 : 0)}%`, tone: 'bg-sky-50 border-sky-200' },
     { label: 'Proxy agents', value: kpis.proxy_agents, hint: `${kpis.proxies_approved} approved`, tone: 'bg-violet-50 border-violet-200' },
