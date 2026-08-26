@@ -106,3 +106,5 @@
 - [Tenant Calling Hub](mem://features/ops/tenant-calling-hub) — Classic → Calling Hub: three-status (pending/closed/missed) append-only tenant call workflow + CSV call reports
 - [SMS sign-up prompt](mem://features/sms/signup-prompt) — Every non-OTP SMS ends with "Not on Welile yet? Sign up: welileapp.com/wjoin"; OTP senders opt out via `_shared/noSignupPrompt.ts`
 - [Predictive receivables forecast](mem://features/cfo/predictive-receivables-forecast) — `get_receivables_predictive_forecast` RPC + CFO UI: per-stream models from real collection history, runoff vs new origination, confidence/quality, no hardcoded growth rates
+- [CFO payables layer](mem://features/cfo/payables-forecast) — `v_payables_lines` authoritative payables + `get_payables_total/breakdown/predictive_forecast/forecast_accuracy`, PayablesCardDrilldown beside receivables
+
