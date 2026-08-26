@@ -767,6 +767,25 @@ export function PromissoryNotesQueue() {
                         </div>
                       );
                     })()}
+                    {(() => {
+                      const c = commissionOf(selectedNote);
+                      return (
+                        <div className="rounded-md border border-violet-200 bg-violet-50 p-2 text-xs space-y-0.5">
+                          <p className="font-medium text-violet-800">Proxy agent commission</p>
+                          <p className="text-muted-foreground">
+                            {pct(c.creationRate)} on portfolio creation · {pct(c.topupRate)} on every top-up
+                          </p>
+                          <p>
+                            Creation: <span className="font-medium">{c.creationPaid > 0 ? `${formatUGX(c.creationPaid)} paid` : c.expected > 0 ? `${formatUGX(c.expected)} due` : 'not earned yet'}</span>
+                          </p>
+                          <p>
+                            Top-ups: <span className="font-medium">{formatUGX(c.topupPaid)}</span>
+                            {c.topupCount > 0 ? ` (${c.topupCount} top-up${c.topupCount === 1 ? '' : 's'})` : ''}
+                          </p>
+                          <p className="font-medium">Total earned: {formatUGX(c.total)}</p>
+                        </div>
+                      );
+                    })()}
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <MessageCircle className="h-3.5 w-3.5" />
                       <span>{selectedNote.whatsapp_number}</span>
