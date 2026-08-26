@@ -26436,6 +26436,96 @@ export type Database = {
         }
         Relationships: []
       }
+      proxy_commission_queue: {
+        Row: {
+          agent_id: string
+          amount: number
+          assignment_id: string | null
+          auto_approved: boolean
+          base_amount: number
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          idempotency_key: string
+          kind: string
+          ledger_group_id: string | null
+          partner_id: string
+          rate: number
+          source_id: string
+          source_table: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          amount: number
+          assignment_id?: string | null
+          auto_approved?: boolean
+          base_amount: number
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          idempotency_key: string
+          kind: string
+          ledger_group_id?: string | null
+          partner_id: string
+          rate: number
+          source_id: string
+          source_table: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          amount?: number
+          assignment_id?: string | null
+          auto_approved?: boolean
+          base_amount?: number
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          idempotency_key?: string
+          kind?: string
+          ledger_group_id?: string | null
+          partner_id?: string
+          rate?: number
+          source_id?: string
+          source_table?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      proxy_commission_settings: {
+        Row: {
+          auto_approve: boolean
+          created_at: string
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          auto_approve?: boolean
+          created_at?: string
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          auto_approve?: boolean
+          created_at?: string
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       proxy_debit_audit_log: {
         Row: {
           amount: number
@@ -39120,6 +39210,10 @@ export type Database = {
         Args: { p_note_id: string; p_reason: string }
         Returns: Json
       }
+      approve_proxy_commission: {
+        Args: { p_id: string; p_note?: string }
+        Returns: Json
+      }
       approve_self_registered_funder: {
         Args: { _reason: string; _target_user: string }
         Returns: undefined
@@ -42586,6 +42680,10 @@ export type Database = {
         Args: { p_agent_id?: string }
         Returns: Json
       }
+      get_proxy_commission_queue: {
+        Args: { p_limit?: number; p_status?: string }
+        Returns: Json
+      }
       get_proxy_partner_balance: {
         Args: { p_agent_id: string; p_partner_id: string }
         Returns: number
@@ -43638,6 +43736,7 @@ export type Database = {
         Args: { _agent: string; _partner: string }
         Returns: boolean
       }
+      is_proxy_commission_admin: { Args: { p_user?: string }; Returns: boolean }
       is_proxy_directory_viewer: { Args: { _uid: string }; Returns: boolean }
       is_proxy_for: {
         Args: { _agent_id: string; _beneficiary_id: string }
@@ -45084,6 +45183,7 @@ export type Database = {
         Returns: Json
       }
       pay_partner_self_cycles: { Args: { p_limit?: number }; Returns: Json }
+      pay_proxy_commission_queue_item: { Args: { p_id: string }; Returns: Json }
       payout_reconciliation_bucket: {
         Args: { p_missing: Json; p_settlement_state: string; p_status: string }
         Returns: string
@@ -45573,6 +45673,10 @@ export type Database = {
       reject_pending_portfolio: {
         Args: { p_portfolio_id: string; p_reason: string }
         Returns: string
+      }
+      reject_proxy_commission: {
+        Args: { p_id: string; p_reason: string }
+        Returns: Json
       }
       reject_self_registered_funder: {
         Args: { _reason: string; _target_user: string }
@@ -46107,6 +46211,10 @@ export type Database = {
       }
       set_proxy_agent_target: {
         Args: { p_agent_id?: string; p_target: number }
+        Returns: Json
+      }
+      set_proxy_commission_auto_approve: {
+        Args: { p_enabled: boolean }
         Returns: Json
       }
       set_staff_access_password: {
