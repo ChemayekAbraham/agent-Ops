@@ -3044,6 +3044,16 @@ export function LandlordOpsDashboard({
                           >
                             Edit
                           </Button>
+                          {landlord.verified && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs border-destructive/40 text-destructive hover:bg-destructive/5"
+                              onClick={() => setReverseLandlord({ id: landlord.id, name: landlord.name })}
+                            >
+                              Reverse
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
