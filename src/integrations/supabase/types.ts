@@ -1705,17 +1705,21 @@ export type Database = {
           agent_id: string
           amount: number
           created_at: string
+          expected_amount: number | null
           float_after: number
           float_before: number
           id: string
+          is_partial: boolean
           location_name: string | null
           momo_payer_name: string | null
           momo_phone: string | null
           momo_provider: string | null
           momo_transaction_id: string | null
           notes: string | null
+          partial_reason: string | null
           payment_method: Database["public"]["Enums"]["collection_payment_method"]
           rent_request_id: string | null
+          shortfall_amount: number | null
           sms_sent_agent: boolean | null
           sms_sent_tenant: boolean | null
           tenant_id: string
@@ -1727,17 +1731,21 @@ export type Database = {
           agent_id: string
           amount: number
           created_at?: string
+          expected_amount?: number | null
           float_after?: number
           float_before?: number
           id?: string
+          is_partial?: boolean
           location_name?: string | null
           momo_payer_name?: string | null
           momo_phone?: string | null
           momo_provider?: string | null
           momo_transaction_id?: string | null
           notes?: string | null
+          partial_reason?: string | null
           payment_method: Database["public"]["Enums"]["collection_payment_method"]
           rent_request_id?: string | null
+          shortfall_amount?: number | null
           sms_sent_agent?: boolean | null
           sms_sent_tenant?: boolean | null
           tenant_id: string
@@ -1749,17 +1757,21 @@ export type Database = {
           agent_id?: string
           amount?: number
           created_at?: string
+          expected_amount?: number | null
           float_after?: number
           float_before?: number
           id?: string
+          is_partial?: boolean
           location_name?: string | null
           momo_payer_name?: string | null
           momo_phone?: string | null
           momo_provider?: string | null
           momo_transaction_id?: string | null
           notes?: string | null
+          partial_reason?: string | null
           payment_method?: Database["public"]["Enums"]["collection_payment_method"]
           rent_request_id?: string | null
+          shortfall_amount?: number | null
           sms_sent_agent?: boolean | null
           sms_sent_tenant?: boolean | null
           tenant_id?: string
@@ -38812,6 +38824,8 @@ export type Database = {
           p_agent_id: string
           p_amount: number
           p_notes?: string
+          p_partial_confirmed?: boolean
+          p_partial_reason?: string
           p_rent_request_id: string
           p_tenant_id: string
         }
@@ -38865,6 +38879,10 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_expected_collection: {
+        Args: { p_rent_request_id: string }
+        Returns: number
+      }
       agent_list_promissory_fundable_plans: {
         Args: {
           p_limit?: number
@@ -38913,6 +38931,10 @@ export type Database = {
           updated_at: string
           whitelisted: boolean
         }[]
+      }
+      agent_ops_partial_collection_report: {
+        Args: { p_days?: number }
+        Returns: Json
       }
       agent_ops_qualifying_agent_ids: {
         Args: never

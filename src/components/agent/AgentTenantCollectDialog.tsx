@@ -32,11 +32,24 @@ import { useRequireContactLocation } from '@/hooks/useRequireContactLocation';
 function humanizeAllocationError(
   message: string,
   code?: string,
-  details?: { strict_float?: number | null; cached_float?: number | null; requested?: number | null },
+  details?: {
+    strict_float?: number | null;
+    cached_float?: number | null;
+    requested?: number | null;
+    expected_amount?: number | null;
+    shortfall_amount?: number | null;
+  },
 ): string {
+  if (code === 'PARTIAL_NOT_CONFIRMED') {
+    return `This tenant is expected to pay ${formatUGX(Number(details?.expected_amount ?? 0))}. You entered ${formatUGX(Number(details?.requested ?? 0))} — short by ${formatUGX(Number(details?.shortfall_amount ?? 0))}. Collect the full amount, or tick "Record as partial payment" and give a reason.`;
+  }
+  if (code === 'PARTIAL_REASON_REQUIRED') {
+    return 'A partial payment needs a short reason (at least 5 characters) so Operations can follow it up.';
+  }
   if (code === 'COMMISSION_LEDGER_INCONSISTENT') {
     return 'Float allocation paused — your commission ledger is out of balance. Support has been notified and will reconcile your wallet shortly.';
   }
+
   if (code === 'INSUFFICIENT_FLOAT') {
     const strict = Number(details?.strict_float ?? 0);
     const cached = Number(details?.cached_float ?? 0);
@@ -101,6 +114,12 @@ export function AgentTenantCollectDialog({
   // agent can see if it failed and manually resend from the success view.
   const [smsStatus, setSmsStatus] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
   const [smsResending, setSmsResending] = useState(false);
+  // Expected collection for this tenant today (flat daily amount, capped at the
+  // remaining balance). Sourced from the server helper so the frontend and the
+  // RPC gate agree on one definition — no duplicated fee arithmetic here.
+  const [expectedAmount, setExpectedAmount] = useState<number | null>(null);
+  const [partialConfirmed, setPartialConfirmed] = useState(false);
+  const [partialReason, setPartialReason] = useState('');
 
   useEffect(() => {
     if (open) {
@@ -112,9 +131,30 @@ export function AgentTenantCollectDialog({
       setRpcError(null);
       setSmsStatus('idle');
       setSmsResending(false);
+      setPartialConfirmed(false);
+      setPartialReason('');
+      setExpectedAmount(null);
       refetchBalances();
     }
   }, [open]);
+
+  // One round trip, one source of truth for "what should be collected".
+  useEffect(() => {
+    if (!open || !rentRequestId) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.rpc('agent_expected_collection', {
+        p_rent_request_id: rentRequestId,
+      });
+      if (cancelled) return;
+      if (error) {
+        console.warn('[AgentTenantCollectDialog] expected collection lookup failed', error);
+        return;
+      }
+      setExpectedAmount(Math.max(0, Number(data ?? 0)));
+    })();
+    return () => { cancelled = true; };
+  }, [open, rentRequestId]);
 
   // While the tenant-collection dialog is open, suppress iOS PWA full
   // cache invalidation and SW skipWaiting. Otherwise switching to MoMo /
@@ -130,14 +170,29 @@ export function AgentTenantCollectDialog({
   // less than 100 the agent must still be able to clear the last shillings.
   const minAllowed = outstandingBalance > 0 ? Math.min(100, outstandingBalance) : 100;
   const canAllocate = floatBalance >= minAllowed && outstandingBalance >= minAllowed && outstandingBalance > 0;
-  const isValid = amount >= minAllowed && amount <= maxAllowable;
+  // Partial-collection gate: anything below the tenant's expected amount must be
+  // explicitly confirmed with a reason, both here and in the RPC.
+  const expected = Math.max(0, Number(expectedAmount ?? 0));
+  const isPartial = expected > 0 && amount > 0 && amount < expected;
+  const shortfall = isPartial ? expected - amount : 0;
+  const partialReasonOk = partialReason.trim().length >= 5;
+  const partialCleared = !isPartial || (partialConfirmed && partialReasonOk);
+  const isValid = amount >= minAllowed && amount <= maxAllowable && partialCleared;
 
-  // Auto-suggest amount when dialog opens and float is available
+  // Auto-suggest the EXPECTED amount (not the maximum) so the default action is
+  // a complete collection. Falls back to the old behaviour when unknown.
   useEffect(() => {
-    if (open && amount === 0 && maxAllowable >= minAllowed) {
-      setAmount(maxAllowable);
-    }
-  }, [open, maxAllowable, minAllowed]);
+    if (!open || amount !== 0 || maxAllowable < minAllowed) return;
+    const suggestion = expected > 0 ? Math.min(expected, maxAllowable) : maxAllowable;
+    if (suggestion >= minAllowed) setAmount(suggestion);
+  }, [open, maxAllowable, minAllowed, expected]);
+
+  // Re-arm the gate whenever the amount changes, so a confirmation cannot be
+  // carried over to a different (smaller) amount.
+  useEffect(() => {
+    setPartialConfirmed(false);
+  }, [amount]);
+
 
   const handleAllocate = async () => {
     // Defensive logging — previously this handler appeared to "fail
@@ -186,6 +241,9 @@ export function AgentTenantCollectDialog({
           p_rent_request_id: rentRequestId,
           p_amount: amount,
           p_notes: notes.trim() || null,
+          p_partial_confirmed: isPartial ? partialConfirmed : false,
+          p_partial_reason: isPartial ? partialReason.trim() || null : null,
+
         });
       const STALL_MS = 45000;
       const raced = await Promise.race([
@@ -240,7 +298,10 @@ export function AgentTenantCollectDialog({
           ? humanizeAllocationError(rawMsg, res.error_code, {
               strict_float: res?.strict_float ?? res?.metadata?.strict_float,
               cached_float: res?.cached_float ?? res?.metadata?.cached_float,
-              requested: res?.requested ?? amount,
+              requested: res?.entered_amount ?? res?.requested ?? amount,
+              expected_amount: res?.expected_amount ?? expected,
+              shortfall_amount: res?.shortfall_amount ?? shortfall,
+
             })
           : humanizeAllocationError(rawMsg);
         console.error('[AgentTenantCollectDialog] allocation rejected:', res);
@@ -611,6 +672,19 @@ export function AgentTenantCollectDialog({
                 <span className="text-muted-foreground">Amount</span>
                 <span className="font-mono font-black text-2xl text-primary">{formatUGX(amount)}</span>
               </div>
+              {expected > 0 && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Expected</span>
+                  <span className="font-mono">{formatUGX(expected)}</span>
+                </div>
+              )}
+              {isPartial && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-warning font-semibold">Shortfall (partial)</span>
+                  <span className="font-mono font-bold text-warning">−{formatUGX(shortfall)}</span>
+                </div>
+              )}
+
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">Float after</span>
                 <span className="font-mono">{formatUGX(floatBalance - amount)}</span>
@@ -917,6 +991,26 @@ export function AgentTenantCollectDialog({
               <p className="text-xl font-bold text-destructive font-mono">{formatUGX(outstandingBalance)}</p>
             </div>
 
+            {/* Expected collection for this tenant */}
+            {expected > 0 && (
+              <div className="rounded-xl bg-primary/5 border border-primary/20 p-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Expected from this tenant</p>
+                  <p className="text-lg font-bold font-mono text-primary">{formatUGX(expected)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAmount(Math.min(expected, maxAllowable))}
+                  disabled={Math.min(expected, maxAllowable) < minAllowed}
+                  className="px-3 py-2 rounded-lg text-xs font-bold bg-primary text-primary-foreground disabled:opacity-50"
+                  style={{ touchAction: 'manipulation', minHeight: '36px' }}
+                >
+                  Collect full
+                </button>
+              </div>
+            )}
+
+
             {!canAllocate && floatBalance < minAllowed && (
               <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 rounded-xl p-3">
                 <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
@@ -969,6 +1063,59 @@ export function AgentTenantCollectDialog({
                 </div>
               )}
             </div>
+
+            {/* Partial-collection gate — no silent partials */}
+            {isPartial && (
+              <div className="rounded-xl bg-warning/10 border border-warning/40 p-3 space-y-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                  <div className="text-[11px] leading-relaxed">
+                    <p className="font-bold text-warning-foreground">
+                      Short by {formatUGX(shortfall)} — this is a partial collection
+                    </p>
+                    <p className="text-muted-foreground">
+                      {tenant.full_name} is expected to pay {formatUGX(expected)}. This will NOT count as a
+                      completed collection and Operations will follow it up.
+                    </p>
+                  </div>
+                </div>
+
+                <label
+                  className="flex items-start gap-2 cursor-pointer"
+                  style={{ touchAction: 'manipulation' }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={partialConfirmed}
+                    onChange={e => setPartialConfirmed(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-current text-warning shrink-0"
+                  />
+                  <span className="text-[11px] font-semibold text-warning-foreground">
+                    Record as partial payment — the tenant could not pay the full amount
+                  </span>
+                </label>
+
+                {partialConfirmed && (
+                  <div>
+                    <Label className="text-[11px]">Why is it short? *</Label>
+                    <Textarea
+                      value={partialReason}
+                      onChange={e => setPartialReason(e.target.value)}
+                      placeholder="e.g. Tenant paid part in cash, promised balance tomorrow"
+                      maxLength={300}
+                      rows={2}
+                      className="text-xs"
+                    />
+                    {!partialReasonOk && (
+                      <p className="text-[10px] text-destructive mt-1">
+                        Give at least 5 characters so Operations can follow up.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
 
             {/* Quick amount buttons — always clamped to maxAllowable */}
             <div className="flex gap-2 flex-wrap">
