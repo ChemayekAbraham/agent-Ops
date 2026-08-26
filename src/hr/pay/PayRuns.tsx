@@ -582,6 +582,89 @@ function StatusCell({ status }: { status: string }) {
   );
 }
 
+function CancelRunButton({ runId, status, onDone }: { runId: string; status: string; onDone: () => void }) {
+  const authority = useRunAuthority();
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const canCancel = ['draft', 'calculated', 'in_review', 'returned'].includes(status);
+  if (!canCancel) return null;
+
+  const denied = !authority.preparer;
+  const noteTooShort = note.trim().length < 10;
+
+  const act = async () => {
+    if (noteTooShort) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await cancelRun(runId, note);
+      toast.success('Run cancelled.');
+      setOpen(false);
+      setNote('');
+      onDone();
+    } catch (err) {
+      setError((err as Error).message);
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={busy || denied}
+        title={
+          denied
+            ? 'Your position does not hold prepare authority for payroll runs.'
+            : 'Cancel this run.'
+        }
+        onClick={() => setOpen(true)}
+      >
+        Cancel
+      </Button>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Cancel run</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label htmlFor="cancel-note">Note</Label>
+          <Textarea
+            id="cancel-note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={4}
+            placeholder="Why this run is being cancelled. This is the audit record."
+          />
+          <p className="text-xs text-muted-foreground">
+            At least 10 characters required.
+          </p>
+        </div>
+        {error && (
+          <p role="alert" className="text-xs font-medium text-destructive">
+            {error}
+          </p>
+        )}
+        <DialogFooter>
+          <Button
+            size="sm"
+            disabled={busy || noteTooShort}
+            onClick={() => void act()}
+          >
+            {busy && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+            Confirm cancellation
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function RuleStatusBadge({ value }: { value: string | null }) {
   if (value === 'provisional') {
     return (
