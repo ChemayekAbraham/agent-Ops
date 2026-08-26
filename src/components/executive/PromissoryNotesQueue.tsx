@@ -557,6 +557,24 @@ export function PromissoryNotesQueue() {
                                   <BadgeCheck className="h-3.5 w-3.5 text-emerald-600" />
                                 </span>
                               )}
+                              {(() => {
+                                const c = commissionOf(note);
+                                if (c.total <= 0 && !c.pendingCreation) return null;
+                                return (
+                                  <Badge
+                                    variant="outline"
+                                    className={cn('text-[10px]', c.total > 0
+                                      ? 'bg-violet-50 text-violet-700 border-violet-200'
+                                      : 'bg-muted/50 text-muted-foreground border-border')}
+                                    title={`Proxy agent commission — ${pct(c.creationRate)} on portfolio creation, ${pct(c.topupRate)} on each top-up`}
+                                  >
+                                    {c.total > 0
+                                      ? <>Agent {formatUGX(c.total)}</>
+                                      : <>Agent {pct(c.creationRate)} ≈ {formatUGX(c.expected)}</>}
+                                  </Badge>
+                                );
+                              })()}
+
                             </div>
                           </td>
                         </tr>
