@@ -665,6 +665,35 @@ function CancelRunButton({ runId, status, onDone }: { runId: string; status: str
   );
 }
 
+function ClosePeriodButton({ period, onDone }: { period: PayPeriodRow; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+
+  if (period.status !== 'open') return null;
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      disabled={busy}
+      onClick={() => {
+        setBusy(true);
+        closePeriod(period.id)
+          .then(() => {
+            toast.success(`Period ${period.code} closed.`);
+            onDone();
+          })
+          .catch((err) => {
+            toast.error((err as Error).message);
+          })
+          .finally(() => setBusy(false));
+      }}
+    >
+      {busy && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+      Close
+    </Button>
+  );
+}
+
 function RuleStatusBadge({ value }: { value: string | null }) {
   if (value === 'provisional') {
     return (
