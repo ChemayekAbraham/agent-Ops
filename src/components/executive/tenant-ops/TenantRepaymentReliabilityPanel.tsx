@@ -90,11 +90,55 @@ function ScoreDial({ score, band }: { score: number; band: ReliabilityRow['band'
  */
 export function TenantRepaymentReliabilityPanel() {
   const { data, isLoading, isFetching, refetch, error } = useTenantRepaymentReliability(800);
+  const { user } = useAuth();
   const [band, setBand] = useState<BandKey>('all');
   const [search, setSearch] = useState('');
+  const [preset, setPreset] = useState<Preset>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [exporting, setExporting] = useState(false);
 
-  const rows = data?.rows ?? [];
+  const allRows = data?.rows ?? [];
   const summary = data?.summary;
+
+  /** Report period → ISO bounds. Custom pickers win over presets; a single day = From only. */
+  const range = useMemo<{ from: string | null; to: string | null }>(() => {
+    if (dateFrom || dateTo) {
+      return {
+        from: dateFrom ? new Date(`${dateFrom}T00:00:00`).toISOString() : null,
+        to: dateTo ? new Date(`${dateTo}T23:59:59.999`).toISOString() : null,
+      };
+    }
+    const now = new Date();
+    if (preset === 'all') return { from: null, to: null };
+    if (preset === 'today') return { from: startOfDay(now).toISOString(), to: null };
+    if (preset === 'yesterday') {
+      return {
+        from: startOfDay(subDays(now, 1)).toISOString(),
+        to: new Date(startOfDay(now).getTime() - 1).toISOString(),
+      };
+    }
+    if (preset === '7d') return { from: startOfDay(subDays(now, 6)).toISOString(), to: null };
+    if (preset === 'month') return { from: startOfMonth(now).toISOString(), to: null };
+    return { from: startOfDay(subDays(now, 29)).toISOString(), to: null };
+  }, [preset, dateFrom, dateTo]);
+
+  const periodActive = Boolean(range.from || range.to);
+
+  /** Date scope only — the score, band and every figure stay exactly as computed server-side. */
+  const rows = useMemo(() => {
+    if (!periodActive) return allRows;
+    const fromMs = range.from ? new Date(range.from).getTime() : null;
+    const toMs = range.to ? new Date(range.to).getTime() : null;
+    return allRows.filter(r => {
+      if (!r.start_at) return false;
+      const t = new Date(r.start_at).getTime();
+      if (Number.isNaN(t)) return false;
+      if (fromMs !== null && t < fromMs) return false;
+      if (toMs !== null && t > toMs) return false;
+      return true;
+    });
+  }, [allRows, periodActive, range]);
 
   const counts = useMemo(() => ({
     all: rows.length,
@@ -118,6 +162,43 @@ export function TenantRepaymentReliabilityPanel() {
   }, [rows, band, search]);
 
   const avgScore = rows.length ? Math.round(rows.reduce((s, r) => s + r.score, 0) / rows.length) : 0;
+
+  const periodLabel = periodActive
+    ? `${range.from ? format(new Date(range.from), 'dd MMM yyyy') : 'Start'} → ${range.to ? format(new Date(range.to), 'dd MMM yyyy') : 'Today'}`
+    : 'All time';
+
+  const handleExport = () => {
+    setExporting(true);
+    try {
+      if (!filtered.length) {
+        toast.error('No scored plans match these filters — nothing to export');
+        return;
+      }
+      const blob = generateTenantReliabilityReportPdf(filtered, {
+        band,
+        search: search.trim() || null,
+        dateFrom: range.from,
+        dateTo: range.to,
+        totalScored: allRows.length,
+        outstandingTotal: Number(summary?.outstanding_total ?? 0),
+        generatedBy: user?.email ?? null,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `welile-repayment-reliability-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`Reliability report downloaded (${filtered.length.toLocaleString()} plans)`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to generate the report');
+    } finally {
+      setExporting(false);
+    }
+  };
+
 
   if (isLoading) {
     return (
