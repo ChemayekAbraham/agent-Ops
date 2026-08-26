@@ -5137,6 +5137,16 @@ function LandlordDialogs({ editLandlord, setEditLandlord, editLC1, setEditLC1, a
         onClose={() => setEditLandlord(null)}
         onSaved={refetchAll}
       />
+      {reverseLandlord && (
+        <ReverseVerificationDialog
+          open
+          onOpenChange={(v) => { if (!v) setReverseLandlord(null); }}
+          entityType="landlord"
+          entityId={reverseLandlord.id}
+          entityName={reverseLandlord.name}
+          onReversed={() => { setReverseLandlord(null); refetchAll(); }}
+        />
+      )}
       <EditLC1Dialog
         lc1={editLC1}
         open={!!editLC1}
