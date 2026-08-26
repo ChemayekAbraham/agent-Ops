@@ -38,6 +38,7 @@ interface TenantRow {
   shortfall: number;
   last_collection_at: string | null;
   last_reason: string | null;
+  repayment_frequency: string | null;
 }
 
 interface PartialRow {
@@ -288,6 +289,10 @@ export function PartialCollectionsPanel() {
                         <tr className="text-left">
                           <th className="p-2 font-semibold">Tenant</th>
                           <th className="p-2 font-semibold">Agent</th>
+                          <th className="p-2 font-semibold">Plan</th>
+                          <th className="p-2 font-semibold text-right">Expected</th>
+                          <th className="p-2 font-semibold text-right">Collected</th>
+                          <th className="p-2 font-semibold text-right">Missed</th>
                           <th className="p-2 font-semibold text-right">Partial days</th>
                           <th className="p-2 font-semibold text-right">Shortfall</th>
                           <th className="p-2 font-semibold">Last payment</th>
@@ -295,21 +300,36 @@ export function PartialCollectionsPanel() {
                         </tr>
                       </thead>
                       <tbody>
-                        {tenants.map(r => (
-                          <tr key={`${r.tenant_id}-${r.rent_request_id}`} className="border-t">
-                            <td className="p-2">
-                              <p className="font-medium">{r.tenant_name}</p>
-                              <p className="text-[11px] text-muted-foreground">{r.tenant_phone || '—'}</p>
-                            </td>
-                            <td className="p-2">{r.agent_name}</td>
-                            <td className="p-2 text-right font-mono">{r.partial_days} / {r.paid_days}</td>
-                            <td className="p-2 text-right font-mono font-bold text-destructive">{formatUGX(r.shortfall)}</td>
-                            <td className="p-2 text-xs">{r.last_collection_at ? format(new Date(r.last_collection_at), 'dd MMM yy') : '—'}</td>
-                            <td className="p-2 text-xs text-muted-foreground max-w-[220px] whitespace-normal break-words">{r.last_reason || '—'}</td>
-                          </tr>
-                        ))}
+                        {tenants.map(r => {
+                          const missedPct = r.expected > 0 ? Math.round((r.shortfall / r.expected) * 1000) / 10 : 0;
+                          return (
+                            <tr key={`${r.tenant_id}-${r.rent_request_id}`} className="border-t">
+                              <td className="p-2">
+                                <p className="font-medium">{r.tenant_name}</p>
+                                <p className="text-[11px] text-muted-foreground">{r.tenant_phone || '—'}</p>
+                              </td>
+                              <td className="p-2">{r.agent_name}</td>
+                              <td className="p-2">
+                                <Badge variant={r.repayment_frequency === 'weekly' ? 'secondary' : 'outline'} className="capitalize">
+                                  {r.repayment_frequency || 'daily'}
+                                </Badge>
+                              </td>
+                              <td className="p-2 text-right font-mono">{formatUGX(r.expected)}</td>
+                              <td className="p-2 text-right font-mono">{formatUGX(r.collected)}</td>
+                              <td className="p-2 text-right font-mono">
+                                <Badge variant={missedPct >= 50 ? 'destructive' : missedPct > 0 ? 'secondary' : 'outline'}>
+                                  {missedPct}%
+                                </Badge>
+                              </td>
+                              <td className="p-2 text-right font-mono">{r.partial_days} / {r.paid_days}</td>
+                              <td className="p-2 text-right font-mono font-bold text-destructive">{formatUGX(r.shortfall)}</td>
+                              <td className="p-2 text-xs">{r.last_collection_at ? format(new Date(r.last_collection_at), 'dd MMM yy') : '—'}</td>
+                              <td className="p-2 text-xs text-muted-foreground max-w-[220px] whitespace-normal break-words">{r.last_reason || '—'}</td>
+                            </tr>
+                          );
+                        })}
                         {tenants.length === 0 && (
-                          <tr><td colSpan={6} className="p-6 text-center text-muted-foreground text-sm">No shortfalls to follow up.</td></tr>
+                          <tr><td colSpan={10} className="p-6 text-center text-muted-foreground text-sm">No shortfalls to follow up.</td></tr>
                         )}
                       </tbody>
                     </table>
