@@ -1003,6 +1003,7 @@ export default function PayRuns() {
                   <TableHead>Cut-off</TableHead>
                   <TableHead>Pay date</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1013,6 +1014,9 @@ export default function PayRuns() {
                     <TableCell>{formatDate(p.cut_off_date)}</TableCell>
                     <TableCell>{formatDate(p.pay_date)}</TableCell>
                     <TableCell>{p.status}</TableCell>
+                    <TableCell className="text-right">
+                      <ClosePeriodButton period={p} onDone={() => void load()} />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
