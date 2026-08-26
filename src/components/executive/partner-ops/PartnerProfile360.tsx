@@ -632,7 +632,72 @@ export function PartnerProfile360() {
           </Card>
         </div>
       )}
+
+      {/* ═══ PORTFOLIO DETAIL ═══ */}
+      <Dialog open={!!openPortfolio} onOpenChange={(o) => !o && setOpenPortfolio(null)}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex flex-wrap items-center gap-2 text-sm">
+              <PiggyBank className="h-4 w-4 text-primary" />
+              {openPortfolio?.portfolio_code || 'Portfolio'}
+              {openPortfolio?.status && <Badge variant="secondary" className="text-[10px] capitalize">{openPortfolio.status}</Badge>}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {openPortfolio?.account_name || 'No nickname'} • {partnerLabel}
+            </DialogDescription>
+          </DialogHeader>
+
+          {openPortfolio && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <Metric label="Principal" value={money(openPortfolio.investment_amount)} />
+                <Metric label="Rate" value={`${Number(openPortfolio.roi_percentage) || 0}%`} hint="monthly returns rate" />
+                <Metric label="Returns earned" value={money(openPortfolio.total_roi_earned)} />
+                <Metric label="Term" value={`${openPortfolio.duration_months ?? '—'} months`} />
+                <Metric label="Next payout" value={fmtDate(openPortfolio.next_roi_date)} />
+                <Metric label="Maturity" value={fmtDate(openPortfolio.maturity_date)} />
+              </div>
+
+              <div className="rounded-lg border p-3">
+                <p className="mb-1 text-xs font-semibold">Portfolio details</p>
+                <div className="grid gap-x-4 sm:grid-cols-2">
+                  <Field icon={FileText} label="Portfolio code" value={openPortfolio.portfolio_code} />
+                  <Field icon={User} label="Proxy agent" value={openPortfolio.agent_name} />
+                  <Field icon={CalendarClock} label="Created" value={fmtDate(openPortfolio.created_at, true)} />
+                  <Field icon={CalendarClock} label="Last updated" value={fmtDate(openPortfolio.updated_at, true)} />
+                  <Field icon={TrendingUp} label="Status" value={openPortfolio.status} />
+                  <Field icon={Wallet} label="Payout mode" value={openPortfolio.payout_mode || data?.agreement?.payout_mode} />
+                </div>
+              </div>
+
+              {[
+                { name: 'Top-Ups', cols: TOPUP_COLS, rows: (data?.topups || []).filter((r) => r.portfolio_id === openPortfolio.id), empty: 'No top-ups on this portfolio.' },
+                { name: 'Requests', cols: REQUEST_COLS, rows: (data?.requests || []).filter((r) => r.portfolio_id === openPortfolio.id || r.portfolio_code === openPortfolio.portfolio_code), empty: 'No requests on this portfolio.' },
+                { name: 'Redemptions', cols: REDEMPTION_COLS, rows: (data?.redemptions || []).filter((r) => r.portfolio_id === openPortfolio.id || r.portfolio_code === openPortfolio.portfolio_code), empty: 'No redemptions on this portfolio.' },
+                { name: 'Renewals', cols: RENEWAL_COLS, rows: (data?.renewals || []).filter((r) => r.portfolio_id === openPortfolio.id || r.portfolio_code === openPortfolio.portfolio_code), empty: 'No renewals on this portfolio.' },
+              ].map((s) => (
+                <div key={s.name} className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold">{s.name} <span className="text-muted-foreground">({s.rows.length})</span></p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 gap-1.5 text-[11px]"
+                      disabled={!s.rows.length}
+                      onClick={() => exportSection({ name: `${openPortfolio.portfolio_code}_${s.name}`, cols: s.cols, rows: s.rows })}
+                    >
+                      <Download className="h-3 w-3" /> CSV
+                    </Button>
+                  </div>
+                  <DataTable cols={s.cols} rows={s.rows} empty={s.empty} />
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 }
 
