@@ -501,7 +501,6 @@ function ApplicationsTab() {
       data = data.filter((r) => segmentKeyOfSource(r.source) === segmentFilter);
     }
 
-
     const sorted = [...data];
     if (sortConfig.key === 'name') {
       sorted.sort((a, b) => {
