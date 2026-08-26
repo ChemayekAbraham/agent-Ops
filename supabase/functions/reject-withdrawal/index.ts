@@ -179,11 +179,15 @@ Deno.serve(async (req) => {
         const refunded = false; // nothing was ever debited from LP float
         const landlordPayoutId = (wr as any).landlord_payout_id ?? null;
         if (landlordPayoutId) {
+          // Match every pre-settlement status, not just 'pending_merchant_payout'.
+          // A rejection that lands while the payout is still 'otp_verified' or
+          // 'disbursing' used to no-op here, stranding the row in a status that
+          // ring-fences the agent's Landlord Payout Float forever.
           await admin
             .from('landlord_payouts')
             .update({ status: 'failed', last_error: `Merchant rejected: ${String(reason).slice(0, 200)}` } as any)
             .eq('id', landlordPayoutId)
-            .eq('status', 'pending_merchant_payout');
+            .in('status', ['otp_verified', 'pending_merchant_payout', 'pending_finops_disbursement', 'disbursing']);
         }
 
         const { error: lpUpdateErr } = await admin

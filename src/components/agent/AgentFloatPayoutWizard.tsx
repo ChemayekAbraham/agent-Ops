@@ -42,6 +42,46 @@ interface AgentFloatPayoutWizardProps {
 
 type Step = 'select' | 'otp' | 'disburse' | 'done';
 
+/**
+ * One landlord payout that is currently ring-fencing part of this agent's
+ * Landlord Payout Float, from the `agent_lp_float_holds` view.
+ * `hold_state` says whether the hold is real or stranded:
+ *  - holding_live / holding_unlinked   → genuinely in flight, leave alone
+ *  - holding_settled_needs_review      → already paid, Financial Ops must look
+ *  - released_* → the backing merchant withdrawal is dead or missing; the
+ *    float was never debited and can be freed.
+ */
+interface FloatHold {
+  payout_id: string;
+  landlord_name: string | null;
+  amount: number;
+  payout_status: string;
+  withdrawal_status: string | null;
+  hold_state:
+    | 'holding_live'
+    | 'holding_unlinked'
+    | 'holding_settled_needs_review'
+    | 'released_orphaned'
+    | 'released_dead_withdrawal';
+  payout_created_at: string;
+}
+
+// `agent_lp_float_holds` is newer than the checked-in generated types, so reach
+// it through a loosened client rather than sprinkling `as any` at each call site.
+type SupabaseLoose = {
+  from: (table: string) => ReturnType<typeof supabase.from>;
+};
+
+/** "3 hours", "2 days" — how long a submitted payment has been waiting. */
+function waitingFor(since: string): string {
+  const ms = Date.now() - new Date(since).getTime();
+  const mins = Math.max(1, Math.round(ms / 60000));
+  if (mins < 60) return `${mins} min`;
+  const hours = Math.round(mins / 60);
+  if (hours < 48) return `${hours} hour${hours === 1 ? '' : 's'}`;
+  return `${Math.round(hours / 24)} days`;
+}
+
 export function AgentFloatPayoutWizard({ open, onOpenChange, allocation }: AgentFloatPayoutWizardProps) {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -123,6 +163,25 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation }: Agent
   const grossFloatBalance = Number(authoritativeFloat ?? 0);
   const rawFloatBalance = Number(authoritativeAvailable ?? 0);
   const floatBalance = Number.isFinite(rawFloatBalance) ? rawFloatBalance : 0;
+
+  // What is actually holding this agent's float. Only fetched when the wizard
+  // is open AND something is being withheld, so the agent sees the specific
+  // payouts instead of a bare "UGX 0 available" dead end.
+  const { data: floatHolds = [] } = useQuery<FloatHold[]>({
+    queryKey: ['agent-lp-float-holds', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await (supabase as SupabaseLoose)
+        .from('agent_lp_float_holds')
+        .select('payout_id, landlord_name, amount, payout_status, withdrawal_status, hold_state, payout_created_at')
+        .eq('agent_id', user.id)
+        .order('payout_created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as FloatHold[];
+    },
+    enabled: !!user && open && reservedFloat > 0,
+    staleTime: 0,
+  });
 
   const { data: assignedRequests = [], isLoading } = useQuery({
     queryKey: ['agent-float-payout-requests', user?.id],
@@ -671,7 +730,17 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation }: Agent
         setSelectedRequest(synthetic);
         setAmountInput(String(allocation.remaining_amount ?? ''));
         setPhoneOverride('');
-        setStep('otp');
+        // The agent already submitted a payout for this allocation and it is
+        // still moving through the merchant queue. Show them where it is
+        // instead of an OTP form they cannot complete — their float is held
+        // against this payout, so "Available to pay" is legitimately 0 and the
+        // form would just look broken.
+        if (allocation.inflight_payout) {
+          setActivePayoutId(allocation.inflight_payout.id);
+          setStep('disburse');
+        } else {
+          setStep('otp');
+        }
       } finally {
         setAllocationPrepping(false);
       }
@@ -824,11 +893,34 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation }: Agent
             <Badge variant="outline" className="text-xs font-mono w-fit">
               Available to pay: {landlordPayoutFloatLoading ? 'Loading…' : formatUGX(availablePayoutFloat)}
             </Badge>
+            {/*
+              When float is held, name the payments holding it. "UGX 0 available"
+              on its own reads as the app losing the agent's money; the whole
+              point is that they already sent these and are waiting on a merchant.
+            */}
             {!landlordPayoutFloatLoading && reservedFloat > 0 && (
-              <p className="text-[11px] text-muted-foreground">
-                Total float {formatUGX(grossFloatBalance)} · {formatUGX(reservedFloat)} is already
-                held by landlord payouts awaiting cash-out, so it cannot be spent again.
-              </p>
+              <div className="space-y-1">
+                <p className="text-[11px] text-muted-foreground">
+                  Total float {formatUGX(grossFloatBalance)} · {formatUGX(reservedFloat)} is held for
+                  payments you have already sent, so it cannot be spent twice.
+                </p>
+                {floatHolds.length > 0 && (
+                  <ul className="text-[11px] text-muted-foreground space-y-0.5">
+                    {floatHolds.map((h) => (
+                      <li key={h.payout_id} className="flex items-center justify-between gap-2">
+                        <span className="truncate">
+                          {h.landlord_name ?? 'Landlord'} · {formatUGX(Number(h.amount))}
+                        </span>
+                        <span className="shrink-0">
+                          {h.hold_state === 'holding_settled_needs_review'
+                            ? 'paid — under review'
+                            : `sent ${waitingFor(h.payout_created_at)} ago`}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             )}
           </div>
         </DialogHeader>
