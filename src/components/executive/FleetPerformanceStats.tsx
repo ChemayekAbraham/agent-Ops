@@ -1573,7 +1573,7 @@ function SortHeader({
           onChange({ key: sortKey, dir: 'desc' });
         }
       }}
-      className={`flex items-center gap-1 select-none ${align === 'right' ? 'justify-end' : 'justify-start'} text-muted-foreground hover:text-foreground transition-colors`}
+      className={`flex w-full items-center gap-1 select-none ${align === 'right' ? 'justify-end' : 'justify-start'} text-muted-foreground hover:text-foreground transition-colors`}
     >
       <span>{label}</span>
       <Icon className="h-3 w-3 opacity-70" />
