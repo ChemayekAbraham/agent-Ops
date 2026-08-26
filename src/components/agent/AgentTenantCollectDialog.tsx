@@ -298,7 +298,10 @@ export function AgentTenantCollectDialog({
           ? humanizeAllocationError(rawMsg, res.error_code, {
               strict_float: res?.strict_float ?? res?.metadata?.strict_float,
               cached_float: res?.cached_float ?? res?.metadata?.cached_float,
-              requested: res?.requested ?? amount,
+              requested: res?.entered_amount ?? res?.requested ?? amount,
+              expected_amount: res?.expected_amount ?? expected,
+              shortfall_amount: res?.shortfall_amount ?? shortfall,
+
             })
           : humanizeAllocationError(rawMsg);
         console.error('[AgentTenantCollectDialog] allocation rejected:', res);
