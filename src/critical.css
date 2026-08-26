@@ -97,7 +97,13 @@
     --sidebar-ring: 271 81% 65%;
     --gradient-start: 271 81% 65%;
     --gradient-end: 271 81% 50%;
+    --report-ink: 266 45% 9%;
+    --report-ink-foreground: 250 100% 98%;
+    --report-ink-muted: 258 90% 79%;
+    --report-surface: 266 30% 12%;
+    --report-grid: 258 30% 24%;
   }
+
 
   * {
     @apply border-border;
