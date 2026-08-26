@@ -8,15 +8,29 @@ interface TreasuryImpactBannerProps {
 
 export function TreasuryImpactBanner({ payoutAmount }: TreasuryImpactBannerProps) {
   const { data, isLoading } = useQuery({
-    queryKey: ['treasury-cash-snapshot'],
+    queryKey: ['treasury-impact-cash-position'],
     queryFn: async () => {
-      // Server-side aggregate: correct cash_in/cash_out semantics + no 1000-row cap
-      const { data: snap, error } = await supabase.rpc('get_treasury_snapshot');
-      if (error) throw error;
-      const s: any = snap || {};
+      // Same two sources the CFO Overview reports from, so a payout decision and
+      // the Overview can never show different numbers:
+      //   Money We Have  -> get_treasury_cash_position (A1 + A5, balance-sheet basis)
+      //   Money We Owe   -> get_wallet_totals.total_balance
+      // This used to call get_treasury_snapshot, a flat SUM(cash_in - cash_out)
+      // over every ledger_scope='platform' row. That sweeps in liability legs
+      // (cash_custody_payable) and custody/float offsets, which are not treasury
+      // cash, and it read wallets.balance directly instead of the wallet totals
+      // cache — so both halves of this banner disagreed with the Overview.
+      const [cashRes, walletRes] = await Promise.all([
+        supabase.rpc('get_treasury_cash_position', {}),
+        supabase.rpc('get_wallet_totals'),
+      ]);
+      if (cashRes.error) throw cashRes.error;
+      if (walletRes.error) throw walletRes.error;
+
+      const cash = cashRes.data as unknown as { total_cash?: number | string } | null;
+      const wallets = walletRes.data as unknown as { total_balance?: number | string } | null;
       return {
-        totalCash: Number(s.total_cash || 0),
-        walletTotal: Number(s.wallet_total || 0),
+        totalCash: Number(cash?.total_cash ?? 0),
+        walletTotal: Number(wallets?.total_balance ?? 0),
       };
     },
     staleTime: 30_000,
@@ -33,10 +47,13 @@ export function TreasuryImpactBanner({ payoutAmount }: TreasuryImpactBannerProps
   const totalCash = data?.totalCash || 0;
   const remaining = totalCash - payoutAmount;
   const walletTotal = data?.walletTotal || 0;
-  const remainingAfterWallets = remaining - walletTotal;
   const isRisky = remaining < walletTotal;
 
-  const fmt = (n: number) => `UGX ${Math.abs(n).toLocaleString()}`;
+  // Sign-preserving — identical to the Overview's formatter. The previous
+  // Math.abs() version rendered a negative treasury position as a positive
+  // number, turning a deficit into an apparent surplus on the approval screen.
+  const fmt = (n: number) =>
+    `${n < 0 ? '-' : ''}UGX ${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.abs(n))}`;
 
   return (
     <div className={`rounded-lg p-3 space-y-2 text-sm border ${isRisky ? 'bg-destructive/10 border-destructive/30' : 'bg-muted/50 border-border'}`}>
@@ -48,7 +65,7 @@ export function TreasuryImpactBanner({ payoutAmount }: TreasuryImpactBannerProps
           <Landmark className="h-4 w-4 text-primary shrink-0" />
           <div>
             <p className="text-[10px] text-muted-foreground leading-none">We Have</p>
-            <p className="font-bold">{fmt(totalCash)}</p>
+            <p className={`font-bold ${totalCash < 0 ? 'text-destructive' : ''}`}>{fmt(totalCash)}</p>
           </div>
         </div>
 
@@ -58,7 +75,7 @@ export function TreasuryImpactBanner({ payoutAmount }: TreasuryImpactBannerProps
           <TrendingDown className="h-4 w-4 text-orange-500 shrink-0" />
           <div>
             <p className="text-[10px] text-muted-foreground leading-none">This Payout</p>
-            <p className="font-bold text-orange-600">−{fmt(payoutAmount)}</p>
+            <p className="font-bold text-orange-600">−{fmt(Math.abs(payoutAmount))}</p>
           </div>
         </div>
 
@@ -69,7 +86,7 @@ export function TreasuryImpactBanner({ payoutAmount }: TreasuryImpactBannerProps
           <div>
             <p className="text-[10px] text-muted-foreground leading-none">We Keep</p>
             <p className={`font-bold ${isRisky ? 'text-destructive' : 'text-emerald-600'}`}>
-              {remaining < 0 ? '−' : ''}{fmt(remaining)}
+              {fmt(remaining)}
             </p>
           </div>
         </div>
