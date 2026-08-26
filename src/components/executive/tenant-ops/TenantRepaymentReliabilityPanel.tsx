@@ -244,10 +244,10 @@ export function TenantRepaymentReliabilityPanel() {
       {/* KPI strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {[
-          { label: 'Active plans scored', value: String(summary?.tenants ?? counts.all), icon: Users, tone: 'text-primary' },
-          { label: 'Marked reliable (≤3 missed)', value: String(summary?.reliable ?? counts.excellent + counts.good), icon: Award, tone: 'text-emerald-600' },
+          { label: 'Active plans scored', value: String(periodActive ? counts.all : (summary?.tenants ?? counts.all)), icon: Users, tone: 'text-primary' },
+          { label: 'Marked reliable (≤3 missed)', value: String(periodActive ? rows.filter(r => r.reliable).length : (summary?.reliable ?? counts.excellent + counts.good)), icon: Award, tone: 'text-emerald-600' },
           { label: 'Average score', value: `${avgScore}/100`, icon: Gauge, tone: 'text-blue-600' },
-          { label: 'Outstanding on book', value: formatUGX(Number(summary?.outstanding_total ?? 0)), icon: TrendingUp, tone: 'text-amber-600' },
+          { label: 'Outstanding on book', value: formatUGX(periodActive ? rows.reduce((s, r) => s + r.outstanding, 0) : Number(summary?.outstanding_total ?? 0)), icon: TrendingUp, tone: 'text-amber-600' },
         ].map(k => (
           <Card key={k.label} className="border">
             <CardContent className="p-2.5">
@@ -260,6 +260,57 @@ export function TenantRepaymentReliabilityPanel() {
           </Card>
         ))}
       </div>
+
+      {/* Report period + PDF export */}
+      <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground w-full sm:w-auto">Report period</span>
+          {PRESETS.map(p => (
+            <Button
+              key={p.key}
+              type="button"
+              size="sm"
+              variant={!dateFrom && !dateTo && preset === p.key ? 'default' : 'outline'}
+              className="h-7 px-2 text-[11px]"
+              onClick={() => { hapticTap(); setPreset(p.key); setDateFrom(''); setDateTo(''); }}
+            >
+              {p.label}
+            </Button>
+          ))}
+          <Badge variant="secondary" className="text-[10px] font-bold">{periodLabel}</Badge>
+          <Badge variant="outline" className="text-[10px]">{filtered.length.toLocaleString()} on screen</Badge>
+        </div>
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-2">
+          <div className="space-y-1 w-full sm:w-auto">
+            <Label className="text-[10px] text-muted-foreground">From (single day: set From only)</Label>
+            <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-8 w-full sm:w-[150px] text-xs" />
+          </div>
+          <div className="space-y-1 w-full sm:w-auto">
+            <Label className="text-[10px] text-muted-foreground">To</Label>
+            <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-8 w-full sm:w-[150px] text-xs" />
+          </div>
+          {(dateFrom || dateTo) && (
+            <Button type="button" size="sm" variant="ghost" className="h-8 text-[11px]" onClick={() => { setDateFrom(''); setDateTo(''); }}>
+              Clear dates
+            </Button>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 text-xs gap-1.5 w-full sm:w-auto sm:ml-auto"
+            onClick={handleExport}
+            disabled={exporting || isLoading}
+          >
+            {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
+            Export PDF
+          </Button>
+        </div>
+        <p className="text-[10px] text-muted-foreground">
+          Period filters rent plans by plan start date. The PDF exports exactly the {filtered.length.toLocaleString()} plans
+          these filters match — same scores, bands, coverage and outstanding figures shown here.
+        </p>
+      </div>
+
 
       {/* Band filters */}
       <div className="flex flex-wrap gap-1.5">
