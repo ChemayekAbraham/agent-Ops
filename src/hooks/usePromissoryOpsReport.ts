@@ -90,6 +90,14 @@ export interface PromissoryNoteRow {
   portfolio_amount: number;
   portfolio_active_amount: number;
   first_portfolio_at: string | null;
+  commission_creation_rate: number;
+  commission_topup_rate: number;
+  creation_commission_paid: number;
+  topup_commission_paid: number;
+  commission_paid_total: number;
+  topup_commission_count: number;
+  creation_commission_expected: number;
+  last_commission_at: string | null;
   notes?: string | null;
 }
 
@@ -133,13 +141,23 @@ export interface PromissoryOpsKpis {
   self_supporting_tenants: number;
   self_supporting_partners: number;
   self_support_committed: number;
+  promissory_creation_commission_paid: number;
+  promissory_topup_commission_paid: number;
+  promissory_commission_paid_total: number;
+}
+
+export interface PromissoryCommissionRates {
+  portfolio_creation: number;
+  portfolio_topup: number;
 }
 
 export interface PromissoryOpsReport {
   kpis: PromissoryOpsKpis;
   notes: PromissoryNoteRow[];
   proxy_agents: ProxyAgentRow[];
+  rates?: PromissoryCommissionRates;
 }
+
 
 const EMPTY: PromissoryOpsReport = {
   kpis: {
@@ -149,9 +167,12 @@ const EMPTY: PromissoryOpsReport = {
     approved_notes: 0, proxy_agents: 0, proxies_approved: 0, proxies_pending: 0, lead_attachments: 0,
     pending_commission: 0, pending_commission_count: 0, approved_commission: 0, approved_commission_count: 0,
     self_supporting_tenants: 0, self_supporting_partners: 0, self_support_committed: 0,
+    promissory_creation_commission_paid: 0, promissory_topup_commission_paid: 0,
+    promissory_commission_paid_total: 0,
   },
   notes: [],
   proxy_agents: [],
+  rates: { portfolio_creation: 0.02, portfolio_topup: 0.01 },
 };
 
 /**

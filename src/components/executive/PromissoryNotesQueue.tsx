@@ -323,6 +323,25 @@ export function PromissoryNotesQueue() {
     };
   };
 
+  // Proxy agent commission on promissory-linked partners: 2% when the partner
+  // first creates a portfolio, 1% on every later top-up. Rates come from the
+  // server (promissory_commission_rate), never hardcoded in the UI.
+  const pct = (rate: number) => `${(Number(rate || 0) * 100).toFixed(Number(rate || 0) * 100 % 1 === 0 ? 0 : 1)}%`;
+  const commissionOf = (n: any) => {
+    const creationRate = Number(n?.commission_creation_rate ?? report?.rates?.portfolio_creation ?? 0.02);
+    const topupRate = Number(n?.commission_topup_rate ?? report?.rates?.portfolio_topup ?? 0.01);
+    const creationPaid = Number(n?.creation_commission_paid || 0);
+    const topupPaid = Number(n?.topup_commission_paid || 0);
+    const expected = Number(n?.creation_commission_expected || 0);
+    return {
+      creationRate, topupRate, creationPaid, topupPaid,
+      total: creationPaid + topupPaid,
+      topupCount: Number(n?.topup_commission_count || 0),
+      expected,
+      pendingCreation: creationPaid <= 0 && expected > 0,
+    };
+  };
+
   const statuses = ['all', 'pending', 'activated', 'fulfilled', 'defaulted', 'cancelled'];
 
   const kpiCards: { label: string; value: React.ReactNode; hint?: string; tone: string }[] = [
@@ -337,7 +356,14 @@ export function PromissoryNotesQueue() {
     { label: 'Approved commission', value: <CompactAmount value={Number(kpis.approved_commission)} />, hint: `${kpis.approved_commission_count} paid`, tone: 'bg-emerald-50 border-emerald-200' },
     { label: 'Proxies pending review', value: kpis.proxies_pending, hint: 'awaiting approval', tone: 'bg-rose-50 border-rose-200' },
     { label: 'Self supporting tenants', value: kpis.self_supporting_tenants, hint: `${kpis.self_supporting_partners} partner${kpis.self_supporting_partners === 1 ? '' : 's'} · ${formatUGX(Number(kpis.self_support_committed))}`, tone: 'bg-teal-50 border-teal-200' },
+    {
+      label: 'Proxy agent commission',
+      value: <CompactAmount value={Number(kpis.promissory_commission_paid_total || 0)} />,
+      hint: `${pct(report?.rates?.portfolio_creation ?? 0.02)} creation ${formatUGX(Number(kpis.promissory_creation_commission_paid || 0))} · ${pct(report?.rates?.portfolio_topup ?? 0.01)} top-up ${formatUGX(Number(kpis.promissory_topup_commission_paid || 0))}`,
+      tone: 'bg-violet-50 border-violet-200',
+    },
   ];
+
 
   return (
     <div className="space-y-4">
@@ -538,6 +564,24 @@ export function PromissoryNotesQueue() {
                                   <BadgeCheck className="h-3.5 w-3.5 text-emerald-600" />
                                 </span>
                               )}
+                              {(() => {
+                                const c = commissionOf(note);
+                                if (c.total <= 0 && !c.pendingCreation) return null;
+                                return (
+                                  <Badge
+                                    variant="outline"
+                                    className={cn('text-[10px]', c.total > 0
+                                      ? 'bg-violet-50 text-violet-700 border-violet-200'
+                                      : 'bg-muted/50 text-muted-foreground border-border')}
+                                    title={`Proxy agent commission — ${pct(c.creationRate)} on portfolio creation, ${pct(c.topupRate)} on each top-up`}
+                                  >
+                                    {c.total > 0
+                                      ? <>Agent {formatUGX(c.total)}</>
+                                      : <>Agent {pct(c.creationRate)} ≈ {formatUGX(c.expected)}</>}
+                                  </Badge>
+                                );
+                              })()}
+
                             </div>
                           </td>
                         </tr>
@@ -611,6 +655,20 @@ export function PromissoryNotesQueue() {
                             </span>
                           </div>
                         )}
+                        {(() => {
+                          const c = commissionOf(note);
+                          if (c.total <= 0 && !c.pendingCreation) return null;
+                          return (
+                            <div className="col-span-2">
+                              <span className="text-muted-foreground">Agent commission: </span>
+                              <span className="font-medium text-violet-700">
+                                {c.total > 0
+                                  ? `${formatUGX(c.total)} (${pct(c.creationRate)} ${formatUGX(c.creationPaid)} + ${pct(c.topupRate)} top-ups ${formatUGX(c.topupPaid)})`
+                                  : `${pct(c.creationRate)} due ≈ ${formatUGX(c.expected)}`}
+                              </span>
+                            </div>
+                          );
+                        })()}
                         <div className="col-span-2 text-muted-foreground flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
                           {format(new Date(note.created_at), 'dd MMM yyyy')}
@@ -706,6 +764,25 @@ export function PromissoryNotesQueue() {
                               Registered {format(new Date(selectedNote.came_in_at), 'dd MMM yyyy HH:mm')}
                             </p>
                           )}
+                        </div>
+                      );
+                    })()}
+                    {(() => {
+                      const c = commissionOf(selectedNote);
+                      return (
+                        <div className="rounded-md border border-violet-200 bg-violet-50 p-2 text-xs space-y-0.5">
+                          <p className="font-medium text-violet-800">Proxy agent commission</p>
+                          <p className="text-muted-foreground">
+                            {pct(c.creationRate)} on portfolio creation · {pct(c.topupRate)} on every top-up
+                          </p>
+                          <p>
+                            Creation: <span className="font-medium">{c.creationPaid > 0 ? `${formatUGX(c.creationPaid)} paid` : c.expected > 0 ? `${formatUGX(c.expected)} due` : 'not earned yet'}</span>
+                          </p>
+                          <p>
+                            Top-ups: <span className="font-medium">{formatUGX(c.topupPaid)}</span>
+                            {c.topupCount > 0 ? ` (${c.topupCount} top-up${c.topupCount === 1 ? '' : 's'})` : ''}
+                          </p>
+                          <p className="font-medium">Total earned: {formatUGX(c.total)}</p>
                         </div>
                       );
                     })()}
