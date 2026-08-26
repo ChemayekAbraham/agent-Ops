@@ -90,6 +90,14 @@ export interface PromissoryNoteRow {
   portfolio_amount: number;
   portfolio_active_amount: number;
   first_portfolio_at: string | null;
+  commission_creation_rate: number;
+  commission_topup_rate: number;
+  creation_commission_paid: number;
+  topup_commission_paid: number;
+  commission_paid_total: number;
+  topup_commission_count: number;
+  creation_commission_expected: number;
+  last_commission_at: string | null;
   notes?: string | null;
 }
 
