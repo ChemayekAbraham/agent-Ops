@@ -1052,7 +1052,11 @@ export default function PayRuns() {
                     </TableCell>
                     <TableCell>
                       <span className="text-xs font-medium">
-                        {r.status === 'locked' ? 'Complete' : r.holding_position_title ?? '—'}
+                        {r.status === 'locked'
+                          ? 'Complete'
+                          : r.status === 'cancelled'
+                            ? 'Cancelled'
+                            : r.holding_position_title ?? '—'}
                       </span>
                       {NEXT_ACTION[r.status] && (
                         <span className="block text-[11px] text-muted-foreground">
