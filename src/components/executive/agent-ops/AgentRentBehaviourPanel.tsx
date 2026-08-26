@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Loader2,
   RefreshCw,
+  Search,
   TrendingUp,
   Users,
   Wallet,
