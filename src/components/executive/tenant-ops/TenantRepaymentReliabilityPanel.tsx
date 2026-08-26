@@ -1,16 +1,33 @@
 import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { format, startOfDay, subDays, startOfMonth } from 'date-fns';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { formatUGX } from '@/lib/rentCalculations';
 import { hapticTap } from '@/lib/haptics';
+import { useAuth } from '@/hooks/useAuth';
 import {
   ShieldCheck, Search, RefreshCw, Loader2, TrendingUp, AlertTriangle,
-  Gauge, Users, CalendarCheck, Phone, Award, Flame,
+  Gauge, Users, CalendarCheck, Phone, Award, Flame, FileDown,
 } from 'lucide-react';
 import { useTenantRepaymentReliability, type ReliabilityRow } from '@/hooks/useTenantRepaymentReliability';
+import { generateTenantReliabilityReportPdf } from '@/lib/tenantReliabilityReportPdf';
+
+type Preset = 'all' | 'today' | 'yesterday' | '7d' | '30d' | 'month';
+
+const PRESETS: { key: Preset; label: string }[] = [
+  { key: 'all', label: 'All time' },
+  { key: 'today', label: 'Today' },
+  { key: 'yesterday', label: 'Yesterday' },
+  { key: '7d', label: 'Last 7 days' },
+  { key: '30d', label: 'Last 30 days' },
+  { key: 'month', label: 'This month' },
+];
+
 
 type BandKey = 'all' | 'excellent' | 'good' | 'watch' | 'risk';
 
