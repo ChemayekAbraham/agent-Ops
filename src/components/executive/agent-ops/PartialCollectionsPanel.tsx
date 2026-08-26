@@ -108,6 +108,28 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'wa
   );
 }
 
+function Pagination({ page, total, pageSize, onChange }: { page: number; total: number; pageSize: number; onChange: (page: number) => void }) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const start = total === 0 ? 0 : page * pageSize + 1;
+  const end = Math.min((page + 1) * pageSize, total);
+  return (
+    <div className="flex items-center justify-between gap-3 pt-2">
+      <p className="text-xs text-muted-foreground">
+        Showing <span className="font-medium text-foreground">{start}-{end}</span> of <span className="font-medium text-foreground">{total}</span>
+      </p>
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" onClick={() => onChange(page - 1)} disabled={page <= 0}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <span className="text-xs tabular-nums">Page {page + 1} / {totalPages}</span>
+        <Button size="sm" variant="outline" onClick={() => onChange(page + 1)} disabled={page >= totalPages - 1}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function PartialCollectionsPanel() {
   const [days, setDays] = useState<number>(30);
   const [search, setSearch] = useState('');
