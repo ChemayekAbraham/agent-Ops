@@ -100,7 +100,7 @@ export function FundRentDialog({ open, onOpenChange, summary }: FundRentDialogPr
         {successInfo ? (
           <div className="space-y-4">
             <div className="px-4 py-4 rounded-xl bg-green-500/10 border border-green-500/30 space-y-2">
-              <p className="text-sm font-bold text-green-700 dark:text-green-400">✅ Investment Confirmed!</p>
+              <p className="text-sm font-bold text-green-700 dark:text-green-400">✅ Support Confirmed!</p>
               <p className="text-xs text-muted-foreground">
                 You will receive <span className="font-black text-foreground">15% monthly</span> ({formatUGX(successInfo.monthlyReward)}) 
                 every <span className="font-bold">30 days</span> for <span className="font-bold">12 months</span>.
@@ -115,7 +115,7 @@ export function FundRentDialog({ open, onOpenChange, summary }: FundRentDialogPr
 
             <div className="px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
               <p className="text-xs text-amber-700 dark:text-amber-400 font-semibold">
-                📋 Investment Withdrawal: To withdraw your investment, submit a 90-day advance notice request from your dashboard.
+                📋 Capital Withdrawal: To withdraw your support, submit a 90-day advance notice request from your dashboard.
               </p>
             </div>
 
