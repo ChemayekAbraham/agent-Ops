@@ -539,9 +539,65 @@ export function PartnerProfile360() {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="portfolios" className="mt-3">
-                  <TabPanel name="Portfolios" empty="No portfolios recorded." />
+                <TabsContent value="portfolios" className="mt-3 space-y-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="relative flex-1">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={pfSearch}
+                        onChange={(e) => setPfSearch(e.target.value)}
+                        placeholder="Search portfolio code, nickname, agent or amount"
+                        className="h-9 pl-9 pr-8 text-xs"
+                        autoComplete="off"
+                      />
+                      {pfSearch && (
+                        <button
+                          type="button"
+                          aria-label="Clear portfolio search"
+                          onClick={() => setPfSearch('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-accent"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="-mx-1 flex gap-1 overflow-x-auto px-1">
+                        {['all', ...portfolioStatuses].map((s) => (
+                          <Button
+                            key={s}
+                            type="button"
+                            size="sm"
+                            variant={pfStatus === s ? 'default' : 'outline'}
+                            className="h-7 shrink-0 text-[11px] capitalize"
+                            onClick={() => setPfStatus(s)}
+                          >
+                            {s === 'all' ? 'All' : s}
+                          </Button>
+                        ))}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 shrink-0 gap-1.5 text-[11px]"
+                        disabled={!filteredPortfolios.length}
+                        onClick={() => exportSection({ name: 'Portfolios', cols: PORTFOLIO_COLS, rows: filteredPortfolios })}
+                      >
+                        <Download className="h-3 w-3" /> CSV
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Showing {filteredPortfolios.length} of {allPortfolios.length} portfolios — tap a row to open its full detail.
+                  </p>
+                  <DataTable
+                    cols={PORTFOLIO_COLS}
+                    rows={filteredPortfolios}
+                    empty="No portfolios match this search."
+                    onRowClick={(r) => setOpenPortfolio(r)}
+                  />
                 </TabsContent>
+
 
                 <TabsContent value="financial" className="mt-3 space-y-4">
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
