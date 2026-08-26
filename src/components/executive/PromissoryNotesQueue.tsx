@@ -496,6 +496,21 @@ export function PromissoryNotesQueue() {
                           <td className="py-2 pr-3">
                             <span className="font-medium block truncate max-w-[160px]">{note.partner_name}</span>
                             <span className="text-[10px] text-muted-foreground">{note.whatsapp_number}</span>
+                            {(() => {
+                              const ci = cameInIdentity(note);
+                              if (!ci) return null;
+                              return (
+                                <span
+                                  className={cn(
+                                    'block truncate max-w-[160px] text-[10px]',
+                                    ci.matches ? 'text-emerald-700' : 'text-amber-700 font-medium',
+                                  )}
+                                  title={`Registered as "${ci.registeredName}" · matched on ${ci.matchedOn}${ci.matches ? '' : ' · name differs from the note'}`}
+                                >
+                                  Registered: {ci.registeredName}{ci.matches ? '' : ' ⚠'}
+                                </span>
+                              );
+                            })()}
                           </td>
 
                           <td className="py-2 pr-3 text-right font-medium"><CompactAmount value={Number(note.amount)} /></td>
