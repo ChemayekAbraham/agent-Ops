@@ -51,6 +51,7 @@ function toCsv(headers: string[], rows: (string | number)[][]) {
 export function DailyRentReport({ mode }: Props) {
   const qc = useQueryClient();
   const [date, setDate] = useState<string>(todayIso());
+  const [dateTo, setDateTo] = useState<string>(todayIso());
   const [agentFilter, setAgentFilter] = useState<string>('all');
   const [tenantFilter, setTenantFilter] = useState<string>('all');
   const [landlordFilter, setLandlordFilter] = useState<string>('all');
@@ -58,13 +59,17 @@ export function DailyRentReport({ mode }: Props) {
   const [methodFilter, setMethodFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
+  // Per-section report windows (narrowed inside the loaded period only).
+  const [secRange, setSecRange] = useState<Record<string, { from: string; to: string }>>({});
 
-  // ---- Load agent_collections for the selected day ----
+  // ---- Load agent_collections for the selected period (defaults to one day) ----
   const { data: rawCollections = [], isLoading, refetch } = useQuery({
-    queryKey: ['daily-rent-report', date],
+    queryKey: ['daily-rent-report', date, dateTo],
     queryFn: async () => {
-      const from = new Date(`${date}T00:00:00`).toISOString();
-      const to = new Date(`${date}T23:59:59.999`).toISOString();
+      const start = date <= dateTo ? date : dateTo;
+      const end = date <= dateTo ? dateTo : date;
+      const from = new Date(`${start}T00:00:00`).toISOString();
+      const to = new Date(`${end}T23:59:59.999`).toISOString();
       const { data, error } = await supabase
         .from('agent_collections')
         .select('id, created_at, amount, payment_method, tracking_id, momo_transaction_id, notes, float_before, float_after, agent_id, tenant_id, rent_request_id')
@@ -76,6 +81,7 @@ export function DailyRentReport({ mode }: Props) {
     },
     staleTime: 30_000,
   });
+
 
   // ---- Realtime: refetch on any new agent_collections row today ----
   useEffect(() => {
