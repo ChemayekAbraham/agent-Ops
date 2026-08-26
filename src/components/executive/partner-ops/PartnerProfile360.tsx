@@ -87,7 +87,7 @@ function Field({ icon: Icon, label, value }: { icon?: any; label: string; value?
 interface Col { key: string; label: string; render?: (r: Row) => string; align?: 'right' }
 
 /** One table renderer reused by every tab — keeps markup and export logic DRY. */
-function DataTable({ cols, rows, empty }: { cols: Col[]; rows: Row[]; empty: string }) {
+function DataTable({ cols, rows, empty, onRowClick }: { cols: Col[]; rows: Row[]; empty: string; onRowClick?: (r: Row) => void }) {
   if (!rows.length) {
     return <p className="py-8 text-center text-xs text-muted-foreground">{empty}</p>;
   }
@@ -105,7 +105,11 @@ function DataTable({ cols, rows, empty }: { cols: Col[]; rows: Row[]; empty: str
         </thead>
         <tbody className="divide-y">
           {rows.map((r, i) => (
-            <tr key={r.id || i} className="hover:bg-muted/30">
+            <tr
+              key={r.id || i}
+              onClick={onRowClick ? () => onRowClick(r) : undefined}
+              className={cn('hover:bg-muted/30', onRowClick && 'cursor-pointer')}
+            >
               {cols.map((c) => (
                 <td key={c.key} className={cn('px-3 py-2 whitespace-nowrap', c.align === 'right' && 'text-right tabular-nums')}>
                   {c.render ? c.render(r) : (r[c.key] ?? '—')}
@@ -118,6 +122,7 @@ function DataTable({ cols, rows, empty }: { cols: Col[]; rows: Row[]; empty: str
     </div>
   );
 }
+
 
 const toSheet = (name: string, cols: Col[], rows: Row[]): XlsxSheet => ({
   name,
