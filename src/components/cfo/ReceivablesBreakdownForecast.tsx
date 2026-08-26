@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
 import PredictiveReceivablesForecast from '@/components/cfo/PredictiveReceivablesForecast';
+import ForecastAccuracyPanel from '@/components/cfo/ForecastAccuracyPanel';
 import {
   useReceivablesBreakdown,
   useReceivablesForecast,
