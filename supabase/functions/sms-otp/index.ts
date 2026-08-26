@@ -1,6 +1,8 @@
 import "../_shared/noSignupPrompt.ts";
 import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { confirmYoolaDelivery, extractYoolaMessageId } from "../_shared/yoolaDeliveryConfirm.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
