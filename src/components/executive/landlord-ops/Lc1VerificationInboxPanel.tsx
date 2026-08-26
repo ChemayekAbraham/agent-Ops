@@ -99,6 +99,7 @@ export function Lc1VerificationInboxPanel({ onResolved, standalone = false, init
   const [debounced, setDebounced] = useState('');
   const [isOpen, setIsOpen] = useState(standalone);
   const [exporting, setExporting] = useState(false);
+  const [reverseRow, setReverseRow] = useState<{ id: string; name: string | null } | null>(null);
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [decideId, setDecideId] = useState<string | null>(null);
