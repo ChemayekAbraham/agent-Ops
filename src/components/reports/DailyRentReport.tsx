@@ -868,7 +868,34 @@ export function DailyRentReport({ mode }: Props) {
           <div><div className="text-muted-foreground">Pending</div><div className="text-lg font-bold text-amber-700">{totals.pending}</div></div>
         </div>
       </Card>
+
+      {/* Comprehensive report — every section of this page in one file */}
+      <Card className="p-0 overflow-hidden">
+        <div className="p-3 border-b">
+          <div className="text-sm font-semibold">Comprehensive Report — whole page</div>
+          <div className="text-[11px] text-muted-foreground">
+            Summary, hourly, payment methods, properties, transactions and agent performance for the
+            selected period and filters. Excel exports one sheet per section.
+          </div>
+        </div>
+        <SectionReportBar
+          title="Comprehensive"
+          from={rangeFor('comprehensive').from}
+          to={rangeFor('comprehensive').to}
+          minDate={date}
+          maxDate={dateTo}
+          onFromChange={v => setRange('comprehensive', { ...rangeFor('comprehensive'), from: v })}
+          onToChange={v => setRange('comprehensive', { ...rangeFor('comprehensive'), to: v })}
+          onReset={() => setRange('comprehensive', { from: date, to: dateTo })}
+          onCsv={exportComprehensiveCsv}
+          onXlsx={exportComprehensiveXlsx}
+          onPdf={exportComprehensivePdf}
+          disabled={!rowsFor('comprehensive').length}
+          extra={`${rowsFor('comprehensive').length} rows`}
+        />
+      </Card>
     </div>
+
   );
 }
 
