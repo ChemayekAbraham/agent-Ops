@@ -32,11 +32,24 @@ import { useRequireContactLocation } from '@/hooks/useRequireContactLocation';
 function humanizeAllocationError(
   message: string,
   code?: string,
-  details?: { strict_float?: number | null; cached_float?: number | null; requested?: number | null },
+  details?: {
+    strict_float?: number | null;
+    cached_float?: number | null;
+    requested?: number | null;
+    expected_amount?: number | null;
+    shortfall_amount?: number | null;
+  },
 ): string {
+  if (code === 'PARTIAL_NOT_CONFIRMED') {
+    return `This tenant is expected to pay ${formatUGX(Number(details?.expected_amount ?? 0))}. You entered ${formatUGX(Number(details?.requested ?? 0))} — short by ${formatUGX(Number(details?.shortfall_amount ?? 0))}. Collect the full amount, or tick "Record as partial payment" and give a reason.`;
+  }
+  if (code === 'PARTIAL_REASON_REQUIRED') {
+    return 'A partial payment needs a short reason (at least 5 characters) so Operations can follow it up.';
+  }
   if (code === 'COMMISSION_LEDGER_INCONSISTENT') {
     return 'Float allocation paused — your commission ledger is out of balance. Support has been notified and will reconcile your wallet shortly.';
   }
+
   if (code === 'INSUFFICIENT_FLOAT') {
     const strict = Number(details?.strict_float ?? 0);
     const cached = Number(details?.cached_float ?? 0);
