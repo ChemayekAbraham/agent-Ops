@@ -50,7 +50,7 @@ const STATUS_FUNCTION: Record<string, 'prepare' | 'approve' | 'release'> = {
   returned: 'prepare',
   in_review: 'approve',
   approved: 'release',
-  paid: 'prepare',
+  paid: 'release',
 };
 
 async function loadAuthorityTitles(): Promise<Record<string, string>> {
