@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.get_promissory_ops_report(timestamp with time zone, timestamp with time zone) TO authenticated, service_role;
