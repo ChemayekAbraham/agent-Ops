@@ -101,6 +101,12 @@ export function AgentTenantCollectDialog({
   // agent can see if it failed and manually resend from the success view.
   const [smsStatus, setSmsStatus] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
   const [smsResending, setSmsResending] = useState(false);
+  // Expected collection for this tenant today (flat daily amount, capped at the
+  // remaining balance). Sourced from the server helper so the frontend and the
+  // RPC gate agree on one definition — no duplicated fee arithmetic here.
+  const [expectedAmount, setExpectedAmount] = useState<number | null>(null);
+  const [partialConfirmed, setPartialConfirmed] = useState(false);
+  const [partialReason, setPartialReason] = useState('');
 
   useEffect(() => {
     if (open) {
@@ -112,9 +118,30 @@ export function AgentTenantCollectDialog({
       setRpcError(null);
       setSmsStatus('idle');
       setSmsResending(false);
+      setPartialConfirmed(false);
+      setPartialReason('');
+      setExpectedAmount(null);
       refetchBalances();
     }
   }, [open]);
+
+  // One round trip, one source of truth for "what should be collected".
+  useEffect(() => {
+    if (!open || !rentRequestId) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.rpc('agent_expected_collection', {
+        p_rent_request_id: rentRequestId,
+      });
+      if (cancelled) return;
+      if (error) {
+        console.warn('[AgentTenantCollectDialog] expected collection lookup failed', error);
+        return;
+      }
+      setExpectedAmount(Math.max(0, Number(data ?? 0)));
+    })();
+    return () => { cancelled = true; };
+  }, [open, rentRequestId]);
 
   // While the tenant-collection dialog is open, suppress iOS PWA full
   // cache invalidation and SW skipWaiting. Otherwise switching to MoMo /
@@ -130,14 +157,29 @@ export function AgentTenantCollectDialog({
   // less than 100 the agent must still be able to clear the last shillings.
   const minAllowed = outstandingBalance > 0 ? Math.min(100, outstandingBalance) : 100;
   const canAllocate = floatBalance >= minAllowed && outstandingBalance >= minAllowed && outstandingBalance > 0;
-  const isValid = amount >= minAllowed && amount <= maxAllowable;
+  // Partial-collection gate: anything below the tenant's expected amount must be
+  // explicitly confirmed with a reason, both here and in the RPC.
+  const expected = Math.max(0, Number(expectedAmount ?? 0));
+  const isPartial = expected > 0 && amount > 0 && amount < expected;
+  const shortfall = isPartial ? expected - amount : 0;
+  const partialReasonOk = partialReason.trim().length >= 5;
+  const partialCleared = !isPartial || (partialConfirmed && partialReasonOk);
+  const isValid = amount >= minAllowed && amount <= maxAllowable && partialCleared;
 
-  // Auto-suggest amount when dialog opens and float is available
+  // Auto-suggest the EXPECTED amount (not the maximum) so the default action is
+  // a complete collection. Falls back to the old behaviour when unknown.
   useEffect(() => {
-    if (open && amount === 0 && maxAllowable >= minAllowed) {
-      setAmount(maxAllowable);
-    }
-  }, [open, maxAllowable, minAllowed]);
+    if (!open || amount !== 0 || maxAllowable < minAllowed) return;
+    const suggestion = expected > 0 ? Math.min(expected, maxAllowable) : maxAllowable;
+    if (suggestion >= minAllowed) setAmount(suggestion);
+  }, [open, maxAllowable, minAllowed, expected]);
+
+  // Re-arm the gate whenever the amount changes, so a confirmation cannot be
+  // carried over to a different (smaller) amount.
+  useEffect(() => {
+    setPartialConfirmed(false);
+  }, [amount]);
+
 
   const handleAllocate = async () => {
     // Defensive logging — previously this handler appeared to "fail
