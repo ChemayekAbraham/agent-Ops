@@ -5052,6 +5052,7 @@ export function LandlordOpsDashboard({
         previewImages={previewImages} setPreviewImages={setPreviewImages}
         adjustListing={adjustListing} setAdjustListing={setAdjustListing}
         actionDialog={actionDialog} setActionDialog={setActionDialog}
+        reverseLandlord={reverseLandlord} setReverseLandlord={setReverseLandlord}
         user={user} refetchAll={refetchAll} queryClient={queryClient}
       />
 
