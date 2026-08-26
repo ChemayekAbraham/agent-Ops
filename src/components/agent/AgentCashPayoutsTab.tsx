@@ -2026,6 +2026,11 @@ export function AgentCashPayoutsTab() {
                             <p className="whitespace-nowrap text-base sm:text-lg font-bold tabular-nums leading-tight text-foreground">{formatUGX(w.amount)}</p>
                           </div>
                         </div>
+                        {landlordBlocked && (
+                          <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs font-semibold text-violet-700 dark:text-violet-300">
+                            {LANDLORD_PRIORITY_WAITING_LABEL} {LANDLORD_PRIORITY_BLOCK_MESSAGE}
+                          </div>
+                        )}
                         {proxyBlocked && (
                           <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
                             {PROXY_PRIORITY_WAITING_LABEL} {PROXY_PRIORITY_BLOCK_MESSAGE}
@@ -2037,25 +2042,29 @@ export function AgentCashPayoutsTab() {
                             momoNumber: w.mobile_money_number ?? null,
                             momoName: w.mobile_money_name ?? null,
                           })}
-                          disabled={claimingIds.has(w.id) || hasActiveClaim || proxyBlocked}
+                          disabled={claimingIds.has(w.id) || hasActiveClaim || landlordBlocked || proxyBlocked}
                           title={
                             claimingIds.has(w.id)
                               ? 'Request is being processed…'
-                              : proxyBlocked
-                                ? PROXY_PRIORITY_BLOCK_MESSAGE
-                                : hasActiveClaim
-                                  ? 'Finish your current claim before claiming another'
-                                  : 'Claim this withdrawal'
+                              : landlordBlocked
+                                ? LANDLORD_PRIORITY_BLOCK_MESSAGE
+                                : proxyBlocked
+                                  ? PROXY_PRIORITY_BLOCK_MESSAGE
+                                  : hasActiveClaim
+                                    ? 'Finish your current claim before claiming another'
+                                    : 'Claim this withdrawal'
                           }
                         >
                           {claimingIds.has(w.id) ? (
                             <><Loader2 className="h-5 w-5 animate-spin" /> Claiming…</>
+                          ) : landlordBlocked ? (
+                            <><Clock className="h-5 w-5" /> Waiting for Priority Landlord Payout</>
                           ) : proxyBlocked ? (
                             <><Clock className="h-5 w-5" /> Waiting for Priority Proxy Withdrawal</>
                           ) : hasActiveClaim ? (
                             <><Clock className="h-5 w-5" /> Finish current claim first</>
                           ) : (
-                            <><UserCheck className="h-5 w-5" /> {isUrgentProxy ? 'Claim Priority Payout' : 'Claim'}</>
+                            <><UserCheck className="h-5 w-5" /> {isUrgentLandlord ? 'Claim Priority Landlord Payout' : isUrgentProxy ? 'Claim Priority Payout' : 'Claim'}</>
                           )}
                         </Button>
                       </CardContent>
