@@ -503,6 +503,9 @@ export function AgentCashPayoutsTab() {
     // The priority hold is released as soon as the urgent proxy payout is
     // claimed, completed, cancelled or failed.
     qc.invalidateQueries({ queryKey: ['cashout-blocking-urgent-proxy'] });
+    // Same for the landlord float payout hold (server gate:
+    // assert_no_urgent_landlord_priority -> 'landlord_priority_hold').
+    qc.invalidateQueries({ queryKey: ['cashout-blocking-urgent-landlord'] });
   };
 
   // Check if this agent is a cashout agent
