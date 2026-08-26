@@ -160,8 +160,13 @@ export function PartialCollectionsPanel() {
             </div>
             <div className="flex items-center gap-2">
               {PERIODS.map(p => (
-                <Button key={p} size="sm" variant={days === p ? 'default' : 'outline'} onClick={() => setDays(p)}>
-                  {p}d
+                <Button
+                  key={p.value}
+                  size="sm"
+                  variant={days === p.value ? 'default' : 'outline'}
+                  onClick={() => { setPartialPage(0); setDays(p.value); }}
+                >
+                  {p.label}
                 </Button>
               ))}
               <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isRefetching}>
