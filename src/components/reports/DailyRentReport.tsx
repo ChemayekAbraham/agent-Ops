@@ -609,3 +609,78 @@ function SummaryCard({ label, value, icon: Icon, tone }: { label: string; value:
     </Card>
   );
 }
+
+/**
+ * Per-section report controls: an optional date window (narrowed inside the
+ * period already loaded on the page, so no extra queries are issued) plus
+ * CSV / Excel / PDF export for that section only.
+ */
+export function SectionReportBar({
+  title,
+  from,
+  to,
+  minDate,
+  maxDate,
+  onFromChange,
+  onToChange,
+  onReset,
+  onCsv,
+  onXlsx,
+  onPdf,
+  disabled,
+  extra,
+}: {
+  title: string;
+  from: string;
+  to: string;
+  minDate: string;
+  maxDate: string;
+  onFromChange: (v: string) => void;
+  onToChange: (v: string) => void;
+  onReset: () => void;
+  onCsv: () => void;
+  onXlsx: () => void;
+  onPdf?: () => void;
+  disabled?: boolean;
+  extra?: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 border-t bg-muted/30 px-3 py-2">
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mr-1">
+        {title} report
+      </span>
+      <Input
+        type="date"
+        value={from}
+        min={minDate}
+        max={maxDate}
+        onChange={e => onFromChange(e.target.value)}
+        className="h-7 w-[130px] text-[11px]"
+      />
+      <span className="text-[10px] text-muted-foreground">to</span>
+      <Input
+        type="date"
+        value={to}
+        min={minDate}
+        max={maxDate}
+        onChange={e => onToChange(e.target.value)}
+        className="h-7 w-[130px] text-[11px]"
+      />
+      <Button size="sm" variant="ghost" onClick={onReset} className="h-7 text-[11px]">Whole period</Button>
+      {extra && <span className="text-[10px] text-muted-foreground">{extra}</span>}
+      <div className="ml-auto flex gap-1.5">
+        <Button size="sm" variant="outline" disabled={disabled} onClick={onCsv} className="h-7 gap-1 text-[11px]">
+          <FileSpreadsheet className="h-3 w-3" />CSV
+        </Button>
+        <Button size="sm" variant="outline" disabled={disabled} onClick={onXlsx} className="h-7 gap-1 text-[11px]">
+          <FileSpreadsheet className="h-3 w-3" />Excel
+        </Button>
+        {onPdf && (
+          <Button size="sm" variant="outline" disabled={disabled} onClick={onPdf} className="h-7 gap-1 text-[11px]">
+            <FileDown className="h-3 w-3" />PDF
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
