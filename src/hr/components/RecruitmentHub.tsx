@@ -1552,7 +1552,7 @@ export default function RecruitmentHub() {
         </TabsTrigger>
         <TabsTrigger value="postings">Postings {activePostingsCount > 0 ? `(${fmtCount(activePostingsCount)})` : ''}</TabsTrigger>
         <TabsTrigger value="requisitions">Requisitions {requisitions.length > 0 ? `(${fmtCount(requisitions.length)})` : ''}</TabsTrigger>
-        <TabsTrigger value="pool">Talent Pool {poolVisible.length > 0 ? `(${fmtCount(poolVisible.length)})` : ''}</TabsTrigger>
+        <TabsTrigger value="pool">Talent Pool {poolSpeculative.length > 0 ? `(${fmtCount(poolSpeculative.length)})` : ''}</TabsTrigger>
       </TabsList>
 
       {/* ---------------- Applications ---------------- */}
