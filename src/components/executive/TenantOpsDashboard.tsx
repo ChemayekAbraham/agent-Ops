@@ -1374,7 +1374,16 @@ export function TenantOpsDashboard({
             onBack={goBack}
             onViewRegistration={() => setActiveView('registration-review')}
           />
-        ) : null;
+        ) : (
+          <TenantOverviewList
+            data={rows}
+            loading={isLoading}
+            onSelectTenant={(id, name) => {
+              setSelectedTenant({ id, name });
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        );
       case 'registration-review':
         return selectedTenant ? (
           <TenantRegistrationReview

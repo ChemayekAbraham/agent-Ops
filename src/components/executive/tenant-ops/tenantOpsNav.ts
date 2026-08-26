@@ -177,3 +177,18 @@ export function tenantOpsGroupForView(view: string): string | null {
 
 /** Every valid destination key, for validating a `?view=` URL parameter. */
 export const TENANT_OPS_VIEW_KEYS = new Set<string>(TENANT_OPS_SEARCH_INDEX.map((e) => String(e.view)));
+
+/**
+ * Classic views that are reachable by drilling down inside Classic (e.g. clicking
+ * a tenant row) but deliberately have no sidebar entry. They must still be
+ * accepted as valid `?view=` values, otherwise the shell bounces back to Home.
+ */
+export const TENANT_OPS_TRANSIENT_VIEW_KEYS = new Set<string>([
+  'tenant-detail',
+  'tenant-location-browser',
+]);
+
+/** Is this a destination the shell may render (sidebar entry or drill-down)? */
+export function isTenantOpsViewKey(key: string): boolean {
+  return TENANT_OPS_VIEW_KEYS.has(key) || TENANT_OPS_TRANSIENT_VIEW_KEYS.has(key);
+}

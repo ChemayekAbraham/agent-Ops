@@ -297,6 +297,24 @@ export function PromissoryNotesQueue() {
   };
   const stageOf = (n: any) => stageConfig[n?.journey_stage as string] || (n?.came_in ? stageConfig.came_in : stageConfig.not_registered);
 
+  // When a partner registers, the backend matches them on phone/WhatsApp or email
+  // and returns the name they registered with. Ops must see that name next to the
+  // name written on the note so a mismatch is visible, never silently accepted.
+  const normName = (v?: string | null) =>
+    (v || '').toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(Boolean).sort().join(' ');
+  const cameInIdentity = (n: any) => {
+    if (!n?.came_in || !n?.came_in_name) return null;
+    return {
+      registeredName: String(n.came_in_name),
+      matchedOn: n.partner_user_id && n.came_in_user_id === n.partner_user_id
+        ? 'linked account'
+        : n.email
+        ? 'phone or email'
+        : 'phone',
+      matches: normName(n.came_in_name) === normName(n.partner_name),
+    };
+  };
+
   const statuses = ['all', 'pending', 'activated', 'fulfilled', 'defaulted', 'cancelled'];
 
   const kpiCards: { label: string; value: React.ReactNode; hint?: string; tone: string }[] = [
@@ -478,6 +496,21 @@ export function PromissoryNotesQueue() {
                           <td className="py-2 pr-3">
                             <span className="font-medium block truncate max-w-[160px]">{note.partner_name}</span>
                             <span className="text-[10px] text-muted-foreground">{note.whatsapp_number}</span>
+                            {(() => {
+                              const ci = cameInIdentity(note);
+                              if (!ci) return null;
+                              return (
+                                <span
+                                  className={cn(
+                                    'block truncate max-w-[160px] text-[10px]',
+                                    ci.matches ? 'text-emerald-700' : 'text-amber-700 font-medium',
+                                  )}
+                                  title={`Registered as "${ci.registeredName}" · matched on ${ci.matchedOn}${ci.matches ? '' : ' · name differs from the note'}`}
+                                >
+                                  Registered: {ci.registeredName}{ci.matches ? '' : ' ⚠'}
+                                </span>
+                              );
+                            })()}
                           </td>
 
                           <td className="py-2 pr-3 text-right font-medium"><CompactAmount value={Number(note.amount)} /></td>
@@ -531,6 +564,15 @@ export function PromissoryNotesQueue() {
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">{note.partner_name}</p>
                             <p className="text-[11px] text-muted-foreground truncate">Agent: {note.agent_name}</p>
+                            {(() => {
+                              const ci = cameInIdentity(note);
+                              if (!ci) return null;
+                              return (
+                                <p className={cn('text-[11px] truncate', ci.matches ? 'text-emerald-700' : 'text-amber-700 font-medium')}>
+                                  Registered: {ci.registeredName}{ci.matches ? '' : ' ⚠ differs'}
+                                </p>
+                              );
+                            })()}
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-1 shrink-0">
@@ -629,6 +671,36 @@ export function PromissoryNotesQueue() {
                       <User className="h-4 w-4 text-muted-foreground" />
                       <span className="font-semibold">{selectedNote.partner_name}</span>
                     </div>
+                    {(() => {
+                      const ci = cameInIdentity(selectedNote);
+                      if (!ci) {
+                        return (
+                          <p className="text-[11px] text-muted-foreground">
+                            No registered account matched this note's phone or email yet.
+                          </p>
+                        );
+                      }
+                      return (
+                        <div className={cn('rounded-md border p-2 text-xs', ci.matches ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50')}>
+                          <p className="font-medium">
+                            Came in as: {ci.registeredName}
+                          </p>
+                          <p className="text-muted-foreground">
+                            Matched on {ci.matchedOn} · note name: {selectedNote.partner_name}
+                          </p>
+                          {!ci.matches && (
+                            <p className="mt-1 font-medium text-amber-700">
+                              Registered name differs from the promissory note — verify before approval.
+                            </p>
+                          )}
+                          {selectedNote.came_in_at && (
+                            <p className="text-muted-foreground">
+                              Registered {format(new Date(selectedNote.came_in_at), 'dd MMM yyyy HH:mm')}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <MessageCircle className="h-3.5 w-3.5" />
                       <span>{selectedNote.whatsapp_number}</span>
