@@ -83,6 +83,14 @@ export async function lockRun(runId: string, note: string): Promise<void> {
   await recordEvent(runId, 'locked', note);
 }
 
+export async function cancelRun(runId: string, note: string): Promise<void> {
+  const trimmed = (note ?? '').trim();
+  if (trimmed.length < 10) {
+    throw new Error('A note of at least 10 characters is required to cancel a run.');
+  }
+  await recordEvent(runId, 'cancelled', trimmed);
+}
+
 export async function myApprovals(): Promise<
   Array<{
     item_type: string;
