@@ -209,7 +209,7 @@ export default function PredictiveReceivablesForecast() {
     <Card className="overflow-hidden rounded-2xl border-report-grid p-0 shadow-sm">
       {/* ---------- Header band ---------- */}
       <header className="bg-report-ink px-4 py-4 sm:px-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
             <h3 className="flex items-center gap-2 font-mono text-base font-bold tracking-tight text-report-ink-foreground sm:text-lg">
               <Sparkles className="h-4 w-4 shrink-0 text-report-ink-muted" />
@@ -220,7 +220,7 @@ export default function PredictiveReceivablesForecast() {
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
             {/* Granularity segmented control */}
             <div
               role="tablist"
@@ -249,7 +249,7 @@ export default function PredictiveReceivablesForecast() {
               })}
             </div>
 
-            <span className="hidden h-8 w-px bg-report-ink-foreground/20 sm:block" />
+            <span className="hidden h-8 w-px bg-report-ink-foreground/20 md:block" />
 
             <div className="flex items-center gap-2">
               <button
@@ -286,12 +286,12 @@ export default function PredictiveReceivablesForecast() {
       ) : data ? (
         <>
           {/* ---------- KPI strip ---------- */}
-          <div className="grid grid-cols-2 gap-px bg-report-grid lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-px bg-report-grid xl:grid-cols-4">
             <div className="bg-card p-4 sm:p-5">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Actual recorded
               </p>
-              <p className="mt-1.5 break-words font-mono text-lg font-bold tabular-nums sm:text-xl">
+              <p className="mt-1.5 break-words font-mono text-base font-bold tabular-nums sm:text-lg">
                 {formatUGX(data.actual.total)}
               </p>
               <p className="mt-1.5 text-[10px] text-muted-foreground">
@@ -302,7 +302,7 @@ export default function PredictiveReceivablesForecast() {
               <p className="text-[10px] font-semibold uppercase tracking-wider text-destructive">
                 Overdue
               </p>
-              <p className="mt-1.5 break-words font-mono text-lg font-bold tabular-nums text-destructive sm:text-xl">
+              <p className="mt-1.5 break-words font-mono text-base font-bold tabular-nums text-destructive sm:text-lg">
                 {formatUGX(data.actual.overdue)}
               </p>
               <p className="mt-1.5 text-[10px] text-muted-foreground">Past due date</p>
@@ -311,7 +311,7 @@ export default function PredictiveReceivablesForecast() {
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Not yet due
               </p>
-              <p className="mt-1.5 break-words font-mono text-lg font-bold tabular-nums sm:text-xl">
+              <p className="mt-1.5 break-words font-mono text-base font-bold tabular-nums sm:text-lg">
                 {formatUGX(data.actual.not_yet_due)}
               </p>
               <p className="mt-1.5 text-[10px] text-muted-foreground">On the books</p>
@@ -325,7 +325,7 @@ export default function PredictiveReceivablesForecast() {
                   {horizonLabel}
                 </Badge>
               </div>
-              <p className="mt-1.5 break-words font-mono text-lg font-bold tabular-nums text-primary sm:text-xl">
+              <p className="mt-1.5 break-words font-mono text-base font-bold tabular-nums text-primary sm:text-lg">
                 {formatUGX(horizonTotal)}
               </p>
               <p className="mt-1.5 text-[10px] text-primary/70">
