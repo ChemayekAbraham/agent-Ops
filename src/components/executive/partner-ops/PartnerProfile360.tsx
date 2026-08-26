@@ -334,6 +334,25 @@ export function PartnerProfile360() {
     });
   }, [allPortfolios, pfSearch, pfStatus]);
 
+  const allWithdrawals = data?.withdrawals || [];
+
+  const withdrawalStatuses = useMemo(
+    () => Array.from(new Set(allWithdrawals.map((r) => String(r.status || '')).filter(Boolean))).sort(),
+    [allWithdrawals],
+  );
+
+  const filteredWithdrawals = useMemo(() => {
+    const q = wdSearch.trim().toLowerCase();
+    return allWithdrawals.filter((r) => {
+      if (wdStatus !== 'all' && String(r.status || '') !== wdStatus) return false;
+      if (!q) return true;
+      return [r.status, r.payout_method, r.proxy_agent_name, r.payout_code, r.amount, cleanReason(r)]
+        .some((v) => String(v ?? '').toLowerCase().includes(q));
+    });
+  }, [allWithdrawals, wdSearch, wdStatus]);
+
+
+
 
   const exportWorkbook = async () => {
     if (!data) return;
