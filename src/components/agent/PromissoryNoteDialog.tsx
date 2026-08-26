@@ -344,10 +344,25 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
               </div>
             )}
 
-            <Button onClick={handleSubmit} disabled={!isValid || submitting} className="w-full gap-2">
+            {errorMsg && (
+              <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-[11px] text-destructive break-words">
+                {errorMsg}
+              </div>
+            )}
+
+            {/* Never disabled on validity — pressing it always gives feedback so
+                the button can't appear to do nothing on any device. */}
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting}
+              aria-disabled={!isValid || submitting}
+              className="w-full gap-2"
+            >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              Create & Share Note
+              {submitting ? 'Creating…' : 'Create & Share Note'}
             </Button>
+
           </div>
         )}
       </DialogContent>
