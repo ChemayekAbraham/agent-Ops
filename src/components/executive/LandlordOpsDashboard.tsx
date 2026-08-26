@@ -96,6 +96,7 @@ import { EmptyHouseActionDialog } from './landlord-ops/EmptyHouseActionDialog';
 import { AgentListingBlockControl } from './landlord-ops/AgentListingBlockControl';
 import { Trash2, XCircle, Pencil } from 'lucide-react';
 import { EditLandlordDialog } from './landlord-ops/EditLandlordDialog';
+import { ReverseVerificationDialog } from './landlord-ops/ReverseVerificationDialog';
 import { EditLC1Dialog } from './landlord-ops/EditLC1Dialog';
 import { BulkImportLC1Dialog } from './landlord-ops/BulkImportLC1Dialog';
 import { BulkImportLandlordsDialog } from './landlord-ops/BulkImportLandlordsDialog';
@@ -526,6 +527,8 @@ export function LandlordOpsDashboard({
   const [adjustListing, setAdjustListing] = useState<ListingWithLandlord | null>(null);
   const [actionDialog, setActionDialog] = useState<{ listing: ListingWithLandlord; type: 'delete' | 'delist' | 'reject' } | null>(null);
   const [editLandlord, setEditLandlord] = useState<{ id: string; name: string; phone: string; [k: string]: any } | null>(null);
+  // Ops-only: undo a landlord verification (and its bonus payment) done by mistake.
+  const [reverseLandlord, setReverseLandlord] = useState<{ id: string; name: string | null } | null>(null);
   const [editLC1, setEditLC1] = useState<{ id: string; name: string; phone: string | null; village: string | null; listingIds: string[] } | null>(null);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [bulkImportLandlordsOpen, setBulkImportLandlordsOpen] = useState(false);
@@ -3044,6 +3047,16 @@ export function LandlordOpsDashboard({
                           >
                             Edit
                           </Button>
+                          {landlord.verified && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs border-destructive/40 text-destructive hover:bg-destructive/5"
+                              onClick={() => setReverseLandlord({ id: landlord.id, name: landlord.name })}
+                            >
+                              Reverse
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -5125,6 +5138,16 @@ function LandlordDialogs({ editLandlord, setEditLandlord, editLC1, setEditLC1, a
         onClose={() => setEditLandlord(null)}
         onSaved={refetchAll}
       />
+      {reverseLandlord && (
+        <ReverseVerificationDialog
+          open
+          onOpenChange={(v) => { if (!v) setReverseLandlord(null); }}
+          entityType="landlord"
+          entityId={reverseLandlord.id}
+          entityName={reverseLandlord.name}
+          onReversed={() => { setReverseLandlord(null); refetchAll(); }}
+        />
+      )}
       <EditLC1Dialog
         lc1={editLC1}
         open={!!editLC1}

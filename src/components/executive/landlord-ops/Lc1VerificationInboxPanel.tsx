@@ -9,8 +9,9 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   ShieldQuestion, CheckCircle2, XCircle, Phone, Loader2, UserCircle, MapPin,
   ChevronDown, ChevronUp, Search, FileDown, Clock, BadgeCheck, RefreshCw, X,
-  Inbox, FileClock,
+  Inbox, FileClock, ShieldOff,
 } from 'lucide-react';
+import { ReverseVerificationDialog } from './ReverseVerificationDialog';
 import { cn } from '@/lib/utils';
 import {
   generateLc1VerificationReportPdf,
@@ -99,6 +100,7 @@ export function Lc1VerificationInboxPanel({ onResolved, standalone = false, init
   const [debounced, setDebounced] = useState('');
   const [isOpen, setIsOpen] = useState(standalone);
   const [exporting, setExporting] = useState(false);
+  const [reverseRow, setReverseRow] = useState<{ id: string; name: string | null } | null>(null);
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [decideId, setDecideId] = useState<string | null>(null);
@@ -469,6 +471,16 @@ export function Lc1VerificationInboxPanel({ onResolved, standalone = false, init
                   >
                     <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
                   </Button>
+                  {row.status === 'verified' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="col-span-2 h-8 text-[11px] font-bold border-destructive/40 text-destructive hover:bg-destructive/5"
+                      onClick={() => setReverseRow({ id: row.lc1_id, name: row.lc1_name || null })}
+                    >
+                      <ShieldOff className="h-3.5 w-3.5 mr-1" /> Reverse verification
+                    </Button>
+                  )}
                 </div>
               )}
             </li>
@@ -489,6 +501,18 @@ export function Lc1VerificationInboxPanel({ onResolved, standalone = false, init
             Next
           </Button>
         </div>
+      )}
+
+      {/* Ops-only: undo a verification (and its bonus payment) done by mistake */}
+      {reverseRow && (
+        <ReverseVerificationDialog
+          open
+          onOpenChange={(v) => { if (!v) setReverseRow(null); }}
+          entityType="lc1"
+          entityId={reverseRow.id}
+          entityName={reverseRow.name}
+          onReversed={() => { setReverseRow(null); load(); loadCounts(); onResolved?.(); }}
+        />
       )}
     </div>
   );

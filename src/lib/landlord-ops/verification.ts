@@ -76,6 +76,8 @@ export function verificationSourceLabel(source: string | null | undefined): stri
       return 'Verification hub';
     case 'ops_manual':
       return 'Ops decision';
+    case 'ops_reversal':
+      return 'Ops reversed a verification';
     case 'registration':
       return 'Registration (not reviewed)';
     default:
