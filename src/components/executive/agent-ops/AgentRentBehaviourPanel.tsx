@@ -605,7 +605,6 @@ export function AgentRentBehaviourPanel() {
                       </button>
                     </TableHead>
                     <TableHead className="whitespace-nowrap">Mode</TableHead>
-                    <TableHead className="whitespace-nowrap">Count</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Open</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -657,7 +656,6 @@ export function AgentRentBehaviourPanel() {
                           <p className="text-xs text-muted-foreground whitespace-nowrap">{row.on_time_rate}% on time</p>
                         </div>
                       </TableCell>
-                      <TableCell className="font-bold tabular-nums">{row.collection_count}</TableCell>
                       <TableCell className="text-right">
                         <Button type="button" variant="ghost" size="icon" aria-label={`Open ${row.tenant_name}`} onClick={(event) => { event.stopPropagation(); setSelected(row); }}>
                           <Eye className="h-4 w-4" />
