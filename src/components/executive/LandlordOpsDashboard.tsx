@@ -96,6 +96,7 @@ import { EmptyHouseActionDialog } from './landlord-ops/EmptyHouseActionDialog';
 import { AgentListingBlockControl } from './landlord-ops/AgentListingBlockControl';
 import { Trash2, XCircle, Pencil } from 'lucide-react';
 import { EditLandlordDialog } from './landlord-ops/EditLandlordDialog';
+import { ReverseVerificationDialog } from './landlord-ops/ReverseVerificationDialog';
 import { EditLC1Dialog } from './landlord-ops/EditLC1Dialog';
 import { BulkImportLC1Dialog } from './landlord-ops/BulkImportLC1Dialog';
 import { BulkImportLandlordsDialog } from './landlord-ops/BulkImportLandlordsDialog';
