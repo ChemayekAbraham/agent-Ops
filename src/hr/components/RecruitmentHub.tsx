@@ -440,6 +440,7 @@ function ApplicationsTab() {
         .select('*')
         .is('archived_at', null)
         .is('purged_at', null)
+        .like('source', '%?c=%')
         .order('created_at', { ascending: false })
         .limit(500);
       if (error) throw new Error(error.message);
@@ -1251,7 +1252,8 @@ export default function RecruitmentHub() {
         .from('job_applications')
         .select('*', { count: 'exact', head: true })
         .is('archived_at', null)
-        .is('purged_at', null);
+        .is('purged_at', null)
+        .like('source', '%?c=%');
       if (error) throw new Error(error.message);
       return count ?? 0;
     },
@@ -1550,7 +1552,7 @@ export default function RecruitmentHub() {
         </TabsTrigger>
         <TabsTrigger value="postings">Postings {activePostingsCount > 0 ? `(${fmtCount(activePostingsCount)})` : ''}</TabsTrigger>
         <TabsTrigger value="requisitions">Requisitions {requisitions.length > 0 ? `(${fmtCount(requisitions.length)})` : ''}</TabsTrigger>
-        <TabsTrigger value="pool">Talent Pool {poolVisible.length > 0 ? `(${fmtCount(poolVisible.length)})` : ''}</TabsTrigger>
+        <TabsTrigger value="pool">Talent Pool {poolSpeculative.length > 0 ? `(${fmtCount(poolSpeculative.length)})` : ''}</TabsTrigger>
       </TabsList>
 
       {/* ---------------- Applications ---------------- */}
