@@ -1252,7 +1252,8 @@ export default function RecruitmentHub() {
         .from('job_applications')
         .select('*', { count: 'exact', head: true })
         .is('archived_at', null)
-        .is('purged_at', null);
+        .is('purged_at', null)
+        .like('source', '%?c=%');
       if (error) throw new Error(error.message);
       return count ?? 0;
     },
