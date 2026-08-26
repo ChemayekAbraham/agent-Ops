@@ -48,6 +48,11 @@ import {
   isUrgentProxyWithdrawal, sortProxyPriorityFirst, isUrgentProxyBlocking,
 } from '@/lib/proxyPriorityQueue';
 import { useProxyPayoutPriority } from '@/hooks/useProxyPayoutPriority';
+import {
+  LANDLORD_PRIORITY_BLOCK_MESSAGE, LANDLORD_PRIORITY_WAITING_LABEL, URGENT_LANDLORD_BADGE_LABEL,
+  isUrgentLandlordPayout, sortLandlordPriorityFirst, isUrgentLandlordBlocking,
+} from '@/lib/landlordPriorityQueue';
+import { useLandlordPayoutPriority } from '@/hooks/useLandlordPayoutPriority';
 import { invalidateWalletBalance } from '@/hooks/wallet/useWalletBalance';
 import { AlertTriangle } from 'lucide-react';
 
@@ -445,6 +450,16 @@ export function AgentCashPayoutsTab() {
       claimedSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
+    // Landlord-payout priority gate: while an unclaimed landlord float payout
+    // exists, only landlord payouts may be claimed.
+    if (
+      blockingUrgentLandlord &&
+      blockingUrgentLandlord.id !== id &&
+      !isUrgentLandlordPayout(row || undefined)
+    ) {
+      toast.error(LANDLORD_PRIORITY_BLOCK_MESSAGE);
+      return;
+    }
     // Proxy-agent priority gate: while an urgent proxy withdrawal is unclaimed,
     // only that payout may be claimed. The server enforces this too
     // (`proxy_priority_hold`); this is the fast, explicit client message.
@@ -587,11 +602,14 @@ export function AgentCashPayoutsTab() {
   // CTO Platform Control: "Show Proxy Agent withdrawals first". When OFF the
   // hold is released and normal withdrawals are claimable in the usual order.
   const { enforced: proxyPriorityEnforced } = useProxyPayoutPriority();
+  // CTO Platform Control: "Show Landlord Payouts first". When OFF landlord float
+  // payouts process in the usual order alongside other withdrawals.
+  const { enforced: landlordPriorityEnforced } = useLandlordPayoutPriority();
 
   useEffect(() => {
     setPage(0);
     invalidateQueue();
-  }, [proxyPriorityEnforced]);
+  }, [proxyPriorityEnforced, landlordPriorityEnforced]);
 
   const { data: blockingUrgentProxyRow = null } = useQuery({
     queryKey: ['cashout-blocking-urgent-proxy'],
@@ -617,6 +635,34 @@ export function AgentCashPayoutsTab() {
   });
 
   const blockingUrgentProxy = proxyPriorityEnforced ? blockingUrgentProxyRow : null;
+
+  // PRIORITY GATE for landlord float payouts:
+  // while ANY unclaimed landlord float payout exists, no other payout may be
+  // claimed. Queried unfiltered so the hold is visible even when filters hide it.
+  const { data: blockingUrgentLandlordRow = null } = useQuery({
+    queryKey: ['cashout-blocking-urgent-landlord'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('withdrawal_requests')
+        .select('id, amount, created_at, reason, status, processed_at, fin_ops_reference, assigned_cashout_agent_id')
+        .in('status', CASHOUT_QUEUE_STATUSES)
+        .ilike('reason', 'Landlord float payout%')
+        .is('processed_at', null)
+        .is('fin_ops_reference', null)
+        .is('assigned_cashout_agent_id', null)
+        .order('created_at', { ascending: true })
+        .limit(1);
+      const row = (data || [])[0] ?? null;
+      if (error) throw error;
+      return row && isUrgentLandlordBlocking(row) ? row : null;
+    },
+    enabled: !!isCashoutAgent && landlordPriorityEnforced,
+    staleTime: 10_000,
+    refetchInterval: 20_000,
+    refetchOnWindowFocus: true,
+  });
+
+  const blockingUrgentLandlord = landlordPriorityEnforced ? blockingUrgentLandlordRow : null;
 
   const { data: availableTotal = 0 } = useQuery({
     queryKey: ['cashout-queue-available-total', isCashoutAgent?.id, categoryOrClause, channelProviderOrClause, frozenUserIds],
@@ -646,7 +692,7 @@ export function AgentCashPayoutsTab() {
 
   // Per-channel filtered counts (All / MoMo / Cash) for the tab badges.
   const { data: queueCounts } = useQuery({
-    queryKey: ['cashout-queue-counts', isCashoutAgent?.id, queueStatus, queueMerchant, minAmount, maxAmount, fromIso, toIso, debouncedSearch, categoryOrClause, channelProviderOrClause, frozenUserIds, proxyPriorityEnforced, blockingUrgentProxy?.id],
+    queryKey: ['cashout-queue-counts', isCashoutAgent?.id, queueStatus, queueMerchant, minAmount, maxAmount, fromIso, toIso, debouncedSearch, categoryOrClause, channelProviderOrClause, frozenUserIds, proxyPriorityEnforced, blockingUrgentProxy?.id, landlordPriorityEnforced, blockingUrgentLandlord?.id],
     queryFn: async () => {
       const cutoffIso = new Date(Date.now() - QUEUE_RECLAIM_WINDOW_MS).toISOString();
       const searchUserIds = debouncedSearch.trim() ? await resolveSearchUserIds(debouncedSearch) : null;
@@ -654,13 +700,15 @@ export function AgentCashPayoutsTab() {
         cutoffIso, status: queueStatus, merchant: queueMerchant,
         minAmount, maxAmount, fromIso, toIso, searchUserIds, searchTerm: debouncedSearch.trim(), categoryOrClause, channelProviderOrClause, frozenUserIds,
       };
-      const proxyOnly = proxyPriorityEnforced && !!blockingUrgentProxy;
+      const landlordOnly = landlordPriorityEnforced && !!blockingUrgentLandlord;
+      const proxyOnly = proxyPriorityEnforced && !!blockingUrgentProxy && !landlordOnly;
       const mk = (channel: 'all' | 'momo' | 'cash' | 'bank') => {
         let q = applyQueueFilters(
           supabase.from('withdrawal_requests').select('id', { count: 'exact', head: true }),
           { ...base, channel },
         );
-        if (proxyOnly) q = q.eq('priority_level', 'urgent_proxy');
+        if (landlordOnly) q = q.ilike('reason', 'Landlord float payout%');
+        else if (proxyOnly) q = q.eq('priority_level', 'urgent_proxy');
         return q.then((r: any) => r.count || 0);
       };
       const [all, momo, cash, bank] = await Promise.all([mk('all'), mk('momo'), mk('cash'), mk('bank')]);
@@ -672,7 +720,7 @@ export function AgentCashPayoutsTab() {
 
   // The current, server-paginated page of the Pending Queue for the active tab.
   const { data: queuePage, isLoading: loadingAll, isFetching: fetchingQueue, isError: queueError, refetch: refetchQueue } = useQuery({
-    queryKey: ['cashout-queue-page', isCashoutAgent?.id, channelTab, queueStatus, queueMerchant, minAmount, maxAmount, fromIso, toIso, debouncedSearch, queueSort, page, categoryOrClause, channelProviderOrClause, frozenUserIds, proxyPriorityEnforced, blockingUrgentProxy?.id],
+    queryKey: ['cashout-queue-page', isCashoutAgent?.id, channelTab, queueStatus, queueMerchant, minAmount, maxAmount, fromIso, toIso, debouncedSearch, queueSort, page, categoryOrClause, channelProviderOrClause, frozenUserIds, proxyPriorityEnforced, blockingUrgentProxy?.id, landlordPriorityEnforced, blockingUrgentLandlord?.id],
     queryFn: async () => {
       // NOTE: we intentionally do NOT release other agents' expired claims here.
       // Cross-agent releases from the browser caused paid-out withdrawals to
@@ -689,7 +737,9 @@ export function AgentCashPayoutsTab() {
         supabase.from('withdrawal_requests').select('*', { count: 'exact' }),
         opts,
       );
-      if (proxyPriorityEnforced && blockingUrgentProxy) {
+      if (landlordPriorityEnforced && blockingUrgentLandlord) {
+        q = q.ilike('reason', 'Landlord float payout%').order('created_at', { ascending: true });
+      } else if (proxyPriorityEnforced && blockingUrgentProxy) {
         q = q.eq('priority_level', 'urgent_proxy').order('created_at', { ascending: true });
       } else {
         q = applyQueueSort(q, queueSort);
@@ -1227,18 +1277,21 @@ export function AgentCashPayoutsTab() {
 
   // Server-driven queue values. The active tab's page comes from `queuePage`,
   // counts come from `queueCounts`, and the unfiltered total from `availableTotal`.
-  // Urgent proxy-agent payouts are Priority #1 at the top of the queue while the
-  // CTO control "Show Proxy Agent withdrawals first" is ON. When OFF, the queue
-  // keeps its normal (server) order so normal withdrawals are worked first.
+  // Landlord float payouts are Priority #1 while the CTO control
+  // "Show Landlord Payouts first" is ON. Urgent proxy-agent payouts are Priority
+  // #2. When both controls are OFF, the queue keeps its normal server order.
   const actionableRows: any[] = (queuePage?.rows ?? []).filter((row: any) => isMerchantQueueActionable(row));
-  // While the control is ON, ordinary (non-proxy) withdrawals must NOT surface
-  // in the queue at all as long as any proxy-agent withdrawal is present —
-  // merchant agents only see the priority proxy payouts. Once no proxy row is
-  // left, the normal queue reappears.
+  // While landlord priority is ON, ordinary withdrawals must NOT surface as
+  // long as any landlord payout is present — merchant agents only see landlord
+  // payouts. Once none remain, proxy priority (if ON) takes over; otherwise the
+  // normal queue reappears.
+  const landlordOnlyRows: any[] = actionableRows.filter((row: any) => isUrgentLandlordPayout(row));
   const proxyOnlyRows: any[] = actionableRows.filter((row: any) => isUrgentProxyWithdrawal(row));
-  const pageRows: any[] = proxyPriorityEnforced
-    ? (proxyOnlyRows.length > 0 ? sortProxyPriorityFirst(proxyOnlyRows) : actionableRows)
-    : actionableRows;
+  const pageRows: any[] = (landlordPriorityEnforced && landlordOnlyRows.length > 0)
+    ? sortLandlordPriorityFirst(landlordOnlyRows)
+    : (proxyPriorityEnforced && proxyOnlyRows.length > 0)
+      ? sortProxyPriorityFirst(proxyOnlyRows)
+      : actionableRows;
   const pageCount = queuePage?.count ?? 0;
   const channelCounts = queueCounts ?? { all: 0, momo: 0, cash: 0, bank: 0 };
   const totalPending = availableTotal;
@@ -1871,7 +1924,13 @@ export function AgentCashPayoutsTab() {
           const items = tab === channelTab ? pageRows : [];
           const emptyMsg = queueFiltersActive
             ? 'No withdrawals match these filters'
-            : tab === 'all' ? 'No pending withdrawals' : `No pending ${tab} payouts`;
+            : blockingUrgentLandlord
+              ? 'Landlord payouts are Priority #1. No matching landlord payouts in this tab.'
+              : blockingUrgentProxy
+                ? 'Proxy withdrawals are Priority #1. No matching proxy withdrawals in this tab.'
+                : tab === 'all'
+                  ? 'No pending withdrawals'
+                  : `No pending ${tab} payouts`;
           return (
             <TabsContent key={tab} value={tab} className="space-y-2.5 mt-4">
               {loadingAll && items.length === 0 ? (
@@ -1903,9 +1962,12 @@ export function AgentCashPayoutsTab() {
                   const methodLabel = channel === 'momo' ? 'Mobile Money' : channel === 'bank' ? 'Bank Transfer' : 'Cash';
                   const isLandlordPayout =
                     typeof w.reason === 'string' && w.reason.startsWith('Landlord float payout');
+                  const isUrgentLandlord = landlordPriorityEnforced && isUrgentLandlordPayout(w);
                   const isUrgentProxy = proxyPriorityEnforced && isUrgentProxyWithdrawal(w);
+                  const landlordBlocked =
+                    !isUrgentLandlord && !!blockingUrgentLandlord && blockingUrgentLandlord.id !== w.id;
                   const proxyBlocked =
-                    !isUrgentProxy && !!blockingUrgentProxy && blockingUrgentProxy.id !== w.id;
+                    !isUrgentLandlord && !isUrgentProxy && !!blockingUrgentProxy && blockingUrgentProxy.id !== w.id;
                   const name = isLandlordPayout
                     ? (w.mobile_money_name || 'Landlord')
                     : (w.profiles?.full_name
@@ -1918,18 +1980,28 @@ export function AgentCashPayoutsTab() {
                       key={w.id}
                       className={cn(
                         'rounded-2xl transition-colors',
-                        isUrgentProxy
-                          ? 'border-2 border-destructive/60 bg-destructive/5 ring-2 ring-destructive/20'
-                          : 'border-border hover:border-primary/30',
+                        isUrgentLandlord
+                          ? 'border-2 border-violet-500/60 bg-violet-500/5 ring-2 ring-violet-500/20'
+                          : isUrgentProxy
+                            ? 'border-2 border-destructive/60 bg-destructive/5 ring-2 ring-destructive/20'
+                            : 'border-border hover:border-primary/30',
                       )}
                     >
                       <CardContent className="p-4 space-y-3.5">
+                        {isUrgentLandlord && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center rounded-md bg-violet-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                              {URGENT_LANDLORD_BADGE_LABEL}
+                            </span>
+                            <span className="text-[11px] font-semibold text-violet-600 dark:text-violet-400">Priority #1 — process this first</span>
+                          </div>
+                        )}
                         {isUrgentProxy && (
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="inline-flex items-center rounded-md bg-destructive px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive-foreground">
                               {URGENT_PROXY_BADGE_LABEL}
                             </span>
-                            <span className="text-[11px] font-semibold text-destructive">Priority #1 — process this first</span>
+                            <span className="text-[11px] font-semibold text-destructive">Priority #2 — process this first</span>
                           </div>
                         )}
                         <div className="flex items-start justify-between gap-3">
@@ -1960,6 +2032,11 @@ export function AgentCashPayoutsTab() {
                             <p className="whitespace-nowrap text-base sm:text-lg font-bold tabular-nums leading-tight text-foreground">{formatUGX(w.amount)}</p>
                           </div>
                         </div>
+                        {landlordBlocked && (
+                          <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs font-semibold text-violet-700 dark:text-violet-300">
+                            {LANDLORD_PRIORITY_WAITING_LABEL} {LANDLORD_PRIORITY_BLOCK_MESSAGE}
+                          </div>
+                        )}
                         {proxyBlocked && (
                           <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
                             {PROXY_PRIORITY_WAITING_LABEL} {PROXY_PRIORITY_BLOCK_MESSAGE}
@@ -1971,25 +2048,29 @@ export function AgentCashPayoutsTab() {
                             momoNumber: w.mobile_money_number ?? null,
                             momoName: w.mobile_money_name ?? null,
                           })}
-                          disabled={claimingIds.has(w.id) || hasActiveClaim || proxyBlocked}
+                          disabled={claimingIds.has(w.id) || hasActiveClaim || landlordBlocked || proxyBlocked}
                           title={
                             claimingIds.has(w.id)
                               ? 'Request is being processed…'
-                              : proxyBlocked
-                                ? PROXY_PRIORITY_BLOCK_MESSAGE
-                                : hasActiveClaim
-                                  ? 'Finish your current claim before claiming another'
-                                  : 'Claim this withdrawal'
+                              : landlordBlocked
+                                ? LANDLORD_PRIORITY_BLOCK_MESSAGE
+                                : proxyBlocked
+                                  ? PROXY_PRIORITY_BLOCK_MESSAGE
+                                  : hasActiveClaim
+                                    ? 'Finish your current claim before claiming another'
+                                    : 'Claim this withdrawal'
                           }
                         >
                           {claimingIds.has(w.id) ? (
                             <><Loader2 className="h-5 w-5 animate-spin" /> Claiming…</>
+                          ) : landlordBlocked ? (
+                            <><Clock className="h-5 w-5" /> Waiting for Priority Landlord Payout</>
                           ) : proxyBlocked ? (
                             <><Clock className="h-5 w-5" /> Waiting for Priority Proxy Withdrawal</>
                           ) : hasActiveClaim ? (
                             <><Clock className="h-5 w-5" /> Finish current claim first</>
                           ) : (
-                            <><UserCheck className="h-5 w-5" /> {isUrgentProxy ? 'Claim Priority Payout' : 'Claim'}</>
+                            <><UserCheck className="h-5 w-5" /> {isUrgentLandlord ? 'Claim Priority Landlord Payout' : isUrgentProxy ? 'Claim Priority Payout' : 'Claim'}</>
                           )}
                         </Button>
                       </CardContent>

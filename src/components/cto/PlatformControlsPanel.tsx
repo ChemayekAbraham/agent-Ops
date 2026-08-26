@@ -57,6 +57,12 @@ const UI_OVERRIDE_CONTROLS: ControlDef[] = [
     protective: true,
   },
   {
+    key: 'landlord_payout_priority',
+    label: 'Show Landlord Payouts first',
+    description: 'ON: Landlord float payouts are Priority #1 — they show at the top of the Merchant Agent Payout Queue and no other payout can be claimed until they are handled. OFF: landlord payouts process in the usual order alongside other withdrawals.',
+    protective: true,
+  },
+  {
     key: 'proxy_payout_priority',
     label: 'Show Proxy Agent withdrawals first',
     description: 'ON: Proxy Agent withdrawals are Priority #1 — they show at the top of the Merchant Agent Payout Queue and no normal withdrawal can be claimed until they are handled. OFF: the hold is released and merchant agents process normal customer withdrawals in the usual order.',
