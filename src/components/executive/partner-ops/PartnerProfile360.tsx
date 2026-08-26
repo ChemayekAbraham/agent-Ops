@@ -86,7 +86,7 @@ function Field({ icon: Icon, label, value }: { icon?: any; label: string; value?
   );
 }
 
-interface Col { key: string; label: string; render?: (r: Row) => string; align?: 'right' }
+interface Col { key: string; label: string; render?: (r: Row) => string; align?: 'right'; wrap?: boolean }
 
 /** One table renderer reused by every tab — keeps markup and export logic DRY. */
 function DataTable({ cols, rows, empty, onRowClick }: { cols: Col[]; rows: Row[]; empty: string; onRowClick?: (r: Row) => void }) {
