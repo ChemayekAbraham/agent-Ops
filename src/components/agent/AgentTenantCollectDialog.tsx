@@ -1051,6 +1051,59 @@ export function AgentTenantCollectDialog({
               )}
             </div>
 
+            {/* Partial-collection gate — no silent partials */}
+            {isPartial && (
+              <div className="rounded-xl bg-warning/10 border border-warning/40 p-3 space-y-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                  <div className="text-[11px] leading-relaxed">
+                    <p className="font-bold text-warning-foreground">
+                      Short by {formatUGX(shortfall)} — this is a partial collection
+                    </p>
+                    <p className="text-muted-foreground">
+                      {tenant.full_name} is expected to pay {formatUGX(expected)}. This will NOT count as a
+                      completed collection and Operations will follow it up.
+                    </p>
+                  </div>
+                </div>
+
+                <label
+                  className="flex items-start gap-2 cursor-pointer"
+                  style={{ touchAction: 'manipulation' }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={partialConfirmed}
+                    onChange={e => setPartialConfirmed(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-current text-warning shrink-0"
+                  />
+                  <span className="text-[11px] font-semibold text-warning-foreground">
+                    Record as partial payment — the tenant could not pay the full amount
+                  </span>
+                </label>
+
+                {partialConfirmed && (
+                  <div>
+                    <Label className="text-[11px]">Why is it short? *</Label>
+                    <Textarea
+                      value={partialReason}
+                      onChange={e => setPartialReason(e.target.value)}
+                      placeholder="e.g. Tenant paid part in cash, promised balance tomorrow"
+                      maxLength={300}
+                      rows={2}
+                      className="text-xs"
+                    />
+                    {!partialReasonOk && (
+                      <p className="text-[10px] text-destructive mt-1">
+                        Give at least 5 characters so Operations can follow up.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+
             {/* Quick amount buttons — always clamped to maxAllowable */}
             <div className="flex gap-2 flex-wrap">
               {Array.from(new Set([
