@@ -22,7 +22,9 @@ interface PromissoryNoteDialogProps {
 
 export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' }: PromissoryNoteDialogProps) {
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [createdNote, setCreatedNote] = useState<any>(null);
+
   // Flat validation fee for a promissory note, read from the database.
   // null = unavailable (never fall back to a hardcoded figure).
   const [noteRate, setNoteRate] = useState<number | null>(null);
@@ -77,6 +79,8 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
     setContributionType('compounding');
     setDeductionDay('1');
     setCreatedNote(null);
+    setErrorMsg(null);
+
     setSelectedPlanIds([]);
     setAttached({ count: 0, amount: 0 });
   };
@@ -90,7 +94,30 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
   const isValidPhone = (v: string) => { const d = phoneDigits(v); return d.length === 10; };
   const isValid = validatePersonNameParts(nameParts).valid && isValidPhone(whatsappNumber) && Number(amount) > 0 && (!email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) && (!phoneNumber.trim() || isValidPhone(phoneNumber));
 
+  /** Human list of what is still missing — surfaced inline, never silently. */
+  const missingFields = (): string[] => {
+    const missing: string[] = [];
+    const nameCheck = validatePersonNameParts(nameParts);
+    if (!nameCheck.valid) missing.push(nameCheck.error || 'Partner name');
+    if (!isValidPhone(whatsappNumber)) missing.push('WhatsApp number (10 digits)');
+    if (!(Number(amount) > 0)) missing.push('Promised amount');
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) missing.push('Valid email');
+    if (phoneNumber.trim() && !isValidPhone(phoneNumber)) missing.push('Phone number (10 digits)');
+    return missing;
+  };
+
   const handleSubmit = async () => {
+    if (submitting) return;
+    setErrorMsg(null);
+
+    const missing = missingFields();
+    if (missing.length > 0) {
+      const msg = `Please complete: ${missing.join(', ')}`;
+      setErrorMsg(msg);
+      toast.error(msg);
+      return;
+    }
+
     setSubmitting(true);
     try {
       const payload: Record<string, string | number | null> = {
@@ -134,19 +161,30 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
           : 'Promissory note created!',
       );
     } catch (err: any) {
-      const raw = String(err?.message || 'Failed to create note');
+      const raw = String(err?.message || err?.error_description || err?.details || 'Failed to create note');
+      console.error('[PromissoryNoteDialog] create failed:', err);
       if (raw.includes('PLANS_UNAVAILABLE')) {
         setSelectedPlanIds([]);
-        toast.error('Some selected plans are no longer available. Selection cleared — try again or create the note without plans.');
+        const msg = 'Some selected plans are no longer available. Selection cleared — try again or create the note without plans.';
+        setErrorMsg(msg);
+        toast.error(msg);
       } else if (raw.includes('PLANS_EXCEED_AMOUNT')) {
-        toast.error('Attached plans total more than the promised amount.');
+        const msg = 'Attached plans total more than the promised amount.';
+        setErrorMsg(msg);
+        toast.error(msg);
+      } else if (/failed to fetch|network|timeout/i.test(raw)) {
+        const msg = 'Network problem — the note was not created. Check your connection and press Create again.';
+        setErrorMsg(msg);
+        toast.error(msg);
       } else {
+        setErrorMsg(raw);
         toast.error(raw);
       }
     } finally {
       setSubmitting(false);
     }
   };
+
 
   const handleShareLink = async () => {
     if (!createdNote) return;
@@ -308,10 +346,25 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
               </div>
             )}
 
-            <Button onClick={handleSubmit} disabled={!isValid || submitting} className="w-full gap-2">
+            {errorMsg && (
+              <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-[11px] text-destructive break-words">
+                {errorMsg}
+              </div>
+            )}
+
+            {/* Never disabled on validity — pressing it always gives feedback so
+                the button can't appear to do nothing on any device. */}
+            <Button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting}
+              aria-disabled={!isValid || submitting}
+              className="w-full gap-2"
+            >
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              Create & Share Note
+              {submitting ? 'Creating…' : 'Create & Share Note'}
             </Button>
+
           </div>
         )}
       </DialogContent>
