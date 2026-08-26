@@ -484,10 +484,13 @@ export function PromissoryNotesQueue() {
                           <td className="py-2 pr-3 text-right font-medium text-emerald-600"><CompactAmount value={Number(note.total_collected)} /></td>
                           <td className="py-2 pr-3">{format(new Date(note.created_at), 'dd MMM yyyy')}</td>
                           <td className="py-2 pr-3">
-                            <div className="flex items-center gap-1">
+                            <div className="flex flex-wrap items-center gap-1">
                               <Badge variant="outline" className={cn('text-[10px]', config.color)}>
                                 <StatusIcon className="h-3 w-3 mr-1" />
                                 {config.label}
+                              </Badge>
+                              <Badge variant="outline" className={cn('text-[10px]', stageOf(note).color)}>
+                                {stageOf(note).label}
                               </Badge>
                               {note.came_in && (
                                 <span title="Partner came in" className="inline-flex">
