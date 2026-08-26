@@ -440,6 +440,7 @@ function ApplicationsTab() {
         .select('*')
         .is('archived_at', null)
         .is('purged_at', null)
+        .like('source', '%?c=%')
         .order('created_at', { ascending: false })
         .limit(500);
       if (error) throw new Error(error.message);
