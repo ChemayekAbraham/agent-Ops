@@ -264,6 +264,10 @@ export function PartnerProfile360() {
   const [pfSearch, setPfSearch] = useState('');
   const [pfStatus, setPfStatus] = useState<string>('all');
   const [openPortfolio, setOpenPortfolio] = useState<Row | null>(null);
+  const [wdSearch, setWdSearch] = useState('');
+  const [wdStatus, setWdStatus] = useState<string>('all');
+  const [openWithdrawal, setOpenWithdrawal] = useState<Row | null>(null);
+
 
 
   // Debounce keystrokes so typing never fans out into a request per character.
