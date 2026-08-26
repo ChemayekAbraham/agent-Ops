@@ -239,8 +239,12 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         {/* ══════════════ DAILY RECEIVABLES & PAYABLES ══════════════ */}
         <DailyReceivablesPayablesSection />
 
-        {/* ══════════════ RECEIVABLES CARD (tap for breakdown & forecast) ══════════════ */}
-        <ReceivablesCardDrilldown />
+        {/* ══════════════ RECEIVABLES & PAYABLES CARDS (tap for breakdown & forecast) ══════════════ */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+          <ReceivablesCardDrilldown />
+          <PayablesCardDrilldown />
+        </div>
+
 
 
         {/* ══════════════ WHERE THE MONEY SITS ══════════════ */}
