@@ -90,13 +90,6 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        report: {
-          ink: "hsl(var(--report-ink))",
-          "ink-foreground": "hsl(var(--report-ink-foreground))",
-          "ink-muted": "hsl(var(--report-ink-muted))",
-          surface: "hsl(var(--report-surface))",
-          grid: "hsl(var(--report-grid))",
-        },
         chart: {
           "1": "hsl(var(--chart-1))",
           "2": "hsl(var(--chart-2))",
@@ -104,7 +97,6 @@ export default {
           "4": "hsl(var(--chart-4))",
           "5": "hsl(var(--chart-5))",
         },
-
       },
       borderRadius: {
         lg: "var(--radius)",
