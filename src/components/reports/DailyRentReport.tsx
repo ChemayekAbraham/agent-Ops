@@ -217,11 +217,12 @@ export function DailyRentReport({ mode }: Props) {
     return true;
   }), [enriched, agentFilter, tenantFilter, landlordFilter, propertyFilter, methodFilter, statusFilter, search]);
 
-  // ---- Aggregates ----
-  const totals = useMemo(() => {
+  // ---- Aggregations (pure, reused by the page and by every section export so
+  //      exported numbers are computed exactly like the numbers on screen) ----
+  const aggTotals = (rows: EnrichedRow[]) => {
     let sum = 0, count = 0, successful = 0, pending = 0, failed = 0, commission = 0, outstanding = 0;
     const seenReq = new Set<string>();
-    filtered.forEach(r => {
+    rows.forEach(r => {
       sum += Number(r.amount) || 0;
       count += 1;
       if (r.status === 'successful') successful += 1;
@@ -236,12 +237,11 @@ export function DailyRentReport({ mode }: Props) {
       }
     });
     return { sum, count, successful, pending, failed, commission, outstanding, avg: count ? sum / count : 0 };
-  }, [filtered]);
+  };
 
-  // ---- Agent performance ranking ----
-  const agentRanking = useMemo(() => {
+  const aggAgents = (rows: EnrichedRow[]) => {
     const byAgent = new Map<string, { agent_id: string; agent_name: string; count: number; total: number; commission: number; successful: number; failed: number; pending: number }>();
-    filtered.forEach(r => {
+    rows.forEach(r => {
       const id = r.agent_id ?? 'unknown';
       const cur = byAgent.get(id) ?? { agent_id: id, agent_name: r.agent_name, count: 0, total: 0, commission: 0, successful: 0, failed: 0, pending: 0 };
       cur.count += 1;
@@ -253,7 +253,35 @@ export function DailyRentReport({ mode }: Props) {
       byAgent.set(id, cur);
     });
     return [...byAgent.values()].sort((a, b) => b.total - a.total);
-  }, [filtered]);
+  };
+
+  const aggByHour = (rows: EnrichedRow[]) => {
+    const buckets: Record<string, number> = {};
+    for (let h = 0; h < 24; h++) buckets[String(h).padStart(2, '0')] = 0;
+    rows.forEach(r => {
+      const h = format(new Date(r.created_at), 'HH');
+      buckets[h] = (buckets[h] ?? 0) + (Number(r.amount) || 0);
+    });
+    return Object.entries(buckets).map(([hour, amount]) => ({ hour, amount }));
+  };
+
+  const aggByMethod = (rows: EnrichedRow[]) => {
+    const map: Record<string, number> = {};
+    rows.forEach(r => { const k = r.payment_method ?? 'unknown'; map[k] = (map[k] ?? 0) + (Number(r.amount) || 0); });
+    return Object.entries(map).map(([method, amount]) => ({ method, amount }));
+  };
+
+  const aggByProperty = (rows: EnrichedRow[], limit = 10) => {
+    const map: Record<string, number> = {};
+    rows.forEach(r => { const k = r.property; map[k] = (map[k] ?? 0) + (Number(r.amount) || 0); });
+    return Object.entries(map).map(([property, amount]) => ({ property, amount })).sort((a, b) => b.amount - a.amount).slice(0, limit);
+  };
+
+  // ---- Aggregates ----
+  const totals = useMemo(() => aggTotals(filtered), [filtered]);
+
+  // ---- Agent performance ranking ----
+  const agentRanking = useMemo(() => aggAgents(filtered), [filtered]);
 
   const activeAgents = agentRanking.length;
   const avgPerAgent = activeAgents ? totals.sum / activeAgents : 0;
@@ -261,27 +289,10 @@ export function DailyRentReport({ mode }: Props) {
   const lowest = agentRanking.length ? agentRanking[agentRanking.length - 1].total : 0;
 
   // ---- Charts ----
-  const byHour = useMemo(() => {
-    const buckets: Record<string, number> = {};
-    for (let h = 0; h < 24; h++) buckets[String(h).padStart(2, '0')] = 0;
-    filtered.forEach(r => {
-      const h = format(new Date(r.created_at), 'HH');
-      buckets[h] = (buckets[h] ?? 0) + (Number(r.amount) || 0);
-    });
-    return Object.entries(buckets).map(([hour, amount]) => ({ hour, amount }));
-  }, [filtered]);
+  const byHour = useMemo(() => aggByHour(filtered), [filtered]);
+  const byMethod = useMemo(() => aggByMethod(filtered), [filtered]);
+  const byProperty = useMemo(() => aggByProperty(filtered), [filtered]);
 
-  const byMethod = useMemo(() => {
-    const map: Record<string, number> = {};
-    filtered.forEach(r => { const k = r.payment_method ?? 'unknown'; map[k] = (map[k] ?? 0) + (Number(r.amount) || 0); });
-    return Object.entries(map).map(([method, amount]) => ({ method, amount }));
-  }, [filtered]);
-
-  const byProperty = useMemo(() => {
-    const map: Record<string, number> = {};
-    filtered.forEach(r => { const k = r.property; map[k] = (map[k] ?? 0) + (Number(r.amount) || 0); });
-    return Object.entries(map).map(([property, amount]) => ({ property, amount })).sort((a, b) => b.amount - a.amount).slice(0, 10);
-  }, [filtered]);
 
   // ---- Exports ----
   const headers = mode === 'tenant'
