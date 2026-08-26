@@ -535,6 +535,7 @@ const STATUS_CLASS: Record<string, string> = {
   approved: 'bg-emerald-100 text-emerald-700',
   paid: 'bg-emerald-100 text-emerald-700',
   locked: 'bg-slate-700 text-slate-50',
+  cancelled: 'bg-muted text-muted-foreground',
 };
 
 /** What the holding position must do next at each status. Empty when complete. */
