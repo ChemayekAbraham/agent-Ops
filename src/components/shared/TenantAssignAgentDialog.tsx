@@ -32,6 +32,8 @@ export default function TenantAssignAgentDialog({
 
   useEffect(() => {
     setAgentId(currentAgentId || '');
+    setAgentQuery('');
+    setAgentDropdownOpen(false);
     setListingId('');
   }, [currentAgentId, rentRequestId, open]);
 
