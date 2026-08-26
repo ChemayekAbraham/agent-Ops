@@ -29,16 +29,19 @@ import type { CallingListRow } from '@/hooks/useTenantCallingList';
 type ReportKind =
   | 'comprehensive' | 'call_log' | 'all' | 'pending' | 'closed' | 'missed' | 'staff' | 'comments';
 
-const KINDS: { key: ReportKind; label: string; detail: string }[] = [
-  { key: 'comprehensive', label: 'Comprehensive tenant report', detail: 'Every tenant on this page — full profile, money, agent, landlord, call counts and all comments' },
-  { key: 'call_log', label: 'Full call log (with tenant detail)', detail: 'One row per call, every tenant + call field, comments included' },
-  { key: 'all', label: 'All calls', detail: 'Every call logged in the window' },
-  { key: 'pending', label: 'Pending calls', detail: 'Follow-up still expected' },
-  { key: 'closed', label: 'Closed calls', detail: 'Matter resolved' },
-  { key: 'missed', label: 'Missed calls', detail: 'Tenant not reached' },
-  { key: 'staff', label: 'Calls made per staff', detail: 'Volume by staff member' },
-  { key: 'comments', label: 'Comments log', detail: 'Only calls carrying a comment' },
+const KINDS: { key: ReportKind; label: string; detail: string; file: string }[] = [
+  { key: 'comprehensive', label: 'Comprehensive tenant report', detail: 'Every tenant on this page — full profile, money, agent, landlord, call counts and all comments', file: 'Comprehensive-Tenant-Report' },
+  { key: 'call_log', label: 'Full call log (with tenant detail)', detail: 'One row per call, every tenant + call field, comments included', file: 'Full-Call-Log-With-Tenant-Detail' },
+  { key: 'all', label: 'All calls', detail: 'Every call logged in the window', file: 'All-Calls' },
+  { key: 'pending', label: 'Pending calls', detail: 'Follow-up still expected', file: 'Pending-Calls' },
+  { key: 'closed', label: 'Closed calls', detail: 'Matter resolved', file: 'Closed-Calls' },
+  { key: 'missed', label: 'Missed calls', detail: 'Tenant not reached', file: 'Missed-Calls' },
+  { key: 'staff', label: 'Calls made per staff', detail: 'Volume by staff member', file: 'Calls-Per-Staff' },
+  { key: 'comments', label: 'Comments log', detail: 'Only calls carrying a comment', file: 'Call-Comments-Log' },
 ];
+
+const KIND_META = new Map(KINDS.map(k => [k.key, k]));
+
 
 const CALL_HEADERS = [
   'Called at', 'Call status', 'Comment', 'Logged by', 'Logged by ID', 'Follow-up due',
