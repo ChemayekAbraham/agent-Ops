@@ -25,6 +25,8 @@ import { ReceiptNumberLookupPanel } from '@/components/financial-ops/ReceiptNumb
 import { AgentAdvancesStatsCard } from '@/components/cfo/AgentAdvancesStatsCard';
 import { DailyReceivablesPayablesSection } from '@/components/cfo/DailyReceivablesPayablesSection';
 import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilldown';
+import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
+
 
 
 interface CFOOverviewDashboardProps {
