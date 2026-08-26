@@ -526,6 +526,8 @@ export function LandlordOpsDashboard({
   const [adjustListing, setAdjustListing] = useState<ListingWithLandlord | null>(null);
   const [actionDialog, setActionDialog] = useState<{ listing: ListingWithLandlord; type: 'delete' | 'delist' | 'reject' } | null>(null);
   const [editLandlord, setEditLandlord] = useState<{ id: string; name: string; phone: string; [k: string]: any } | null>(null);
+  // Ops-only: undo a landlord verification (and its bonus payment) done by mistake.
+  const [reverseLandlord, setReverseLandlord] = useState<{ id: string; name: string | null } | null>(null);
   const [editLC1, setEditLC1] = useState<{ id: string; name: string; phone: string | null; village: string | null; listingIds: string[] } | null>(null);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [bulkImportLandlordsOpen, setBulkImportLandlordsOpen] = useState(false);
