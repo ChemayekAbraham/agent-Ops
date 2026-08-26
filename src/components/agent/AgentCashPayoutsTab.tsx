@@ -1974,18 +1974,28 @@ export function AgentCashPayoutsTab() {
                       key={w.id}
                       className={cn(
                         'rounded-2xl transition-colors',
-                        isUrgentProxy
-                          ? 'border-2 border-destructive/60 bg-destructive/5 ring-2 ring-destructive/20'
-                          : 'border-border hover:border-primary/30',
+                        isUrgentLandlord
+                          ? 'border-2 border-violet-500/60 bg-violet-500/5 ring-2 ring-violet-500/20'
+                          : isUrgentProxy
+                            ? 'border-2 border-destructive/60 bg-destructive/5 ring-2 ring-destructive/20'
+                            : 'border-border hover:border-primary/30',
                       )}
                     >
                       <CardContent className="p-4 space-y-3.5">
+                        {isUrgentLandlord && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center rounded-md bg-violet-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                              {URGENT_LANDLORD_BADGE_LABEL}
+                            </span>
+                            <span className="text-[11px] font-semibold text-violet-600 dark:text-violet-400">Priority #1 — process this first</span>
+                          </div>
+                        )}
                         {isUrgentProxy && (
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="inline-flex items-center rounded-md bg-destructive px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-destructive-foreground">
                               {URGENT_PROXY_BADGE_LABEL}
                             </span>
-                            <span className="text-[11px] font-semibold text-destructive">Priority #1 — process this first</span>
+                            <span className="text-[11px] font-semibold text-destructive">Priority #2 — process this first</span>
                           </div>
                         )}
                         <div className="flex items-start justify-between gap-3">
