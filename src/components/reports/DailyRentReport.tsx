@@ -9,8 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, FileDown, FileSpreadsheet, RefreshCw, TrendingUp, Users, HandCoins, Trophy } from 'lucide-react';
 import { format } from 'date-fns';
 import { downloadAuditPdf } from '@/lib/pdfAuditReport';
-import { downloadCsv } from '@/lib/csvExport';
-import { downloadXlsx, downloadXlsxWorkbook } from '@/lib/xlsxExport';
+import { SectionReportExport } from '@/components/reports/DailyRepaymentsSectionReports';
 
 
 const formatUGX = (n: number) => `UGX ${Math.round(Number(n) || 0).toLocaleString('en-UG')}`;
@@ -54,7 +53,6 @@ function toCsv(headers: string[], rows: (string | number)[][]) {
 export function DailyRentReport({ mode }: Props) {
   const qc = useQueryClient();
   const [date, setDate] = useState<string>(todayIso());
-  const [dateTo, setDateTo] = useState<string>(todayIso());
   const [agentFilter, setAgentFilter] = useState<string>('all');
   const [tenantFilter, setTenantFilter] = useState<string>('all');
   const [landlordFilter, setLandlordFilter] = useState<string>('all');
@@ -62,17 +60,13 @@ export function DailyRentReport({ mode }: Props) {
   const [methodFilter, setMethodFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
-  // Per-section report windows (narrowed inside the loaded period only).
-  const [secRange, setSecRange] = useState<Record<string, { from: string; to: string }>>({});
 
-  // ---- Load agent_collections for the selected period (defaults to one day) ----
+  // ---- Load agent_collections for the selected day ----
   const { data: rawCollections = [], isLoading, refetch } = useQuery({
-    queryKey: ['daily-rent-report', date, dateTo],
+    queryKey: ['daily-rent-report', date],
     queryFn: async () => {
-      const start = date <= dateTo ? date : dateTo;
-      const end = date <= dateTo ? dateTo : date;
-      const from = new Date(`${start}T00:00:00`).toISOString();
-      const to = new Date(`${end}T23:59:59.999`).toISOString();
+      const from = new Date(`${date}T00:00:00`).toISOString();
+      const to = new Date(`${date}T23:59:59.999`).toISOString();
       const { data, error } = await supabase
         .from('agent_collections')
         .select('id, created_at, amount, payment_method, tracking_id, momo_transaction_id, notes, float_before, float_after, agent_id, tenant_id, rent_request_id')
@@ -84,7 +78,6 @@ export function DailyRentReport({ mode }: Props) {
     },
     staleTime: 30_000,
   });
-
 
   // ---- Realtime: refetch on any new agent_collections row today ----
   useEffect(() => {
@@ -226,12 +219,11 @@ export function DailyRentReport({ mode }: Props) {
     return true;
   }), [enriched, agentFilter, tenantFilter, landlordFilter, propertyFilter, methodFilter, statusFilter, search]);
 
-  // ---- Aggregations (pure, reused by the page and by every section export so
-  //      exported numbers are computed exactly like the numbers on screen) ----
-  const aggTotals = (rows: EnrichedRow[]) => {
+  // ---- Aggregates ----
+  const totals = useMemo(() => {
     let sum = 0, count = 0, successful = 0, pending = 0, failed = 0, commission = 0, outstanding = 0;
     const seenReq = new Set<string>();
-    rows.forEach(r => {
+    filtered.forEach(r => {
       sum += Number(r.amount) || 0;
       count += 1;
       if (r.status === 'successful') successful += 1;
@@ -246,11 +238,12 @@ export function DailyRentReport({ mode }: Props) {
       }
     });
     return { sum, count, successful, pending, failed, commission, outstanding, avg: count ? sum / count : 0 };
-  };
+  }, [filtered]);
 
-  const aggAgents = (rows: EnrichedRow[]) => {
+  // ---- Agent performance ranking ----
+  const agentRanking = useMemo(() => {
     const byAgent = new Map<string, { agent_id: string; agent_name: string; count: number; total: number; commission: number; successful: number; failed: number; pending: number }>();
-    rows.forEach(r => {
+    filtered.forEach(r => {
       const id = r.agent_id ?? 'unknown';
       const cur = byAgent.get(id) ?? { agent_id: id, agent_name: r.agent_name, count: 0, total: 0, commission: 0, successful: 0, failed: 0, pending: 0 };
       cur.count += 1;
@@ -262,35 +255,7 @@ export function DailyRentReport({ mode }: Props) {
       byAgent.set(id, cur);
     });
     return [...byAgent.values()].sort((a, b) => b.total - a.total);
-  };
-
-  const aggByHour = (rows: EnrichedRow[]) => {
-    const buckets: Record<string, number> = {};
-    for (let h = 0; h < 24; h++) buckets[String(h).padStart(2, '0')] = 0;
-    rows.forEach(r => {
-      const h = format(new Date(r.created_at), 'HH');
-      buckets[h] = (buckets[h] ?? 0) + (Number(r.amount) || 0);
-    });
-    return Object.entries(buckets).map(([hour, amount]) => ({ hour, amount }));
-  };
-
-  const aggByMethod = (rows: EnrichedRow[]) => {
-    const map: Record<string, number> = {};
-    rows.forEach(r => { const k = r.payment_method ?? 'unknown'; map[k] = (map[k] ?? 0) + (Number(r.amount) || 0); });
-    return Object.entries(map).map(([method, amount]) => ({ method, amount }));
-  };
-
-  const aggByProperty = (rows: EnrichedRow[], limit = 10) => {
-    const map: Record<string, number> = {};
-    rows.forEach(r => { const k = r.property; map[k] = (map[k] ?? 0) + (Number(r.amount) || 0); });
-    return Object.entries(map).map(([property, amount]) => ({ property, amount })).sort((a, b) => b.amount - a.amount).slice(0, limit);
-  };
-
-  // ---- Aggregates ----
-  const totals = useMemo(() => aggTotals(filtered), [filtered]);
-
-  // ---- Agent performance ranking ----
-  const agentRanking = useMemo(() => aggAgents(filtered), [filtered]);
+  }, [filtered]);
 
   const activeAgents = agentRanking.length;
   const avgPerAgent = activeAgents ? totals.sum / activeAgents : 0;
@@ -298,10 +263,27 @@ export function DailyRentReport({ mode }: Props) {
   const lowest = agentRanking.length ? agentRanking[agentRanking.length - 1].total : 0;
 
   // ---- Charts ----
-  const byHour = useMemo(() => aggByHour(filtered), [filtered]);
-  const byMethod = useMemo(() => aggByMethod(filtered), [filtered]);
-  const byProperty = useMemo(() => aggByProperty(filtered), [filtered]);
+  const byHour = useMemo(() => {
+    const buckets: Record<string, number> = {};
+    for (let h = 0; h < 24; h++) buckets[String(h).padStart(2, '0')] = 0;
+    filtered.forEach(r => {
+      const h = format(new Date(r.created_at), 'HH');
+      buckets[h] = (buckets[h] ?? 0) + (Number(r.amount) || 0);
+    });
+    return Object.entries(buckets).map(([hour, amount]) => ({ hour, amount }));
+  }, [filtered]);
 
+  const byMethod = useMemo(() => {
+    const map: Record<string, number> = {};
+    filtered.forEach(r => { const k = r.payment_method ?? 'unknown'; map[k] = (map[k] ?? 0) + (Number(r.amount) || 0); });
+    return Object.entries(map).map(([method, amount]) => ({ method, amount }));
+  }, [filtered]);
+
+  const byProperty = useMemo(() => {
+    const map: Record<string, number> = {};
+    filtered.forEach(r => { const k = r.property; map[k] = (map[k] ?? 0) + (Number(r.amount) || 0); });
+    return Object.entries(map).map(([property, amount]) => ({ property, amount })).sort((a, b) => b.amount - a.amount).slice(0, 10);
+  }, [filtered]);
 
   // ---- Exports ----
   const headers = mode === 'tenant'
@@ -389,273 +371,13 @@ export function DailyRentReport({ mode }: Props) {
     );
   };
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // Per-section reporting. Each section can narrow its own window inside the
-  // period already loaded (no extra queries), and exports exactly the filtered
-  // rows shown on screen — CSV, Excel and PDF share one payload builder.
-  // ══════════════════════════════════════════════════════════════════════════
-  const modeWord = mode === 'tenant' ? 'Repayments' : 'Collections';
-  const fileBase = mode === 'tenant' ? 'daily-repayments' : 'daily-collections';
-  const periodLabel = (f: string, t: string) => (f === t ? f : `${f} to ${t}`);
-
-  const rangeFor = (key: string) => secRange[key] ?? { from: date, to: dateTo };
-  const setRange = (key: string, next: { from: string; to: string }) =>
-    setSecRange(prev => ({ ...prev, [key]: next }));
-  const rowsFor = (key: string) => {
-    const { from, to } = rangeFor(key);
-    if (from === date && to === dateTo) return filtered;
-    return filtered.filter(r => {
-      const d = format(new Date(r.created_at), 'yyyy-MM-dd');
-      return d >= from && d <= to;
-    });
-  };
-
-  const summarySheet = (rows: EnrichedRow[]) => {
-    const t = aggTotals(rows);
-    const agents = aggAgents(rows);
-    const base: (string | number)[][] = [
-      [`Total Rent ${mode === 'tenant' ? 'Repaid' : 'Collected'} (UGX)`, Math.round(t.sum)],
-      ['Transactions', t.count],
-      ['Successful', t.successful],
-      ['Pending', t.pending],
-      ['Failed', t.failed],
-      ['Average per Transaction (UGX)', Math.round(t.avg)],
-      ['Unique Tenants', new Set(rows.map(r => r.tenant_id)).size],
-    ];
-    if (mode === 'tenant') {
-      base.splice(1, 0, ['Total Outstanding (UGX)', Math.round(t.outstanding)]);
-    } else {
-      base.push(['Total Commission (UGX)', Math.round(t.commission)]);
-      base.push(['Active Agents', agents.length]);
-      base.push(['Avg per Agent (UGX)', agents.length ? Math.round(t.sum / agents.length) : 0]);
-      base.push(['Highest Agent (UGX)', Math.round(agents[0]?.total ?? 0)]);
-      base.push(['Lowest Agent (UGX)', Math.round(agents.length ? agents[agents.length - 1].total : 0)]);
-    }
-    return { headers: ['Metric', 'Value'], rows: base };
-  };
-
-  const hourSheet = (rows: EnrichedRow[]) => ({
-    headers: ['Hour', `Amount ${modeWord} (UGX)`, 'Transactions'],
-    rows: aggByHour(rows).map(h => [
-      `${h.hour}:00`,
-      Math.round(h.amount),
-      rows.filter(r => format(new Date(r.created_at), 'HH') === h.hour).length,
-    ]) as (string | number)[][],
-  });
-
-  const methodSheet = (rows: EnrichedRow[]) => {
-    const agg = aggByMethod(rows);
-    const total = agg.reduce((s, m) => s + m.amount, 0);
-    return {
-      headers: ['Payment Method', 'Amount (UGX)', 'Transactions', 'Share %'],
-      rows: agg.map(m => [
-        m.method,
-        Math.round(m.amount),
-        rows.filter(r => (r.payment_method ?? 'unknown') === m.method).length,
-        total ? Number(((m.amount / total) * 100).toFixed(1)) : 0,
-      ]) as (string | number)[][],
-    };
-  };
-
-  const propertySheet = (rows: EnrichedRow[]) => ({
-    headers: ['Property', 'Landlord', 'Amount (UGX)', 'Transactions'],
-    rows: aggByProperty(rows, 1000).map(p => {
-      const rs = rows.filter(r => r.property === p.property);
-      return [p.property, rs[0]?.landlord_name ?? '—', Math.round(p.amount), rs.length];
-    }) as (string | number)[][],
-  });
-
-  const transactionsSheet = (rows: EnrichedRow[]) => ({
-    headers,
-    rows: rows.map(r => (mode === 'tenant'
-      ? [
-          r.id.slice(0, 8),
-          format(new Date(r.created_at), 'yyyy-MM-dd HH:mm:ss'),
-          r.tenant_name, r.tenant_phone, r.property, r.landlord_name, r.agent_name,
-          Number(r.amount) || 0, r.outstanding,
-          Number(r.float_before) || 0, Number(r.float_after) || 0,
-          r.payment_method ?? '—', r.status,
-          r.tracking_id ?? r.momo_transaction_id ?? '—',
-        ]
-      : [
-          format(new Date(r.created_at), 'yyyy-MM-dd HH:mm:ss'),
-          r.agent_name, (r.agent_id ?? '').slice(0, 8), r.tenant_name, r.property, r.landlord_name,
-          Number(r.amount) || 0, r.commission,
-          r.payment_method ?? '—', r.status,
-          r.tracking_id ?? r.momo_transaction_id ?? '—',
-        ])) as (string | number)[][],
-  });
-
-  const agentSheet = (rows: EnrichedRow[]) => ({
-    headers: ['Agent', 'Agent ID', 'Collections', 'Total (UGX)', 'Commission (UGX)', 'Avg Size (UGX)', 'Successful', 'Failed', 'Pending', 'Success Rate %'],
-    rows: aggAgents(rows).map(a => [
-      a.agent_name, a.agent_id.slice(0, 8), a.count, Math.round(a.total), Math.round(a.commission),
-      a.count ? Math.round(a.total / a.count) : 0, a.successful, a.failed, a.pending,
-      a.count ? Number(((a.successful / a.count) * 100).toFixed(1)) : 0,
-    ]) as (string | number)[][],
-  });
-
-  const sectionMeta: Record<string, { title: string; build: (rows: EnrichedRow[]) => { headers: string[]; rows: (string | number)[][] } }> = {
-    summary: { title: `${modeWord} Summary`, build: summarySheet },
-    hour: { title: `${modeWord} by Hour`, build: hourSheet },
-    method: { title: 'By Payment Method', build: methodSheet },
-    property: { title: 'Properties', build: propertySheet },
-    transactions: { title: `Daily ${modeWord}`, build: transactionsSheet },
-    agents: { title: 'Agent Performance', build: agentSheet },
-  };
-
-  const sectionFilters = (key: string) => {
-    const { from, to } = rangeFor(key);
-    return [`Section period: ${periodLabel(from, to)}`, ...filterSummary().slice(1)];
-  };
-
-  const exportSectionCsv = (key: string) => {
-    const rows = rowsFor(key);
-    const { headers: h, rows: r } = sectionMeta[key].build(rows);
-    const { from, to } = rangeFor(key);
-    downloadCsv(`${fileBase}-${key}-${periodLabel(from, to).replace(/ /g, '')}.csv`, h, r);
-  };
-
-  const exportSectionXlsx = async (key: string) => {
-    const rows = rowsFor(key);
-    const { headers: h, rows: r } = sectionMeta[key].build(rows);
-    const { from, to } = rangeFor(key);
-    await downloadXlsx(
-      `${fileBase}-${key}-${periodLabel(from, to).replace(/ /g, '')}.xlsx`,
-      h, r, sectionMeta[key].title,
-    );
-  };
-
-  const exportSectionPdf = async (key: string) => {
-    const rows = rowsFor(key);
-    const { headers: h, rows: r } = sectionMeta[key].build(rows);
-    const t = aggTotals(rows);
-    const { from, to } = rangeFor(key);
-    await downloadAuditPdf(
-      `${fileBase}-${key}-${periodLabel(from, to).replace(/ /g, '')}.pdf`,
-      h, r as any,
-      {
-        title: `${sectionMeta[key].title} — ${periodLabel(from, to)}`,
-        subtitle: mode === 'tenant' ? 'Tenant Ops · Daily Repayments' : 'Agent Ops · Daily Collections',
-        filters: sectionFilters(key),
-        footerLabel: mode === 'tenant' ? 'Welile · Tenant Ops' : 'Welile · Agent Ops',
-        kpis: [
-          { label: `Total ${mode === 'tenant' ? 'Repaid' : 'Collected'}`, value: formatUGX(t.sum), hint: `${t.count} transactions`, accent: [16, 122, 87] },
-          { label: 'Successful', value: String(t.successful), hint: `${t.count ? Math.round((t.successful / t.count) * 100) : 0}% success rate`, accent: [16, 122, 87] },
-          { label: 'Pending / Failed', value: `${t.pending} / ${t.failed}`, hint: 'need attention', accent: [202, 138, 4] },
-          { label: 'Average', value: formatUGX(Math.round(t.avg)), hint: 'per transaction', accent: [88, 28, 135] },
-        ],
-      },
-    );
-  };
-
-  // ---- Comprehensive report: every section of the page in one file ----
-  const comprehensiveSheets = () => {
-    const rows = rowsFor('comprehensive');
-    const { from, to } = rangeFor('comprehensive');
-    const sheets = [
-      { name: 'Report Info', headers: ['Field', 'Value'], rows: [
-        ['Report', `Daily ${modeWord} — comprehensive`],
-        ['Period', periodLabel(from, to)],
-        ['Generated', format(new Date(), 'yyyy-MM-dd HH:mm:ss')],
-        ...filterSummary().slice(1).map(f => ['Filter', f]),
-        ['Rows included', rows.length],
-      ] as (string | number)[][] },
-      { name: 'Summary', ...summarySheet(rows) },
-      { name: 'By Hour', ...hourSheet(rows) },
-      { name: 'By Method', ...methodSheet(rows) },
-      { name: 'Properties', ...propertySheet(rows) },
-      { name: 'Transactions', ...transactionsSheet(rows) },
-      { name: 'Agent Performance', ...agentSheet(rows) },
-    ];
-    return { sheets, rows, from, to };
-  };
-
-  const exportComprehensiveXlsx = async () => {
-    const { sheets, from, to } = comprehensiveSheets();
-    await downloadXlsxWorkbook(`${fileBase}-comprehensive-${periodLabel(from, to).replace(/ /g, '')}.xlsx`, sheets);
-  };
-
-  const exportComprehensiveCsv = () => {
-    const { sheets, from, to } = comprehensiveSheets();
-    // One CSV, each section stacked with its own header block.
-    const lines: (string | number)[][] = [];
-    sheets.forEach(s => {
-      lines.push([`== ${s.name} ==`]);
-      lines.push(s.headers as any);
-      s.rows.forEach(r => lines.push(r));
-      lines.push([]);
-    });
-    downloadCsv(
-      `${fileBase}-comprehensive-${periodLabel(from, to).replace(/ /g, '')}.csv`,
-      ['Daily ' + modeWord + ' — comprehensive report'],
-      lines,
-    );
-  };
-
-  const exportComprehensivePdf = async () => {
-    const { rows, from, to } = comprehensiveSheets();
-    const t = aggTotals(rows);
-    const agents = aggAgents(rows);
-    const sec = summarySheet(rows);
-    const body: (string | number)[][] = [
-      ...sec.rows.map(r => ['Summary', String(r[0]), r[1]]),
-      ...hourSheet(rows).rows.filter(r => Number(r[1]) > 0).map(r => ['By Hour', String(r[0]), r[1]]),
-      ...methodSheet(rows).rows.map(r => ['By Method', String(r[0]), r[1]]),
-      ...propertySheet(rows).rows.slice(0, 25).map(r => ['Property', String(r[0]), r[2]]),
-      ...agentSheet(rows).rows.map(r => ['Agent', String(r[0]), r[3]]),
-    ];
-    await downloadAuditPdf(
-      `${fileBase}-comprehensive-${periodLabel(from, to).replace(/ /g, '')}.pdf`,
-      ['Section', 'Item', 'Amount / Value'],
-      body as any,
-      {
-        title: `Daily ${modeWord} — Comprehensive Report`,
-        subtitle: `Period ${periodLabel(from, to)} · ${rows.length} transactions`,
-        filters: sectionFilters('comprehensive'),
-        footerLabel: mode === 'tenant' ? 'Welile · Tenant Ops' : 'Welile · Agent Ops',
-        kpis: [
-          { label: `Total ${mode === 'tenant' ? 'Repaid' : 'Collected'}`, value: formatUGX(t.sum), hint: `${t.count} transactions`, accent: [16, 122, 87] },
-          { label: 'Total Outstanding', value: formatUGX(t.outstanding), hint: 'still owed by tenants', accent: [190, 44, 44] },
-          { label: 'Commission', value: formatUGX(t.commission), hint: 'agent earnings', accent: [146, 52, 234] },
-          { label: 'Active Agents', value: String(agents.length), hint: `top ${formatUGX(Math.round(agents[0]?.total ?? 0))}`, accent: [88, 28, 135] },
-          { label: 'Successful', value: String(t.successful), hint: `${t.count ? Math.round((t.successful / t.count) * 100) : 0}% success rate`, accent: [16, 122, 87] },
-          { label: 'Pending / Failed', value: `${t.pending} / ${t.failed}`, hint: 'requires review', accent: [202, 138, 4] },
-        ],
-      },
-    );
-  };
-
-  const bar = (key: string, title: string, extra?: string) => (
-    <SectionReportBar
-      title={title}
-      from={rangeFor(key).from}
-      to={rangeFor(key).to}
-      minDate={date}
-      maxDate={dateTo}
-      onFromChange={v => setRange(key, { ...rangeFor(key), from: v })}
-      onToChange={v => setRange(key, { ...rangeFor(key), to: v })}
-      onReset={() => setRange(key, { from: date, to: dateTo })}
-      onCsv={() => exportSectionCsv(key)}
-      onXlsx={() => exportSectionXlsx(key)}
-      onPdf={() => exportSectionPdf(key)}
-      disabled={!rowsFor(key).length}
-      extra={extra}
-    />
-  );
-
-
   return (
     <div className="space-y-4">
       {/* Controls */}
       <Card className="p-3 flex flex-wrap items-end gap-2">
         <div className="space-y-1">
-          <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">From</label>
-          <Input type="date" value={date} onChange={e => { setDate(e.target.value); setSecRange({}); }} className="h-9 w-40" />
-        </div>
-        <div className="space-y-1">
-          <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">To</label>
-          <Input type="date" value={dateTo} min={date} onChange={e => { setDateTo(e.target.value); setSecRange({}); }} className="h-9 w-40" />
+          <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Date</label>
+          <Input type="date" value={date} onChange={e => setDate(e.target.value)} className="h-9 w-40" />
         </div>
         <div className="space-y-1">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Agent</label>
@@ -712,10 +434,16 @@ export function DailyRentReport({ mode }: Props) {
           <Button size="sm" variant="outline" onClick={() => refetch()} className="h-9 gap-1.5"><RefreshCw className="h-3.5 w-3.5" />Refresh</Button>
           <Button size="sm" variant="outline" onClick={exportCsv} disabled={!filtered.length} className="h-9 gap-1.5"><FileSpreadsheet className="h-3.5 w-3.5" />CSV</Button>
           <Button size="sm" variant="outline" onClick={exportPdf} disabled={!filtered.length} className="h-9 gap-1.5"><FileDown className="h-3.5 w-3.5" />PDF</Button>
+          <SectionReportExport section="comprehensive" mode={mode} pageDate={date} variant="prominent" />
         </div>
       </Card>
 
       {/* Summary cards */}
+      <div className="flex items-center justify-between">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Summary</div>
+        <SectionReportExport section="summary" mode={mode} pageDate={date} />
+      </div>
+
       {mode === 'tenant' ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2">
           <SummaryCard label="Total Rent Repaid" value={formatUGX(totals.sum)} icon={HandCoins} tone="bg-emerald-500/10 text-emerald-700" />
@@ -737,14 +465,14 @@ export function DailyRentReport({ mode }: Props) {
         </div>
       )}
 
-      <Card className="p-0 overflow-hidden">
-        {bar('summary', 'Summary')}
-      </Card>
-
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <Card className="p-3">
-          <div className="text-xs font-semibold mb-2">{mode === 'tenant' ? 'Repayments' : 'Collections'} by Hour</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-semibold">{mode === 'tenant' ? 'Repayments' : 'Collections'} by Hour</div>
+            <SectionReportExport section="hourly" mode={mode} pageDate={date} />
+          </div>
+
           <div className="h-52">
             <ResponsiveContainer>
               <BarChart data={byHour}>
@@ -756,10 +484,13 @@ export function DailyRentReport({ mode }: Props) {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="-mx-3 -mb-3 mt-2">{bar('hour', 'Hourly')}</div>
         </Card>
         <Card className="p-3">
-          <div className="text-xs font-semibold mb-2">By Payment Method</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-semibold">By Payment Method</div>
+            <SectionReportExport section="method" mode={mode} pageDate={date} />
+          </div>
+
           <div className="h-52">
             <ResponsiveContainer>
               <BarChart data={byMethod}>
@@ -771,10 +502,13 @@ export function DailyRentReport({ mode }: Props) {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="-mx-3 -mb-3 mt-2">{bar('method', 'Methods')}</div>
         </Card>
         <Card className="p-3">
-          <div className="text-xs font-semibold mb-2">Top Properties</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-semibold">Top Properties</div>
+            <SectionReportExport section="property" mode={mode} pageDate={date} />
+          </div>
+
           <div className="h-52">
             <ResponsiveContainer>
               <BarChart data={byProperty} layout="vertical">
@@ -786,7 +520,6 @@ export function DailyRentReport({ mode }: Props) {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="-mx-3 -mb-3 mt-2">{bar('property', 'Properties')}</div>
         </Card>
       </div>
 
@@ -797,7 +530,11 @@ export function DailyRentReport({ mode }: Props) {
           <div className="text-sm font-semibold">
             {mode === 'tenant' ? 'Daily Repayments' : 'Daily Collections'} · {filtered.length} rows
           </div>
-          {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          <div className="flex items-center gap-2">
+            {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            <SectionReportExport section="transactions" mode={mode} pageDate={date} />
+          </div>
+
         </div>
         <div className="overflow-x-auto max-h-[560px]">
           <table className="w-full text-xs">
@@ -832,14 +569,16 @@ export function DailyRentReport({ mode }: Props) {
             )}
           </table>
         </div>
-        {bar('transactions', mode === 'tenant' ? 'Repayments table' : 'Collections table')}
       </Card>
-
 
       {/* Agent performance (agent mode only) */}
       {mode === 'agent' && (
         <Card className="p-0 overflow-hidden">
-          <div className="p-3 border-b text-sm font-semibold">Agent Performance — sorted by amount</div>
+          <div className="p-3 border-b flex items-center justify-between">
+            <div className="text-sm font-semibold">Agent Performance — sorted by amount</div>
+            <SectionReportExport section="agents" mode={mode} pageDate={date} />
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="bg-muted">
@@ -869,9 +608,7 @@ export function DailyRentReport({ mode }: Props) {
               </tbody>
             </table>
           </div>
-          {bar('agents', 'Agent performance')}
         </Card>
-
       )}
 
       {/* Totals footer */}
@@ -883,34 +620,7 @@ export function DailyRentReport({ mode }: Props) {
           <div><div className="text-muted-foreground">Pending</div><div className="text-lg font-bold text-amber-700">{totals.pending}</div></div>
         </div>
       </Card>
-
-      {/* Comprehensive report — every section of this page in one file */}
-      <Card className="p-0 overflow-hidden">
-        <div className="p-3 border-b">
-          <div className="text-sm font-semibold">Comprehensive Report — whole page</div>
-          <div className="text-[11px] text-muted-foreground">
-            Summary, hourly, payment methods, properties, transactions and agent performance for the
-            selected period and filters. Excel exports one sheet per section.
-          </div>
-        </div>
-        <SectionReportBar
-          title="Comprehensive"
-          from={rangeFor('comprehensive').from}
-          to={rangeFor('comprehensive').to}
-          minDate={date}
-          maxDate={dateTo}
-          onFromChange={v => setRange('comprehensive', { ...rangeFor('comprehensive'), from: v })}
-          onToChange={v => setRange('comprehensive', { ...rangeFor('comprehensive'), to: v })}
-          onReset={() => setRange('comprehensive', { from: date, to: dateTo })}
-          onCsv={exportComprehensiveCsv}
-          onXlsx={exportComprehensiveXlsx}
-          onPdf={exportComprehensivePdf}
-          disabled={!rowsFor('comprehensive').length}
-          extra={`${rowsFor('comprehensive').length} rows`}
-        />
-      </Card>
     </div>
-
   );
 }
 
@@ -925,80 +635,5 @@ function SummaryCard({ label, value, icon: Icon, tone }: { label: string; value:
         </div>
       </div>
     </Card>
-  );
-}
-
-/**
- * Per-section report controls: an optional date window (narrowed inside the
- * period already loaded on the page, so no extra queries are issued) plus
- * CSV / Excel / PDF export for that section only.
- */
-export function SectionReportBar({
-  title,
-  from,
-  to,
-  minDate,
-  maxDate,
-  onFromChange,
-  onToChange,
-  onReset,
-  onCsv,
-  onXlsx,
-  onPdf,
-  disabled,
-  extra,
-}: {
-  title: string;
-  from: string;
-  to: string;
-  minDate: string;
-  maxDate: string;
-  onFromChange: (v: string) => void;
-  onToChange: (v: string) => void;
-  onReset: () => void;
-  onCsv: () => void;
-  onXlsx: () => void;
-  onPdf?: () => void;
-  disabled?: boolean;
-  extra?: string;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-1.5 border-t bg-muted/30 px-3 py-2">
-      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mr-1">
-        {title} report
-      </span>
-      <Input
-        type="date"
-        value={from}
-        min={minDate}
-        max={maxDate}
-        onChange={e => onFromChange(e.target.value)}
-        className="h-7 w-[130px] text-[11px]"
-      />
-      <span className="text-[10px] text-muted-foreground">to</span>
-      <Input
-        type="date"
-        value={to}
-        min={minDate}
-        max={maxDate}
-        onChange={e => onToChange(e.target.value)}
-        className="h-7 w-[130px] text-[11px]"
-      />
-      <Button size="sm" variant="ghost" onClick={onReset} className="h-7 text-[11px]">Whole period</Button>
-      {extra && <span className="text-[10px] text-muted-foreground">{extra}</span>}
-      <div className="ml-auto flex gap-1.5">
-        <Button size="sm" variant="outline" disabled={disabled} onClick={onCsv} className="h-7 gap-1 text-[11px]">
-          <FileSpreadsheet className="h-3 w-3" />CSV
-        </Button>
-        <Button size="sm" variant="outline" disabled={disabled} onClick={onXlsx} className="h-7 gap-1 text-[11px]">
-          <FileSpreadsheet className="h-3 w-3" />Excel
-        </Button>
-        {onPdf && (
-          <Button size="sm" variant="outline" disabled={disabled} onClick={onPdf} className="h-7 gap-1 text-[11px]">
-            <FileDown className="h-3 w-3" />PDF
-          </Button>
-        )}
-      </div>
-    </div>
   );
 }
