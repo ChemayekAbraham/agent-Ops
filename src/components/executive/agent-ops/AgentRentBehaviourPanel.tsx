@@ -683,8 +683,9 @@ export function AgentRentBehaviourPanel() {
               </Tabs>
             )}
           </div>
-        </SheetContent>
-      </Sheet>
+        </Card>
+      ) : null}
+
     </div>
   );
 }
