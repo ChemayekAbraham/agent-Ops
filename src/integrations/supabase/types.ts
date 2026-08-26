@@ -40138,6 +40138,17 @@ export type Database = {
         }
         Returns: Json
       }
+      credit_proxy_agent_portfolio_commission: {
+        Args: {
+          p_base_amount: number
+          p_dedupe_key?: string
+          p_kind: string
+          p_partner_id: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: Json
+      }
       credit_proxy_approval:
         | {
             Args: {
@@ -46301,6 +46312,17 @@ export type Database = {
           p_source_table: string
         }
         Returns: undefined
+      }
+      try_credit_proxy_agent_portfolio_commission: {
+        Args: {
+          p_base_amount: number
+          p_dedupe_key?: string
+          p_kind: string
+          p_partner_id: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: Json
       }
       try_credit_qualified_referrals: {
         Args: { p_referred_id: string }
