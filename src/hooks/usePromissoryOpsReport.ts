@@ -141,13 +141,23 @@ export interface PromissoryOpsKpis {
   self_supporting_tenants: number;
   self_supporting_partners: number;
   self_support_committed: number;
+  promissory_creation_commission_paid: number;
+  promissory_topup_commission_paid: number;
+  promissory_commission_paid_total: number;
+}
+
+export interface PromissoryCommissionRates {
+  portfolio_creation: number;
+  portfolio_topup: number;
 }
 
 export interface PromissoryOpsReport {
   kpis: PromissoryOpsKpis;
   notes: PromissoryNoteRow[];
   proxy_agents: ProxyAgentRow[];
+  rates?: PromissoryCommissionRates;
 }
+
 
 const EMPTY: PromissoryOpsReport = {
   kpis: {
