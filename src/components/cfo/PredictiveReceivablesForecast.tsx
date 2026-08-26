@@ -14,7 +14,6 @@ import {
   Bar,
   CartesianGrid,
   ComposedChart,
-  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -384,7 +383,6 @@ export default function PredictiveReceivablesForecast() {
                     }}
                     contentStyle={{ fontSize: 11, borderRadius: 8 }}
                   />
-                  <Legend wrapperStyle={{ fontSize: 9 }} />
                   <Area
                     type="monotone"
                     dataKey="band"
