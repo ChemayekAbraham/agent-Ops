@@ -682,7 +682,7 @@ export function AgentCashPayoutsTab() {
 
   // Per-channel filtered counts (All / MoMo / Cash) for the tab badges.
   const { data: queueCounts } = useQuery({
-    queryKey: ['cashout-queue-counts', isCashoutAgent?.id, queueStatus, queueMerchant, minAmount, maxAmount, fromIso, toIso, debouncedSearch, categoryOrClause, channelProviderOrClause, frozenUserIds, proxyPriorityEnforced, blockingUrgentProxy?.id],
+    queryKey: ['cashout-queue-counts', isCashoutAgent?.id, queueStatus, queueMerchant, minAmount, maxAmount, fromIso, toIso, debouncedSearch, categoryOrClause, channelProviderOrClause, frozenUserIds, proxyPriorityEnforced, blockingUrgentProxy?.id, landlordPriorityEnforced, blockingUrgentLandlord?.id],
     queryFn: async () => {
       const cutoffIso = new Date(Date.now() - QUEUE_RECLAIM_WINDOW_MS).toISOString();
       const searchUserIds = debouncedSearch.trim() ? await resolveSearchUserIds(debouncedSearch) : null;
@@ -690,13 +690,15 @@ export function AgentCashPayoutsTab() {
         cutoffIso, status: queueStatus, merchant: queueMerchant,
         minAmount, maxAmount, fromIso, toIso, searchUserIds, searchTerm: debouncedSearch.trim(), categoryOrClause, channelProviderOrClause, frozenUserIds,
       };
-      const proxyOnly = proxyPriorityEnforced && !!blockingUrgentProxy;
+      const landlordOnly = landlordPriorityEnforced && !!blockingUrgentLandlord;
+      const proxyOnly = proxyPriorityEnforced && !!blockingUrgentProxy && !landlordOnly;
       const mk = (channel: 'all' | 'momo' | 'cash' | 'bank') => {
         let q = applyQueueFilters(
           supabase.from('withdrawal_requests').select('id', { count: 'exact', head: true }),
           { ...base, channel },
         );
-        if (proxyOnly) q = q.eq('priority_level', 'urgent_proxy');
+        if (landlordOnly) q = q.ilike('reason', 'Landlord float payout%');
+        else if (proxyOnly) q = q.eq('priority_level', 'urgent_proxy');
         return q.then((r: any) => r.count || 0);
       };
       const [all, momo, cash, bank] = await Promise.all([mk('all'), mk('momo'), mk('cash'), mk('bank')]);
