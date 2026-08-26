@@ -1610,7 +1610,27 @@ Deno.serve(async (req) => {
         const earnedCommission = (earnedRows || []).reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0);
         const withdrawnCommission = (withdrawnRows || []).reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0);
         const otherPendingCommission = (pendingCommissionRows || []).reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0);
-        ledgerAvailable = Math.max(0, earnedCommission - withdrawnCommission - otherPendingCommission);
+        const deskCommissionNet = Math.max(0, earnedCommission - withdrawnCommission - otherPendingCommission);
+
+        // RAISE-ONLY (2026-08-26): the desk sub-ledger may LIFT the gate for a
+        // desk agent whose mixed withdrawable bucket was drained, but it must
+        // never drop an agent BELOW the ordinary wallet gate. `earnedCommission`
+        // is filtered to `%-cashout-commission` (merchant-desk legs only) while
+        // `withdrawnCommission` counts EVERY commission debit, so an agent whose
+        // commission comes from rent collection nets 0 here — which rejected
+        // payouts their wallet could plainly fund, purely because of the reason
+        // label on the request. Mirrors public.commission_withdrawal_available().
+        const { data: walletRpcVal, error: walletRpcErr } = await admin.rpc(
+          "get_user_available_balance",
+          { p_user_id: fundingUserId },
+        );
+        if (walletRpcErr) throw walletRpcErr;
+        // The strict RPC nets pending holds, which include THIS request, so add
+        // it back — both terms are then measured pre-hold for this withdrawal,
+        // matching `otherPendingCommission`'s .neq("id", withdrawal_id).
+        const walletAvailable = Math.max(0, Number(walletRpcVal ?? 0) + Number(wr.amount || 0));
+
+        ledgerAvailable = Math.max(deskCommissionNet, walletAvailable);
       } else if (proxyLedgerPartnerId) {
 
         const { data: linkedRows, error: linkedErr } = await admin
