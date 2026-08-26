@@ -856,7 +856,9 @@ export function DailyRentReport({ mode }: Props) {
               </tbody>
             </table>
           </div>
+          {bar('agents', 'Agent performance')}
         </Card>
+
       )}
 
       {/* Totals footer */}
