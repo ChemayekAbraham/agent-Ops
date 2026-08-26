@@ -147,8 +147,14 @@ export default function TenantAssignAgentDialog({
                   aria-expanded={agentOpen}
                   className="w-full justify-between px-3 font-normal h-10"
                   type="button"
+                  disabled={agentsLoading}
                 >
-                  {agentId ? (
+                  {agentsLoading ? (
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading agents…
+                    </span>
+                  ) : agentId ? (
                     (() => {
                       const a = agents.find((x) => x.id === agentId);
                       return a ? (
@@ -157,38 +163,49 @@ export default function TenantAssignAgentDialog({
                           {a.phone ? <span className="text-muted-foreground ml-1.5">· {a.phone}</span> : null}
                         </span>
                       ) : (
-                        <span className="text-muted-foreground">Select an agent</span>
+                        <span className="text-muted-foreground">Search and select an agent</span>
                       );
                     })()
                   ) : (
-                    <span className="text-muted-foreground">Select an agent</span>
+                    <span className="text-muted-foreground">Search and select an agent</span>
                   )}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  {!agentsLoading && <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]" align="start">
+              <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)] min-w-[280px]" align="start">
                 <Command>
-                  <CommandInput placeholder="Search agent by name or phone…" />
+                  <CommandInput placeholder="Type agent name or phone…" />
                   <CommandList className="max-h-64">
-                    <CommandEmpty>No agent found.</CommandEmpty>
-                    <CommandGroup>
-                      {agents.map((a) => {
-                        const label = `${a.full_name || 'Unnamed'}${a.phone ? ` · ${a.phone}` : ''}`;
-                        return (
-                          <CommandItem
-                            key={a.id}
-                            value={`${a.id}:${label}`}
-                            onSelect={() => {
-                              setAgentId(a.id);
-                              setAgentOpen(false);
-                            }}
-                          >
-                            <Check className={cn('mr-2 h-4 w-4 shrink-0', agentId === a.id ? 'opacity-100' : 'opacity-0')} />
-                            <span className="truncate">{label}</span>
-                          </CommandItem>
-                        );
-                      })}
-                    </CommandGroup>
+                    {agentsLoading ? (
+                      <div className="py-6 flex justify-center">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : (
+                      <>
+                        <CommandEmpty>
+                          {agents.length === 0 ? 'No agents available.' : 'No agent matches your search.'}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {agents.map((a) => {
+                            const label = `${a.full_name || 'Unnamed'}${a.phone ? ` · ${a.phone}` : ''}`;
+                            return (
+                              <CommandItem
+                                key={a.id}
+                                value={a.id}
+                                keywords={[a.full_name || '', a.phone || '']}
+                                onSelect={() => {
+                                  setAgentId(a.id);
+                                  setAgentOpen(false);
+                                }}
+                              >
+                                <Check className={cn('mr-2 h-4 w-4 shrink-0', agentId === a.id ? 'opacity-100' : 'opacity-0')} />
+                                <span className="truncate">{label}</span>
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                      </>
+                    )}
                   </CommandList>
                 </Command>
               </PopoverContent>
