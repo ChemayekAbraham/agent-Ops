@@ -50,7 +50,7 @@ export default function TenantAssignAgentDialog({
   });
 
   // Load all agents (single-role, enabled)
-  const { data: agents = [] } = useQuery({
+  const { data: agents = [], isLoading: agentsLoading } = useQuery({
     queryKey: ['tenant-assign-agents'],
     enabled: open,
     queryFn: async () => {
