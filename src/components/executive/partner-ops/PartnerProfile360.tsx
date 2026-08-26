@@ -286,6 +286,24 @@ export function PartnerProfile360() {
     { name: 'Change Log', cols: CHANGE_COLS, rows: data.changes || [] },
   ] : [], [data]);
 
+  const allPortfolios = data?.portfolios || [];
+
+  const portfolioStatuses = useMemo(
+    () => Array.from(new Set(allPortfolios.map((r) => String(r.status || '')).filter(Boolean))).sort(),
+    [allPortfolios],
+  );
+
+  const filteredPortfolios = useMemo(() => {
+    const q = pfSearch.trim().toLowerCase();
+    return allPortfolios.filter((r) => {
+      if (pfStatus !== 'all' && String(r.status || '') !== pfStatus) return false;
+      if (!q) return true;
+      return [r.portfolio_code, r.account_name, r.status, r.agent_name, r.investment_amount]
+        .some((v) => String(v ?? '').toLowerCase().includes(q));
+    });
+  }, [allPortfolios, pfSearch, pfStatus]);
+
+
   const exportWorkbook = async () => {
     if (!data) return;
     const stamp = format(new Date(), 'yyyy-MM-dd');
