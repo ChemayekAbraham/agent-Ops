@@ -38204,6 +38204,34 @@ export type Database = {
         }
         Relationships: []
       }
+      v_payables_lines: {
+        Row: {
+          category_key: string | null
+          category_label: string | null
+          counterparty_id: string | null
+          counterparty_name: string | null
+          created_at: string | null
+          daily_amount: number | null
+          due_date: string | null
+          due_kind: string | null
+          item_id: string | null
+          outstanding_amount: number | null
+          product_key: string | null
+          product_label: string | null
+          source_table: string | null
+          status: string | null
+        }
+        Relationships: []
+      }
+      v_payables_payment_history: {
+        Row: {
+          amount: number | null
+          category_key: string | null
+          d: string | null
+          product_key: string | null
+        }
+        Relationships: []
+      }
       v_pivot_drift: {
         Row: {
           advance_delta: number | null
@@ -42681,6 +42709,20 @@ export type Database = {
           withdrawable_amount: number
         }[]
       }
+      get_payables_breakdown: { Args: never; Returns: Json }
+      get_payables_forecast_accuracy: {
+        Args: {
+          p_horizons?: number[]
+          p_origins?: number
+          p_step_days?: number
+        }
+        Returns: Json
+      }
+      get_payables_predictive_forecast: {
+        Args: { p_as_at?: string; p_granularity?: string; p_periods?: number }
+        Returns: Json
+      }
+      get_payables_total: { Args: never; Returns: Json }
       get_payout_delivery_audit: {
         Args: { p_limit?: number; p_user_id?: string }
         Returns: {
@@ -45406,6 +45448,15 @@ export type Database = {
       }
       pay_partner_self_cycles: { Args: { p_limit?: number }; Returns: Json }
       pay_proxy_commission_queue_item: { Args: { p_id: string }; Returns: Json }
+      payables_category_frame: {
+        Args: never
+        Returns: {
+          category_key: string
+          category_label: string
+          sort_order: number
+        }[]
+      }
+      payables_guard: { Args: never; Returns: undefined }
       payout_reconciliation_bucket: {
         Args: { p_missing: Json; p_settlement_state: string; p_status: string }
         Returns: string

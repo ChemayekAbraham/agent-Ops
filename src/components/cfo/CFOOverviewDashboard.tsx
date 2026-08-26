@@ -25,6 +25,8 @@ import { ReceiptNumberLookupPanel } from '@/components/financial-ops/ReceiptNumb
 import { AgentAdvancesStatsCard } from '@/components/cfo/AgentAdvancesStatsCard';
 import { DailyReceivablesPayablesSection } from '@/components/cfo/DailyReceivablesPayablesSection';
 import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilldown';
+import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
+
 
 
 interface CFOOverviewDashboardProps {
@@ -239,8 +241,12 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         {/* ══════════════ DAILY RECEIVABLES & PAYABLES ══════════════ */}
         <DailyReceivablesPayablesSection />
 
-        {/* ══════════════ RECEIVABLES CARD (tap for breakdown & forecast) ══════════════ */}
-        <ReceivablesCardDrilldown />
+        {/* ══════════════ RECEIVABLES & PAYABLES CARDS (tap for breakdown & forecast) ══════════════ */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+          <ReceivablesCardDrilldown />
+          <PayablesCardDrilldown />
+        </div>
+
 
 
         {/* ══════════════ WHERE THE MONEY SITS ══════════════ */}
