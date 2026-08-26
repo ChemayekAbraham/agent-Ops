@@ -500,6 +500,18 @@ export function Lc1VerificationInboxPanel({ onResolved, standalone = false, init
           </Button>
         </div>
       )}
+
+      {/* Ops-only: undo a verification (and its bonus payment) done by mistake */}
+      {reverseRow && (
+        <ReverseVerificationDialog
+          open
+          onOpenChange={(v) => { if (!v) setReverseRow(null); }}
+          entityType="lc1"
+          entityId={reverseRow.id}
+          entityName={reverseRow.name}
+          onReversed={() => { setReverseRow(null); load(); loadCounts(); onResolved?.(); }}
+        />
+      )}
     </div>
   );
 
