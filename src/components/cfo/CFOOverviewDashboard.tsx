@@ -24,6 +24,8 @@ import { CFOActionsLog } from '@/components/cfo/CFOActionsLog';
 import { ReceiptNumberLookupPanel } from '@/components/financial-ops/ReceiptNumberLookupPanel';
 import { AgentAdvancesStatsCard } from '@/components/cfo/AgentAdvancesStatsCard';
 import { DailyReceivablesPayablesSection } from '@/components/cfo/DailyReceivablesPayablesSection';
+import { ReceivablesBreakdownForecast } from '@/components/cfo/ReceivablesBreakdownForecast';
+
 
 interface CFOOverviewDashboardProps {
   onTabChange?: (tab: string) => void;
@@ -236,6 +238,17 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
 
         {/* ══════════════ DAILY RECEIVABLES & PAYABLES ══════════════ */}
         <DailyReceivablesPayablesSection />
+
+        {/* ══════════════ RECEIVABLES BREAKDOWN & FORECAST ══════════════ */}
+        <div className="space-y-2">
+          <SectionToggle
+            open={isOpen('receivablesBreakdown')}
+            onToggle={() => toggleSection('receivablesBreakdown')}
+            label="Receivables Breakdown & Forecast"
+          />
+          {isOpen('receivablesBreakdown') && <ReceivablesBreakdownForecast />}
+        </div>
+
 
         {/* ══════════════ WHERE THE MONEY SITS ══════════════ */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -38059,6 +38059,7 @@ export type Database = {
           category_key: string | null
           category_label: string | null
           counterparty_id: string | null
+          counterparty_name: string | null
           created_at: string | null
           daily_amount: number | null
           due_date: string | null
@@ -41509,10 +41510,6 @@ export type Database = {
           wallet_bucket: string
         }[]
       }
-      get_cfo_receivables_breakdown_forecast: {
-        Args: { p_as_at?: string }
-        Returns: Json
-      }
       get_cfo_weekly_report: { Args: { p_end?: string }; Returns: Json }
       get_chain_health_summary: {
         Args: never
@@ -42588,6 +42585,7 @@ export type Database = {
         Args: { p_from: string; p_to: string }
         Returns: Json
       }
+      get_receivables_total: { Args: never; Returns: Json }
       get_referral_progress: { Args: { p_referred_id: string }; Returns: Json }
       get_rent_disbursement_report: {
         Args: { p_end: string; p_start: string }
@@ -45269,6 +45267,15 @@ export type Database = {
         Returns: number
       }
       recalculate_credit_limit: { Args: { p_user_id: string }; Returns: number }
+      receivables_category_frame: {
+        Args: never
+        Returns: {
+          category_key: string
+          category_label: string
+          sort_order: number
+        }[]
+      }
+      receivables_guard: { Args: never; Returns: undefined }
       recompute_agent_earned_vouch:
         | { Args: { p_agent_id: string }; Returns: number }
         | {
