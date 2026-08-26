@@ -626,6 +626,34 @@ export function AgentCashPayoutsTab() {
 
   const blockingUrgentProxy = proxyPriorityEnforced ? blockingUrgentProxyRow : null;
 
+  // PRIORITY GATE for landlord float payouts:
+  // while ANY unclaimed landlord float payout exists, no other payout may be
+  // claimed. Queried unfiltered so the hold is visible even when filters hide it.
+  const { data: blockingUrgentLandlordRow = null } = useQuery({
+    queryKey: ['cashout-blocking-urgent-landlord'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('withdrawal_requests')
+        .select('id, amount, created_at, reason, status, processed_at, fin_ops_reference, assigned_cashout_agent_id')
+        .in('status', CASHOUT_QUEUE_STATUSES)
+        .ilike('reason', 'Landlord float payout%')
+        .is('processed_at', null)
+        .is('fin_ops_reference', null)
+        .is('assigned_cashout_agent_id', null)
+        .order('created_at', { ascending: true })
+        .limit(1);
+      const row = (data || [])[0] ?? null;
+      if (error) throw error;
+      return row && isUrgentLandlordBlocking(row) ? row : null;
+    },
+    enabled: !!isCashoutAgent && landlordPriorityEnforced,
+    staleTime: 10_000,
+    refetchInterval: 20_000,
+    refetchOnWindowFocus: true,
+  });
+
+  const blockingUrgentLandlord = landlordPriorityEnforced ? blockingUrgentLandlordRow : null;
+
   const { data: availableTotal = 0 } = useQuery({
     queryKey: ['cashout-queue-available-total', isCashoutAgent?.id, categoryOrClause, channelProviderOrClause, frozenUserIds],
     queryFn: async () => {
