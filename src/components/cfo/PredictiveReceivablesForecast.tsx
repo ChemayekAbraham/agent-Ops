@@ -393,6 +393,12 @@ export default function PredictiveReceivablesForecast() {
                                   Scheduled {formatUGX(p.scheduled_amount)}
                                 </Badge>
                               </div>
+                              {p.quality_reason && (
+                                <p className="text-[9px] text-muted-foreground flex items-start gap-1 mb-1">
+                                  <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                                  Why {p.quality} confidence: {p.quality_reason}
+                                </p>
+                              )}
                               {p.sources.length === 0 ? (
                                 <p className="text-[9px] text-muted-foreground">
                                   No modelled inflow in this period.
