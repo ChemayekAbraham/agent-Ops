@@ -24,7 +24,9 @@ export default function TenantAssignAgentDialog({
 }: Props) {
   const qc = useQueryClient();
   const [agentId, setAgentId] = useState<string>(currentAgentId || '');
-  const [agentOpen, setAgentOpen] = useState(false);
+  const [agentQuery, setAgentQuery] = useState('');
+  const [agentDropdownOpen, setAgentDropdownOpen] = useState(false);
+  const agentPickerRef = useRef<HTMLDivElement>(null);
   const [listingId, setListingId] = useState<string>('');
   const [saving, setSaving] = useState(false);
 
