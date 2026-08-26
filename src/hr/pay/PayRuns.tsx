@@ -1070,9 +1070,12 @@ export default function PayRuns() {
                     <TableCell>{formatDate(r.prepared_at)}</TableCell>
                     <TableCell className="text-right">{formatNet(r.total_net)}</TableCell>
                     <TableCell className="text-right">
-                      <Button asChild size="sm" variant="outline">
-                        <Link to={`/hr/pay/runs/${r.id}`}>Open run</Link>
-                      </Button>
+                      <div className="inline-flex items-center gap-2">
+                        <CancelRunButton runId={r.id} status={r.status} onDone={() => void load()} />
+                        <Button asChild size="sm" variant="outline">
+                          <Link to={`/hr/pay/runs/${r.id}`}>Open run</Link>
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
