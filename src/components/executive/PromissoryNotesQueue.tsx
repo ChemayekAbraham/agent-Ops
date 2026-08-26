@@ -384,6 +384,24 @@ export function PromissoryNotesQueue() {
         >
           Not registered ({kpis.notes_count - kpis.partners_came_in})
         </button>
+        <button
+          onClick={() => setStatusFilter('portfolio_pending')}
+          className={cn(
+            'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
+            statusFilter === 'portfolio_pending' ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+          )}
+        >
+          Portfolio pending ({kpis.partners_portfolio_pending})
+        </button>
+        <button
+          onClick={() => setStatusFilter('portfolio_active')}
+          className={cn(
+            'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
+            statusFilter === 'portfolio_active' ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+          )}
+        >
+          Portfolio active ({kpis.partners_portfolio_active})
+        </button>
       </div>
 
       {/* Notes list */}
