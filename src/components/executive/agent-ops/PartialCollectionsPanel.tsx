@@ -353,6 +353,12 @@ export function PartialCollectionsPanel() {
                       </tbody>
                     </table>
                   </div>
+                  <Pagination
+                    page={partialPage}
+                    total={data?.confirmed_partials_total ?? partials.length}
+                    pageSize={PAGE_SIZE}
+                    onChange={setPartialPage}
+                  />
                 </TabsContent>
               </Tabs>
             </>
