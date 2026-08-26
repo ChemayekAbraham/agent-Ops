@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatUGX } from '@/lib/rentCalculations';
 import { downloadCsv } from '@/lib/csvExport';
