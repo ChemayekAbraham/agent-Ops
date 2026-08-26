@@ -672,6 +672,19 @@ export function AgentTenantCollectDialog({
                 <span className="text-muted-foreground">Amount</span>
                 <span className="font-mono font-black text-2xl text-primary">{formatUGX(amount)}</span>
               </div>
+              {expected > 0 && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Expected</span>
+                  <span className="font-mono">{formatUGX(expected)}</span>
+                </div>
+              )}
+              {isPartial && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-warning font-semibold">Shortfall (partial)</span>
+                  <span className="font-mono font-bold text-warning">−{formatUGX(shortfall)}</span>
+                </div>
+              )}
+
               <div className="flex justify-between text-xs">
                 <span className="text-muted-foreground">Float after</span>
                 <span className="font-mono">{formatUGX(floatBalance - amount)}</span>
