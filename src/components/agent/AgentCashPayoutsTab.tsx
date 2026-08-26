@@ -1924,7 +1924,13 @@ export function AgentCashPayoutsTab() {
           const items = tab === channelTab ? pageRows : [];
           const emptyMsg = queueFiltersActive
             ? 'No withdrawals match these filters'
-            : tab === 'all' ? 'No pending withdrawals' : `No pending ${tab} payouts`;
+            : blockingUrgentLandlord
+              ? 'Landlord payouts are Priority #1. No matching landlord payouts in this tab.'
+              : blockingUrgentProxy
+                ? 'Proxy withdrawals are Priority #1. No matching proxy withdrawals in this tab.'
+                : tab === 'all'
+                  ? 'No pending withdrawals'
+                  : `No pending ${tab} payouts`;
           return (
             <TabsContent key={tab} value={tab} className="space-y-2.5 mt-4">
               {loadingAll && items.length === 0 ? (
