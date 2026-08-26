@@ -228,6 +228,9 @@ export function AgentTenantCollectDialog({
           p_rent_request_id: rentRequestId,
           p_amount: amount,
           p_notes: notes.trim() || null,
+          p_partial_confirmed: isPartial ? partialConfirmed : false,
+          p_partial_reason: isPartial ? partialReason.trim() || null : null,
+
         });
       const STALL_MS = 45000;
       const raced = await Promise.race([
