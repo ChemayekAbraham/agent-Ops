@@ -469,6 +469,16 @@ export function Lc1VerificationInboxPanel({ onResolved, standalone = false, init
                   >
                     <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
                   </Button>
+                  {row.status === 'verified' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="col-span-2 h-8 text-[11px] font-bold border-destructive/40 text-destructive hover:bg-destructive/5"
+                      onClick={() => setReverseRow({ id: row.lc1_id, name: row.lc1_name || null })}
+                    >
+                      <ShieldOff className="h-3.5 w-3.5 mr-1" /> Reverse verification
+                    </Button>
+                  )}
                 </div>
               )}
             </li>
