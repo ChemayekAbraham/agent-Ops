@@ -468,7 +468,11 @@ export function DailyRentReport({ mode }: Props) {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <Card className="p-3">
-          <div className="text-xs font-semibold mb-2">{mode === 'tenant' ? 'Repayments' : 'Collections'} by Hour</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-semibold">{mode === 'tenant' ? 'Repayments' : 'Collections'} by Hour</div>
+            <SectionReportExport section="hourly" mode={mode} pageDate={date} />
+          </div>
+
           <div className="h-52">
             <ResponsiveContainer>
               <BarChart data={byHour}>
