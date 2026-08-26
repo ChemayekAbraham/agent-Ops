@@ -391,7 +391,7 @@ export function AgentRentBehaviourPanel() {
 
   const offset = page * PAGE_SIZE;
 
-  const loadRows = useCallback(async (nextOffset: number, range: { from: string; to: string; sort: SortKey }, silent = false) => {
+  const loadRows = useCallback(async (nextOffset: number, range: { from: string; to: string; sort: SortKey; search: string }, silent = false) => {
     if (!silent) setIsLoading(true);
     setIsFetching(true);
     setLoadError(null);
@@ -403,6 +403,7 @@ export function AgentRentBehaviourPanel() {
         p_from: range.from,
         p_to: range.to,
         p_sort: range.sort,
+        p_search: range.search || null,
       } as never);
       if (error) throw new Error(error.message);
       setData(asRows(payload));
@@ -416,10 +417,10 @@ export function AgentRentBehaviourPanel() {
   }, []);
 
   useEffect(() => {
-    void loadRows(offset, { from: fromDate, to: toDate, sort: sortKey });
-  }, [loadRows, offset, fromDate, toDate, sortKey]);
+    void loadRows(offset, { from: fromDate, to: toDate, sort: sortKey, search: searchQuery });
+  }, [loadRows, offset, fromDate, toDate, sortKey, searchQuery]);
 
-  const refetch = () => loadRows(offset, { from: fromDate, to: toDate, sort: sortKey }, true);
+  const refetch = () => loadRows(offset, { from: fromDate, to: toDate, sort: sortKey, search: searchQuery }, true);
 
   const applyPreset = (days: number) => {
     setPage(0);
