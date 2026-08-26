@@ -462,6 +462,12 @@ export default function PredictiveReceivablesForecast() {
                         <th className="text-right px-2 py-1 font-medium hidden sm:table-cell">
                           Trend / week
                         </th>
+                        <th className="text-right px-2 py-1 font-medium hidden md:table-cell">
+                          New / day
+                        </th>
+                        <th className="text-right px-2 py-1 font-medium hidden md:table-cell">
+                          Collected
+                        </th>
                         <th className="text-right px-2 py-1 font-medium">History</th>
                       </tr>
                     </thead>
@@ -483,6 +489,16 @@ export default function PredictiveReceivablesForecast() {
                           </td>
                           <td className="px-2 py-1 text-right font-mono hidden sm:table-cell">
                             {s.insufficient_data ? '—' : formatUGX(s.trend_per_week)}
+                          </td>
+                          <td className="px-2 py-1 text-right font-mono hidden md:table-cell">
+                            {s.origination ? formatUGX(s.origination.daily_new_receivables) : '—'}
+                          </td>
+                          <td className="px-2 py-1 text-right hidden md:table-cell text-muted-foreground">
+                            {s.origination
+                              ? `${Math.round(s.origination.collection_rate * 100)}% / ${Math.round(
+                                  s.origination.term_days
+                                )}d`
+                              : '—'}
                           </td>
                           <td className="px-2 py-1 text-right text-muted-foreground">
                             {s.sample_days}d of {s.lookback_days}d
