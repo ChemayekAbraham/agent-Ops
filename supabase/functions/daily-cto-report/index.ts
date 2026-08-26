@@ -241,7 +241,9 @@ Deno.serve(async (req) => {
 
     const d: any = data || {};
     const P = d.platform || {}, E = d.errors || {}, A = d.auth || {}, S = d.security || {},
-      I = d.infra || {}, B = d.backups || {}, J = d.jobs || {}, M = d.email || {};
+      I = d.infra || {}, B = d.backups || {}, J = d.jobs || {}, M = d.email || {},
+      R = d.roles || {}, SMS = d.sms || {}, OTP = d.otp || {}, SI = d.signin || {};
+
 
     // ---- Derived executive indicators -------------------------------------
     // Error rate must be a bounded percentage. The old formula divided total
@@ -1552,16 +1554,64 @@ Deno.serve(async (req) => {
 
     const GUARDRAIL_RE = /advance|recover|guardrail|bonus|trust|wallet|ledger|payout|commission|deposit|solvency|drift/i;
     const guardrailJobs = failingJobs.filter((j: any) => GUARDRAIL_RE.test(String(j.jobname || '')));
+    // Name up to four failing jobs, then count the remainder. Naming three of
+    // eleven silently understated the problem in earlier memos.
+    const jobList = (jobs: any[]) => {
+      const names = jobs.map((j: any) => String(j.jobname || 'unnamed'));
+      const shown = names.slice(0, 4).join(', ');
+      const rest = names.length - Math.min(4, names.length);
+      return rest > 0 ? `${shown}, and ${rest} other${rest === 1 ? '' : 's'}` : shown;
+    };
     const brokenAllDay = n(adJobsSummary.jobs_broken_all_day);
     const notifDelivery = 100 - emailFailRate;
     const authSuccess = 100 - loginFailRate;
+
+    // ---- Authoritative board metrics from the RPC's new blocks -------------
+    const siAttempts = n(SI.attempts_7d);
+    const siSuccess = n(SI.success_7d);
+    const siUnknown = n(SI.unknown_account_7d);
+    const siWrong = n(SI.wrong_credentials_7d);
+    const siPlat = n(SI.platform_failures_7d);
+    const siPlatRate = pct(siPlat, Math.max(1, siAttempts));
+    const siSuccessRate = pct(siSuccess, Math.max(1, siAttempts));
+    const siUsersTried = n(SI.users_tried_7d);
+    const siUsersIn = n(SI.users_eventually_signed_in_7d);
+    const siEventualRate = pct(siUsersIn, Math.max(1, siUsersTried));
+
+    const smsTotal = n(SMS.total_30d);
+    const smsAccepted = n(SMS.sent) + n(SMS.accepted) + n(SMS.delivered_confirmed);
+    const smsAcceptedRate = pct(smsAccepted, Math.max(1, smsTotal));
+    const smsConfirmed = n(SMS.delivered_confirmed);
+    const smsConfirmedRate = pct(smsConfirmed, Math.max(1, smsTotal));
+    const smsUnresolved = n(SMS.pending) + n(SMS.queued);
+    const smsFailed = n(SMS.failed);
+
+    const otpSends = n(OTP.sends_30d);
+    const otpAccepted = n(OTP.sends_accepted_30d);
+    const otpVerifyTotal = n(OTP.verify_total_30d);
+    const otpVerifyOk = n(OTP.verify_success_30d);
+    const otpNoAccount = n(OTP.verify_no_account_30d);
+
+    // True e-mail delivery: sent over every queued row, 30 days. The old
+    // failed/sent ratio reported ~100% while half of all mail sat in 'pending'.
+    const em30 = n(M.total_30d);
+    const em30ok = n(M.delivered_30d);
+    const em30pending = n(M.pending_30d);
+    const em30Rate = pct(em30ok, Math.max(1, em30));
+    const em30PendingRate = pct(em30pending, Math.max(1, em30));
+
+    const num = (a: number, b: number) => `${fmt(a)} of ${fmt(b)} (${pct(a, Math.max(1, b)).toFixed(1)}%)`;
+
 
     const ragTone = (v: number): Tone => (v >= 85 ? 'good' : v >= 65 ? 'warn' : 'bad');
     const pillarScores = {
       reliability: Math.max(0, Math.min(100, 100 - wRollbackRate * 6 - wErrRate * 10)),
       controls: Math.max(0, 100 - guardrailJobs.length * 22 - Math.max(0, failingJobs.length - guardrailJobs.length) * 6),
       security: Math.min(100, rlsCoverage),
-      customer: Math.min(100, wAuthSuccess * 0.6 + wNotifDelivery * 0.4),
+      // Customer experience scores on people who eventually got in and on true
+      // e-mail delivery (sent/queued), not on the old failed/sent ratio.
+      customer: Math.min(100, siEventualRate * 0.6 + em30Rate * 0.4),
+
       continuity: backupOk ? 100 : 45,
     };
     const boardPillars: { label: string; status: string; tone: Tone; note: string }[] = [
@@ -1576,8 +1626,9 @@ Deno.serve(async (req) => {
         status: pillarScores.controls >= 85 ? 'Green' : pillarScores.controls >= 65 ? 'Amber' : 'Red',
         tone: ragTone(pillarScores.controls),
         note: guardrailJobs.length
-          ? `${guardrailJobs.length} financial-control automation${guardrailJobs.length > 1 ? 's' : ''} not completing (${guardrailJobs.slice(0, 3).map((j: any) => String(j.jobname)).join(', ')}); ${brokenAllDay} job(s) had no successful run today.`
+          ? `${guardrailJobs.length} financial-control automation${guardrailJobs.length > 1 ? 's' : ''} not completing (${jobList(guardrailJobs)}); ${brokenAllDay} job(s) had no successful run today.`
           : `All ${fmt(J.total_scheduled)} automated controls completing; ${wJobFailRate.toFixed(1)}% run failure rate ${periodWord} across ${fmt(wFailedRuns)} failed run${wFailedRuns === 1 ? '' : 's'}.`,
+
       },
       {
         label: 'Security & Compliance',
@@ -1589,7 +1640,7 @@ Deno.serve(async (req) => {
         label: 'Customer Experience',
         status: pillarScores.customer >= 95 ? 'Green' : pillarScores.customer >= 85 ? 'Amber' : 'Red',
         tone: ragTone(pillarScores.customer),
-        note: `${wAuthSuccess.toFixed(1)}% of sign-ins succeeded ${periodWord}; ${wNotifDelivery.toFixed(1)}% of customer notifications delivered.`,
+        note: `${siEventualRate.toFixed(1)}% of the ${fmt(siUsersTried)} people who tried to sign in ${periodWord} got in (${siPlatRate.toFixed(2)}% of attempts failed for platform reasons); ${em30Rate.toFixed(1)}% of ${fmt(em30)} e-mails over 30 days were delivered and ${em30PendingRate.toFixed(1)}% never left the queue. E-mail only — SMS is not included in this figure.`,
       },
       {
         label: 'Business Continuity',
@@ -1599,14 +1650,58 @@ Deno.serve(async (req) => {
       },
     ];
 
+
+
+
+    // Section 2 — who the platform actually serves. Behaviour-derived counts,
+    // not permission grants: nearly every account holds four role rows.
+    const boardServeRows: string[][] = [
+      ['Agents with real activity', fmt(R.agents_active), 'Listed a verified house, carried an approved rent plan, or collected rent'],
+      ['— verified house listing', num(n(R.agents_verified_listing), n(R.agents_active)), 'Of all active agents'],
+      ['— approved rent plan', num(n(R.agents_approved_rent_request), n(R.agents_active)), 'Of all active agents'],
+      ['— collecting rent', num(n(R.agents_collecting_rent), n(R.agents_active)), 'Of all active agents'],
+      ['— doing all three', num(n(R.agents_fully_productive), n(R.agents_active)), 'Fully productive agents'],
+      ['Tenants on a funded rent plan', fmt(R.tenants_active), 'Rent plan funded, repaying or completed'],
+      ['Tenant applications in intake', fmt(R.tenants_intake_queue), 'Awaiting service-centre review; not yet customers'],
+      ['Funders holding a portfolio', fmt(R.funders_with_portfolio), 'Distinct funders with at least one portfolio'],
+      ['Funders who accepted the agreement', fmt(R.funders_agreement_accepted), 'Signed the supporter agreement'],
+      ['Landlord counterparties engaged', fmt(R.landlords_engaged), 'Counterparties on a listing or rent plan — not app users; approximate'],
+      ['Landlord records on file', fmt(R.landlords_on_file), 'Directory size, not a user count'],
+    ];
+
+    // Section 3 — reach and admission. Provider-accepted is deliberately kept
+    // apart from handset-confirmed; only Yoola traffic can ever be confirmed.
+    const boardDeliveryRows: string[][] = [
+      ['SMS accepted by a provider (30 days)', num(smsAccepted, smsTotal), 'Handed to the network — not proof of receipt'],
+      ['SMS confirmed on the handset (30 days)', num(smsConfirmed, smsTotal), `Only delivery-report-capable traffic can confirm (${num(n(SMS.dlr_capable), smsTotal)})`],
+      ['SMS still unresolved (30 days)', num(smsUnresolved, smsTotal), 'Neither confirmed nor failed'],
+      ['SMS rejected outright (30 days)', num(smsFailed, smsTotal), 'Provider refused the message'],
+      ['OTP messages accepted (30 days)', num(otpAccepted, otpSends), 'Login codes handed to a provider'],
+      ['OTP verifications succeeded (30 days)', num(otpVerifyOk, otpVerifyTotal), `${fmt(otpNoAccount)} attempts had no matching account`],
+      ['E-mail delivered (30 days)', num(em30ok, em30), 'Excludes SMS entirely'],
+      ['E-mail still queued (30 days)', num(em30pending, em30), 'Never left the queue'],
+      ['Sign-in attempts succeeded (7 days)', num(siSuccess, siAttempts), 'All attempts, including customer mistakes'],
+      ['— unknown account', num(siUnknown, siAttempts), 'No account for that identifier'],
+      ['— wrong credentials', num(siWrong, siAttempts), 'Account exists, credentials rejected'],
+      ['— platform-attributable failure', `${fmt(siPlat)} of ${fmt(siAttempts)} (${siPlatRate.toFixed(2)}%)`, 'Rate-limited by us, or the attempt never resolved'],
+      ['People who eventually signed in (7 days)', num(siUsersIn, siUsersTried), 'Within the reporting window'],
+    ];
+
+    const boardTables: { title: string; headers: string[]; rows: string[][] }[] = [
+      { title: 'Who the platform serves', headers: ['Segment', 'Figure', 'Basis'], rows: boardServeRows },
+      { title: 'Reach, messaging and admission', headers: ['Measure', 'Figure', 'What it means'], rows: boardDeliveryRows },
+    ];
+
     const boardHeadline: string[] = [
       `The platform served ${wLedgerNote} with no revenue-impacting outage, and financial ledger integrity held across ${fmt(P.txn_today)} balanced postings on the closing day.`,
-      `Customer-facing quality was ${wErrRate < 1 ? 'stable' : 'under pressure'}: ${wAuthSuccess.toFixed(1)}% of sign-ins succeeded and ${wNotifDelivery.toFixed(1)}% of notifications were delivered ${periodWord}.`,
+      `Active participation stands at ${fmt(R.agents_active)} agents with real field activity, ${fmt(R.tenants_active)} tenants on a funded rent plan and ${fmt(R.funders_with_portfolio)} funders holding a portfolio.`,
+      `Sign-in worked for ${siEventualRate.toFixed(1)}% of the ${fmt(siUsersTried)} people who tried over the week, and only ${siPlatRate.toFixed(2)}% of ${fmt(siAttempts)} attempts failed for reasons attributable to the platform; the remainder were unknown accounts or wrong credentials.`,
+      `Messaging reach is only partly verifiable: ${smsAcceptedRate.toFixed(1)}% of ${fmt(smsTotal)} SMS were accepted by a provider but only ${smsConfirmedRate.toFixed(1)}% were confirmed on the handset, and ${em30Rate.toFixed(1)}% of ${fmt(em30)} e-mails were delivered with ${em30PendingRate.toFixed(1)}% still queued.`,
       ...(weeklyMode
-        ? [`Technology health averaged ${wHealth} out of 100 across the seven days and ${wHealthTrend > 0 ? `improved ${wHealthTrend}` : wHealthTrend < 0 ? `declined ${Math.abs(wHealthTrend)}` : 'held flat at'} ${wHealthTrend === 0 ? `${wHealthLast}` : 'points'} from ${wHealthFirst} on ${weekStart} to ${wHealthLast} on ${dateStr}.`]
+        ? [`Technology health closed at ${wHealthLast} out of 100 and averaged ${wHealth} across the seven days, ${wHealthTrend > 0 ? `improving ${wHealthTrend} points` : wHealthTrend < 0 ? `declining ${Math.abs(wHealthTrend)} points` : 'flat'} from ${wHealthFirst} on ${weekStart} to ${wHealthLast} on ${dateStr}.`]
         : []),
       guardrailJobs.length
-        ? `One item needs board visibility: ${guardrailJobs.length} automated job${guardrailJobs.length > 1 ? 's' : ''} enforcing financial controls (${guardrailJobs.slice(0, 3).map((j: any) => String(j.jobname)).join(', ')}) ${guardrailJobs.length > 1 ? 'have' : 'has'} not completed successfully in the last 24 hours, so those controls are currently running on manual oversight rather than automatically.`
+        ? `One item needs board visibility: ${guardrailJobs.length} automated job${guardrailJobs.length > 1 ? 's' : ''} enforcing financial controls (${jobList(guardrailJobs)}) ${guardrailJobs.length > 1 ? 'have' : 'has'} not completed successfully in the last 24 hours, so those controls are currently running on manual oversight rather than automatically.`
         : `No financial-control automation is currently failing; all scheduled control jobs completed in the last 24 hours.`,
       wRollbackRate >= 5
         ? `Separately, ${wRollbackRate.toFixed(2)}% of database transactions were rolled back ${periodWord}, above the internal tolerance — this signals wasted processing and retried customer actions rather than lost money.`
@@ -1615,36 +1710,48 @@ Deno.serve(async (req) => {
 
     const boardDecisions: string[] = [];
     if (guardrailJobs.length)
-      boardDecisions.push(`Approve prioritising a remediation sprint for the ${guardrailJobs.length} financial-guardrail automation${guardrailJobs.length > 1 ? 's' : ''} so financial controls run without manual oversight.`);
+      boardDecisions.push(`Approve prioritising a remediation sprint for the ${guardrailJobs.length} financial-guardrail automation${guardrailJobs.length > 1 ? 's' : ''} (${jobList(guardrailJobs)}) so financial controls run without manual oversight.`);
     if (wRollbackRate >= 5)
       boardDecisions.push(`Note the elevated transaction rollback rate (${wRollbackRate.toFixed(2)}% ${periodWord}) and the engineering commitment to bring it back within tolerance.`);
     if (!backupOk)
       boardDecisions.push(`Note that the last successful backup is ${backupAgeLabel} against a weekly cadence; continuity assurance requires attention before the next cycle.`);
-    if (100 - wNotifDelivery >= 5)
-      boardDecisions.push(`Be aware that ${(100 - wNotifDelivery).toFixed(1)}% of customer notifications failed to deliver ${periodWord}, which increases support load.`);
+    if (smsConfirmedRate < 50)
+      boardDecisions.push(`Note that only ${smsConfirmedRate.toFixed(1)}% of SMS can be confirmed as received because delivery reports are collected from one provider only; the remaining traffic is unverifiable rather than known-failed.`);
+    if (em30PendingRate >= 5)
+      boardDecisions.push(`Be aware that ${em30PendingRate.toFixed(1)}% of e-mails over 30 days never left the queue, which increases support load.`);
     if (!boardDecisions.length)
       boardDecisions.push('No decision required this cycle. All five pillars are within tolerance; the technology team continues on planned work.');
 
     const boardKpis: string[][] = [
-      [weeklyMode ? 'Technology health score (7-day average)' : 'Technology health score', `${wHealth}/100 (${wHealthLabel})`, '85 or above', wHealth >= 85 ? 'On target' : 'Below target'],
+      [weeklyMode ? 'Technology health score (closing day)' : 'Technology health score', `${wHealthLast}/100`, '85 or above', wHealthLast >= 85 ? 'On target' : 'Below target'],
+      ...(weeklyMode ? [['Technology health score (7-day mean)', `${wHealth}/100 (${wHealthLabel})`, '85 or above', wHealth >= 85 ? 'On target' : 'Below target']] : []),
       ...(weeklyMode ? [['Health trend across the week', `${wHealthFirst} to ${wHealthLast} (${wHealthTrend >= 0 ? '+' : ''}${wHealthTrend})`, 'Flat or improving', wHealthTrend >= 0 ? 'On target' : 'Below target']] : []),
       ['Customers affected by an error', `${wErrRate.toFixed(2)}% of active customers`, 'Below 1.00%', wErrRate < 1 ? 'On target' : 'Below target'],
-      ['Sign-in success rate', `${wAuthSuccess.toFixed(1)}%`, '98.0% or above', wAuthSuccess >= 98 ? 'On target' : 'Below target'],
+      ['Sign-in failures caused by the platform', `${siPlatRate.toFixed(2)}% of ${fmt(siAttempts)} attempts`, 'Below 0.50%', siPlatRate < 0.5 ? 'On target' : 'Below target'],
+      ['People who eventually signed in (7 days)', num(siUsersIn, siUsersTried), '95.0% or above', siEventualRate >= 95 ? 'On target' : 'Below target'],
+      ['Sign-in attempts succeeding first time', `${siSuccessRate.toFixed(1)}%`, '80.0% or above (customer error included)', siSuccessRate >= 80 ? 'On target' : 'Below target'],
       ['Automation success rate', `${(100 - wJobFailRate).toFixed(1)}%`, '99.0% or above', wJobFailRate <= 1 ? 'On target' : 'Below target'],
-      ...(weeklyMode ? [['Failed automation runs (cumulative)', `${fmt(wFailedRuns)} over 7 days`, 'Zero', wFailedRuns === 0 ? 'On target' : 'Below target']] : []),
-      ['Notification delivery', `${wNotifDelivery.toFixed(1)}%`, '95.0% or above', wNotifDelivery >= 95 ? 'On target' : 'Below target'],
+      ...(weeklyMode ? [['Failed automation runs (cumulative)', `${fmt(wFailedRuns)} over 7 days`, '5 or fewer over 7 days', wFailedRuns <= 5 ? 'On target' : 'Below target']] : []),
+      ['E-mail delivery (excludes SMS)', `${em30Rate.toFixed(1)}% of ${fmt(em30)} over 30 days`, '95.0% or above', em30Rate >= 95 ? 'On target' : 'Below target'],
+      ['SMS accepted by a provider', `${smsAcceptedRate.toFixed(1)}% of ${fmt(smsTotal)} over 30 days`, '95.0% or above', smsAcceptedRate >= 95 ? 'On target' : 'Below target'],
+      ['SMS confirmed on the handset', `${smsConfirmedRate.toFixed(1)}% of ${fmt(smsTotal)} over 30 days`, `Confirmable traffic only (${num(n(SMS.dlr_capable), smsTotal)})`, smsConfirmedRate >= 50 ? 'On target' : 'Below target'],
       ['Transaction rollback rate', `${wRollbackRate.toFixed(2)}%`, 'Below 5.00%', wRollbackRate < 5 ? 'On target' : 'Below target'],
       ['Financial controls automated', `${fmt(Math.max(0, n(J.total_scheduled) - failingJobs.length))} of ${fmt(J.total_scheduled)}`, 'All scheduled jobs', failingJobs.length ? 'Below target' : 'On target'],
     ];
+
 
     const pdfBytes = reportType === 'board'
       ? await buildBoardPdf({
           dateStr: weeklyMode ? boardPeriodLabel : dateStr,
           health: wHealth,
           healthLabel: wHealthLabel,
+          healthClosing: wHealthLast,
+          healthMean: wHealth,
+          weekly: weeklyMode,
           headline: boardHeadline,
           pillars: boardPillars,
           decisions: boardDecisions,
+          tables: boardTables,
           kpis: boardKpis,
         })
       : await buildTechPdf(techArgs);
@@ -1652,34 +1759,66 @@ Deno.serve(async (req) => {
       ? `Welile_Board_Technology_Memo_Week_Ending_${dateStr}.pdf`
       : `Welile_Daily_CTO_Report_${dateStr}.pdf`;
 
+    const htmlTable = (t: { title: string; headers: string[]; rows: string[][] }) => `
+        <h4 style="font-size:13px;margin:14px 0 6px;">${esc(t.title)}</h4>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <tr>${t.headers.map((h) => `<th style="text-align:left;background:${C.ink};color:#fff;padding:5px 7px;font-size:11px;">${esc(h)}</th>`).join('')}</tr>
+          ${t.rows.map((r, i) => `<tr style="background:${i % 2 ? '#f8fafc' : '#fff'};">${r.map((c, ci) => `<td style="padding:5px 7px;border-bottom:1px solid ${C.line};${ci ? `color:${C.muted};` : ''}">${esc(c)}</td>`).join('')}</tr>`).join('')}
+        </table>`;
+
     const boardHtml = `
       <div style="font-family:Helvetica,Arial,sans-serif;color:${C.ink};max-width:680px;">
         <h2 style="margin:0 0 6px;font-size:19px;">Board Technology Memo — week ending ${dateStr}</h2>
-        <div style="font-size:12px;color:${C.muted};margin-bottom:14px;">Reporting period ${esc(weeklyMode ? boardPeriodLabel : dateStr)} (EAT) · Technology health ${wHealth}/100 (${wHealthLabel})${weeklyMode ? ' — 7-day average' : ''}</div>
+        <div style="font-size:12px;color:${C.muted};margin-bottom:14px;">Reporting period ${esc(weeklyMode ? boardPeriodLabel : dateStr)} (EAT) · Technology health ${wHealthLast}/100 on the closing day${weeklyMode ? ` · ${wHealth}/100 seven-day mean (${wHealthLabel})` : ` (${wHealthLabel})`}</div>
+
+        <h3 style="font-size:14px;margin:18px 0 8px;">1. Headline and decisions</h3>
         ${boardHeadline.map((p) => `<p style="font-size:13.5px;line-height:1.65;margin:0 0 10px;">${esc(p)}</p>`).join('')}
-        <h3 style="font-size:14px;margin:18px 0 8px;">Scorecard</h3>
-        <ul style="font-size:13px;line-height:1.7;padding-left:18px;margin:0;">
-          ${boardPillars.map((p) => `<li><b>${esc(p.label)}: <span style="color:${toneColor(p.tone)}">${esc(p.status)}</span></b> — ${esc(p.note)}</li>`).join('')}
-        </ul>
-        <h3 style="font-size:14px;margin:18px 0 8px;">For board decision or awareness</h3>
         <ul style="font-size:13px;line-height:1.7;padding-left:18px;margin:0;">
           ${boardDecisions.map((b) => `<li>${esc(b)}</li>`).join('')}
         </ul>
+
+        <h3 style="font-size:14px;margin:20px 0 8px;">2. Who the platform serves</h3>
+        ${htmlTable(boardTables[0])}
+        <p style="font-size:11px;color:${C.muted};margin:6px 0 0;">Counts are derived from real activity, not from permission grants. Landlords are counterparties on listings and rent plans, not application users, so their figures are approximate.</p>
+
+        <h3 style="font-size:14px;margin:20px 0 8px;">3. Reach, messaging and admission</h3>
+        ${htmlTable(boardTables[1])}
+        <p style="font-size:11px;color:${C.muted};margin:6px 0 0;">E-mail delivery excludes SMS. SMS accepted by a provider is not proof of receipt, and delivery reports are collected from one provider only, so unconfirmed traffic is unverifiable rather than known-failed.</p>
+
+        <h3 style="font-size:14px;margin:20px 0 8px;">4. Platform health, controls and continuity</h3>
+        <ul style="font-size:13px;line-height:1.7;padding-left:18px;margin:0 0 10px;">
+          ${boardPillars.map((p) => `<li><b>${esc(p.label)}: <span style="color:${toneColor(p.tone)}">${esc(p.status)}</span></b> — ${esc(p.note)}</li>`).join('')}
+        </ul>
+        ${htmlTable({ title: 'Key indicators versus target', headers: ['Indicator', 'Figure', 'Target', 'Status'], rows: boardKpis })}
         <p style="font-size:11.5px;color:${C.muted};margin-top:18px;">The full engineering diagnostic report is issued separately to the technology team.</p>
       </div>`;
+    const textTable = (t: { title: string; rows: string[][] }) => [
+      '',
+      `${t.title}:`,
+      ...t.rows.map((r) => `- ${r[0]}: ${r[1]}${r[2] ? ` (${r[2]})` : ''}`),
+    ];
     const boardText = [
       `Board Technology Memo — week ending ${dateStr}`,
       `Reporting period: ${weeklyMode ? boardPeriodLabel : dateStr} (EAT)`,
-      `Technology health: ${wHealth}/100 (${wHealthLabel})${weeklyMode ? ' (7-day average)' : ''}`,
+      `Technology health: ${wHealthLast}/100 closing day${weeklyMode ? `, ${wHealth}/100 seven-day mean (${wHealthLabel})` : ` (${wHealthLabel})`}`,
       '',
+      '1. Headline and decisions',
       ...boardHeadline,
       '',
-      'Scorecard:',
-      ...boardPillars.map((p) => `- ${p.label}: ${p.status} — ${p.note}`),
-      '',
-      'For board decision or awareness:',
       ...boardDecisions.map((b, i) => `${i + 1}. ${b}`),
+      '',
+      '2. Who the platform serves',
+      ...textTable(boardTables[0]).slice(2),
+      '',
+      '3. Reach, messaging and admission',
+      ...textTable(boardTables[1]).slice(2),
+      'Note: e-mail delivery excludes SMS; SMS confirmation is only possible for delivery-report-capable traffic.',
+      '',
+      '4. Platform health, controls and continuity',
+      ...boardPillars.map((p) => `- ${p.label}: ${p.status} — ${p.note}`),
+      ...textTable({ title: 'Key indicators versus target', rows: boardKpis.map((r) => [r[0], r[1], `target ${r[2]}; ${r[3]}`]) }),
     ].join('\n');
+
 
     // Preview mode: return the PDF itself instead of emailing it.
     if (body?.preview === true) {
@@ -2022,11 +2161,16 @@ interface BoardArgs {
   dateStr: string;
   health: number;
   healthLabel: string;
+  healthClosing?: number;
+  healthMean?: number;
+  weekly?: boolean;
   headline: string[];
   pillars: { label: string; status: string; tone: Tone; note: string }[];
   decisions: string[];
+  tables?: { title: string; headers: string[]; rows: string[][] }[];
   kpis: string[][];
 }
+
 
 async function buildBoardPdf(a: BoardArgs): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
@@ -2065,7 +2209,11 @@ async function buildBoardPdf(a: BoardArgs): Promise<Uint8Array> {
     page.drawRectangle({ x: 0, y: H - 92, width: W, height: 92, color: ink });
     page.drawText('WELILE TECHNOLOGIES LIMITED', { x: margin, y: H - 34, size: 8.5, font: bold, color: col(148, 163, 184) });
     page.drawText('Board of Directors — Technology Memo', { x: margin, y: H - 58, size: 17, font: bold, color: col(255, 255, 255) });
-    page.drawText(`Reporting period ${a.dateStr} (EAT)  |  Technology health ${a.health}/100 (${a.healthLabel})`, { x: margin, y: H - 78, size: 9, font, color: col(203, 213, 225) });
+    const closing = a.healthClosing ?? a.health;
+    const meanTxt = a.weekly && a.healthMean !== undefined ? `  |  7-day mean ${a.healthMean}/100 (${a.healthLabel})` : ` (${a.healthLabel})`;
+    page.drawText(`Reporting period ${a.dateStr} (EAT)  |  Health ${closing}/100 on closing day${meanTxt}`, { x: margin, y: H - 78, size: 9, font, color: col(203, 213, 225) });
+
+
     const pn = `Page ${pageNo}`;
     page.drawText(pn, { x: W - margin - bold.widthOfTextAtSize(pn, 8.5), y: H - 78, size: 8.5, font: bold, color: col(203, 213, 225) });
     y = H - 92 - 26;
@@ -2107,56 +2255,81 @@ async function buildBoardPdf(a: BoardArgs): Promise<Uint8Array> {
     y -= 3;
   };
 
-  // 1. Headline
-  sectionTitle('Headline');
-  for (const p of a.headline) para(p);
+  // Generic table renderer: every cell wraps and each row is sized to its
+  // tallest cell, so long indicator names and targets can no longer collide
+  // with the next column or spill outside the row band.
+  const table = (headers: string[], weights: number[], rows: string[][], size = 8.5) => {
+    const totalW = W - margin * 2;
+    const colX = (i: number) => margin + weights.slice(0, i).reduce((s, w) => s + w * totalW, 0);
+    const colW = (i: number) => weights[i] * totalW - 12;
+    const drawHead = () => {
+      page.drawRectangle({ x: margin, y: y - 18, width: totalW, height: 18, color: ink });
+      headers.forEach((h, i) => page.drawText(h, { x: colX(i) + 6, y: y - 13, size, font: bold, color: col(255, 255, 255) }));
+      y -= 18;
+    };
+    ensure(18 + 30);
+    drawHead();
+    rows.forEach((row, ri) => {
+      const cells = row.map((c, i) => wrap(String(c ?? ''), i === row.length - 1 ? bold : font, size, colW(i)));
+      const rowH = Math.max(16, 6 + Math.max(...cells.map((c) => c.length)) * (size + 3.2));
+      if (y - rowH < 56) { newPage(); drawHead(); }
+      if (ri % 2 === 1) page.drawRectangle({ x: margin, y: y - rowH, width: totalW, height: rowH, color: soft });
+      cells.forEach((lines, i) => {
+        const isStatus = i === row.length - 1 && headers[i] === 'Status';
+        const c = isStatus ? (String(row[i]) === 'On target' ? good : warn) : i === 0 ? ink : muted;
+        lines.forEach((l, li) => {
+          page.drawText(l, { x: colX(i) + 6, y: y - 11 - li * (size + 3.2), size, font: isStatus || i === 0 ? bold : font, color: c });
+        });
+      });
+      page.drawLine({ start: { x: margin, y: y - rowH }, end: { x: W - margin, y: y - rowH }, color: line, thickness: 0.5 });
+      y -= rowH;
+    });
+    y -= 8;
+  };
 
-  // 2. Scorecard
-  sectionTitle('Business risk scorecard');
+  // ---- 1. Headline and decisions ----------------------------------------
+  sectionTitle('1. Headline and decisions');
+  for (const p of a.headline) para(p);
+  for (const b of a.decisions) bullet(b);
+
+  // ---- 2. Who the platform serves ---------------------------------------
+  const serve = a.tables?.[0];
+  if (serve) {
+    sectionTitle('2. Who the platform serves');
+    table(serve.headers, [0.36, 0.22, 0.42], serve.rows);
+    para('Counts are derived from real activity, not from permission grants. Landlords are counterparties on listings and rent plans rather than application users, so those figures are approximate.', 8.5);
+  }
+
+  // ---- 3. Reach, messaging and admission --------------------------------
+  const reach = a.tables?.[1];
+  if (reach) {
+    sectionTitle('3. Reach, messaging and admission');
+    table(reach.headers, [0.38, 0.24, 0.38], reach.rows);
+    para('E-mail delivery excludes SMS. Acceptance by an SMS provider is not proof of receipt, and delivery reports are collected from one provider only, so unconfirmed traffic is unverifiable rather than known-failed.', 8.5);
+  }
+
+  // ---- 4. Platform health, controls and continuity -----------------------
+  sectionTitle('4. Platform health, controls and continuity');
   for (const p of a.pillars) {
-    const noteLines = wrap(p.note, font, 9, W - margin * 2 - 170);
-    const blockH = Math.max(26, 14 + noteLines.length * 12);
+    const noteLines = wrap(p.note, font, 9, W - margin * 2 - 182);
+    const blockH = Math.max(30, 16 + noteLines.length * 12);
     ensure(blockH + 6);
     page.drawRectangle({ x: margin, y: y - blockH, width: W - margin * 2, height: blockH, color: soft });
     page.drawRectangle({ x: margin, y: y - blockH, width: 4, height: blockH, color: statusColor(p.tone) });
-    page.drawText(p.label, { x: margin + 12, y: y - 15, size: 10, font: bold, color: ink });
-    page.drawText(p.status.toUpperCase(), { x: margin + 12, y: y - 27, size: 9, font: bold, color: statusColor(p.tone) });
+    wrap(p.label, bold, 10, 150).forEach((l, i) => {
+      page.drawText(l, { x: margin + 12, y: y - 15 - i * 11, size: 10, font: bold, color: ink });
+    });
+    page.drawText(p.status.toUpperCase(), { x: margin + 12, y: y - blockH + 8, size: 9, font: bold, color: statusColor(p.tone) });
     noteLines.forEach((l, i) => {
-      page.drawText(l, { x: margin + 170, y: y - 15 - i * 12, size: 9, font, color: muted });
+      page.drawText(l, { x: margin + 182, y: y - 15 - i * 12, size: 9, font, color: muted });
     });
     y -= blockH + 8;
   }
   y -= 4;
 
-  // 3. Decisions
-  sectionTitle('For board decision or awareness');
-  for (const b of a.decisions) bullet(b);
-
-  // 4. KPI table
-  // Keep the section heading with its table.
-  ensure(28 + 18 + a.kpis.length * 16 + 8);
-  sectionTitle('Key indicators — today versus target');
-  const headers = ['Indicator', 'Today', 'Target', 'Status'];
-  const weights = [0.42, 0.2, 0.2, 0.18];
-  const totalW = W - margin * 2;
-  const colX = (i: number) => margin + weights.slice(0, i).reduce((s, w) => s + w * totalW, 0);
-  // Keep the whole indicator table on one page.
-  ensure(18 + a.kpis.length * 16 + 8);
-  page.drawRectangle({ x: margin, y: y - 18, width: totalW, height: 18, color: ink });
-  headers.forEach((h, i) => page.drawText(h, { x: colX(i) + 6, y: y - 13, size: 8.5, font: bold, color: col(255, 255, 255) }));
-  y -= 18;
-  a.kpis.forEach((row, ri) => {
-    ensure(18);
-    if (ri % 2 === 1) page.drawRectangle({ x: margin, y: y - 16, width: totalW, height: 16, color: soft });
-    row.forEach((cell, i) => {
-      const isStatus = i === 3;
-      const c = isStatus ? (cell === 'On target' ? good : warn) : ink;
-      page.drawText(String(cell), { x: colX(i) + 6, y: y - 12, size: 8.5, font: isStatus ? bold : font, color: c });
-    });
-    page.drawLine({ start: { x: margin, y: y - 16 }, end: { x: W - margin, y: y - 16 }, color: line, thickness: 0.5 });
-    y -= 16;
-  });
+  table(['Indicator', 'Figure', 'Target', 'Status'], [0.34, 0.24, 0.24, 0.18], a.kpis);
 
   footer();
   return await doc.save();
+
 }
