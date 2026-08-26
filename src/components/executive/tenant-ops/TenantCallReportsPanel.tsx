@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,12 +13,18 @@ import { toast } from 'sonner';
 import { downloadCsv, csvTimestamp } from '@/lib/csvExport';
 import { downloadXlsx } from '@/lib/xlsxExport';
 import {
+  generateTenantCallingHubPdf,
+  downloadPdfBlob,
+  type CallingPdfTable,
+} from '@/lib/tenantCallingHubPdf';
+import {
   TENANT_CALL_STATUS_LABEL,
   useTenantCallRecords,
   type TenantCallStatus,
   type TenantCallRecord,
 } from '@/hooks/useTenantCallReports';
 import type { CallingListRow } from '@/hooks/useTenantCallingList';
+
 
 type ReportKind =
   | 'comprehensive' | 'call_log' | 'all' | 'pending' | 'closed' | 'missed' | 'staff' | 'comments';
