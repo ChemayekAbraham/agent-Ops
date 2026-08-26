@@ -356,7 +356,14 @@ export function PromissoryNotesQueue() {
     { label: 'Approved commission', value: <CompactAmount value={Number(kpis.approved_commission)} />, hint: `${kpis.approved_commission_count} paid`, tone: 'bg-emerald-50 border-emerald-200' },
     { label: 'Proxies pending review', value: kpis.proxies_pending, hint: 'awaiting approval', tone: 'bg-rose-50 border-rose-200' },
     { label: 'Self supporting tenants', value: kpis.self_supporting_tenants, hint: `${kpis.self_supporting_partners} partner${kpis.self_supporting_partners === 1 ? '' : 's'} · ${formatUGX(Number(kpis.self_support_committed))}`, tone: 'bg-teal-50 border-teal-200' },
+    {
+      label: 'Proxy agent commission',
+      value: <CompactAmount value={Number(kpis.promissory_commission_paid_total || 0)} />,
+      hint: `${pct(report?.rates?.portfolio_creation ?? 0.02)} creation ${formatUGX(Number(kpis.promissory_creation_commission_paid || 0))} · ${pct(report?.rates?.portfolio_topup ?? 0.01)} top-up ${formatUGX(Number(kpis.promissory_topup_commission_paid || 0))}`,
+      tone: 'bg-violet-50 border-violet-200',
+    },
   ];
+
 
   return (
     <div className="space-y-4">
