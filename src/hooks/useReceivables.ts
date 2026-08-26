@@ -216,8 +216,16 @@ export interface PredictiveForecast {
     seasonality_applied: boolean;
     insufficient_data: boolean;
     outstanding: number;
+    origination: PredictiveOriginationModel | null;
   }[];
   scheduled_only_streams: {
+    category_key: string;
+    product_key: string;
+    product_label: string;
+    outstanding: number;
+    reason: string;
+  }[];
+  origination_only_streams: {
     category_key: string;
     product_key: string;
     product_label: string;
