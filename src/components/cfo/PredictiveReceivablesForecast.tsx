@@ -172,6 +172,7 @@ export default function PredictiveReceivablesForecast() {
         'High',
         'Confidence',
         'Quality',
+        'Why this quality',
       ],
       ...data.periods.map((p) => [
         p.label,
@@ -185,6 +186,7 @@ export default function PredictiveReceivablesForecast() {
         p.high,
         p.confidence,
         p.quality,
+        p.quality_reason ?? '',
       ]),
     ]);
   };
