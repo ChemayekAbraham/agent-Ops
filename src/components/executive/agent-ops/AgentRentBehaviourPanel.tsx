@@ -510,40 +510,50 @@ export function AgentRentBehaviourPanel() {
         </div>
       </Card>
 
-      <Sheet open={Boolean(selected)} onOpenChange={(open) => { if (!open) { setSelected(null); setDetailTab('overview'); } }}>
-        <SheetContent side="right" className="w-full sm:max-w-3xl p-0 flex flex-col gap-0">
-          <SheetHeader className="sticky top-0 z-10 border-b border-border bg-gradient-to-br from-primary/10 via-card to-card px-4 py-4 sm:px-6 text-left space-y-3">
-            <div>
-              <SheetTitle className="text-base sm:text-lg font-black">Rent behaviour drilldown</SheetTitle>
-              <SheetDescription className="text-xs">
-                {selected ? `${selected.tenant_name} · collected by ${selected.agent_name}` : 'Tenant repayment statement'}
-              </SheetDescription>
+      {selected ? (
+        <Card id="rent-behaviour-drilldown" className="overflow-hidden p-0">
+          <div className="border-b border-border bg-gradient-to-br from-primary/10 via-card to-card px-4 py-4 sm:px-6 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-base sm:text-lg font-black">Rent behaviour drilldown</h3>
+                <p className="text-xs text-muted-foreground truncate">
+                  {`${selected.tenant_name} · collected by ${selected.agent_name}`}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Close drilldown"
+                onClick={() => { setSelected(null); setDetailTab('overview'); }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
 
-            {selected ? (
-              <div className="flex items-center gap-3 rounded-xl border border-border bg-card/80 p-3 backdrop-blur">
-                <UserAvatar avatarUrl={selected.tenant_avatar_url} fullName={selected.tenant_name} size="lg" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold truncate">{selected.tenant_name}</p>
-                  <p className="text-xs text-muted-foreground truncate">{selected.tenant_phone || 'No phone'}</p>
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                    <Badge variant={modeVariant(selected.collection_mode)}>{selected.collection_mode}</Badge>
-                    <Badge variant={selected.on_time_rate >= 60 ? 'success' : 'destructive'}>{selected.on_time_rate}% on time</Badge>
-                    <Badge variant="outline">typical {formatHour(selected.avg_payment_hour)}</Badge>
-                  </div>
-                </div>
-                <div className="hidden sm:flex items-center gap-2 shrink-0">
-                  <UserAvatar avatarUrl={selected.agent_avatar_url} fullName={selected.agent_name} size="sm" />
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Agent</p>
-                    <p className="text-xs font-semibold truncate max-w-[140px]">{selected.agent_name}</p>
-                  </div>
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-card/80 p-3 backdrop-blur">
+              <UserAvatar avatarUrl={selected.tenant_avatar_url} fullName={selected.tenant_name} size="lg" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold truncate">{selected.tenant_name}</p>
+                <p className="text-xs text-muted-foreground truncate">{selected.tenant_phone || 'No phone'}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <Badge variant={modeVariant(selected.collection_mode)}>{selected.collection_mode}</Badge>
+                  <Badge variant={selected.on_time_rate >= 60 ? 'success' : 'destructive'}>{selected.on_time_rate}% on time</Badge>
+                  <Badge variant="outline">typical {formatHour(selected.avg_payment_hour)}</Badge>
                 </div>
               </div>
-            ) : null}
-          </SheetHeader>
+              <div className="hidden sm:flex items-center gap-2 shrink-0">
+                <UserAvatar avatarUrl={selected.agent_avatar_url} fullName={selected.agent_name} size="sm" />
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Agent</p>
+                  <p className="text-xs font-semibold truncate max-w-[140px]">{selected.agent_name}</p>
+                </div>
+              </div>
+            </div>
+          </div>
 
-          <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+          <div className="max-h-[70vh] overflow-y-auto px-4 py-4 sm:px-6">
+
             {detailQuery.isLoading ? (
               <div className="h-64 flex items-center justify-center text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading tenant statement
