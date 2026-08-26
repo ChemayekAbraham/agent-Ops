@@ -50,11 +50,12 @@ export function HubEntryCard({
           </div>
         )}
       </div>
-      <span className="shrink-0 hidden xl:inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-primary-foreground shadow-sm group-hover:bg-primary/90 transition-colors">
+      <span className="shrink-0 hidden 2xl:inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-primary-foreground shadow-sm group-hover:bg-primary/90 transition-colors">
         Open hub
         <ArrowRight className="h-3.5 w-3.5" />
       </span>
-      <ArrowRight className="h-5 w-5 text-primary shrink-0 xl:hidden mt-1" />
+      <ArrowRight className="h-5 w-5 text-primary shrink-0 2xl:hidden mt-1" />
+
 
     </button>
   );
