@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -264,5 +264,172 @@ export function useReceivablesPredictiveForecast(
       return data as PredictiveForecast;
     },
     staleTime: STALE_TIME,
+  });
+}
+
+/* ---------------------------------------------------------------------------
+ * Forecast accuracy: walk-forward back-test + issued-forecast track record
+ * ------------------------------------------------------------------------- */
+
+export interface ForecastAccuracyHorizon {
+  horizon_days: number;
+  runs: number;
+  accuracy_pct: number | null;
+  mape_pct: number | null;
+  bias_pct: number | null;
+  band_hit_pct: number | null;
+  total_forecast: number;
+  total_actual: number;
+}
+
+export interface ForecastAccuracyRun {
+  origin: string;
+  horizon_days: number;
+  window_from: string;
+  window_to: string;
+  forecast: number;
+  actual: number;
+  low: number;
+  high: number;
+  error_pct: number | null;
+  in_band: boolean;
+}
+
+export interface ForecastAccuracyProduct {
+  category_key: string;
+  category_label: string;
+  product_key: string;
+  product_label: string;
+  horizon_days: number;
+  runs: number;
+  accuracy_pct: number | null;
+  mape_pct: number | null;
+  bias_pct: number | null;
+  total_forecast: number;
+  total_actual: number;
+}
+
+export interface ForecastAccuracy {
+  currency: string;
+  as_at: string;
+  timezone: string;
+  horizons: ForecastAccuracyHorizon[];
+  series: ForecastAccuracyRun[];
+  products: ForecastAccuracyProduct[];
+  meta: {
+    origins_requested: number;
+    origins_used: number;
+    step_days: number;
+    horizon_days: number[];
+    first_history_date: string | null;
+    model_version: string;
+    method_note: string;
+    source: string;
+  };
+}
+
+export interface ForecastSnapshotRow {
+  granularity: string;
+  issued_on: string;
+  period_start: string;
+  period_end: string;
+  horizon_days: number;
+  quality: string | null;
+  confidence: number | null;
+  forecast: number;
+  modelled_forecast: number;
+  low: number;
+  high: number;
+  actual: number | null;
+  graded_at: string | null;
+  error_pct: number | null;
+  abs_error: number | null;
+  in_band: boolean | null;
+}
+
+export interface ForecastSnapshotAccuracy {
+  currency: string;
+  as_at: string;
+  granularity: string | null;
+  summary: {
+    snapshots: number;
+    graded: number;
+    pending: number;
+    accuracy_pct: number | null;
+    mape_pct: number | null;
+    bias_pct: number | null;
+    band_hit_pct: number | null;
+    first_snapshot: string | null;
+  };
+  rows: ForecastSnapshotRow[];
+  meta: { method_note: string; source: string };
+}
+
+type RpcFn = (
+  fn: string,
+  args?: Record<string, unknown>
+) => Promise<{ data: unknown; error: { message: string } | null }>;
+
+/**
+ * Walk-forward back-test: replays the live forecasting model at past origin dates
+ * (it only sees data available then) and grades it against actual collections.
+ */
+export function useReceivablesForecastAccuracy(
+  origins = 12,
+  stepDays = 7,
+  horizons: number[] = [1, 7, 30],
+  enabled = true
+) {
+  return useQuery({
+    queryKey: ['receivables-forecast-accuracy', origins, stepDays, horizons.join(',')],
+    enabled,
+    queryFn: async (): Promise<ForecastAccuracy> => {
+      const { data, error } = await (supabase.rpc as unknown as RpcFn)(
+        'get_receivables_forecast_accuracy',
+        { p_origins: origins, p_step_days: stepDays, p_horizons: horizons }
+      );
+      if (error) throw error;
+      return data as ForecastAccuracy;
+    },
+    staleTime: STALE_TIME,
+  });
+}
+
+/** Issued-forecast track record: forecasts stored the day they were published, graded after close. */
+export function useReceivablesForecastTrackRecord(
+  granularity: string | null = null,
+  limit = 60,
+  enabled = true
+) {
+  return useQuery({
+    queryKey: ['receivables-forecast-track-record', granularity, limit],
+    enabled,
+    queryFn: async (): Promise<ForecastSnapshotAccuracy> => {
+      const { data, error } = await (supabase.rpc as unknown as RpcFn)(
+        'get_receivables_forecast_snapshot_accuracy',
+        { p_granularity: granularity, p_limit: limit }
+      );
+      if (error) throw error;
+      return data as ForecastSnapshotAccuracy;
+    },
+    staleTime: STALE_TIME,
+  });
+}
+
+/** Records today's published forecast so it can be graded later. Idempotent per day. */
+export function useRecordForecastSnapshot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (args: { granularity?: string; periods?: number }) => {
+      const { data, error } = await (supabase.rpc as unknown as RpcFn)(
+        'record_receivables_forecast_snapshot',
+        { p_granularity: args.granularity ?? 'month', p_periods: args.periods ?? 6 }
+      );
+      if (error) throw error;
+      return data as { granularity: string; as_at: string; periods_recorded: number };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['receivables-forecast-track-record'] });
+    },
   });
 }
