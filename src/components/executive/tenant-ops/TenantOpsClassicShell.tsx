@@ -33,7 +33,7 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
   const { data: counts } = useTenantOpsToolCounts();
 
   const raw = params.get('view') || 'home';
-  const active = (TENANT_OPS_VIEW_KEYS.has(raw) ? raw : 'home') as TenantOpsViewKey;
+  const active = (isTenantOpsViewKey(raw) ? raw : 'home') as TenantOpsViewKey;
 
   const badges = useMemo<Partial<Record<string, number>>>(() => ({
     pipeline: counts?.review_requests ?? 0,
