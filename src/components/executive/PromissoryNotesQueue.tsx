@@ -702,8 +702,6 @@ export function PromissoryNotesQueue() {
                       );
                     })()}
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <MessageCircle className="h-3.5 w-3.5" />
                       <span>{selectedNote.whatsapp_number}</span>
                     </div>
