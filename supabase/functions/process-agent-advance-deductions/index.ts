@@ -378,6 +378,98 @@ Deno.serve(async (req) => {
         arrears_balance: newArrears,
       }).eq('id', advance.id);
 
+      // ── Penalty interest must be LEDGER-VISIBLE ────────────────────────────
+      // Before this, `interest_accrued` moved silently inside agent_advances /
+      // agent_advance_ledger, so the agent watched the balance grow with no row
+      // in Transaction History explaining why, and CFO receivables saw nothing.
+      //
+      // Post ONE balanced pair per accrual, forward-only (no backfill, no
+      // correction of historical accruals):
+      //   wallet leg   → cash_in  `agent_advance_credit`, wallet_bucket
+      //                  'advance_credit'  → raises the advance LIABILITY only.
+      //                  The bucket is set EXPLICITLY so the recipient_type
+      //                  stamp cannot route it to 'withdrawable' — an accrual
+      //                  must never add to or subtract from spendable cash.
+      //   platform leg → cash_out `interest_expense` (the receivable/earned
+      //                  penalty side) so it lands in CFO reporting.
+      // Idempotent per advance per day; a failure is recorded but never blocks
+      // the sweep.
+      if (interestAccrued > 0) {
+        const penaltyMeta = {
+          source: 'cron_advance_penalty_accrual',
+          advance_id: advance.id,
+          days_overdue: Math.max(
+            0,
+            Math.floor((Date.now() - new Date(advance.expires_at).getTime()) / 86400000),
+          ),
+          daily_rate: dailyInterestRate,
+          monthly_rate: advanceMonthlyRate,
+          opening_balance: openingBalance,
+          outstanding_after_interest: balanceAfterInterest,
+          accrual_date: today,
+        };
+        const { error: penaltyErr } = await supabase.rpc('create_ledger_transaction', {
+          entries: [
+            {
+              user_id: advance.agent_id,
+              ledger_scope: 'wallet',
+              direction: 'cash_in',
+              amount: interestAccrued,
+              category: 'agent_advance_credit',
+              recipient_type: 'user',
+              wallet_bucket: 'advance_credit',
+              source_table: 'agent_advances',
+              source_id: advance.id,
+              description: `Overdue advance penalty interest (${(dailyInterestRate * 100).toFixed(4)}%/day on ${fmtUGX(openingBalance)})`,
+              currency: 'UGX',
+              transaction_date: today,
+              metadata: penaltyMeta,
+            },
+            {
+              user_id: advance.agent_id,
+              ledger_scope: 'platform',
+              direction: 'cash_out',
+              amount: interestAccrued,
+              category: 'interest_expense',
+              source_table: 'agent_advances',
+              source_id: advance.id,
+              description: 'Overdue advance penalty interest accrued (receivable)',
+              currency: 'UGX',
+              transaction_date: today,
+              metadata: penaltyMeta,
+            },
+          ],
+          idempotency_key: `advance_penalty_interest:${advance.id}:${today}`,
+        });
+        if (penaltyErr) {
+          console.error(
+            `[process-agent-advance-deductions] penalty interest ledger post failed for advance ${advance.id}:`,
+            penaltyErr,
+          );
+          await supabase.from('system_events').insert({
+            event_type: 'advance_penalty_interest_post_failed',
+            payload: {
+              ...penaltyMeta,
+              user_id: advance.agent_id,
+              amount: interestAccrued,
+              reason: 'penalty_interest_ledger_post_failed',
+              error: String(penaltyErr.message ?? penaltyErr),
+            },
+          }).then(() => {}, () => {});
+        } else {
+          await supabase.from('system_events').insert({
+            event_type: 'advance_penalty_interest_accrued',
+            payload: {
+              ...penaltyMeta,
+              user_id: advance.agent_id,
+              amount: interestAccrued,
+            },
+          }).then(() => {}, () => {});
+        }
+      }
+
+
+
       if (amountDeducted <= 0) {
         // Skipped — no withdrawable to recover from. Float is intentionally untouched.
         await supabase.from('system_events').insert({
