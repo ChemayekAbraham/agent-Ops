@@ -520,10 +520,24 @@ export default function PredictiveReceivablesForecast() {
                   </p>
                 )}
 
+                {(data.origination_only_streams ?? []).length > 0 && (
+                  <p className="text-[9px] text-muted-foreground flex items-start gap-1">
+                    <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                    No record of new business being written for:{' '}
+                    {data.origination_only_streams
+                      .map((s) => `${s.product_label} (${formatUGX(s.outstanding)})`)
+                      .join(', ')}
+                    . These forecast the run-off of the existing book only — no new receivables are
+                    assumed.
+                  </p>
+                )}
+
                 <p className="text-[9px] text-muted-foreground">
                   {data.meta.method_note} History available:{' '}
-                  {data.meta.history_span_days ?? 0} days. Horizons beyond one year are extrapolation
-                  and are flagged low quality.
+                  {data.meta.history_span_days ?? 0} days. Any period ending beyond that span is
+                  extrapolation: it can never be shown as high confidence, and periods more than
+                  twice the span away — including every future year — are always flagged low and
+                  should be read as directional only.
                 </p>
               </div>
             )}
