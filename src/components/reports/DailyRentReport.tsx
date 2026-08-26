@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, FileDown, FileSpreadsheet, RefreshCw, TrendingUp, Users, HandCoins, Trophy } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, subDays, startOfMonth } from 'date-fns';
 import { downloadAuditPdf } from '@/lib/pdfAuditReport';
 import { downloadCsv } from '@/lib/csvExport';
 import { downloadXlsx, downloadXlsxWorkbook } from '@/lib/xlsxExport';
@@ -755,25 +755,67 @@ export function DailyRentReport({ mode }: Props) {
         </div>
       </Card>
 
+      {/* Summary cards — scope selector (day / period) */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Cards period
+        </span>
+        {cardPresets.map(p => (
+          <Button
+            key={p.key}
+            size="sm"
+            variant={activeCardPreset === p.key ? 'default' : 'outline'}
+            onClick={() => setRange('summary', { from: p.from, to: p.to })}
+            className="h-7 px-2.5 text-[11px]"
+          >
+            {p.label}
+          </Button>
+        ))}
+        <div className="flex items-center gap-1.5">
+          <Input
+            type="date"
+            value={cardScope.from}
+            min={date}
+            max={dateTo}
+            onChange={e => setRange('summary', { ...cardScope, from: e.target.value })}
+            className="h-7 w-[130px] text-[11px]"
+            aria-label="Cards period from"
+          />
+          <span className="text-[10px] text-muted-foreground">to</span>
+          <Input
+            type="date"
+            value={cardScope.to}
+            min={date}
+            max={dateTo}
+            onChange={e => setRange('summary', { ...cardScope, to: e.target.value })}
+            className="h-7 w-[130px] text-[11px]"
+            aria-label="Cards period to"
+          />
+        </div>
+        <Badge variant="secondary" className="text-[10px]">
+          {periodLabel(cardScope.from, cardScope.to)} · {cardRows.length} rows
+        </Badge>
+      </div>
+
       {/* Summary cards */}
       {mode === 'tenant' ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2">
-          <SummaryCard label="Total Rent Repaid" value={formatUGX(totals.sum)} icon={HandCoins} tone="bg-emerald-500/10 text-emerald-700" />
-          <SummaryCard label="Total Outstanding" value={formatUGX(totals.outstanding)} tone="bg-rose-500/10 text-rose-700" />
-          <SummaryCard label="Repayments" value={String(totals.count)} icon={TrendingUp} />
-          <SummaryCard label="Average" value={formatUGX(Math.round(totals.avg))} />
-          <SummaryCard label="Successful" value={String(totals.successful)} tone="bg-emerald-500/10 text-emerald-700" />
-          <SummaryCard label="Failed" value={String(totals.failed)} tone="bg-rose-500/10 text-rose-700" />
-          <SummaryCard label="Pending" value={String(totals.pending)} tone="bg-amber-500/10 text-amber-700" />
+          <SummaryCard label="Total Rent Repaid" value={formatUGX(cardTotals.sum)} icon={HandCoins} tone="bg-emerald-500/10 text-emerald-700" />
+          <SummaryCard label="Total Outstanding" value={formatUGX(cardTotals.outstanding)} tone="bg-rose-500/10 text-rose-700" />
+          <SummaryCard label="Repayments" value={String(cardTotals.count)} icon={TrendingUp} />
+          <SummaryCard label="Average" value={formatUGX(Math.round(cardTotals.avg))} />
+          <SummaryCard label="Successful" value={String(cardTotals.successful)} tone="bg-emerald-500/10 text-emerald-700" />
+          <SummaryCard label="Failed" value={String(cardTotals.failed)} tone="bg-rose-500/10 text-rose-700" />
+          <SummaryCard label="Pending" value={String(cardTotals.pending)} tone="bg-amber-500/10 text-amber-700" />
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
-          <SummaryCard label="Total Collected" value={formatUGX(totals.sum)} icon={HandCoins} tone="bg-emerald-500/10 text-emerald-700" />
-          <SummaryCard label="Collections" value={String(totals.count)} icon={TrendingUp} />
-          <SummaryCard label="Active Agents" value={String(activeAgents)} icon={Users} />
-          <SummaryCard label="Avg per Agent" value={formatUGX(Math.round(avgPerAgent))} />
-          <SummaryCard label="Highest" value={formatUGX(highest)} icon={Trophy} tone="bg-amber-500/10 text-amber-700" />
-          <SummaryCard label="Lowest" value={formatUGX(lowest)} />
+          <SummaryCard label="Total Collected" value={formatUGX(cardTotals.sum)} icon={HandCoins} tone="bg-emerald-500/10 text-emerald-700" />
+          <SummaryCard label="Collections" value={String(cardTotals.count)} icon={TrendingUp} />
+          <SummaryCard label="Active Agents" value={String(cardActiveAgents)} icon={Users} />
+          <SummaryCard label="Avg per Agent" value={formatUGX(Math.round(cardAvgPerAgent))} />
+          <SummaryCard label="Highest" value={formatUGX(cardHighest)} icon={Trophy} tone="bg-amber-500/10 text-amber-700" />
+          <SummaryCard label="Lowest" value={formatUGX(cardLowest)} />
         </div>
       )}
 
