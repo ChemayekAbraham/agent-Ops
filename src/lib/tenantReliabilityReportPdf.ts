@@ -109,7 +109,7 @@ export function generateTenantReliabilityReportPdf(
 
   y += 4.2;
   const filterBits: string[] = [
-    `Period: ${meta.dateFrom ? dt(meta.dateFrom) : 'All time'} → ${meta.dateTo ? dt(meta.dateTo) : 'Today'}`,
+    `Period: ${meta.dateFrom ? dt(meta.dateFrom) : 'All time'} to ${meta.dateTo ? dt(meta.dateTo) : 'Today'}`,
     `Band: ${!meta.band || meta.band === 'all' ? 'All' : BAND_LABEL[meta.band as ReliabilityRow['band']] ?? meta.band}`,
   ];
   if (meta.search) filterBits.push(`Search: "${meta.search}"`);
@@ -381,10 +381,10 @@ export function generateTenantReliabilityReportPdf(
   sectionHeading(`Scored plans (${rows.length.toLocaleString()})`);
   const cols: { label: string; w: number; align?: Align; get: (r: ReliabilityRow) => string }[] = [
     { label: 'Tenant', w: 38, get: r => txt(r.tenant_name, 'Unnamed tenant') },
-    { label: 'Phone', w: 22, get: r => txt(r.tenant_phone) },
+    { label: 'Phone', w: 27, get: r => txt(r.tenant_phone) },
     { label: 'Agent', w: 32, get: r => txt(r.agent_name, 'Unassigned') },
     { label: 'Score', w: 14, align: 'right', get: r => `${r.score}` },
-    { label: 'Band', w: 20, get: r => r.band },
+    { label: 'Band', w: 18, get: r => r.band },
     { label: 'Reliable', w: 16, get: r => (r.reliable ? 'Yes' : 'No') },
     { label: 'Rent', w: 24, align: 'right', get: r => num(r.rent_amount) },
     { label: 'Daily', w: 18, align: 'right', get: r => num(r.daily) },
@@ -397,7 +397,7 @@ export function generateTenantReliabilityReportPdf(
     { label: 'Gap', w: 13, align: 'right', get: r => `${r.longest_gap}d` },
     { label: 'Last paid', w: 22, get: r => (r.last_pay_date ? dt(r.last_pay_date) : 'never') },
     { label: 'Plan start', w: 22, get: r => dt(r.start_at) },
-    { label: 'Status', w: 20, get: r => txt(r.status).replace(/_/g, ' ') },
+    { label: 'Status', w: 17, get: r => txt(r.status).replace(/_/g, ' ') },
   ];
   const scale = contentWidth / cols.reduce((s, c) => s + c.w, 0);
   const widths = cols.map(c => c.w * scale);
