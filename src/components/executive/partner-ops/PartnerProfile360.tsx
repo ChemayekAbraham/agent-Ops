@@ -234,6 +234,10 @@ export function PartnerProfile360() {
   const [term, setTerm] = useState('');
   const [debounced, setDebounced] = useState('');
   const [selected, setSelected] = useState<SearchRow | null>(null);
+  const [pfSearch, setPfSearch] = useState('');
+  const [pfStatus, setPfStatus] = useState<string>('all');
+  const [openPortfolio, setOpenPortfolio] = useState<Row | null>(null);
+
 
   // Debounce keystrokes so typing never fans out into a request per character.
   useEffect(() => {
