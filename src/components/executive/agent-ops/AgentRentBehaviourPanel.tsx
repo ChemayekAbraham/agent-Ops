@@ -42,7 +42,13 @@ type RentBehaviourKpis = {
   on_time_rate: number;
   remaining_balance: number;
   collection_count: number;
+  paid_today: number;
+  paid_in_period: number;
+  expected_today: number;
+  expected_in_period: number;
+  missed_days: number;
 };
+
 
 type RentBehaviourRow = {
   tenant_id: string;
