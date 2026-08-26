@@ -20,6 +20,16 @@ export interface PdfAuditMeta {
   footerLabel?: string;
   /** Optional KPI cards rendered as a grid above the table. */
   kpis?: PdfKpi[];
+  /** Optional extra tables appended after the main table (comprehensive reports). */
+  sections?: PdfSection[];
+}
+
+export interface PdfSection {
+  title: string;
+  headers: string[];
+  rows: (string | number | null | undefined)[][];
+  /** Optional note printed under the section heading. */
+  note?: string;
 }
 
 export interface PdfKpi {
@@ -29,6 +39,7 @@ export interface PdfKpi {
   /** RGB accent for the card's left rail + value color. Defaults to brand purple. */
   accent?: [number, number, number];
 }
+
 
 export async function downloadAuditPdf(
   filename: string,
