@@ -15,14 +15,6 @@ import PredictiveReceivablesForecast from '@/components/cfo/PredictiveReceivable
 import ForecastAccuracyPanel from '@/components/cfo/ForecastAccuracyPanel';
 import { useReceivablesBreakdown, useReceivablesTotal } from '@/hooks/useReceivables';
 
-      return { from: iso(today), to: iso(addMonths(today, 3)) };
-    case 'next_6m':
-      return { from: iso(today), to: iso(addMonths(today, 6)) };
-    case 'next_12m':
-    default:
-      return { from: iso(today), to: iso(addMonths(today, 12)) };
-  }
-}
 
 export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHeadline?: boolean } = {}) {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
