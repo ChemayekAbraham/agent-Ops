@@ -113,6 +113,9 @@ export interface ProxyAgentRow {
 export interface PromissoryOpsKpis {
   notes_count: number;
   partners_came_in: number;
+  partners_with_portfolio: number;
+  partners_portfolio_pending: number;
+  partners_portfolio_active: number;
   receivable: number;
   promised_total: number;
   fulfilled_total: number;
