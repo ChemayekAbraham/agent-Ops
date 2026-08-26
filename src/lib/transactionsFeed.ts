@@ -141,8 +141,18 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export function txLabel(row: TxFeedRow): string {
+  // Overdue advance penalty accruals post as `agent_advance_credit` (they raise
+  // the advance liability, not spendable cash) — label them for what they are so
+  // the agent can see why the balance grew.
+  if (
+    row.category === "agent_advance_credit" &&
+    (row.description ?? "").toLowerCase().includes("penalty interest")
+  ) {
+    return "Penalty Interest";
+  }
   return (
     CATEGORY_LABELS[row.category] ??
+
     row.category
       .split("_")
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
