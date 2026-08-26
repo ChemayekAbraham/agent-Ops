@@ -73,7 +73,7 @@ function presetRange(preset: PresetKey): { from: string; to: string } {
   }
 }
 
-export function ReceivablesBreakdownForecast() {
+export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHeadline?: boolean } = {}) {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [openProduct, setOpenProduct] = useState<string | null>(null);
   const [preset, setPreset] = useState<PresetKey>('next_7');
