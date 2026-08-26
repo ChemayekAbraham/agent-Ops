@@ -650,8 +650,12 @@ export function DailyRentReport({ mode }: Props) {
       {/* Controls */}
       <Card className="p-3 flex flex-wrap items-end gap-2">
         <div className="space-y-1">
-          <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Date</label>
-          <Input type="date" value={date} onChange={e => setDate(e.target.value)} className="h-9 w-40" />
+          <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">From</label>
+          <Input type="date" value={date} onChange={e => { setDate(e.target.value); setSecRange({}); }} className="h-9 w-40" />
+        </div>
+        <div className="space-y-1">
+          <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">To</label>
+          <Input type="date" value={dateTo} min={date} onChange={e => { setDateTo(e.target.value); setSecRange({}); }} className="h-9 w-40" />
         </div>
         <div className="space-y-1">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Agent</label>
@@ -733,6 +737,10 @@ export function DailyRentReport({ mode }: Props) {
         </div>
       )}
 
+      <Card className="p-0 overflow-hidden">
+        {bar('summary', 'Summary')}
+      </Card>
+
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <Card className="p-3">
@@ -748,6 +756,7 @@ export function DailyRentReport({ mode }: Props) {
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <div className="-mx-3 -mb-3 mt-2">{bar('hour', 'Hourly')}</div>
         </Card>
         <Card className="p-3">
           <div className="text-xs font-semibold mb-2">By Payment Method</div>
@@ -762,6 +771,7 @@ export function DailyRentReport({ mode }: Props) {
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <div className="-mx-3 -mb-3 mt-2">{bar('method', 'Methods')}</div>
         </Card>
         <Card className="p-3">
           <div className="text-xs font-semibold mb-2">Top Properties</div>
@@ -776,6 +786,7 @@ export function DailyRentReport({ mode }: Props) {
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <div className="-mx-3 -mb-3 mt-2">{bar('property', 'Properties')}</div>
         </Card>
       </div>
 
