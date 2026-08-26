@@ -1256,6 +1256,20 @@ export default function RecruitmentHub() {
       return count ?? 0;
     },
   });
+  const { data: poolRows = [] } = useQuery({
+    queryKey: ['job-applications-pool'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('job_applications')
+        .select('*')
+        .is('archived_at', null)
+        .is('purged_at', null)
+        .order('created_at', { ascending: false })
+        .limit(500);
+      if (error) throw new Error(error.message);
+      return (data ?? []) as JobApplicationRow[];
+    },
+  });
   const { data: internshipCount } = useQuery({
     queryKey: ['internship-applications-count'],
     queryFn: async () => {
@@ -1456,6 +1470,46 @@ export default function RecruitmentHub() {
       .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   }, [candidates, poolSearch, poolSource, poolLocation]);
 
+  const poolSpeculative = useMemo(
+    () => poolRows.filter((r) => !(r.source ?? '').includes('?c=')),
+    [poolRows],
+  );
+
+  const poolOptionSources = useMemo(
+    () =>
+      Array.from(
+        new Set(poolSpeculative.map((r) => r.source).filter((s): s is string => Boolean(s))),
+      ).sort(),
+    [poolSpeculative],
+  );
+
+  const poolOptionLocations = useMemo(
+    () =>
+      Array.from(
+        new Set(poolSpeculative.map((r) => r.location).filter((l): l is string => Boolean(l))),
+      ).sort(),
+    [poolSpeculative],
+  );
+
+  const poolVisible = useMemo(() => {
+    const term = poolSearch.trim().toLowerCase();
+    let data = poolSpeculative;
+    if (term) {
+      data = data.filter((r) =>
+        [r.full_name, r.email, r.whatsapp_number, r.location].some((v) =>
+          (v ?? '').toLowerCase().includes(term),
+        ),
+      );
+    }
+    if (poolLocation !== ALL) {
+      data = data.filter((r) => r.location === poolLocation);
+    }
+    if (poolSource !== ALL) {
+      data = data.filter((r) => r.source === poolSource);
+    }
+    return data.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  }, [poolSpeculative, poolSearch, poolLocation, poolSource]);
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -1496,7 +1550,7 @@ export default function RecruitmentHub() {
         </TabsTrigger>
         <TabsTrigger value="postings">Postings {activePostingsCount > 0 ? `(${fmtCount(activePostingsCount)})` : ''}</TabsTrigger>
         <TabsTrigger value="requisitions">Requisitions {requisitions.length > 0 ? `(${fmtCount(requisitions.length)})` : ''}</TabsTrigger>
-        <TabsTrigger value="pool">Talent Pool {candidates.length > 0 ? `(${fmtCount(candidates.length)})` : ''}</TabsTrigger>
+        <TabsTrigger value="pool">Talent Pool {poolVisible.length > 0 ? `(${fmtCount(poolVisible.length)})` : ''}</TabsTrigger>
       </TabsList>
 
       {/* ---------------- Applications ---------------- */}
@@ -1800,9 +1854,9 @@ export default function RecruitmentHub() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>All sources</SelectItem>
-              {poolSources.map((s) => (
+              {poolOptionSources.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {SOURCE_LABELS[s]}
+                  {s}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -1813,7 +1867,7 @@ export default function RecruitmentHub() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>All locations</SelectItem>
-              {poolLocations.map((l) => (
+              {poolOptionLocations.map((l) => (
                 <SelectItem key={l} value={l}>
                   {l}
                 </SelectItem>
@@ -1822,34 +1876,34 @@ export default function RecruitmentHub() {
           </Select>
         </div>
 
-        {visibleCandidates.length === 0 ? (
+        {poolVisible.length === 0 ? (
           <div className="text-center py-10 text-muted-foreground">
             <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            {candidates.length === 0
-              ? 'Nobody has joined the talent pool yet.'
+            {poolSpeculative.length === 0
+              ? 'Nobody has applied speculatively yet.'
               : 'No candidates match these filters.'}
           </div>
         ) : (
           <Card className="divide-y divide-border">
-            {visibleCandidates.map((c) => (
+            {poolVisible.map((row) => (
               <div
-                key={c.id}
+                key={row.id}
                 className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{c.full_name}</p>
-                  <p className="text-xs text-muted-foreground">{c.location || '—'}</p>
+                  <p className="text-sm font-medium text-foreground truncate">{row.full_name || '—'}</p>
+                  <p className="text-xs text-muted-foreground">{row.location || '—'}</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <Badge variant="outline" className="text-[10px]">
-                    {SOURCE_LABELS[c.source]}
+                    {row.role_interest || '—'}
                   </Badge>
                   <div className="text-right">
                     <p className="text-xs text-foreground">
-                      First applied {fmtDate(c.created_at)}
+                      Applied {fmtDateTime(row.created_at)}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      Retained until {fmtDate(c.retention_until)}
+                      {row.public_ref || '—'}
                     </p>
                   </div>
                 </div>
