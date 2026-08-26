@@ -579,66 +579,140 @@ export function AgentRentBehaviourPanel() {
         ) : rows.length === 0 ? (
           <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">No repayment behaviour rows found.</div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Agent</TableHead>
-                <TableHead>Tenant</TableHead>
-                <TableHead>Last collection</TableHead>
-                <TableHead>Collected</TableHead>
-                <TableHead>Remaining</TableHead>
-                <TableHead>Mode</TableHead>
-                <TableHead>Count</TableHead>
-                <TableHead className="text-right">Open</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            <div className="hidden md:block -mx-3 sm:mx-0 overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">Agent</TableHead>
+                    <TableHead className="whitespace-nowrap">Tenant</TableHead>
+                    <TableHead className="whitespace-nowrap">Last collection</TableHead>
+                    <TableHead className="whitespace-nowrap">
+                      <button type="button" className="font-semibold hover:text-primary" onClick={() => { setPage(0); setSortKey('paid_today'); }}>
+                        Paid today{sortKey === 'paid_today' ? ' ↓' : ''}
+                      </button>
+                    </TableHead>
+                    <TableHead className="whitespace-nowrap">Expected</TableHead>
+                    <TableHead className="whitespace-nowrap">
+                      <button type="button" className="font-semibold hover:text-primary" onClick={() => { setPage(0); setSortKey('missed'); }}>
+                        Days missed{sortKey === 'missed' ? ' ↓' : ''}
+                      </button>
+                    </TableHead>
+                    <TableHead className="whitespace-nowrap">Collected</TableHead>
+                    <TableHead className="whitespace-nowrap">
+                      <button type="button" className="font-semibold hover:text-primary" onClick={() => { setPage(0); setSortKey('remaining'); }}>
+                        Remaining{sortKey === 'remaining' ? ' ↓' : ''}
+                      </button>
+                    </TableHead>
+                    <TableHead className="whitespace-nowrap">Mode</TableHead>
+                    <TableHead className="whitespace-nowrap">Count</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Open</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((row) => (
+                    <TableRow key={`${row.tenant_id}-${row.agent_id}`} className="cursor-pointer" onClick={() => setSelected(row)}>
+                      <TableCell className="min-w-[200px]">
+                        <div className="flex items-center gap-3">
+                          <UserAvatar avatarUrl={row.agent_avatar_url} fullName={row.agent_name} size="md" />
+                          <div className="min-w-0">
+                            <p className="font-semibold text-foreground truncate">{row.agent_name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{row.agent_phone || 'No phone'}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="min-w-[200px]">
+                        <div className="flex items-center gap-3">
+                          <UserAvatar avatarUrl={row.tenant_avatar_url} fullName={row.tenant_name} size="md" />
+                          <div className="min-w-0">
+                            <p className="font-semibold text-foreground truncate">{row.tenant_name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{row.tenant_phone || 'No phone'}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="min-w-[150px]">
+                        <p className="font-medium whitespace-nowrap">{formatDateTime(row.last_collection_at)}</p>
+                        <p className="text-xs text-muted-foreground">typical {formatHour(row.avg_payment_hour)}</p>
+                      </TableCell>
+                      <TableCell className="min-w-[130px]">
+                        <p className={`font-bold tabular-nums ${row.paid_today > 0 ? 'text-success' : 'text-muted-foreground'}`}>{formatUGX(row.paid_today)}</p>
+                        <p className="text-xs text-muted-foreground whitespace-nowrap">period {formatUGX(row.paid_in_period)}</p>
+                      </TableCell>
+                      <TableCell className="min-w-[130px]">
+                        <p className="font-bold tabular-nums">{formatUGX(row.expected_today)}</p>
+                        <p className="text-xs text-muted-foreground whitespace-nowrap">period {formatUGX(row.expected_in_period)}</p>
+                      </TableCell>
+                      <TableCell className="min-w-[110px]">
+                        <Badge variant={row.missed_days > 0 ? 'destructive' : 'success'}>{row.missed_days} missed</Badge>
+                        <p className="mt-1 text-xs text-muted-foreground whitespace-nowrap">{row.paid_days} paid days</p>
+                      </TableCell>
+                      <TableCell className="min-w-[140px]">
+                        <p className="font-bold tabular-nums">{formatUGX(row.amount_collected)}</p>
+                        <p className="text-xs text-muted-foreground whitespace-nowrap">last {formatUGX(row.last_collection_amount)}</p>
+                      </TableCell>
+                      <TableCell className="min-w-[130px] font-bold tabular-nums">{formatUGX(row.remaining_balance)}</TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <Badge variant={modeVariant(row.collection_mode)}>{row.collection_mode}</Badge>
+                          <p className="text-xs text-muted-foreground whitespace-nowrap">{row.on_time_rate}% on time</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-bold tabular-nums">{row.collection_count}</TableCell>
+                      <TableCell className="text-right">
+                        <Button type="button" variant="ghost" size="icon" aria-label={`Open ${row.tenant_name}`} onClick={(event) => { event.stopPropagation(); setSelected(row); }}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="md:hidden space-y-2">
               {rows.map((row) => (
-                <TableRow key={`${row.tenant_id}-${row.agent_id}`} className="cursor-pointer" onClick={() => setSelected(row)}>
-                  <TableCell className="min-w-[220px]">
-                    <div className="flex items-center gap-3">
-                      <UserAvatar avatarUrl={row.agent_avatar_url} fullName={row.agent_name} size="md" />
-                      <div className="min-w-0">
-                        <p className="font-semibold text-foreground truncate">{row.agent_name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{row.agent_phone || 'No phone'}</p>
-                      </div>
+                <button
+                  key={`m-${row.tenant_id}-${row.agent_id}`}
+                  type="button"
+                  onClick={() => setSelected(row)}
+                  className="w-full rounded-xl border border-border bg-card p-3 text-left space-y-2"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <UserAvatar avatarUrl={row.tenant_avatar_url} fullName={row.tenant_name} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-foreground truncate">{row.tenant_name}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{row.agent_name} · {row.agent_phone || 'No phone'}</p>
                     </div>
-                  </TableCell>
-                  <TableCell className="min-w-[210px]">
-                    <div className="flex items-center gap-3">
-                      <UserAvatar avatarUrl={row.tenant_avatar_url} fullName={row.tenant_name} size="md" />
-                      <div className="min-w-0">
-                        <p className="font-semibold text-foreground truncate">{row.tenant_name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{row.tenant_phone || 'No phone'}</p>
-                      </div>
+                    <Badge variant={row.missed_days > 0 ? 'destructive' : 'success'} className="shrink-0">{row.missed_days} missed</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Paid today</p>
+                      <p className={`text-sm font-bold tabular-nums ${row.paid_today > 0 ? 'text-success' : 'text-muted-foreground'}`}>{formatUGX(row.paid_today)}</p>
                     </div>
-                  </TableCell>
-                  <TableCell className="min-w-[160px]">
-                    <p className="font-medium">{formatDateTime(row.last_collection_at)}</p>
-                    <p className="text-xs text-muted-foreground">typical {formatHour(row.avg_payment_hour)}</p>
-                  </TableCell>
-                  <TableCell className="min-w-[150px]">
-                    <p className="font-bold tabular-nums">{formatUGX(row.amount_collected)}</p>
-                    <p className="text-xs text-muted-foreground">last {formatUGX(row.last_collection_amount)}</p>
-                  </TableCell>
-                  <TableCell className="min-w-[140px] font-bold tabular-nums">{formatUGX(row.remaining_balance)}</TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <Badge variant={modeVariant(row.collection_mode)}>{row.collection_mode}</Badge>
-                      <p className="text-xs text-muted-foreground">{row.on_time_rate}% on time</p>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Expected today</p>
+                      <p className="text-sm font-bold tabular-nums">{formatUGX(row.expected_today)}</p>
                     </div>
-                  </TableCell>
-                  <TableCell className="font-bold tabular-nums">{row.collection_count}</TableCell>
-                  <TableCell className="text-right">
-                    <Button type="button" variant="ghost" size="icon" aria-label={`Open ${row.tenant_name}`} onClick={(event) => { event.stopPropagation(); setSelected(row); }}>
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Remaining</p>
+                      <p className="text-sm font-bold tabular-nums">{formatUGX(row.remaining_balance)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Last collection</p>
+                      <p className="text-xs font-medium">{formatDateTime(row.last_collection_at)}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={modeVariant(row.collection_mode)}>{row.collection_mode}</Badge>
+                    <span className="text-[11px] text-muted-foreground">{row.on_time_rate}% on time · {row.collection_count} collections</span>
+                  </div>
+                </button>
               ))}
-            </TableBody>
-          </Table>
+            </div>
+          </>
         )}
+
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2">
           <p className="text-xs text-muted-foreground">
