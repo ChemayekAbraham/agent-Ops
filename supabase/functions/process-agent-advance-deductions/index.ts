@@ -447,7 +447,7 @@ Deno.serve(async (req) => {
             penaltyErr,
           );
           await supabase.from('system_events').insert({
-            event_type: 'ledger_classification_backfilled',
+            event_type: 'advance_penalty_interest_post_failed',
             payload: {
               ...penaltyMeta,
               user_id: advance.agent_id,
@@ -458,12 +458,11 @@ Deno.serve(async (req) => {
           }).then(() => {}, () => {});
         } else {
           await supabase.from('system_events').insert({
-            event_type: 'account_flagged',
+            event_type: 'advance_penalty_interest_accrued',
             payload: {
               ...penaltyMeta,
               user_id: advance.agent_id,
               amount: interestAccrued,
-              reason: 'advance_penalty_interest_accrued',
             },
           }).then(() => {}, () => {});
         }
