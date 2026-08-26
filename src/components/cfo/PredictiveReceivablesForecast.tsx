@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
   AlertTriangle,
@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { formatUGX } from '@/lib/currency';
+import { formatUGX } from '@/lib/rentCalculations';
 import {
   useReceivablesPredictiveForecast,
   type ForecastGranularity,
@@ -342,9 +342,8 @@ export default function PredictiveReceivablesForecast() {
                   {data.periods.map((p: PredictivePeriod) => {
                     const open = openPeriod === p.index;
                     return (
-                      <>
+                      <Fragment key={p.index}>
                         <tr
-                          key={p.index}
                           className="border-t border-border/40 cursor-pointer hover:bg-muted/40"
                           onClick={() => setOpenPeriod(open ? null : p.index)}
                         >
@@ -381,7 +380,7 @@ export default function PredictiveReceivablesForecast() {
                           </td>
                         </tr>
                         {open && (
-                          <tr key={`${p.index}-d`} className="bg-muted/20">
+                          <tr className="bg-muted/20">
                             <td colSpan={4} className="px-2 py-1.5">
                               <div className="flex flex-wrap gap-1.5 mb-1">
                                 <Badge variant="outline" className="text-[8px] px-1 py-0">
@@ -425,7 +424,7 @@ export default function PredictiveReceivablesForecast() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </tbody>
