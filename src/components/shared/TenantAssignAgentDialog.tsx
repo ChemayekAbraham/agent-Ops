@@ -66,6 +66,26 @@ export default function TenantAssignAgentDialog({
     },
   });
 
+  const filteredAgents = useMemo(() => {
+    const q = agentQuery.trim().toLowerCase();
+    if (!q) return agents;
+    return agents.filter(a =>
+      (a.full_name || '').toLowerCase().includes(q) ||
+      (a.phone || '').toLowerCase().includes(q)
+    );
+  }, [agents, agentQuery]);
+
+  // Close the agent dropdown when clicking outside the picker.
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (agentPickerRef.current && !agentPickerRef.current.contains(e.target as Node)) {
+        setAgentDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
   // Load properties — prefer the rent_request landlord's listings; fall back to vacant listings
   const { data: listings = [] } = useQuery({
     queryKey: ['tenant-assign-listings', rentReq?.landlord_id],
