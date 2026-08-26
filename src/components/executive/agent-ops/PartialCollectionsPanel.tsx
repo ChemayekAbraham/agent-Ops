@@ -111,11 +111,16 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'wa
 export function PartialCollectionsPanel() {
   const [days, setDays] = useState<number>(30);
   const [search, setSearch] = useState('');
+  const [partialPage, setPartialPage] = useState(0);
 
   const { data, isLoading, error, refetch, isRefetching } = useQuery({
-    queryKey: ['agent-ops-partial-collections', days],
+    queryKey: ['agent-ops-partial-collections', days, partialPage],
     queryFn: async (): Promise<Report> => {
-      const { data, error } = await supabase.rpc('agent_ops_partial_collection_report', { p_days: days });
+      const { data, error } = await supabase.rpc('agent_ops_partial_collection_report', {
+        p_days: days,
+        p_limit: PAGE_SIZE,
+        p_offset: partialPage * PAGE_SIZE,
+      });
       if (error) throw error;
       return data as unknown as Report;
     },
