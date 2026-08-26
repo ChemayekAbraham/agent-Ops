@@ -710,7 +710,7 @@ export function AgentCashPayoutsTab() {
 
   // The current, server-paginated page of the Pending Queue for the active tab.
   const { data: queuePage, isLoading: loadingAll, isFetching: fetchingQueue, isError: queueError, refetch: refetchQueue } = useQuery({
-    queryKey: ['cashout-queue-page', isCashoutAgent?.id, channelTab, queueStatus, queueMerchant, minAmount, maxAmount, fromIso, toIso, debouncedSearch, queueSort, page, categoryOrClause, channelProviderOrClause, frozenUserIds, proxyPriorityEnforced, blockingUrgentProxy?.id],
+    queryKey: ['cashout-queue-page', isCashoutAgent?.id, channelTab, queueStatus, queueMerchant, minAmount, maxAmount, fromIso, toIso, debouncedSearch, queueSort, page, categoryOrClause, channelProviderOrClause, frozenUserIds, proxyPriorityEnforced, blockingUrgentProxy?.id, landlordPriorityEnforced, blockingUrgentLandlord?.id],
     queryFn: async () => {
       // NOTE: we intentionally do NOT release other agents' expired claims here.
       // Cross-agent releases from the browser caused paid-out withdrawals to
@@ -727,7 +727,9 @@ export function AgentCashPayoutsTab() {
         supabase.from('withdrawal_requests').select('*', { count: 'exact' }),
         opts,
       );
-      if (proxyPriorityEnforced && blockingUrgentProxy) {
+      if (landlordPriorityEnforced && blockingUrgentLandlord) {
+        q = q.ilike('reason', 'Landlord float payout%').order('created_at', { ascending: true });
+      } else if (proxyPriorityEnforced && blockingUrgentProxy) {
         q = q.eq('priority_level', 'urgent_proxy').order('created_at', { ascending: true });
       } else {
         q = applyQueueSort(q, queueSort);
