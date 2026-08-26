@@ -5099,7 +5099,7 @@ export function LandlordOpsDashboard({
 }
 
 // ─── Shared Dialogs Component ───
-function LandlordDialogs({ editLandlord, setEditLandlord, editLC1, setEditLC1, assignPerson, setAssignPerson, deleteLandlord, setDeleteLandlord, deleteReason, setDeleteReason, deleting, setDeleting, previewImages, setPreviewImages, adjustListing, setAdjustListing, actionDialog, setActionDialog, user, refetchAll, queryClient }: any) {
+function LandlordDialogs({ editLandlord, setEditLandlord, editLC1, setEditLC1, assignPerson, setAssignPerson, deleteLandlord, setDeleteLandlord, deleteReason, setDeleteReason, deleting, setDeleting, previewImages, setPreviewImages, adjustListing, setAdjustListing, actionDialog, setActionDialog, reverseLandlord, setReverseLandlord, user, refetchAll, queryClient }: any) {
   const { toast } = useToast();
   return (
     <>
