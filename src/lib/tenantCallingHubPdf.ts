@@ -193,10 +193,11 @@ export function generateTenantCallingHubPdf(opts: {
     }
 
     if (share.length) {
-      const cx = margin + leftW + (contentWidth - leftW) / 2;
-      const cy = y + chartH / 2;
-      const rOuter = Math.min(chartH / 2 - 1, 19);
+      const rightW = contentWidth - leftW;
+      const rOuter = Math.min(chartH / 2 - 1, 17);
       const rInner = rOuter * 0.55;
+      const cx = margin + contentWidth - rOuter - 3;
+      const cy = y + chartH / 2;
       const total = share.reduce((a, b) => a + b.n, 0) || 1;
       let angle = -Math.PI / 2;
       share.forEach(s => {
@@ -228,17 +229,24 @@ export function generateTenantCallingHubPdf(opts: {
       doc.text('STATUS MIX', margin + leftW + 4, y - 0.5);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(6.6);
-      let ly = y + 6;
+      let ly = y + 7;
+      const legendMax = Math.max(20, rightW - rOuter * 2 - 12);
       share.forEach(s => {
         doc.setFillColor(s.color[0], s.color[1], s.color[2]);
         doc.rect(margin + leftW + 4, ly - 2.4, 3, 3, 'F');
         doc.setTextColor(90, 90, 100);
-        doc.text(`${s.label}  ${num(s.n)}  (${((s.n / total) * 100).toFixed(1)}%)`, margin + leftW + 8.4, ly);
+        doc.text(
+          `${s.label} ${num(s.n)} (${((s.n / total) * 100).toFixed(1)}%)`,
+          margin + leftW + 8.4,
+          ly,
+          { maxWidth: legendMax },
+        );
         ly += 5;
       });
     }
 
-    y += chartH + 13;
+    y += chartH + 18;
+
   }
 
   // ===== Tables =====
