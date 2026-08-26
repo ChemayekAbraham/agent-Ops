@@ -113,10 +113,18 @@ function DataTable({ cols, rows, empty, onRowClick }: { cols: Col[]; rows: Row[]
               className={cn('hover:bg-muted/30', onRowClick && 'cursor-pointer')}
             >
               {cols.map((c) => (
-                <td key={c.key} className={cn('px-3 py-2 whitespace-nowrap', c.align === 'right' && 'text-right tabular-nums')}>
+                <td
+                  key={c.key}
+                  className={cn(
+                    'px-3 py-2',
+                    c.wrap ? 'max-w-[260px] whitespace-normal break-words align-top' : 'whitespace-nowrap',
+                    c.align === 'right' && 'text-right tabular-nums',
+                  )}
+                >
                   {c.render ? c.render(r) : (r[c.key] ?? '—')}
                 </td>
               ))}
+
             </tr>
           ))}
         </tbody>
