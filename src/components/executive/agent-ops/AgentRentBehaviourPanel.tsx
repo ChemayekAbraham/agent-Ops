@@ -29,7 +29,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { UserAvatar } from '@/components/UserAvatar';
 import { downloadAuditPdf } from '@/lib/pdfAuditReport';
 import { formatUGX } from '@/lib/rentCalculations';
