@@ -10,7 +10,7 @@ import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 import {
   isTenantOpsAction,
   tenantOpsLabelFor,
-  TENANT_OPS_VIEW_KEYS,
+  isTenantOpsViewKey,
   type TenantOpsActionKey,
   type TenantOpsViewKey,
 } from './tenantOpsNav';
