@@ -65,12 +65,20 @@ interface Report {
     agents_affected: number;
     tenants_affected: number;
   } | null;
+  confirmed_partials_total?: number;
   by_agent: AgentRow[];
   by_tenant: TenantRow[];
   confirmed_partials: PartialRow[];
 }
 
-const PERIODS = [7, 30, 90, 180] as const;
+const PERIODS = [
+  { value: 1, label: 'Today' },
+  { value: 7, label: '7d' },
+  { value: 30, label: '30d' },
+  { value: 90, label: '90d' },
+  { value: 180, label: '180d' },
+] as const;
+const PAGE_SIZE = 15;
 
 /** Single CSV writer reused by every section (DRY). */
 function exportCsv(name: string, rows: Record<string, unknown>[]) {
