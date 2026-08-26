@@ -14,3 +14,12 @@ Two independently modelled components — never a residual:
 Honest confidence: quality is capped against the observed history span (`meta.history_span_days`). Horizon beyond the span can never be `high`; beyond 2x the span, and every future calendar year, is forced `low` with an explicit `quality_reason`. Confidence ceilings: low 0.35, medium 0.6.
 
 No hardcoded growth percentages — never introduce any. Frontend: `useReceivablesPredictiveForecast` in `src/hooks/useReceivables.ts`; `src/components/cfo/PredictiveReceivablesForecast.tsx`. Authoritative receivables totals (`get_receivables_total`) untouched.
+
+## Real back-testing (2026-08-26)
+
+- `v_receivables_collection_history` is the single shared definition of observed collections; both the forecast and every accuracy measure read it (never re-declare the union).
+- `get_receivables_forecast_accuracy(p_origins, p_step_days, p_horizons)` performs **walk-forward replay**: it calls `get_receivables_predictive_forecast('day', h+1, <past origin>)` so the model only sees data available at that origin, drops the origin day (leak guard), and grades the modelled component against actual collections. Reports accuracy, MAPE, bias, band-hit rate per horizon and per business line.
+- Issued-forecast track record: `receivables_forecast_snapshots` (unique on granularity+as_at+period_start), written by `record_receivables_forecast_snapshot` (cron `snapshot-receivables-forecast`, also callable from the UI) and graded by `grade_receivables_forecast_snapshots` (cron `grade-receivables-forecast`). Read via `get_receivables_forecast_snapshot_accuracy`.
+- Known caveat, stated in the UI: replay reads outstanding balances as of today, so replayed accuracy is a slightly optimistic upper bound. The snapshot log is the unbiased record.
+- Baseline measured on 2026-08-26 (8 origins, weekly step): next-day 64.9%, next-7-day 59.8%, next-30-day 74.0% accuracy, with a persistent negative bias (the model under-forecasts).
+- UI: `src/components/cfo/ForecastAccuracyPanel.tsx`, mounted under `ReceivablesBreakdownForecast`.
