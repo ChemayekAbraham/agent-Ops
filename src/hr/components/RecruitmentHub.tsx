@@ -86,6 +86,13 @@ import type {
 } from '@/hr/types';
 import HRInternshipApplications from '@/components/hr/HRInternshipApplications';
 import { CoverNoteSections } from '@/hr/components/applications/ApplicationDetailSheet';
+import {
+  SEGMENT_ALL,
+  segmentKeyOfSource,
+  segmentLabelOfSource,
+  segmentOptionsFrom,
+} from '@/hr/api/careersSource';
+
 
 
 const ALL = '__all__';
@@ -360,6 +367,7 @@ function RemovedApplicationsPanel({
             <TableHead className="w-12">#</TableHead>
             <TableHead>Full name</TableHead>
             <TableHead>Role interest</TableHead>
+            <TableHead>Came from</TableHead>
             <TableHead>Location</TableHead>
             <TableHead>Status when removed</TableHead>
             <TableHead>Archived</TableHead>
@@ -373,6 +381,7 @@ function RemovedApplicationsPanel({
               <TableCell>{idx + 1}</TableCell>
               <TableCell>{row.full_name || '—'}</TableCell>
               <TableCell>{row.role_interest || '—'}</TableCell>
+              <TableCell>{segmentLabelOfSource(row.source)}</TableCell>
               <TableCell>{row.location || '—'}</TableCell>
               <TableCell>{row.status || '—'}</TableCell>
               <TableCell>{fmtDateTime(row.archived_at)}</TableCell>
@@ -401,6 +410,7 @@ function ApplicationsTab() {
   const [showRemoved, setShowRemoved] = useState(false);
   const [selected, setSelected] = useState<JobApplicationRow | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>(ALL);
+  const [segmentFilter, setSegmentFilter] = useState<string>(SEGMENT_ALL);
   const [sortConfig, setSortConfig] = useState<
     { key: 'name' | 'role_interest' | 'status' | 'created'; dir: 'asc' | 'desc' }
   >({ key: 'created', dir: 'desc' });
@@ -465,6 +475,11 @@ function ApplicationsTab() {
 
   const statuses = useMemo(() => FILTER_OPTIONS, []);
 
+  const segmentOptions = useMemo(
+    () => segmentOptionsFrom(rows.map((r) => r.source)),
+    [rows],
+  );
+
   const filteredSorted = useMemo(() => {
     let data = rows;
 
@@ -480,6 +495,10 @@ function ApplicationsTab() {
     if (statusFilter !== ALL) {
       const option = FILTER_OPTIONS.find((o) => o.value === statusFilter);
       data = data.filter((r) => option?.match(r.status, r.shortlist_round ?? null) ?? false);
+    }
+
+    if (segmentFilter !== SEGMENT_ALL) {
+      data = data.filter((r) => segmentKeyOfSource(r.source) === segmentFilter);
     }
 
     const sorted = [...data];
@@ -509,7 +528,7 @@ function ApplicationsTab() {
       });
     }
     return sorted;
-  }, [rows, search, statusFilter, sortConfig]);
+  }, [rows, search, statusFilter, segmentFilter, sortConfig]);
 
   const toggleSort = (key: 'name' | 'role_interest' | 'status' | 'created') => {
     setSortConfig((prev) =>
@@ -685,6 +704,19 @@ function ApplicationsTab() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={segmentFilter} onValueChange={setSegmentFilter}>
+          <SelectTrigger className="w-full sm:w-44">
+            <SelectValue placeholder="Filter by source" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={SEGMENT_ALL}>All sources</SelectItem>
+            {segmentOptions.map((s) => (
+              <SelectItem key={s.value} value={s.value}>
+                {s.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button
           size="sm"
           variant={showRemoved ? 'default' : 'outline'}
@@ -770,6 +802,7 @@ function ApplicationsTab() {
                   )}
                 </TableHead>
                 <TableHead>Category</TableHead>
+                <TableHead>Came from</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Experience</TableHead>
                 <TableHead
@@ -812,6 +845,7 @@ function ApplicationsTab() {
                   <TableCell>{row.full_name || '—'}</TableCell>
                   <TableCell>{row.role_interest || '—'}</TableCell>
                   <TableCell>{row.category || '—'}</TableCell>
+                  <TableCell>{segmentLabelOfSource(row.source)}</TableCell>
                   <TableCell>{row.location || '—'}</TableCell>
                   <TableCell>{row.experience_level || '—'}</TableCell>
                   <TableCell>
