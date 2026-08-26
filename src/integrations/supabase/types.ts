@@ -45743,6 +45743,15 @@ export type Database = {
         Args: { p_actor_id: string }
         Returns: Json
       }
+      resolve_promissory_note_for_partner: {
+        Args: { p_kind?: string; p_partner_id: string }
+        Returns: {
+          agent_id: string
+          match_basis: string
+          matched_value: string
+          note_id: string
+        }[]
+      }
       resolve_service_center_manager_for_agent: {
         Args: { p_agent_id: string }
         Returns: string
