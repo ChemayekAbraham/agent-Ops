@@ -352,7 +352,7 @@ type SortKey = 'recent' | 'missed' | 'paid_today' | 'remaining';
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: 'recent', label: 'Most recent collection' },
   { value: 'missed', label: 'Most days missed' },
-  { value: 'paid_today', label: 'Highest paid today' },
+  { value: 'paid_today', label: 'Highest paid in period' },
   { value: 'remaining', label: 'Largest remaining balance' },
 ];
 
@@ -620,10 +620,10 @@ export function AgentRentBehaviourPanel() {
                     <TableHead className="whitespace-nowrap">Last collection</TableHead>
                     <TableHead className="whitespace-nowrap">
                       <button type="button" className="font-semibold hover:text-primary" onClick={() => { setPage(0); setSortKey('paid_today'); }}>
-                        Paid today{sortKey === 'paid_today' ? ' ↓' : ''}
+                        Paid in period{sortKey === 'paid_today' ? ' ↓' : ''}
                       </button>
                     </TableHead>
-                    <TableHead className="whitespace-nowrap">Expected</TableHead>
+                    <TableHead className="whitespace-nowrap">Expected in period</TableHead>
                     <TableHead className="whitespace-nowrap">
                       <button type="button" className="font-semibold hover:text-primary" onClick={() => { setPage(0); setSortKey('missed'); }}>
                         Days missed{sortKey === 'missed' ? ' ↓' : ''}
@@ -665,12 +665,12 @@ export function AgentRentBehaviourPanel() {
                         <p className="text-xs text-muted-foreground">typical {formatHour(row.avg_payment_hour)}</p>
                       </TableCell>
                       <TableCell className="min-w-[130px]">
-                        <p className={`font-bold tabular-nums ${row.paid_today > 0 ? 'text-success' : 'text-muted-foreground'}`}>{formatUGX(row.paid_today)}</p>
-                        <p className="text-xs text-muted-foreground whitespace-nowrap">period {formatUGX(row.paid_in_period)}</p>
+                        <p className={`font-bold tabular-nums ${row.paid_in_period > 0 ? 'text-success' : 'text-muted-foreground'}`}>{formatUGX(row.paid_in_period)}</p>
+                        <p className="text-xs text-muted-foreground whitespace-nowrap">today {formatUGX(row.paid_today)}</p>
                       </TableCell>
                       <TableCell className="min-w-[130px]">
-                        <p className="font-bold tabular-nums">{formatUGX(row.expected_today)}</p>
-                        <p className="text-xs text-muted-foreground whitespace-nowrap">period {formatUGX(row.expected_in_period)}</p>
+                        <p className="font-bold tabular-nums">{formatUGX(row.expected_in_period)}</p>
+                        <p className="text-xs text-muted-foreground whitespace-nowrap">today {formatUGX(row.expected_today)}</p>
                       </TableCell>
                       <TableCell className="min-w-[110px]">
                         <Badge variant={row.missed_days > 0 ? 'destructive' : 'success'}>{row.missed_days} missed</Badge>
@@ -716,12 +716,14 @@ export function AgentRentBehaviourPanel() {
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Paid today</p>
-                      <p className={`text-sm font-bold tabular-nums ${row.paid_today > 0 ? 'text-success' : 'text-muted-foreground'}`}>{formatUGX(row.paid_today)}</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Paid in period</p>
+                      <p className={`text-sm font-bold tabular-nums ${row.paid_in_period > 0 ? 'text-success' : 'text-muted-foreground'}`}>{formatUGX(row.paid_in_period)}</p>
+                      <p className="text-[11px] text-muted-foreground">today {formatUGX(row.paid_today)}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Expected today</p>
-                      <p className="text-sm font-bold tabular-nums">{formatUGX(row.expected_today)}</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Expected in period</p>
+                      <p className="text-sm font-bold tabular-nums">{formatUGX(row.expected_in_period)}</p>
+                      <p className="text-[11px] text-muted-foreground">today {formatUGX(row.expected_today)}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Remaining</p>
