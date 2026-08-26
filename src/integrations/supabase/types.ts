@@ -26945,6 +26945,69 @@ export type Database = {
           },
         ]
       }
+      receivables_forecast_snapshots: {
+        Row: {
+          actual_amount: number | null
+          as_at: string
+          confidence: number | null
+          created_at: string
+          forecast_amount: number
+          graded_at: string | null
+          granularity: string
+          high_amount: number
+          horizon_days: number
+          id: string
+          low_amount: number
+          model_version: string | null
+          modelled_amount: number
+          period_end: string
+          period_index: number
+          period_start: string
+          quality: string | null
+          sources: Json
+        }
+        Insert: {
+          actual_amount?: number | null
+          as_at: string
+          confidence?: number | null
+          created_at?: string
+          forecast_amount?: number
+          graded_at?: string | null
+          granularity: string
+          high_amount?: number
+          horizon_days?: number
+          id?: string
+          low_amount?: number
+          model_version?: string | null
+          modelled_amount?: number
+          period_end: string
+          period_index: number
+          period_start: string
+          quality?: string | null
+          sources?: Json
+        }
+        Update: {
+          actual_amount?: number | null
+          as_at?: string
+          confidence?: number | null
+          created_at?: string
+          forecast_amount?: number
+          graded_at?: string | null
+          granularity?: string
+          high_amount?: number
+          horizon_days?: number
+          id?: string
+          low_amount?: number
+          model_version?: string | null
+          modelled_amount?: number
+          period_end?: string
+          period_index?: number
+          period_start?: string
+          quality?: string | null
+          sources?: Json
+        }
+        Relationships: []
+      }
       recruiter_override_events: {
         Row: {
           amount: number
@@ -42823,6 +42886,10 @@ export type Database = {
         }
         Returns: Json
       }
+      get_receivables_forecast_snapshot_accuracy: {
+        Args: { p_granularity?: string; p_limit?: number }
+        Returns: Json
+      }
       get_receivables_predictive_forecast: {
         Args: { p_as_at?: string; p_granularity?: string; p_periods?: number }
         Returns: Json
@@ -43486,6 +43553,7 @@ export type Database = {
           txn_count: number
         }[]
       }
+      grade_receivables_forecast_snapshots: { Args: never; Returns: Json }
       has_agent_capability: {
         Args: { _agent_id: string; _capability: string }
         Returns: boolean
@@ -45708,6 +45776,10 @@ export type Database = {
       record_payout_acceptance_run: {
         Args: { p_window_days?: number }
         Returns: string
+      }
+      record_receivables_forecast_snapshot: {
+        Args: { p_granularity?: string; p_periods?: number }
+        Returns: Json
       }
       record_rent_payment: {
         Args: { p_amount: number; p_landlord_id: string }
