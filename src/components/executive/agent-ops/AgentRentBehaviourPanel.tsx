@@ -568,6 +568,28 @@ export function AgentRentBehaviourPanel() {
           </div>
         </div>
 
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <Input
+            type="text"
+            placeholder="Search tenant or agent by name or phone"
+            value={searchInput}
+            onChange={(event) => { setPage(0); setSearchInput(event.target.value); }}
+            className="h-10 pl-9 pr-9 w-full"
+            aria-label="Search tenant or agent"
+          />
+          {searchInput && (
+            <button
+              type="button"
+              onClick={() => { setPage(0); setSearchInput(''); }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:text-foreground hover:bg-muted"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
 
         {isLoading ? (
           <div className="h-64 flex items-center justify-center text-muted-foreground">
