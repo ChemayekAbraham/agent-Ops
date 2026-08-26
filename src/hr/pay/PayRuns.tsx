@@ -37,6 +37,7 @@ import {
 import { calculateRun, getRunDetail, type RunDetail } from '@/hr/pay/api/calculate';
 import {
   approveRun,
+  cancelRun,
   getStatutoryReturn,
   listExceptions,
   lockRun,
