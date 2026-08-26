@@ -533,10 +533,15 @@ export function PromissoryNotesQueue() {
                             <p className="text-[11px] text-muted-foreground truncate">Agent: {note.agent_name}</p>
                           </div>
                         </div>
-                        <Badge variant="outline" className={cn('text-[10px] shrink-0', config.color)}>
-                          <StatusIcon className="h-3 w-3 mr-1" />
-                          {config.label}
-                        </Badge>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <Badge variant="outline" className={cn('text-[10px]', config.color)}>
+                            <StatusIcon className="h-3 w-3 mr-1" />
+                            {config.label}
+                          </Badge>
+                          <Badge variant="outline" className={cn('text-[10px]', stageOf(note).color)}>
+                            {stageOf(note).label}
+                          </Badge>
+                        </div>
                       </div>
 
                       <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
@@ -548,6 +553,14 @@ export function PromissoryNotesQueue() {
                           <span className="text-muted-foreground">Fulfilled: </span>
                           <span className="font-medium text-emerald-600"><CompactAmount value={Number(note.total_collected)} /></span>
                         </div>
+                        {(note.portfolio_count ?? 0) > 0 && (
+                          <div className="col-span-2">
+                            <span className="text-muted-foreground">Portfolio: </span>
+                            <span className="font-medium">
+                              {note.portfolio_count} · {formatUGX(Number(note.portfolio_amount || 0))}
+                            </span>
+                          </div>
+                        )}
                         <div className="col-span-2 text-muted-foreground flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
                           {format(new Date(note.created_at), 'dd MMM yyyy')}
