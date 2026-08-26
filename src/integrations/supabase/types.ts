@@ -41092,7 +41092,13 @@ export type Database = {
       }
       get_agent_ops_receivables_report: { Args: never; Returns: Json }
       get_agent_ops_rent_behaviour: {
-        Args: { p_limit?: number; p_offset?: number }
+        Args: {
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_sort?: string
+          p_to?: string
+        }
         Returns: Json
       }
       get_agent_ops_rent_behaviour_detail: {

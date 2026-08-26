@@ -29,7 +29,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { UserAvatar } from '@/components/UserAvatar';
 import { downloadAuditPdf } from '@/lib/pdfAuditReport';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -42,7 +45,13 @@ type RentBehaviourKpis = {
   on_time_rate: number;
   remaining_balance: number;
   collection_count: number;
+  paid_today: number;
+  paid_in_period: number;
+  expected_today: number;
+  expected_in_period: number;
+  missed_days: number;
 };
+
 
 type RentBehaviourRow = {
   tenant_id: string;
@@ -63,6 +72,13 @@ type RentBehaviourRow = {
   total_to_collect: number;
   total_repaid: number;
   daily_expected: number;
+  paid_today: number;
+  paid_in_period: number;
+  period_collection_count: number;
+  expected_today: number;
+  expected_in_period: number;
+  missed_days: number;
+  paid_days: number;
   collection_count: number;
   rent_request_count: number;
   agent_commission_total: number;
@@ -80,9 +96,13 @@ type RentBehaviourResponse = {
   limit: number;
   offset: number;
   total: number;
+  from: string | null;
+  to: string | null;
+  days: number;
   kpis: RentBehaviourKpis;
   rows: RentBehaviourRow[];
 };
+
 
 type DetailCollection = {
   id: string;
@@ -157,14 +177,23 @@ function asRows(value: unknown): RentBehaviourResponse {
     limit: num(payload.limit),
     offset: num(payload.offset),
     total: num(payload.total),
+    from: payload.from ?? null,
+    to: payload.to ?? null,
+    days: num(payload.days),
     kpis: {
       tenants_tracked: num(kpis.tenants_tracked),
       total_collected: num(kpis.total_collected),
       on_time_rate: num(kpis.on_time_rate),
       remaining_balance: num(kpis.remaining_balance),
       collection_count: num(kpis.collection_count),
+      paid_today: num(kpis.paid_today),
+      paid_in_period: num(kpis.paid_in_period),
+      expected_today: num(kpis.expected_today),
+      expected_in_period: num(kpis.expected_in_period),
+      missed_days: num(kpis.missed_days),
     },
     rows: Array.isArray(payload.rows) ? payload.rows as RentBehaviourRow[] : [],
+
   };
 }
 
@@ -227,6 +256,12 @@ function exportRows(rows: RentBehaviourRow[]) {
     row.tenant_phone ?? '—',
     formatDateTime(row.last_collection_at),
     Math.round(num(row.last_collection_amount)),
+    Math.round(num(row.paid_today)),
+    Math.round(num(row.expected_today)),
+    Math.round(num(row.paid_in_period)),
+    Math.round(num(row.expected_in_period)),
+    num(row.missed_days),
+    num(row.paid_days),
     Math.round(num(row.amount_collected)),
     Math.round(num(row.remaining_balance)),
     row.collection_mode,
@@ -245,6 +280,12 @@ const exportHeaders = [
   'Tenant Phone',
   'Last Collection',
   'Last Amount (UGX)',
+  'Paid Today (UGX)',
+  'Expected Today (UGX)',
+  'Paid In Period (UGX)',
+  'Expected In Period (UGX)',
+  'Days Missed',
+  'Days Paid',
   'Total Collected (UGX)',
   'Remaining Balance (UGX)',
   'Collection Mode',
@@ -254,6 +295,7 @@ const exportHeaders = [
   'On-Time Rate',
   'Typical Payment Hour',
 ];
+
 
 function modeVariant(mode: string) {
   if (mode === 'Daily') return 'success' as const;
@@ -294,6 +336,32 @@ function MiniStat({ label, value, tone = 'default' }: { label: string; value: st
 }
 
 
+function todayIso() {
+  return format(new Date(), 'yyyy-MM-dd');
+}
+
+function isoDaysAgo(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return format(date, 'yyyy-MM-dd');
+}
+
+type SortKey = 'recent' | 'missed' | 'paid_today' | 'remaining';
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: 'recent', label: 'Most recent collection' },
+  { value: 'missed', label: 'Most days missed' },
+  { value: 'paid_today', label: 'Highest paid today' },
+  { value: 'remaining', label: 'Largest remaining balance' },
+];
+
+const RANGE_PRESETS: { label: string; days: number }[] = [
+  { label: 'Today', days: 0 },
+  { label: '7 days', days: 6 },
+  { label: '30 days', days: 29 },
+  { label: '90 days', days: 89 },
+];
+
 export function AgentRentBehaviourPanel() {
   const [page, setPage] = useState(0);
   const [data, setData] = useState<RentBehaviourResponse>(() => asRows(null));
@@ -302,6 +370,9 @@ export function AgentRentBehaviourPanel() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<RentBehaviourRow | null>(null);
   const [detailTab, setDetailTab] = useState('overview');
+  const [fromDate, setFromDate] = useState(() => isoDaysAgo(29));
+  const [toDate, setToDate] = useState(() => todayIso());
+  const [sortKey, setSortKey] = useState<SortKey>('recent');
 
   useEffect(() => {
     if (!selected) return;
@@ -312,7 +383,7 @@ export function AgentRentBehaviourPanel() {
 
   const offset = page * PAGE_SIZE;
 
-  const loadRows = useCallback(async (nextOffset: number, silent = false) => {
+  const loadRows = useCallback(async (nextOffset: number, range: { from: string; to: string; sort: SortKey }, silent = false) => {
     if (!silent) setIsLoading(true);
     setIsFetching(true);
     setLoadError(null);
@@ -321,7 +392,10 @@ export function AgentRentBehaviourPanel() {
       const { data: payload, error } = await supabase.rpc('get_agent_ops_rent_behaviour', {
         p_limit: PAGE_SIZE,
         p_offset: nextOffset,
-      });
+        p_from: range.from,
+        p_to: range.to,
+        p_sort: range.sort,
+      } as never);
       if (error) throw new Error(error.message);
       setData(asRows(payload));
     } catch (err) {
@@ -334,10 +408,18 @@ export function AgentRentBehaviourPanel() {
   }, []);
 
   useEffect(() => {
-    void loadRows(offset);
-  }, [loadRows, offset]);
+    void loadRows(offset, { from: fromDate, to: toDate, sort: sortKey });
+  }, [loadRows, offset, fromDate, toDate, sortKey]);
 
-  const refetch = () => loadRows(offset, true);
+  const refetch = () => loadRows(offset, { from: fromDate, to: toDate, sort: sortKey }, true);
+
+  const applyPreset = (days: number) => {
+    setPage(0);
+    setFromDate(isoDaysAgo(days));
+    setToDate(todayIso());
+  };
+
+
 
   const detailQuery = useQuery({
     queryKey: ['agent-ops-rent-behaviour-detail', selected?.tenant_id, selected?.agent_id],
@@ -360,22 +442,30 @@ export function AgentRentBehaviourPanel() {
   const canNext = offset + PAGE_SIZE < data.total;
   const exportBody = useMemo(() => exportRows(rows), [rows]);
 
-  const handleCsv = () => downloadCsv(`agent-rent-behaviour-page-${page + 1}.csv`, exportHeaders, exportBody);
+  const rangeLabel = `${fromDate} to ${toDate}`;
+  const fileSlug = `${fromDate}_to_${toDate}`;
+
+  const handleCsv = () => downloadCsv(`Welile_Rent-Behaviour_${fileSlug}_page-${page + 1}.csv`, exportHeaders, exportBody);
 
   const handlePdf = async () => {
     await downloadAuditPdf(
-      `agent-rent-behaviour-page-${page + 1}.pdf`,
+      `Welile_Rent-Behaviour_${fileSlug}_page-${page + 1}.pdf`,
       exportHeaders,
       exportBody,
       {
         title: 'Agent Ops Rent Behaviour',
         subtitle: 'Tenant repayment behaviour and two-day collection-gap monitoring',
         footerLabel: 'Welile · Agent Ops',
-        filters: [`Page: ${page + 1} of ${totalPages}`, `Rows: ${rows.length} of ${data.total}`],
+        filters: [
+          `Period: ${rangeLabel}`,
+          `Sort: ${SORT_OPTIONS.find((option) => option.value === sortKey)?.label ?? sortKey}`,
+          `Page: ${page + 1} of ${totalPages}`,
+          `Rows: ${rows.length} of ${data.total}`,
+        ],
         kpis: [
-          { label: 'Tenants Tracked', value: String(data.kpis.tenants_tracked), hint: `${data.kpis.collection_count} collections` },
-          { label: 'Total Collected', value: formatUGX(data.kpis.total_collected), hint: 'agent_collections' },
-          { label: 'On-Time Rate', value: `${data.kpis.on_time_rate}%`, hint: 'within 2-day gap' },
+          { label: 'Paid Today', value: formatUGX(data.kpis.paid_today), hint: `expected ${formatUGX(data.kpis.expected_today)}` },
+          { label: 'Collected In Period', value: formatUGX(data.kpis.paid_in_period), hint: `expected ${formatUGX(data.kpis.expected_in_period)}` },
+          { label: 'Days Missed', value: String(data.kpis.missed_days), hint: `${data.days} day window` },
           { label: 'Remaining Balance', value: formatUGX(data.kpis.remaining_balance), hint: 'still to collect' },
         ],
       },
@@ -386,17 +476,17 @@ export function AgentRentBehaviourPanel() {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-        <KpiCard icon={Users} label="Tenants tracked" value={String(data.kpis.tenants_tracked)} hint={`${data.kpis.collection_count} repayment events`} />
-        <KpiCard icon={Wallet} label="Total collected" value={formatUGX(data.kpis.total_collected)} hint="from agent collections" />
-        <KpiCard icon={Clock3} label="On-time rate" value={`${data.kpis.on_time_rate}%`} hint="paid within the 2-day gap" />
-        <KpiCard icon={TrendingUp} label="Remaining balance" value={formatUGX(data.kpis.remaining_balance)} hint="amount still to be collected" />
+        <KpiCard icon={Wallet} label="Paid today" value={formatUGX(data.kpis.paid_today)} hint={`expected today ${formatUGX(data.kpis.expected_today)}`} />
+        <KpiCard icon={TrendingUp} label="Collected in period" value={formatUGX(data.kpis.paid_in_period)} hint={`expected ${formatUGX(data.kpis.expected_in_period)}`} />
+        <KpiCard icon={AlertTriangle} label="Days missed" value={data.kpis.missed_days.toLocaleString()} hint={`across ${data.days || 1} day window`} />
+        <KpiCard icon={Users} label="Tenants tracked" value={data.kpis.tenants_tracked.toLocaleString()} hint={`${data.kpis.on_time_rate}% on time · ${formatUGX(data.kpis.remaining_balance)} left`} />
       </div>
 
       <Card className="p-3 sm:p-4 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
             <h3 className="text-sm font-bold text-foreground">Tenant repayment behaviour</h3>
-            <p className="text-xs text-muted-foreground">15 rows per fetch · agent and tenant data is joined server-side.</p>
+            <p className="text-xs text-muted-foreground break-words">15 rows per fetch · {rangeLabel} · joined server-side.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
@@ -413,6 +503,62 @@ export function AgentRentBehaviourPanel() {
             </Button>
           </div>
         </div>
+
+        <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/30 p-2 sm:p-3 xl:flex-row xl:items-end xl:justify-between">
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="space-y-1">
+              <label htmlFor="rent-behaviour-from" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">From</label>
+              <Input
+                id="rent-behaviour-from"
+                type="date"
+                value={fromDate}
+                max={toDate}
+                onChange={(event) => { setPage(0); setFromDate(event.target.value || isoDaysAgo(29)); }}
+                className="h-9 w-[9.5rem]"
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="rent-behaviour-to" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">To</label>
+              <Input
+                id="rent-behaviour-to"
+                type="date"
+                value={toDate}
+                min={fromDate}
+                max={todayIso()}
+                onChange={(event) => { setPage(0); setToDate(event.target.value || todayIso()); }}
+                className="h-9 w-[9.5rem]"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
+              {RANGE_PRESETS.map((preset) => (
+                <Button
+                  key={preset.label}
+                  type="button"
+                  size="sm"
+                  variant={fromDate === isoDaysAgo(preset.days) && toDate === todayIso() ? 'default' : 'outline'}
+                  className="h-9"
+                  onClick={() => applyPreset(preset.days)}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Sort by</label>
+            <Select value={sortKey} onValueChange={(value) => { setPage(0); setSortKey(value as SortKey); }}>
+              <SelectTrigger className="h-9 w-full xl:w-[15rem]">
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
 
         {isLoading ? (
           <div className="h-64 flex items-center justify-center text-muted-foreground">
@@ -433,66 +579,140 @@ export function AgentRentBehaviourPanel() {
         ) : rows.length === 0 ? (
           <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">No repayment behaviour rows found.</div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Agent</TableHead>
-                <TableHead>Tenant</TableHead>
-                <TableHead>Last collection</TableHead>
-                <TableHead>Collected</TableHead>
-                <TableHead>Remaining</TableHead>
-                <TableHead>Mode</TableHead>
-                <TableHead>Count</TableHead>
-                <TableHead className="text-right">Open</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            <div className="hidden md:block -mx-3 sm:mx-0 overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">Agent</TableHead>
+                    <TableHead className="whitespace-nowrap">Tenant</TableHead>
+                    <TableHead className="whitespace-nowrap">Last collection</TableHead>
+                    <TableHead className="whitespace-nowrap">
+                      <button type="button" className="font-semibold hover:text-primary" onClick={() => { setPage(0); setSortKey('paid_today'); }}>
+                        Paid today{sortKey === 'paid_today' ? ' ↓' : ''}
+                      </button>
+                    </TableHead>
+                    <TableHead className="whitespace-nowrap">Expected</TableHead>
+                    <TableHead className="whitespace-nowrap">
+                      <button type="button" className="font-semibold hover:text-primary" onClick={() => { setPage(0); setSortKey('missed'); }}>
+                        Days missed{sortKey === 'missed' ? ' ↓' : ''}
+                      </button>
+                    </TableHead>
+                    <TableHead className="whitespace-nowrap">Collected</TableHead>
+                    <TableHead className="whitespace-nowrap">
+                      <button type="button" className="font-semibold hover:text-primary" onClick={() => { setPage(0); setSortKey('remaining'); }}>
+                        Remaining{sortKey === 'remaining' ? ' ↓' : ''}
+                      </button>
+                    </TableHead>
+                    <TableHead className="whitespace-nowrap">Mode</TableHead>
+                    <TableHead className="whitespace-nowrap">Count</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Open</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((row) => (
+                    <TableRow key={`${row.tenant_id}-${row.agent_id}`} className="cursor-pointer" onClick={() => setSelected(row)}>
+                      <TableCell className="min-w-[200px]">
+                        <div className="flex items-center gap-3">
+                          <UserAvatar avatarUrl={row.agent_avatar_url} fullName={row.agent_name} size="md" />
+                          <div className="min-w-0">
+                            <p className="font-semibold text-foreground truncate">{row.agent_name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{row.agent_phone || 'No phone'}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="min-w-[200px]">
+                        <div className="flex items-center gap-3">
+                          <UserAvatar avatarUrl={row.tenant_avatar_url} fullName={row.tenant_name} size="md" />
+                          <div className="min-w-0">
+                            <p className="font-semibold text-foreground truncate">{row.tenant_name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{row.tenant_phone || 'No phone'}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="min-w-[150px]">
+                        <p className="font-medium whitespace-nowrap">{formatDateTime(row.last_collection_at)}</p>
+                        <p className="text-xs text-muted-foreground">typical {formatHour(row.avg_payment_hour)}</p>
+                      </TableCell>
+                      <TableCell className="min-w-[130px]">
+                        <p className={`font-bold tabular-nums ${row.paid_today > 0 ? 'text-success' : 'text-muted-foreground'}`}>{formatUGX(row.paid_today)}</p>
+                        <p className="text-xs text-muted-foreground whitespace-nowrap">period {formatUGX(row.paid_in_period)}</p>
+                      </TableCell>
+                      <TableCell className="min-w-[130px]">
+                        <p className="font-bold tabular-nums">{formatUGX(row.expected_today)}</p>
+                        <p className="text-xs text-muted-foreground whitespace-nowrap">period {formatUGX(row.expected_in_period)}</p>
+                      </TableCell>
+                      <TableCell className="min-w-[110px]">
+                        <Badge variant={row.missed_days > 0 ? 'destructive' : 'success'}>{row.missed_days} missed</Badge>
+                        <p className="mt-1 text-xs text-muted-foreground whitespace-nowrap">{row.paid_days} paid days</p>
+                      </TableCell>
+                      <TableCell className="min-w-[140px]">
+                        <p className="font-bold tabular-nums">{formatUGX(row.amount_collected)}</p>
+                        <p className="text-xs text-muted-foreground whitespace-nowrap">last {formatUGX(row.last_collection_amount)}</p>
+                      </TableCell>
+                      <TableCell className="min-w-[130px] font-bold tabular-nums">{formatUGX(row.remaining_balance)}</TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <Badge variant={modeVariant(row.collection_mode)}>{row.collection_mode}</Badge>
+                          <p className="text-xs text-muted-foreground whitespace-nowrap">{row.on_time_rate}% on time</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-bold tabular-nums">{row.collection_count}</TableCell>
+                      <TableCell className="text-right">
+                        <Button type="button" variant="ghost" size="icon" aria-label={`Open ${row.tenant_name}`} onClick={(event) => { event.stopPropagation(); setSelected(row); }}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div className="md:hidden space-y-2">
               {rows.map((row) => (
-                <TableRow key={`${row.tenant_id}-${row.agent_id}`} className="cursor-pointer" onClick={() => setSelected(row)}>
-                  <TableCell className="min-w-[220px]">
-                    <div className="flex items-center gap-3">
-                      <UserAvatar avatarUrl={row.agent_avatar_url} fullName={row.agent_name} size="md" />
-                      <div className="min-w-0">
-                        <p className="font-semibold text-foreground truncate">{row.agent_name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{row.agent_phone || 'No phone'}</p>
-                      </div>
+                <button
+                  key={`m-${row.tenant_id}-${row.agent_id}`}
+                  type="button"
+                  onClick={() => setSelected(row)}
+                  className="w-full rounded-xl border border-border bg-card p-3 text-left space-y-2"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <UserAvatar avatarUrl={row.tenant_avatar_url} fullName={row.tenant_name} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-foreground truncate">{row.tenant_name}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{row.agent_name} · {row.agent_phone || 'No phone'}</p>
                     </div>
-                  </TableCell>
-                  <TableCell className="min-w-[210px]">
-                    <div className="flex items-center gap-3">
-                      <UserAvatar avatarUrl={row.tenant_avatar_url} fullName={row.tenant_name} size="md" />
-                      <div className="min-w-0">
-                        <p className="font-semibold text-foreground truncate">{row.tenant_name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{row.tenant_phone || 'No phone'}</p>
-                      </div>
+                    <Badge variant={row.missed_days > 0 ? 'destructive' : 'success'} className="shrink-0">{row.missed_days} missed</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Paid today</p>
+                      <p className={`text-sm font-bold tabular-nums ${row.paid_today > 0 ? 'text-success' : 'text-muted-foreground'}`}>{formatUGX(row.paid_today)}</p>
                     </div>
-                  </TableCell>
-                  <TableCell className="min-w-[160px]">
-                    <p className="font-medium">{formatDateTime(row.last_collection_at)}</p>
-                    <p className="text-xs text-muted-foreground">typical {formatHour(row.avg_payment_hour)}</p>
-                  </TableCell>
-                  <TableCell className="min-w-[150px]">
-                    <p className="font-bold tabular-nums">{formatUGX(row.amount_collected)}</p>
-                    <p className="text-xs text-muted-foreground">last {formatUGX(row.last_collection_amount)}</p>
-                  </TableCell>
-                  <TableCell className="min-w-[140px] font-bold tabular-nums">{formatUGX(row.remaining_balance)}</TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <Badge variant={modeVariant(row.collection_mode)}>{row.collection_mode}</Badge>
-                      <p className="text-xs text-muted-foreground">{row.on_time_rate}% on time</p>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Expected today</p>
+                      <p className="text-sm font-bold tabular-nums">{formatUGX(row.expected_today)}</p>
                     </div>
-                  </TableCell>
-                  <TableCell className="font-bold tabular-nums">{row.collection_count}</TableCell>
-                  <TableCell className="text-right">
-                    <Button type="button" variant="ghost" size="icon" aria-label={`Open ${row.tenant_name}`} onClick={(event) => { event.stopPropagation(); setSelected(row); }}>
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Remaining</p>
+                      <p className="text-sm font-bold tabular-nums">{formatUGX(row.remaining_balance)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Last collection</p>
+                      <p className="text-xs font-medium">{formatDateTime(row.last_collection_at)}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={modeVariant(row.collection_mode)}>{row.collection_mode}</Badge>
+                    <span className="text-[11px] text-muted-foreground">{row.on_time_rate}% on time · {row.collection_count} collections</span>
+                  </div>
+                </button>
               ))}
-            </TableBody>
-          </Table>
+            </div>
+          </>
         )}
+
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2">
           <p className="text-xs text-muted-foreground">
