@@ -821,7 +821,9 @@ export function DailyRentReport({ mode }: Props) {
             )}
           </table>
         </div>
+        {bar('transactions', mode === 'tenant' ? 'Repayments table' : 'Collections table')}
       </Card>
+
 
       {/* Agent performance (agent mode only) */}
       {mode === 'agent' && (
