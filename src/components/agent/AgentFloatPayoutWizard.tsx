@@ -171,8 +171,19 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation }: Agent
     queryKey: ['agent-lp-float-holds', user?.id],
     queryFn: async () => {
       if (!user) return [];
-      const { data, error } = await (supabase as SupabaseLoose)
-        .from('agent_lp_float_holds')
+      // `agent_lp_float_holds` is a view outside the generated types — resolve it
+      // through a deliberately loose client so the query does not blow the
+      // type-instantiation budget.
+      const looseFrom = (supabase as unknown as {
+        from: (table: string) => {
+          select: (cols: string) => {
+            eq: (col: string, val: string) => {
+              order: (col: string, opts: { ascending: boolean }) => Promise<{ data: unknown; error: unknown }>;
+            };
+          };
+        };
+      }).from;
+      const { data, error } = await looseFrom('agent_lp_float_holds')
         .select('payout_id, landlord_name, amount, payout_status, withdrawal_status, hold_state, payout_created_at')
         .eq('agent_id', user.id)
         .order('payout_created_at', { ascending: false });
