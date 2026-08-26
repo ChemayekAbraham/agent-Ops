@@ -239,15 +239,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         {/* ══════════════ DAILY RECEIVABLES & PAYABLES ══════════════ */}
         <DailyReceivablesPayablesSection />
 
-        {/* ══════════════ RECEIVABLES BREAKDOWN & FORECAST ══════════════ */}
-        <div className="space-y-2">
-          <SectionToggle
-            open={isOpen('receivablesBreakdown')}
-            onToggle={() => toggleSection('receivablesBreakdown')}
-            label="Receivables Breakdown & Forecast"
-          />
-          {isOpen('receivablesBreakdown') && <ReceivablesBreakdownForecast />}
-        </div>
+        {/* ══════════════ RECEIVABLES CARD (tap for breakdown & forecast) ══════════════ */}
+        <ReceivablesCardDrilldown />
 
 
         {/* ══════════════ WHERE THE MONEY SITS ══════════════ */}
