@@ -79,6 +79,8 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
     setContributionType('compounding');
     setDeductionDay('1');
     setCreatedNote(null);
+    setErrorMsg(null);
+
     setSelectedPlanIds([]);
     setAttached({ count: 0, amount: 0 });
   };
