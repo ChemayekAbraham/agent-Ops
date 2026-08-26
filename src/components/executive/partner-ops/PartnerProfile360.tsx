@@ -670,9 +670,65 @@ export function PartnerProfile360() {
                   <TabPanel name="Renewals" empty="No renewals recorded." />
                 </TabsContent>
 
-                <TabsContent value="withdrawals" className="mt-3">
-                  <TabPanel name="Withdrawals" empty="No withdrawals recorded." />
+                <TabsContent value="withdrawals" className="mt-3 space-y-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="relative flex-1">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={wdSearch}
+                        onChange={(e) => setWdSearch(e.target.value)}
+                        placeholder="Search amount, status, method, proxy agent or purpose"
+                        className="h-9 pl-9 pr-8 text-xs"
+                        autoComplete="off"
+                      />
+                      {wdSearch && (
+                        <button
+                          type="button"
+                          aria-label="Clear withdrawal search"
+                          onClick={() => setWdSearch('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-accent"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="-mx-1 flex gap-1 overflow-x-auto px-1">
+                        {['all', ...withdrawalStatuses].map((s) => (
+                          <Button
+                            key={s}
+                            type="button"
+                            size="sm"
+                            variant={wdStatus === s ? 'default' : 'outline'}
+                            className="h-7 shrink-0 text-[11px] capitalize"
+                            onClick={() => setWdStatus(s)}
+                          >
+                            {s === 'all' ? 'All' : s}
+                          </Button>
+                        ))}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 shrink-0 gap-1.5 text-[11px]"
+                        disabled={!filteredWithdrawals.length}
+                        onClick={() => exportSection({ name: 'Withdrawals', cols: WITHDRAWAL_COLS, rows: filteredWithdrawals })}
+                      >
+                        <Download className="h-3 w-3" /> CSV
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Showing {filteredWithdrawals.length} of {allWithdrawals.length} withdrawals — tap a row to open its full detail.
+                  </p>
+                  <DataTable
+                    cols={WITHDRAWAL_COLS}
+                    rows={filteredWithdrawals}
+                    empty="No withdrawals match this search."
+                    onRowClick={(r) => setOpenWithdrawal(r)}
+                  />
                 </TabsContent>
+
 
                 <TabsContent value="changes" className="mt-3">
                   <TabPanel name="Change Log" empty="No recorded changes for this partner." />
