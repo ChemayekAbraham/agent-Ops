@@ -172,9 +172,20 @@ export interface PredictivePeriod {
   high: number;
   confidence: number;
   quality: 'high' | 'medium' | 'low' | 'insufficient';
+  quality_reason: string;
   is_forecast: true;
   sources: PredictiveSource[];
 }
+
+export interface PredictiveOriginationModel {
+  method: string;
+  sample_days: number;
+  daily_new_receivables: number;
+  trend_per_week: number;
+  collection_rate: number;
+  term_days: number;
+}
+
 
 export interface PredictiveForecast {
   currency: string;
