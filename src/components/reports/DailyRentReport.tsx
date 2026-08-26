@@ -410,6 +410,46 @@ export function DailyRentReport({ mode }: Props) {
     });
   };
 
+  // ── Top summary cards: scopeable to a day or a sub-period ──────────────────
+  // The cards read the SAME rows as the "Summary" section report (key 'summary'),
+  // so whatever the cards show is exactly what the Summary export contains.
+  // Charts, tables and the page-level exports keep their existing scope — none of
+  // their calculations or data sources change.
+  const clampDay = (d: string) => (d < date ? date : d > dateTo ? dateTo : d);
+  const cardPresets: { key: string; label: string; from: string; to: string }[] = [
+    { key: 'period', label: 'Whole period', from: date, to: dateTo },
+    { key: 'today', label: 'Today', from: clampDay(todayIso()), to: clampDay(todayIso()) },
+    {
+      key: 'yesterday',
+      label: 'Yesterday',
+      from: clampDay(format(subDays(new Date(), 1), 'yyyy-MM-dd')),
+      to: clampDay(format(subDays(new Date(), 1), 'yyyy-MM-dd')),
+    },
+    {
+      key: '7d',
+      label: 'Last 7 days',
+      from: clampDay(format(subDays(new Date(), 6), 'yyyy-MM-dd')),
+      to: clampDay(todayIso()),
+    },
+    {
+      key: 'mtd',
+      label: 'Month to date',
+      from: clampDay(format(startOfMonth(new Date()), 'yyyy-MM-dd')),
+      to: clampDay(todayIso()),
+    },
+  ];
+  const cardScope = rangeFor('summary');
+  const activeCardPreset = cardPresets.find(p => p.from === cardScope.from && p.to === cardScope.to)?.key ?? 'custom';
+  const cardRows = rowsFor('summary');
+  const cardTotals = aggTotals(cardRows);
+  const cardAgents = aggAgents(cardRows);
+  const cardActiveAgents = cardAgents.length;
+  const cardAvgPerAgent = cardActiveAgents ? cardTotals.sum / cardActiveAgents : 0;
+  const cardHighest = cardAgents[0]?.total ?? 0;
+  const cardLowest = cardAgents.length ? cardAgents[cardAgents.length - 1].total : 0;
+
+
+
   const summarySheet = (rows: EnrichedRow[]) => {
     const t = aggTotals(rows);
     const agents = aggAgents(rows);
