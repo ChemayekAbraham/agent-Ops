@@ -1640,7 +1640,7 @@ Deno.serve(async (req) => {
         label: 'Customer Experience',
         status: pillarScores.customer >= 95 ? 'Green' : pillarScores.customer >= 85 ? 'Amber' : 'Red',
         tone: ragTone(pillarScores.customer),
-        note: `${wAuthSuccess.toFixed(1)}% of sign-in attempts succeeded ${periodWord}; ${wNotifDelivery.toFixed(1)}% of e-mails delivered (e-mail only; SMS is not included in this figure).`,
+        note: `${siEventualRate.toFixed(1)}% of the ${fmt(siUsersTried)} people who tried to sign in ${periodWord} got in (${siPlatRate.toFixed(2)}% of attempts failed for platform reasons); ${em30Rate.toFixed(1)}% of ${fmt(em30)} e-mails over 30 days were delivered and ${em30PendingRate.toFixed(1)}% never left the queue. E-mail only — SMS is not included in this figure.`,
       },
       {
         label: 'Business Continuity',
