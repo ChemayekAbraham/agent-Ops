@@ -81,6 +81,13 @@ export interface PromissoryNoteRow {
   support_mode: 'self_support' | 'existing_support';
   reserved_plans: number;
   reserved_amount: number;
+  journey_stage: 'not_registered' | 'came_in' | 'portfolio_pending' | 'portfolio_active';
+  portfolio_count: number;
+  portfolio_active_count: number;
+  portfolio_pending_count: number;
+  portfolio_amount: number;
+  portfolio_active_amount: number;
+  first_portfolio_at: string | null;
   notes?: string | null;
 }
 
@@ -106,6 +113,9 @@ export interface ProxyAgentRow {
 export interface PromissoryOpsKpis {
   notes_count: number;
   partners_came_in: number;
+  partners_with_portfolio: number;
+  partners_portfolio_pending: number;
+  partners_portfolio_active: number;
   receivable: number;
   promised_total: number;
   fulfilled_total: number;
@@ -131,7 +141,9 @@ export interface PromissoryOpsReport {
 
 const EMPTY: PromissoryOpsReport = {
   kpis: {
-    notes_count: 0, partners_came_in: 0, receivable: 0, promised_total: 0, fulfilled_total: 0,
+    notes_count: 0, partners_came_in: 0, partners_with_portfolio: 0,
+    partners_portfolio_pending: 0, partners_portfolio_active: 0,
+    receivable: 0, promised_total: 0, fulfilled_total: 0,
     approved_notes: 0, proxy_agents: 0, proxies_approved: 0, proxies_pending: 0, lead_attachments: 0,
     pending_commission: 0, pending_commission_count: 0, approved_commission: 0, approved_commission_count: 0,
     self_supporting_tenants: 0, self_supporting_partners: 0, self_support_committed: 0,

@@ -213,6 +213,8 @@ export function PromissoryNotesQueue() {
       n.partner_name, n.whatsapp_number, n.phone_number, n.email,
       n.agent_name, n.came_in_name, n.lead_partner_name,
       n.came_in ? 'came in registered' : 'not registered',
+      n.journey_stage,
+      (n.portfolio_count ?? 0) > 0 ? 'portfolio' : '',
     ].filter(Boolean).join(' ').toLowerCase();
     const matchesSearch = !search || haystack.includes(search.toLowerCase());
     const matchesStatus =
@@ -222,6 +224,8 @@ export function PromissoryNotesQueue() {
         ? !!n.came_in
         : statusFilter === 'not_registered'
         ? !n.came_in
+        : statusFilter === 'portfolio_pending' || statusFilter === 'portfolio_active'
+        ? n.journey_stage === statusFilter
         : n.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -283,11 +287,22 @@ export function PromissoryNotesQueue() {
     cancelled: { icon: XCircle, color: 'bg-muted text-muted-foreground border-border', label: 'Cancelled' },
   };
 
+  // Partner journey after a promissory note: matched by phone/email on registration,
+  // then a portfolio awaiting approval, then a live portfolio.
+  const stageConfig: Record<string, { label: string; color: string }> = {
+    not_registered: { label: 'Not registered', color: 'bg-muted text-muted-foreground border-border' },
+    came_in: { label: 'Came in', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+    portfolio_pending: { label: 'Portfolio pending', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+    portfolio_active: { label: 'Portfolio active', color: 'bg-primary/10 text-primary border-primary/20' },
+  };
+  const stageOf = (n: any) => stageConfig[n?.journey_stage as string] || (n?.came_in ? stageConfig.came_in : stageConfig.not_registered);
+
   const statuses = ['all', 'pending', 'activated', 'fulfilled', 'defaulted', 'cancelled'];
 
   const kpiCards: { label: string; value: React.ReactNode; hint?: string; tone: string }[] = [
     { label: 'Promissory notes', value: kpis.notes_count, hint: `${kpis.approved_notes} approved`, tone: 'bg-primary/5 border-primary/20' },
     { label: 'Partners came in', value: kpis.partners_came_in, hint: `of ${kpis.notes_count} notes`, tone: 'bg-emerald-50 border-emerald-200' },
+    { label: 'Created a portfolio', value: kpis.partners_with_portfolio, hint: `${kpis.partners_portfolio_active} active · ${kpis.partners_portfolio_pending} pending`, tone: 'bg-sky-50 border-sky-200' },
     { label: 'Receivable', value: <CompactAmount value={Number(kpis.receivable)} />, hint: 'outstanding on live notes', tone: 'bg-amber-50 border-amber-200' },
     { label: 'Promised vs fulfilled', value: <CompactAmount value={Number(kpis.promised_total)} />, hint: `fulfilled ${Math.round(Number(kpis.promised_total) > 0 ? (Number(kpis.fulfilled_total) / Number(kpis.promised_total)) * 100 : 0)}%`, tone: 'bg-sky-50 border-sky-200' },
     { label: 'Proxy agents', value: kpis.proxy_agents, hint: `${kpis.proxies_approved} approved`, tone: 'bg-violet-50 border-violet-200' },
@@ -368,6 +383,24 @@ export function PromissoryNotesQueue() {
           )}
         >
           Not registered ({kpis.notes_count - kpis.partners_came_in})
+        </button>
+        <button
+          onClick={() => setStatusFilter('portfolio_pending')}
+          className={cn(
+            'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
+            statusFilter === 'portfolio_pending' ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+          )}
+        >
+          Portfolio pending ({kpis.partners_portfolio_pending})
+        </button>
+        <button
+          onClick={() => setStatusFilter('portfolio_active')}
+          className={cn(
+            'px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all',
+            statusFilter === 'portfolio_active' ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+          )}
+        >
+          Portfolio active ({kpis.partners_portfolio_active})
         </button>
       </div>
 
@@ -451,10 +484,13 @@ export function PromissoryNotesQueue() {
                           <td className="py-2 pr-3 text-right font-medium text-emerald-600"><CompactAmount value={Number(note.total_collected)} /></td>
                           <td className="py-2 pr-3">{format(new Date(note.created_at), 'dd MMM yyyy')}</td>
                           <td className="py-2 pr-3">
-                            <div className="flex items-center gap-1">
+                            <div className="flex flex-wrap items-center gap-1">
                               <Badge variant="outline" className={cn('text-[10px]', config.color)}>
                                 <StatusIcon className="h-3 w-3 mr-1" />
                                 {config.label}
+                              </Badge>
+                              <Badge variant="outline" className={cn('text-[10px]', stageOf(note).color)}>
+                                {stageOf(note).label}
                               </Badge>
                               {note.came_in && (
                                 <span title="Partner came in" className="inline-flex">
@@ -497,10 +533,15 @@ export function PromissoryNotesQueue() {
                             <p className="text-[11px] text-muted-foreground truncate">Agent: {note.agent_name}</p>
                           </div>
                         </div>
-                        <Badge variant="outline" className={cn('text-[10px] shrink-0', config.color)}>
-                          <StatusIcon className="h-3 w-3 mr-1" />
-                          {config.label}
-                        </Badge>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <Badge variant="outline" className={cn('text-[10px]', config.color)}>
+                            <StatusIcon className="h-3 w-3 mr-1" />
+                            {config.label}
+                          </Badge>
+                          <Badge variant="outline" className={cn('text-[10px]', stageOf(note).color)}>
+                            {stageOf(note).label}
+                          </Badge>
+                        </div>
                       </div>
 
                       <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
@@ -512,6 +553,14 @@ export function PromissoryNotesQueue() {
                           <span className="text-muted-foreground">Fulfilled: </span>
                           <span className="font-medium text-emerald-600"><CompactAmount value={Number(note.total_collected)} /></span>
                         </div>
+                        {(note.portfolio_count ?? 0) > 0 && (
+                          <div className="col-span-2">
+                            <span className="text-muted-foreground">Portfolio: </span>
+                            <span className="font-medium">
+                              {note.portfolio_count} · {formatUGX(Number(note.portfolio_amount || 0))}
+                            </span>
+                          </div>
+                        )}
                         <div className="col-span-2 text-muted-foreground flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
                           {format(new Date(note.created_at), 'dd MMM yyyy')}
