@@ -667,6 +667,7 @@ function CancelRunButton({ runId, status, onDone }: { runId: string; status: str
 }
 
 function ClosePeriodButton({ period, onDone }: { period: PayPeriodRow; onDone: () => void }) {
+  const authority = useRunAuthority();
   const [busy, setBusy] = useState(false);
 
   if (period.status !== 'open') return null;
@@ -675,7 +676,12 @@ function ClosePeriodButton({ period, onDone }: { period: PayPeriodRow; onDone: (
     <Button
       size="sm"
       variant="outline"
-      disabled={busy}
+      disabled={busy || !authority.preparer}
+      title={
+        !authority.preparer
+          ? 'Your position does not hold prepare authority for payroll periods.'
+          : 'Close this period.'
+      }
       onClick={() => {
         setBusy(true);
         closePeriod(period.id)
