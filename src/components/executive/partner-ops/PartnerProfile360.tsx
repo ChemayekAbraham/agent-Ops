@@ -431,9 +431,6 @@ export function PartnerProfile360() {
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {p?.verified && <Badge variant="secondary" className="gap-1 text-[10px]"><ShieldCheck className="h-3 w-3" /> Verified</Badge>}
                   {p?.is_frozen && <Badge variant="destructive" className="gap-1 text-[10px]"><Snowflake className="h-3 w-3" /> Frozen</Badge>}
-                  {(p?.roles || []).map((r: string) => (
-                    <Badge key={r} variant="outline" className="text-[10px]">{r.replace(/_/g, ' ')}</Badge>
-                  ))}
                 </div>
               </div>
               <CardContent className="p-4 pt-3">
