@@ -23,7 +23,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatUGX } from '@/lib/currency';
+import { formatUGX } from '@/lib/rentCalculations';
 import { toast } from 'sonner';
 import { CheckCircle2, XCircle, Percent, Wallet, Megaphone, RefreshCw } from 'lucide-react';
 
