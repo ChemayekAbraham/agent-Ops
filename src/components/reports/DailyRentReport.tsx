@@ -9,6 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, FileDown, FileSpreadsheet, RefreshCw, TrendingUp, Users, HandCoins, Trophy } from 'lucide-react';
 import { format } from 'date-fns';
 import { downloadAuditPdf } from '@/lib/pdfAuditReport';
+import { downloadCsv } from '@/lib/csvExport';
+import { downloadXlsx, downloadXlsxWorkbook } from '@/lib/xlsxExport';
+
 
 const formatUGX = (n: number) => `UGX ${Math.round(Number(n) || 0).toLocaleString('en-UG')}`;
 import {
