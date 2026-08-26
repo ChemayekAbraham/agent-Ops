@@ -347,7 +347,7 @@ export function LandlordCallReportsPanel({
         </div>
 
         {(filterLabel || searchLabel) && (
-          <p className="text-[11px] text-muted-foreground [overflow-wrap:anywhere]">
+          <p className="text-[11px] text-muted-foreground break-words">
             Current filter: <span className="font-semibold text-foreground">{filterLabel || 'All landlords'}</span>
             {searchLabel ? <> · search “{searchLabel}”</> : null} · window {windowLabel}
           </p>
@@ -367,8 +367,8 @@ export function LandlordCallReportsPanel({
                 <Download className="h-4 w-4 shrink-0 text-primary" />
               )}
               <span className="min-w-0">
-                <span className="block text-xs font-semibold [overflow-wrap:anywhere]">{k.label}</span>
-                <span className="block text-[11px] leading-snug text-muted-foreground [overflow-wrap:anywhere]">
+                <span className="block text-xs font-semibold break-words">{k.label}</span>
+                <span className="block text-[11px] leading-snug text-muted-foreground break-words">
                   {k.detail} · {fmt === 'csv' ? 'CSV' : 'Excel'}
                 </span>
               </span>
