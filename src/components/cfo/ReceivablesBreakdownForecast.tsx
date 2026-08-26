@@ -135,6 +135,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Categories with drill-down */}
       <Card>
