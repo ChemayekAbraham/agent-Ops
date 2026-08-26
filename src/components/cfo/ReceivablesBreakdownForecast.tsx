@@ -205,7 +205,6 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
       {/* Predictive, data-driven forecast (separate from the scheduled window above) */}
       <PredictiveReceivablesForecast />
 
-      {/* Proof: how the same model performed against actual collections */}
     </div>
   );
 }
