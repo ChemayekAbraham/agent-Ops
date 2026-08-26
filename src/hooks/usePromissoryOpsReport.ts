@@ -78,6 +78,9 @@ export interface PromissoryNoteRow {
   came_in_name: string | null;
   came_in_at: string | null;
   lead_partner_name: string | null;
+  support_mode: 'self_support' | 'existing_support';
+  reserved_plans: number;
+  reserved_amount: number;
   notes?: string | null;
 }
 

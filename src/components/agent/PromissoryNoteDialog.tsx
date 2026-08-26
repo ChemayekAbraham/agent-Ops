@@ -92,7 +92,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
 
   const phoneDigits = (v: string) => v.replace(/\D/g, '');
   const isValidPhone = (v: string) => { const d = phoneDigits(v); return d.length === 10; };
-  const isValid = validatePersonNameParts(nameParts).valid && isValidPhone(whatsappNumber) && Number(amount) > 0 && (!email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) && (!phoneNumber.trim() || isValidPhone(phoneNumber));
+  const isValid = validatePersonNameParts(nameParts).valid && isValidPhone(whatsappNumber) && Number(amount) > 0 && (!email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) && (!phoneNumber.trim() || isValidPhone(phoneNumber)) && (supportMode !== 'self' || selectedPlanIds.length > 0);
 
   /** Human list of what is still missing — surfaced inline, never silently. */
   const missingFields = (): string[] => {
@@ -103,6 +103,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
     if (!(Number(amount) > 0)) missing.push('Promised amount');
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) missing.push('Valid email');
     if (phoneNumber.trim() && !isValidPhone(phoneNumber)) missing.push('Phone number (10 digits)');
+    if (supportMode === 'self' && selectedPlanIds.length === 0) missing.push('At least one tenant rent plan');
     return missing;
   };
 
@@ -129,6 +130,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
         // DB validation trigger only accepts 'monthly' | 'once_off'.
         // "Compounding" is the UI label for the once-off (lump-sum) note.
         contribution_type: contributionType === 'monthly' ? 'monthly' : 'once_off',
+        support_mode: supportMode === 'self' ? 'self_support' : 'existing_support',
       };
 
       if (contributionType === 'monthly') {
@@ -170,6 +172,10 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
         toast.error(msg);
       } else if (raw.includes('PLANS_EXCEED_AMOUNT')) {
         const msg = 'Attached plans total more than the promised amount.';
+        setErrorMsg(msg);
+        toast.error(msg);
+      } else if (raw.includes('SELF_SUPPORT_PLANS_REQUIRED')) {
+        const msg = 'Select at least one tenant rent plan for self support.';
         setErrorMsg(msg);
         toast.error(msg);
       } else if (/failed to fetch|network|timeout/i.test(raw)) {

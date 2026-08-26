@@ -25740,6 +25740,7 @@ export type Database = {
           partner_user_id: string | null
           phone_number: string | null
           status: string
+          support_mode: string
           total_collected: number
           updated_at: string
           whatsapp_number: string
@@ -25763,6 +25764,7 @@ export type Database = {
           partner_user_id?: string | null
           phone_number?: string | null
           status?: string
+          support_mode?: string
           total_collected?: number
           updated_at?: string
           whatsapp_number: string
@@ -25786,6 +25788,7 @@ export type Database = {
           partner_user_id?: string | null
           phone_number?: string | null
           status?: string
+          support_mode?: string
           total_collected?: number
           updated_at?: string
           whatsapp_number?: string
@@ -46075,6 +46078,7 @@ export type Database = {
         Returns: Json
       }
       smoke_promissory_commissions_authorized: { Args: never; Returns: boolean }
+      smoke_promissory_support_modes: { Args: never; Returns: Json }
       snapshot_agent_daily_eligibility: {
         Args: { p_days?: number }
         Returns: number
