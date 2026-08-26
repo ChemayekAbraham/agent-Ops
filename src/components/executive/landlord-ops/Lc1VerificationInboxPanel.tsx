@@ -9,8 +9,9 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   ShieldQuestion, CheckCircle2, XCircle, Phone, Loader2, UserCircle, MapPin,
   ChevronDown, ChevronUp, Search, FileDown, Clock, BadgeCheck, RefreshCw, X,
-  Inbox, FileClock,
+  Inbox, FileClock, ShieldOff,
 } from 'lucide-react';
+import { ReverseVerificationDialog } from './ReverseVerificationDialog';
 import { cn } from '@/lib/utils';
 import {
   generateLc1VerificationReportPdf,
