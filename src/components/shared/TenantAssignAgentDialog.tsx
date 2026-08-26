@@ -1,14 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Loader2, UserPlus, Home, Check, ChevronsUpDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Loader2, UserPlus, Home, Search, X, User } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
@@ -26,12 +24,16 @@ export default function TenantAssignAgentDialog({
 }: Props) {
   const qc = useQueryClient();
   const [agentId, setAgentId] = useState<string>(currentAgentId || '');
-  const [agentOpen, setAgentOpen] = useState(false);
+  const [agentQuery, setAgentQuery] = useState('');
+  const [agentDropdownOpen, setAgentDropdownOpen] = useState(false);
+  const agentPickerRef = useRef<HTMLDivElement>(null);
   const [listingId, setListingId] = useState<string>('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setAgentId(currentAgentId || '');
+    setAgentQuery('');
+    setAgentDropdownOpen(false);
     setListingId('');
   }, [currentAgentId, rentRequestId, open]);
 
@@ -63,6 +65,26 @@ export default function TenantAssignAgentDialog({
         .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
     },
   });
+
+  const filteredAgents = useMemo(() => {
+    const q = agentQuery.trim().toLowerCase();
+    if (!q) return agents;
+    return agents.filter(a =>
+      (a.full_name || '').toLowerCase().includes(q) ||
+      (a.phone || '').toLowerCase().includes(q)
+    );
+  }, [agents, agentQuery]);
+
+  // Close the agent dropdown when clicking outside the picker.
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (agentPickerRef.current && !agentPickerRef.current.contains(e.target as Node)) {
+        setAgentDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   // Load properties — prefer the rent_request landlord's listings; fall back to vacant listings
   const { data: listings = [] } = useQuery({
@@ -135,81 +157,100 @@ export default function TenantAssignAgentDialog({
           <DialogTitle>Assign Agent &amp; Property — {tenantName}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="space-y-1.5">
+          <div className="space-y-1.5" ref={agentPickerRef}>
             <Label className="text-xs flex items-center gap-1.5">
               <UserPlus className="h-3.5 w-3.5" /> Assigned Agent
             </Label>
-            <Popover open={agentOpen} onOpenChange={setAgentOpen}>
-              <PopoverTrigger asChild>
+            {agentId ? (
+              <div className="flex items-center gap-2 p-2.5 rounded-md border bg-muted/30">
+                <User className="h-4 w-4 text-primary shrink-0" />
+                <div className="flex-1 min-w-0">
+                  {(() => {
+                    const a = agents.find((x) => x.id === agentId);
+                    return a ? (
+                      <>
+                        <p className="text-sm font-medium truncate">{a.full_name || 'Unnamed'}</p>
+                        {a.phone ? <p className="text-xs text-muted-foreground truncate">{a.phone}</p> : null}
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground truncate">Selected agent</p>
+                    );
+                  })()}
+                </div>
                 <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={agentOpen}
-                  className="w-full justify-between px-3 font-normal h-10"
                   type="button"
-                  disabled={agentsLoading}
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => {
+                    setAgentId('');
+                    setAgentQuery('');
+                    setAgentDropdownOpen(true);
+                  }}
                 >
-                  {agentsLoading ? (
-                    <span className="flex items-center gap-2 text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading agents…
-                    </span>
-                  ) : agentId ? (
-                    (() => {
-                      const a = agents.find((x) => x.id === agentId);
-                      return a ? (
-                        <span className="truncate text-left">
-                          {a.full_name || 'Unnamed'}
-                          {a.phone ? <span className="text-muted-foreground ml-1.5">· {a.phone}</span> : null}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">Search and select an agent</span>
-                      );
-                    })()
-                  ) : (
-                    <span className="text-muted-foreground">Search and select an agent</span>
-                  )}
-                  {!agentsLoading && <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />}
+                  Change
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)] min-w-[280px]" align="start">
-                <Command>
-                  <CommandInput placeholder="Type agent name or phone…" />
-                  <CommandList className="max-h-64">
+              </div>
+            ) : (
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder={agentsLoading ? 'Loading agents…' : 'Type agent name or phone…'}
+                  value={agentQuery}
+                  onChange={(e) => {
+                    setAgentQuery(e.target.value);
+                    setAgentDropdownOpen(true);
+                  }}
+                  onFocus={() => setAgentDropdownOpen(true)}
+                  disabled={agentsLoading}
+                  className="pl-9 pr-9"
+                />
+                {agentsLoading ? (
+                  <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+                ) : agentQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => { setAgentQuery(''); setAgentDropdownOpen(true); }}
+                    className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
+                {agentDropdownOpen && (
+                  <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-60 overflow-y-auto">
                     {agentsLoading ? (
                       <div className="py-6 flex justify-center">
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                       </div>
+                    ) : filteredAgents.length === 0 ? (
+                      <div className="px-3 py-2.5 text-sm text-muted-foreground">
+                        {agents.length === 0 ? 'No agents available.' : 'No agent matches your search.'}
+                      </div>
                     ) : (
-                      <>
-                        <CommandEmpty>
-                          {agents.length === 0 ? 'No agents available.' : 'No agent matches your search.'}
-                        </CommandEmpty>
-                        <CommandGroup>
-                          {agents.map((a) => {
-                            const label = `${a.full_name || 'Unnamed'}${a.phone ? ` · ${a.phone}` : ''}`;
-                            return (
-                              <CommandItem
-                                key={a.id}
-                                value={a.id}
-                                keywords={[a.full_name || '', a.phone || '']}
-                                onSelect={() => {
-                                  setAgentId(a.id);
-                                  setAgentOpen(false);
-                                }}
-                              >
-                                <Check className={cn('mr-2 h-4 w-4 shrink-0', agentId === a.id ? 'opacity-100' : 'opacity-0')} />
-                                <span className="truncate">{label}</span>
-                              </CommandItem>
-                            );
-                          })}
-                        </CommandGroup>
-                      </>
+                      filteredAgents.map((a) => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-accent transition-colors"
+                          onClick={() => {
+                            setAgentId(a.id);
+                            setAgentQuery('');
+                            setAgentDropdownOpen(false);
+                          }}
+                        >
+                          <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{a.full_name || 'Unnamed'}</p>
+                            {a.phone ? <p className="text-xs text-muted-foreground truncate">{a.phone}</p> : null}
+                          </div>
+                        </button>
+                      ))
                     )}
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
+                  </div>
+                )}
+              </div>
+            )}
             <p className="text-[10px] text-muted-foreground">Updates the rent plan's collecting agent.</p>
           </div>
 
