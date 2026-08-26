@@ -1608,7 +1608,10 @@ Deno.serve(async (req) => {
       reliability: Math.max(0, Math.min(100, 100 - wRollbackRate * 6 - wErrRate * 10)),
       controls: Math.max(0, 100 - guardrailJobs.length * 22 - Math.max(0, failingJobs.length - guardrailJobs.length) * 6),
       security: Math.min(100, rlsCoverage),
-      customer: Math.min(100, wAuthSuccess * 0.6 + wNotifDelivery * 0.4),
+      // Customer experience scores on people who eventually got in and on true
+      // e-mail delivery (sent/queued), not on the old failed/sent ratio.
+      customer: Math.min(100, siEventualRate * 0.6 + em30Rate * 0.4),
+
       continuity: backupOk ? 100 : 45,
     };
     const boardPillars: { label: string; status: string; tone: Tone; note: string }[] = [
