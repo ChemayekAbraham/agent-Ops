@@ -94,6 +94,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
   return (
     <div className="space-y-3">
       {/* Headline */}
+      {!hideHeadline && (
       <Card className="border-primary/20 bg-primary/5">
         <CardContent className="p-4 space-y-2">
           <div className="flex items-start justify-between gap-3">
