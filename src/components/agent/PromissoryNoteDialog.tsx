@@ -22,7 +22,9 @@ interface PromissoryNoteDialogProps {
 
 export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' }: PromissoryNoteDialogProps) {
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [createdNote, setCreatedNote] = useState<any>(null);
+
   // Flat validation fee for a promissory note, read from the database.
   // null = unavailable (never fall back to a hardcoded figure).
   const [noteRate, setNoteRate] = useState<number | null>(null);
