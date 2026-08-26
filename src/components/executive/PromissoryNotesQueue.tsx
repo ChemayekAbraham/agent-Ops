@@ -302,15 +302,23 @@ export function PromissoryNotesQueue() {
   // name written on the note so a mismatch is visible, never silently accepted.
   const normName = (v?: string | null) =>
     (v || '').toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(Boolean).sort().join(' ');
+  const matchBasisLabel: Record<string, string> = {
+    linked_account: 'linked account',
+    whatsapp_number: 'WhatsApp number',
+    phone_number: 'phone number',
+    email: 'email',
+  };
   const cameInIdentity = (n: any) => {
     if (!n?.came_in || !n?.came_in_name) return null;
+    const serverBasis = n.came_in_match_basis ? matchBasisLabel[String(n.came_in_match_basis)] : null;
     return {
       registeredName: String(n.came_in_name),
-      matchedOn: n.partner_user_id && n.came_in_user_id === n.partner_user_id
+      matchedOn: serverBasis || (n.partner_user_id && n.came_in_user_id === n.partner_user_id
         ? 'linked account'
         : n.email
         ? 'phone or email'
-        : 'phone',
+        : 'phone'),
+      matchedValue: n.came_in_matched_value ? String(n.came_in_matched_value) : null,
       matches: normName(n.came_in_name) === normName(n.partner_name),
     };
   };
@@ -505,7 +513,7 @@ export function PromissoryNotesQueue() {
                                     'block truncate max-w-[160px] text-[10px]',
                                     ci.matches ? 'text-emerald-700' : 'text-amber-700 font-medium',
                                   )}
-                                  title={`Registered as "${ci.registeredName}" · matched on ${ci.matchedOn}${ci.matches ? '' : ' · name differs from the note'}`}
+                                  title={`Registered as "${ci.registeredName}" · matched on ${ci.matchedOn}${ci.matchedValue ? ` (${ci.matchedValue})` : ''}${ci.matches ? '' : ' · name differs from the note'}`}
                                 >
                                   Registered: {ci.registeredName}{ci.matches ? '' : ' ⚠'}
                                 </span>
@@ -686,7 +694,7 @@ export function PromissoryNotesQueue() {
                             Came in as: {ci.registeredName}
                           </p>
                           <p className="text-muted-foreground">
-                            Matched on {ci.matchedOn} · note name: {selectedNote.partner_name}
+                            Matched on {ci.matchedOn}{ci.matchedValue ? ` (${ci.matchedValue})` : ''} · note name: {selectedNote.partner_name}
                           </p>
                           {!ci.matches && (
                             <p className="mt-1 font-medium text-amber-700">
