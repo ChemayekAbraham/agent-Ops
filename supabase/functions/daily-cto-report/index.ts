@@ -2210,8 +2210,9 @@ async function buildBoardPdf(a: BoardArgs): Promise<Uint8Array> {
     page.drawText('WELILE TECHNOLOGIES LIMITED', { x: margin, y: H - 34, size: 8.5, font: bold, color: col(148, 163, 184) });
     page.drawText('Board of Directors — Technology Memo', { x: margin, y: H - 58, size: 17, font: bold, color: col(255, 255, 255) });
     const closing = a.healthClosing ?? a.health;
-    const meanTxt = a.weekly && a.healthMean !== undefined ? `  |  7-day mean ${a.healthMean}/100` : '';
-    page.drawText(`Reporting period ${a.dateStr} (EAT)  |  Health ${closing}/100 on closing day (${a.healthLabel})${meanTxt}`, { x: margin, y: H - 78, size: 9, font, color: col(203, 213, 225) });
+    const meanTxt = a.weekly && a.healthMean !== undefined ? `  |  7-day mean ${a.healthMean}/100 (${a.healthLabel})` : ` (${a.healthLabel})`;
+    page.drawText(`Reporting period ${a.dateStr} (EAT)  |  Health ${closing}/100 on closing day${meanTxt}`, { x: margin, y: H - 78, size: 9, font, color: col(203, 213, 225) });
+
 
     const pn = `Page ${pageNo}`;
     page.drawText(pn, { x: W - margin - bold.widthOfTextAtSize(pn, 8.5), y: H - 78, size: 8.5, font: bold, color: col(203, 213, 225) });
