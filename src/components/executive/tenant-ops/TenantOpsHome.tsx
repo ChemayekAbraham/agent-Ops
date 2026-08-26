@@ -181,12 +181,12 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
                 <div className={cn('rounded-xl p-2 shrink-0', s.tone)}>
                   <s.icon className="h-4 w-4" />
                 </div>
-                <p className="min-w-0 text-[10px] font-semibold uppercase leading-tight tracking-wider text-muted-foreground [overflow-wrap:anywhere] line-clamp-2">
+                <p className="min-w-0 text-[10px] font-semibold uppercase leading-tight tracking-wider text-muted-foreground break-words line-clamp-2">
                   {s.label}
                 </p>
               </div>
               <p className="mt-2 text-xl font-bold tabular-nums leading-none">{isLoading ? '—' : s.value}</p>
-              <p className="mt-1 text-[11px] leading-snug text-muted-foreground [overflow-wrap:anywhere] line-clamp-2">{s.hint}</p>
+              <p className="mt-1 text-[11px] leading-snug text-muted-foreground break-words line-clamp-2">{s.hint}</p>
             </button>
           ))}
         </div>
@@ -267,8 +267,8 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
                   {isLoading ? '—' : a.value}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-xs font-bold leading-snug text-foreground [overflow-wrap:anywhere]">{a.label}</span>
-                  <span className="block text-[11px] leading-snug text-muted-foreground [overflow-wrap:anywhere] line-clamp-2">
+                  <span className="block text-xs font-bold leading-snug text-foreground break-words">{a.label}</span>
+                  <span className="block text-[11px] leading-snug text-muted-foreground break-words line-clamp-2">
                     {a.description}
                   </span>
                 </span>

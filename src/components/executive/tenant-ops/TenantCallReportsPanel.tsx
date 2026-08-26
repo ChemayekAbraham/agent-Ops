@@ -608,13 +608,13 @@ export function TenantCallReportsPanel({
         </div>
 
         {(filterLabel || searchLabel) && (
-          <p className="text-[11px] text-muted-foreground [overflow-wrap:anywhere]">
+          <p className="text-[11px] text-muted-foreground break-words">
             Current filter: <span className="font-semibold text-foreground">{filterLabel || 'All tenants'}</span>
             {searchLabel ? <> · search “{searchLabel}”</> : null} · window {windowLabel}
           </p>
         )}
 
-        <p className="text-[10px] text-muted-foreground [overflow-wrap:anywhere]">
+        <p className="text-[10px] text-muted-foreground break-words">
           {fmt === 'pdf'
             ? 'Branded landscape PDF — Welile header, calling KPIs, calls-per-day chart, status mix donut, district & staff tables and the full comment narrative.'
             : 'Every file is named ' }
@@ -637,11 +637,11 @@ export function TenantCallReportsPanel({
                 <Download className="h-4 w-4 shrink-0 text-primary" />
               )}
               <span className="min-w-0">
-                <span className="block text-xs font-semibold [overflow-wrap:anywhere]">{k.label}</span>
-                <span className="block text-[11px] leading-snug text-muted-foreground [overflow-wrap:anywhere]">
+                <span className="block text-xs font-semibold break-words">{k.label}</span>
+                <span className="block text-[11px] leading-snug text-muted-foreground break-words">
                   {k.detail} · {fmt === 'csv' ? 'CSV' : fmt === 'xlsx' ? 'Excel' : 'PDF'}
                 </span>
-                <span className="mt-0.5 block font-mono text-[9.5px] leading-snug text-muted-foreground/80 [overflow-wrap:anywhere]">
+                <span className="mt-0.5 block font-mono text-[9.5px] leading-snug text-muted-foreground/80 break-words">
                   {KIND_META.get(k.key)?.file}_{fileStamp}.{fmt === 'xlsx' ? 'xlsx' : fmt}
                 </span>
               </span>

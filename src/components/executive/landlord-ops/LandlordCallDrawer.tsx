@@ -27,7 +27,7 @@ const STATUS_OPTIONS: { value: LandlordCallStatus; icon: typeof PhoneCall; activ
 function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
     <div className="min-w-0 rounded-lg border border-border/60 bg-muted/40 p-2">
-      <p className="text-[10px] leading-tight text-muted-foreground [overflow-wrap:anywhere]">{label}</p>
+      <p className="text-[10px] leading-tight text-muted-foreground break-words">{label}</p>
       <p className={cn('mt-0.5 text-sm font-semibold leading-tight tabular-nums break-normal', tone)}>{value}</p>
     </div>
   );
@@ -64,8 +64,8 @@ export function LandlordCallDrawer({
         {row && (
           <>
             <SheetHeader className="text-left">
-              <SheetTitle className="text-base [overflow-wrap:anywhere]">{row.landlord_name}</SheetTitle>
-              <SheetDescription className="text-xs [overflow-wrap:anywhere]">
+              <SheetTitle className="text-base break-words">{row.landlord_name}</SheetTitle>
+              <SheetDescription className="text-xs break-words">
                 {row.phone || 'No phone on file'}
                 {row.house_category ? ` · ${row.house_category.replace(/_/g, ' ')}` : ''}
               </SheetDescription>
@@ -87,7 +87,7 @@ export function LandlordCallDrawer({
             </div>
 
             {(place || row.property_address) && (
-              <p className="mt-2 flex items-start gap-1.5 text-[11px] text-muted-foreground [overflow-wrap:anywhere]">
+              <p className="mt-2 flex items-start gap-1.5 text-[11px] text-muted-foreground break-words">
                 <MapPin className="mt-0.5 h-3 w-3 shrink-0" /> {[place, row.property_address].filter(Boolean).join(' · ')}
               </p>
             )}
@@ -122,13 +122,13 @@ export function LandlordCallDrawer({
             <div className="space-y-1.5">
               <div className="rounded-lg border border-border/60 p-2">
                 <p className="text-[10px] text-muted-foreground">Mobile money</p>
-                <p className="text-xs font-medium [overflow-wrap:anywhere]">
+                <p className="text-xs font-medium break-words">
                   {row.mobile_money_number ? `${row.mobile_money_number}${row.mobile_money_name ? ` · ${row.mobile_money_name}` : ''}` : 'Not on file'}
                 </p>
               </div>
               <div className="rounded-lg border border-border/60 p-2">
                 <p className="text-[10px] text-muted-foreground">Bank</p>
-                <p className="text-xs font-medium [overflow-wrap:anywhere]">
+                <p className="text-xs font-medium break-words">
                   {row.bank_name || row.account_number ? `${row.bank_name || '—'} · ${row.account_number || '—'}` : 'Not on file'}
                 </p>
               </div>
@@ -201,7 +201,7 @@ export function LandlordCallDrawer({
                         {format(new Date(h.called_at), 'dd MMM yyyy · HH:mm')}
                       </span>
                     </div>
-                    {h.comment && <p className="mt-1 text-[11px] [overflow-wrap:anywhere]">{h.comment}</p>}
+                    {h.comment && <p className="mt-1 text-[11px] break-words">{h.comment}</p>}
                     <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
                       <User className="h-2.5 w-2.5" /> logged by staff
                     </p>

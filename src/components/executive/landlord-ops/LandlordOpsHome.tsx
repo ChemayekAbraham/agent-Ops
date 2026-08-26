@@ -363,8 +363,8 @@ export function LandlordOpsHome({ onNavigate }: { onNavigate: (view: LandlordOps
               className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-muted/50 sm:gap-3 sm:px-4"
             >
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold leading-snug [overflow-wrap:anywhere]">{a.label}</p>
-                <p className="text-[11px] leading-snug text-muted-foreground [overflow-wrap:anywhere] line-clamp-2">
+                <p className="text-xs font-semibold leading-snug break-words">{a.label}</p>
+                <p className="text-[11px] leading-snug text-muted-foreground break-words line-clamp-2">
                   {a.description}
                 </p>
               </div>
