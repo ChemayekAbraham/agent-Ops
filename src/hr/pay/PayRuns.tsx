@@ -25,6 +25,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
+  closePeriod,
   createPeriod,
   createRun,
   listPeriods,
@@ -37,6 +38,7 @@ import {
 import { calculateRun, getRunDetail, type RunDetail } from '@/hr/pay/api/calculate';
 import {
   approveRun,
+  cancelRun,
   getStatutoryReturn,
   listExceptions,
   lockRun,
@@ -534,6 +536,7 @@ const STATUS_CLASS: Record<string, string> = {
   approved: 'bg-emerald-100 text-emerald-700',
   paid: 'bg-emerald-100 text-emerald-700',
   locked: 'bg-slate-700 text-slate-50',
+  cancelled: 'bg-muted text-muted-foreground',
 };
 
 /** What the holding position must do next at each status. Empty when complete. */
@@ -577,6 +580,118 @@ function StatusCell({ status }: { status: string }) {
     <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${cls}`}>
       {status}
     </span>
+  );
+}
+
+function CancelRunButton({ runId, status, onDone }: { runId: string; status: string; onDone: () => void }) {
+  const authority = useRunAuthority();
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const canCancel = ['draft', 'calculated', 'in_review', 'returned'].includes(status);
+  if (!canCancel) return null;
+
+  const denied = !authority.preparer;
+  const noteTooShort = note.trim().length < 10;
+
+  const act = async () => {
+    if (noteTooShort) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await cancelRun(runId, note);
+      toast.success('Run cancelled.');
+      setOpen(false);
+      setNote('');
+      onDone();
+    } catch (err) {
+      setError((err as Error).message);
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={busy || denied}
+        title={
+          denied
+            ? 'Your position does not hold prepare authority for payroll runs.'
+            : 'Cancel this run.'
+        }
+        onClick={() => setOpen(true)}
+      >
+        Cancel
+      </Button>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Cancel run</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label htmlFor="cancel-note">Note</Label>
+          <Textarea
+            id="cancel-note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            rows={4}
+            placeholder="Why this run is being cancelled. This is the audit record."
+          />
+          <p className="text-xs text-muted-foreground">
+            At least 10 characters required.
+          </p>
+        </div>
+        {error && (
+          <p role="alert" className="text-xs font-medium text-destructive">
+            {error}
+          </p>
+        )}
+        <DialogFooter>
+          <Button
+            size="sm"
+            disabled={busy || noteTooShort}
+            onClick={() => void act()}
+          >
+            {busy && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+            Confirm cancellation
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ClosePeriodButton({ period, onDone }: { period: PayPeriodRow; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+
+  if (period.status !== 'open') return null;
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      disabled={busy}
+      onClick={() => {
+        setBusy(true);
+        closePeriod(period.id)
+          .then(() => {
+            toast.success(`Period ${period.code} closed.`);
+            onDone();
+          })
+          .catch((err) => {
+            toast.error((err as Error).message);
+          })
+          .finally(() => setBusy(false));
+      }}
+    >
+      {busy && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+      Close
+    </Button>
   );
 }
 
@@ -889,6 +1004,7 @@ export default function PayRuns() {
                   <TableHead>Cut-off</TableHead>
                   <TableHead>Pay date</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -899,6 +1015,9 @@ export default function PayRuns() {
                     <TableCell>{formatDate(p.cut_off_date)}</TableCell>
                     <TableCell>{formatDate(p.pay_date)}</TableCell>
                     <TableCell>{p.status}</TableCell>
+                    <TableCell className="text-right">
+                      <ClosePeriodButton period={p} onDone={() => void load()} />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -967,7 +1086,11 @@ export default function PayRuns() {
                     </TableCell>
                     <TableCell>
                       <span className="text-xs font-medium">
-                        {r.status === 'locked' ? 'Complete' : r.holding_position_title ?? '—'}
+                        {r.status === 'locked'
+                          ? 'Complete'
+                          : r.status === 'cancelled'
+                            ? 'Cancelled'
+                            : r.holding_position_title ?? '—'}
                       </span>
                       {NEXT_ACTION[r.status] && (
                         <span className="block text-[11px] text-muted-foreground">
@@ -981,9 +1104,12 @@ export default function PayRuns() {
                     <TableCell>{formatDate(r.prepared_at)}</TableCell>
                     <TableCell className="text-right">{formatNet(r.total_net)}</TableCell>
                     <TableCell className="text-right">
-                      <Button asChild size="sm" variant="outline">
-                        <Link to={`/hr/pay/runs/${r.id}`}>Open run</Link>
-                      </Button>
+                      <div className="inline-flex items-center gap-2">
+                        <CancelRunButton runId={r.id} status={r.status} onDone={() => void load()} />
+                        <Button asChild size="sm" variant="outline">
+                          <Link to={`/hr/pay/runs/${r.id}`}>Open run</Link>
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
