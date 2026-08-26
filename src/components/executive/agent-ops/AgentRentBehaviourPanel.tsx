@@ -374,6 +374,13 @@ export function AgentRentBehaviourPanel() {
   const [fromDate, setFromDate] = useState(() => isoDaysAgo(29));
   const [toDate, setToDate] = useState(() => todayIso());
   const [sortKey, setSortKey] = useState<SortKey>('recent');
+  const [searchInput, setSearchInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchQuery(searchInput.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   useEffect(() => {
     if (!selected) return;
