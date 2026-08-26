@@ -802,7 +802,70 @@ export function PartnerProfile360() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ═══ WITHDRAWAL DETAIL ═══ */}
+      <Dialog open={!!openWithdrawal} onOpenChange={(o) => !o && setOpenWithdrawal(null)}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex flex-wrap items-center gap-2 text-sm">
+              <Wallet className="h-4 w-4 text-primary" />
+              {money(openWithdrawal?.amount)}
+              {openWithdrawal?.status && <Badge variant="secondary" className="text-[10px] capitalize">{String(openWithdrawal.status).replace(/_/g, ' ')}</Badge>}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {partnerLabel} • requested {fmtDate(openWithdrawal?.created_at, true)}
+            </DialogDescription>
+          </DialogHeader>
+
+          {openWithdrawal && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <Metric label="Amount" value={money(openWithdrawal.amount)} />
+                <Metric label="Method" value={String(openWithdrawal.payout_method || '—').replace(/_/g, ' ')} />
+                <Metric label="Status" value={String(openWithdrawal.status || '—').replace(/_/g, ' ')} />
+                <Metric label="Requested" value={fmtDate(openWithdrawal.created_at, true)} />
+                <Metric label="Processed" value={fmtDate(openWithdrawal.processed_at, true)} />
+                <Metric label="Settlement" value={String(openWithdrawal.settlement_state || '—').replace(/_/g, ' ')} />
+              </div>
+
+              <div className="rounded-lg border p-3">
+                <p className="mb-1 text-xs font-semibold">Who handled it</p>
+                <div className="grid gap-x-4 sm:grid-cols-2">
+                  <Field icon={User} label="Proxy agent" value={proxyAgentLabel(openWithdrawal)} />
+                  <Field icon={Phone} label="Proxy agent phone" value={openWithdrawal.proxy_agent_phone} />
+                  <Field icon={ShieldCheck} label="Processed by" value={openWithdrawal.processed_by_name} />
+                  <Field icon={TrendingUp} label="Priority" value={openWithdrawal.priority_level} />
+                </div>
+              </div>
+
+              <div className="rounded-lg border p-3">
+                <p className="mb-1 text-xs font-semibold">Payout destination</p>
+                <div className="grid gap-x-4 sm:grid-cols-2">
+                  <Field icon={Wallet} label="Mobile money" value={[openWithdrawal.mobile_money_provider, openWithdrawal.mobile_money_number, openWithdrawal.mobile_money_name].filter(Boolean).join(' • ')} />
+                  <Field icon={Wallet} label="Bank" value={[openWithdrawal.bank_name, openWithdrawal.bank_account_number, openWithdrawal.bank_account_name].filter(Boolean).join(' • ')} />
+                  <Field icon={FileText} label="Payout code" value={openWithdrawal.payout_code} />
+                  <Field icon={FileText} label="Finance reference" value={openWithdrawal.fin_ops_reference} />
+                  <Field icon={FileText} label="Transaction ID" value={openWithdrawal.transaction_id} />
+                  <Field icon={User} label="Linked party" value={openWithdrawal.linked_party} />
+                </div>
+              </div>
+
+              <div className="rounded-lg border p-3">
+                <p className="mb-1 text-xs font-semibold">Purpose &amp; notes</p>
+                <Field icon={FileText} label="Purpose" value={cleanReason(openWithdrawal)} />
+                <Field icon={FileText} label="Full recorded reason" value={openWithdrawal.reason} />
+                {openWithdrawal.rejection_reason && (
+                  <Field icon={X} label="Rejection reason" value={openWithdrawal.rejection_reason} />
+                )}
+                <Field icon={CalendarClock} label="Last updated" value={fmtDate(openWithdrawal.updated_at, true)} />
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+
+
 
   );
 }
