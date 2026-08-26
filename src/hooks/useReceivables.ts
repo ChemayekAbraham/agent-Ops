@@ -141,3 +141,109 @@ export function useReceivablesForecast(from: string, to: string, enabled = true)
     staleTime: STALE_TIME,
   });
 }
+
+/* ---------- Predictive forecast (data-driven, modelled from real history) ---------- */
+
+export type ForecastGranularity = 'day' | 'week' | 'month' | 'quarter' | 'year';
+
+export interface PredictiveSource {
+  category_key: string;
+  category_label: string;
+  product_key: string;
+  product_label: string;
+  amount: number;
+  runoff: number;
+  new_origination: number;
+  basis: 'modelled' | 'scheduled';
+}
+
+export interface PredictivePeriod {
+  index: number;
+  period_start: string;
+  period_end: string;
+  forecast_from: string;
+  is_partial_period: boolean;
+  label: string;
+  forecast_amount: number;
+  runoff_amount: number;
+  new_origination_amount: number;
+  scheduled_amount: number;
+  low: number;
+  high: number;
+  confidence: number;
+  quality: 'high' | 'medium' | 'low' | 'insufficient';
+  is_forecast: true;
+  sources: PredictiveSource[];
+}
+
+export interface PredictiveForecast {
+  currency: string;
+  granularity: ForecastGranularity;
+  periods_requested: number;
+  as_at: string;
+  timezone: string;
+  actual: {
+    total: number;
+    item_count: number;
+    overdue: number;
+    not_yet_due: number;
+    categories: { category_key: string; category_label: string; outstanding: number }[];
+  };
+  history: { period_start: string; label: string; actual_amount: number; is_forecast: false }[];
+  periods: PredictivePeriod[];
+  streams: {
+    category_key: string;
+    category_label: string;
+    product_key: string;
+    product_label: string;
+    method: string;
+    sample_days: number;
+    lookback_days: number;
+    median_daily: number;
+    trend_per_week: number;
+    backtest_mape: number | null;
+    seasonality_applied: boolean;
+    insufficient_data: boolean;
+    outstanding: number;
+  }[];
+  scheduled_only_streams: {
+    category_key: string;
+    product_key: string;
+    product_label: string;
+    outstanding: number;
+    reason: string;
+  }[];
+  meta: {
+    history_span_days: number | null;
+    lookback_days: number;
+    method_note: string;
+    source: string;
+  };
+}
+
+/**
+ * Server-side predictive receivables forecast. Models each business line from its own
+ * observed collection history; never hardcoded percentages.
+ */
+export function useReceivablesPredictiveForecast(
+  granularity: ForecastGranularity,
+  periods: number,
+  enabled = true
+) {
+  return useQuery({
+    queryKey: ['receivables-predictive-forecast', granularity, periods],
+    enabled,
+    queryFn: async (): Promise<PredictiveForecast> => {
+      const { data, error } = await (supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>
+      ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        'get_receivables_predictive_forecast',
+        { p_granularity: granularity, p_periods: periods }
+      );
+      if (error) throw error;
+      return data as PredictiveForecast;
+    },
+    staleTime: STALE_TIME,
+  });
+}

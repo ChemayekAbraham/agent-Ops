@@ -42806,6 +42806,10 @@ export type Database = {
         Args: { p_from: string; p_to: string }
         Returns: Json
       }
+      get_receivables_predictive_forecast: {
+        Args: { p_as_at?: string; p_granularity?: string; p_periods?: number }
+        Returns: Json
+      }
       get_receivables_total: { Args: never; Returns: Json }
       get_referral_progress: { Args: { p_referred_id: string }; Returns: Json }
       get_rent_disbursement_report: {

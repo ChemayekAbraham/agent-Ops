@@ -105,3 +105,4 @@
 - [Learned deposit numbers](mem://features/financial-ops/learned-deposit-numbers) — `user_deposit_numbers` third phone→user source learned from manual FinOps routing / high-confidence name match; single `resolve_user_by_known_phone` lookup; conflicts flagged not relinked
 - [Tenant Calling Hub](mem://features/ops/tenant-calling-hub) — Classic → Calling Hub: three-status (pending/closed/missed) append-only tenant call workflow + CSV call reports
 - [SMS sign-up prompt](mem://features/sms/signup-prompt) — Every non-OTP SMS ends with "Not on Welile yet? Sign up: welileapp.com/wjoin"; OTP senders opt out via `_shared/noSignupPrompt.ts`
+- [Predictive receivables forecast](mem://features/cfo/predictive-receivables-forecast) — `get_receivables_predictive_forecast` RPC + CFO UI: per-stream models from real collection history, runoff vs new origination, confidence/quality, no hardcoded growth rates
