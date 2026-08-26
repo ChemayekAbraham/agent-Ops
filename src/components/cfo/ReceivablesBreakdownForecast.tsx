@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react';
-import { addDays, addMonths, format } from 'date-fns';
+import { useState } from 'react';
+import { format } from 'date-fns';
 import {
   AlertTriangle,
-  CalendarClock,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -10,24 +9,12 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
 import PredictiveReceivablesForecast from '@/components/cfo/PredictiveReceivablesForecast';
 import ForecastAccuracyPanel from '@/components/cfo/ForecastAccuracyPanel';
-import {
-  useReceivablesBreakdown,
-  useReceivablesForecast,
-  useReceivablesTotal,
-} from '@/hooks/useReceivables';
+import { useReceivablesBreakdown, useReceivablesTotal } from '@/hooks/useReceivables';
+
 
 type PresetKey =
   | 'today'
