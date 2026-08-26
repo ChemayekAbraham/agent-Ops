@@ -15,44 +15,6 @@ import PredictiveReceivablesForecast from '@/components/cfo/PredictiveReceivable
 import ForecastAccuracyPanel from '@/components/cfo/ForecastAccuracyPanel';
 import { useReceivablesBreakdown, useReceivablesTotal } from '@/hooks/useReceivables';
 
-
-type PresetKey =
-  | 'today'
-  | 'tomorrow'
-  | 'next_7'
-  | 'next_month'
-  | 'next_3m'
-  | 'next_6m'
-  | 'next_12m'
-  | 'custom';
-
-const PRESETS: { key: PresetKey; label: string }[] = [
-  { key: 'today', label: 'Today' },
-  { key: 'tomorrow', label: 'Tomorrow' },
-  { key: 'next_7', label: 'Next 7 days' },
-  { key: 'next_month', label: 'Next month' },
-  { key: 'next_3m', label: 'Next 3 months' },
-  { key: 'next_6m', label: 'Next 6 months' },
-  { key: 'next_12m', label: 'Next 12 months' },
-  { key: 'custom', label: 'Custom range' },
-];
-
-const iso = (d: Date) => format(d, 'yyyy-MM-dd');
-
-function presetRange(preset: PresetKey): { from: string; to: string } {
-  const today = new Date();
-  switch (preset) {
-    case 'today':
-      return { from: iso(today), to: iso(today) };
-    case 'tomorrow': {
-      const t = addDays(today, 1);
-      return { from: iso(t), to: iso(t) };
-    }
-    case 'next_7':
-      return { from: iso(today), to: iso(addDays(today, 7)) };
-    case 'next_month':
-      return { from: iso(today), to: iso(addMonths(today, 1)) };
-    case 'next_3m':
       return { from: iso(today), to: iso(addMonths(today, 3)) };
     case 'next_6m':
       return { from: iso(today), to: iso(addMonths(today, 6)) };
