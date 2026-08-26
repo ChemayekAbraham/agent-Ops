@@ -39852,6 +39852,10 @@ export type Database = {
       cleanup_expired_otps: { Args: never; Returns: undefined }
       cleanup_mcp_public_rate_limits: { Args: never; Returns: undefined }
       cleanup_old_system_events: { Args: never; Returns: undefined }
+      commission_withdrawal_available: {
+        Args: { p_user_id: string }
+        Returns: number
+      }
       complete_agent_capability_batch: {
         Args: { _affected: number; _batch_id: number; _error?: string }
         Returns: Json
