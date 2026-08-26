@@ -27,6 +27,16 @@ interface Props {
   onDone?: (status: PayoutRow["status"]) => void;
 }
 
+/** "3 hours", "2 days" — how long a submitted payment has been waiting. */
+function waitingFor(since: string): string {
+  const ms = Date.now() - new Date(since).getTime();
+  const mins = Math.max(1, Math.round(ms / 60000));
+  if (mins < 60) return `${mins} min`;
+  const hours = Math.round(mins / 60);
+  if (hours < 48) return `${hours} hour${hours === 1 ? "" : "s"}`;
+  return `${Math.round(hours / 24)} days`;
+}
+
 export function LandlordPayoutProgress({ payoutId, landlordName, onDone }: Props) {
   const [payout, setPayout] = useState<PayoutRow | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(300);
@@ -178,8 +188,13 @@ export function LandlordPayoutProgress({ payoutId, landlordName, onDone }: Props
           {isPendingFinops && (
             <p className="text-xs text-muted-foreground mt-2 max-w-xs mx-auto">
               {payout.status === "pending_merchant_payout"
-                ? "Float deducted. A merchant agent will pay the landlord from the Cash, Mobile Money & Bank payout queue — you'll be notified."
-                : "Float deducted. The money will be released to the landlord shortly — you'll be notified."}
+                ? "Your float is held for this payment — it has not been spent twice. A merchant agent will pay the landlord from the Cash, Mobile Money & Bank payout queue, and you'll be notified. Do not send it again."
+                : "Your float is held for this payment. The money will be released to the landlord shortly — you'll be notified."}
+            </p>
+          )}
+          {isPendingFinops && payout.otp_verified_at && (
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Waiting {waitingFor(payout.otp_verified_at)} so far
             </p>
           )}
         </div>

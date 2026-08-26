@@ -4,8 +4,12 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatUGX } from '@/lib/rentCalculations';
-import { useLandlordFloatAllocations, type LandlordFloatAllocation } from '@/hooks/useLandlordFloatAllocations';
-import { Loader2, Landmark, ArrowRight, Inbox, User, Phone, Search, Lock } from 'lucide-react';
+import {
+  useLandlordFloatAllocations,
+  describeInflightPayout,
+  type LandlordFloatAllocation,
+} from '@/hooks/useLandlordFloatAllocations';
+import { Loader2, Landmark, ArrowRight, Inbox, User, Phone, Search, Lock, Clock3 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -67,6 +71,15 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
     const key = allocationLockKey(a);
     const expiry = locks[key];
     if (expiry && expiry > Date.now()) return; // still locked — ignore the tap
+    // A payout the agent already submitted is still working through the
+    // merchant queue. Opening the wizard here would show a payment form pinned
+    // at "Available to pay: UGX 0" (the float is held for that payout), which
+    // reads as the app having eaten their money. Let the wizard open so it can
+    // show the payout's progress, but do NOT burn a withdrawal lock on it.
+    if (a.inflight_payout) {
+      onSelectAllocation(a);
+      return;
+    }
     const next = { ...loadLocks(user?.id), [key]: Date.now() + WITHDRAW_LOCK_MS };
     setLocks(next);
     setNow(Date.now());
@@ -88,7 +101,16 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
     );
   }, [allocations, search]);
 
-  const totalRemaining = filtered.reduce((sum, a) => sum + a.remaining_amount, 0);
+  // Split the header total so "ring-fenced" only counts what the agent can
+  // still act on. Lumping already-submitted payouts in here is what made the
+  // total look spendable while the payout wizard sat at "Available to pay: 0".
+  const totalPayable = filtered
+    .filter((a) => !a.inflight_payout)
+    .reduce((sum, a) => sum + a.remaining_amount, 0);
+  const totalInflight = filtered.reduce(
+    (sum, a) => sum + (a.inflight_payout?.amount ?? 0),
+    0,
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -117,9 +139,21 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
           </div>
         ) : (
           <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
-            <div className="shrink-0 px-4 py-3 bg-muted/30 border-b flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">Total ring-fenced</span>
-              <span className="font-bold text-foreground">{formatUGX(totalRemaining)}</span>
+            <div className="shrink-0 px-4 py-3 bg-muted/30 border-b space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Ready to pay</span>
+                <span className="font-bold text-foreground">{formatUGX(totalPayable)}</span>
+              </div>
+              {totalInflight > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-amber-600 dark:text-amber-500">
+                    Already sent — waiting for a merchant
+                  </span>
+                  <span className="text-xs font-semibold text-amber-600 dark:text-amber-500">
+                    {formatUGX(totalInflight)}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="shrink-0 px-3 py-2 border-b">
               <div className="relative">
@@ -150,6 +184,11 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                   const isLocked = remainingMs > 0;
                   const mins = Math.floor(remainingMs / 60000);
                   const secs = Math.floor((remainingMs % 60000) / 1000);
+                  // Already submitted and still moving through the merchant
+                  // queue — this row is not work to do, it is work to track.
+                  const inflight = a.inflight_payout
+                    ? describeInflightPayout(a.inflight_payout)
+                    : null;
                   return (
                   <button
                     key={a.id}
@@ -159,7 +198,9 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                     className={`w-full text-left p-3 rounded-xl border-2 transition-colors touch-manipulation ${
                       isLocked
                         ? 'border-border bg-muted/40 opacity-60 cursor-not-allowed'
-                        : 'border-border bg-card hover:border-[#9234EA]/40 hover:bg-[#9234EA]/5 active:scale-[0.99]'
+                        : inflight
+                          ? 'border-amber-500/40 bg-amber-500/5 hover:border-amber-500/60'
+                          : 'border-border bg-card hover:border-[#9234EA]/40 hover:bg-[#9234EA]/5 active:scale-[0.99]'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
@@ -181,7 +222,12 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                           </div>
                         )}
                       </div>
-                      {a.status === 'partially_paid' && (
+                      {inflight && (
+                        <Badge className="text-[9px] shrink-0 bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/15">
+                          {inflight.label}
+                        </Badge>
+                      )}
+                      {!inflight && a.status === 'partially_paid' && (
                         <Badge variant="secondary" className="text-[9px] shrink-0">Partial</Badge>
                       )}
                       {a.source === 'legacy_backfill' && (
@@ -190,9 +236,13 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                     </div>
                     <div className="flex items-end justify-between gap-2">
                       <div>
-                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Remaining</div>
-                        <div className="font-bold text-base text-[#9234EA]">{formatUGX(a.remaining_amount)}</div>
-                        {a.paid_out_amount > 0 && (
+                        <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                          {inflight ? 'Sent' : 'Remaining'}
+                        </div>
+                        <div className={`font-bold text-base ${inflight ? 'text-amber-600 dark:text-amber-500' : 'text-[#9234EA]'}`}>
+                          {formatUGX(inflight ? a.inflight_payout!.amount : a.remaining_amount)}
+                        </div>
+                        {!inflight && a.paid_out_amount > 0 && (
                           <div className="text-[10px] text-muted-foreground">
                             Paid: {formatUGX(a.paid_out_amount)} / {formatUGX(a.allocated_amount)}
                           </div>
@@ -204,6 +254,11 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                             <Lock className="h-3.5 w-3.5" />
                             {mins}:{secs.toString().padStart(2, '0')}
                           </span>
+                        ) : inflight ? (
+                          <span className="flex items-center gap-1 text-amber-600 dark:text-amber-500">
+                            <Clock3 className="h-3.5 w-3.5" />
+                            Track
+                          </span>
                         ) : (
                           <>
                             Withdraw
@@ -212,6 +267,11 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                         )}
                       </div>
                     </div>
+                    {inflight && (
+                      <p className="mt-2 text-[11px] leading-snug text-muted-foreground border-t border-amber-500/20 pt-2">
+                        {inflight.detail}
+                      </p>
+                    )}
                   </button>
                   );
                 })}
