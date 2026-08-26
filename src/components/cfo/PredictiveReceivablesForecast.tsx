@@ -172,6 +172,7 @@ export default function PredictiveReceivablesForecast() {
         'High',
         'Confidence',
         'Quality',
+        'Why this quality',
       ],
       ...data.periods.map((p) => [
         p.label,
@@ -185,6 +186,7 @@ export default function PredictiveReceivablesForecast() {
         p.high,
         p.confidence,
         p.quality,
+        p.quality_reason ?? '',
       ]),
     ]);
   };
@@ -393,6 +395,12 @@ export default function PredictiveReceivablesForecast() {
                                   Scheduled {formatUGX(p.scheduled_amount)}
                                 </Badge>
                               </div>
+                              {p.quality_reason && (
+                                <p className="text-[9px] text-muted-foreground flex items-start gap-1 mb-1">
+                                  <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                                  Why {p.quality} confidence: {p.quality_reason}
+                                </p>
+                              )}
                               {p.sources.length === 0 ? (
                                 <p className="text-[9px] text-muted-foreground">
                                   No modelled inflow in this period.
@@ -456,6 +464,12 @@ export default function PredictiveReceivablesForecast() {
                         <th className="text-right px-2 py-1 font-medium hidden sm:table-cell">
                           Trend / week
                         </th>
+                        <th className="text-right px-2 py-1 font-medium hidden md:table-cell">
+                          New / day
+                        </th>
+                        <th className="text-right px-2 py-1 font-medium hidden md:table-cell">
+                          Collected
+                        </th>
                         <th className="text-right px-2 py-1 font-medium">History</th>
                       </tr>
                     </thead>
@@ -478,6 +492,16 @@ export default function PredictiveReceivablesForecast() {
                           <td className="px-2 py-1 text-right font-mono hidden sm:table-cell">
                             {s.insufficient_data ? '—' : formatUGX(s.trend_per_week)}
                           </td>
+                          <td className="px-2 py-1 text-right font-mono hidden md:table-cell">
+                            {s.origination ? formatUGX(s.origination.daily_new_receivables) : '—'}
+                          </td>
+                          <td className="px-2 py-1 text-right hidden md:table-cell text-muted-foreground">
+                            {s.origination
+                              ? `${Math.round(s.origination.collection_rate * 100)}% / ${Math.round(
+                                  s.origination.term_days
+                                )}d`
+                              : '—'}
+                          </td>
                           <td className="px-2 py-1 text-right text-muted-foreground">
                             {s.sample_days}d of {s.lookback_days}d
                           </td>
@@ -498,10 +522,24 @@ export default function PredictiveReceivablesForecast() {
                   </p>
                 )}
 
+                {(data.origination_only_streams ?? []).length > 0 && (
+                  <p className="text-[9px] text-muted-foreground flex items-start gap-1">
+                    <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                    No record of new business being written for:{' '}
+                    {data.origination_only_streams
+                      .map((s) => `${s.product_label} (${formatUGX(s.outstanding)})`)
+                      .join(', ')}
+                    . These forecast the run-off of the existing book only — no new receivables are
+                    assumed.
+                  </p>
+                )}
+
                 <p className="text-[9px] text-muted-foreground">
                   {data.meta.method_note} History available:{' '}
-                  {data.meta.history_span_days ?? 0} days. Horizons beyond one year are extrapolation
-                  and are flagged low quality.
+                  {data.meta.history_span_days ?? 0} days. Any period ending beyond that span is
+                  extrapolation: it can never be shown as high confidence, and periods more than
+                  twice the span away — including every future year — are always flagged low and
+                  should be read as directional only.
                 </p>
               </div>
             )}
