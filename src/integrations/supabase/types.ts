@@ -38059,6 +38059,7 @@ export type Database = {
           category_key: string | null
           category_label: string | null
           counterparty_id: string | null
+          counterparty_name: string | null
           created_at: string | null
           daily_amount: number | null
           due_date: string | null
@@ -40137,6 +40138,17 @@ export type Database = {
         }
         Returns: Json
       }
+      credit_proxy_agent_portfolio_commission: {
+        Args: {
+          p_base_amount: number
+          p_dedupe_key?: string
+          p_kind: string
+          p_partner_id: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: Json
+      }
       credit_proxy_approval:
         | {
             Args: {
@@ -41509,10 +41521,6 @@ export type Database = {
           wallet_bucket: string
         }[]
       }
-      get_cfo_receivables_breakdown_forecast: {
-        Args: { p_as_at?: string }
-        Returns: Json
-      }
       get_cfo_weekly_report: { Args: { p_end?: string }; Returns: Json }
       get_chain_health_summary: {
         Args: never
@@ -42588,6 +42596,7 @@ export type Database = {
         Args: { p_from: string; p_to: string }
         Returns: Json
       }
+      get_receivables_total: { Args: never; Returns: Json }
       get_referral_progress: { Args: { p_referred_id: string }; Returns: Json }
       get_rent_disbursement_report: {
         Args: { p_end: string; p_start: string }
@@ -45269,6 +45278,15 @@ export type Database = {
         Returns: number
       }
       recalculate_credit_limit: { Args: { p_user_id: string }; Returns: number }
+      receivables_category_frame: {
+        Args: never
+        Returns: {
+          category_key: string
+          category_label: string
+          sort_order: number
+        }[]
+      }
+      receivables_guard: { Args: never; Returns: undefined }
       recompute_agent_earned_vouch:
         | { Args: { p_agent_id: string }; Returns: number }
         | {
@@ -45735,6 +45753,15 @@ export type Database = {
       resolve_payout_merchant_identity: {
         Args: { p_actor_id: string }
         Returns: Json
+      }
+      resolve_promissory_note_for_partner: {
+        Args: { p_kind?: string; p_partner_id: string }
+        Returns: {
+          agent_id: string
+          match_basis: string
+          matched_value: string
+          note_id: string
+        }[]
       }
       resolve_service_center_manager_for_agent: {
         Args: { p_agent_id: string }
@@ -46285,6 +46312,17 @@ export type Database = {
           p_source_table: string
         }
         Returns: undefined
+      }
+      try_credit_proxy_agent_portfolio_commission: {
+        Args: {
+          p_base_amount: number
+          p_dedupe_key?: string
+          p_kind: string
+          p_partner_id: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: Json
       }
       try_credit_qualified_referrals: {
         Args: { p_referred_id: string }
