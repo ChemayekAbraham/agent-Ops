@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Loader2, AlertTriangle, Download, Search, RefreshCw } from 'lucide-react';
+import { Loader2, AlertTriangle, Download, Search, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatUGX } from '@/lib/rentCalculations';
 
@@ -65,12 +65,20 @@ interface Report {
     agents_affected: number;
     tenants_affected: number;
   } | null;
+  confirmed_partials_total?: number;
   by_agent: AgentRow[];
   by_tenant: TenantRow[];
   confirmed_partials: PartialRow[];
 }
 
-const PERIODS = [7, 30, 90, 180] as const;
+const PERIODS = [
+  { value: 1, label: 'Today' },
+  { value: 7, label: '7d' },
+  { value: 30, label: '30d' },
+  { value: 90, label: '90d' },
+  { value: 180, label: '180d' },
+] as const;
+const PAGE_SIZE = 15;
 
 /** Single CSV writer reused by every section (DRY). */
 function exportCsv(name: string, rows: Record<string, unknown>[]) {
@@ -100,14 +108,41 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'wa
   );
 }
 
+function Pagination({ page, total, pageSize, onChange }: { page: number; total: number; pageSize: number; onChange: (page: number) => void }) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const start = total === 0 ? 0 : page * pageSize + 1;
+  const end = Math.min((page + 1) * pageSize, total);
+  return (
+    <div className="flex items-center justify-between gap-3 pt-2">
+      <p className="text-xs text-muted-foreground">
+        Showing <span className="font-medium text-foreground">{start}-{end}</span> of <span className="font-medium text-foreground">{total}</span>
+      </p>
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" onClick={() => onChange(page - 1)} disabled={page <= 0}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <span className="text-xs tabular-nums">Page {page + 1} / {totalPages}</span>
+        <Button size="sm" variant="outline" onClick={() => onChange(page + 1)} disabled={page >= totalPages - 1}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function PartialCollectionsPanel() {
   const [days, setDays] = useState<number>(30);
   const [search, setSearch] = useState('');
+  const [partialPage, setPartialPage] = useState(0);
 
   const { data, isLoading, error, refetch, isRefetching } = useQuery({
-    queryKey: ['agent-ops-partial-collections', days],
+    queryKey: ['agent-ops-partial-collections', days, partialPage],
     queryFn: async (): Promise<Report> => {
-      const { data, error } = await supabase.rpc('agent_ops_partial_collection_report', { p_days: days });
+      const { data, error } = await supabase.rpc('agent_ops_partial_collection_report', {
+        p_days: days,
+        p_limit: PAGE_SIZE,
+        p_offset: partialPage * PAGE_SIZE,
+      });
       if (error) throw error;
       return data as unknown as Report;
     },
@@ -147,8 +182,13 @@ export function PartialCollectionsPanel() {
             </div>
             <div className="flex items-center gap-2">
               {PERIODS.map(p => (
-                <Button key={p} size="sm" variant={days === p ? 'default' : 'outline'} onClick={() => setDays(p)}>
-                  {p}d
+                <Button
+                  key={p.value}
+                  size="sm"
+                  variant={days === p.value ? 'default' : 'outline'}
+                  onClick={() => { setPartialPage(0); setDays(p.value); }}
+                >
+                  {p.label}
                 </Button>
               ))}
               <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isRefetching}>
@@ -313,6 +353,12 @@ export function PartialCollectionsPanel() {
                       </tbody>
                     </table>
                   </div>
+                  <Pagination
+                    page={partialPage}
+                    total={data?.confirmed_partials_total ?? partials.length}
+                    pageSize={PAGE_SIZE}
+                    onChange={setPartialPage}
+                  />
                 </TabsContent>
               </Tabs>
             </>

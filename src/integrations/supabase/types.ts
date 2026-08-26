@@ -38932,10 +38932,12 @@ export type Database = {
           whitelisted: boolean
         }[]
       }
-      agent_ops_partial_collection_report: {
-        Args: { p_days?: number }
-        Returns: Json
-      }
+      agent_ops_partial_collection_report:
+        | { Args: { p_days?: number }; Returns: Json }
+        | {
+            Args: { p_days?: number; p_limit?: number; p_offset?: number }
+            Returns: Json
+          }
       agent_ops_qualifying_agent_ids: {
         Args: never
         Returns: {
