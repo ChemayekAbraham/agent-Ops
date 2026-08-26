@@ -530,7 +530,11 @@ export function DailyRentReport({ mode }: Props) {
           <div className="text-sm font-semibold">
             {mode === 'tenant' ? 'Daily Repayments' : 'Daily Collections'} · {filtered.length} rows
           </div>
-          {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          <div className="flex items-center gap-2">
+            {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            <SectionReportExport section="transactions" mode={mode} pageDate={date} />
+          </div>
+
         </div>
         <div className="overflow-x-auto max-h-[560px]">
           <table className="w-full text-xs">
