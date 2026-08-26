@@ -574,7 +574,11 @@ export function DailyRentReport({ mode }: Props) {
       {/* Agent performance (agent mode only) */}
       {mode === 'agent' && (
         <Card className="p-0 overflow-hidden">
-          <div className="p-3 border-b text-sm font-semibold">Agent Performance — sorted by amount</div>
+          <div className="p-3 border-b flex items-center justify-between">
+            <div className="text-sm font-semibold">Agent Performance — sorted by amount</div>
+            <SectionReportExport section="agents" mode={mode} pageDate={date} />
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="bg-muted">
