@@ -564,6 +564,15 @@ export function PromissoryNotesQueue() {
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">{note.partner_name}</p>
                             <p className="text-[11px] text-muted-foreground truncate">Agent: {note.agent_name}</p>
+                            {(() => {
+                              const ci = cameInIdentity(note);
+                              if (!ci) return null;
+                              return (
+                                <p className={cn('text-[11px] truncate', ci.matches ? 'text-emerald-700' : 'text-amber-700 font-medium')}>
+                                  Registered: {ci.registeredName}{ci.matches ? '' : ' ⚠ differs'}
+                                </p>
+                              );
+                            })()}
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-1 shrink-0">
