@@ -290,7 +290,7 @@ export default function PredictiveReceivablesForecast() {
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Actual recorded
               </p>
-              <p className="mt-1.5 break-words font-mono text-base font-bold tabular-nums sm:text-lg">
+              <p className="mt-1.5 break-words font-mono text-sm font-bold tabular-nums sm:text-base lg:text-lg">
                 {formatUGX(data.actual.total)}
               </p>
               <p className="mt-1.5 text-[10px] text-muted-foreground">
@@ -301,7 +301,7 @@ export default function PredictiveReceivablesForecast() {
               <p className="text-[10px] font-semibold uppercase tracking-wider text-destructive">
                 Overdue
               </p>
-              <p className="mt-1.5 break-words font-mono text-base font-bold tabular-nums text-destructive sm:text-lg">
+              <p className="mt-1.5 break-words font-mono text-sm font-bold tabular-nums text-destructive sm:text-base lg:text-lg">
                 {formatUGX(data.actual.overdue)}
               </p>
               <p className="mt-1.5 text-[10px] text-muted-foreground">Past due date</p>
@@ -310,21 +310,21 @@ export default function PredictiveReceivablesForecast() {
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                 Not yet due
               </p>
-              <p className="mt-1.5 break-words font-mono text-base font-bold tabular-nums sm:text-lg">
+              <p className="mt-1.5 break-words font-mono text-sm font-bold tabular-nums sm:text-base lg:text-lg">
                 {formatUGX(data.actual.not_yet_due)}
               </p>
               <p className="mt-1.5 text-[10px] text-muted-foreground">On the books</p>
             </div>
             <div className="bg-primary/5 p-4 sm:p-5">
               <div className="flex items-start justify-between gap-2">
-                <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                <p className="flex items-center gap-1 whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-primary">
                   <TrendingUp className="h-3 w-3" /> Forecast (est.)
                 </p>
-                <Badge className="shrink-0 border-0 bg-primary/15 px-1.5 py-0 text-[9px] font-bold uppercase text-primary">
+                <Badge className="hidden shrink-0 border-0 bg-primary/15 px-1.5 py-0 text-[9px] font-bold uppercase text-primary sm:inline-flex">
                   {horizonLabel}
                 </Badge>
               </div>
-              <p className="mt-1.5 break-words font-mono text-base font-bold tabular-nums text-primary sm:text-lg">
+              <p className="mt-1.5 break-words font-mono text-sm font-bold tabular-nums text-primary sm:text-base lg:text-lg">
                 {formatUGX(horizonTotal)}
               </p>
               <p className="mt-1.5 text-[10px] text-primary/70">
