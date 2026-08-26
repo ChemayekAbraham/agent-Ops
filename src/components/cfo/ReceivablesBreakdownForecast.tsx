@@ -78,18 +78,9 @@ function presetRange(preset: PresetKey): { from: string; to: string } {
 export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHeadline?: boolean } = {}) {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [openProduct, setOpenProduct] = useState<string | null>(null);
-  const [preset, setPreset] = useState<PresetKey>('next_7');
-  const [customFrom, setCustomFrom] = useState(iso(new Date()));
-  const [customTo, setCustomTo] = useState(iso(addDays(new Date(), 30)));
-
   const total = useReceivablesTotal();
   const breakdown = useReceivablesBreakdown();
 
-  const range = useMemo(
-    () => (preset === 'custom' ? { from: customFrom, to: customTo } : presetRange(preset)),
-    [preset, customFrom, customTo]
-  );
-  const forecast = useReceivablesForecast(range.from, range.to);
 
   const validation = breakdown.data?.validation;
 
