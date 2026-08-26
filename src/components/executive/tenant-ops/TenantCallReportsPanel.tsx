@@ -600,9 +600,9 @@ export function TenantCallReportsPanel({
             All tenants ({rows.length.toLocaleString('en-US')})
           </Button>
           <span className="ml-auto text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Format</span>
-          {(['csv', 'xlsx'] as const).map(f => (
+          {(['csv', 'xlsx', 'pdf'] as const).map(f => (
             <Button key={f} size="sm" variant={fmt === f ? 'default' : 'outline'} className="h-7 px-2 text-[11px]" onClick={() => setFmt(f)}>
-              {f === 'csv' ? 'CSV' : 'Excel'}
+              {f === 'csv' ? 'CSV' : f === 'xlsx' ? 'Excel' : 'PDF'}
             </Button>
           ))}
         </div>
@@ -613,6 +613,15 @@ export function TenantCallReportsPanel({
             {searchLabel ? <> · search “{searchLabel}”</> : null} · window {windowLabel}
           </p>
         )}
+
+        <p className="text-[10px] text-muted-foreground [overflow-wrap:anywhere]">
+          {fmt === 'pdf'
+            ? 'Branded landscape PDF — Welile header, calling KPIs, calls-per-day chart, status mix donut, district & staff tables and the full comment narrative.'
+            : 'Every file is named ' }
+          {fmt !== 'pdf' && (
+            <span className="font-mono text-foreground">Welile_Tenant-Calling-Hub_&lt;Report&gt;_{fileStamp}.{fmt === 'csv' ? 'csv' : 'xlsx'}</span>
+          )}
+        </p>
 
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {KINDS.map(k => (
@@ -630,12 +639,16 @@ export function TenantCallReportsPanel({
               <span className="min-w-0">
                 <span className="block text-xs font-semibold [overflow-wrap:anywhere]">{k.label}</span>
                 <span className="block text-[11px] leading-snug text-muted-foreground [overflow-wrap:anywhere]">
-                  {k.detail} · {fmt === 'csv' ? 'CSV' : 'Excel'}
+                  {k.detail} · {fmt === 'csv' ? 'CSV' : fmt === 'xlsx' ? 'Excel' : 'PDF'}
+                </span>
+                <span className="mt-0.5 block font-mono text-[9.5px] leading-snug text-muted-foreground/80 [overflow-wrap:anywhere]">
+                  {KIND_META.get(k.key)?.file}_{fileStamp}.{fmt === 'xlsx' ? 'xlsx' : fmt}
                 </span>
               </span>
             </button>
           ))}
         </div>
+
       </CardContent>
     </Card>
   );
