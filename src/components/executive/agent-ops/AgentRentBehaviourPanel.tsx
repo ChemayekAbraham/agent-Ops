@@ -303,6 +303,13 @@ export function AgentRentBehaviourPanel() {
   const [selected, setSelected] = useState<RentBehaviourRow | null>(null);
   const [detailTab, setDetailTab] = useState('overview');
 
+  useEffect(() => {
+    if (!selected) return;
+    const node = document.getElementById('rent-behaviour-drilldown');
+    node?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [selected]);
+
+
   const offset = page * PAGE_SIZE;
 
   const loadRows = useCallback(async (nextOffset: number, silent = false) => {
