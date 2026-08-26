@@ -486,7 +486,11 @@ export function DailyRentReport({ mode }: Props) {
           </div>
         </Card>
         <Card className="p-3">
-          <div className="text-xs font-semibold mb-2">By Payment Method</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-semibold">By Payment Method</div>
+            <SectionReportExport section="method" mode={mode} pageDate={date} />
+          </div>
+
           <div className="h-52">
             <ResponsiveContainer>
               <BarChart data={byMethod}>
