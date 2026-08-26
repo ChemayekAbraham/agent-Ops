@@ -253,6 +253,12 @@ function exportRows(rows: RentBehaviourRow[]) {
     row.tenant_phone ?? '—',
     formatDateTime(row.last_collection_at),
     Math.round(num(row.last_collection_amount)),
+    Math.round(num(row.paid_today)),
+    Math.round(num(row.expected_today)),
+    Math.round(num(row.paid_in_period)),
+    Math.round(num(row.expected_in_period)),
+    num(row.missed_days),
+    num(row.paid_days),
     Math.round(num(row.amount_collected)),
     Math.round(num(row.remaining_balance)),
     row.collection_mode,
@@ -271,6 +277,12 @@ const exportHeaders = [
   'Tenant Phone',
   'Last Collection',
   'Last Amount (UGX)',
+  'Paid Today (UGX)',
+  'Expected Today (UGX)',
+  'Paid In Period (UGX)',
+  'Expected In Period (UGX)',
+  'Days Missed',
+  'Days Paid',
   'Total Collected (UGX)',
   'Remaining Balance (UGX)',
   'Collection Mode',
@@ -280,6 +292,7 @@ const exportHeaders = [
   'On-Time Rate',
   'Typical Payment Hour',
 ];
+
 
 function modeVariant(mode: string) {
   if (mode === 'Daily') return 'success' as const;
