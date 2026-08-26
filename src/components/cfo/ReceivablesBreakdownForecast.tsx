@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
+import PredictiveReceivablesForecast from '@/components/cfo/PredictiveReceivablesForecast';
 import {
   useReceivablesBreakdown,
   useReceivablesForecast,
@@ -426,6 +427,9 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
           )}
         </CardContent>
       </Card>
+
+      {/* Predictive, data-driven forecast (separate from the scheduled window above) */}
+      <PredictiveReceivablesForecast />
     </div>
   );
 }
