@@ -21,12 +21,14 @@ import {
   ClipboardList,
   UserPlus,
   Percent,
+  IdCard,
   type LucideIcon,
 } from 'lucide-react';
 
 export type PartnerOpsViewKey =
   | 'overview'
   | 'directory'
+  | 'directory.profile'
   | 'portfolios.invited'
   | 'portfolios.pending'
   | 'portfolios.expiring'
@@ -71,7 +73,21 @@ export interface PartnerOpsNavItem {
 
 export const PARTNER_OPS_NAV: PartnerOpsNavItem[] = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard, view: 'overview', keywords: ['home', 'summary', 'brief'] },
-  { key: 'directory', label: 'Partner Directory', icon: Users, view: 'directory', keywords: ['partners', 'list', 'accounts'] },
+  {
+    key: 'directory',
+    label: 'Partner Directory',
+    icon: Users,
+    keywords: ['partners', 'list', 'accounts'],
+    children: [
+      { key: 'directory', label: 'All Partners', icon: Users, keywords: ['partners', 'list', 'accounts', 'directory'] },
+      {
+        key: 'directory.profile',
+        label: 'Partner Profile 360',
+        icon: IdCard,
+        keywords: ['bio data', 'details', 'profile', 'support', 'portfolio breakdown', 'financial history', 'top-ups', 'maturities', 'changes', 'search partner', 'export'],
+      },
+    ],
+  },
   {
     key: 'onboarding',
     label: 'Partner Onboarding',

@@ -42531,6 +42531,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_partner_360: { Args: { p_user_id: string }; Returns: Json }
       get_partner_capital_projections: {
         Args: { p_bucket?: string; p_days?: number; p_months?: number }
         Returns: Json
@@ -45065,6 +45066,7 @@ export type Database = {
         Args: { p_agent_ids: string[]; p_reason: string }
         Returns: Json
       }
+      partner_ops_can_view: { Args: never; Returns: boolean }
       partner_ops_decide_proxy_agent: {
         Args: { p_agent_user_id: string; p_decision: string; p_notes?: string }
         Returns: Json
@@ -45195,6 +45197,22 @@ export type Database = {
           pace_pct: number
           state: string
           target_value: number
+        }[]
+      }
+      partner_ops_search_partners: {
+        Args: { p_limit?: number; p_search?: string }
+        Returns: {
+          active_count: number
+          email: string
+          full_name: string
+          funder_reference: string
+          joined_at: string
+          last_portfolio_at: string
+          phone: string
+          portfolio_count: number
+          total_principal: number
+          total_returns: number
+          user_id: string
         }[]
       }
       partner_ops_transfer_proxy_book: {

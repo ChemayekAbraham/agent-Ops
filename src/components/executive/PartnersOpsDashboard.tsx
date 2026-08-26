@@ -49,6 +49,7 @@ import { PartnerOpsSummaryCards } from './partner-ops/PartnerOpsSummaryCards';
 import { ExpiringPortfoliosPanel } from './partner-ops/ExpiringPortfoliosPanel';
 import { NearingPayoutsPanel } from './partner-ops/NearingPayoutsPanel';
 import { PartnerOpsRentRequestQueue } from './partner-ops/PartnerOpsRentRequestQueue';
+import { PartnerProfile360 } from './partner-ops/PartnerProfile360';
 import PartnerOnboardingPanel from '@/pages/PartnerOnboarding';
 import {
   PartnerRoiProjectionChart,
@@ -265,6 +266,7 @@ export function PartnersOpsDashboard() {
       );
       case 'onboarding': return <PartnerOnboardingPanel embedded />;
       case 'directory': return <COOPartnersPage />;
+      case 'directory.profile': return <PartnerProfile360 />;
       case 'portfolios.invited': return <InvitedPortfoliosPanel />;
       case 'portfolios.pending': return (
         <div className="space-y-6">
