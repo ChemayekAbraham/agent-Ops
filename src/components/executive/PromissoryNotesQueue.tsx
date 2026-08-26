@@ -655,6 +655,20 @@ export function PromissoryNotesQueue() {
                             </span>
                           </div>
                         )}
+                        {(() => {
+                          const c = commissionOf(note);
+                          if (c.total <= 0 && !c.pendingCreation) return null;
+                          return (
+                            <div className="col-span-2">
+                              <span className="text-muted-foreground">Agent commission: </span>
+                              <span className="font-medium text-violet-700">
+                                {c.total > 0
+                                  ? `${formatUGX(c.total)} (${pct(c.creationRate)} ${formatUGX(c.creationPaid)} + ${pct(c.topupRate)} top-ups ${formatUGX(c.topupPaid)})`
+                                  : `${pct(c.creationRate)} due ≈ ${formatUGX(c.expected)}`}
+                              </span>
+                            </div>
+                          );
+                        })()}
                         <div className="col-span-2 text-muted-foreground flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
                           {format(new Date(note.created_at), 'dd MMM yyyy')}
