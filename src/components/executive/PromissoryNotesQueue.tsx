@@ -297,6 +297,24 @@ export function PromissoryNotesQueue() {
   };
   const stageOf = (n: any) => stageConfig[n?.journey_stage as string] || (n?.came_in ? stageConfig.came_in : stageConfig.not_registered);
 
+  // When a partner registers, the backend matches them on phone/WhatsApp or email
+  // and returns the name they registered with. Ops must see that name next to the
+  // name written on the note so a mismatch is visible, never silently accepted.
+  const normName = (v?: string | null) =>
+    (v || '').toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(Boolean).sort().join(' ');
+  const cameInIdentity = (n: any) => {
+    if (!n?.came_in || !n?.came_in_name) return null;
+    return {
+      registeredName: String(n.came_in_name),
+      matchedOn: n.partner_user_id && n.came_in_user_id === n.partner_user_id
+        ? 'linked account'
+        : n.email
+        ? 'phone or email'
+        : 'phone',
+      matches: normName(n.came_in_name) === normName(n.partner_name),
+    };
+  };
+
   const statuses = ['all', 'pending', 'activated', 'fulfilled', 'defaulted', 'cancelled'];
 
   const kpiCards: { label: string; value: React.ReactNode; hint?: string; tone: string }[] = [
