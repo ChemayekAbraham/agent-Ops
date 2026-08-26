@@ -174,14 +174,23 @@ function asRows(value: unknown): RentBehaviourResponse {
     limit: num(payload.limit),
     offset: num(payload.offset),
     total: num(payload.total),
+    from: payload.from ?? null,
+    to: payload.to ?? null,
+    days: num(payload.days),
     kpis: {
       tenants_tracked: num(kpis.tenants_tracked),
       total_collected: num(kpis.total_collected),
       on_time_rate: num(kpis.on_time_rate),
       remaining_balance: num(kpis.remaining_balance),
       collection_count: num(kpis.collection_count),
+      paid_today: num(kpis.paid_today),
+      paid_in_period: num(kpis.paid_in_period),
+      expected_today: num(kpis.expected_today),
+      expected_in_period: num(kpis.expected_in_period),
+      missed_days: num(kpis.missed_days),
     },
     rows: Array.isArray(payload.rows) ? payload.rows as RentBehaviourRow[] : [],
+
   };
 }
 
