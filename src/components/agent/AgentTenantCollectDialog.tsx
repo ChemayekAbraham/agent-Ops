@@ -978,6 +978,26 @@ export function AgentTenantCollectDialog({
               <p className="text-xl font-bold text-destructive font-mono">{formatUGX(outstandingBalance)}</p>
             </div>
 
+            {/* Expected collection for this tenant */}
+            {expected > 0 && (
+              <div className="rounded-xl bg-primary/5 border border-primary/20 p-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Expected from this tenant</p>
+                  <p className="text-lg font-bold font-mono text-primary">{formatUGX(expected)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAmount(Math.min(expected, maxAllowable))}
+                  disabled={Math.min(expected, maxAllowable) < minAllowed}
+                  className="px-3 py-2 rounded-lg text-xs font-bold bg-primary text-primary-foreground disabled:opacity-50"
+                  style={{ touchAction: 'manipulation', minHeight: '36px' }}
+                >
+                  Collect full
+                </button>
+              </div>
+            )}
+
+
             {!canAllocate && floatBalance < minAllowed && (
               <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/20 rounded-xl p-3">
                 <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
