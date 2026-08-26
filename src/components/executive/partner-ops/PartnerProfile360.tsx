@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatUGX } from '@/lib/rentCalculations';
 import { downloadCsv } from '@/lib/csvExport';
@@ -87,7 +89,7 @@ function Field({ icon: Icon, label, value }: { icon?: any; label: string; value?
 interface Col { key: string; label: string; render?: (r: Row) => string; align?: 'right' }
 
 /** One table renderer reused by every tab — keeps markup and export logic DRY. */
-function DataTable({ cols, rows, empty }: { cols: Col[]; rows: Row[]; empty: string }) {
+function DataTable({ cols, rows, empty, onRowClick }: { cols: Col[]; rows: Row[]; empty: string; onRowClick?: (r: Row) => void }) {
   if (!rows.length) {
     return <p className="py-8 text-center text-xs text-muted-foreground">{empty}</p>;
   }
@@ -105,7 +107,11 @@ function DataTable({ cols, rows, empty }: { cols: Col[]; rows: Row[]; empty: str
         </thead>
         <tbody className="divide-y">
           {rows.map((r, i) => (
-            <tr key={r.id || i} className="hover:bg-muted/30">
+            <tr
+              key={r.id || i}
+              onClick={onRowClick ? () => onRowClick(r) : undefined}
+              className={cn('hover:bg-muted/30', onRowClick && 'cursor-pointer')}
+            >
               {cols.map((c) => (
                 <td key={c.key} className={cn('px-3 py-2 whitespace-nowrap', c.align === 'right' && 'text-right tabular-nums')}>
                   {c.render ? c.render(r) : (r[c.key] ?? '—')}
@@ -118,6 +124,7 @@ function DataTable({ cols, rows, empty }: { cols: Col[]; rows: Row[]; empty: str
     </div>
   );
 }
+
 
 const toSheet = (name: string, cols: Col[], rows: Row[]): XlsxSheet => ({
   name,
@@ -227,6 +234,10 @@ export function PartnerProfile360() {
   const [term, setTerm] = useState('');
   const [debounced, setDebounced] = useState('');
   const [selected, setSelected] = useState<SearchRow | null>(null);
+  const [pfSearch, setPfSearch] = useState('');
+  const [pfStatus, setPfStatus] = useState<string>('all');
+  const [openPortfolio, setOpenPortfolio] = useState<Row | null>(null);
+
 
   // Debounce keystrokes so typing never fans out into a request per character.
   useEffect(() => {
@@ -274,6 +285,24 @@ export function PartnerProfile360() {
     { name: 'Withdrawals', cols: WITHDRAWAL_COLS, rows: data.withdrawals || [] },
     { name: 'Change Log', cols: CHANGE_COLS, rows: data.changes || [] },
   ] : [], [data]);
+
+  const allPortfolios = data?.portfolios || [];
+
+  const portfolioStatuses = useMemo(
+    () => Array.from(new Set(allPortfolios.map((r) => String(r.status || '')).filter(Boolean))).sort(),
+    [allPortfolios],
+  );
+
+  const filteredPortfolios = useMemo(() => {
+    const q = pfSearch.trim().toLowerCase();
+    return allPortfolios.filter((r) => {
+      if (pfStatus !== 'all' && String(r.status || '') !== pfStatus) return false;
+      if (!q) return true;
+      return [r.portfolio_code, r.account_name, r.status, r.agent_name, r.investment_amount]
+        .some((v) => String(v ?? '').toLowerCase().includes(q));
+    });
+  }, [allPortfolios, pfSearch, pfStatus]);
+
 
   const exportWorkbook = async () => {
     if (!data) return;
@@ -510,9 +539,65 @@ export function PartnerProfile360() {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="portfolios" className="mt-3">
-                  <TabPanel name="Portfolios" empty="No portfolios recorded." />
+                <TabsContent value="portfolios" className="mt-3 space-y-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="relative flex-1">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={pfSearch}
+                        onChange={(e) => setPfSearch(e.target.value)}
+                        placeholder="Search portfolio code, nickname, agent or amount"
+                        className="h-9 pl-9 pr-8 text-xs"
+                        autoComplete="off"
+                      />
+                      {pfSearch && (
+                        <button
+                          type="button"
+                          aria-label="Clear portfolio search"
+                          onClick={() => setPfSearch('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-accent"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="-mx-1 flex gap-1 overflow-x-auto px-1">
+                        {['all', ...portfolioStatuses].map((s) => (
+                          <Button
+                            key={s}
+                            type="button"
+                            size="sm"
+                            variant={pfStatus === s ? 'default' : 'outline'}
+                            className="h-7 shrink-0 text-[11px] capitalize"
+                            onClick={() => setPfStatus(s)}
+                          >
+                            {s === 'all' ? 'All' : s}
+                          </Button>
+                        ))}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 shrink-0 gap-1.5 text-[11px]"
+                        disabled={!filteredPortfolios.length}
+                        onClick={() => exportSection({ name: 'Portfolios', cols: PORTFOLIO_COLS, rows: filteredPortfolios })}
+                      >
+                        <Download className="h-3 w-3" /> CSV
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Showing {filteredPortfolios.length} of {allPortfolios.length} portfolios — tap a row to open its full detail.
+                  </p>
+                  <DataTable
+                    cols={PORTFOLIO_COLS}
+                    rows={filteredPortfolios}
+                    empty="No portfolios match this search."
+                    onRowClick={(r) => setOpenPortfolio(r)}
+                  />
                 </TabsContent>
+
 
                 <TabsContent value="financial" className="mt-3 space-y-4">
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -547,7 +632,72 @@ export function PartnerProfile360() {
           </Card>
         </div>
       )}
+
+      {/* ═══ PORTFOLIO DETAIL ═══ */}
+      <Dialog open={!!openPortfolio} onOpenChange={(o) => !o && setOpenPortfolio(null)}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex flex-wrap items-center gap-2 text-sm">
+              <PiggyBank className="h-4 w-4 text-primary" />
+              {openPortfolio?.portfolio_code || 'Portfolio'}
+              {openPortfolio?.status && <Badge variant="secondary" className="text-[10px] capitalize">{openPortfolio.status}</Badge>}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {openPortfolio?.account_name || 'No nickname'} • {partnerLabel}
+            </DialogDescription>
+          </DialogHeader>
+
+          {openPortfolio && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <Metric label="Principal" value={money(openPortfolio.investment_amount)} />
+                <Metric label="Rate" value={`${Number(openPortfolio.roi_percentage) || 0}%`} hint="monthly returns rate" />
+                <Metric label="Returns earned" value={money(openPortfolio.total_roi_earned)} />
+                <Metric label="Term" value={`${openPortfolio.duration_months ?? '—'} months`} />
+                <Metric label="Next payout" value={fmtDate(openPortfolio.next_roi_date)} />
+                <Metric label="Maturity" value={fmtDate(openPortfolio.maturity_date)} />
+              </div>
+
+              <div className="rounded-lg border p-3">
+                <p className="mb-1 text-xs font-semibold">Portfolio details</p>
+                <div className="grid gap-x-4 sm:grid-cols-2">
+                  <Field icon={FileText} label="Portfolio code" value={openPortfolio.portfolio_code} />
+                  <Field icon={User} label="Proxy agent" value={openPortfolio.agent_name} />
+                  <Field icon={CalendarClock} label="Created" value={fmtDate(openPortfolio.created_at, true)} />
+                  <Field icon={CalendarClock} label="Last updated" value={fmtDate(openPortfolio.updated_at, true)} />
+                  <Field icon={TrendingUp} label="Status" value={openPortfolio.status} />
+                  <Field icon={Wallet} label="Payout mode" value={openPortfolio.payout_mode || data?.agreement?.payout_mode} />
+                </div>
+              </div>
+
+              {[
+                { name: 'Top-Ups', cols: TOPUP_COLS, rows: (data?.topups || []).filter((r) => r.portfolio_id === openPortfolio.id), empty: 'No top-ups on this portfolio.' },
+                { name: 'Requests', cols: REQUEST_COLS, rows: (data?.requests || []).filter((r) => r.portfolio_id === openPortfolio.id || r.portfolio_code === openPortfolio.portfolio_code), empty: 'No requests on this portfolio.' },
+                { name: 'Redemptions', cols: REDEMPTION_COLS, rows: (data?.redemptions || []).filter((r) => r.portfolio_id === openPortfolio.id || r.portfolio_code === openPortfolio.portfolio_code), empty: 'No redemptions on this portfolio.' },
+                { name: 'Renewals', cols: RENEWAL_COLS, rows: (data?.renewals || []).filter((r) => r.portfolio_id === openPortfolio.id || r.portfolio_code === openPortfolio.portfolio_code), empty: 'No renewals on this portfolio.' },
+              ].map((s) => (
+                <div key={s.name} className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold">{s.name} <span className="text-muted-foreground">({s.rows.length})</span></p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 gap-1.5 text-[11px]"
+                      disabled={!s.rows.length}
+                      onClick={() => exportSection({ name: `${openPortfolio.portfolio_code}_${s.name}`, cols: s.cols, rows: s.rows })}
+                    >
+                      <Download className="h-3 w-3" /> CSV
+                    </Button>
+                  </div>
+                  <DataTable cols={s.cols} rows={s.rows} empty={s.empty} />
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+
   );
 }
 
