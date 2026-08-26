@@ -24,7 +24,7 @@ import { CFOActionsLog } from '@/components/cfo/CFOActionsLog';
 import { ReceiptNumberLookupPanel } from '@/components/financial-ops/ReceiptNumberLookupPanel';
 import { AgentAdvancesStatsCard } from '@/components/cfo/AgentAdvancesStatsCard';
 import { DailyReceivablesPayablesSection } from '@/components/cfo/DailyReceivablesPayablesSection';
-import { ReceivablesBreakdownForecast } from '@/components/cfo/ReceivablesBreakdownForecast';
+import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilldown';
 
 
 interface CFOOverviewDashboardProps {
