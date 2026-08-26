@@ -209,14 +209,33 @@ const RENEWAL_COLS: Col[] = [
   { key: 'reason', label: 'Reason', render: (r) => r.reason || '—' },
 ];
 
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+
+/** Reason text with raw identifiers stripped out so Ops read a human sentence. */
+const cleanReason = (r: Row) => {
+  const raw = String(r.reason || '');
+  if (!raw) return '—';
+  return raw
+    .replace(/\[Proxy initiated by agent[^\]]*\]/gi, '')
+    .replace(/\|\s*Route:\s*portfolio\s*/gi, '| Portfolio ')
+    .replace(UUID_RE, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/^[\s|•-]+|[\s|•-]+$/g, '')
+    .trim() || '—';
+};
+
+const proxyAgentLabel = (r: Row) => r.proxy_agent_name || (r.proxy_agent_id ? 'Unnamed agent' : '—');
+
 const WITHDRAWAL_COLS: Col[] = [
   { key: 'created_at', label: 'Requested', render: (r) => fmtDate(r.created_at, true) },
   { key: 'amount', label: 'Amount', align: 'right', render: (r) => money(r.amount) },
   { key: 'status', label: 'Status' },
   { key: 'payout_method', label: 'Method', render: (r) => r.payout_method || '—' },
-  { key: 'reason', label: 'Reason', render: (r) => r.reason || '—' },
+  { key: 'proxy_agent_name', label: 'Proxy agent', render: proxyAgentLabel },
+  { key: 'reason', label: 'Purpose', render: cleanReason, wrap: true },
   { key: 'processed_at', label: 'Processed', render: (r) => fmtDate(r.processed_at, true) },
 ];
+
 
 const CHANGE_COLS: Col[] = [
   { key: 'created_at', label: 'When', render: (r) => fmtDate(r.created_at, true) },
