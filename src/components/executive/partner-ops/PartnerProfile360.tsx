@@ -86,7 +86,7 @@ function Field({ icon: Icon, label, value }: { icon?: any; label: string; value?
   );
 }
 
-interface Col { key: string; label: string; render?: (r: Row) => string; align?: 'right' }
+interface Col { key: string; label: string; render?: (r: Row) => string; align?: 'right'; wrap?: boolean }
 
 /** One table renderer reused by every tab — keeps markup and export logic DRY. */
 function DataTable({ cols, rows, empty, onRowClick }: { cols: Col[]; rows: Row[]; empty: string; onRowClick?: (r: Row) => void }) {
@@ -113,10 +113,18 @@ function DataTable({ cols, rows, empty, onRowClick }: { cols: Col[]; rows: Row[]
               className={cn('hover:bg-muted/30', onRowClick && 'cursor-pointer')}
             >
               {cols.map((c) => (
-                <td key={c.key} className={cn('px-3 py-2 whitespace-nowrap', c.align === 'right' && 'text-right tabular-nums')}>
+                <td
+                  key={c.key}
+                  className={cn(
+                    'px-3 py-2',
+                    c.wrap ? 'max-w-[260px] whitespace-normal break-words align-top' : 'whitespace-nowrap',
+                    c.align === 'right' && 'text-right tabular-nums',
+                  )}
+                >
                   {c.render ? c.render(r) : (r[c.key] ?? '—')}
                 </td>
               ))}
+
             </tr>
           ))}
         </tbody>
@@ -209,14 +217,33 @@ const RENEWAL_COLS: Col[] = [
   { key: 'reason', label: 'Reason', render: (r) => r.reason || '—' },
 ];
 
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+
+/** Reason text with raw identifiers stripped out so Ops read a human sentence. */
+const cleanReason = (r: Row) => {
+  const raw = String(r.reason || '');
+  if (!raw) return '—';
+  return raw
+    .replace(/\[Proxy initiated by agent[^\]]*\]/gi, '')
+    .replace(/\|\s*Route:\s*portfolio\s*/gi, '| Portfolio ')
+    .replace(UUID_RE, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/^[\s|•-]+|[\s|•-]+$/g, '')
+    .trim() || '—';
+};
+
+const proxyAgentLabel = (r: Row) => r.proxy_agent_name || (r.proxy_agent_id ? 'Unnamed agent' : '—');
+
 const WITHDRAWAL_COLS: Col[] = [
   { key: 'created_at', label: 'Requested', render: (r) => fmtDate(r.created_at, true) },
   { key: 'amount', label: 'Amount', align: 'right', render: (r) => money(r.amount) },
   { key: 'status', label: 'Status' },
   { key: 'payout_method', label: 'Method', render: (r) => r.payout_method || '—' },
-  { key: 'reason', label: 'Reason', render: (r) => r.reason || '—' },
+  { key: 'proxy_agent_name', label: 'Proxy agent', render: proxyAgentLabel },
+  { key: 'reason', label: 'Purpose', render: cleanReason, wrap: true },
   { key: 'processed_at', label: 'Processed', render: (r) => fmtDate(r.processed_at, true) },
 ];
+
 
 const CHANGE_COLS: Col[] = [
   { key: 'created_at', label: 'When', render: (r) => fmtDate(r.created_at, true) },
@@ -237,6 +264,10 @@ export function PartnerProfile360() {
   const [pfSearch, setPfSearch] = useState('');
   const [pfStatus, setPfStatus] = useState<string>('all');
   const [openPortfolio, setOpenPortfolio] = useState<Row | null>(null);
+  const [wdSearch, setWdSearch] = useState('');
+  const [wdStatus, setWdStatus] = useState<string>('all');
+  const [openWithdrawal, setOpenWithdrawal] = useState<Row | null>(null);
+
 
 
   // Debounce keystrokes so typing never fans out into a request per character.
@@ -302,6 +333,25 @@ export function PartnerProfile360() {
         .some((v) => String(v ?? '').toLowerCase().includes(q));
     });
   }, [allPortfolios, pfSearch, pfStatus]);
+
+  const allWithdrawals = data?.withdrawals || [];
+
+  const withdrawalStatuses = useMemo(
+    () => Array.from(new Set(allWithdrawals.map((r) => String(r.status || '')).filter(Boolean))).sort(),
+    [allWithdrawals],
+  );
+
+  const filteredWithdrawals = useMemo(() => {
+    const q = wdSearch.trim().toLowerCase();
+    return allWithdrawals.filter((r) => {
+      if (wdStatus !== 'all' && String(r.status || '') !== wdStatus) return false;
+      if (!q) return true;
+      return [r.status, r.payout_method, r.proxy_agent_name, r.payout_code, r.amount, cleanReason(r)]
+        .some((v) => String(v ?? '').toLowerCase().includes(q));
+    });
+  }, [allWithdrawals, wdSearch, wdStatus]);
+
+
 
 
   const exportWorkbook = async () => {
@@ -620,9 +670,65 @@ export function PartnerProfile360() {
                   <TabPanel name="Renewals" empty="No renewals recorded." />
                 </TabsContent>
 
-                <TabsContent value="withdrawals" className="mt-3">
-                  <TabPanel name="Withdrawals" empty="No withdrawals recorded." />
+                <TabsContent value="withdrawals" className="mt-3 space-y-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="relative flex-1">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={wdSearch}
+                        onChange={(e) => setWdSearch(e.target.value)}
+                        placeholder="Search amount, status, method, proxy agent or purpose"
+                        className="h-9 pl-9 pr-8 text-xs"
+                        autoComplete="off"
+                      />
+                      {wdSearch && (
+                        <button
+                          type="button"
+                          aria-label="Clear withdrawal search"
+                          onClick={() => setWdSearch('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-accent"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="-mx-1 flex gap-1 overflow-x-auto px-1">
+                        {['all', ...withdrawalStatuses].map((s) => (
+                          <Button
+                            key={s}
+                            type="button"
+                            size="sm"
+                            variant={wdStatus === s ? 'default' : 'outline'}
+                            className="h-7 shrink-0 text-[11px] capitalize"
+                            onClick={() => setWdStatus(s)}
+                          >
+                            {s === 'all' ? 'All' : s}
+                          </Button>
+                        ))}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 shrink-0 gap-1.5 text-[11px]"
+                        disabled={!filteredWithdrawals.length}
+                        onClick={() => exportSection({ name: 'Withdrawals', cols: WITHDRAWAL_COLS, rows: filteredWithdrawals })}
+                      >
+                        <Download className="h-3 w-3" /> CSV
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Showing {filteredWithdrawals.length} of {allWithdrawals.length} withdrawals — tap a row to open its full detail.
+                  </p>
+                  <DataTable
+                    cols={WITHDRAWAL_COLS}
+                    rows={filteredWithdrawals}
+                    empty="No withdrawals match this search."
+                    onRowClick={(r) => setOpenWithdrawal(r)}
+                  />
                 </TabsContent>
+
 
                 <TabsContent value="changes" className="mt-3">
                   <TabPanel name="Change Log" empty="No recorded changes for this partner." />
@@ -696,7 +802,70 @@ export function PartnerProfile360() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ═══ WITHDRAWAL DETAIL ═══ */}
+      <Dialog open={!!openWithdrawal} onOpenChange={(o) => !o && setOpenWithdrawal(null)}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex flex-wrap items-center gap-2 text-sm">
+              <Wallet className="h-4 w-4 text-primary" />
+              {money(openWithdrawal?.amount)}
+              {openWithdrawal?.status && <Badge variant="secondary" className="text-[10px] capitalize">{String(openWithdrawal.status).replace(/_/g, ' ')}</Badge>}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {partnerLabel} • requested {fmtDate(openWithdrawal?.created_at, true)}
+            </DialogDescription>
+          </DialogHeader>
+
+          {openWithdrawal && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <Metric label="Amount" value={money(openWithdrawal.amount)} />
+                <Metric label="Method" value={String(openWithdrawal.payout_method || '—').replace(/_/g, ' ')} />
+                <Metric label="Status" value={String(openWithdrawal.status || '—').replace(/_/g, ' ')} />
+                <Metric label="Requested" value={fmtDate(openWithdrawal.created_at, true)} />
+                <Metric label="Processed" value={fmtDate(openWithdrawal.processed_at, true)} />
+                <Metric label="Settlement" value={String(openWithdrawal.settlement_state || '—').replace(/_/g, ' ')} />
+              </div>
+
+              <div className="rounded-lg border p-3">
+                <p className="mb-1 text-xs font-semibold">Who handled it</p>
+                <div className="grid gap-x-4 sm:grid-cols-2">
+                  <Field icon={User} label="Proxy agent" value={proxyAgentLabel(openWithdrawal)} />
+                  <Field icon={Phone} label="Proxy agent phone" value={openWithdrawal.proxy_agent_phone} />
+                  <Field icon={ShieldCheck} label="Processed by" value={openWithdrawal.processed_by_name} />
+                  <Field icon={TrendingUp} label="Priority" value={openWithdrawal.priority_level} />
+                </div>
+              </div>
+
+              <div className="rounded-lg border p-3">
+                <p className="mb-1 text-xs font-semibold">Payout destination</p>
+                <div className="grid gap-x-4 sm:grid-cols-2">
+                  <Field icon={Wallet} label="Mobile money" value={[openWithdrawal.mobile_money_provider, openWithdrawal.mobile_money_number, openWithdrawal.mobile_money_name].filter(Boolean).join(' • ')} />
+                  <Field icon={Wallet} label="Bank" value={[openWithdrawal.bank_name, openWithdrawal.bank_account_number, openWithdrawal.bank_account_name].filter(Boolean).join(' • ')} />
+                  <Field icon={FileText} label="Payout code" value={openWithdrawal.payout_code} />
+                  <Field icon={FileText} label="Finance reference" value={openWithdrawal.fin_ops_reference} />
+                  <Field icon={FileText} label="Transaction ID" value={openWithdrawal.transaction_id} />
+                  <Field icon={User} label="Linked party" value={openWithdrawal.linked_party} />
+                </div>
+              </div>
+
+              <div className="rounded-lg border p-3">
+                <p className="mb-1 text-xs font-semibold">Purpose &amp; notes</p>
+                <Field icon={FileText} label="Purpose" value={cleanReason(openWithdrawal)} />
+                <Field icon={FileText} label="Full recorded reason" value={openWithdrawal.reason} />
+                {openWithdrawal.rejection_reason && (
+                  <Field icon={X} label="Rejection reason" value={openWithdrawal.rejection_reason} />
+                )}
+                <Field icon={CalendarClock} label="Last updated" value={fmtDate(openWithdrawal.updated_at, true)} />
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
+
+
 
   );
 }
