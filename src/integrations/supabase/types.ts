@@ -41320,16 +41320,28 @@ export type Database = {
         Returns: Json
       }
       get_agent_ops_receivables_report: { Args: never; Returns: Json }
-      get_agent_ops_rent_behaviour: {
-        Args: {
-          p_from?: string
-          p_limit?: number
-          p_offset?: number
-          p_sort?: string
-          p_to?: string
-        }
-        Returns: Json
-      }
+      get_agent_ops_rent_behaviour:
+        | {
+            Args: {
+              p_from?: string
+              p_limit?: number
+              p_offset?: number
+              p_sort?: string
+              p_to?: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_from?: string
+              p_limit?: number
+              p_offset?: number
+              p_search?: string
+              p_sort?: string
+              p_to?: string
+            }
+            Returns: Json
+          }
       get_agent_ops_rent_behaviour_detail: {
         Args: { p_agent_id: string; p_tenant_id: string }
         Returns: Json
