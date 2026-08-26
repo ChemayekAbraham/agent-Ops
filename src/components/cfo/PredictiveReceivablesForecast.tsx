@@ -210,38 +210,39 @@ export default function PredictiveReceivablesForecast() {
   };
 
   return (
-    <Card className="border-primary/30">
-      <CardContent className="p-3 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+    <Card className="border-primary/30 max-w-full">
+      <CardContent className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+        {/* Header + controls */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <Sparkles className="h-3 w-3" />
+            <p className="text-[10px] sm:text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
               Predictive receivables forecast
             </p>
-            <p className="text-[9px] text-muted-foreground">
+            <p className="text-[9px] sm:text-[11px] text-muted-foreground">
               Modelled from real collection history · all forward amounts are estimates
             </p>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="grid grid-cols-2 gap-1.5 sm:flex sm:items-center">
             <Select value={granularity} onValueChange={(v) => changeGranularity(v as ForecastGranularity)}>
-              <SelectTrigger className="h-7 w-[104px] text-[11px]">
+              <SelectTrigger className="h-9 sm:h-8 w-full sm:w-[112px] text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {GRANULARITIES.map((g) => (
-                  <SelectItem key={g.key} value={g.key} className="text-[11px]">
+                  <SelectItem key={g.key} value={g.key} className="text-xs">
                     {g.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <Select value={String(periods)} onValueChange={(v) => setPeriods(Number(v))}>
-              <SelectTrigger className="h-7 w-[148px] text-[11px]">
+              <SelectTrigger className="h-9 sm:h-8 w-full sm:w-[156px] text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {HORIZONS[granularity].map((h) => (
-                  <SelectItem key={h.value} value={String(h.value)} className="text-[11px]">
+                  <SelectItem key={h.value} value={String(h.value)} className="text-xs">
                     {h.label}
                   </SelectItem>
                 ))}
@@ -251,60 +252,73 @@ export default function PredictiveReceivablesForecast() {
         </div>
 
         {q.isError && (
-          <p className="text-[11px] text-destructive">
+          <p className="text-[11px] sm:text-xs text-destructive">
             Could not load the forecast: {(q.error as Error)?.message}
           </p>
         )}
 
         {q.isLoading ? (
-          <div className="flex justify-center py-8">
+          <div className="flex justify-center py-10">
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           </div>
         ) : data ? (
           <>
             {/* Actual vs overdue vs forecast */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-              <div className="rounded-lg bg-muted/50 px-2 py-1.5">
-                <p className="text-[8px] uppercase tracking-wider text-muted-foreground">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+              <div className="rounded-xl bg-muted/50 px-2.5 py-2">
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground">
                   Actual recorded
                 </p>
-                <p className="text-[11px] font-bold font-mono truncate">
+                <p className="text-xs sm:text-base font-bold font-mono tabular-nums truncate">
                   {formatUGX(data.actual.total)}
                 </p>
-                <p className="text-[8px] text-muted-foreground">{data.actual.item_count} open items</p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground">
+                  {data.actual.item_count} open items
+                </p>
               </div>
-              <div className="rounded-lg bg-destructive/10 px-2 py-1.5">
-                <p className="text-[8px] uppercase tracking-wider text-destructive">Overdue</p>
-                <p className="text-[11px] font-bold font-mono truncate">
+              <div className="rounded-xl bg-destructive/10 px-2.5 py-2">
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-destructive">
+                  Overdue
+                </p>
+                <p className="text-xs sm:text-base font-bold font-mono tabular-nums truncate">
                   {formatUGX(data.actual.overdue)}
                 </p>
-                <p className="text-[8px] text-muted-foreground">Past due date</p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground">Past due date</p>
               </div>
-              <div className="rounded-lg bg-emerald-500/10 px-2 py-1.5">
-                <p className="text-[8px] uppercase tracking-wider text-emerald-700">Not yet due</p>
-                <p className="text-[11px] font-bold font-mono truncate">
+              <div className="rounded-xl bg-emerald-500/10 px-2.5 py-2">
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-emerald-700">
+                  Not yet due
+                </p>
+                <p className="text-xs sm:text-base font-bold font-mono tabular-nums truncate">
                   {formatUGX(data.actual.not_yet_due)}
                 </p>
-                <p className="text-[8px] text-muted-foreground">On the books</p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground">On the books</p>
               </div>
-              <div className="rounded-lg bg-primary/10 px-2 py-1.5">
-                <p className="text-[8px] uppercase tracking-wider text-primary flex items-center gap-1">
+              <div className="rounded-xl bg-primary/10 px-2.5 py-2">
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-primary flex items-center gap-1">
                   <TrendingUp className="h-2.5 w-2.5" /> Forecast (est.)
                 </p>
-                <p className="text-[11px] font-bold font-mono truncate">{formatUGX(horizonTotal)}</p>
-                <p className="text-[8px] text-muted-foreground">
+                <p className="text-xs sm:text-base font-bold font-mono tabular-nums truncate">
+                  {formatUGX(horizonTotal)}
+                </p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground">
                   {data.periods.length} {granularity} period(s)
                 </p>
               </div>
             </div>
 
             {/* Chart: history actuals + forecast with band */}
-            <div className="h-52 w-full">
+            <div className="h-48 sm:h-56 lg:h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={chartData} margin={{ top: 6, right: 6, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
-                  <XAxis dataKey="label" tick={{ fontSize: 9 }} interval="preserveStartEnd" />
-                  <YAxis tick={{ fontSize: 9 }} tickFormatter={(v) => compact(Number(v))} width={40} />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 9 }}
+                    interval="preserveStartEnd"
+                    minTickGap={16}
+                  />
+                  <YAxis tick={{ fontSize: 9 }} tickFormatter={(v) => compact(Number(v))} width={44} />
                   <Tooltip
                     formatter={(value: unknown, name) => {
                       if (Array.isArray(value)) {
@@ -314,7 +328,7 @@ export default function PredictiveReceivablesForecast() {
                     }}
                     contentStyle={{ fontSize: 11 }}
                   />
-                  <Legend wrapperStyle={{ fontSize: 9 }} />
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
                   <Area
                     type="monotone"
                     dataKey="band"
@@ -330,14 +344,16 @@ export default function PredictiveReceivablesForecast() {
             </div>
 
             {/* Period table with drill-down by source */}
-            <div className="max-h-72 overflow-y-auto rounded-lg border border-border/60">
-              <table className="w-full text-[10px]">
-                <thead className="bg-muted/50 sticky top-0">
+            <div className="max-h-80 overflow-y-auto overflow-x-auto rounded-xl border border-border/60">
+              <table className="w-full min-w-[320px] text-[10px] sm:text-xs">
+                <thead className="bg-muted/50 sticky top-0 z-10">
                   <tr>
-                    <th className="text-left px-2 py-1 font-medium">Period</th>
-                    <th className="text-right px-2 py-1 font-medium">Forecast (est.)</th>
-                    <th className="text-right px-2 py-1 font-medium hidden sm:table-cell">Range</th>
-                    <th className="text-right px-2 py-1 font-medium">Quality</th>
+                    <th className="text-left px-2.5 py-1.5 font-medium">Period</th>
+                    <th className="text-right px-2.5 py-1.5 font-medium">Forecast (est.)</th>
+                    <th className="text-right px-2.5 py-1.5 font-medium hidden sm:table-cell">
+                      Range
+                    </th>
+                    <th className="text-right px-2.5 py-1.5 font-medium">Quality</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -349,33 +365,33 @@ export default function PredictiveReceivablesForecast() {
                           className="border-t border-border/40 cursor-pointer hover:bg-muted/40"
                           onClick={() => setOpenPeriod(open ? null : p.index)}
                         >
-                          <td className="px-2 py-1">
+                          <td className="px-2.5 py-1.5">
                             <span className="flex items-center gap-1">
                               {open ? (
-                                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                                <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
                               ) : (
-                                <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                                <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
                               )}
-                              <span className="font-medium">{p.label}</span>
+                              <span className="font-medium truncate">{p.label}</span>
                               {p.is_partial_period && (
-                                <Badge variant="outline" className="text-[8px] px-1 py-0">
+                                <Badge variant="outline" className="text-[8px] px-1 py-0 shrink-0">
                                   part
                                 </Badge>
                               )}
                             </span>
-                            <span className="block text-[8px] text-muted-foreground pl-4">
+                            <span className="block text-[9px] text-muted-foreground pl-4">
                               from {format(new Date(p.forecast_from), 'dd MMM yyyy')}
                             </span>
                           </td>
-                          <td className="px-2 py-1 text-right font-mono font-semibold">
+                          <td className="px-2.5 py-1.5 text-right font-mono tabular-nums font-semibold whitespace-nowrap">
                             {formatUGX(p.forecast_amount)}
                           </td>
-                          <td className="px-2 py-1 text-right font-mono hidden sm:table-cell text-muted-foreground">
+                          <td className="px-2.5 py-1.5 text-right font-mono tabular-nums hidden sm:table-cell text-muted-foreground whitespace-nowrap">
                             {compact(p.low)} – {compact(p.high)}
                           </td>
-                          <td className="px-2 py-1 text-right">
+                          <td className="px-2.5 py-1.5 text-right">
                             <Badge
-                              className={`text-[8px] px-1 py-0 border-0 ${QUALITY_STYLE[p.quality] ?? ''}`}
+                              className={`text-[8px] sm:text-[9px] px-1 py-0 border-0 whitespace-nowrap ${QUALITY_STYLE[p.quality] ?? ''}`}
                             >
                               {p.quality} · {Math.round(p.confidence * 100)}%
                             </Badge>
@@ -383,51 +399,55 @@ export default function PredictiveReceivablesForecast() {
                         </tr>
                         {open && (
                           <tr className="bg-muted/20">
-                            <td colSpan={4} className="px-2 py-1.5">
-                              <div className="flex flex-wrap gap-1.5 mb-1">
-                                <Badge variant="outline" className="text-[8px] px-1 py-0">
+                            <td colSpan={4} className="px-2.5 py-2">
+                              <div className="flex flex-wrap gap-1.5 mb-1.5">
+                                <Badge variant="outline" className="text-[9px] px-1.5 py-0">
                                   Existing book {formatUGX(p.runoff_amount)}
                                 </Badge>
-                                <Badge variant="outline" className="text-[8px] px-1 py-0">
+                                <Badge variant="outline" className="text-[9px] px-1.5 py-0">
                                   New business {formatUGX(p.new_origination_amount)}
                                 </Badge>
-                                <Badge variant="outline" className="text-[8px] px-1 py-0">
+                                <Badge variant="outline" className="text-[9px] px-1.5 py-0">
                                   Scheduled {formatUGX(p.scheduled_amount)}
                                 </Badge>
                               </div>
                               {p.quality_reason && (
-                                <p className="text-[9px] text-muted-foreground flex items-start gap-1 mb-1">
+                                <p className="text-[9px] sm:text-[10px] text-muted-foreground flex items-start gap-1 mb-1.5">
                                   <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
                                   Why {p.quality} confidence: {p.quality_reason}
                                 </p>
                               )}
                               {p.sources.length === 0 ? (
-                                <p className="text-[9px] text-muted-foreground">
+                                <p className="text-[9px] sm:text-[10px] text-muted-foreground">
                                   No modelled inflow in this period.
                                 </p>
                               ) : (
-                                p.sources.map((s) => (
-                                  <div
-                                    key={`${s.category_key}:${s.product_key}:${s.basis}`}
-                                    className="flex items-center justify-between gap-2 border-b border-border/30 last:border-0 py-0.5"
-                                  >
-                                    <span className="min-w-0 flex items-center gap-1.5">
-                                      <span className="truncate text-[10px]">{s.product_label}</span>
-                                      <span className="text-[8px] text-muted-foreground">
-                                        {s.category_label}
+                                <div className="sm:grid sm:grid-cols-2 sm:gap-x-4">
+                                  {p.sources.map((s) => (
+                                    <div
+                                      key={`${s.category_key}:${s.product_key}:${s.basis}`}
+                                      className="flex items-center justify-between gap-2 border-b border-border/30 last:border-0 py-1"
+                                    >
+                                      <span className="min-w-0 flex items-center gap-1.5">
+                                        <span className="truncate text-[10px] sm:text-xs">
+                                          {s.product_label}
+                                        </span>
+                                        <span className="text-[8px] sm:text-[9px] text-muted-foreground hidden sm:inline">
+                                          {s.category_label}
+                                        </span>
+                                        <Badge
+                                          variant="outline"
+                                          className="text-[8px] px-1 py-0 shrink-0"
+                                        >
+                                          {s.basis === 'scheduled' ? 'scheduled' : 'estimated'}
+                                        </Badge>
                                       </span>
-                                      <Badge
-                                        variant="outline"
-                                        className="text-[8px] px-1 py-0 shrink-0"
-                                      >
-                                        {s.basis === 'scheduled' ? 'scheduled' : 'estimated'}
-                                      </Badge>
-                                    </span>
-                                    <span className="font-mono text-[10px] shrink-0">
-                                      {formatUGX(s.amount)}
-                                    </span>
-                                  </div>
-                                ))
+                                      <span className="font-mono tabular-nums text-[10px] sm:text-xs shrink-0">
+                                        {formatUGX(s.amount)}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
                               )}
                             </td>
                           </tr>
@@ -443,34 +463,35 @@ export default function PredictiveReceivablesForecast() {
             <button
               type="button"
               onClick={() => setShowStreams((s) => !s)}
-              className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+              aria-expanded={showStreams}
+              className="flex items-center gap-1.5 text-[10px] sm:text-xs text-muted-foreground hover:text-foreground"
             >
               {showStreams ? (
-                <ChevronDown className="h-3 w-3" />
+                <ChevronDown className="h-3.5 w-3.5" />
               ) : (
-                <ChevronRight className="h-3 w-3" />
+                <ChevronRight className="h-3.5 w-3.5" />
               )}
               Forecast quality by business line ({data.streams.length} modelled)
             </button>
 
             {showStreams && (
-              <div className="space-y-1.5">
-                <div className="max-h-56 overflow-y-auto rounded-lg border border-border/60">
-                  <table className="w-full text-[10px]">
-                    <thead className="bg-muted/50 sticky top-0">
+              <div className="space-y-2">
+                <div className="max-h-64 overflow-y-auto overflow-x-auto rounded-xl border border-border/60">
+                  <table className="w-full min-w-[320px] text-[10px] sm:text-xs">
+                    <thead className="bg-muted/50 sticky top-0 z-10">
                       <tr>
-                        <th className="text-left px-2 py-1 font-medium">Business line</th>
-                        <th className="text-right px-2 py-1 font-medium">Typical / day</th>
-                        <th className="text-right px-2 py-1 font-medium hidden sm:table-cell">
+                        <th className="text-left px-2.5 py-1.5 font-medium">Business line</th>
+                        <th className="text-right px-2.5 py-1.5 font-medium">Typical / day</th>
+                        <th className="text-right px-2.5 py-1.5 font-medium hidden sm:table-cell">
                           Trend / week
                         </th>
-                        <th className="text-right px-2 py-1 font-medium hidden md:table-cell">
+                        <th className="text-right px-2.5 py-1.5 font-medium hidden lg:table-cell">
                           New / day
                         </th>
-                        <th className="text-right px-2 py-1 font-medium hidden md:table-cell">
+                        <th className="text-right px-2.5 py-1.5 font-medium hidden lg:table-cell">
                           Collected
                         </th>
-                        <th className="text-right px-2 py-1 font-medium">History</th>
+                        <th className="text-right px-2.5 py-1.5 font-medium">History</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -479,30 +500,30 @@ export default function PredictiveReceivablesForecast() {
                           key={`${s.category_key}:${s.product_key}`}
                           className="border-t border-border/40"
                         >
-                          <td className="px-2 py-1">
+                          <td className="px-2.5 py-1.5">
                             <span className="block truncate">{s.product_label}</span>
-                            <span className="block text-[8px] text-muted-foreground">
+                            <span className="block text-[9px] text-muted-foreground truncate">
                               {s.category_label} ·{' '}
                               {s.insufficient_data ? 'too little history' : s.method.replace(/_/g, ' ')}
                             </span>
                           </td>
-                          <td className="px-2 py-1 text-right font-mono">
+                          <td className="px-2.5 py-1.5 text-right font-mono tabular-nums whitespace-nowrap">
                             {s.insufficient_data ? '—' : formatUGX(s.median_daily)}
                           </td>
-                          <td className="px-2 py-1 text-right font-mono hidden sm:table-cell">
+                          <td className="px-2.5 py-1.5 text-right font-mono tabular-nums hidden sm:table-cell whitespace-nowrap">
                             {s.insufficient_data ? '—' : formatUGX(s.trend_per_week)}
                           </td>
-                          <td className="px-2 py-1 text-right font-mono hidden md:table-cell">
+                          <td className="px-2.5 py-1.5 text-right font-mono tabular-nums hidden lg:table-cell whitespace-nowrap">
                             {s.origination ? formatUGX(s.origination.daily_new_receivables) : '—'}
                           </td>
-                          <td className="px-2 py-1 text-right hidden md:table-cell text-muted-foreground">
+                          <td className="px-2.5 py-1.5 text-right hidden lg:table-cell text-muted-foreground whitespace-nowrap">
                             {s.origination
                               ? `${Math.round(s.origination.collection_rate * 100)}% / ${Math.round(
                                   s.origination.term_days
                                 )}d`
                               : '—'}
                           </td>
-                          <td className="px-2 py-1 text-right text-muted-foreground">
+                          <td className="px-2.5 py-1.5 text-right text-muted-foreground whitespace-nowrap">
                             {s.sample_days}d of {s.lookback_days}d
                           </td>
                         </tr>
@@ -512,29 +533,33 @@ export default function PredictiveReceivablesForecast() {
                 </div>
 
                 {data.scheduled_only_streams.length > 0 && (
-                  <p className="text-[9px] text-muted-foreground flex items-start gap-1">
+                  <p className="text-[9px] sm:text-[10px] text-muted-foreground flex items-start gap-1">
                     <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-                    Not enough collection history to model:{' '}
-                    {data.scheduled_only_streams
-                      .map((s) => `${s.product_label} (${formatUGX(s.outstanding)})`)
-                      .join(', ')}
-                    . These are shown from their contractual due dates only.
+                    <span>
+                      Not enough collection history to model:{' '}
+                      {data.scheduled_only_streams
+                        .map((s) => `${s.product_label} (${formatUGX(s.outstanding)})`)
+                        .join(', ')}
+                      . These are shown from their contractual due dates only.
+                    </span>
                   </p>
                 )}
 
                 {(data.origination_only_streams ?? []).length > 0 && (
-                  <p className="text-[9px] text-muted-foreground flex items-start gap-1">
+                  <p className="text-[9px] sm:text-[10px] text-muted-foreground flex items-start gap-1">
                     <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-                    No record of new business being written for:{' '}
-                    {data.origination_only_streams
-                      .map((s) => `${s.product_label} (${formatUGX(s.outstanding)})`)
-                      .join(', ')}
-                    . These forecast the run-off of the existing book only — no new receivables are
-                    assumed.
+                    <span>
+                      No record of new business being written for:{' '}
+                      {data.origination_only_streams
+                        .map((s) => `${s.product_label} (${formatUGX(s.outstanding)})`)
+                        .join(', ')}
+                      . These forecast the run-off of the existing book only — no new receivables are
+                      assumed.
+                    </span>
                   </p>
                 )}
 
-                <p className="text-[9px] text-muted-foreground">
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground">
                   {data.meta.method_note} History available:{' '}
                   {data.meta.history_span_days ?? 0} days. Any period ending beyond that span is
                   extrapolation: it can never be shown as high confidence, and periods more than
@@ -544,12 +569,22 @@ export default function PredictiveReceivablesForecast() {
               </div>
             )}
 
-            <div className="flex flex-wrap gap-1.5">
-              <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={exportPeriods}>
-                <Download className="h-3 w-3 mr-1" /> Export periods
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 sm:h-8 text-[11px] w-full sm:w-auto"
+                onClick={exportPeriods}
+              >
+                <Download className="h-3.5 w-3.5 mr-1" /> Export periods
               </Button>
-              <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={exportSources}>
-                <Download className="h-3 w-3 mr-1" /> Export by source
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 sm:h-8 text-[11px] w-full sm:w-auto"
+                onClick={exportSources}
+              >
+                <Download className="h-3.5 w-3.5 mr-1" /> Export by source
               </Button>
             </div>
           </>
@@ -558,3 +593,4 @@ export default function PredictiveReceivablesForecast() {
     </Card>
   );
 }
+

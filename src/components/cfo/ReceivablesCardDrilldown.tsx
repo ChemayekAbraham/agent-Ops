@@ -69,25 +69,32 @@ export function ReceivablesCardDrilldown() {
       </Card>
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle className="text-base">Receivables Breakdown &amp; Forecast</SheetTitle>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-2xl lg:max-w-4xl xl:max-w-5xl overflow-y-auto overflow-x-hidden p-4 sm:p-6"
+        >
+          <SheetHeader className="text-left">
+            <SheetTitle className="text-base sm:text-lg">
+              Receivables Breakdown &amp; Forecast
+            </SheetTitle>
           </SheetHeader>
 
-          <div className="mt-3 space-y-3">
-            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+          <div className="mt-3 space-y-3 sm:space-y-4 max-w-full">
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 sm:p-4">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
                 Total Receivables
               </p>
-              <p className="text-xl font-bold font-mono">
+              <p className="text-xl sm:text-2xl font-bold font-mono tabular-nums break-words">
                 {total.isLoading ? '—' : formatUGX(total.data?.total ?? 0)}
               </p>
               {validation && !validation.ties_out && (
-                <p className="mt-1 flex items-center gap-1.5 text-[10px] text-destructive">
-                  <AlertTriangle className="h-3 w-3" />
-                  Discrepancy: categories sum to {formatUGX(validation.categories_total ?? 0)}, a
-                  difference of {formatUGX(validation.difference)} against the authoritative total.
-                  No figure has been adjusted to force a match.
+                <p className="mt-1 flex items-start gap-1.5 text-[10px] sm:text-xs text-destructive">
+                  <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                  <span>
+                    Discrepancy: categories sum to {formatUGX(validation.categories_total ?? 0)}, a
+                    difference of {formatUGX(validation.difference)} against the authoritative total.
+                    No figure has been adjusted to force a match.
+                  </span>
                 </p>
               )}
             </div>
@@ -96,6 +103,7 @@ export function ReceivablesCardDrilldown() {
           </div>
         </SheetContent>
       </Sheet>
+
     </>
   );
 }
