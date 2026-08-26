@@ -333,6 +333,32 @@ function MiniStat({ label, value, tone = 'default' }: { label: string; value: st
 }
 
 
+function todayIso() {
+  return format(new Date(), 'yyyy-MM-dd');
+}
+
+function isoDaysAgo(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return format(date, 'yyyy-MM-dd');
+}
+
+type SortKey = 'recent' | 'missed' | 'paid_today' | 'remaining';
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: 'recent', label: 'Most recent collection' },
+  { value: 'missed', label: 'Most days missed' },
+  { value: 'paid_today', label: 'Highest paid today' },
+  { value: 'remaining', label: 'Largest remaining balance' },
+];
+
+const RANGE_PRESETS: { label: string; days: number }[] = [
+  { label: 'Today', days: 0 },
+  { label: '7 days', days: 6 },
+  { label: '30 days', days: 29 },
+  { label: '90 days', days: 89 },
+];
+
 export function AgentRentBehaviourPanel() {
   const [page, setPage] = useState(0);
   const [data, setData] = useState<RentBehaviourResponse>(() => asRows(null));
@@ -341,6 +367,9 @@ export function AgentRentBehaviourPanel() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<RentBehaviourRow | null>(null);
   const [detailTab, setDetailTab] = useState('overview');
+  const [fromDate, setFromDate] = useState(() => isoDaysAgo(29));
+  const [toDate, setToDate] = useState(() => todayIso());
+  const [sortKey, setSortKey] = useState<SortKey>('recent');
 
   useEffect(() => {
     if (!selected) return;
@@ -351,7 +380,7 @@ export function AgentRentBehaviourPanel() {
 
   const offset = page * PAGE_SIZE;
 
-  const loadRows = useCallback(async (nextOffset: number, silent = false) => {
+  const loadRows = useCallback(async (nextOffset: number, range: { from: string; to: string; sort: SortKey }, silent = false) => {
     if (!silent) setIsLoading(true);
     setIsFetching(true);
     setLoadError(null);
@@ -360,7 +389,10 @@ export function AgentRentBehaviourPanel() {
       const { data: payload, error } = await supabase.rpc('get_agent_ops_rent_behaviour', {
         p_limit: PAGE_SIZE,
         p_offset: nextOffset,
-      });
+        p_from: range.from,
+        p_to: range.to,
+        p_sort: range.sort,
+      } as never);
       if (error) throw new Error(error.message);
       setData(asRows(payload));
     } catch (err) {
@@ -373,10 +405,18 @@ export function AgentRentBehaviourPanel() {
   }, []);
 
   useEffect(() => {
-    void loadRows(offset);
-  }, [loadRows, offset]);
+    void loadRows(offset, { from: fromDate, to: toDate, sort: sortKey });
+  }, [loadRows, offset, fromDate, toDate, sortKey]);
 
-  const refetch = () => loadRows(offset, true);
+  const refetch = () => loadRows(offset, { from: fromDate, to: toDate, sort: sortKey }, true);
+
+  const applyPreset = (days: number) => {
+    setPage(0);
+    setFromDate(isoDaysAgo(days));
+    setToDate(todayIso());
+  };
+
+
 
   const detailQuery = useQuery({
     queryKey: ['agent-ops-rent-behaviour-detail', selected?.tenant_id, selected?.agent_id],
