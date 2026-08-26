@@ -323,6 +323,25 @@ export function PromissoryNotesQueue() {
     };
   };
 
+  // Proxy agent commission on promissory-linked partners: 2% when the partner
+  // first creates a portfolio, 1% on every later top-up. Rates come from the
+  // server (promissory_commission_rate), never hardcoded in the UI.
+  const pct = (rate: number) => `${(Number(rate || 0) * 100).toFixed(Number(rate || 0) * 100 % 1 === 0 ? 0 : 1)}%`;
+  const commissionOf = (n: any) => {
+    const creationRate = Number(n?.commission_creation_rate ?? report?.rates?.portfolio_creation ?? 0.02);
+    const topupRate = Number(n?.commission_topup_rate ?? report?.rates?.portfolio_topup ?? 0.01);
+    const creationPaid = Number(n?.creation_commission_paid || 0);
+    const topupPaid = Number(n?.topup_commission_paid || 0);
+    const expected = Number(n?.creation_commission_expected || 0);
+    return {
+      creationRate, topupRate, creationPaid, topupPaid,
+      total: creationPaid + topupPaid,
+      topupCount: Number(n?.topup_commission_count || 0),
+      expected,
+      pendingCreation: creationPaid <= 0 && expected > 0,
+    };
+  };
+
   const statuses = ['all', 'pending', 'activated', 'fulfilled', 'defaulted', 'cancelled'];
 
   const kpiCards: { label: string; value: React.ReactNode; hint?: string; tone: string }[] = [
