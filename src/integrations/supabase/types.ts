@@ -38054,6 +38054,24 @@ export type Database = {
           },
         ]
       }
+      v_receivables_lines: {
+        Row: {
+          category_key: string | null
+          category_label: string | null
+          counterparty_id: string | null
+          created_at: string | null
+          daily_amount: number | null
+          due_date: string | null
+          due_kind: string | null
+          item_id: string | null
+          outstanding_amount: number | null
+          product_key: string | null
+          product_label: string | null
+          source_table: string | null
+          status: string | null
+        }
+        Relationships: []
+      }
       v_staff_requisition_budget_context: {
         Row: {
           approved_budget: number | null
@@ -39588,6 +39606,7 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: boolean
       }
+      can_view_receivables: { Args: { _user_id: string }; Returns: boolean }
       can_view_web_analytics: { Args: { _user_id: string }; Returns: boolean }
       cancel_agent_advance: {
         Args: { p_advance_id: string; p_reason: string; p_recoup: boolean }
@@ -42560,6 +42579,11 @@ export type Database = {
         Returns: number
       }
       get_public_trust_profile: { Args: { p_ai_id: string }; Returns: Json }
+      get_receivables_breakdown: { Args: never; Returns: Json }
+      get_receivables_forecast: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
       get_referral_progress: { Args: { p_referred_id: string }; Returns: Json }
       get_rent_disbursement_report: {
         Args: { p_end: string; p_start: string }
