@@ -5,7 +5,10 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, UserPlus, Home } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Loader2, UserPlus, Home, Check, ChevronsUpDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface Props {
@@ -23,6 +26,7 @@ export default function TenantAssignAgentDialog({
 }: Props) {
   const qc = useQueryClient();
   const [agentId, setAgentId] = useState<string>(currentAgentId || '');
+  const [agentOpen, setAgentOpen] = useState(false);
   const [listingId, setListingId] = useState<string>('');
   const [saving, setSaving] = useState(false);
 
@@ -135,16 +139,60 @@ export default function TenantAssignAgentDialog({
             <Label className="text-xs flex items-center gap-1.5">
               <UserPlus className="h-3.5 w-3.5" /> Assigned Agent
             </Label>
-            <Select value={agentId} onValueChange={setAgentId}>
-              <SelectTrigger><SelectValue placeholder="Select an agent" /></SelectTrigger>
-              <SelectContent className="max-h-72">
-                {agents.map(a => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.full_name || 'Unnamed'} {a.phone ? `· ${a.phone}` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={agentOpen} onOpenChange={setAgentOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={agentOpen}
+                  className="w-full justify-between px-3 font-normal h-10"
+                  type="button"
+                >
+                  {agentId ? (
+                    (() => {
+                      const a = agents.find((x) => x.id === agentId);
+                      return a ? (
+                        <span className="truncate text-left">
+                          {a.full_name || 'Unnamed'}
+                          {a.phone ? <span className="text-muted-foreground ml-1.5">· {a.phone}</span> : null}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Select an agent</span>
+                      );
+                    })()
+                  ) : (
+                    <span className="text-muted-foreground">Select an agent</span>
+                  )}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-0 w-[var(--radix-popover-trigger-width)]" align="start">
+                <Command>
+                  <CommandInput placeholder="Search agent by name or phone…" />
+                  <CommandList className="max-h-64">
+                    <CommandEmpty>No agent found.</CommandEmpty>
+                    <CommandGroup>
+                      {agents.map((a) => {
+                        const label = `${a.full_name || 'Unnamed'}${a.phone ? ` · ${a.phone}` : ''}`;
+                        return (
+                          <CommandItem
+                            key={a.id}
+                            value={`${a.id}:${label}`}
+                            onSelect={() => {
+                              setAgentId(a.id);
+                              setAgentOpen(false);
+                            }}
+                          >
+                            <Check className={cn('mr-2 h-4 w-4 shrink-0', agentId === a.id ? 'opacity-100' : 'opacity-0')} />
+                            <span className="truncate">{label}</span>
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
             <p className="text-[10px] text-muted-foreground">Updates the rent plan's collecting agent.</p>
           </div>
 
