@@ -450,6 +450,16 @@ export function AgentCashPayoutsTab() {
       claimedSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
+    // Landlord-payout priority gate: while an unclaimed landlord float payout
+    // exists, only landlord payouts may be claimed.
+    if (
+      blockingUrgentLandlord &&
+      blockingUrgentLandlord.id !== id &&
+      !isUrgentLandlordPayout(row || undefined)
+    ) {
+      toast.error(LANDLORD_PRIORITY_BLOCK_MESSAGE);
+      return;
+    }
     // Proxy-agent priority gate: while an urgent proxy withdrawal is unclaimed,
     // only that payout may be claimed. The server enforces this too
     // (`proxy_priority_hold`); this is the fast, explicit client message.
