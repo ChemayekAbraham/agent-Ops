@@ -34274,6 +34274,69 @@ export type Database = {
         }
         Relationships: []
       }
+      verification_reversals: {
+        Row: {
+          actor_id: string
+          agent_id: string | null
+          created_at: string
+          entity_id: string
+          entity_name: string | null
+          entity_type: string
+          id: string
+          legs: Json
+          previous_status: string
+          previous_verified_at: string | null
+          reason: string
+          recovery_status: string
+          rejection_charge_amount: number
+          reversed_amount: number
+          reversible_amount: number
+          transaction_group_ids: string[]
+          unrecovered_amount: number
+          updated_at: string
+        }
+        Insert: {
+          actor_id: string
+          agent_id?: string | null
+          created_at?: string
+          entity_id: string
+          entity_name?: string | null
+          entity_type: string
+          id?: string
+          legs?: Json
+          previous_status: string
+          previous_verified_at?: string | null
+          reason: string
+          recovery_status: string
+          rejection_charge_amount?: number
+          reversed_amount?: number
+          reversible_amount?: number
+          transaction_group_ids?: string[]
+          unrecovered_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          actor_id?: string
+          agent_id?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_name?: string | null
+          entity_type?: string
+          id?: string
+          legs?: Json
+          previous_status?: string
+          previous_verified_at?: string | null
+          reason?: string
+          recovery_status?: string
+          rejection_charge_amount?: number
+          reversed_amount?: number
+          reversible_amount?: number
+          transaction_group_ids?: string[]
+          unrecovered_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       voided_ledger_entries: {
         Row: {
           account: string | null
@@ -43256,6 +43319,10 @@ export type Database = {
         }[]
       }
       get_user_wallet_view: { Args: { p_user_id: string }; Returns: Json }
+      get_verification_reversal_preview: {
+        Args: { p_entity_id: string; p_entity_type: string }
+        Returns: Json
+      }
       get_wallet_bucket_totals: { Args: never; Returns: Json }
       get_wallet_holder_activity_counts: {
         Args: { p_user_ids: string[] }
@@ -45950,6 +46017,10 @@ export type Database = {
       }
       reverse_promissory_note_bonus: {
         Args: { p_note_id: string; p_reason: string }
+        Returns: Json
+      }
+      reverse_verification: {
+        Args: { p_entity_id: string; p_entity_type: string; p_reason: string }
         Returns: Json
       }
       review_merchant_out_of_pocket: {
