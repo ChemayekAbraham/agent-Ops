@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
@@ -229,7 +229,7 @@ export function PartnerProfile360() {
   const [selected, setSelected] = useState<SearchRow | null>(null);
 
   // Debounce keystrokes so typing never fans out into a request per character.
-  useMemo(() => {
+  useEffect(() => {
     const t = setTimeout(() => setDebounced(term.trim()), 300);
     return () => clearTimeout(t);
   }, [term]);
