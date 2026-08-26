@@ -434,10 +434,16 @@ export function DailyRentReport({ mode }: Props) {
           <Button size="sm" variant="outline" onClick={() => refetch()} className="h-9 gap-1.5"><RefreshCw className="h-3.5 w-3.5" />Refresh</Button>
           <Button size="sm" variant="outline" onClick={exportCsv} disabled={!filtered.length} className="h-9 gap-1.5"><FileSpreadsheet className="h-3.5 w-3.5" />CSV</Button>
           <Button size="sm" variant="outline" onClick={exportPdf} disabled={!filtered.length} className="h-9 gap-1.5"><FileDown className="h-3.5 w-3.5" />PDF</Button>
+          <SectionReportExport section="comprehensive" mode={mode} pageDate={date} variant="prominent" />
         </div>
       </Card>
 
       {/* Summary cards */}
+      <div className="flex items-center justify-between">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Summary</div>
+        <SectionReportExport section="summary" mode={mode} pageDate={date} />
+      </div>
+
       {mode === 'tenant' ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2">
           <SummaryCard label="Total Rent Repaid" value={formatUGX(totals.sum)} icon={HandCoins} tone="bg-emerald-500/10 text-emerald-700" />
