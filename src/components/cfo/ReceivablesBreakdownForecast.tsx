@@ -12,7 +12,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatUGX } from '@/lib/rentCalculations';
 import PredictiveReceivablesForecast from '@/components/cfo/PredictiveReceivablesForecast';
-import ForecastAccuracyPanel from '@/components/cfo/ForecastAccuracyPanel';
 import { useReceivablesBreakdown, useReceivablesTotal } from '@/hooks/useReceivables';
 
 
@@ -206,8 +205,6 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
       {/* Predictive, data-driven forecast (separate from the scheduled window above) */}
       <PredictiveReceivablesForecast />
 
-      {/* Proof: how the same model performed against actual collections */}
-      <ForecastAccuracyPanel />
     </div>
   );
 }
