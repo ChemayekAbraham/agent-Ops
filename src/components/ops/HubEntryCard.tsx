@@ -34,14 +34,14 @@ export function HubEntryCard({
         <Icon className="h-5 w-5 text-primary" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-bold text-sm text-foreground leading-tight [overflow-wrap:anywhere]">{title}</p>
-        <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug [overflow-wrap:anywhere]">{description}</p>
+        <p className="font-bold text-sm text-foreground leading-tight break-words hyphens-none">{title}</p>
+        <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug break-words hyphens-none">{description}</p>
         {stats && stats.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {stats.map((s) => (
               <span
                 key={s.label}
-                className="inline-flex items-baseline gap-1 rounded-full border bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground"
+                className="inline-flex items-baseline gap-1 whitespace-nowrap rounded-full border bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground"
               >
                 <span className="font-bold text-foreground">{s.value}</span>
                 {s.label}
@@ -50,11 +50,12 @@ export function HubEntryCard({
           </div>
         )}
       </div>
-      <span className="shrink-0 hidden sm:inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-primary-foreground shadow-sm group-hover:bg-primary/90 transition-colors">
+      <span className="shrink-0 hidden xl:inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-primary px-3 py-1.5 text-[11px] font-bold text-primary-foreground shadow-sm group-hover:bg-primary/90 transition-colors">
         Open hub
         <ArrowRight className="h-3.5 w-3.5" />
       </span>
-      <ArrowRight className="h-5 w-5 text-primary shrink-0 sm:hidden mt-1" />
+      <ArrowRight className="h-5 w-5 text-primary shrink-0 xl:hidden mt-1" />
+
     </button>
   );
 }
