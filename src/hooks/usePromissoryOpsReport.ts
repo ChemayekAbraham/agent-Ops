@@ -81,6 +81,13 @@ export interface PromissoryNoteRow {
   support_mode: 'self_support' | 'existing_support';
   reserved_plans: number;
   reserved_amount: number;
+  journey_stage: 'not_registered' | 'came_in' | 'portfolio_pending' | 'portfolio_active';
+  portfolio_count: number;
+  portfolio_active_count: number;
+  portfolio_pending_count: number;
+  portfolio_amount: number;
+  portfolio_active_amount: number;
+  first_portfolio_at: string | null;
   notes?: string | null;
 }
 
