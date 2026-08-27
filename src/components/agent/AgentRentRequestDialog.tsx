@@ -1733,8 +1733,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
         errors.push('Step 2 — Landlord verified: The selected landlord is no longer registered in the system. Pick a registered landlord or register them again.');
       } else if (landlordCheck === 'checking') {
         errors.push('Step 2 — Landlord verified: Confirming the landlord is registered — please wait a moment before posting.');
-      } else if (landlordCheck !== 'registered' && landlordCheck !== 'unverified') {
-        errors.push('Step 2 — Landlord verified: The landlord must be registered and verified before you can post a rent request.');
       }
       // The landlord's listed house MUST show photos. Block rent requests on
       // any selected listing that has no photos on record.
@@ -1797,8 +1795,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
         map['landlord'] = 'Step 2 — Landlord verified: The selected landlord is no longer registered in the system. Pick a registered landlord or register them again.';
       } else if (landlordCheck === 'checking') {
         map['landlord'] = 'Step 2 — Landlord verified: Confirming the landlord is registered — please wait a moment before posting.';
-      } else if (landlordCheck !== 'registered' && landlordCheck !== 'unverified') {
-        map['landlord'] = 'Step 2 — Landlord verified: The landlord must be registered and verified before you can post a rent request.';
       }
       if (selectedHouse && !listingHasRealPhoto(selectedHouse)) {
         map['housePhotos'] = "This landlord's house has no photos — pick a house that shows photos before posting the rent request";
@@ -1861,8 +1857,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
         map['landlord'] = 'Step 2 — Landlord verified: The selected landlord is no longer registered in the system. Pick a registered landlord or register them again.';
       } else if (landlordCheck === 'checking') {
         map['landlord'] = 'Step 2 — Landlord verified: Confirming the landlord is registered — please wait a moment before posting.';
-      } else if (landlordCheck !== 'registered' && landlordCheck !== 'unverified') {
-        map['landlord'] = 'Step 2 — Landlord verified: The landlord must be registered and verified before you can post a rent request.';
       }
       if (!propertyAddress.trim()) map['propertyAddress'] = 'Type the property address';
       if (!lc1Name.trim()) map['lc1Name'] = "Type the LC1 chairperson's name";
@@ -1883,8 +1877,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
         map['landlord'] = 'Step 2 — Landlord verified: The selected landlord is no longer registered in the system. Pick a registered landlord or register them again.';
       } else if (landlordCheck === 'checking') {
         map['landlord'] = 'Step 2 — Landlord verified: Confirming the landlord is registered — please wait a moment before posting.';
-      } else if (landlordCheck !== 'registered' && landlordCheck !== 'unverified') {
-        map['landlord'] = 'Step 2 — Landlord verified: The landlord must be registered and verified before you can post a rent request.';
       }
       if (selectedHouse && !listingHasRealPhoto(selectedHouse)) {
         map['housePhotos'] = "This landlord's house has no photos — pick a house that shows photos before posting the rent request";
@@ -2472,8 +2464,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
         errors.push('Step 2 — Landlord verified: The selected landlord is no longer registered in the system. Pick a registered landlord or register them again.');
       } else if (landlordCheck === 'checking') {
         errors.push('Step 2 — Landlord verified: Confirming the landlord is registered — please wait a moment before posting.');
-      } else if (landlordCheck !== 'registered' && landlordCheck !== 'unverified') {
-        errors.push('Step 2 — Landlord verified: The landlord must be registered and verified before you can post a rent request.');
       }
       if (!propertyAddress.trim()) errors.push('Type the property address');
       if (!lc1Name.trim()) errors.push('Type the LC1 chairperson\'s name');
@@ -5581,7 +5571,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                     onClick={submitQueued ? promptCancelQueued : requestSubmit}
                     className="flex-1"
                     variant={submitQueued ? 'secondary' : 'default'}
-                    disabled={loading || !amount || amount < 50000 || (landlordCheck !== 'registered' && landlordCheck !== 'unverified') || weeklyEarnerBlocksSubmit}
+                    disabled={loading || !amount || amount < 50000 || landlordCheck === 'missing' || weeklyEarnerBlocksSubmit}
                   >
                     {loading ? (
                       <>
