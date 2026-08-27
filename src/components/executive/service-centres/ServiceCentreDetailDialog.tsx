@@ -21,6 +21,8 @@ import {
   useServiceCentre360,
   useUnassignServiceCentreAgent,
 } from '@/hooks/useServiceCentre360';
+import { ServiceCentreReceivablePanel } from './ServiceCentreReceivablePanel';
+
 
 const initials = (name: string) =>
   (name || '').split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || '?';
