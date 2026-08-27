@@ -400,6 +400,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
             const movements = movementsFor(r);
             const latestAt = latestMovementAt(r);
             const booksProveLess = spendableFloat(r) < Math.max(0, r.ledgerFloatHeld);
+            const cap = capacityFor(r.agentId);
             return (
               <div
                 key={r.deskId}
@@ -415,11 +416,36 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                   >
                     {r.agentName || r.label || 'Merchant agent'}
                   </button>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
+                        !cap || cap.earnedCapacity === 0
+                          ? 'border-destructive/40 bg-destructive/10 text-destructive'
+                          : 'border-primary/40 bg-primary/10 text-primary'
+                      }`}
+                      title={cap?.blocker ? cap.blocker : cap?.reason || 'No verified payout record yet'}
+                    >
+                      <Gauge className="h-2.5 w-2.5" />
+                      qualifies {perfLoading ? '…' : formatUGX(cap?.earnedCapacity ?? 0)}/day
+                    </span>
+                    {pot > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-success">
+                        send {formatUGX(cap?.suggestedAllocation ?? 0)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {capacityLabel(cap)}
+                    {cap && cap.earnedCapacity > 0
+                      ? ` · avg ${formatUGX(Math.round(cap.dailyThroughput))}/day paid out`
+                      : ''}
+                  </p>
                   {isUnverified(r) && (
                     <span className="mt-0.5 inline-flex items-center gap-1 rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-destructive">
                       <ShieldAlert className="h-2.5 w-2.5" /> {evidenceLabel(r)}
                     </span>
                   )}
+
                   {movements.length === 0 ? (
                     <p className="text-[11px] text-muted-foreground">No float movements</p>
                   ) : (
