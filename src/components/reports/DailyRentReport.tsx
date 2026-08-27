@@ -395,6 +395,11 @@ export function DailyRentReport({ mode }: Props) {
   const fileBase = mode === 'tenant' ? 'daily-repayments' : 'daily-collections';
   const periodLabel = (f: string, t: string) => (f === t ? f : `${f} to ${t}`);
 
+  // Loaded window bounds, normalised so a swapped From/To still bounds the
+  // per-section date pickers correctly.
+  const periodFrom = date <= dateTo ? date : dateTo;
+  const periodTo = date <= dateTo ? dateTo : date;
+
   const rangeFor = (key: string) => secRange[key] ?? { from: date, to: dateTo };
   const setRange = (key: string, next: { from: string; to: string }) =>
     setSecRange(prev => ({ ...prev, [key]: next }));
