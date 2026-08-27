@@ -66,21 +66,24 @@ function useRunAuthority() {
     preparer: false,
     approver: false,
     releaser: false,
+    ruleAdmin: false,
     loaded: false,
   });
   useEffect(() => {
     let alive = true;
     void (async () => {
-      const [prep, appr, rel] = await Promise.all([
+      const [prep, appr, rel, ruleAdm] = await Promise.all([
         (supabase.rpc as any)('hr_pay_is_preparer'),
         (supabase.rpc as any)('hr_pay_is_approver'),
         (supabase.rpc as any)('hr_pay_is_releaser'),
+        (supabase.rpc as any)('hr_pay_is_rule_admin'),
       ]);
       if (!alive) return;
       setAuthority({
         preparer: prep?.data === true,
         approver: appr?.data === true,
         releaser: rel?.data === true,
+        ruleAdmin: ruleAdm?.data === true,
         loaded: true,
       });
     })();
@@ -131,7 +134,7 @@ function RunActionBar({
   const blocked = blockingCount > 0;
   const submitDenied = !authority.preparer || blocked;
   const approveDenied = !authority.approver;
-  const lockDenied = !authority.releaser;
+  const lockDenied = !authority.releaser && !authority.approver && !authority.ruleAdmin;
 
   return (
     <div className="mt-3 space-y-2 border-t border-border pt-3">
