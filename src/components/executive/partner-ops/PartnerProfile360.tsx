@@ -482,35 +482,69 @@ export function PartnerProfile360() {
 
 
 
-  const exportWorkbook = async () => {
+  /**
+   * Full partner financial statement as PDF: profile + position summary +
+   * every portfolio breakdown tab. Actor and reason columns are excluded and
+   * all machine values are humanised (underscores → spaces).
+   */
+  const exportStatementPdf = async () => {
     if (!data) return;
     const stamp = format(new Date(), 'yyyy-MM-dd');
-    const profileSheet: XlsxSheet = {
-      name: 'Profile',
-      headers: ['Field', 'Value'],
-      rows: [
+    const EXCLUDE = /actor|reason|note/i;
+
+    const pdfSections = sections.map((s) => {
+      const cols = s.cols.filter((c) => !EXCLUDE.test(c.key) && !EXCLUDE.test(c.label));
+      return {
+        name: s.name,
+        headers: cols.map((c) => c.label),
+        rows: s.rows.map((r) => cols.map((c) => String(c.render ? c.render(r) : (r[c.key] ?? '—')))),
+        rightAlign: cols.reduce<number[]>((acc, c, i) => (c.align === 'right' ? [...acc, i] : acc), []),
+      };
+    });
+
+    const blob = await generatePartnerFinancialStatementPdf({
+      partner: partnerLabel,
+      profile: [
         ['Partner', partnerLabel],
-        ['Phone', p?.phone || ''],
-        ['Email', p?.email || ''],
-        ['Partner reference', p?.funder_reference || ''],
-        ['National ID', p?.national_id || ''],
+        ['Phone', p?.phone || '—'],
+        ['Email', p?.email || '—'],
+        ['Partner reference', p?.funder_reference || '—'],
+        ['National ID', p?.national_id || '—'],
         ['Joined', fmtDate(p?.created_at)],
-        ['Location', [p?.village, p?.district, p?.region, p?.country].filter(Boolean).join(', ')],
+        ['Location', [p?.village, p?.parish, p?.district, p?.region, p?.country].filter(Boolean).join(', ') || '—'],
+        ['Mobile money', [p?.mobile_money_provider, p?.mobile_money_number, p?.mobile_money_name].filter(Boolean).join(' • ') || '—'],
+        ['Occupation', p?.occupation || '—'],
+      ],
+      totals: [
         ['Portfolios', String(totals?.portfolio_count ?? 0)],
         ['Active portfolios', String(totals?.active_count ?? 0)],
         ['Total principal', money(totals?.total_principal)],
         ['Active principal', money(totals?.active_principal)],
         ['Total returns', money(totals?.total_returns)],
-        ['Agreement reference', data.agreement?.reference || ''],
-        ['Agreement status', data.agreement?.status || ''],
-        ['Payout mode', data.agreement?.payout_mode || ''],
+        ['First support', fmtDate(totals?.first_portfolio_at)],
+        ['Latest support', fmtDate(totals?.last_portfolio_at)],
       ],
-    };
-    await downloadXlsxWorkbook(
-      `Partner_360_${(partnerLabel || 'partner').replace(/\s+/g, '_')}_${stamp}.xlsx`,
-      [profileSheet, ...sections.map((s) => toSheet(s.name, s.cols, s.rows))],
-    );
+      agreement: data.agreement ? [
+        ['Reference', data.agreement.reference || '—'],
+        ['Status', data.agreement.status || '—'],
+        ['Agreement date', fmtDate(data.agreement.agreement_date)],
+        ['Payout mode', data.agreement.payout_mode || '—'],
+        ['Bank', [data.agreement.bank_name, data.agreement.bank_account_number, data.agreement.bank_account_name].filter(Boolean).join(' • ') || '—'],
+        ['Mobile money', [data.agreement.momo_provider, data.agreement.momo_number, data.agreement.momo_name].filter(Boolean).join(' • ') || '—'],
+      ] : undefined,
+      sections: pdfSections,
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Partner_Financial_Statement_${(partnerLabel || 'partner').replace(/\s+/g, '-')}_${stamp}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   };
+
 
   const exportSection = (s: { name: string; cols: Col[]; rows: Row[] }) => {
     downloadCsv(
