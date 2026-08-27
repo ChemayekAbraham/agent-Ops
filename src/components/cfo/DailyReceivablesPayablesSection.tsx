@@ -249,11 +249,9 @@ export function DailyReceivablesPayablesSection() {
                   </div>
                   <MetricRow label="Amount" value={fmt(row.amount)} />
                   <MetricRow label="Due" value={row.due_date ? format(new Date(`${row.due_date}T00:00:00`), "d MMM yyyy") : "—"} />
-                  <MetricRow
-                    label="Processed"
-                    value={row.processed_at ? format(new Date(row.processed_at), 'd MMM yyyy HH:mm') : '—'}
-                  />
-                  <MetricRow label="Method" value={row.payout_method || '—'} />
+                  <MetricRow label="Type" value={row.payout_method || '—'} />
+                  <MetricRow label="Category" value={row.category_label || '—'} />
+
                 </div>
               ))}
             </div>
