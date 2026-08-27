@@ -57,14 +57,19 @@ async function fetchTopUpRows(): Promise<TopUpRow[]> {
   const list = ops || [];
   const portfolioIds = Array.from(new Set(list.map((o: any) => o.source_id).filter(Boolean)));
 
-  const portfolioMap: Record<string, { account_name: string | null; portfolio_code: string | null; investor_id: string | null }> = {};
+  const portfolioMap: Record<string, { account_name: string | null; portfolio_code: string | null; investor_id: string | null; investment_amount: number }> = {};
   if (portfolioIds.length > 0) {
     const { data: portfolios } = await supabase
       .from('investor_portfolios')
-      .select('id, account_name, portfolio_code, investor_id')
+      .select('id, account_name, portfolio_code, investor_id, investment_amount')
       .in('id', portfolioIds);
     (portfolios || []).forEach((p: any) => {
-      portfolioMap[p.id] = { account_name: p.account_name, portfolio_code: p.portfolio_code, investor_id: p.investor_id };
+      portfolioMap[p.id] = {
+        account_name: p.account_name,
+        portfolio_code: p.portfolio_code,
+        investor_id: p.investor_id,
+        investment_amount: Number(p.investment_amount) || 0,
+      };
     });
   }
 
@@ -81,11 +86,44 @@ async function fetchTopUpRows(): Promise<TopUpRow[]> {
     (profiles || []).forEach((pr: any) => { nameMap[pr.id] = pr.full_name || ''; });
   }
 
+  // Capital before each top-up. The merge path never stamped `previous_capital`
+  // on the operation, so we reconstruct it from the portfolio's CURRENT capital by
+  // walking the applied (merged) top-ups newest → oldest and peeling each amount
+  // off. Pending/parked rows are not in the principal yet, so their "before" is
+  // simply the current capital.
+  const beforeById: Record<string, number> = {};
+  const byPortfolio: Record<string, any[]> = {};
+  list.forEach((o: any) => {
+    if (!o.source_id) return;
+    (byPortfolio[o.source_id] ||= []).push(o);
+  });
+  Object.entries(byPortfolio).forEach(([pid, ops]) => {
+    const current = portfolioMap[pid]?.investment_amount;
+    if (current == null) return;
+    let running = current;
+    ops
+      .filter((o) => groupOf(o.status) === 'applied')
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .forEach((o) => {
+        const amt = Number(o.amount) || 0;
+        beforeById[o.id] = Math.max(0, running - amt);
+        running = Math.max(0, running - amt);
+      });
+    ops
+      .filter((o) => groupOf(o.status) !== 'applied')
+      .forEach((o) => {
+        beforeById[o.id] = current;
+      });
+  });
+
   return list.map((o: any) => {
-    const portfolio = portfolioMap[o.source_id] || { account_name: null, portfolio_code: null, investor_id: null };
+    const portfolio = portfolioMap[o.source_id] || { account_name: null, portfolio_code: null, investor_id: null, investment_amount: 0 };
     const meta = (o.metadata && typeof o.metadata === 'object') ? o.metadata : {};
     const reason = meta.reason || meta.agent_name ? (meta.reason || `via ${meta.agent_name}`) : (o.description || '');
     const code = portfolio.portfolio_code || meta.portfolio_code || '—';
+    const stamped = meta.previous_capital != null && Number.isFinite(Number(meta.previous_capital))
+      ? Number(meta.previous_capital)
+      : null;
     return {
       id: o.id,
       partnerName:
@@ -97,9 +135,7 @@ async function fetchTopUpRows(): Promise<TopUpRow[]> {
       portfolioCode: code,
       portfolioId: o.source_id,
       amount: Number(o.amount) || 0,
-      previousCapital: meta.previous_capital != null && Number.isFinite(Number(meta.previous_capital))
-        ? Number(meta.previous_capital)
-        : null,
+      previousCapital: stamped ?? (beforeById[o.id] != null ? beforeById[o.id] : null),
       createdAt: o.created_at,
       reason: meta.reason || (o.description ?? ''),
       rawStatus: o.status,
