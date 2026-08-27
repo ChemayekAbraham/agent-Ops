@@ -490,36 +490,8 @@ export default function SupporterDashboard({
 
           <MerchantCodePills />
 
-          {/* ═══ PORTFOLIO HERO CARD ═══ */}
-          {wallet ? (
-            <div id="funder-wallet-hero">
-            <UnifiedWalletHeroCard
-              balance={wallet?.balance ?? 0}
-              role="supporter"
-              secondaryLabel="Active Funds"
-              secondaryValue={_formatUGX(totalRentContributed)}
-              houses={supportedTenantCount}
-              housesLabel="Tenants"
-              returnPerMonth={_formatUGX(totalRoiEarned)}
-              deployed={_formatUGX(totalRentContributed)}
-              onOpenWallet={() => setShowWallet(true)}
-              onHousesTap={() => {
-                const el = document.getElementById('supported-tenants');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
-              onReturnTap={() => {
-                setInvestmentsTab('accounts');
-                setShowInvestments(true);
-              }}
-              onDeployedTap={() => {
-                setInvestmentsTab('accounts');
-                setShowInvestments(true);
-              }}
-            />
-            </div>
-          ) : (
-            <WalletHeroSkeleton />
-          )}
+
+
 
           <WidgetErrorBoundary label="Portfolio card">
             <PartnerPortfolioWalletCard

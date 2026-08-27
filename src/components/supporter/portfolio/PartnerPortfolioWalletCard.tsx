@@ -280,12 +280,6 @@ export function PartnerPortfolioWalletCard({ onAddCard, onPortfolios, onCalculat
         />
         <ActionButton label="More" onClick={onMore} icon={<Menu className="w-4 h-4" />} />
       </div>
-
-      {/* WALLET ACTIONS — same Deposit / Withdraw / Transfer flows as the wallet hero card */}
-      <FunderQuickActions
-        availableBalance={availableBalance}
-        onChanged={() => { refreshAvailable?.(); }}
-      />
     </div>
   );
 }
