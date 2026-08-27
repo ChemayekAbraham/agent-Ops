@@ -21,6 +21,7 @@ import {
   X,
   ChevronRight,
 } from 'lucide-react';
+import { MerchantCodePills } from '@/components/supporter/MerchantCodePills';
 
 import { UnifiedWalletHeroCard } from '@/components/wallet/UnifiedWalletHeroCard';
 import { FunderQuickActions } from '@/components/supporter/FunderQuickActions';
