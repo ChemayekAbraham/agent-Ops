@@ -66,15 +66,17 @@ function useRunAuthority() {
     preparer: false,
     approver: false,
     releaser: false,
+    ruleAdmin: false,
     loaded: false,
   });
   useEffect(() => {
     let alive = true;
     void (async () => {
-      const [prep, appr, rel] = await Promise.all([
+      const [prep, appr, rel, ruleAdm] = await Promise.all([
         (supabase.rpc as any)('hr_pay_is_preparer'),
         (supabase.rpc as any)('hr_pay_is_approver'),
         (supabase.rpc as any)('hr_pay_is_releaser'),
+        (supabase.rpc as any)('hr_pay_is_rule_admin'),
       ]);
       if (!alive) return;
       setAuthority({
