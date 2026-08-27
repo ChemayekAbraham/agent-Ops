@@ -247,25 +247,65 @@ const WITHDRAWAL_COLS: Col[] = [
 ];
 
 
+/**
+ * Derives a money before/after pair for an audit row even when the audit
+ * record only carries one side of the movement. Everything is computed
+ * relative to whichever figure exists (principal, capital, delta, roi amount)
+ * so the columns stop rendering a bare "—".
+ */
+const num = (v: unknown): number | null => {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+function changeAmounts(r: Row): { before: number | null; after: number | null; delta: number | null } {
+  const m: Record<string, unknown> = (r.metadata as Record<string, unknown>) || {};
+  const ov: Record<string, unknown> = (r.old_values as Record<string, unknown>) || {};
+  const nv: Record<string, unknown> = (r.new_values as Record<string, unknown>) || {};
+
+  let before =
+    num(ov.investment_amount) ?? num(ov.amount) ??
+    num(m.previous_capital) ?? num(m.current_capital) ?? num(m.wallet_balance_before) ??
+    num(m.previous_principal) ?? num(m.old_principal) ?? num(m.principal_before);
+  let after =
+    num(nv.investment_amount) ?? num(nv.amount) ??
+    num(m.new_capital) ?? num(m.wallet_balance_after) ?? num(m.new_principal) ?? num(m.principal_after);
+  let delta =
+    num(m.total_merged) ?? num(m.amount) ?? num(m.roi_amount) ?? num(m.topup_amount) ?? num(m.change_amount);
+
+  if (delta == null && before != null && after != null) delta = after - before;
+  if (before == null && after != null && delta != null) before = after - delta;
+  if (after == null && before != null && delta != null) after = before + delta;
+
+  return { before, after, delta };
+}
+
 const CHANGE_COLS: Col[] = [
   { key: 'created_at', label: 'When', render: (r) => fmtDate(r.created_at, true) },
   { key: 'action', label: 'Action', render: (r) => r.action || r.action_type || '—' },
   { key: 'table_name', label: 'Record' },
   { key: 'actor_name', label: 'Actor', render: (r) => r.actor_name || '—' },
-  { key: 'reason', label: 'Reason', render: (r) => r.reason || '—' },
-  { key: 'old_values', label: 'Before', render: (r) => {
-    if (r.old_values) return JSON.stringify(r.old_values);
-    const value = r.metadata?.previous_capital ?? r.metadata?.current_capital ?? r.metadata?.wallet_balance_before;
-    return value == null ? '—' : money(value);
+  { key: 'reason', label: 'Reason', wrap: true, render: (r) => {
+    const raw = String(r.reason || (r.metadata as any)?.reason || (r.metadata as any)?.notes || '').replace(/_/g, ' ').trim();
+    if (!raw) return '—';
+    return raw.length > 120 ? `${raw.slice(0, 120)}…` : raw;
   } },
-  { key: 'new_values', label: 'After', render: (r) => {
-    if (r.new_values) return JSON.stringify(r.new_values);
-    const value = r.metadata?.new_capital ?? r.metadata?.wallet_balance_after;
-    if (value != null) return money(value);
-    if (r.metadata && Object.keys(r.metadata).length) return JSON.stringify(r.metadata);
-    return '—';
+  { key: 'old_values', label: 'Before', align: 'right', render: (r) => {
+    const { before } = changeAmounts(r);
+    return before == null ? '—' : money(before);
+  } },
+  { key: 'change_amount', label: 'Change', align: 'right', render: (r) => {
+    const { delta } = changeAmounts(r);
+    if (delta == null) return '—';
+    return `${delta > 0 ? '+' : delta < 0 ? '-' : ''}${money(Math.abs(delta))}`;
+  } },
+  { key: 'new_values', label: 'After', align: 'right', render: (r) => {
+    const { after } = changeAmounts(r);
+    return after == null ? '—' : money(after);
   } },
 ];
+
 
 /* ─────────────── main panel ─────────────── */
 
