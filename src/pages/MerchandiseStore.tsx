@@ -762,19 +762,32 @@ export default function MerchandiseStore() {
             {confirmStep ? (
               <>
                 <Button variant="outline" onClick={() => setConfirmStep(false)} disabled={ordering}>Back</Button>
-                <Button onClick={placeOrder} disabled={ordering || insufficient || sizeMissing}>
-                  {ordering ? 'Placing order…' : zeroDown ? 'Yes, place order' : `Yes, pay ${formatUGX(dueNow)}`}
+                <Button onClick={placeOrder} disabled={ordering || walletBlocked || insufficient || sizeMissing}>
+                  {ordering
+                    ? 'Placing order…'
+                    : walletLoading
+                      ? 'Checking wallet…'
+                      : walletError
+                        ? 'Retry wallet check'
+                        : zeroDown ? 'Yes, place order' : `Yes, pay ${formatUGX(dueNow)}`}
                 </Button>
               </>
             ) : (
               <>
                 <Button variant="outline" onClick={() => setSelected(null)} disabled={ordering}>Cancel</Button>
-                <Button onClick={() => setConfirmStep(true)} disabled={insufficient || sizeMissing}>
-                  {insufficient ? 'Not enough balance' : sizeMissing ? 'Choose a size' : 'Review order'}
-                </Button>
+                {walletError ? (
+                  <Button variant="outline" onClick={() => refetchWallet()}>Retry wallet check</Button>
+                ) : (
+                  <Button onClick={() => setConfirmStep(true)} disabled={walletLoading || insufficient || sizeMissing}>
+                    {walletLoading
+                      ? 'Checking wallet…'
+                      : insufficient ? 'Not enough balance' : sizeMissing ? 'Choose a size' : 'Review order'}
+                  </Button>
+                )}
               </>
             )}
           </DialogFooter>
+
         </DialogContent>
       </Dialog>
 
