@@ -170,14 +170,13 @@ export function AgentTenantCollectDialog({
   // less than 100 the agent must still be able to clear the last shillings.
   const minAllowed = outstandingBalance > 0 ? Math.min(100, outstandingBalance) : 100;
   const canAllocate = floatBalance >= minAllowed && outstandingBalance >= minAllowed && outstandingBalance > 0;
-  // Partial-collection gate: anything below the tenant's expected amount must be
-  // explicitly confirmed with a reason, both here and in the RPC.
+  // Partial collections are ALLOWED and simply tracked — no gate, no forced
+  // confirmation, no mandatory reason. The reason box stays as an optional note
+  // so Operations still gets context in the Partial Collections view.
   const expected = Math.max(0, Number(expectedAmount ?? 0));
   const isPartial = expected > 0 && amount > 0 && amount < expected;
   const shortfall = isPartial ? expected - amount : 0;
-  const partialReasonOk = partialReason.trim().length >= 5;
-  const partialCleared = !isPartial || (partialConfirmed && partialReasonOk);
-  const isValid = amount >= minAllowed && amount <= maxAllowable && partialCleared;
+  const isValid = amount >= minAllowed && amount <= maxAllowable;
 
   // Auto-suggest the EXPECTED amount (not the maximum) so the default action is
   // a complete collection. Falls back to the old behaviour when unknown.
