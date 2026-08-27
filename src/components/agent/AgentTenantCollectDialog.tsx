@@ -186,11 +186,6 @@ export function AgentTenantCollectDialog({
     if (suggestion >= minAllowed) setAmount(suggestion);
   }, [open, maxAllowable, minAllowed, expected]);
 
-  // Re-arm the gate whenever the amount changes, so a confirmation cannot be
-  // carried over to a different (smaller) amount.
-  useEffect(() => {
-    setPartialConfirmed(false);
-  }, [amount]);
 
 
   const handleAllocate = async () => {
