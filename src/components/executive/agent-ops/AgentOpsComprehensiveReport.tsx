@@ -81,21 +81,107 @@ export function AgentOpsComprehensiveReport() {
     return [...map.values()].sort((a, b) => b.expected - a.expected);
   }, [productRows]);
   const applyPreset = (id: Preset) => { setPreset(id); if (id !== 'custom') { const range = resolvePreset(id); setFrom(range.from); setTo(range.to); } };
+  const windowLabel = `${format(new Date(`${from}T12:00:00`), 'EEEE d MMMM yyyy')}${from === to ? '' : ` – ${format(new Date(`${to}T12:00:00`), 'EEEE d MMMM yyyy')}`} (EAT)`;
+
+  /** KPI blocks shared by the on-screen report, the HTML template and the PDF. */
+  const kpiBlocks = useMemo(() => {
+    if (!report) return [] as { title: string; note: string; tiles: ReportTile[] }[];
+    const o = report.overview, r = report.rent, a = report.advances, s = report.service_centres;
+    const prodExpected = productSummary.reduce((t, x) => t + x.expected, 0);
+    const prodCollected = productSummary.reduce((t, x) => t + x.collected, 0);
+    return [
+      { title: 'Overview - the window', note: 'What the operating system recorded for the selected window.', tiles: [
+        { label: 'All agents', value: String(o.all_agents), hint: `${n(o.agents)} rent-active · ${n(o.sub_agents)} sub-agents` },
+        { label: 'Rent collected', value: ugx(o.collected), hint: `${n(o.tenants_paid)} tenants collected`, tone: 'positive' as const },
+        { label: 'Pending active book', value: ugx(o.pending), hint: `${n(o.tenants_not_collected)} tenants not collected`, tone: 'negative' as const },
+      ] },
+      { title: 'Rent collections', note: 'Expected against paid rent, exposing partial collections and the resulting shortfall.', tiles: [
+        { label: 'Collected', value: ugx(r.collected), tone: 'positive' as const },
+        { label: 'Expected', value: ugx(r.expected) },
+        { label: 'Missed / shortfall', value: ugx(r.missed), tone: 'negative' as const },
+        { label: 'New requests', value: String(r.new_requests), hint: ugx(r.new_request_volume) },
+        { label: 'Success rate', value: pct(n(r.expected) ? (n(r.collected) / n(r.expected)) * 100 : 0) },
+        { label: 'Agents collecting', value: String(r.agents.length) },
+      ] },
+      { title: 'Agent advances', note: 'Advance book volume, status split and recovery performance in the window.', tiles: [
+        { label: 'Total volume', value: ugx(a.total_volume) },
+        { label: 'Recovered', value: ugx(a.repaid), tone: 'positive' as const },
+        { label: 'Recovery rate', value: pct(a.recovery_rate) },
+        { label: 'Pending / approved', value: `${n(a.pending)} / ${n(a.approved)}` },
+        { label: 'Repaying', value: String(a.repaying), hint: `${n(a.agents)} agents with advances` },
+        { label: 'Overdue', value: String(a.overdue), tone: 'negative' as const },
+      ] },
+      { title: 'Service centers', note: 'Requested, approved and rejected centres with receivables and repayments.', tiles: [
+        { label: 'All centers', value: String(s.all), hint: `${n(s.pending)} pending · ${n(s.rejected)} rejected` },
+        { label: 'Approved volume', value: ugx(s.approved_volume), hint: `${n(s.approved)} approved`, tone: 'positive' as const },
+        { label: 'Receivables', value: ugx(s.receivables), hint: `${ugx(s.repayments)} repaid`, tone: 'negative' as const },
+      ] },
+      { title: 'Agent products and services', note: 'Applications captured in the field with expected against collected value.', tiles: [
+        { label: 'Products', value: String(productSummary.length) },
+        { label: 'Expected', value: ugx(prodExpected) },
+        { label: 'Collected', value: ugx(prodCollected), tone: 'positive' as const },
+      ] },
+    ];
+  }, [report, productSummary]);
+
+  const exportHtml = () => {
+    if (!report) return;
+    const r = report.rent, a = report.advances, s = report.service_centres;
+    const tiles = (i: number) => kpiBlocks[i]?.tiles ?? [];
+    const html = buildAgentOpsReportHtml({
+      title: 'Agent Operations - Comprehensive Report',
+      windowLabel,
+      sourceNote: `${report.timezone} · source: Agent Ops book (rent collections, advances, service centres, products)`,
+      sections: [
+        { ...kpiBlocks[0], tables: [{ headers: ['Measure', 'Count', 'Amount'], rows: [
+          ['Rent collected', n(report.overview.tenants_paid), ugx(report.overview.collected)],
+          ['Active book pending', n(report.overview.tenants_not_collected), ugx(report.overview.pending)],
+        ], footer: ['Net position', '', ugx(n(report.overview.collected) - n(report.overview.pending))] }] },
+        { ...kpiBlocks[1], tables: [
+          { caption: 'Agent collected against expected', headers: ['Agent', 'Collected', 'Expected', 'Missed', 'Success'], rows: r.agents.map(x => [x.agent_name, ugx(x.collected), ugx(x.expected), ugx(x.missed), pct(x.success_rate)]), footer: ['Total', ugx(r.collected), ugx(r.expected), ugx(r.missed), ''] },
+          { caption: 'Daily paid, expected and missed', headers: ['Day', 'Expected', 'Paid', 'Missed'], rows: r.daily.map(x => [x.day, ugx(x.expected), ugx(x.collected), ugx(x.missed)]) },
+          { caption: 'Best five agents', headers: ['Agent', 'Expected', 'Paid', 'Missed'], rows: r.top_paying.map(x => [x.agent_name, ugx(x.expected), ugx(x.collected), ugx(x.missed)]) },
+          { caption: 'Highest missed five agents', headers: ['Agent', 'Expected', 'Paid', 'Missed'], rows: r.top_missed.map(x => [x.agent_name, ugx(x.expected), ugx(x.collected), ugx(x.missed)]) },
+        ] },
+        { ...kpiBlocks[2], tables: [
+          { caption: 'Daily recovered against missed', headers: ['Day', 'Recovered', 'Missed'], rows: a.daily.map(x => [x.day, ugx(x.recovered), ugx(x.missed)]) },
+          { caption: 'Top paying agents', headers: ['Agent', 'Recovered', 'Outstanding'], rows: a.top_paying.map(x => [x.agent_name, ugx(x.recovered), ugx(x.outstanding)]) },
+          { caption: 'Overdue agents', headers: ['Agent', 'Outstanding', 'Missed'], rows: a.top_overdue.map(x => [x.agent_name, ugx(x.outstanding), ugx(x.missed)]) },
+        ] },
+        { ...kpiBlocks[3], tables: [{ caption: 'Approved centres and assigned agents', headers: ['Agents', 'Location', 'Center amount', 'Receivable', 'Repaid', 'Requested'], leftAlign: [0, 1], rows: s.rows.map(x => [(x.agents || []).map((g: Row) => `${g.name} (${g.phone || '—'})`).join(', ') || '—', x.stationed_location || '—', ugx(x.forecast_amount || x.unit_price), ugx(x.receivable), ugx(x.repaid), format(new Date(x.created_at), 'dd MMM yyyy')]) }] },
+        { ...kpiBlocks[4], tables: [{ headers: ['Product / type', 'Applications', 'Expected', 'Collected', 'Pending', 'Approved', 'Rejected'], rows: productSummary.map(x => [x.product, x.applications, ugx(x.expected), ugx(x.collected), x.pending, x.approved, x.rejected]) }] },
+        { title: 'Agent performance', note: 'Ranked on paid against expected rent for the window, the same ranking used by the Agent Leaderboard.', tables: [{ headers: ['Rank', 'Agent', 'Collections', 'Collected', 'Expected', 'Success'], leftAlign: [0, 1], rows: report.performance.map((x, i) => [i + 1, x.agent_name, x.tenants_paid, ugx(x.collected), ugx(x.expected), pct(x.success_rate)]) }] },
+      ],
+      watchlist: [
+        n(r.missed) > 0 ? `Rent shortfall in the window: ${ugx(r.missed)} against ${ugx(r.expected)} expected` : '',
+        n(a.overdue) > 0 ? `Agent advances overdue: ${n(a.overdue)} agents` : '',
+        n(s.pending) > 0 ? `Service centre requests awaiting decision: ${n(s.pending)}` : '',
+        n(report.overview.tenants_not_collected) > 0 ? `Tenants not collected: ${n(report.overview.tenants_not_collected)} - ${ugx(report.overview.pending)} pending on the active book` : '',
+      ],
+      footerNote: `Welile Technologies Ltd · window ${windowLabel}, aggregated from the Agent Ops book at generation time. Figures in UGX. Generated ${format(new Date(report.generated_at), 'dd MMM yyyy HH:mm')}.`,
+    });
+    downloadAgentOpsReportHtml(html, `Welile_Agent_Ops_${from}_to_${to}.html`);
+  };
+
   const exportPdf = () => {
     if (!report) return;
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-    const addHeader = (section: string) => { doc.setTextColor(23, 78, 55); doc.setFontSize(18); doc.text('WELILE', 40, 42); doc.setTextColor(20, 20, 20); doc.setFontSize(13); doc.text(section, 40, 64); doc.setFontSize(8); doc.setTextColor(95); doc.text(`${from} to ${to} · Africa/Kampala · Generated ${format(new Date(report.generated_at), 'dd MMM yyyy HH:mm')}`, 40, 79); };
-    const table = (head: string[], body: any[][]) => autoTable(doc, { startY: 102, head: [head], body, theme: 'grid', styles: { fontSize: 7, cellPadding: 4 }, headStyles: { fillColor: [23, 78, 55] }, margin: { left: 40, right: 40 } });
+    const addHeader = (section: string) => { doc.setTextColor(108, 33, 196); doc.setFontSize(18); doc.text('WELILE', 40, 42); doc.setTextColor(20, 20, 20); doc.setFontSize(13); doc.text(section, 40, 64); doc.setFontSize(8); doc.setTextColor(95); doc.text(`${from} to ${to} · Africa/Kampala · Generated ${format(new Date(report.generated_at), 'dd MMM yyyy HH:mm')}`, 40, 79); };
+    const kpiTable = (tiles: ReportTile[]) => autoTable(doc, { startY: 102, head: [['Key indicator', 'Value', 'Detail']], body: tiles.map(t => [t.label, t.value, t.hint || '—']), theme: 'grid', styles: { fontSize: 8, cellPadding: 4 }, headStyles: { fillColor: [108, 33, 196] }, margin: { left: 40, right: 40 } });
+    const table = (head: string[], body: any[][], startY?: number) => autoTable(doc, { startY: startY ?? 102, head: [head], body, theme: 'grid', styles: { fontSize: 7, cellPadding: 4 }, headStyles: { fillColor: [108, 33, 196] }, margin: { left: 40, right: 40 } });
+    const afterKpis = () => ((doc as any).lastAutoTable?.finalY ?? 102) + 18;
     addHeader('Agent Operations — Comprehensive Report');
-    table(['Metric', 'Value'], [['All agents', report.overview.all_agents], ['Agents', report.overview.agents], ['Sub-agents', report.overview.sub_agents], ['Rent collected', ugx(report.overview.collected)], ['Active-book pending', ugx(report.overview.pending)], ['Tenants collected', report.overview.tenants_paid], ['Not collected', report.overview.tenants_not_collected]]);
-    doc.addPage(); addHeader('Rent Collections'); table(['Agent', 'Collected', 'Expected', 'Missed', 'Success'], report.rent.agents.map(r => [r.agent_name, ugx(r.collected), ugx(r.expected), ugx(r.missed), pct(r.success_rate)]));
-    doc.addPage(); addHeader('Agent Advances'); table(['Agent', 'Recovered', 'Outstanding', 'Missed'], [...report.advances.top_paying, ...report.advances.top_overdue].map(r => [r.agent_name, ugx(r.recovered), ugx(r.outstanding), ugx(r.missed)]));
-    doc.addPage(); addHeader('Service Centers'); table(['Agents', 'Location', 'Amount', 'Receivable', 'Repaid', 'Requested'], report.service_centres.rows.map(r => [(r.agents || []).map((a: Row) => `${a.name} (${a.phone || '—'})`).join(', '), r.stationed_location || '—', ugx(r.forecast_amount || r.unit_price), ugx(r.receivable), ugx(r.repaid), format(new Date(r.created_at), 'dd MMM yyyy')]));
-    doc.addPage(); addHeader('Agent Products & Services'); table(['Product', 'Applications', 'Expected', 'Collected', 'Pending', 'Approved', 'Rejected'], productSummary.map(r => [r.product, r.applications, ugx(r.expected), ugx(r.collected), r.pending, r.approved, r.rejected]));
+    kpiTable(kpiBlocks[0]?.tiles ?? []);
+    table(['Measure', 'Count', 'Amount'], [['Rent collected', report.overview.tenants_paid, ugx(report.overview.collected)], ['Active book pending', report.overview.tenants_not_collected, ugx(report.overview.pending)]], afterKpis());
+    doc.addPage(); addHeader('Rent Collections'); kpiTable(kpiBlocks[1]?.tiles ?? []); table(['Agent', 'Collected', 'Expected', 'Missed', 'Success'], report.rent.agents.map(r => [r.agent_name, ugx(r.collected), ugx(r.expected), ugx(r.missed), pct(r.success_rate)]), afterKpis());
+    doc.addPage(); addHeader('Agent Advances'); kpiTable(kpiBlocks[2]?.tiles ?? []); table(['Agent', 'Recovered', 'Outstanding', 'Missed'], [...report.advances.top_paying, ...report.advances.top_overdue].map(r => [r.agent_name, ugx(r.recovered), ugx(r.outstanding), ugx(r.missed)]), afterKpis());
+    doc.addPage(); addHeader('Service Centers'); kpiTable(kpiBlocks[3]?.tiles ?? []); table(['Agents', 'Location', 'Amount', 'Receivable', 'Repaid', 'Requested'], report.service_centres.rows.map(r => [(r.agents || []).map((a: Row) => `${a.name} (${a.phone || '—'})`).join(', '), r.stationed_location || '—', ugx(r.forecast_amount || r.unit_price), ugx(r.receivable), ugx(r.repaid), format(new Date(r.created_at), 'dd MMM yyyy')]), afterKpis());
+    doc.addPage(); addHeader('Agent Products & Services'); kpiTable(kpiBlocks[4]?.tiles ?? []); table(['Product', 'Applications', 'Expected', 'Collected', 'Pending', 'Approved', 'Rejected'], productSummary.map(r => [r.product, r.applications, ugx(r.expected), ugx(r.collected), r.pending, r.approved, r.rejected]), afterKpis());
     doc.addPage(); addHeader('Agent Performance'); table(['Rank', 'Agent', 'Collected', 'Expected', 'Success'], report.performance.map((r, i) => [i + 1, r.agent_name, ugx(r.collected), ugx(r.expected), pct(r.success_rate)]));
     const pages = doc.getNumberOfPages(); for (let i = 1; i <= pages; i += 1) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(110); doc.text(`Page ${i} of ${pages}`, 515, 815); }
     doc.save(`agent-operations-${from}-to-${to}.pdf`);
   };
+
   if (reportQuery.isLoading) return <div className="flex min-h-72 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /> Preparing comprehensive report…</div>;
   if (reportQuery.isError || !report) return <Card><CardContent className="p-8 text-center text-sm text-destructive">Could not load the comprehensive report. {(reportQuery.error as Error)?.message}</CardContent></Card>;
   return <div className="space-y-4">
