@@ -242,8 +242,11 @@ export function usePayablesTotal() {
   return useQuery({
     queryKey: ['payables-total'],
     queryFn: async (): Promise<PayablesTotal> => {
-      const { data, error } = await rpc('get_payables_total').catch((e: unknown) => { console.error('[payables-total THROW]', e); throw e; }) as { data: unknown; error: { message: string } | null };
-      if (error) { console.error('[payables-total ERR]', JSON.stringify(error)); throw error; }
+      (window as unknown as Record<string, unknown>).__payTotalRan = ((window as unknown as Record<string, unknown>).__payTotalRan as number ?? 0) as number;
+      (window as unknown as Record<string, unknown>).__payTotalRan = 1 + Number((window as unknown as Record<string, unknown>).__payTotalRan ?? 0);
+      const { data, error } = await rpc('get_payables_total');
+      (window as unknown as Record<string, unknown>).__payTotalErr = error ? JSON.stringify(error) : 'none';
+      if (error) throw error;
       return data as PayablesTotal;
     },
     staleTime: STALE_TIME,
