@@ -40,12 +40,6 @@ function humanizeAllocationError(
     shortfall_amount?: number | null;
   },
 ): string {
-  if (code === 'PARTIAL_NOT_CONFIRMED') {
-    return `This tenant is expected to pay ${formatUGX(Number(details?.expected_amount ?? 0))}. You entered ${formatUGX(Number(details?.requested ?? 0))} — short by ${formatUGX(Number(details?.shortfall_amount ?? 0))}. Collect the full amount, or tick "Record as partial payment" and give a reason.`;
-  }
-  if (code === 'PARTIAL_REASON_REQUIRED') {
-    return 'A partial payment needs a short reason (at least 5 characters) so Operations can follow it up.';
-  }
   if (code === 'COMMISSION_LEDGER_INCONSISTENT') {
     return 'Float allocation paused — your commission ledger is out of balance. Support has been notified and will reconcile your wallet shortly.';
   }
@@ -118,7 +112,6 @@ export function AgentTenantCollectDialog({
   // remaining balance). Sourced from the server helper so the frontend and the
   // RPC gate agree on one definition — no duplicated fee arithmetic here.
   const [expectedAmount, setExpectedAmount] = useState<number | null>(null);
-  const [partialConfirmed, setPartialConfirmed] = useState(false);
   const [partialReason, setPartialReason] = useState('');
 
   useEffect(() => {
@@ -131,7 +124,6 @@ export function AgentTenantCollectDialog({
       setRpcError(null);
       setSmsStatus('idle');
       setSmsResending(false);
-      setPartialConfirmed(false);
       setPartialReason('');
       setExpectedAmount(null);
       refetchBalances();
@@ -170,14 +162,13 @@ export function AgentTenantCollectDialog({
   // less than 100 the agent must still be able to clear the last shillings.
   const minAllowed = outstandingBalance > 0 ? Math.min(100, outstandingBalance) : 100;
   const canAllocate = floatBalance >= minAllowed && outstandingBalance >= minAllowed && outstandingBalance > 0;
-  // Partial-collection gate: anything below the tenant's expected amount must be
-  // explicitly confirmed with a reason, both here and in the RPC.
+  // Partial collections are ALLOWED and simply tracked — no gate, no forced
+  // confirmation, no mandatory reason. The reason box stays as an optional note
+  // so Operations still gets context in the Partial Collections view.
   const expected = Math.max(0, Number(expectedAmount ?? 0));
   const isPartial = expected > 0 && amount > 0 && amount < expected;
   const shortfall = isPartial ? expected - amount : 0;
-  const partialReasonOk = partialReason.trim().length >= 5;
-  const partialCleared = !isPartial || (partialConfirmed && partialReasonOk);
-  const isValid = amount >= minAllowed && amount <= maxAllowable && partialCleared;
+  const isValid = amount >= minAllowed && amount <= maxAllowable;
 
   // Auto-suggest the EXPECTED amount (not the maximum) so the default action is
   // a complete collection. Falls back to the old behaviour when unknown.
@@ -187,11 +178,6 @@ export function AgentTenantCollectDialog({
     if (suggestion >= minAllowed) setAmount(suggestion);
   }, [open, maxAllowable, minAllowed, expected]);
 
-  // Re-arm the gate whenever the amount changes, so a confirmation cannot be
-  // carried over to a different (smaller) amount.
-  useEffect(() => {
-    setPartialConfirmed(false);
-  }, [amount]);
 
 
   const handleAllocate = async () => {
@@ -241,7 +227,8 @@ export function AgentTenantCollectDialog({
           p_rent_request_id: rentRequestId,
           p_amount: amount,
           p_notes: notes.trim() || null,
-          p_partial_confirmed: isPartial ? partialConfirmed : false,
+          // Tracking only — partials are never blocked.
+          p_partial_confirmed: true,
           p_partial_reason: isPartial ? partialReason.trim() || null : null,
 
         });
@@ -1064,7 +1051,7 @@ export function AgentTenantCollectDialog({
               )}
             </div>
 
-            {/* Partial-collection gate — no silent partials */}
+            {/* Partial collection — allowed, tracked, never blocked */}
             {isPartial && (
               <div className="rounded-xl bg-warning/10 border border-warning/40 p-3 space-y-3">
                 <div className="flex items-start gap-2">
@@ -1074,45 +1061,23 @@ export function AgentTenantCollectDialog({
                       Short by {formatUGX(shortfall)} — this is a partial collection
                     </p>
                     <p className="text-muted-foreground">
-                      {tenant.full_name} is expected to pay {formatUGX(expected)}. This will NOT count as a
-                      completed collection and Operations will follow it up.
+                      {tenant.full_name} is expected to pay {formatUGX(expected)}. You can still record this
+                      amount — it will be tracked as a partial collection for Operations follow-up.
                     </p>
                   </div>
                 </div>
 
-                <label
-                  className="flex items-start gap-2 cursor-pointer"
-                  style={{ touchAction: 'manipulation' }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={partialConfirmed}
-                    onChange={e => setPartialConfirmed(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 accent-current text-warning shrink-0"
+                <div>
+                  <Label className="text-[11px]">Why is it short? (optional)</Label>
+                  <Textarea
+                    value={partialReason}
+                    onChange={e => setPartialReason(e.target.value)}
+                    placeholder="e.g. Tenant paid part in cash, promised balance tomorrow"
+                    maxLength={300}
+                    rows={2}
+                    className="text-xs"
                   />
-                  <span className="text-[11px] font-semibold text-warning-foreground">
-                    Record as partial payment — the tenant could not pay the full amount
-                  </span>
-                </label>
-
-                {partialConfirmed && (
-                  <div>
-                    <Label className="text-[11px]">Why is it short? *</Label>
-                    <Textarea
-                      value={partialReason}
-                      onChange={e => setPartialReason(e.target.value)}
-                      placeholder="e.g. Tenant paid part in cash, promised balance tomorrow"
-                      maxLength={300}
-                      rows={2}
-                      className="text-xs"
-                    />
-                    {!partialReasonOk && (
-                      <p className="text-[10px] text-destructive mt-1">
-                        Give at least 5 characters so Operations can follow up.
-                      </p>
-                    )}
-                  </div>
-                )}
+                </div>
               </div>
             )}
 
