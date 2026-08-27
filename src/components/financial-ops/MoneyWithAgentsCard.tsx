@@ -16,6 +16,9 @@ import { useFinancialOpsEditAccess } from '@/hooks/useFinancialOpsEditAccess';
 import { MerchantFloatStatementDialog } from './MerchantFloatStatementDialog';
 import { MerchantOwnMoneyReviewPanel } from './MerchantOwnMoneyReviewPanel';
 import { MerchantDebtSettlementDialog } from './MerchantDebtSettlementDialog';
+import { useMerchantAgentFloatAllocation } from '@/hooks/useMerchantAgentFloatAllocation';
+import { computeMerchantCapacities, capacityLabel } from '@/lib/merchantFloatCapacity';
+
 
 /**
  * Money With Agents — shows how much company money is still sitting with each
