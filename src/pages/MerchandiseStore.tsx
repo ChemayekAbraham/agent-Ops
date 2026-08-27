@@ -97,8 +97,18 @@ export default function MerchandiseStore() {
     total: number;
   } | null>(null);
   const [shareCodes, setShareCodes] = useState<Record<string, string>>({});
-  const { withdrawableBalance } = useAgentBalances(user?.id);
+  const {
+    withdrawableBalance,
+    isLoading: walletLoading,
+    error: walletError,
+    refetch: refetchWallet,
+  } = useAgentBalances(user?.id);
   const availableWallet = Math.max(0, withdrawableBalance);
+  // The pay button must never be judged against a balance that hasn't loaded —
+  // a still-loading (0) wallet used to silently disable "Review order"/"Yes,
+  // pay" for every item priced above 0.
+  const walletBlocked = walletLoading || !!walletError;
+
 
   const { data: catalog = [], isLoading: loadingCatalog } = useQuery<CatalogItem[]>({
     queryKey: ['merchandise-catalog'],
