@@ -81,6 +81,15 @@ export default function Advances() {
   const [rejectNote, setRejectNote] = useState('');
   const [rejectError, setRejectError] = useState('');
 
+  // Edit dialog
+  const [editRow, setEditRow] = useState<AdvanceRow | null>(null);
+  const [editPurpose, setEditPurpose] = useState('');
+  const [editMode, setEditMode] = useState('fixed');
+  const [editRecoveryValue, setEditRecoveryValue] = useState('');
+  const [editFirstOn, setEditFirstOn] = useState('');
+  const [editError, setEditError] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
