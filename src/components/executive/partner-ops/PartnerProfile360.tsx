@@ -730,7 +730,10 @@ export function PartnerProfile360() {
         ['Active portfolios', String(totals?.active_count ?? 0)],
         ['Total principal', money(totals?.total_principal)],
         ['Active principal', money(totals?.active_principal)],
-        ['Total returns', money(totals?.total_returns)],
+        ['Total returns', money(reinvested + paidOut || totals?.total_returns)],
+        ...(reinvested ? [['Returns reinvested (compounded)', money(reinvested)] as [string, string]] : []),
+        ...(paidOut ? [['Returns paid out', money(paidOut)] as [string, string]] : []),
+
         ['First support', fmtDate(totals?.first_portfolio_at)],
         ['Latest support', fmtDate(totals?.last_portfolio_at)],
       ],
