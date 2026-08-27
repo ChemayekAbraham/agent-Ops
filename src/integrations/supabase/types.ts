@@ -44303,14 +44303,23 @@ export type Database = {
         Args: { p_sub_agent_id: string }
         Returns: boolean
       }
-      list_assignable_agents: {
-        Args: { p_limit?: number; p_search?: string }
-        Returns: {
-          full_name: string
-          id: string
-          phone: string
-        }[]
-      }
+      list_assignable_agents:
+        | {
+            Args: never
+            Returns: {
+              full_name: string
+              id: string
+              phone: string
+            }[]
+          }
+        | {
+            Args: { p_limit?: number; p_search: string }
+            Returns: {
+              full_name: string
+              id: string
+              phone: string
+            }[]
+          }
       list_joined_partners: {
         Args: { p_limit?: number; p_offset?: number }
         Returns: Json
