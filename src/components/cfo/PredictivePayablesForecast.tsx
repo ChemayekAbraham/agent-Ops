@@ -419,31 +419,45 @@ export default function PredictivePayablesForecast() {
                                   No modelled outflow in this period.
                                 </p>
                               ) : (
-                                <div className="sm:grid sm:grid-cols-2 sm:gap-x-4">
-                                  {p.sources.map((s) => (
-                                    <div
-                                      key={`${s.category_key}:${s.product_key}:${s.basis}`}
-                                      className="flex items-center justify-between gap-2 border-b border-border/30 last:border-0 py-1"
-                                    >
-                                      <span className="min-w-0 flex items-center gap-1.5">
-                                        <span className="truncate text-[10px] sm:text-xs">
-                                          {s.product_label}
-                                        </span>
-                                        <span className="text-[8px] sm:text-[9px] text-muted-foreground hidden sm:inline">
-                                          {s.category_label}
-                                        </span>
-                                        <Badge
-                                          variant="outline"
-                                          className="text-[8px] px-1 py-0 shrink-0"
+                                <div className="overflow-x-auto rounded-lg border border-border/60">
+                                  <table className="w-full min-w-[240px] text-[10px] sm:text-xs">
+                                    <thead className="bg-muted/40">
+                                      <tr>
+                                        <th className="text-left px-2.5 py-1.5 font-medium">
+                                          Product
+                                        </th>
+                                        <th className="text-right px-2.5 py-1.5 font-medium">
+                                          Estimated Amount
+                                        </th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {p.sources.map((s) => (
+                                        <tr
+                                          key={`${s.category_key}:${s.product_key}:${s.basis}`}
+                                          className="border-t border-border/40"
                                         >
-                                          {s.basis === 'scheduled' ? 'scheduled' : 'estimated'}
-                                        </Badge>
-                                      </span>
-                                      <span className="font-mono tabular-nums text-[10px] sm:text-xs shrink-0">
-                                        {formatUGX(s.amount)}
-                                      </span>
-                                    </div>
-                                  ))}
+                                          <td className="px-2.5 py-1.5">
+                                            <span className="block truncate font-medium">
+                                              {s.product_label}
+                                            </span>
+                                            <span className="flex items-center gap-1.5 text-[9px] text-muted-foreground">
+                                              <span className="truncate">{s.category_label}</span>
+                                              <Badge
+                                                variant="outline"
+                                                className="text-[8px] px-1 py-0 shrink-0"
+                                              >
+                                                {s.basis === 'scheduled' ? 'scheduled' : 'estimated'}
+                                              </Badge>
+                                            </span>
+                                          </td>
+                                          <td className="px-2.5 py-1.5 text-right font-mono tabular-nums whitespace-nowrap">
+                                            {formatUGX(s.amount)}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
                                 </div>
                               )}
                             </td>
