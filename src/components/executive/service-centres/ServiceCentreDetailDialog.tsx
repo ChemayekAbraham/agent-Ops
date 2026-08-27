@@ -21,6 +21,8 @@ import {
   useServiceCentre360,
   useUnassignServiceCentreAgent,
 } from '@/hooks/useServiceCentre360';
+import { ServiceCentreReceivablePanel } from './ServiceCentreReceivablePanel';
+
 
 const initials = (name: string) =>
   (name || '').split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || '?';
@@ -61,13 +63,15 @@ export function ServiceCentreDetailDialog({ centre, photos, avatarUrl, onClose }
 
         {centre && (
           <Tabs value={tab} onValueChange={setTab} className="mt-1">
-            <TabsList className="grid w-full grid-cols-4 gap-1">
+            <TabsList className="grid w-full grid-cols-3 gap-1 sm:grid-cols-5">
               <TabsTrigger value="overview" className="text-[11px] sm:text-xs">Overview</TabsTrigger>
               <TabsTrigger value="agents" className="text-[11px] sm:text-xs">
                 Agents{data ? ` (${data.assigned_agents.length})` : ''}
               </TabsTrigger>
+              <TabsTrigger value="receivable" className="text-[11px] sm:text-xs">Receivable</TabsTrigger>
               <TabsTrigger value="repayments" className="text-[11px] sm:text-xs">Repayments</TabsTrigger>
               <TabsTrigger value="advances" className="text-[11px] sm:text-xs">Advances</TabsTrigger>
+
             </TabsList>
 
             {isLoading && (
@@ -191,7 +195,16 @@ export function ServiceCentreDetailDialog({ centre, photos, avatarUrl, onClose }
               )}
             </TabsContent>
 
+            <TabsContent value="receivable" className="space-y-2">
+              <ServiceCentreReceivablePanel
+                serviceCentreId={centre.id}
+                agents={(data?.assigned_agents ?? []).map((a) => ({ agent_id: a.agent_id, agent_name: a.agent_name }))}
+                approvedAmount={data?.centre.cfo_approved_amount ?? data?.centre.verified_amount ?? null}
+              />
+            </TabsContent>
+
             <TabsContent value="advances" className="space-y-2">
+
               {(data?.advances.length ?? 0) === 0 ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">
                   No service centre advances attached to these agents.
