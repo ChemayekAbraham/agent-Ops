@@ -726,13 +726,26 @@ export default function MerchandiseStore() {
                   </p>
                 </div>
               )}
-              {insufficient ? (
+              {walletError ? (
+                <div className="rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2 flex gap-2 text-[11px] text-destructive">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <p>
+                    <span className="font-semibold">We couldn't read your wallet balance.</span> Tap “Retry wallet check” — payment stays disabled until your real balance loads.
+                  </p>
+                </div>
+              ) : walletLoading ? (
+                <div className="rounded-lg bg-muted px-3 py-2 flex gap-2 text-[11px] text-muted-foreground">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <p>Checking your wallet balance…</p>
+                </div>
+              ) : insufficient ? (
                 <div className="rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2 flex gap-2 text-[11px] text-destructive">
                   <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                   <p>
                     <span className="font-semibold">Amount exceeds your available wallet balance of {formatUGX(availableWallet)}.</span> Reduce the quantity or choose installments.
                   </p>
                 </div>
+
               ) : confirmStep ? (
                 <div className="rounded-lg bg-primary/5 border border-primary/20 px-3 py-2 text-[11px] text-muted-foreground">
                   {payMode === 'full' ? (
