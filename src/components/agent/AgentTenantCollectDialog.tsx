@@ -235,7 +235,8 @@ export function AgentTenantCollectDialog({
           p_rent_request_id: rentRequestId,
           p_amount: amount,
           p_notes: notes.trim() || null,
-          p_partial_confirmed: isPartial ? partialConfirmed : false,
+          // Tracking only — partials are never blocked.
+          p_partial_confirmed: true,
           p_partial_reason: isPartial ? partialReason.trim() || null : null,
 
         });
