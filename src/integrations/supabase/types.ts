@@ -30084,6 +30084,130 @@ export type Database = {
         }
         Relationships: []
       }
+      service_centre_receivable_splits: {
+        Row: {
+          agent_id: string
+          created_at: string
+          created_by: string | null
+          daily_amount: number
+          id: string
+          receivable_id: string
+          share_percent: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          created_by?: string | null
+          daily_amount: number
+          id?: string
+          receivable_id: string
+          share_percent: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          created_by?: string | null
+          daily_amount?: number
+          id?: string
+          receivable_id?: string
+          share_percent?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_centre_receivable_splits_receivable_id_fkey"
+            columns: ["receivable_id"]
+            isOneToOne: false
+            referencedRelation: "service_centre_receivables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_centre_receivables: {
+        Row: {
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          created_at: string
+          created_by: string | null
+          daily_amount: number
+          duration_days: number
+          duration_unit: string
+          duration_value: number
+          id: string
+          markup_percent: number | null
+          mode: string
+          notes: string | null
+          principal_amount: number
+          recoverable_amount: number
+          service_centre_id: string
+          start_date: string
+          status: string
+          total_repayable: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          daily_amount: number
+          duration_days: number
+          duration_unit: string
+          duration_value: number
+          id?: string
+          markup_percent?: number | null
+          mode: string
+          notes?: string | null
+          principal_amount?: number
+          recoverable_amount: number
+          service_centre_id: string
+          start_date?: string
+          status?: string
+          total_repayable?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          daily_amount?: number
+          duration_days?: number
+          duration_unit?: string
+          duration_value?: number
+          id?: string
+          markup_percent?: number | null
+          mode?: string
+          notes?: string | null
+          principal_amount?: number
+          recoverable_amount?: number
+          service_centre_id?: string
+          start_date?: string
+          status?: string
+          total_repayable?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_centre_receivables_service_centre_id_fkey"
+            columns: ["service_centre_id"]
+            isOneToOne: false
+            referencedRelation: "service_centre_setups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_centre_setups: {
         Row: {
           agent_id: string
@@ -43064,6 +43188,11 @@ export type Database = {
           total_count: number
         }[]
       }
+      get_service_centre_receivable: {
+        Args: { p_service_centre_id: string }
+        Returns: Json
+      }
+      get_service_centre_receivables_summary: { Args: never; Returns: Json }
       get_shadow_match_rate: {
         Args: { p_hours?: number }
         Returns: {
@@ -46327,6 +46456,11 @@ export type Database = {
         }[]
       }
       sc_assignment_admin: { Args: { _user_id: string }; Returns: boolean }
+      sc_duration_to_days: {
+        Args: { p_unit: string; p_value: number }
+        Returns: number
+      }
+      sc_receivable_writer: { Args: { _user_id: string }; Returns: boolean }
       schedule_roi_payout: {
         Args: { p_new_date: string; p_portfolio_id: string; p_reason?: string }
         Returns: Json
@@ -46520,6 +46654,25 @@ export type Database = {
           p_agent_ids: string[]
           p_note?: string
           p_service_centre_id: string
+        }
+        Returns: Json
+      }
+      service_centre_close_receivable: {
+        Args: { p_reason?: string; p_receivable_id: string; p_status: string }
+        Returns: Json
+      }
+      service_centre_set_receivable: {
+        Args: {
+          p_duration_unit?: string
+          p_duration_value?: number
+          p_flat_amount?: number
+          p_markup_percent?: number
+          p_mode: string
+          p_notes?: string
+          p_principal?: number
+          p_service_centre_id: string
+          p_splits?: Json
+          p_start_date?: string
         }
         Returns: Json
       }
