@@ -56,6 +56,7 @@ import { AdvancesAnalyticsView } from '@/components/advances/AdvancesAnalyticsVi
 import { AgentLeaderboardPanel } from './AgentLeaderboardPanel';
 import { AgentListingCampaignPanel } from './AgentListingCampaignPanel';
 import { DailyRentReport } from '@/components/reports/DailyRentReport';
+import { AgentDailyCollectionsView } from '@/components/executive/agent-ops/AgentDailyCollectionsView';
 import { usePendingAdvanceCount } from '@/hooks/usePendingAdvanceCount';
 import { AgentOpsOverview, AtRiskAgentsPreview } from './agent-ops-v2/AgentOpsOverview';
 import { AdvanceHealthCard } from './agent-ops-v2/AdvanceHealthCard';
@@ -259,7 +260,19 @@ export function AgentOpsDashboard() {
       case 'guarantor-float': return <AgentGuarantorFloatPanel />;
       case 'products-services-report': return <AgentProductsServicesReport />;
       case 'trust-capture': return <TrustCaptureTab />;
-      case 'daily-collections-report': return <DailyRentReport mode="agent" />;
+      case 'daily-collections-report': return (
+        <div className="space-y-4">
+          <AgentDailyCollectionsView />
+          <details className="rounded-xl border border-border bg-card p-3">
+            <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Detailed report &amp; exports
+            </summary>
+            <div className="mt-3">
+              <DailyRentReport mode="agent" />
+            </div>
+          </details>
+        </div>
+      );
       case 'feature-flags': return <AgentFeatureFlagsPanel onBack={() => setActiveView(null)} />;
       case 'bulk-ops': return <AgentBulkOpsConsole onBack={() => setActiveView(null)} />;
       case 'pipeline': return <AgentOpsPipelineHub />;
