@@ -134,7 +134,7 @@ function RunActionBar({
   const blocked = blockingCount > 0;
   const submitDenied = !authority.preparer || blocked;
   const approveDenied = !authority.approver;
-  const lockDenied = !authority.releaser;
+  const lockDenied = !authority.releaser && !authority.approver && !authority.ruleAdmin;
 
   return (
     <div className="mt-3 space-y-2 border-t border-border pt-3">
