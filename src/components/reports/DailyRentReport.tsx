@@ -709,8 +709,8 @@ export function DailyRentReport({ mode }: Props) {
       title={title}
       from={rangeFor(key).from}
       to={rangeFor(key).to}
-      minDate={date}
-      maxDate={dateTo}
+      minDate={periodFrom}
+      maxDate={periodTo}
       onFromChange={v => setRange(key, { ...rangeFor(key), from: v })}
       onToChange={v => setRange(key, { ...rangeFor(key), to: v })}
       onReset={() => setRange(key, { from: date, to: dateTo })}
@@ -813,8 +813,8 @@ export function DailyRentReport({ mode }: Props) {
           <Input
             type="date"
             value={cardScope.from}
-            min={date}
-            max={dateTo}
+            min={periodFrom}
+            max={periodTo}
             onChange={e => setRange('summary', { ...cardScope, from: e.target.value })}
             className="h-7 w-[130px] text-[11px]"
             aria-label="Cards period from"
@@ -823,8 +823,8 @@ export function DailyRentReport({ mode }: Props) {
           <Input
             type="date"
             value={cardScope.to}
-            min={date}
-            max={dateTo}
+            min={periodFrom}
+            max={periodTo}
             onChange={e => setRange('summary', { ...cardScope, to: e.target.value })}
             className="h-7 w-[130px] text-[11px]"
             aria-label="Cards period to"
@@ -1017,8 +1017,8 @@ export function DailyRentReport({ mode }: Props) {
           title="Comprehensive"
           from={rangeFor('comprehensive').from}
           to={rangeFor('comprehensive').to}
-          minDate={date}
-          maxDate={dateTo}
+          minDate={periodFrom}
+          maxDate={periodTo}
           onFromChange={v => setRange('comprehensive', { ...rangeFor('comprehensive'), from: v })}
           onToChange={v => setRange('comprehensive', { ...rangeFor('comprehensive'), to: v })}
           onReset={() => setRange('comprehensive', { from: date, to: dateTo })}
