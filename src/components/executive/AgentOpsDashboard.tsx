@@ -570,7 +570,7 @@ function AgentOpsSideNav({
     { title: 'Agent Products & Services', keys: ['agent-products-services'] },
     { title: 'Financials', keys: ['balances', 'float-payouts', 'earnings', 'locked-transfers'] },
     { title: 'Advances', keys: ['advances-analytics', 'advance-requests', 'active-advances', 'advance-potential', 'advance-limits', 'advance-repayments', 'advance-activity-correlation'] },
-    { title: 'Reports', keys: ['products-services-report'] },
+    { title: 'Reports', defaultOpen: true, keys: ['comprehensive-report', 'products-services-report'] },
   ];
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {

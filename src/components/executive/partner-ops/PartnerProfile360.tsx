@@ -538,14 +538,14 @@ export function PartnerProfile360() {
       )}
 
       {selected && isLoading && (
-        <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+        <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
           <Skeleton className="h-72 w-full" />
           <Skeleton className="h-72 w-full" />
         </div>
       )}
 
       {selected && data && (
-        <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+        <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
           {/* left: profile card */}
           <div className="space-y-3">
             <Card className="overflow-hidden">
