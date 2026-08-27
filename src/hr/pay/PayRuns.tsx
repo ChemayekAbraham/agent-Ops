@@ -886,7 +886,11 @@ function NewRunDialog({
               id="run-period"
               className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
               value={periodId}
-              onChange={(e) => setPeriodId(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                setPeriodId(next);
+                if (next && ruleVersionId) setError(null);
+              }}
             >
               <option value="">Select a period</option>
               {openPeriods.map((p) => (
@@ -915,7 +919,11 @@ function NewRunDialog({
               id="run-rule"
               className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
               value={ruleVersionId}
-              onChange={(e) => setRuleVersionId(e.target.value)}
+              onChange={(e) => {
+                const next = e.target.value;
+                setRuleVersionId(next);
+                if (periodId && next) setError(null);
+              }}
             >
               <option value="">Select a rule version</option>
               {ruleVersions.map((v) => (
