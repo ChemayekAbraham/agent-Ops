@@ -487,7 +487,7 @@ export default function PortfolioCompletion() {
               <Input
                 id="nok-name"
                 value={kinName}
-                onChange={(e) => setKinName(e.target.value)}
+                onChange={(e) => { setKinName(e.target.value); onIdentityEdited(); }}
                 placeholder="e.g. Sarah Nakato"
                 disabled={status === 'submitting'}
                 maxLength={120}
