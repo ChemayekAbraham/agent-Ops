@@ -297,10 +297,7 @@ export function DailyRentReport({ mode }: Props) {
   const highest = agentRanking[0]?.total ?? 0;
   const lowest = agentRanking.length ? agentRanking[agentRanking.length - 1].total : 0;
 
-  // ---- Charts ----
-  const byHour = useMemo(() => aggByHour(filtered), [filtered]);
-  const byMethod = useMemo(() => aggByMethod(filtered), [filtered]);
-  const byProperty = useMemo(() => aggByProperty(filtered), [filtered]);
+  // ---- Charts (scoped per section below, after rowsFor is defined) ----
 
 
   // ---- Exports ----
@@ -398,6 +395,11 @@ export function DailyRentReport({ mode }: Props) {
   const fileBase = mode === 'tenant' ? 'daily-repayments' : 'daily-collections';
   const periodLabel = (f: string, t: string) => (f === t ? f : `${f} to ${t}`);
 
+  // Loaded window bounds, normalised so a swapped From/To still bounds the
+  // per-section date pickers correctly.
+  const periodFrom = date <= dateTo ? date : dateTo;
+  const periodTo = date <= dateTo ? dateTo : date;
+
   const rangeFor = (key: string) => secRange[key] ?? { from: date, to: dateTo };
   const setRange = (key: string, next: { from: string; to: string }) =>
     setSecRange(prev => ({ ...prev, [key]: next }));
@@ -409,6 +411,42 @@ export function DailyRentReport({ mode }: Props) {
       return d >= from && d <= to;
     });
   };
+
+  // ── Section-scoped views ───────────────────────────────────────────────────
+  // Each chart / table renders the SAME rows its own export writes, so a section
+  // date picker visibly narrows the section and the exported file matches the
+  // screen exactly. Aggregation functions and data sources are unchanged.
+  const hourRows = rowsFor('hour');
+  const methodRows = rowsFor('method');
+  const propertyRows = rowsFor('property');
+  const txRows = rowsFor('transactions');
+  const agentRows = rowsFor('agents');
+
+  const byHour = aggByHour(hourRows);
+  const byMethod = aggByMethod(methodRows);
+  const byProperty = aggByProperty(propertyRows);
+  const txTotals = aggTotals(txRows);
+  const agentTable = aggAgents(agentRows);
+
+  const txBodyRows = useMemo(() => txRows.map(r => (mode === 'tenant'
+    ? [
+        r.id.slice(0, 8),
+        format(new Date(r.created_at), 'HH:mm:ss'),
+        r.tenant_name, r.tenant_phone, r.property, r.landlord_name, r.agent_name,
+        Number(r.amount) || 0,
+        r.outstanding,
+        Number(r.float_before) || 0,
+        Number(r.float_after) || 0,
+        r.payment_method ?? '—', r.status,
+        r.tracking_id ?? r.momo_transaction_id ?? '—',
+      ]
+    : [
+        format(new Date(r.created_at), 'HH:mm:ss'),
+        r.agent_name, (r.agent_id ?? '').slice(0, 8), r.tenant_name, r.property, r.landlord_name,
+        Number(r.amount) || 0, r.commission,
+        r.payment_method ?? '—', r.status,
+        r.tracking_id ?? r.momo_transaction_id ?? '—',
+      ])), [txRows, mode]);
 
   // ── Top summary cards: scopeable to a day or a sub-period ──────────────────
   // The cards read the SAME rows as the "Summary" section report (key 'summary'),
@@ -671,8 +709,8 @@ export function DailyRentReport({ mode }: Props) {
       title={title}
       from={rangeFor(key).from}
       to={rangeFor(key).to}
-      minDate={date}
-      maxDate={dateTo}
+      minDate={periodFrom}
+      maxDate={periodTo}
       onFromChange={v => setRange(key, { ...rangeFor(key), from: v })}
       onToChange={v => setRange(key, { ...rangeFor(key), to: v })}
       onReset={() => setRange(key, { from: date, to: dateTo })}
@@ -688,54 +726,54 @@ export function DailyRentReport({ mode }: Props) {
   return (
     <div className="space-y-4">
       {/* Controls */}
-      <Card className="p-3 flex flex-wrap items-end gap-2">
-        <div className="space-y-1">
+      <Card className="p-3 grid grid-cols-2 sm:flex sm:flex-wrap items-end gap-2">
+        <div className="space-y-1 min-w-0">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">From</label>
-          <Input type="date" value={date} onChange={e => { setDate(e.target.value); setSecRange({}); }} className="h-9 w-40" />
+          <Input type="date" value={date} onChange={e => { setDate(e.target.value); setSecRange({}); }} className="h-9 w-full sm:w-40" />
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 min-w-0">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">To</label>
-          <Input type="date" value={dateTo} min={date} onChange={e => { setDateTo(e.target.value); setSecRange({}); }} className="h-9 w-40" />
+          <Input type="date" value={dateTo} min={date} onChange={e => { setDateTo(e.target.value); setSecRange({}); }} className="h-9 w-full sm:w-40" />
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 min-w-0">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Agent</label>
           <Select value={agentFilter} onValueChange={setAgentFilter}>
-            <SelectTrigger className="h-9 w-44"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-full sm:w-44"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="all">All agents</SelectItem>{agentOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 min-w-0">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Tenant</label>
           <Select value={tenantFilter} onValueChange={setTenantFilter}>
-            <SelectTrigger className="h-9 w-44"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-full sm:w-44"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="all">All tenants</SelectItem>{tenantOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 min-w-0">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Landlord</label>
           <Select value={landlordFilter} onValueChange={setLandlordFilter}>
-            <SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-full sm:w-40"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="all">All</SelectItem>{landlordOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 min-w-0">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Property</label>
           <Select value={propertyFilter} onValueChange={setPropertyFilter}>
-            <SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-full sm:w-40"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="all">All</SelectItem>{propertyOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 min-w-0">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Method</label>
           <Select value={methodFilter} onValueChange={setMethodFilter}>
-            <SelectTrigger className="h-9 w-32"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-full sm:w-32"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="all">All</SelectItem>{methodOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 min-w-0">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Status</label>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-9 w-32"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-full sm:w-32"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
               <SelectItem value="successful">Successful</SelectItem>
@@ -744,11 +782,11 @@ export function DailyRentReport({ mode }: Props) {
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1 min-w-[180px] flex-1">
+        <div className="space-y-1 col-span-2 min-w-0 sm:min-w-[180px] sm:flex-1">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Search</label>
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Name, phone, receipt…" className="h-9" />
         </div>
-        <div className="flex gap-1.5 ml-auto">
+        <div className="col-span-2 flex flex-wrap gap-1.5 sm:ml-auto">
           <Button size="sm" variant="outline" onClick={() => refetch()} className="h-9 gap-1.5"><RefreshCw className="h-3.5 w-3.5" />Refresh</Button>
           <Button size="sm" variant="outline" onClick={exportCsv} disabled={!filtered.length} className="h-9 gap-1.5"><FileSpreadsheet className="h-3.5 w-3.5" />CSV</Button>
           <Button size="sm" variant="outline" onClick={exportPdf} disabled={!filtered.length} className="h-9 gap-1.5"><FileDown className="h-3.5 w-3.5" />PDF</Button>
@@ -775,8 +813,8 @@ export function DailyRentReport({ mode }: Props) {
           <Input
             type="date"
             value={cardScope.from}
-            min={date}
-            max={dateTo}
+            min={periodFrom}
+            max={periodTo}
             onChange={e => setRange('summary', { ...cardScope, from: e.target.value })}
             className="h-7 w-[130px] text-[11px]"
             aria-label="Cards period from"
@@ -785,8 +823,8 @@ export function DailyRentReport({ mode }: Props) {
           <Input
             type="date"
             value={cardScope.to}
-            min={date}
-            max={dateTo}
+            min={periodFrom}
+            max={periodTo}
             onChange={e => setRange('summary', { ...cardScope, to: e.target.value })}
             className="h-7 w-[130px] text-[11px]"
             aria-label="Cards period to"
@@ -877,7 +915,7 @@ export function DailyRentReport({ mode }: Props) {
       <Card className="p-0 overflow-hidden">
         <div className="p-3 border-b flex items-center justify-between">
           <div className="text-sm font-semibold">
-            {mode === 'tenant' ? 'Daily Repayments' : 'Daily Collections'} · {filtered.length} rows
+            {mode === 'tenant' ? 'Daily Repayments' : 'Daily Collections'} · {txRows.length} rows
           </div>
           {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
         </div>
@@ -889,12 +927,12 @@ export function DailyRentReport({ mode }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 && (
-                <tr><td colSpan={headers.length} className="px-3 py-6 text-center text-muted-foreground">No rows for this day.</td></tr>
+              {txRows.length === 0 && (
+                <tr><td colSpan={headers.length} className="px-3 py-6 text-center text-muted-foreground">No rows for this period.</td></tr>
               )}
-              {filtered.map((r, rowIdx) => (
+              {txRows.map((r, rowIdx) => (
                 <tr key={r.id} className="border-t hover:bg-muted/40">
-                  {(bodyRows[rowIdx] ?? []).map((cell, i) => (
+                  {(txBodyRows[rowIdx] ?? []).map((cell, i) => (
                     <td key={i} className="px-2 py-1.5 whitespace-nowrap">
                       {i === statusColIndex ? (
                         <Badge variant={r.status === 'successful' ? 'default' : r.status === 'pending' ? 'secondary' : 'destructive'} className="text-[10px]">{r.status}</Badge>
@@ -904,11 +942,11 @@ export function DailyRentReport({ mode }: Props) {
                 </tr>
               ))}
             </tbody>
-            {filtered.length > 0 && (
+            {txRows.length > 0 && (
               <tfoot className="bg-muted/60 font-semibold">
                 <tr>
                   <td colSpan={headers.length - 1} className="px-2 py-1.5 text-right">Total</td>
-                  <td className="px-2 py-1.5">{formatUGX(totals.sum)}</td>
+                  <td className="px-2 py-1.5">{formatUGX(txTotals.sum)}</td>
                 </tr>
               </tfoot>
             )}
@@ -932,7 +970,7 @@ export function DailyRentReport({ mode }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {agentRanking.map(a => {
+                {agentTable.map(a => {
                   const rate = a.count ? (a.successful / a.count) * 100 : 0;
                   return (
                     <tr key={a.agent_id} className="border-t">
@@ -979,8 +1017,8 @@ export function DailyRentReport({ mode }: Props) {
           title="Comprehensive"
           from={rangeFor('comprehensive').from}
           to={rangeFor('comprehensive').to}
-          minDate={date}
-          maxDate={dateTo}
+          minDate={periodFrom}
+          maxDate={periodTo}
           onFromChange={v => setRange('comprehensive', { ...rangeFor('comprehensive'), from: v })}
           onToChange={v => setRange('comprehensive', { ...rangeFor('comprehensive'), to: v })}
           onReset={() => setRange('comprehensive', { from: date, to: dateTo })}
