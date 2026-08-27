@@ -41,7 +41,6 @@ import { SupporterAgreementViewModal } from '@/components/supporter/agreement/Su
 
 // Menu drawer
 import { SupporterMenuDrawer } from '@/components/supporter/SupporterMenuDrawer';
-import { MerchantCodePills } from '@/components/supporter/MerchantCodePills';
 import { hapticTap } from '@/lib/haptics';
 // motion removed — static rendering for low-end devices
 
@@ -486,7 +485,6 @@ export default function SupporterDashboard({
             <AiIdButton variant="compact" />
           </div>
 
-          <MerchantCodePills />
 
 
 
