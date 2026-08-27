@@ -17,7 +17,20 @@ type RpcFn = (
   args?: Record<string, unknown>
 ) => Promise<{ data: unknown; error: { message: string } | null }>;
 
-const rpc = supabase.rpc as unknown as RpcFn;
+/**
+ * Call the payables RPCs through the client instance.
+ *
+ * IMPORTANT: do NOT detach the method (`const rpc = supabase.rpc as RpcFn`).
+ * `PostgrestClient.rpc` relies on `this`, so an unbound reference throws
+ * "Cannot read properties of undefined (reading 'rest')" before any request is
+ * sent — which is exactly why the CFO payables cards silently showed UGX 0.
+ */
+const rpc: RpcFn = (fn, args) =>
+  (supabase.rpc as unknown as (f: string, a?: Record<string, unknown>) => Promise<{
+    data: unknown;
+    error: { message: string } | null;
+  }>).call(supabase, fn, args);
+
 
 export interface PayablesCategoryTotal {
   key: string;
@@ -229,7 +242,15 @@ export interface PayablesForecastAccuracy {
   };
 }
 
-/** Authoritative Total Payables + per-category totals, overdue and due-today. */
+/**
+ * Authoritative Total Payables + per-category totals, overdue and due-today.
+ *
+ * `refetchOnMount: 'always'` matters here: without it a query that errored
+ * earlier in the session (e.g. a transient auth/network failure) stays in an
+ * error state with `data === undefined`, and the CFO card silently renders
+ * UGX 0 instead of the real figure. The card must never fall back to zero, so
+ * the freshness of this query is part of its correctness.
+ */
 export function usePayablesTotal() {
   return useQuery({
     queryKey: ['payables-total'],
@@ -238,9 +259,14 @@ export function usePayablesTotal() {
       if (error) throw error;
       return data as PayablesTotal;
     },
+
     staleTime: STALE_TIME,
+    refetchOnMount: 'always',
+    networkMode: 'always',
+    retry: 2,
   });
 }
+
 
 /** Category → product → item drill-down, with the tie-out validation block. */
 export function usePayablesBreakdown(enabled = true) {
