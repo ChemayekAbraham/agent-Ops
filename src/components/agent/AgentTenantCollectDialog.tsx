@@ -124,7 +124,6 @@ export function AgentTenantCollectDialog({
       setRpcError(null);
       setSmsStatus('idle');
       setSmsResending(false);
-      setPartialConfirmed(false);
       setPartialReason('');
       setExpectedAmount(null);
       refetchBalances();
