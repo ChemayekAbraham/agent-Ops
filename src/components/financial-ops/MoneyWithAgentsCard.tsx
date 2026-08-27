@@ -140,6 +140,23 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
   const deficitRows = rows.filter((r) => r.clampedShortfall > 0);
   const deficitTotal = deficitRows.reduce((s, r) => s + r.clampedShortfall, 0);
 
+  // Recommended daily capacity per desk, plus how an entered distribution pot
+  // should be split across them. Recommendation only — moves no money.
+  const activeAgentIds = new Set(rows.map((r) => r.agentId).filter(Boolean) as string[]);
+  const perfRows = (performance ?? []).filter((p) => activeAgentIds.has(p.agentId));
+  const pot = Number((potInput || '').replace(/[^\d.]/g, ''));
+  const capacities = computeMerchantCapacities(perfRows, pot);
+  const capacityFor = (agentId: string | null | undefined) =>
+    agentId ? capacities.get(agentId) : undefined;
+  const capacityTotal = Array.from(capacities.values()).reduce((s, c) => s + c.earnedCapacity, 0);
+  const allocatedTotal = Array.from(capacities.values()).reduce(
+    (s, c) => s + c.suggestedAllocation,
+    0,
+  );
+  const eligibleDesks = Array.from(capacities.values()).filter((c) => c.earnedCapacity > 0).length;
+
+
+
   return (
     <div className="rounded-2xl border border-border bg-card p-5 min-w-0">
       <div className="flex items-start justify-between gap-3 flex-wrap">
