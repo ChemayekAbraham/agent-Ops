@@ -23,7 +23,6 @@ import { CashSourcesSheet } from '@/components/cfo/CashSourcesSheet';
 import { CFOActionsLog } from '@/components/cfo/CFOActionsLog';
 import { ReceiptNumberLookupPanel } from '@/components/financial-ops/ReceiptNumberLookupPanel';
 import { AgentAdvancesStatsCard } from '@/components/cfo/AgentAdvancesStatsCard';
-import { DailyReceivablesPayablesSection } from '@/components/cfo/DailyReceivablesPayablesSection';
 import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilldown';
 import { ServiceCentreReceivablesPanel } from '@/components/cfo/ServiceCentreReceivablesPanel';
 import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
@@ -287,18 +286,14 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         {/* ─────────── 2 · RECEIVABLES & PAYABLES ─────────── */}
         <Band
           title="Receivables & Payables"
-          subtitle="Authoritative open balances first, then movement over a chosen period"
+          subtitle="Authoritative open balances across the full book"
           open={isOpen('receivablesPayables')}
           onToggle={() => toggleSection('receivablesPayables')}
         >
-          {/* Authoritative totals lead. The period-filtered cards used to come
-              first, which made these full-book figures look contradictory. */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
             <ReceivablesCardDrilldown />
             <PayablesCardDrilldown />
           </div>
-
-          <DailyReceivablesPayablesSection heading="Movement in period" />
 
           <ServiceCentreReceivablesPanel />
         </Band>
