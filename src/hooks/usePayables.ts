@@ -229,18 +229,30 @@ export interface PayablesForecastAccuracy {
   };
 }
 
-/** Authoritative Total Payables + per-category totals, overdue and due-today. */
+/**
+ * Authoritative Total Payables + per-category totals, overdue and due-today.
+ *
+ * `refetchOnMount: 'always'` matters here: without it a query that errored
+ * earlier in the session (e.g. a transient auth/network failure) stays in an
+ * error state with `data === undefined`, and the CFO card silently renders
+ * UGX 0 instead of the real figure. The card must never fall back to zero, so
+ * the freshness of this query is part of its correctness.
+ */
 export function usePayablesTotal() {
   return useQuery({
     queryKey: ['payables-total'],
     queryFn: async (): Promise<PayablesTotal> => {
-      const { data, error } = await rpc('get_payables_total');
-      if (error) throw error;
+      const { data, error } = await rpc('get_payables_total').catch((e: unknown) => { console.error('[payables-total THROW]', e); throw e; }) as { data: unknown; error: { message: string } | null };
+      if (error) { console.error('[payables-total ERR]', JSON.stringify(error)); throw error; }
       return data as PayablesTotal;
     },
     staleTime: STALE_TIME,
+    refetchOnMount: 'always',
+    networkMode: 'always',
+    retry: 2,
   });
 }
+
 
 /** Category → product → item drill-down, with the tie-out validation block. */
 export function usePayablesBreakdown(enabled = true) {

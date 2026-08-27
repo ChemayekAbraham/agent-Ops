@@ -17,6 +17,13 @@ export function PayablesCardDrilldown() {
   const breakdown = usePayablesBreakdown(open);
   const validation = breakdown.data?.validation;
 
+  // Never fall back to zero: an unresolved / failed load shows a dash (and a
+  // retry affordance), so a real UGX 0 can be trusted as a real UGX 0.
+  const t = total.data;
+  const pending = !t && (total.isPending || total.isFetching);
+  const failed = !t && total.isError;
+  const money = (v: number | undefined) => (t ? formatUGX(Number(v ?? 0)) : pending ? '…' : '—');
+
   return (
     <>
       <Card
@@ -33,11 +40,25 @@ export function PayablesCardDrilldown() {
                 Total Payables — authoritative
               </p>
               <p className="text-2xl font-bold font-mono tabular-nums break-words">
-                {total.isLoading ? '—' : formatUGX(total.data?.total ?? 0)}
+                {money(t?.total)}
               </p>
-              <p className="text-[10px] text-muted-foreground">
-                {total.data?.item_count ?? 0} open obligations · tap for breakdown &amp; forecast
-              </p>
+              {failed ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void total.refetch();
+                  }}
+                  className="text-[10px] text-destructive underline underline-offset-2"
+                >
+                  Payables could not be loaded · tap to retry
+                </button>
+              ) : (
+                <p className="text-[10px] text-muted-foreground">
+                  {t ? `${t.item_count ?? 0} open obligations · ` : ''}tap for breakdown &amp;
+                  forecast
+                </p>
+              )}
             </div>
             <span className="flex items-center gap-1 shrink-0">
               <TrendingDown className="h-5 w-5 text-destructive" />
@@ -48,19 +69,16 @@ export function PayablesCardDrilldown() {
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-lg bg-background/70 px-2 py-1">
               <p className="text-[9px] uppercase tracking-wider text-destructive">Overdue</p>
-              <p className="text-xs font-bold font-mono tabular-nums">
-                {formatUGX(total.data?.overdue ?? 0)}
-              </p>
+              <p className="text-xs font-bold font-mono tabular-nums">{money(t?.overdue)}</p>
             </div>
             <div className="rounded-lg bg-background/70 px-2 py-1">
               <p className="text-[9px] uppercase tracking-wider text-muted-foreground">Due today</p>
-              <p className="text-xs font-bold font-mono tabular-nums">
-                {formatUGX(total.data?.due_today ?? 0)}
-              </p>
+              <p className="text-xs font-bold font-mono tabular-nums">{money(t?.due_today)}</p>
             </div>
           </div>
         </CardContent>
       </Card>
+
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
@@ -79,22 +97,23 @@ export function PayablesCardDrilldown() {
                 Total Payables
               </p>
               <p className="text-xl sm:text-2xl font-bold font-mono tabular-nums break-words">
-                {total.isLoading ? '—' : formatUGX(total.data?.total ?? 0)}
+                {money(t?.total)}
               </p>
               <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[10px] sm:text-xs text-muted-foreground">
                 <span>
                   Overdue{' '}
                   <span className="font-mono tabular-nums text-destructive">
-                    {formatUGX(total.data?.overdue ?? 0)}
+                    {money(t?.overdue)}
                   </span>
                 </span>
                 <span>
                   Due today{' '}
                   <span className="font-mono tabular-nums text-foreground">
-                    {formatUGX(total.data?.due_today ?? 0)}
+                    {money(t?.due_today)}
                   </span>
                 </span>
               </div>
+
               {validation &&
                 (validation.ties_out ? (
                   <p className="mt-1 flex items-start gap-1.5 text-[10px] sm:text-xs text-emerald-700">
