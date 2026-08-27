@@ -28,6 +28,16 @@ export const humanize = (v: unknown): string => {
   return s.replace(/_/g, ' ').trim() || '—';
 };
 
+/**
+ * Same humanising for data-table cells, but empty values stay blank so the
+ * statement never prints placeholder dashes for data that does not exist.
+ */
+const humanizeCell = (v: unknown): string => {
+  const s = v == null ? '' : String(v);
+  const cleaned = s.replace(/_/g, ' ').trim();
+  return cleaned === '—' ? '' : cleaned;
+};
+
 async function loadLogoBase64(): Promise<string | null> {
   try {
     const res = await fetch(welileLogoUrl);
