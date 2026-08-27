@@ -473,9 +473,9 @@ export function TenantCallReportsPanel({
           tables: [
             {
               title: `CALL LOG (${nfmt(filtered.length)})`,
-              head: ['Called at', 'Status', 'Tenant', 'Phone', 'District', 'Agent', 'Logged by', 'Follow-up', 'Outstanding', 'Missed d', 'Comment'],
-              widths: [22, 13, 28, 20, 17, 24, 24, 20, 22, 12, 56],
-              aligns: ['left', 'left', 'left', 'left', 'left', 'left', 'left', 'left', 'right', 'right', 'left'],
+              head: ['Called at', 'Status', 'Tenant', 'Phone', 'District', 'Agent', 'Landlord', 'Logged by', 'Follow-up', 'Daily', 'Repaid', 'Owed', 'Missed d', 'Comment'],
+              widths: [22, 12, 26, 19, 15, 21, 21, 21, 16, 16, 19, 19, 11, 44],
+              aligns: ['left', 'left', 'left', 'left', 'left', 'left', 'left', 'left', 'left', 'right', 'right', 'right', 'right', 'left'],
               body: filtered.map(r => {
                 const t = byTenant.get(r.tenant_id);
                 return [
@@ -485,8 +485,11 @@ export function TenantCallReportsPanel({
                   t?.phone || '—',
                   t?.district || '—',
                   t?.agent_name || '—',
+                  t?.landlord_name || '—',
                   staffName(r.called_by),
                   r.follow_up_at ? format(new Date(r.follow_up_at), 'dd MMM yy') : '—',
+                  ugx(t?.daily_repayment),
+                  ugx(t?.amount_repaid),
                   ugx(t?.outstanding_balance),
                   nfmt(t?.missed_days),
                   r.comment || '—',
