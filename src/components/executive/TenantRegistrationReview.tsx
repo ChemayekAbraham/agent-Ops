@@ -89,7 +89,7 @@ export function TenantRegistrationReview({ tenantId, tenantName, onBack }: Props
         .limit(1)
         .maybeSingle();
 
-      const [profileRes, landlordRes, lc1Res] = await Promise.all([
+      const [profileRes, landlordRes, lc1Res, docsRes] = await Promise.all([
         supabase.from('profiles')
           .select('full_name, phone, email, city, country, national_id, mobile_money_number, mobile_money_provider')
           .eq('id', tenantId)
@@ -106,16 +106,32 @@ export function TenantRegistrationReview({ tenantId, tenantName, onBack }: Props
               .eq('id', reqData.lc1_id)
               .maybeSingle()
           : Promise.resolve({ data: null }),
+        // Authoritative photo custody: what the agent actually uploaded from the
+        // tenant profile sheet lives in tenant_documents, not in the rent request
+        // snapshot (which can be stale after a re-upload).
+        supabase.rpc('get_tenant_documents' as any, { p_tenant_id: tenantId }),
       ]);
+
+      const docRows: any[] = Array.isArray(docsRes?.data) ? (docsRes.data as any[]) : [];
+      const currentHouseDocs = docRows
+        .filter(d => d.doc_type === 'house_image' && d.is_current !== false && d.public_url)
+        .sort((a, b) => (b.version ?? 0) - (a.version ?? 0));
+      const currentPassport = docRows.find(d => d.doc_type === 'tenant_passport' && d.is_current !== false && d.public_url);
 
       return {
         profile: profileRes.data,
         landlord: landlordRes.data,
         lc1: lc1Res.data,
         request: reqData,
+        houseImages: currentHouseDocs.length > 0
+          ? currentHouseDocs.map(d => d.public_url as string)
+          : ((reqData?.house_image_urls as string[] | null) ?? []),
+        houseImagesFromDocs: currentHouseDocs.length > 0,
+        passportUrl: (currentPassport?.public_url as string | undefined) ?? reqData?.tenant_photo_url ?? null,
       };
     },
   });
+
 
   const startEdit = (section: SectionKey) => {
     const sectionData = data?.[section] as Record<string, any> | null;
@@ -316,17 +332,17 @@ export function TenantRegistrationReview({ tenantId, tenantName, onBack }: Props
               <Badge variant="outline" className="text-xs">
                 {String(data.request.status || '').replace(/_/g, ' ')}
               </Badge>
-              {data.request.house_image_urls && data.request.house_image_urls.length > 0 && (
+              {(data?.houseImages?.length ?? 0) > 0 && (
                 <Badge variant="secondary" className="text-xs gap-1">
                   <ImageIcon className="h-3 w-3" />
-                  {data.request.house_image_urls.length} photo(s)
+                  {data!.houseImages.length} photo(s)
                 </Badge>
               )}
             </div>
           )}
 
           {/* Tenant passport photo */}
-          {data?.request?.tenant_photo_url && (
+          {data?.passportUrl && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
@@ -334,9 +350,9 @@ export function TenantRegistrationReview({ tenantId, tenantName, onBack }: Props
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
-                <a href={data.request.tenant_photo_url} target="_blank" rel="noopener noreferrer" className="inline-block">
+                <a href={data.passportUrl} target="_blank" rel="noopener noreferrer" className="inline-block">
                   <img
-                    src={data.request.tenant_photo_url}
+                    src={data.passportUrl}
                     alt={`Tenant ${tenantName}`}
                     className="h-40 w-32 rounded-lg object-cover border border-border hover:ring-2 hover:ring-primary/50 transition-all"
                   />
@@ -348,8 +364,8 @@ export function TenantRegistrationReview({ tenantId, tenantName, onBack }: Props
             </Card>
           )}
 
-          {/* House images gallery */}
-          {data?.request?.house_image_urls && data.request.house_image_urls.length > 0 && (
+          {/* House images gallery — the agent's current uploads from the tenant profile sheet */}
+          {(data?.houseImages?.length ?? 0) > 0 && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
@@ -357,20 +373,27 @@ export function TenantRegistrationReview({ tenantId, tenantName, onBack }: Props
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
-                <div className="flex gap-2 overflow-x-auto pb-1">
-                  {data.request.house_image_urls.map((url: string, i: number) => (
-                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                <div className="grid grid-cols-3 sm:flex sm:overflow-x-auto gap-2 pb-1">
+                  {data!.houseImages.map((url: string, i: number) => (
+                    <a key={`${url}-${i}`} href={url} target="_blank" rel="noopener noreferrer" className="sm:shrink-0">
                       <img
                         src={url}
                         alt={`House ${i + 1}`}
-                        className="h-20 w-20 rounded-lg object-cover border border-border hover:ring-2 hover:ring-primary/50 transition-all"
+                        loading="lazy"
+                        className="h-20 w-full sm:w-20 rounded-lg object-cover border border-border hover:ring-2 hover:ring-primary/50 transition-all"
                       />
                     </a>
                   ))}
                 </div>
+                <p className="text-[10px] text-muted-foreground mt-2">
+                  {data!.houseImagesFromDocs
+                    ? 'Current photos the agent uploaded on the tenant profile sheet.'
+                    : 'From the rent request snapshot — no current uploads on file for this tenant.'}
+                </p>
               </CardContent>
             </Card>
           )}
+
 
           {renderSection('Tenant Profile', User, 'profile', profileFields, data?.profile)}
           {renderSection('Landlord Information', Home, 'landlord', landlordFields, data?.landlord)}
