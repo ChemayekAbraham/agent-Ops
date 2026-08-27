@@ -255,21 +255,11 @@ export function usePayablesTotal() {
   return useQuery({
     queryKey: ['payables-total'],
     queryFn: async (): Promise<PayablesTotal> => {
-      (window as unknown as Record<string, unknown>).__payTotalRan = ((window as unknown as Record<string, unknown>).__payTotalRan as number ?? 0) as number;
-      (window as unknown as Record<string, unknown>).__payTotalRan = 1 + Number((window as unknown as Record<string, unknown>).__payTotalRan ?? 0);
-      const w = window as unknown as Record<string, unknown>;
-      let data: unknown, error: { message: string } | null = null;
-      try {
-        const r = await rpc('get_payables_total');
-        data = r.data; error = r.error;
-      } catch (e) {
-        w.__payTotalThrew = String((e as Error)?.stack || e).slice(0, 500);
-        throw e;
-      }
-      w.__payTotalErr = error ? JSON.stringify(error) : 'none';
+      const { data, error } = await rpc('get_payables_total');
       if (error) throw error;
       return data as PayablesTotal;
     },
+
     staleTime: STALE_TIME,
     refetchOnMount: 'always',
     networkMode: 'always',
