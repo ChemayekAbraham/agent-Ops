@@ -323,8 +323,13 @@ export function PartnerProfile360() {
   const topups = useMemo(() => {
     if (!data) return [];
     const selfTopups = data.topups || [];
+    const topupCreationActions = new Set([
+      'manager_portfolio_topup',
+      'manager_portfolio_topup_instant',
+      'manager_portfolio_topup_pending',
+    ]);
     const auditTopups = (data.changes || [])
-      .filter((r) => String(r.action_type || r.action || '').toLowerCase().includes('topup'))
+      .filter((r) => topupCreationActions.has(String(r.action_type || r.action || '').toLowerCase()))
       .map((r) => {
         const metadata = r.metadata || {};
         const before = metadata.previous_capital ?? metadata.current_capital ?? null;
