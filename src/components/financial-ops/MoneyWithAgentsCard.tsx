@@ -20,6 +20,7 @@ import { useMerchantAgentFloatAllocation } from '@/hooks/useMerchantAgentFloatAl
 import { computeMerchantCapacities, capacityLabel } from '@/lib/merchantFloatCapacity';
 import { MerchantCapacityHistoryDialog } from './MerchantCapacityHistoryDialog';
 import { MerchantCapacityOverrideDialog } from './MerchantCapacityOverrideDialog';
+import { MerchantCapacityBulkOverrideDialog } from './MerchantCapacityBulkOverrideDialog';
 import {
   useMerchantCapacityOverrides,
   activeOverrideMap,
