@@ -586,6 +586,8 @@ export function InvestmentCalculator() {
                     min={50000}
                     max={300000000}
                     step={50000}
+                    showTooltip
+                    tooltipContent={(value) => `UGX ${value.toLocaleString()}`}
                     className="py-2 sm:py-3"
                   />
                   <div className="flex justify-between text-[10px] text-muted-foreground">
@@ -622,6 +624,8 @@ export function InvestmentCalculator() {
                     min={50000}
                     max={30000000000}
                     step={100000}
+                    showTooltip
+                    tooltipContent={(value) => `UGX ${value.toLocaleString()}`}
                     className="py-2 sm:py-3"
                   />
                   <div className="flex justify-between text-[10px] text-muted-foreground">
@@ -645,6 +649,8 @@ export function InvestmentCalculator() {
                   min={1}
                   max={24}
                   step={1}
+                  showTooltip
+                  tooltipContent={(value) => `${value} Month${value === 1 ? '' : 's'}`}
                   className="py-1.5"
                 />
                 <div className="flex justify-between text-[10px] text-muted-foreground">
