@@ -169,6 +169,39 @@ export default function Advances() {
     }
   }
 
+  const editInstallmentInfo = useMemo(() => {
+    if (!editRow || editMode !== 'fixed') return null;
+    const value = Number(editRecoveryValue);
+    if (!Number.isFinite(value) || value <= 0) return null;
+    const installments = Math.ceil(editRow.principal / value);
+    const final = editRow.principal - value * (installments - 1);
+    return { installments, final };
+  }, [editRow, editMode, editRecoveryValue]);
+
+  async function submitEdit() {
+    if (!editRow) return;
+    const value = Number(editRecoveryValue);
+    if (!Number.isFinite(value) || value <= 0) return;
+    if (editPurpose.trim().length === 0) return;
+    setEditError('');
+    setEditSaving(true);
+    try {
+      await updateAdvance(editRow.id, {
+        purpose: editPurpose.trim(),
+        recovery_mode: editMode,
+        recovery_value: value,
+        first_recovery_on: editFirstOn,
+      });
+      toast.success('Advance updated.');
+      setEditRow(null);
+      await load();
+    } catch (err) {
+      setEditError((err as Error).message);
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
   async function reject() {
     if (!rejectRow) return;
     if (rejectNote.trim().length < 10) {
