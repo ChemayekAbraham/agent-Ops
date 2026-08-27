@@ -61,13 +61,15 @@ export function ServiceCentreDetailDialog({ centre, photos, avatarUrl, onClose }
 
         {centre && (
           <Tabs value={tab} onValueChange={setTab} className="mt-1">
-            <TabsList className="grid w-full grid-cols-4 gap-1">
+            <TabsList className="grid w-full grid-cols-3 gap-1 sm:grid-cols-5">
               <TabsTrigger value="overview" className="text-[11px] sm:text-xs">Overview</TabsTrigger>
               <TabsTrigger value="agents" className="text-[11px] sm:text-xs">
                 Agents{data ? ` (${data.assigned_agents.length})` : ''}
               </TabsTrigger>
+              <TabsTrigger value="receivable" className="text-[11px] sm:text-xs">Receivable</TabsTrigger>
               <TabsTrigger value="repayments" className="text-[11px] sm:text-xs">Repayments</TabsTrigger>
               <TabsTrigger value="advances" className="text-[11px] sm:text-xs">Advances</TabsTrigger>
+
             </TabsList>
 
             {isLoading && (
