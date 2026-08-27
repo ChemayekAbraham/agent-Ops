@@ -604,7 +604,47 @@ export function PartnerProfile360() {
           return money((principal * rate) / 100);
         },
       },
-      { label: 'Returns earned', align: 'right', value: (r) => (Number(r.total_roi_earned) ? money(r.total_roi_earned) : '') },
+      {
+        label: 'Returns earned',
+        align: 'right',
+        value: (r) => {
+          const a = returnsByPortfolio.get(String(r.portfolio_code || ''));
+          const total = (a?.reinvested || 0) + (a?.paid || 0) || Number(r.total_roi_earned) || 0;
+          return total ? money(total) : '';
+        },
+      },
+      {
+        label: 'Returns reinvested',
+        align: 'right',
+        value: (r) => {
+          const a = returnsByPortfolio.get(String(r.portfolio_code || ''));
+          return a?.reinvested ? money(a.reinvested) : '';
+        },
+      },
+      {
+        label: 'Returns paid out',
+        align: 'right',
+        value: (r) => {
+          const a = returnsByPortfolio.get(String(r.portfolio_code || ''));
+          return a?.paid ? money(a.paid) : '';
+        },
+      },
+      {
+        label: 'Return cycles',
+        align: 'right',
+        value: (r) => {
+          const a = returnsByPortfolio.get(String(r.portfolio_code || ''));
+          return a?.cycles ? String(a.cycles) : '';
+        },
+      },
+      {
+        label: 'Last return',
+        value: (r) => {
+          const a = returnsByPortfolio.get(String(r.portfolio_code || ''));
+          return a?.latest ? fmtDate(a.latest) : '';
+        },
+      },
+
       { label: 'Term (months)', align: 'right', value: (r) => (r.duration_months == null ? '' : String(r.duration_months)) },
       { label: 'Maturity', value: (r) => (r.maturity_date ? fmtDate(r.maturity_date) : '') },
       { label: 'Next payout', value: (r) => (r.next_roi_date ? fmtDate(r.next_roi_date) : '') },
