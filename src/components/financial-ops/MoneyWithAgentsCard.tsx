@@ -347,6 +347,14 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                       Clear
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setBulkOverrideOpen(true)}
+                    className="h-9 rounded-lg border border-border px-3 text-[11px] font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                    title="Adjust several desks' qualified capacity in one action (one reason, per-desk durations)"
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5" /> Bulk adjust capacity
+                  </button>
                 </div>
               </div>
               <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
