@@ -28,7 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { listAdvances, requestAdvance, decideAdvance, type AdvanceRow } from '@/hr/pay/api/advances';
+import { listAdvances, requestAdvance, decideAdvance, updateAdvance, type AdvanceRow } from '@/hr/pay/api/advances';
 import { listStaffForPayroll, type PayrollStaffOption } from '@/hr/pay/api/compensation';
 import { myPayrollAuthority } from '@/hr/pay/api/workflow';
 
