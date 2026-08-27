@@ -89,49 +89,85 @@ function Field({ icon: Icon, label, value }: { icon?: any; label: string; value?
 interface Col { key: string; label: string; render?: (r: Row) => string; align?: 'right'; wrap?: boolean }
 
 /** One table renderer reused by every tab — keeps markup and export logic DRY. */
-function DataTable({ cols, rows, empty, onRowClick }: { cols: Col[]; rows: Row[]; empty: string; onRowClick?: (r: Row) => void }) {
+function DataTable({ cols, rows, empty, onRowClick, pageSize = 10 }: { cols: Col[]; rows: Row[]; empty: string; onRowClick?: (r: Row) => void; pageSize?: number }) {
+  const [page, setPage] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const current = Math.min(page, totalPages - 1);
+  useEffect(() => { setPage(0); }, [rows]);
+
   if (!rows.length) {
     return <p className="py-8 text-center text-xs text-muted-foreground">{empty}</p>;
   }
-  return (
-    <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full min-w-[560px] text-xs">
-        <thead className="bg-muted/50">
-          <tr>
-            {cols.map((c) => (
-              <th key={c.key} className={cn('px-3 py-2 text-left font-semibold whitespace-nowrap', c.align === 'right' && 'text-right')}>
-                {c.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y">
-          {rows.map((r, i) => (
-            <tr
-              key={r.id || i}
-              onClick={onRowClick ? () => onRowClick(r) : undefined}
-              className={cn('hover:bg-muted/30', onRowClick && 'cursor-pointer')}
-            >
-              {cols.map((c) => (
-                <td
-                  key={c.key}
-                  className={cn(
-                    'px-3 py-2',
-                    c.wrap ? 'max-w-[260px] whitespace-normal break-words align-top' : 'whitespace-nowrap',
-                    c.align === 'right' && 'text-right tabular-nums',
-                  )}
-                >
-                  {c.render ? c.render(r) : (r[c.key] ?? '—')}
-                </td>
-              ))}
 
+  const start = current * pageSize;
+  const visible = rows.slice(start, start + pageSize);
+
+  return (
+    <div className="w-full min-w-0 space-y-2">
+      <div className="w-full max-w-full overflow-x-auto rounded-lg border">
+        <table className="w-full min-w-[560px] text-xs">
+          <thead className="bg-muted/50">
+            <tr>
+              {cols.map((c) => (
+                <th key={c.key} className={cn('px-3 py-2 text-left font-semibold whitespace-nowrap', c.align === 'right' && 'text-right')}>
+                  {c.label}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y">
+            {visible.map((r, i) => (
+              <tr
+                key={r.id || `${start + i}`}
+                onClick={onRowClick ? () => onRowClick(r) : undefined}
+                className={cn('hover:bg-muted/30', onRowClick && 'cursor-pointer')}
+              >
+                {cols.map((c) => (
+                  <td
+                    key={c.key}
+                    className={cn(
+                      'px-3 py-2',
+                      c.wrap ? 'max-w-[220px] whitespace-normal break-words align-top' : 'whitespace-nowrap',
+                      c.align === 'right' && 'text-right tabular-nums',
+                    )}
+                  >
+                    {c.render ? c.render(r) : (r[c.key] ?? '—')}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {rows.length > pageSize && (
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+          <span>
+            Showing {start + 1}–{Math.min(start + pageSize, rows.length)} of {rows.length}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <Button
+              type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px]"
+              disabled={current === 0}
+              onClick={() => setPage(current - 1)}
+            >
+              Previous
+            </Button>
+            <span className="px-1">Page {current + 1} of {totalPages}</span>
+            <Button
+              type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px]"
+              disabled={current >= totalPages - 1}
+              onClick={() => setPage(current + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
 
 
 const toSheet = (name: string, cols: Col[], rows: Row[]): XlsxSheet => ({
@@ -247,25 +283,65 @@ const WITHDRAWAL_COLS: Col[] = [
 ];
 
 
+/**
+ * Derives a money before/after pair for an audit row even when the audit
+ * record only carries one side of the movement. Everything is computed
+ * relative to whichever figure exists (principal, capital, delta, roi amount)
+ * so the columns stop rendering a bare "—".
+ */
+const num = (v: unknown): number | null => {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+function changeAmounts(r: Row): { before: number | null; after: number | null; delta: number | null } {
+  const m: Record<string, unknown> = (r.metadata as Record<string, unknown>) || {};
+  const ov: Record<string, unknown> = (r.old_values as Record<string, unknown>) || {};
+  const nv: Record<string, unknown> = (r.new_values as Record<string, unknown>) || {};
+
+  let before =
+    num(ov.investment_amount) ?? num(ov.amount) ??
+    num(m.previous_capital) ?? num(m.current_capital) ?? num(m.wallet_balance_before) ??
+    num(m.previous_principal) ?? num(m.old_principal) ?? num(m.principal_before);
+  let after =
+    num(nv.investment_amount) ?? num(nv.amount) ??
+    num(m.new_capital) ?? num(m.wallet_balance_after) ?? num(m.new_principal) ?? num(m.principal_after);
+  let delta =
+    num(m.total_merged) ?? num(m.amount) ?? num(m.roi_amount) ?? num(m.topup_amount) ?? num(m.change_amount);
+
+  if (delta == null && before != null && after != null) delta = after - before;
+  if (before == null && after != null && delta != null) before = after - delta;
+  if (after == null && before != null && delta != null) after = before + delta;
+
+  return { before, after, delta };
+}
+
 const CHANGE_COLS: Col[] = [
   { key: 'created_at', label: 'When', render: (r) => fmtDate(r.created_at, true) },
   { key: 'action', label: 'Action', render: (r) => r.action || r.action_type || '—' },
   { key: 'table_name', label: 'Record' },
   { key: 'actor_name', label: 'Actor', render: (r) => r.actor_name || '—' },
-  { key: 'reason', label: 'Reason', render: (r) => r.reason || '—' },
-  { key: 'old_values', label: 'Before', render: (r) => {
-    if (r.old_values) return JSON.stringify(r.old_values);
-    const value = r.metadata?.previous_capital ?? r.metadata?.current_capital ?? r.metadata?.wallet_balance_before;
-    return value == null ? '—' : money(value);
+  { key: 'reason', label: 'Reason', wrap: true, render: (r) => {
+    const raw = String(r.reason || (r.metadata as any)?.reason || (r.metadata as any)?.notes || '').replace(/_/g, ' ').trim();
+    if (!raw) return '—';
+    return raw.length > 120 ? `${raw.slice(0, 120)}…` : raw;
   } },
-  { key: 'new_values', label: 'After', render: (r) => {
-    if (r.new_values) return JSON.stringify(r.new_values);
-    const value = r.metadata?.new_capital ?? r.metadata?.wallet_balance_after;
-    if (value != null) return money(value);
-    if (r.metadata && Object.keys(r.metadata).length) return JSON.stringify(r.metadata);
-    return '—';
+  { key: 'old_values', label: 'Before', align: 'right', render: (r) => {
+    const { before } = changeAmounts(r);
+    return before == null ? '—' : money(before);
+  } },
+  { key: 'change_amount', label: 'Change', align: 'right', render: (r) => {
+    const { delta } = changeAmounts(r);
+    if (delta == null) return '—';
+    return `${delta > 0 ? '+' : delta < 0 ? '-' : ''}${money(Math.abs(delta))}`;
+  } },
+  { key: 'new_values', label: 'After', align: 'right', render: (r) => {
+    const { after } = changeAmounts(r);
+    return after == null ? '—' : money(after);
   } },
 ];
+
 
 /* ─────────────── main panel ─────────────── */
 
