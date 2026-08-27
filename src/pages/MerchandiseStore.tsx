@@ -259,13 +259,37 @@ export default function MerchandiseStore() {
       toast.error('Choose a size', { description: 'Pick one of the sizes currently in stock.' });
       return;
     }
-    if (insufficient) {
-      toast.error('Insufficient balance', {
-        description: `Your wallet has ${formatUGX(availableWallet)} but this order needs ${formatUGX(orderTotal)}.`,
-      });
+    if (walletError) {
+      toast.error('Wallet balance unavailable', { description: 'We could not read your wallet. Retry the wallet check and try again.' });
+      return;
+    }
+    if (walletLoading) {
+      toast.error('Still checking your wallet', { description: 'Give it a moment — your balance is loading.' });
       return;
     }
     setOrdering(true);
+    // High-stakes debit: re-read the authoritative wallet view instead of
+    // trusting the cached balance, so the button never promises a payment the
+    // server will refuse.
+    let freshWallet = availableWallet;
+    if (user?.id) {
+      try {
+        const view = await fetchWalletBalance(user.id);
+        freshWallet = Math.max(0, view.withdrawable);
+      } catch {
+        setOrdering(false);
+        toast.error('Wallet balance unavailable', { description: 'We could not confirm your balance. Please try again.' });
+        return;
+      }
+    }
+    if (payMode === 'full' && orderTotal > freshWallet) {
+      setOrdering(false);
+      refetchWallet();
+      toast.error('Insufficient balance', {
+        description: `Your wallet has ${formatUGX(freshWallet)} but this order needs ${formatUGX(orderTotal)}. Choose installments instead.`,
+      });
+      return;
+    }
     const { error } = await db.rpc('agent_purchase_merchandise', {
       p_catalog_id: selected.id,
       p_quantity: qty,
@@ -273,6 +297,7 @@ export default function MerchandiseStore() {
       p_size: selectedSize,
     });
     setOrdering(false);
+
     if (error) {
       const msg = error.message || 'Could not place order';
       if (msg.includes('INSUFFICIENT_BALANCE')) {
