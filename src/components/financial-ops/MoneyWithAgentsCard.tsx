@@ -20,6 +20,7 @@ import { useMerchantAgentFloatAllocation } from '@/hooks/useMerchantAgentFloatAl
 import { computeMerchantCapacities, capacityLabel } from '@/lib/merchantFloatCapacity';
 import { MerchantCapacityHistoryDialog } from './MerchantCapacityHistoryDialog';
 import { MerchantCapacityOverrideDialog } from './MerchantCapacityOverrideDialog';
+import { MerchantCapacityBulkOverrideDialog } from './MerchantCapacityBulkOverrideDialog';
 import {
   useMerchantCapacityOverrides,
   activeOverrideMap,
@@ -54,6 +55,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
   const { data: performance, isLoading: perfLoading } = useMerchantAgentFloatAllocation(capacityWindow);
   const [historyFor, setHistoryFor] = useState<{ agentId: string; name: string } | null>(null);
   const [overrideFor, setOverrideFor] = useState<{ agentId: string; name: string } | null>(null);
+  const [bulkOverrideOpen, setBulkOverrideOpen] = useState(false);
   // Temporary admin overrides on qualified capacity (recommendation only).
   const { data: overrideRows } = useMerchantCapacityOverrides(200);
 
@@ -345,6 +347,14 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                       Clear
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setBulkOverrideOpen(true)}
+                    className="h-9 rounded-lg border border-border px-3 text-[11px] font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                    title="Adjust several desks' qualified capacity in one action (one reason, per-desk durations)"
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5" /> Bulk adjust capacity
+                  </button>
                 </div>
               </div>
               <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -709,6 +719,20 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
         agentId={overrideFor?.agentId ?? null}
         agentName={overrideFor?.name ?? 'Merchant agent'}
         earnedCapacity={capacityFor(overrideFor?.agentId)?.performanceCapacity ?? 0}
+        canEdit={canEditFloat}
+        readOnlyReason={readOnlyReason}
+      />
+
+      <MerchantCapacityBulkOverrideDialog
+        open={bulkOverrideOpen}
+        onOpenChange={setBulkOverrideOpen}
+        desks={rows
+          .filter((r) => !!r.agentId)
+          .map((r) => ({
+            agentId: r.agentId as string,
+            agentName: r.agentName || r.label || 'Merchant agent',
+            capacity: capacityFor(r.agentId),
+          }))}
         canEdit={canEditFloat}
         readOnlyReason={readOnlyReason}
       />
