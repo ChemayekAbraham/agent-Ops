@@ -41627,6 +41627,10 @@ export type Database = {
           withdrawable: number
         }[]
       }
+      get_agent_ops_comprehensive_report: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
       get_agent_ops_criteria_users: {
         Args: { p_criterion: string }
         Returns: {
