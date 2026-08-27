@@ -35,7 +35,7 @@ const round = (n: number, step = 5000) => Math.max(0, Math.round(n / step) * ste
 function performanceFactor(r: MerchantFloatAllocationRow): number {
   if (r.blocker) return 0;
   if (!r.isActive) return 0;
-  const scoreFactor = Math.min(1.25, Math.max(0.15, (r.score || 0) / 80));
+  const scoreFactor = Math.min(1.25, Math.max(0.15, (r.allocationScore || 0) / 80));
   switch (r.recommendation) {
     case 'increase':
       return Math.min(1.25, scoreFactor * 1.15);
@@ -78,7 +78,7 @@ export function computeMerchantCapacities(
       suggestedAllocation: share,
       availableFloat: Math.max(0, b.r.availableFloat),
       topUpNeeded: Math.max(0, b.earnedCapacity - Math.max(0, b.r.availableFloat)),
-      score: b.r.score,
+      score: b.r.allocationScore,
       recommendation: b.r.recommendation,
       reason: b.r.reason,
       blocker: b.r.blocker,
