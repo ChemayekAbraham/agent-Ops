@@ -19,6 +19,11 @@ import { MerchantDebtSettlementDialog } from './MerchantDebtSettlementDialog';
 import { useMerchantAgentFloatAllocation } from '@/hooks/useMerchantAgentFloatAllocation';
 import { computeMerchantCapacities, capacityLabel } from '@/lib/merchantFloatCapacity';
 import { MerchantCapacityHistoryDialog } from './MerchantCapacityHistoryDialog';
+import { MerchantCapacityOverrideDialog } from './MerchantCapacityOverrideDialog';
+import {
+  useMerchantCapacityOverrides,
+  activeOverrideMap,
+} from '@/hooks/useMerchantCapacityOverrides';
 
 
 /**
@@ -48,6 +53,9 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
   const [potInput, setPotInput] = useState('');
   const { data: performance, isLoading: perfLoading } = useMerchantAgentFloatAllocation(capacityWindow);
   const [historyFor, setHistoryFor] = useState<{ agentId: string; name: string } | null>(null);
+  const [overrideFor, setOverrideFor] = useState<{ agentId: string; name: string } | null>(null);
+  // Temporary admin overrides on qualified capacity (recommendation only).
+  const { data: overrideRows } = useMerchantCapacityOverrides(200);
 
 
   // Payout float guard repair: any payout that completed WITHOUT a float debit
@@ -147,7 +155,8 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
   const activeAgentIds = new Set(rows.map((r) => r.agentId).filter(Boolean) as string[]);
   const perfRows = (performance ?? []).filter((p) => activeAgentIds.has(p.agentId));
   const pot = Number((potInput || '').replace(/[^\d.]/g, ''));
-  const capacities = computeMerchantCapacities(perfRows, pot);
+  const overridesByAgent = activeOverrideMap(overrideRows);
+  const capacities = computeMerchantCapacities(perfRows, pot, overridesByAgent);
   const capacityFor = (agentId: string | null | undefined) =>
     agentId ? capacities.get(agentId) : undefined;
   const perfRowFor = (agentId: string | null | undefined) =>
@@ -446,6 +455,29 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                       qualifies {perfLoading ? '…' : formatUGX(cap?.earnedCapacity ?? 0)}/day
                       <History className="h-2.5 w-2.5 opacity-70" />
                     </button>
+                    {cap?.override && (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-warning"
+                        title={`Override by ${cap.override.setBy || 'Financial Ops'} — ${cap.override.reason}`}
+                      >
+                        override · earned {formatUGX(cap.performanceCapacity)}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      disabled={!r.agentId}
+                      onClick={() =>
+                        r.agentId &&
+                        setOverrideFor({
+                          agentId: r.agentId,
+                          name: r.agentName || r.label || 'Merchant agent',
+                        })
+                      }
+                      className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground disabled:cursor-default"
+                      title="Temporarily adjust this desk's qualified capacity (reason required)"
+                    >
+                      <SlidersHorizontal className="h-2.5 w-2.5" /> adjust
+                    </button>
                     {pot > 0 && (
                       <span className="inline-flex items-center gap-1 rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-success">
                         send {formatUGX(cap?.suggestedAllocation ?? 0)}
@@ -669,6 +701,16 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
         agentId={historyFor?.agentId ?? null}
         agentName={historyFor?.name ?? 'Merchant agent'}
         performance={perfRowFor(historyFor?.agentId)}
+      />
+
+      <MerchantCapacityOverrideDialog
+        open={!!overrideFor}
+        onOpenChange={(v) => !v && setOverrideFor(null)}
+        agentId={overrideFor?.agentId ?? null}
+        agentName={overrideFor?.name ?? 'Merchant agent'}
+        earnedCapacity={capacityFor(overrideFor?.agentId)?.performanceCapacity ?? 0}
+        canEdit={canEditFloat}
+        readOnlyReason={readOnlyReason}
       />
 
 

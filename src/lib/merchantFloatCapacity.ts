@@ -27,6 +27,19 @@ export interface MerchantCapacity {
   recommendation: MerchantFloatAllocationRow['recommendation'];
   reason: string;
   blocker: string | null;
+  /** Capacity earned from performance alone, ignoring any admin override. */
+  performanceCapacity: number;
+  /** Active admin override in force for this desk, if any. */
+  override: MerchantCapacityOverrideInput | null;
+}
+
+/** A temporary Financial-Ops override in force for one desk. */
+export interface MerchantCapacityOverrideInput {
+  id: string;
+  capacity: number;
+  reason: string;
+  expiresAt: string;
+  setBy?: string;
 }
 
 const round = (n: number, step = 5000) => Math.max(0, Math.round(n / step) * step);
@@ -51,6 +64,7 @@ export function performanceFactor(r: MerchantFloatAllocationRow): number {
 export function computeMerchantCapacities(
   rows: MerchantFloatAllocationRow[],
   potAmount: number,
+  overrides?: Map<string, MerchantCapacityOverrideInput>,
 ): Map<string, MerchantCapacity> {
   const base = rows.map((r) => {
     const days = Math.max(1, r.windowDays || 30);
@@ -59,8 +73,12 @@ export function computeMerchantCapacities(
     // A desk with no history yet still gets a small starter capacity so it can
     // build a record, but only when nothing blocks it.
     const starter = factor > 0 && dailyThroughput === 0 ? 50_000 : 0;
-    const earnedCapacity = round(dailyThroughput * factor + starter);
-    return { r, dailyThroughput, factor, earnedCapacity };
+    const performanceCapacity = round(dailyThroughput * factor + starter);
+    // A temporary override replaces the earned figure for as long as it is in
+    // force. It stays a recommendation: it moves no money by itself.
+    const override = overrides?.get(r.agentId) ?? null;
+    const earnedCapacity = override ? round(override.capacity, 1000) : performanceCapacity;
+    return { r, dailyThroughput, factor, earnedCapacity, performanceCapacity, override };
   });
 
   const weightTotal = base.reduce((s, b) => s + b.earnedCapacity, 0);
@@ -82,10 +100,13 @@ export function computeMerchantCapacities(
       recommendation: b.r.recommendation,
       reason: b.r.reason,
       blocker: b.r.blocker,
+      performanceCapacity: b.performanceCapacity,
+      override: b.override,
     });
   });
   return out;
 }
+
 
 export const capacityLabel = (c: MerchantCapacity | undefined): string => {
   if (!c) return 'no performance record yet';

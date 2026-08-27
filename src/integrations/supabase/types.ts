@@ -20465,6 +20465,54 @@ export type Database = {
           },
         ]
       }
+      merchant_capacity_overrides: {
+        Row: {
+          agent_id: string
+          created_at: string
+          created_by: string
+          effective_from: string
+          expires_at: string
+          id: string
+          override_capacity: number
+          reason: string
+          revoke_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          created_by: string
+          effective_from?: string
+          expires_at: string
+          id?: string
+          override_capacity: number
+          reason: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          created_by?: string
+          effective_from?: string
+          expires_at?: string
+          id?: string
+          override_capacity?: number
+          reason?: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       merchant_commission_awards: {
         Row: {
           agent_id: string
@@ -39590,6 +39638,7 @@ export type Database = {
         Args: { _dead_letter_id: number }
         Returns: undefined
       }
+      assert_merchant_capacity_override_admin: { Args: never; Returns: string }
       assert_merchant_float_alloc_access: { Args: never; Returns: boolean }
       assert_no_promissory_self_support: {
         Args: { p_path: string; p_user: string }
@@ -44542,6 +44591,27 @@ export type Database = {
         }
         Returns: Json
       }
+      merchant_capacity_overrides_report: {
+        Args: { p_limit?: number }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          created_at: string
+          created_by: string
+          created_by_name: string
+          effective_from: string
+          expires_at: string
+          id: string
+          is_in_force: boolean
+          override_capacity: number
+          reason: string
+          revoke_reason: string
+          revoked_at: string
+          revoked_by: string
+          revoked_by_name: string
+          status: string
+        }[]
+      }
       merchant_commission_eligibility: {
         Args: { p_withdrawal_id: string }
         Returns: Json
@@ -46415,6 +46485,10 @@ export type Database = {
         Args: { p_decision: string; p_id: string; p_note?: string }
         Returns: Json
       }
+      revoke_merchant_capacity_override: {
+        Args: { p_override_id: string; p_reason: string }
+        Returns: boolean
+      }
       revoke_nonconforming_merchant_claims: {
         Args: { p_agent_id: string; p_reason?: string }
         Returns: Json
@@ -46696,6 +46770,15 @@ export type Database = {
       set_lc1_verification: {
         Args: { p_lc1_id: string; p_reason: string; p_status: string }
         Returns: Json
+      }
+      set_merchant_capacity_override: {
+        Args: {
+          p_agent_id: string
+          p_capacity: number
+          p_days: number
+          p_reason: string
+        }
+        Returns: string
       }
       set_merchant_desk_float_to: {
         Args: {
