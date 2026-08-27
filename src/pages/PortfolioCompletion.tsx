@@ -70,13 +70,18 @@ export default function PortfolioCompletion() {
   const [profile, setProfile] = useState<ProfileSnapshot | null>(null);
   const [existingSig, setExistingSig] = useState<string | null>(null);
 
-  // Form state — only edit fields that are missing
+  // Saved details held aside for optional prefill — never auto-applied.
+  const [saved, setSaved] = useState<{ profile: ProfileSnapshot | null; agreement: AgreementSnapshot } | null>(null);
+  const [prefilled, setPrefilled] = useState(false);
+  const [paymentNeedsUpdate, setPaymentNeedsUpdate] = useState(false);
+
+  // Form state — starts empty; the partner types it or taps "Use my saved details"
   const [nationalId, setNationalId] = useState('');
   const [mobileMoneyName, setMobileMoneyName] = useState('');
   const [sigDataUrl, setSigDataUrl] = useState<string | null>(null);
   const [useExistingSig, setUseExistingSig] = useState(true);
 
-  // Contract-required fields (mirrors the funder-onboarding contract prefill)
+  // Contract-required fields
   const [address, setAddress] = useState('');
   const [kinName, setKinName] = useState('');
   const [kinContact, setKinContact] = useState('');
@@ -87,6 +92,53 @@ export default function PortfolioCompletion() {
   const [bankName, setBankName] = useState('');
   const [bankAccountName, setBankAccountName] = useState('');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
+
+  const hasSavedDetails = Boolean(
+    saved && (
+      saved.profile?.national_id || saved.agreement.address || saved.agreement.kin_name
+      || saved.agreement.momo_number || saved.agreement.bank_account_number
+    ),
+  );
+
+  /** Tap-to-prefill: copies the details already on file into the empty form. */
+  const applySavedDetails = () => {
+    if (!saved) return;
+    const ag = saved.agreement;
+    const p = saved.profile;
+    setNationalId(p?.national_id || '');
+    setMobileMoneyName(p?.mobile_money_name || ag.momo_name || '');
+    setAddress(ag.address || p?.landmark || '');
+    setKinName(ag.kin_name || '');
+    setKinContact(ag.kin_contact || '');
+    const mode: 'momo' | 'bank' = ag.payout_mode === 'bank' ? 'bank' : 'momo';
+    setPayoutMode(mode);
+    setMomoProvider(ag.momo_provider || 'MTN Mobile Money');
+    setMomoNumber(ag.momo_number || p?.phone || '');
+    setMomoName(ag.momo_name || p?.mobile_money_name || p?.full_name || '');
+    setBankName(ag.bank_name || '');
+    setBankAccountName(ag.bank_account_name || p?.full_name || '');
+    setBankAccountNumber(ag.bank_account_number || '');
+    setPrefilled(true);
+    setPaymentNeedsUpdate(false);
+    setFormError('');
+    toast.success('Your saved details have been filled in. Please check them before submitting.');
+  };
+
+  /**
+   * Identity details were changed after a prefill: the payment details on file
+   * can no longer be assumed correct, so they are cleared and must be re-entered.
+   */
+  const onIdentityEdited = () => {
+    if (!prefilled || paymentNeedsUpdate) return;
+    setPaymentNeedsUpdate(true);
+    setMomoNumber('');
+    setMomoName('');
+    setBankName('');
+    setBankAccountName('');
+    setBankAccountNumber('');
+    toast.info('You changed your details — please enter your payment details again.');
+  };
+
 
   // ─── Load: gate access and hydrate snapshots ───
   useEffect(() => {
