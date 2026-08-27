@@ -123,3 +123,58 @@ export function useRevokeMerchantCapacityOverride() {
     },
   });
 }
+
+/**
+ * Apply capacity overrides to several merchant desks in one action.
+ *
+ * One shared reason, one duration per desk. Each desk is written through the same
+ * guarded `set_merchant_capacity_override` function that the single-desk screen
+ * uses, so the authority check, the reason requirement and the audit trail are
+ * identical. Writes are issued concurrently in small batches (no N+1 waterfall)
+ * and a per-desk outcome is returned so a partial failure is visible instead of
+ * silent. Recommendation layer only — no wallet, float or ledger movement.
+ */
+export function useBulkSetMerchantCapacityOverrides() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (vars: {
+      items: { agentId: string; agentName: string; capacity: number; days: number }[];
+      reason: string;
+    }) => {
+      if (vars.reason.trim().length < 10) {
+        throw new Error('A reason of at least 10 characters is required');
+      }
+      const bad = vars.items.find(
+        (i) => !(i.capacity >= 0) || !(i.days >= 1 && i.days <= 90),
+      );
+      if (bad) throw new Error(`Invalid amount or duration for ${bad.agentName}`);
+
+      const results: { agentId: string; agentName: string; ok: boolean; message?: string }[] = [];
+      const CHUNK = 5;
+      for (let i = 0; i < vars.items.length; i += CHUNK) {
+        const slice = vars.items.slice(i, i + CHUNK);
+        const settled = await Promise.all(
+          slice.map(async (item) => {
+            const { error } = await supabase.rpc('set_merchant_capacity_override' as any, {
+              p_agent_id: item.agentId,
+              p_capacity: item.capacity,
+              p_days: item.days,
+              p_reason: vars.reason.trim(),
+            });
+            return {
+              agentId: item.agentId,
+              agentName: item.agentName,
+              ok: !error,
+              message: error?.message,
+            };
+          }),
+        );
+        results.push(...settled);
+      }
+      return results;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['merchant-capacity-overrides'] });
+    },
+  });
+}
