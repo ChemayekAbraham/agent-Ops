@@ -90,7 +90,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
             </div>
           )}
 
-          <div className="space-y-2 lg:grid lg:grid-cols-2 lg:gap-2 lg:space-y-0 lg:items-start">
+          <div className="space-y-2">
             {breakdown.data?.categories.map((cat) => {
               const catOpen = openCategory === cat.key;
               const share =
@@ -98,7 +98,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
               return (
                 <div
                   key={cat.key}
-                  className={`rounded-xl border border-border/60 bg-card ${catOpen ? 'lg:col-span-2' : ''}`}
+                  className="rounded-xl border border-border/60 bg-card"
                 >
                   <button
                     type="button"
