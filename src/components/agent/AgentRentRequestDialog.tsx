@@ -5478,21 +5478,21 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                 );
               })()}
 
-              {/* Inline roadmap-step blocker — shows on the Review step so the
-                  agent knows exactly which step is preventing post. Only the
-                  landlord blocks posting; LC1 verification is required before
-                  approval and is surfaced as an informational note instead. */}
+              {/* Informational note on the Review step. Verification of the
+                  landlord and the LC1 chairperson happens later in the approval
+                  pipeline — it never blocks posting. Only a landlord that is not
+                  registered at all stops the post. */}
               {detailStep === DETAIL_STEPS.length - 1 && (
-                (landlordCheck !== 'registered' && landlordCheck !== 'unverified') ||
+                landlordCheck === 'missing' ||
                 landlordCheck === 'unverified' ||
                 lc1Check !== 'verified'
               ) && (
                 <div className="rounded-xl border-2 border-amber-500/40 bg-amber-500/10 p-4 space-y-2.5">
                   <p className="text-sm font-extrabold text-amber-700 flex items-center gap-2">
                     <AlertTriangle className="h-5 w-5 flex-shrink-0" />
-                    {(landlordCheck !== 'registered' && landlordCheck !== 'unverified')
-                      ? "Can't post yet — landlord not verified"
-                      : 'You can post — landlord/LC1 will be verified before approval'}
+                    {landlordCheck === 'missing'
+                      ? "Can't post yet — landlord not registered"
+                      : 'You can post now — verification happens in the pipeline'}
                   </p>
                   <ul className="space-y-1.5">
                     {landlordCheck !== 'registered' && (
@@ -5508,7 +5508,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                           className="flex w-full items-start gap-2 rounded-lg p-1.5 text-left text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-500/20 active:scale-[0.98]"
                         >
                           <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-bold">2</span>
-                          <span className="flex-1">Landlord verified — {landlordCheck === 'missing' ? 'Landlord is not registered. List the house or register them first.' : landlordCheck === 'unverified' ? 'Landlord is registered but awaiting verification — you can still post; Landlord Ops will verify before tenant activation.' : landlordCheck === 'checking' ? 'Checking landlord status… please wait.' : 'Landlord must be registered before you can post.'}</span>
+                          <span className="flex-1">Landlord — {landlordCheck === 'missing' ? 'not registered yet. List the house or register them first.' : landlordCheck === 'checking' ? 'checking their record… you can still post.' : 'registered but not yet verified — you can post now; Landlord Ops verifies them later in the pipeline.'}</span>
                           <span className="text-[11px] font-bold text-amber-600 underline decoration-amber-500/50 underline-offset-2 flex-shrink-0">Go to step</span>
                         </button>
                       </li>
@@ -5526,17 +5526,18 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                           className="flex w-full items-start gap-2 rounded-lg p-1.5 text-left text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-500/20 active:scale-[0.98]"
                         >
                           <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-bold">3</span>
-                          <span className="flex-1">LC1 verified before approval — {lc1Check === 'missing' ? 'LC1 will be registered from your details; verify before approval.' : lc1Check === 'unverified' ? 'LC1 is registered but awaiting verification — request it now.' : lc1Check === 'checking' ? 'Checking LC1 status… please wait.' : 'LC1 must be verified before this request is approved.'} You can still post now.</span>
+                          <span className="flex-1">LC1 chairperson — {lc1Check === 'missing' ? 'will be registered from your details.' : lc1Check === 'checking' ? 'checking their record… you can still post.' : 'registered but not yet verified.'} Verification is done in the pipeline, so go ahead and post.</span>
                           <span className="text-[11px] font-bold text-amber-600 underline decoration-amber-500/50 underline-offset-2 flex-shrink-0">Go to step</span>
                         </button>
                       </li>
                     )}
                   </ul>
                   <p className="text-[11px] text-amber-700/80 leading-snug">
-                    Tap a step above to jump straight to it. The landlord must be registered to post — Landlord Ops verifies them before the tenant is activated. The LC1 chairperson must be verified before the request is approved.
+                    Tap a step above to review it. An unverified landlord or LC1 chairperson does not stop you — Landlord Ops verifies both as the request moves through the approval pipeline. Only a landlord who is not registered at all must be added before posting.
                   </p>
                 </div>
               )}
+
 
               {/* Wizard navigation */}
               <div className="flex gap-3 pt-2">
