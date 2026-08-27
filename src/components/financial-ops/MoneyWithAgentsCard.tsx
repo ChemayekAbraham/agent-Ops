@@ -663,6 +663,16 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
         headlineOwed={owedTotal}
       />
 
+      <MerchantCapacityHistoryDialog
+        open={!!historyFor}
+        onOpenChange={(v) => !v && setHistoryFor(null)}
+        agentId={historyFor?.agentId ?? null}
+        agentName={historyFor?.name ?? 'Merchant agent'}
+        performance={perfRowFor(historyFor?.agentId)}
+      />
+
+
+
       <div className="mt-4">
         <MerchantOwnMoneyReviewPanel />
       </div>
