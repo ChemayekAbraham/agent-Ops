@@ -62,10 +62,13 @@ export interface DailyReceivablesPayables {
   days: number;
 }
 
+const kampalaDate = (d: Date) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(d);
+
 /**
  * Daily receivables & payables derived strictly from existing sources:
  *  - receivables: v_tenant_daily_eligibility (active repaying plans) + agent_collections (money actually collected)
- *  - payables:    withdrawal_requests pipeline (pending vs paid)
+ *  - payables:    get_payables_due_range (authoritative v_payables_lines definition, Kampala business dates)
  * No accounting logic is changed here — this is a reporting-layer aggregation only.
  */
 export function useCFODailyReceivablesPayables(range: DailyRange) {
@@ -86,13 +89,10 @@ export function useCFODailyReceivablesPayables(range: DailyRange) {
           .select('amount')
           .gte('created_at', from.toISOString())
           .lte('created_at', to.toISOString()),
-        supabase
-          .from('withdrawal_requests')
-          .select('id, user_id, amount, status, created_at, processed_at, payout_method')
-          .in('status', [...PENDING_PAYABLE_STATUSES, ...PAID_PAYABLE_STATUSES])
-          .gte('created_at', new Date(from.getTime() - 180 * 86_400_000).toISOString())
-          .order('created_at', { ascending: false })
-          .limit(2000),
+        (supabase.rpc as any)('get_payables_due_range', {
+          p_from: kampalaDate(from),
+          p_to: kampalaDate(to),
+        }),
       ]);
 
       if (eligRes.error) throw eligRes.error;
@@ -100,7 +100,9 @@ export function useCFODailyReceivablesPayables(range: DailyRange) {
       if (payablesRes.error) throw payablesRes.error;
 
       const elig = (eligRes.data || []) as any[];
-      const payableRaw = (payablesRes.data || []) as any[];
+      const payablesData = (payablesRes.data || {}) as any;
+      const payableRaw = (payablesData.rows || []) as any[];
+
 
       /* ── names ── */
       const ids = [
