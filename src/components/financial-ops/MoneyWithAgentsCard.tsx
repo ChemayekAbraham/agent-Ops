@@ -42,6 +42,12 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
   const [debtsOpen, setDebtsOpen] = useState(false);
   const { canEdit: canEditFloat, readOnlyReason } = useFinancialOpsEditAccess();
 
+  // Performance-based capacity: ledger-verified payout record per merchant desk.
+  const [capacityWindow, setCapacityWindow] = useState(30);
+  const [potInput, setPotInput] = useState('');
+  const { data: performance, isLoading: perfLoading } = useMerchantAgentFloatAllocation(capacityWindow);
+
+
   // Payout float guard repair: any payout that completed WITHOUT a float debit
   // (older paths, failed reservation) gets its company-float deduction posted
   // now, so this card keeps falling as merchants complete payouts.
