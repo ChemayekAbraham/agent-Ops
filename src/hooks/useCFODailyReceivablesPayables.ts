@@ -39,7 +39,10 @@ export interface PayableRow {
   created_at: string;
   processed_at: string | null;
   payout_method: string | null;
+  due_date?: string | null;
+  category_label?: string | null;
 }
+
 
 export interface DailyReceivablesPayables {
   receivables: {
