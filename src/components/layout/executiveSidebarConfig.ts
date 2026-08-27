@@ -307,6 +307,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       items: [
         { label: 'Approvals', icon: Banknote, id: 'hr-pay-approvals', route: '/approvals', access: HR_ACCESS },
         { label: 'Pay runs', icon: Banknote, id: 'hr-pay-runs', route: '/hr/pay/runs', access: HR_ACCESS },
+        { label: 'Payroll enrollment', icon: Banknote, id: 'hr-pay-enrollment', route: '/hr/pay/enrollment', access: HR_ACCESS },
         { label: 'Advances', icon: Banknote, id: 'hr-pay-advances', route: '/hr/pay/advances', access: HR_ACCESS },
         { label: 'Payroll config', icon: Banknote, id: 'hr-pay-config', route: '/hr/pay/config', access: HR_ACCESS },
         { label: 'Payroll (legacy)', icon: Banknote, id: 'payroll', access: HR_ACCESS },
