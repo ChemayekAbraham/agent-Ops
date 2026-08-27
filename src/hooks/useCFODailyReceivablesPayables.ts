@@ -155,37 +155,19 @@ export function useCFODailyReceivablesPayables(range: DailyRange) {
       const overdueReceivables = receivableRows.reduce((s, r) => s + r.overdue, 0);
       const outstandingReceivables = receivableRows.reduce((s, r) => s + r.outstanding, 0);
 
-      /* ── payables ── */
+      /* ── payables (authoritative server-side definition) ── */
       const payableRows: PayableRow[] = payableRaw.map((r) => ({
-        id: r.id,
-        user_id: r.user_id,
-        name: nameMap.get(r.user_id) || 'Unknown',
+        id: String(r.id),
+        user_id: r.user_id ?? null,
+        name: r.name || nameMap.get(r.user_id) || 'Unknown',
         amount: Number(r.amount || 0),
-        status: r.status,
-        created_at: r.created_at,
-        processed_at: r.processed_at,
-        payout_method: r.payout_method,
+        status: r.status || '',
+        created_at: r.due_date ? `${r.due_date}T00:00:00Z` : new Date().toISOString(),
+        processed_at: null,
+        payout_method: r.product_label ?? null,
+        due_date: r.due_date ?? null,
+        category_label: r.category_label ?? null,
       }));
-
-      const inRange = (iso: string | null) => {
-        if (!iso) return false;
-        const t = new Date(iso).getTime();
-        return t >= from.getTime() && t <= to.getTime();
-      };
-
-      const pending = payableRows.filter((r) => PENDING_PAYABLE_STATUSES.includes(r.status));
-      const paid = payableRows.filter((r) => PAID_PAYABLE_STATUSES.includes(r.status));
-
-      const payablesDue = pending
-        .filter((r) => inRange(r.created_at))
-        .reduce((s, r) => s + r.amount, 0);
-      const payablesPaid = paid
-        .filter((r) => inRange(r.processed_at) || inRange(r.created_at))
-        .reduce((s, r) => s + r.amount, 0);
-      const payablesOverdue = pending
-        .filter((r) => new Date(r.created_at).getTime() < from.getTime())
-        .reduce((s, r) => s + r.amount, 0);
-      const payablesOutstanding = pending.reduce((s, r) => s + r.amount, 0);
 
       return {
         days,
@@ -200,14 +182,14 @@ export function useCFODailyReceivablesPayables(range: DailyRange) {
             .slice(0, 300),
         },
         payables: {
-          dueInRange: payablesDue,
-          paidInRange: payablesPaid,
-          overdue: payablesOverdue,
-          outstanding: payablesOutstanding,
-          rows: [...pending, ...paid.filter((r) => inRange(r.processed_at) || inRange(r.created_at))]
-            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-            .slice(0, 300),
+          dueInRange: Number(payablesData.due_in_range || 0),
+          paidInRange: Number(payablesData.paid_in_range || 0),
+          overdue: Number(payablesData.overdue || 0),
+          outstanding: Number(payablesData.outstanding || 0),
+          rows: payableRows,
         },
+      };
+
       };
     },
   });
