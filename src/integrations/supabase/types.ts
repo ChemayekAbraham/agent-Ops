@@ -39191,6 +39191,10 @@ export type Database = {
         Args: { p_payload: Json; p_rent_request_ids?: string[] }
         Returns: Json
       }
+      agent_daily_collections_overview: {
+        Args: { p_forecast?: boolean; p_from: string; p_to: string }
+        Returns: Json
+      }
       agent_delete_rejected_rent_request: {
         Args: { p_reason: string; p_request_id: string }
         Returns: string
@@ -39638,6 +39642,7 @@ export type Database = {
         Args: { _dead_letter_id: number }
         Returns: undefined
       }
+      assert_agent_collections_report_access: { Args: never; Returns: boolean }
       assert_merchant_capacity_override_admin: { Args: never; Returns: string }
       assert_merchant_float_alloc_access: { Args: never; Returns: boolean }
       assert_no_promissory_self_support: {
