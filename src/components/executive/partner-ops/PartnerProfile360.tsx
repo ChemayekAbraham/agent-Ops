@@ -513,12 +513,34 @@ export function PartnerProfile360() {
         .limit(500);
       returnsLegs = legs || [];
     }
+    /**
+     * Attribute each returns leg to a portfolio: by portfolio code named in the
+     * narration, else to the sole portfolio when the partner has exactly one.
+     * Anything not attributable stays out — never guessed.
+     */
+    const returnsByPortfolio = new Map<string, { reinvested: number; paid: number; cycles: number; latest: string | null }>();
+    const soleCode = portfolios.length === 1 ? String(portfolios[0].portfolio_code || '') : '';
+    for (const l of returnsLegs) {
+      const narration = String(l.description || '');
+      const code = portfolios
+        .map((p) => String(p.portfolio_code || ''))
+        .find((c) => c && narration.includes(c)) || soleCode;
+      if (!code) continue;
+      const b = returnsByPortfolio.get(code) || { reinvested: 0, paid: 0, cycles: 0, latest: null };
+      const amt = Number(l.amount) || 0;
+      if (String(l.category) === 'roi_reinvestment') b.reinvested += amt; else b.paid += amt;
+      b.cycles += 1;
+      const when = l.transaction_date || l.created_at;
+      if (when && (!b.latest || new Date(when) > new Date(b.latest))) b.latest = when;
+      returnsByPortfolio.set(code, b);
+    }
     const reinvested = returnsLegs
       .filter((l) => String(l.category) === 'roi_reinvestment')
       .reduce((s, l) => s + (Number(l.amount) || 0), 0);
     const paidOut = returnsLegs
       .filter((l) => String(l.category) !== 'roi_reinvestment')
       .reduce((s, l) => s + (Number(l.amount) || 0), 0);
+
 
 
     // Portfolio-linked activity. Top-ups only exist as portfolio audit rows
