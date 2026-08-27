@@ -128,7 +128,8 @@ const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; pri
 ];
 
 export function AgentOpsDashboard() {
-  const [activeView, setActiveView] = useState<ActiveView>(null);
+  // Agent Products & Services is the landing view when Agent Ops opens.
+  const [activeView, setActiveView] = useState<ActiveView>('agent-products-services');
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedAgent, setSelectedAgent] = useState<any>(null);
   const [bottomTab, setBottomTab] = useState<BottomTab>('home');
