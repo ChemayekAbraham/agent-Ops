@@ -3,8 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 
 export type DailyRange = { from: Date; to: Date };
 
-const PENDING_PAYABLE_STATUSES = ['pending', 'approved', 'processing', 're_approved_for_recovery'];
-const PAID_PAYABLE_STATUSES = ['completed', 'paid'];
 
 const startOfDay = (d: Date) => {
   const x = new Date(d);
