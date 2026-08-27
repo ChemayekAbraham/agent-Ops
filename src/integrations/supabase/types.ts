@@ -42710,6 +42710,10 @@ export type Database = {
         }[]
       }
       get_payables_breakdown: { Args: never; Returns: Json }
+      get_payables_due_range: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
       get_payables_forecast_accuracy: {
         Args: {
           p_horizons?: number[]
