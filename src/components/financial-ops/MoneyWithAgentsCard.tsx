@@ -55,6 +55,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
   const { data: performance, isLoading: perfLoading } = useMerchantAgentFloatAllocation(capacityWindow);
   const [historyFor, setHistoryFor] = useState<{ agentId: string; name: string } | null>(null);
   const [overrideFor, setOverrideFor] = useState<{ agentId: string; name: string } | null>(null);
+  const [bulkOverrideOpen, setBulkOverrideOpen] = useState(false);
   // Temporary admin overrides on qualified capacity (recommendation only).
   const { data: overrideRows } = useMerchantCapacityOverrides(200);
 
