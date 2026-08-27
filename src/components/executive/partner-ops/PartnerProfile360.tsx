@@ -702,9 +702,10 @@ export function PartnerProfile360() {
               </Card>
             )}
 
-            <Button className="w-full gap-2" size="sm" onClick={exportWorkbook}>
-              <Download className="h-3.5 w-3.5" /> Export full record (Excel)
+            <Button className="w-full gap-2" size="sm" onClick={exportStatementPdf}>
+              <Download className="h-3.5 w-3.5" /> Export full financial statement (PDF)
             </Button>
+
           </div>
 
           {/* right: tabs */}
