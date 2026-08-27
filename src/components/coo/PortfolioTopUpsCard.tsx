@@ -31,6 +31,7 @@ interface TopUpRow {
   portfolioCode: string;
   portfolioId: string;
   amount: number;
+  previousCapital: number | null;
   createdAt: string;
   reason: string;
   rawStatus: string;
@@ -96,6 +97,9 @@ async function fetchTopUpRows(): Promise<TopUpRow[]> {
       portfolioCode: code,
       portfolioId: o.source_id,
       amount: Number(o.amount) || 0,
+      previousCapital: meta.previous_capital != null && Number.isFinite(Number(meta.previous_capital))
+        ? Number(meta.previous_capital)
+        : null,
       createdAt: o.created_at,
       reason: meta.reason || (o.description ?? ''),
       rawStatus: o.status,
