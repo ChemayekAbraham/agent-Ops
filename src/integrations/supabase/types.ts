@@ -29959,6 +29959,59 @@ export type Database = {
           },
         ]
       }
+      service_centre_agent_assignments: {
+        Row: {
+          agent_id: string
+          assigned_at: string
+          assigned_by: string | null
+          created_at: string
+          id: string
+          role_note: string | null
+          service_centre_id: string
+          status: string
+          unassign_reason: string | null
+          unassigned_at: string | null
+          unassigned_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          id?: string
+          role_note?: string | null
+          service_centre_id: string
+          status?: string
+          unassign_reason?: string | null
+          unassigned_at?: string | null
+          unassigned_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          assigned_at?: string
+          assigned_by?: string | null
+          created_at?: string
+          id?: string
+          role_note?: string | null
+          service_centre_id?: string
+          status?: string
+          unassign_reason?: string | null
+          unassigned_at?: string | null
+          unassigned_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_centre_agent_assignments_service_centre_id_fkey"
+            columns: ["service_centre_id"]
+            isOneToOne: false
+            referencedRelation: "service_centre_setups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_centre_entries: {
         Row: {
           assigned_agent_ids: string[]
@@ -42984,6 +43037,10 @@ export type Database = {
         Args: { p_manager_id?: string }
         Returns: Json
       }
+      get_service_centre_360: {
+        Args: { p_service_centre_id: string }
+        Returns: Json
+      }
       get_service_centre_manager_network: {
         Args: { p_limit?: number; p_offset?: number; p_search?: string }
         Returns: {
@@ -46269,6 +46326,7 @@ export type Database = {
           withdrawable_before: number
         }[]
       }
+      sc_assignment_admin: { Args: { _user_id: string }; Returns: boolean }
       schedule_roi_payout: {
         Args: { p_new_date: string; p_portfolio_id: string; p_reason?: string }
         Returns: Json
@@ -46455,6 +46513,18 @@ export type Database = {
           p_kind: string
           p_record_id: string
         }
+        Returns: Json
+      }
+      service_centre_assign_agents: {
+        Args: {
+          p_agent_ids: string[]
+          p_note?: string
+          p_service_centre_id: string
+        }
+        Returns: Json
+      }
+      service_centre_unassign_agent: {
+        Args: { p_assignment_id: string; p_reason?: string }
         Returns: Json
       }
       service_mark_landlord_verified: {
