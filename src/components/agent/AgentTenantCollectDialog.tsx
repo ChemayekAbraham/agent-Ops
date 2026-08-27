@@ -112,7 +112,6 @@ export function AgentTenantCollectDialog({
   // remaining balance). Sourced from the server helper so the frontend and the
   // RPC gate agree on one definition — no duplicated fee arithmetic here.
   const [expectedAmount, setExpectedAmount] = useState<number | null>(null);
-  const [partialConfirmed, setPartialConfirmed] = useState(false);
   const [partialReason, setPartialReason] = useState('');
 
   useEffect(() => {
