@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, UserPlus, Home, Search, X, User } from 'lucide-react';
 import { toast } from 'sonner';
+import { useQualifyingAgentIds } from '@/hooks/useQualifyingAgentIds';
+
 
 interface Props {
   open: boolean;
@@ -52,16 +54,21 @@ export default function TenantAssignAgentDialog({
     },
   });
 
-  // Search only real registered agents: rent-assigned agents and registered
-  // parent/sub-agents. The RPC filters server-side so matches are not lost to
-  // the API row cap before the user types a name.
+  // Canonical, behaviour-based agent set (listed a house, posted a promissory
+  // note, made a rent request on behalf of a tenant, or has a qualifying
+  // sub-agent). Used to strip out tenants/landlords/plain users that only look
+  // like agents because they submitted their OWN rent request.
+  const { agentIds: qualifyingIds, isReady: qualifyingReady } = useQualifyingAgentIds();
+
+  // Search only real registered agents. The RPC filters server-side so matches
+  // are not lost to the API row cap before the user types a name.
   const { data: agents = [], isLoading: agentsLoading } = useQuery({
     queryKey: ['tenant-assign-agents', deferredAgentQuery],
     enabled: open,
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc('list_assignable_agents', {
         p_search: deferredAgentQuery || null,
-        p_limit: 100,
+        p_limit: 200,
       });
       if (error) throw error;
       return ((data || []) as Array<{ id: string; full_name: string | null; phone: string | null }>)
@@ -71,13 +78,16 @@ export default function TenantAssignAgentDialog({
   });
 
   const filteredAgents = useMemo(() => {
+    // Don't filter to empty while the canonical set is still loading.
+    const base = qualifyingReady ? agents.filter(a => qualifyingIds.has(a.id)) : agents;
     const q = agentQuery.trim().toLowerCase();
-    if (!q) return agents;
-    return agents.filter(a =>
+    if (!q) return base;
+    return base.filter(a =>
       (a.full_name || '').toLowerCase().includes(q) ||
       (a.phone || '').toLowerCase().includes(q)
     );
-  }, [agents, agentQuery]);
+  }, [agents, agentQuery, qualifyingIds, qualifyingReady]);
+
 
   // Close the agent dropdown when clicking outside the picker.
   useEffect(() => {
