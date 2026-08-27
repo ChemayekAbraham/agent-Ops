@@ -135,7 +135,7 @@ export async function generatePartnerFinancialStatementPdf(
       startY: 23,
       margin: { left: margin, right: margin },
       head: [section.headers.map(humanize)],
-      body: section.rows.map((r) => r.map(humanize)),
+      body: section.rows.map((r) => r.map(humanizeCell)),
       styles: { fontSize: 7.6, cellPadding: 1.6, overflow: 'linebreak', textColor: [40, 40, 40] },
       headStyles: { fillColor: THEME_PRIMARY, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.8 },
       alternateRowStyles: { fillColor: THEME_STRIPE },
