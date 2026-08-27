@@ -4,6 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgentBalances } from '@/hooks/useAgentBalances';
+import { fetchWalletBalance } from '@/hooks/wallet/useWalletBalance';
+
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -97,8 +99,18 @@ export default function MerchandiseStore() {
     total: number;
   } | null>(null);
   const [shareCodes, setShareCodes] = useState<Record<string, string>>({});
-  const { withdrawableBalance } = useAgentBalances(user?.id);
+  const {
+    withdrawableBalance,
+    isLoading: walletLoading,
+    error: walletError,
+    refetch: refetchWallet,
+  } = useAgentBalances(user?.id);
   const availableWallet = Math.max(0, withdrawableBalance);
+  // The pay button must never be judged against a balance that hasn't loaded —
+  // a still-loading (0) wallet used to silently disable "Review order"/"Yes,
+  // pay" for every item priced above 0.
+  const walletBlocked = walletLoading || !!walletError;
+
 
   const { data: catalog = [], isLoading: loadingCatalog } = useQuery<CatalogItem[]>({
     queryKey: ['merchandise-catalog'],
@@ -163,9 +175,10 @@ export default function MerchandiseStore() {
   const firstInstallment = Math.min(installmentAmount, availableWallet);
   const dueNow = payMode === 'full' ? orderTotal : firstInstallment;
   const remainingAfter = Math.max(0, orderTotal - dueNow);
-  const insufficient = selected
+  const insufficient = selected && !walletBlocked
     ? (payMode === 'full' ? orderTotal > availableWallet : false)
     : false;
+
   // Installments work even with an empty wallet: nothing is taken at checkout
   // and the whole price is recovered later at 25% per recovery run.
   const zeroDown = payMode === 'installment' && dueNow <= 0;
@@ -259,13 +272,37 @@ export default function MerchandiseStore() {
       toast.error('Choose a size', { description: 'Pick one of the sizes currently in stock.' });
       return;
     }
-    if (insufficient) {
-      toast.error('Insufficient balance', {
-        description: `Your wallet has ${formatUGX(availableWallet)} but this order needs ${formatUGX(orderTotal)}.`,
-      });
+    if (walletError) {
+      toast.error('Wallet balance unavailable', { description: 'We could not read your wallet. Retry the wallet check and try again.' });
+      return;
+    }
+    if (walletLoading) {
+      toast.error('Still checking your wallet', { description: 'Give it a moment — your balance is loading.' });
       return;
     }
     setOrdering(true);
+    // High-stakes debit: re-read the authoritative wallet view instead of
+    // trusting the cached balance, so the button never promises a payment the
+    // server will refuse.
+    let freshWallet = availableWallet;
+    if (user?.id) {
+      try {
+        const view = await fetchWalletBalance(user.id);
+        freshWallet = Math.max(0, view.withdrawable);
+      } catch {
+        setOrdering(false);
+        toast.error('Wallet balance unavailable', { description: 'We could not confirm your balance. Please try again.' });
+        return;
+      }
+    }
+    if (payMode === 'full' && orderTotal > freshWallet) {
+      setOrdering(false);
+      refetchWallet();
+      toast.error('Insufficient balance', {
+        description: `Your wallet has ${formatUGX(freshWallet)} but this order needs ${formatUGX(orderTotal)}. Choose installments instead.`,
+      });
+      return;
+    }
     const { error } = await db.rpc('agent_purchase_merchandise', {
       p_catalog_id: selected.id,
       p_quantity: qty,
@@ -273,6 +310,7 @@ export default function MerchandiseStore() {
       p_size: selectedSize,
     });
     setOrdering(false);
+
     if (error) {
       const msg = error.message || 'Could not place order';
       if (msg.includes('INSUFFICIENT_BALANCE')) {
@@ -700,8 +738,11 @@ export default function MerchandiseStore() {
               )}
               <div className="rounded-lg bg-muted/50 px-3 py-2 flex justify-between text-sm">
                 <span className="text-muted-foreground">Wallet balance</span>
-                <span className="font-semibold">{formatUGX(availableWallet)}</span>
+                <span className="font-semibold">
+                  {walletLoading ? 'Checking…' : walletError ? 'Unavailable' : formatUGX(availableWallet)}
+                </span>
               </div>
+
               <div className="rounded-lg bg-muted/50 px-3 py-2 flex justify-between text-sm">
                 <span className="text-muted-foreground">Item price ({qty} × {formatUGX(Number(selected.unit_price))})</span>
                 <span className="font-semibold">{formatUGX(orderTotal)}</span>
@@ -726,13 +767,26 @@ export default function MerchandiseStore() {
                   </p>
                 </div>
               )}
-              {insufficient ? (
+              {walletError ? (
+                <div className="rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2 flex gap-2 text-[11px] text-destructive">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <p>
+                    <span className="font-semibold">We couldn't read your wallet balance.</span> Tap “Retry wallet check” — payment stays disabled until your real balance loads.
+                  </p>
+                </div>
+              ) : walletLoading ? (
+                <div className="rounded-lg bg-muted px-3 py-2 flex gap-2 text-[11px] text-muted-foreground">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  <p>Checking your wallet balance…</p>
+                </div>
+              ) : insufficient ? (
                 <div className="rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2 flex gap-2 text-[11px] text-destructive">
                   <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                   <p>
                     <span className="font-semibold">Amount exceeds your available wallet balance of {formatUGX(availableWallet)}.</span> Reduce the quantity or choose installments.
                   </p>
                 </div>
+
               ) : confirmStep ? (
                 <div className="rounded-lg bg-primary/5 border border-primary/20 px-3 py-2 text-[11px] text-muted-foreground">
                   {payMode === 'full' ? (
@@ -762,19 +816,32 @@ export default function MerchandiseStore() {
             {confirmStep ? (
               <>
                 <Button variant="outline" onClick={() => setConfirmStep(false)} disabled={ordering}>Back</Button>
-                <Button onClick={placeOrder} disabled={ordering || insufficient || sizeMissing}>
-                  {ordering ? 'Placing order…' : zeroDown ? 'Yes, place order' : `Yes, pay ${formatUGX(dueNow)}`}
+                <Button onClick={placeOrder} disabled={ordering || walletBlocked || insufficient || sizeMissing}>
+                  {ordering
+                    ? 'Placing order…'
+                    : walletLoading
+                      ? 'Checking wallet…'
+                      : walletError
+                        ? 'Retry wallet check'
+                        : zeroDown ? 'Yes, place order' : `Yes, pay ${formatUGX(dueNow)}`}
                 </Button>
               </>
             ) : (
               <>
                 <Button variant="outline" onClick={() => setSelected(null)} disabled={ordering}>Cancel</Button>
-                <Button onClick={() => setConfirmStep(true)} disabled={insufficient || sizeMissing}>
-                  {insufficient ? 'Not enough balance' : sizeMissing ? 'Choose a size' : 'Review order'}
-                </Button>
+                {walletError ? (
+                  <Button variant="outline" onClick={() => refetchWallet()}>Retry wallet check</Button>
+                ) : (
+                  <Button onClick={() => setConfirmStep(true)} disabled={walletLoading || insufficient || sizeMissing}>
+                    {walletLoading
+                      ? 'Checking wallet…'
+                      : insufficient ? 'Not enough balance' : sizeMissing ? 'Choose a size' : 'Review order'}
+                  </Button>
+                )}
               </>
             )}
           </DialogFooter>
+
         </DialogContent>
       </Dialog>
 
