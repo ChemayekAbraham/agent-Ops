@@ -261,6 +261,27 @@ export default function Advances() {
                     {row.status}
                   </span>
                 </TableCell>
+                {isPreparer && (
+                  <TableCell className="whitespace-nowrap text-right">
+                    {row.status === 'requested' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busyId === row.id}
+                        onClick={() => {
+                          setEditRow(row);
+                          setEditPurpose(row.purpose);
+                          setEditMode(row.recovery_mode);
+                          setEditRecoveryValue(String(row.recovery_value));
+                          setEditFirstOn(row.first_recovery_on);
+                          setEditError('');
+                        }}
+                      >
+                        Edit
+                      </Button>
+                    )}
+                  </TableCell>
+                )}
                 {isApprover && (
                   <TableCell className="whitespace-nowrap text-right">
                     {row.status === 'requested' && (
