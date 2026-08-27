@@ -15,10 +15,12 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell,
 } from 'recharts';
 import {
-  CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search,
+  CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown,
 } from 'lucide-react';
 import { format, startOfDay, endOfDay, subDays, startOfMonth, startOfYear, addDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
+import { toast } from 'sonner';
+import { generateAgentCollectionsStatementPdf } from '@/lib/agentCollectionsStatementPdf';
 
 type PresetKey = 'today' | 'yesterday' | 'five' | 'weekend' | 'month' | 'year' | 'custom';
 
@@ -198,6 +200,57 @@ export function AgentCollectionsCommandCenter() {
   );
 
   const expectedTotal = agents.reduce((s, a) => s + a.expected, 0);
+  const [exporting, setExporting] = useState(false);
+
+  const exportStatementPdf = async () => {
+    if (!data) return;
+    setExporting(true);
+    try {
+      const blob = await generateAgentCollectionsStatementPdf({
+        periodLabel: PRESETS.find(p => p.key === preset)?.label ?? 'Custom range',
+        rangeStart: start,
+        rangeEnd: end,
+        bucket,
+        generatedAt: data.generated_at,
+        totals: {
+          collected: num(data.totals?.collected),
+          expected: agents.reduce((s, a) => s + a.expected, 0),
+          collections_count: num(data.totals?.collections_count),
+          avg_collection: num(data.totals?.avg_collection),
+          active_agents: num(data.totals?.active_agents),
+          tenants_paid: num(data.totals?.tenants_paid),
+          requests_count: num(data.totals?.requests_count),
+          requests_amount: num(data.totals?.requests_amount),
+        },
+        series,
+        peak: peak.map(p => ({ label: p.label, amount: p.amount, count: p.count })),
+        agents: filteredAgents.map(a => ({
+          name: a.name,
+          phone: a.phone,
+          collected: a.collected,
+          expected: a.expected,
+          collections_count: a.collections_count,
+          tenants_paid: a.tenants_paid,
+          active_tenants: a.active_tenants,
+          expected_source: a.expected_source,
+          last_collection_at: a.last_collection_at,
+          pct: a.pct,
+        })),
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `welile-agent-collections-statement-${format(start, 'yyyyMMdd')}-${format(end, 'yyyyMMdd')}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success('Financial statement exported');
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not generate the statement');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const collectedTotal = num(totals?.collected);
   const coverage = expectedTotal > 0 ? Math.round((collectedTotal / expectedTotal) * 100) : null;
 
@@ -433,6 +486,16 @@ export function AgentCollectionsCommandCenter() {
         <div className="flex flex-wrap items-center gap-2 mb-2">
           <h3 className="text-sm font-semibold mr-auto">Agents by collections vs expected</h3>
           <Badge variant="outline" className="text-[10px]">{filteredAgents.length} agents</Badge>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            disabled={!data || exporting || isLoading}
+            onClick={exportStatementPdf}
+          >
+            <FileDown className="h-3.5 w-3.5 mr-1" />
+            {exporting ? 'Preparing…' : 'Financial statement (PDF)'}
+          </Button>
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input
