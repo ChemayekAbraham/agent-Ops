@@ -486,6 +486,16 @@ export function AgentCollectionsCommandCenter() {
         <div className="flex flex-wrap items-center gap-2 mb-2">
           <h3 className="text-sm font-semibold mr-auto">Agents by collections vs expected</h3>
           <Badge variant="outline" className="text-[10px]">{filteredAgents.length} agents</Badge>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            disabled={!data || exporting || isLoading}
+            onClick={exportStatementPdf}
+          >
+            <FileDown className="h-3.5 w-3.5 mr-1" />
+            {exporting ? 'Preparing…' : 'Financial statement (PDF)'}
+          </Button>
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input
