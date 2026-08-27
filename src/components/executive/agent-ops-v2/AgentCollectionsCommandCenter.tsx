@@ -200,6 +200,57 @@ export function AgentCollectionsCommandCenter() {
   );
 
   const expectedTotal = agents.reduce((s, a) => s + a.expected, 0);
+  const [exporting, setExporting] = useState(false);
+
+  const exportStatementPdf = async () => {
+    if (!data) return;
+    setExporting(true);
+    try {
+      const blob = await generateAgentCollectionsStatementPdf({
+        periodLabel: PRESETS.find(p => p.key === preset)?.label ?? 'Custom range',
+        rangeStart: start,
+        rangeEnd: end,
+        bucket,
+        generatedAt: data.generated_at,
+        totals: {
+          collected: num(data.totals?.collected),
+          expected: agents.reduce((s, a) => s + a.expected, 0),
+          collections_count: num(data.totals?.collections_count),
+          avg_collection: num(data.totals?.avg_collection),
+          active_agents: num(data.totals?.active_agents),
+          tenants_paid: num(data.totals?.tenants_paid),
+          requests_count: num(data.totals?.requests_count),
+          requests_amount: num(data.totals?.requests_amount),
+        },
+        series,
+        peak: peak.map(p => ({ label: p.label, amount: p.amount, count: p.count })),
+        agents: filteredAgents.map(a => ({
+          name: a.name,
+          phone: a.phone,
+          collected: a.collected,
+          expected: a.expected,
+          collections_count: a.collections_count,
+          tenants_paid: a.tenants_paid,
+          active_tenants: a.active_tenants,
+          expected_source: a.expected_source,
+          last_collection_at: a.last_collection_at,
+          pct: a.pct,
+        })),
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `welile-agent-collections-statement-${format(start, 'yyyyMMdd')}-${format(end, 'yyyyMMdd')}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success('Financial statement exported');
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not generate the statement');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const collectedTotal = num(totals?.collected);
   const coverage = expectedTotal > 0 ? Math.round((collectedTotal / expectedTotal) * 100) : null;
 
