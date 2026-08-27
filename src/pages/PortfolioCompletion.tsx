@@ -417,6 +417,29 @@ export default function PortfolioCompletion() {
           </CardContent>
         </Card>
 
+        {/* Optional prefill — nothing is filled in until the partner asks for it */}
+        {hasSavedDetails && (
+          <Card className="border-dashed">
+            <CardContent className="p-4 space-y-2">
+              <p className="text-sm font-bold">Use the details we already have?</p>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                We can fill this form with the details on your file. Otherwise leave it blank and type
+                everything yourself.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full h-10"
+                onClick={applySavedDetails}
+                disabled={status === 'submitting'}
+              >
+                {prefilled ? 'Refill my saved details' : 'Use my saved details'}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Identity fields */}
         <div className="space-y-3">
           <h2 className="text-sm font-bold">Your identity</h2>
@@ -429,7 +452,7 @@ export default function PortfolioCompletion() {
             <Input
               id="nin"
               value={nationalId}
-              onChange={(e) => setNationalId(e.target.value.toUpperCase())}
+              onChange={(e) => { setNationalId(e.target.value.toUpperCase()); onIdentityEdited(); }}
               placeholder="e.g. CM12345678ABCD"
               disabled={status === 'submitting'}
               maxLength={40}
@@ -442,7 +465,7 @@ export default function PortfolioCompletion() {
             <Textarea
               id="addr"
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
+              onChange={(e) => { setAddress(e.target.value); onIdentityEdited(); }}
               placeholder="District, division, village / street"
               disabled={status === 'submitting'}
               maxLength={240}
@@ -450,6 +473,7 @@ export default function PortfolioCompletion() {
             />
           </div>
         </div>
+
 
         {/* Next of kin */}
         <div className="space-y-3">
