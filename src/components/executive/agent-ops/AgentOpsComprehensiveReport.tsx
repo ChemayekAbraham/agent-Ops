@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { buildAgentOpsReportHtml, downloadAgentOpsReportHtml, type ReportTile } from '@/lib/agentOpsReportHtml';
 
 type Row = Record<string, any>;
 interface ReportData {
