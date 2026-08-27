@@ -28,7 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { listAdvances, requestAdvance, decideAdvance, type AdvanceRow } from '@/hr/pay/api/advances';
+import { listAdvances, requestAdvance, decideAdvance, updateAdvance, type AdvanceRow } from '@/hr/pay/api/advances';
 import { listStaffForPayroll, type PayrollStaffOption } from '@/hr/pay/api/compensation';
 import { myPayrollAuthority } from '@/hr/pay/api/workflow';
 
@@ -80,6 +80,15 @@ export default function Advances() {
   const [rejectRow, setRejectRow] = useState<AdvanceRow | null>(null);
   const [rejectNote, setRejectNote] = useState('');
   const [rejectError, setRejectError] = useState('');
+
+  // Edit dialog
+  const [editRow, setEditRow] = useState<AdvanceRow | null>(null);
+  const [editPurpose, setEditPurpose] = useState('');
+  const [editMode, setEditMode] = useState('fixed');
+  const [editRecoveryValue, setEditRecoveryValue] = useState('');
+  const [editFirstOn, setEditFirstOn] = useState('');
+  const [editError, setEditError] = useState('');
+  const [editSaving, setEditSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -160,6 +169,39 @@ export default function Advances() {
     }
   }
 
+  const editInstallmentInfo = useMemo(() => {
+    if (!editRow || editMode !== 'fixed') return null;
+    const value = Number(editRecoveryValue);
+    if (!Number.isFinite(value) || value <= 0) return null;
+    const installments = Math.ceil(editRow.principal / value);
+    const final = editRow.principal - value * (installments - 1);
+    return { installments, final };
+  }, [editRow, editMode, editRecoveryValue]);
+
+  async function submitEdit() {
+    if (!editRow) return;
+    const value = Number(editRecoveryValue);
+    if (!Number.isFinite(value) || value <= 0) return;
+    if (editPurpose.trim().length === 0) return;
+    setEditError('');
+    setEditSaving(true);
+    try {
+      await updateAdvance(editRow.id, {
+        purpose: editPurpose.trim(),
+        recovery_mode: editMode,
+        recovery_value: value,
+        first_recovery_on: editFirstOn,
+      });
+      toast.success('Advance updated.');
+      setEditRow(null);
+      await load();
+    } catch (err) {
+      setEditError((err as Error).message);
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
   async function reject() {
     if (!rejectRow) return;
     if (rejectNote.trim().length < 10) {
@@ -217,13 +259,14 @@ export default function Advances() {
               <TableHead className="text-right">Recovered so far</TableHead>
               <TableHead className="text-right">Outstanding</TableHead>
               <TableHead>Status</TableHead>
+              {isPreparer && <TableHead />}
               {isApprover && <TableHead />}
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={isApprover ? 10 : 9} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={(isApprover ? 10 : 9) + (isPreparer ? 1 : 0)} className="py-8 text-center text-sm text-muted-foreground">
                   No salary advances recorded.
                 </TableCell>
               </TableRow>
@@ -251,6 +294,27 @@ export default function Advances() {
                     {row.status}
                   </span>
                 </TableCell>
+                {isPreparer && (
+                  <TableCell className="whitespace-nowrap text-right">
+                    {row.status === 'requested' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busyId === row.id}
+                        onClick={() => {
+                          setEditRow(row);
+                          setEditPurpose(row.purpose);
+                          setEditMode(row.recovery_mode);
+                          setEditRecoveryValue(String(row.recovery_value));
+                          setEditFirstOn(row.first_recovery_on);
+                          setEditError('');
+                        }}
+                      >
+                        Edit
+                      </Button>
+                    )}
+                  </TableCell>
+                )}
                 {isApprover && (
                   <TableCell className="whitespace-nowrap text-right">
                     {row.status === 'requested' && (
@@ -392,6 +456,87 @@ export default function Advances() {
               onClick={() => void reject()}
             >
               Reject
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(editRow)} onOpenChange={(next) => !next && setEditRow(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit advance</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-muted-foreground">Staff ref</Label>
+              <p className="text-sm font-medium">{editRow?.staff_ref ?? '—'}</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-muted-foreground">Name</Label>
+              <p className="text-sm font-medium">{editRow?.staff_name ?? '—'}</p>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-muted-foreground">Principal (UGX)</Label>
+              <p className="text-sm font-medium">{editRow ? formatAmount(editRow.principal) : '—'}</p>
+            </div>
+            <div className="space-y-1">
+              <Label>Purpose</Label>
+              <Textarea
+                value={editPurpose}
+                onChange={(e) => setEditPurpose(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Recovery mode</Label>
+              <Select value={editMode} onValueChange={setEditMode}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fixed">Fixed monthly amount</SelectItem>
+                  <SelectItem value="percent_of_gross">Percent of gross</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>{editMode === 'fixed' ? 'Amount per month (UGX)' : 'Percent of gross'}</Label>
+              <Input
+                inputMode="numeric"
+                value={editRecoveryValue}
+                onChange={(e) => setEditRecoveryValue(e.target.value)}
+              />
+            </div>
+            {editInstallmentInfo && (
+              <p className="text-xs text-muted-foreground">
+                {editInstallmentInfo.installments} installments; final installment{' '}
+                {formatAmount(editInstallmentInfo.final)} UGX
+              </p>
+            )}
+            <div className="space-y-1">
+              <Label>First recovery</Label>
+              <Input type="date" value={editFirstOn} onChange={(e) => setEditFirstOn(e.target.value)} />
+            </div>
+            {editError && (
+              <p role="alert" className="text-sm font-medium text-destructive">
+                {editError}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditRow(null)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                !editRow ||
+                Number(editRecoveryValue) <= 0 ||
+                editPurpose.trim().length === 0 ||
+                editSaving
+              }
+              onClick={() => void submitEdit()}
+            >
+              {editSaving && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>
