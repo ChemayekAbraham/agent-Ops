@@ -169,6 +169,8 @@ const LEDGER_COLS: Col[] = [
 const TOPUP_COLS: Col[] = [
   { key: 'created_at', label: 'Requested', render: (r) => fmtDate(r.created_at, true) },
   { key: 'amount', label: 'Amount', align: 'right', render: (r) => money(r.amount) },
+  { key: 'before_amount', label: 'Before', align: 'right', render: (r) => r.before_amount == null ? '—' : money(r.before_amount) },
+  { key: 'after_amount', label: 'After', align: 'right', render: (r) => r.after_amount == null ? '—' : money(r.after_amount) },
   { key: 'prorata_amount', label: 'Pro-rata', align: 'right', render: (r) => money(r.prorata_amount) },
   { key: 'status', label: 'Status' },
   { key: 'effective_at', label: 'Effective', render: (r) => fmtDate(r.effective_at) },
@@ -251,8 +253,18 @@ const CHANGE_COLS: Col[] = [
   { key: 'table_name', label: 'Record' },
   { key: 'actor_name', label: 'Actor', render: (r) => r.actor_name || '—' },
   { key: 'reason', label: 'Reason', render: (r) => r.reason || '—' },
-  { key: 'old_values', label: 'Before', render: (r) => (r.old_values ? JSON.stringify(r.old_values) : '—') },
-  { key: 'new_values', label: 'After', render: (r) => (r.new_values ? JSON.stringify(r.new_values) : '—') },
+  { key: 'old_values', label: 'Before', render: (r) => {
+    if (r.old_values) return JSON.stringify(r.old_values);
+    const value = r.metadata?.previous_capital ?? r.metadata?.current_capital ?? r.metadata?.wallet_balance_before;
+    return value == null ? '—' : money(value);
+  } },
+  { key: 'new_values', label: 'After', render: (r) => {
+    if (r.new_values) return JSON.stringify(r.new_values);
+    const value = r.metadata?.new_capital ?? r.metadata?.wallet_balance_after;
+    if (value != null) return money(value);
+    if (r.metadata && Object.keys(r.metadata).length) return JSON.stringify(r.metadata);
+    return '—';
+  } },
 ];
 
 /* ─────────────── main panel ─────────────── */
@@ -305,17 +317,57 @@ export function PartnerProfile360() {
   const totals = data?.totals || null;
   const partnerLabel = p?.full_name || selected?.full_name || 'Partner';
 
+  // Legacy and manager-created top-ups are recorded in the portfolio audit trail,
+  // while the newer self-managed flow writes partner_self_topups. Keep one view
+  // without adding another request or hiding either source.
+  const topups = useMemo(() => {
+    if (!data) return [];
+    const selfTopups = data.topups || [];
+    const topupCreationActions = new Set([
+      'manager_portfolio_topup',
+      'manager_portfolio_topup_instant',
+      'manager_portfolio_topup_pending',
+    ]);
+    const auditTopups = (data.changes || [])
+      .filter((r) => topupCreationActions.has(String(r.action_type || r.action || '').toLowerCase()))
+      .map((r) => {
+        const metadata = r.metadata || {};
+        const before = metadata.previous_capital ?? metadata.current_capital ?? null;
+        const amount = metadata.total_merged ?? metadata.amount ?? (
+          before != null && metadata.new_capital != null ? Number(metadata.new_capital) - Number(before) : null
+        );
+        const after = metadata.new_capital ?? (
+          before != null && amount != null ? Number(before) + Number(amount) : null
+        );
+        return {
+          id: `audit-${r.id}`,
+          created_at: r.created_at,
+          amount,
+          before_amount: before,
+          after_amount: after,
+          prorata_amount: null,
+          status: metadata.status || (String(r.action_type || '').includes('pending') ? 'pending' : 'recorded'),
+          effective_at: r.created_at,
+          reviewed_at: null,
+          review_notes: metadata.reason || metadata.notes || r.reason,
+        };
+      });
+    return [...selfTopups, ...auditTopups].sort((a, b) =>
+      new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    );
+  }, [data]);
+
   const sections: { name: string; cols: Col[]; rows: Row[] }[] = useMemo(() => data ? [
     { name: 'Portfolios', cols: PORTFOLIO_COLS, rows: data.portfolios || [] },
     { name: 'Financial History', cols: LEDGER_COLS, rows: data.ledger || [] },
-    { name: 'Top-Ups', cols: TOPUP_COLS, rows: data.topups || [] },
+    { name: 'Top-Ups', cols: TOPUP_COLS, rows: topups },
     { name: 'Pending Portfolios', cols: PENDING_COLS, rows: data.pending_portfolios || [] },
     { name: 'Requests', cols: REQUEST_COLS, rows: data.requests || [] },
     { name: 'Redemptions', cols: REDEMPTION_COLS, rows: data.redemptions || [] },
     { name: 'Renewals', cols: RENEWAL_COLS, rows: data.renewals || [] },
     { name: 'Withdrawals', cols: WITHDRAWAL_COLS, rows: data.withdrawals || [] },
     { name: 'Change Log', cols: CHANGE_COLS, rows: data.changes || [] },
-  ] : [], [data]);
+  ] : [], [data, topups]);
 
   const allPortfolios = data?.portfolios || [];
 
@@ -583,7 +635,7 @@ export function PartnerProfile360() {
                     />
                   </div>
                   <div className="grid gap-2 sm:grid-cols-3">
-                    <Metric label="Top-up requests" value={String((data.topups || []).length)} />
+                    <Metric label="Top-up records" value={String(topups.length)} />
                     <Metric label="Pending portfolios" value={String((data.pending_portfolios || []).length)} />
                     <Metric label="Withdrawals" value={String((data.withdrawals || []).length)} />
                   </div>
