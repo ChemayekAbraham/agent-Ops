@@ -586,6 +586,8 @@ export function InvestmentCalculator() {
                     min={50000}
                     max={300000000}
                     step={50000}
+                    showTooltip
+                    tooltipContent={(value) => `UGX ${value.toLocaleString()}`}
                     className="py-2 sm:py-3"
                   />
                   <div className="flex justify-between text-[10px] text-muted-foreground">
