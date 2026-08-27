@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Wallet, HandCoins, ArrowRightLeft, AlertTriangle, SlidersHorizontal, ShieldAlert, RefreshCw, Gauge } from 'lucide-react';
+import { Wallet, HandCoins, ArrowRightLeft, AlertTriangle, SlidersHorizontal, ShieldAlert, RefreshCw, Gauge, History } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -18,6 +18,7 @@ import { MerchantOwnMoneyReviewPanel } from './MerchantOwnMoneyReviewPanel';
 import { MerchantDebtSettlementDialog } from './MerchantDebtSettlementDialog';
 import { useMerchantAgentFloatAllocation } from '@/hooks/useMerchantAgentFloatAllocation';
 import { computeMerchantCapacities, capacityLabel } from '@/lib/merchantFloatCapacity';
+import { MerchantCapacityHistoryDialog } from './MerchantCapacityHistoryDialog';
 
 
 /**
@@ -46,6 +47,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
   const [capacityWindow, setCapacityWindow] = useState(30);
   const [potInput, setPotInput] = useState('');
   const { data: performance, isLoading: perfLoading } = useMerchantAgentFloatAllocation(capacityWindow);
+  const [historyFor, setHistoryFor] = useState<{ agentId: string; name: string } | null>(null);
 
 
   // Payout float guard repair: any payout that completed WITHOUT a float debit
@@ -148,6 +150,8 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
   const capacities = computeMerchantCapacities(perfRows, pot);
   const capacityFor = (agentId: string | null | undefined) =>
     agentId ? capacities.get(agentId) : undefined;
+  const perfRowFor = (agentId: string | null | undefined) =>
+    agentId ? perfRows.find((p) => p.agentId === agentId) : undefined;
   const capacityTotal = Array.from(capacities.values()).reduce((s, c) => s + c.earnedCapacity, 0);
   const allocatedTotal = Array.from(capacities.values()).reduce(
     (s, c) => s + c.suggestedAllocation,
@@ -417,17 +421,31 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                     {r.agentName || r.label || 'Merchant agent'}
                   </button>
                   <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
+                    <button
+                      type="button"
+                      disabled={!r.agentId}
+                      onClick={() =>
+                        r.agentId &&
+                        setHistoryFor({
+                          agentId: r.agentId,
+                          name: r.agentName || r.label || 'Merchant agent',
+                        })
+                      }
+                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider transition hover:brightness-110 disabled:cursor-default ${
                         !cap || cap.earnedCapacity === 0
                           ? 'border-destructive/40 bg-destructive/10 text-destructive'
                           : 'border-primary/40 bg-primary/10 text-primary'
                       }`}
-                      title={cap?.blocker ? cap.blocker : cap?.reason || 'No verified payout record yet'}
+                      title={
+                        cap?.blocker
+                          ? cap.blocker
+                          : `${cap?.reason || 'No verified payout record yet'} — tap for capacity history`
+                      }
                     >
                       <Gauge className="h-2.5 w-2.5" />
                       qualifies {perfLoading ? '…' : formatUGX(cap?.earnedCapacity ?? 0)}/day
-                    </span>
+                      <History className="h-2.5 w-2.5 opacity-70" />
+                    </button>
                     {pot > 0 && (
                       <span className="inline-flex items-center gap-1 rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-success">
                         send {formatUGX(cap?.suggestedAllocation ?? 0)}
@@ -644,6 +662,16 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
         onOpenChange={setDebtsOpen}
         headlineOwed={owedTotal}
       />
+
+      <MerchantCapacityHistoryDialog
+        open={!!historyFor}
+        onOpenChange={(v) => !v && setHistoryFor(null)}
+        agentId={historyFor?.agentId ?? null}
+        agentName={historyFor?.name ?? 'Merchant agent'}
+        performance={perfRowFor(historyFor?.agentId)}
+      />
+
+
 
       <div className="mt-4">
         <MerchantOwnMoneyReviewPanel />
