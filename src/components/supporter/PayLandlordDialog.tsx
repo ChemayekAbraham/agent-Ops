@@ -142,7 +142,7 @@ export function PayLandlordDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold">
-            {step === 'success' ? 'Payment Submitted!' : 'Pay Landlord'}
+            {step === 'success' ? 'Support Submitted!' : 'Pay Landlord'}
           </DialogTitle>
         </DialogHeader>
 
