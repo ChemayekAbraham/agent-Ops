@@ -726,54 +726,54 @@ export function DailyRentReport({ mode }: Props) {
   return (
     <div className="space-y-4">
       {/* Controls */}
-      <Card className="p-3 flex flex-wrap items-end gap-2">
-        <div className="space-y-1">
+      <Card className="p-3 grid grid-cols-2 sm:flex sm:flex-wrap items-end gap-2">
+        <div className="space-y-1 min-w-0">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">From</label>
-          <Input type="date" value={date} onChange={e => { setDate(e.target.value); setSecRange({}); }} className="h-9 w-40" />
+          <Input type="date" value={date} onChange={e => { setDate(e.target.value); setSecRange({}); }} className="h-9 w-full sm:w-40" />
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 min-w-0">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">To</label>
-          <Input type="date" value={dateTo} min={date} onChange={e => { setDateTo(e.target.value); setSecRange({}); }} className="h-9 w-40" />
+          <Input type="date" value={dateTo} min={date} onChange={e => { setDateTo(e.target.value); setSecRange({}); }} className="h-9 w-full sm:w-40" />
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 min-w-0">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Agent</label>
           <Select value={agentFilter} onValueChange={setAgentFilter}>
-            <SelectTrigger className="h-9 w-44"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-full sm:w-44"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="all">All agents</SelectItem>{agentOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 min-w-0">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Tenant</label>
           <Select value={tenantFilter} onValueChange={setTenantFilter}>
-            <SelectTrigger className="h-9 w-44"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-full sm:w-44"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="all">All tenants</SelectItem>{tenantOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 min-w-0">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Landlord</label>
           <Select value={landlordFilter} onValueChange={setLandlordFilter}>
-            <SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-full sm:w-40"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="all">All</SelectItem>{landlordOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 min-w-0">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Property</label>
           <Select value={propertyFilter} onValueChange={setPropertyFilter}>
-            <SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-full sm:w-40"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="all">All</SelectItem>{propertyOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 min-w-0">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Method</label>
           <Select value={methodFilter} onValueChange={setMethodFilter}>
-            <SelectTrigger className="h-9 w-32"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-full sm:w-32"><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value="all">All</SelectItem>{methodOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 min-w-0">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Status</label>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-9 w-32"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-full sm:w-32"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
               <SelectItem value="successful">Successful</SelectItem>
@@ -782,11 +782,11 @@ export function DailyRentReport({ mode }: Props) {
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1 min-w-[180px] flex-1">
+        <div className="space-y-1 col-span-2 min-w-0 sm:min-w-[180px] sm:flex-1">
           <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Search</label>
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Name, phone, receipt…" className="h-9" />
         </div>
-        <div className="flex gap-1.5 ml-auto">
+        <div className="col-span-2 flex flex-wrap gap-1.5 sm:ml-auto">
           <Button size="sm" variant="outline" onClick={() => refetch()} className="h-9 gap-1.5"><RefreshCw className="h-3.5 w-3.5" />Refresh</Button>
           <Button size="sm" variant="outline" onClick={exportCsv} disabled={!filtered.length} className="h-9 gap-1.5"><FileSpreadsheet className="h-3.5 w-3.5" />CSV</Button>
           <Button size="sm" variant="outline" onClick={exportPdf} disabled={!filtered.length} className="h-9 gap-1.5"><FileDown className="h-3.5 w-3.5" />PDF</Button>
