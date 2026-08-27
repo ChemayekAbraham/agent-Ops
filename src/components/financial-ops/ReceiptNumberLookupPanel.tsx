@@ -7,10 +7,11 @@ import { Search, Receipt, Loader2, ExternalLink, Copy, AlertCircle, CheckCircle2
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useReceiptLookup } from '@/hooks/useReceiptLookup';
+import { formatUgxExact } from '@/lib/currencyFormat';
 
-function formatUGX(n: number) {
-  return `UGX ${Number(n || 0).toLocaleString()}`;
-}
+// Was a bare toLocaleString(), so grouping followed the viewer's browser
+// locale. Shared formatter keeps every figure on the page identical.
+const formatUGX = formatUgxExact;
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (

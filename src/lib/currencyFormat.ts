@@ -101,6 +101,20 @@ export function formatDynamic(amountInUGX: unknown): string {
 }
 
 /**
+ * Exact UGX, never converted into the viewer's selected currency.
+ *
+ * Treasury and CFO figures must always read in base currency, so this is
+ * intentionally NOT `formatDynamic` - that one converts via the selected
+ * currency and would restate a treasury balance at an FX rate.
+ */
+export function formatUgxExact(amount: unknown): string {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return 'UGX 0';
+  const abs = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.abs(n));
+  return `${n < 0 ? '-' : ''}UGX ${abs}`;
+}
+
+/**
  * Compact format (K / M / B) using the user's selected currency.
  */
 export function formatDynamicCompact(amountInUGX: unknown): string {

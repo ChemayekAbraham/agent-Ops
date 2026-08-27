@@ -683,7 +683,19 @@ export function useCFOOverviewData() {
   const isLoading =
     platformCash.isLoading || liabilities.isLoading || revenue.isLoading || moneyFlow.isLoading || receivables.isLoading || cashFlowByPurpose.isLoading;
 
+  // Age and refresh are scoped to the queries the overview actually renders,
+  // so the "as of" stamp cannot be freshened by a query nobody displays.
+  const rendered = [platformCash, liabilities, todayCashFlow, integrityChecks, pendingApprovals];
+  const dataUpdatedAt = Math.max(0, ...rendered.map((q) => q.dataUpdatedAt ?? 0));
+  const isRefreshing = rendered.some((q) => q.isFetching);
+  const refetchAll = () => {
+    void Promise.all(rendered.map((q) => q.refetch()));
+  };
+
   return {
+    dataUpdatedAt,
+    isRefreshing,
+    refetchAll,
     platformCash: platformCash.data,
     liabilities: liabilities.data,
     revenue: revenue.data,
