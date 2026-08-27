@@ -62,7 +62,9 @@ export default function AgentProductCategoryPage() {
           </div>
         </header>
 
-        {isAdvances ? (
+        {entry.slug === 'lending-agents' ? (
+          <LendingAgentsPanel />
+        ) : isAdvances ? (
           <div className="space-y-6">
             <AdvanceRequestsQueue stage="agent_ops" />
             <AdvanceRequestsReviewed />
