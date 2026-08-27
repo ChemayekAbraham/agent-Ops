@@ -175,6 +175,13 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
                         </div>
                       ))}
                     </div>
+
+                    <div className="mt-4 pt-3 border-t border-border/50">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">
+                        Merchant Codes
+                      </p>
+                      <MerchantCodePills />
+                    </div>
                   </CardContent>
                 </Card>
 
