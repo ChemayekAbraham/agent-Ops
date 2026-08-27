@@ -64,7 +64,14 @@ export function generateTenantCallingHubPdf(opts: {
   tables: CallingPdfTable[];
   comments?: CallingPdfComment[];
   generatedAt?: string;
+  /** Hub name for the header/footer band — defaults to the tenant hub. */
+  hubName?: string;
+  /** Footer source line — defaults to the tenant call sources. */
+  sourceNote?: string;
 }): Blob {
+  const hubName = opts.hubName || 'Tenant Calling Hub';
+  const sourceNote = opts.sourceNote || 'Welile tenant call reports, rent requests & agent collections';
+
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
