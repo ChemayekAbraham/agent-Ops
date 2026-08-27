@@ -486,7 +486,6 @@ export default function SupporterDashboard({
             <AiIdButton variant="compact" />
           </div>
 
-          <MerchantCodePills />
 
 
 
