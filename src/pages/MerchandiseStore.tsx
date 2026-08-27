@@ -700,8 +700,11 @@ export default function MerchandiseStore() {
               )}
               <div className="rounded-lg bg-muted/50 px-3 py-2 flex justify-between text-sm">
                 <span className="text-muted-foreground">Wallet balance</span>
-                <span className="font-semibold">{formatUGX(availableWallet)}</span>
+                <span className="font-semibold">
+                  {walletLoading ? 'Checking…' : walletError ? 'Unavailable' : formatUGX(availableWallet)}
+                </span>
               </div>
+
               <div className="rounded-lg bg-muted/50 px-3 py-2 flex justify-between text-sm">
                 <span className="text-muted-foreground">Item price ({qty} × {formatUGX(Number(selected.unit_price))})</span>
                 <span className="font-semibold">{formatUGX(orderTotal)}</span>
