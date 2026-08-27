@@ -221,12 +221,3 @@ export function ServiceCentreDirectory() {
     </div>
   );
 }
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-border/60 p-2">
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="break-words text-sm">{value}</p>
-    </div>
-  );
-}
