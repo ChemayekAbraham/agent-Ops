@@ -649,6 +649,8 @@ export function InvestmentCalculator() {
                   min={1}
                   max={24}
                   step={1}
+                  showTooltip
+                  tooltipContent={(value) => `${value} Month${value === 1 ? '' : 's'}`}
                   className="py-1.5"
                 />
                 <div className="flex justify-between text-[10px] text-muted-foreground">
