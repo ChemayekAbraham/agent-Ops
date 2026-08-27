@@ -297,10 +297,7 @@ export function DailyRentReport({ mode }: Props) {
   const highest = agentRanking[0]?.total ?? 0;
   const lowest = agentRanking.length ? agentRanking[agentRanking.length - 1].total : 0;
 
-  // ---- Charts ----
-  const byHour = useMemo(() => aggByHour(filtered), [filtered]);
-  const byMethod = useMemo(() => aggByMethod(filtered), [filtered]);
-  const byProperty = useMemo(() => aggByProperty(filtered), [filtered]);
+  // ---- Charts (scoped per section below, after rowsFor is defined) ----
 
 
   // ---- Exports ----
