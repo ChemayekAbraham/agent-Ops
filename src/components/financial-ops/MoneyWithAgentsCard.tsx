@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Wallet, HandCoins, ArrowRightLeft, AlertTriangle, SlidersHorizontal, ShieldAlert, RefreshCw } from 'lucide-react';
+import { Wallet, HandCoins, ArrowRightLeft, AlertTriangle, SlidersHorizontal, ShieldAlert, RefreshCw, Gauge } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -16,6 +16,9 @@ import { useFinancialOpsEditAccess } from '@/hooks/useFinancialOpsEditAccess';
 import { MerchantFloatStatementDialog } from './MerchantFloatStatementDialog';
 import { MerchantOwnMoneyReviewPanel } from './MerchantOwnMoneyReviewPanel';
 import { MerchantDebtSettlementDialog } from './MerchantDebtSettlementDialog';
+import { useMerchantAgentFloatAllocation } from '@/hooks/useMerchantAgentFloatAllocation';
+import { computeMerchantCapacities, capacityLabel } from '@/lib/merchantFloatCapacity';
+
 
 /**
  * Money With Agents — shows how much company money is still sitting with each
@@ -38,6 +41,12 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
   const [sweeping, setSweeping] = useState(false);
   const [debtsOpen, setDebtsOpen] = useState(false);
   const { canEdit: canEditFloat, readOnlyReason } = useFinancialOpsEditAccess();
+
+  // Performance-based capacity: ledger-verified payout record per merchant desk.
+  const [capacityWindow, setCapacityWindow] = useState(30);
+  const [potInput, setPotInput] = useState('');
+  const { data: performance, isLoading: perfLoading } = useMerchantAgentFloatAllocation(capacityWindow);
+
 
   // Payout float guard repair: any payout that completed WITHOUT a float debit
   // (older paths, failed reservation) gets its company-float deduction posted
@@ -130,6 +139,23 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
   const excludedTotal = excludedRows.reduce((s, r) => s + excludedFloat(r), 0);
   const deficitRows = rows.filter((r) => r.clampedShortfall > 0);
   const deficitTotal = deficitRows.reduce((s, r) => s + r.clampedShortfall, 0);
+
+  // Recommended daily capacity per desk, plus how an entered distribution pot
+  // should be split across them. Recommendation only — moves no money.
+  const activeAgentIds = new Set(rows.map((r) => r.agentId).filter(Boolean) as string[]);
+  const perfRows = (performance ?? []).filter((p) => activeAgentIds.has(p.agentId));
+  const pot = Number((potInput || '').replace(/[^\d.]/g, ''));
+  const capacities = computeMerchantCapacities(perfRows, pot);
+  const capacityFor = (agentId: string | null | undefined) =>
+    agentId ? capacities.get(agentId) : undefined;
+  const capacityTotal = Array.from(capacities.values()).reduce((s, c) => s + c.earnedCapacity, 0);
+  const allocatedTotal = Array.from(capacities.values()).reduce(
+    (s, c) => s + c.suggestedAllocation,
+    0,
+  );
+  const eligibleDesks = Array.from(capacities.values()).filter((c) => c.earnedCapacity > 0).length;
+
+
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5 min-w-0">
@@ -255,7 +281,106 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
           {!isLoading && rows.length === 0 && (
             <p className="text-xs text-muted-foreground">No merchant activity in the current window.</p>
           )}
+
+          {rows.length > 0 && (
+            <div className="rounded-xl border border-primary/25 bg-primary/[0.04] p-3">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Plan today's distribution
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    Enter the total you want to send out today. Each agent's share is worked out
+                    from their own verified payout record — not shared out equally.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Amount to distribute (UGX)
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={potInput}
+                      onChange={(e) => setPotInput(e.target.value)}
+                      placeholder="e.g. 5000000"
+                      className="h-9 w-40 rounded-lg border border-border bg-background px-2 font-mono text-sm tabular-nums outline-none focus:border-primary"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Record window
+                    </span>
+                    <select
+                      value={capacityWindow}
+                      onChange={(e) => setCapacityWindow(Number(e.target.value))}
+                      className="h-9 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-primary"
+                    >
+                      <option value={7}>Last 7 days</option>
+                      <option value={14}>Last 14 days</option>
+                      <option value={30}>Last 30 days</option>
+                      <option value={90}>Last 90 days</option>
+                    </select>
+                  </label>
+                  {potInput && (
+                    <button
+                      type="button"
+                      onClick={() => setPotInput('')}
+                      className="h-9 rounded-lg border border-border px-3 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Earned capacity today
+                  </p>
+                  <p className="font-mono text-sm font-bold tabular-nums text-primary">
+                    {perfLoading ? '—' : formatUGX(capacityTotal)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    across {eligibleDesks} qualifying desk{eligibleDesks === 1 ? '' : 's'}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Recommended split
+                  </p>
+                  <p className="font-mono text-sm font-bold tabular-nums text-foreground">
+                    {pot > 0 ? formatUGX(allocatedTotal) : '—'}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {pot > 0
+                      ? `of ${formatUGX(pot)} entered`
+                      : 'enter an amount to see each agent\u2019s share'}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Already with them
+                  </p>
+                  <p className="font-mono text-sm font-bold tabular-nums text-warning">
+                    {isLoading ? '—' : formatUGX(floatTotal)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    spendable float still on their phones
+                  </p>
+                </div>
+              </div>
+              {pot > 0 && capacityTotal === 0 && (
+                <p className="mt-2 text-[10px] font-medium text-destructive">
+                  No desk currently qualifies on record, so nothing can be recommended.
+                </p>
+              )}
+            </div>
+          )}
+
           {(rows.length > 0 || isLoading) && (
+
             <div className="flex items-center justify-between gap-3 px-3 py-2">
               <p className="text-[10px] text-muted-foreground">
                 Total float with merchant agents (evidenced only)
@@ -275,6 +400,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
             const movements = movementsFor(r);
             const latestAt = latestMovementAt(r);
             const booksProveLess = spendableFloat(r) < Math.max(0, r.ledgerFloatHeld);
+            const cap = capacityFor(r.agentId);
             return (
               <div
                 key={r.deskId}
@@ -290,11 +416,36 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                   >
                     {r.agentName || r.label || 'Merchant agent'}
                   </button>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${
+                        !cap || cap.earnedCapacity === 0
+                          ? 'border-destructive/40 bg-destructive/10 text-destructive'
+                          : 'border-primary/40 bg-primary/10 text-primary'
+                      }`}
+                      title={cap?.blocker ? cap.blocker : cap?.reason || 'No verified payout record yet'}
+                    >
+                      <Gauge className="h-2.5 w-2.5" />
+                      qualifies {perfLoading ? '…' : formatUGX(cap?.earnedCapacity ?? 0)}/day
+                    </span>
+                    {pot > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-success">
+                        send {formatUGX(cap?.suggestedAllocation ?? 0)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {capacityLabel(cap)}
+                    {cap && cap.earnedCapacity > 0
+                      ? ` · avg ${formatUGX(Math.round(cap.dailyThroughput))}/day paid out`
+                      : ''}
+                  </p>
                   {isUnverified(r) && (
                     <span className="mt-0.5 inline-flex items-center gap-1 rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-destructive">
                       <ShieldAlert className="h-2.5 w-2.5" /> {evidenceLabel(r)}
                     </span>
                   )}
+
                   {movements.length === 0 ? (
                     <p className="text-[11px] text-muted-foreground">No float movements</p>
                   ) : (
