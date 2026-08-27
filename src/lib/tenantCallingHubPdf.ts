@@ -91,7 +91,7 @@ export function generateTenantCallingHubPdf(opts: {
   doc.setFontSize(9);
   doc.text('WELILE', margin, 10);
   doc.setFontSize(13);
-  doc.text(`TENANT CALLING HUB — ${opts.reportTitle.toUpperCase()}`, margin, 17.5);
+  doc.text(`${hubName.toUpperCase()} — ${opts.reportTitle.toUpperCase()}`, margin, 17.5);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.text(`Period: ${opts.periodLabel}  ·  ${opts.subtitle}`, margin, 22.5);
@@ -348,7 +348,7 @@ export function generateTenantCallingHubPdf(opts: {
     doc.setFontSize(6.5);
     doc.setTextColor(120, 120, 130);
     doc.text(
-      `Tenant Calling Hub — ${opts.reportTitle} · Period ${opts.periodLabel} · Rows ${opts.scopeLabel} · Generated ${generated} · Reported by ${opts.actor} · Export PDF · Source: Welile tenant call reports, rent requests & agent collections`,
+      `${hubName} — ${opts.reportTitle} · Period ${opts.periodLabel} · Rows ${opts.scopeLabel} · Generated ${generated} · Reported by ${opts.actor} · Export PDF · Source: ${sourceNote}`,
       margin,
       pageHeight - 8,
       { maxWidth: contentWidth },
