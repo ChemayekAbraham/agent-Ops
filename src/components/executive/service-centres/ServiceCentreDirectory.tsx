@@ -6,13 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Building2, ExternalLink, Loader2, MapPin, Phone, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useServiceCentres, SC_STATUS_META, mapsUrl, type ServiceCentre, type ServiceCentreStatus } from '@/hooks/useServiceCentres';
 import { ServiceCentreCandidatesPanel } from './ServiceCentreCandidatesPanel';
+import { ServiceCentreDetailDialog } from './ServiceCentreDetailDialog';
+
 
 const FILTERS: ('all' | ServiceCentreStatus)[] = ['all', 'pending', 'verified', 'paid', 'rejected'];
 const PAGE = 15;
@@ -210,94 +211,13 @@ export function ServiceCentreDirectory() {
 
       <ServiceCentreCandidatesPanel />
 
-      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent className="max-h-[85vh] w-full overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Avatar className="h-9 w-9">
-                {selected && avatars?.[selected.agent_id] && (
-                  <AvatarImage src={avatars[selected.agent_id]!} alt={selected.agent_name} />
-                )}
-                <AvatarFallback className="text-[10px]">{initials(selected?.agent_name || '')}</AvatarFallback>
-              </Avatar>
-              <span className="truncate">{selected?.agent_name}</span>
-            </DialogTitle>
-          </DialogHeader>
+      <ServiceCentreDetailDialog
+        centre={selected}
+        photos={selectedPhotos}
+        avatarUrl={selected ? avatars?.[selected.agent_id] ?? null : null}
+        onClose={() => setSelected(null)}
+      />
 
-          {selected && (
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className={cn('border-0 text-[10px]', SC_STATUS_META[selected.status].className)}>
-                  {SC_STATUS_META[selected.status].label}
-                </Badge>
-                <span className="text-xs text-muted-foreground">
-                  Requested {format(new Date(selected.created_at), 'dd MMM yyyy, HH:mm')}
-                </span>
-              </div>
-
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Detail label="Phone number" value={selected.agent_phone || '—'} />
-                <Detail label="Location description" value={selected.location_name || '—'} />
-                <Detail label="GPS" value={`${selected.latitude.toFixed(5)}, ${selected.longitude.toFixed(5)}`} />
-                <Detail
-                  label="Verified"
-                  value={selected.verified_at ? format(new Date(selected.verified_at), 'dd MMM yyyy') : 'Not yet'}
-                />
-                <Detail
-                  label="Approved"
-                  value={selected.approved_at ? format(new Date(selected.approved_at), 'dd MMM yyyy') : 'Not yet'}
-                />
-                <Detail label="Submissions by this agent" value={String(selectedPhotos.length)} />
-              </div>
-
-              {selected.rejection_reason && (
-                <p className="rounded-lg bg-destructive/10 p-2 text-xs text-destructive">{selected.rejection_reason}</p>
-              )}
-
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">Service centre photo{selectedPhotos.length > 1 ? 's' : ''}</p>
-                {selectedPhotos.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No photo attached.</p>
-                ) : (
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {selectedPhotos.map((p) => (
-                      <a key={p.id} href={p.photo_url} target="_blank" rel="noopener noreferrer" className="block">
-                        <img
-                          src={p.photo_url}
-                          alt={`Service centre submitted by ${selected.agent_name} on ${format(new Date(p.created_at), 'dd MMM yyyy')}`}
-                          loading="lazy"
-                          className="h-40 w-full rounded-lg border border-border object-cover"
-                        />
-                        <span className="mt-1 block text-[10px] text-muted-foreground">
-                          {format(new Date(p.created_at), 'dd MMM yyyy')} · {p.location_name || 'No description'}
-                        </span>
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <a
-                href={mapsUrl(selected.latitude, selected.longitude)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-              >
-                <MapPin className="h-4 w-4" />Open in Google Maps<ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-border/60 p-2">
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="break-words text-sm">{value}</p>
     </div>
   );
 }
