@@ -412,6 +412,42 @@ export function DailyRentReport({ mode }: Props) {
     });
   };
 
+  // ── Section-scoped views ───────────────────────────────────────────────────
+  // Each chart / table renders the SAME rows its own export writes, so a section
+  // date picker visibly narrows the section and the exported file matches the
+  // screen exactly. Aggregation functions and data sources are unchanged.
+  const hourRows = rowsFor('hour');
+  const methodRows = rowsFor('method');
+  const propertyRows = rowsFor('property');
+  const txRows = rowsFor('transactions');
+  const agentRows = rowsFor('agents');
+
+  const byHour = aggByHour(hourRows);
+  const byMethod = aggByMethod(methodRows);
+  const byProperty = aggByProperty(propertyRows);
+  const txTotals = aggTotals(txRows);
+  const agentTable = aggAgents(agentRows);
+
+  const txBodyRows = useMemo(() => txRows.map(r => (mode === 'tenant'
+    ? [
+        r.id.slice(0, 8),
+        format(new Date(r.created_at), 'HH:mm:ss'),
+        r.tenant_name, r.tenant_phone, r.property, r.landlord_name, r.agent_name,
+        Number(r.amount) || 0,
+        r.outstanding,
+        Number(r.float_before) || 0,
+        Number(r.float_after) || 0,
+        r.payment_method ?? '—', r.status,
+        r.tracking_id ?? r.momo_transaction_id ?? '—',
+      ]
+    : [
+        format(new Date(r.created_at), 'HH:mm:ss'),
+        r.agent_name, (r.agent_id ?? '').slice(0, 8), r.tenant_name, r.property, r.landlord_name,
+        Number(r.amount) || 0, r.commission,
+        r.payment_method ?? '—', r.status,
+        r.tracking_id ?? r.momo_transaction_id ?? '—',
+      ])), [txRows, mode]);
+
   // ── Top summary cards: scopeable to a day or a sub-period ──────────────────
   // The cards read the SAME rows as the "Summary" section report (key 'summary'),
   // so whatever the cards show is exactly what the Summary export contains.
