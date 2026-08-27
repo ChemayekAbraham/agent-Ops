@@ -226,6 +226,7 @@ export default function Advances() {
               <TableHead className="text-right">Recovered so far</TableHead>
               <TableHead className="text-right">Outstanding</TableHead>
               <TableHead>Status</TableHead>
+              {isPreparer && <TableHead />}
               {isApprover && <TableHead />}
             </TableRow>
           </TableHeader>
