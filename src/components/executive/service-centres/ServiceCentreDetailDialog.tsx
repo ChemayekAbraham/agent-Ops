@@ -193,7 +193,16 @@ export function ServiceCentreDetailDialog({ centre, photos, avatarUrl, onClose }
               )}
             </TabsContent>
 
+            <TabsContent value="receivable" className="space-y-2">
+              <ServiceCentreReceivablePanel
+                serviceCentreId={centre.id}
+                agents={(data?.assigned_agents ?? []).map((a) => ({ agent_id: a.agent_id, agent_name: a.agent_name }))}
+                approvedAmount={data?.centre.cfo_approved_amount ?? data?.centre.verified_amount ?? null}
+              />
+            </TabsContent>
+
             <TabsContent value="advances" className="space-y-2">
+
               {(data?.advances.length ?? 0) === 0 ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">
                   No service centre advances attached to these agents.
