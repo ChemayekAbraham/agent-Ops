@@ -8,7 +8,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useSupportedTenants } from '@/hooks/useSupportedTenants';
 import { useAvailableBalance } from '@/hooks/useAvailableBalance';
-import { FunderQuickActions } from '@/components/supporter/FunderQuickActions';
 const welileLogo = '/welile-colored.png';
 
 // Taller card (354x200) to give the Add Card button more room on mobile.

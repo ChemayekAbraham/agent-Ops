@@ -47,7 +47,6 @@ import { hapticTap } from '@/lib/haptics';
 
 // Virtual Houses components
 import { PortfolioSummaryCards } from '@/components/supporter/PortfolioSummaryCards';
-import { UnifiedWalletHeroCard } from '@/components/wallet/UnifiedWalletHeroCard';
 import { VirtualHousesFeed } from '@/components/supporter/VirtualHousesFeed';
 import { VirtualHouse } from '@/components/supporter/VirtualHouseCard';
 import { VirtualHouseDetailsSheet } from '@/components/supporter/VirtualHouseDetailsSheet';
