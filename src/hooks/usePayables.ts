@@ -17,7 +17,20 @@ type RpcFn = (
   args?: Record<string, unknown>
 ) => Promise<{ data: unknown; error: { message: string } | null }>;
 
-const rpc = supabase.rpc as unknown as RpcFn;
+/**
+ * Call the payables RPCs through the client instance.
+ *
+ * IMPORTANT: do NOT detach the method (`const rpc = supabase.rpc as RpcFn`).
+ * `PostgrestClient.rpc` relies on `this`, so an unbound reference throws
+ * "Cannot read properties of undefined (reading 'rest')" before any request is
+ * sent — which is exactly why the CFO payables cards silently showed UGX 0.
+ */
+const rpc: RpcFn = (fn, args) =>
+  (supabase.rpc as unknown as (f: string, a?: Record<string, unknown>) => Promise<{
+    data: unknown;
+    error: { message: string } | null;
+  }>).call(supabase, fn, args);
+
 
 export interface PayablesCategoryTotal {
   key: string;
