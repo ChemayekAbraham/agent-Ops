@@ -14,6 +14,7 @@ import { BusinessAdvanceQueue } from '@/components/ops/BusinessAdvanceQueue';
 
 import { SmartphoneCatalogDialog } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
 import { SmartphoneOrderApprovalQueue } from '@/components/executive/agent-ops/SmartphoneOrderApprovalQueue';
+import { LendingAgentsPanel } from '@/components/executive/LendingAgentsPanel';
 
 
 export const AGENT_PRODUCT_PAGES = [
