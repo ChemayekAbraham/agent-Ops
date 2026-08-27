@@ -498,7 +498,7 @@ export default function PortfolioCompletion() {
               <Input
                 id="nok-contact"
                 value={kinContact}
-                onChange={(e) => setKinContact(e.target.value)}
+                onChange={(e) => { setKinContact(e.target.value); onIdentityEdited(); }}
                 placeholder="e.g. +256 7xx xxx xxx"
                 inputMode="tel"
                 disabled={status === 'submitting'}
