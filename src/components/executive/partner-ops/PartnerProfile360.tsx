@@ -707,20 +707,8 @@ export function PartnerProfile360() {
       rightAlign: keep.reduce<number[]>((acc, i, idx) => (statementCols[i].align === 'right' ? [...acc, idx] : acc), []),
     }];
 
-    if (returnsLegs.length) {
-      pdfSections.push({
-        name: 'Returns history',
-        headers: ['Date', 'Type', 'Amount', 'Reference', 'Narration'],
-        rows: returnsLegs.map((l) => [
-          fmtDate(l.transaction_date || l.created_at),
-          String(l.category) === 'roi_reinvestment' ? 'Reinvested (compounded)' : 'Paid out',
-          money(l.amount),
-          String(l.reference_id || ''),
-          String(l.description || ''),
-        ]),
-        rightAlign: [2],
-      });
-    }
+
+
 
 
 
