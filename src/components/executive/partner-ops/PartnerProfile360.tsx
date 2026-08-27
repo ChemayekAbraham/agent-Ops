@@ -18,7 +18,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatUGX } from '@/lib/rentCalculations';
 import { downloadCsv } from '@/lib/csvExport';
-import { downloadXlsxWorkbook, type XlsxSheet } from '@/lib/xlsxExport';
+import { type XlsxSheet } from '@/lib/xlsxExport';
+import { generatePartnerFinancialStatementPdf } from '@/lib/partnerFinancialStatementPdf';
+
 import { cn } from '@/lib/utils';
 
 /* ─────────────── types (shape of get_partner_360) ─────────────── */
