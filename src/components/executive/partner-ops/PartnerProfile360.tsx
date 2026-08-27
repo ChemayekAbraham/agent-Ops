@@ -486,23 +486,141 @@ export function PartnerProfile360() {
 
   /**
    * Full partner financial statement as PDF: profile + position summary +
-   * every portfolio breakdown tab. Actor and reason columns are excluded and
-   * all machine values are humanised (underscores → spaces).
+   * ONE consolidated table with a row per portfolio. Per-portfolio activity
+   * (top-ups, renewals, capital payouts) is aggregated from the authoritative
+   * records that carry a portfolio link — nothing is inferred or invented, and
+   * any column that is empty for every portfolio is dropped from the table.
    */
   const exportStatementPdf = async () => {
     if (!data) return;
     const stamp = format(new Date(), 'yyyy-MM-dd');
-    const EXCLUDE = /actor|reason|note/i;
 
-    const pdfSections = sections.map((s) => {
-      const cols = s.cols.filter((c) => !EXCLUDE.test(c.key) && !EXCLUDE.test(c.label));
-      return {
-        name: s.name,
-        headers: cols.map((c) => c.label),
-        rows: s.rows.map((r) => cols.map((c) => String(c.render ? c.render(r) : (r[c.key] ?? '—')))),
-        rightAlign: cols.reduce<number[]>((acc, c, i) => (c.align === 'right' ? [...acc, i] : acc), []),
-      };
-    });
+    const portfolios = data.portfolios || [];
+
+    // Portfolio-linked activity. Top-ups only exist as portfolio audit rows
+    // (record_id = portfolio id) plus renewal top-ups; partner_self_topups
+    // carry no portfolio link, so they are never attributed to a portfolio.
+    const auditTopupActions = new Set([
+      'manager_portfolio_topup',
+      'manager_portfolio_topup_instant',
+    ]);
+    const topupByPortfolio = new Map<string, { count: number; total: number }>();
+    for (const c of data.changes || []) {
+      const action = String(c.action_type || c.action || '').toLowerCase();
+      if (!auditTopupActions.has(action)) continue;
+      const pid = String(c.record_id || '');
+      if (!pid) continue;
+      const { delta } = changeAmounts(c);
+      const bucket = topupByPortfolio.get(pid) || { count: 0, total: 0 };
+      bucket.count += 1;
+      bucket.total += delta && delta > 0 ? delta : 0;
+      topupByPortfolio.set(pid, bucket);
+    }
+
+    const renewalByPortfolio = new Map<string, { count: number; latest: string | null; topups: number }>();
+    for (const r of data.renewals || []) {
+      if (r.reversed_at) continue;
+      const pid = String(r.portfolio_id || '');
+      if (!pid) continue;
+      const bucket = renewalByPortfolio.get(pid) || { count: 0, latest: null, topups: 0 };
+      bucket.count += 1;
+      bucket.topups += Number(r.top_up_amount) || 0;
+      if (!bucket.latest || new Date(r.created_at) > new Date(bucket.latest)) bucket.latest = r.created_at;
+      renewalByPortfolio.set(pid, bucket);
+    }
+
+    // Capital paid out is only attributable per portfolio through redemptions.
+    const payoutByCode = new Map<string, { count: number; total: number; latest: string | null }>();
+    for (const r of data.redemptions || []) {
+      const code = String(r.portfolio_code || '');
+      if (!code) continue;
+      const bucket = payoutByCode.get(code) || { count: 0, total: 0, latest: null };
+      bucket.count += 1;
+      bucket.total += Number(r.redeemed_amount) || 0;
+      if (!bucket.latest || new Date(r.created_at) > new Date(bucket.latest)) bucket.latest = r.created_at;
+      payoutByCode.set(code, bucket);
+    }
+
+    const statementCols: { label: string; align?: 'right'; value: (r: Row) => string }[] = [
+      { label: 'Portfolio', value: (r) => r.portfolio_code || '' },
+      { label: 'Nickname', value: (r) => r.account_name || '' },
+      { label: 'Status', value: (r) => r.status || '' },
+      { label: 'Contribution date', value: (r) => (r.created_at ? fmtDate(r.created_at) : '') },
+      { label: 'Principal', align: 'right', value: (r) => (r.investment_amount == null ? '' : money(r.investment_amount)) },
+      { label: 'Rate (Returns)', align: 'right', value: (r) => (r.roi_percentage == null ? '' : `${Number(r.roi_percentage)}% monthly`) },
+      {
+        label: 'Computed monthly return',
+        align: 'right',
+        value: (r) => {
+          const principal = Number(r.investment_amount) || 0;
+          const rate = Number(r.roi_percentage) || 0;
+          if (!principal || !rate) return '';
+          return money((principal * rate) / 100);
+        },
+      },
+      { label: 'Returns earned', align: 'right', value: (r) => (Number(r.total_roi_earned) ? money(r.total_roi_earned) : '') },
+      { label: 'Term (months)', align: 'right', value: (r) => (r.duration_months == null ? '' : String(r.duration_months)) },
+      { label: 'Maturity', value: (r) => (r.maturity_date ? fmtDate(r.maturity_date) : '') },
+      { label: 'Next payout', value: (r) => (r.next_roi_date ? fmtDate(r.next_roi_date) : '') },
+      { label: 'Proxy agent', value: (r) => r.agent_name || '' },
+      {
+        label: 'Top-ups',
+        align: 'right',
+        value: (r) => {
+          const a = topupByPortfolio.get(String(r.id)) || { count: 0, total: 0 };
+          const renewalTopups = renewalByPortfolio.get(String(r.id))?.topups || 0;
+          const total = a.total + renewalTopups;
+          if (!a.count && !renewalTopups) return '';
+          return `${a.count || (renewalTopups ? 1 : 0)} × ${money(total)}`;
+        },
+      },
+      {
+        label: 'Payouts (capital)',
+        align: 'right',
+        value: (r) => {
+          const a = payoutByCode.get(String(r.portfolio_code || ''));
+          if (!a || !a.count) return '';
+          return `${a.count} × ${money(a.total)}`;
+        },
+      },
+      {
+        label: 'Last payout',
+        value: (r) => {
+          const a = payoutByCode.get(String(r.portfolio_code || ''));
+          return a?.latest ? fmtDate(a.latest) : '';
+        },
+      },
+      {
+        label: 'Renewals',
+        align: 'right',
+        value: (r) => {
+          const a = renewalByPortfolio.get(String(r.id));
+          return a?.count ? String(a.count) : '';
+        },
+      },
+      {
+        label: 'Last renewal',
+        value: (r) => {
+          const a = renewalByPortfolio.get(String(r.id));
+          return a?.latest ? fmtDate(a.latest) : '';
+        },
+      },
+      { label: 'Verified', value: (r) => (r.cfo_verified_at ? fmtDate(r.cfo_verified_at) : r.cfo_verified ? 'Yes' : '') },
+    ];
+
+    const matrix = portfolios.map((r) => statementCols.map((c) => c.value(r)));
+    // Drop any column with no data at all so the statement never shows blanks.
+    const keep = statementCols
+      .map((_, i) => i)
+      .filter((i) => matrix.some((row) => row[i] !== ''));
+
+    const pdfSections = [{
+      name: 'Portfolio breakdown',
+      headers: keep.map((i) => statementCols[i].label),
+      rows: matrix.map((row) => keep.map((i) => row[i])),
+      rightAlign: keep.reduce<number[]>((acc, i, idx) => (statementCols[i].align === 'right' ? [...acc, idx] : acc), []),
+    }];
+
 
     const blob = await generatePartnerFinancialStatementPdf({
       partner: partnerLabel,
