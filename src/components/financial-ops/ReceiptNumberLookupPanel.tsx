@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, Receipt, Loader2, ExternalLink, Copy, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Search, Receipt, Loader2, ExternalLink, Copy, AlertCircle, CheckCircle2, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { useReceiptLookup } from '@/hooks/useReceiptLookup';
@@ -14,9 +14,9 @@ function formatUGX(n: number) {
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-3 py-1.5 border-b last:border-0">
-      <span className="text-xs text-muted-foreground shrink-0">{label}</span>
-      <span className="text-xs font-medium text-right break-all">{value ?? '—'}</span>
+    <div className="flex items-start justify-between gap-3 py-2 border-b border-border last:border-0">
+      <span className="text-[11px] text-muted-foreground shrink-0">{label}</span>
+      <span className="text-xs font-semibold text-right break-all">{value ?? '—'}</span>
     </div>
   );
 }
@@ -40,11 +40,16 @@ export function ReceiptNumberLookupPanel({ className }: { className?: string }) 
         <button
           type="button"
           onClick={() => setExpanded(v => !v)}
-          className="w-full flex items-center gap-2 text-left"
+          aria-expanded={expanded}
+          aria-label={`${expanded ? 'Collapse' : 'Expand'} receipt number tracker`}
+          className="w-full flex items-center gap-2.5 text-left"
         >
-          <Receipt className="h-4 w-4 text-primary" />
-          <span className="text-sm font-bold">Track a receipt number</span>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+            <Receipt className="h-4 w-4 text-primary" />
+          </span>
+          <span className="text-sm font-semibold">Track a receipt number</span>
           <Badge variant="secondary" className="ml-auto text-[10px]">Landlord payouts</Badge>
+          <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
         </button>
 
         {expanded && (
@@ -102,18 +107,18 @@ export function ReceiptNumberLookupPanel({ className }: { className?: string }) 
             )}
 
             {full && (
-              <div className="rounded-lg border p-3 space-y-2">
+              <div className="rounded-xl border border-border bg-muted/20 p-3 sm:p-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-mono text-sm font-bold">{full.receipt_number}</p>
-                    <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
+                    <p className="font-mono text-xs font-semibold text-muted-foreground">{full.receipt_number}</p>
+                    <p className="mt-0.5 text-xl font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
                       {formatUGX(full.amount)}
                     </p>
                   </div>
                   <Badge variant={full.status === 'completed' ? 'default' : 'destructive'}>{full.status}</Badge>
                 </div>
 
-                <div className="pt-1">
+                <div className="rounded-lg border border-border bg-card px-3 py-1">
                   <Row label="Landlord" value={snapshot.landlord_name ?? full.landlord_id} />
                   <Row label="Landlord phone" value={full.landlord_phone} />
                   <Row label="Tenant" value={snapshot.tenant_name ?? full.tenant_id} />

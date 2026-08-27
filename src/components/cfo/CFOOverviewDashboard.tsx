@@ -196,8 +196,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
 
       {/* ══════════════════════════════════════════════════════════════
           Main financial surface. Grouped into collapsible bands so the
-          page reads top-down: what we hold → how it moved → what is
-          owed to/by us → the advances book → lookup tools.
+          page reads top-down: what we hold → what is owed to/by us →
+          how it moved → the advances book → lookup tools.
          ══════════════════════════════════════════════════════════════ */}
       <div className="space-y-6">
 
@@ -284,7 +284,26 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           </div>
         </Band>
 
-        {/* ─────────── 2 · CASH MOVEMENT ─────────── */}
+        {/* ─────────── 2 · RECEIVABLES & PAYABLES ─────────── */}
+        <Band
+          title="Receivables & Payables"
+          subtitle="Authoritative open balances first, then movement over a chosen period"
+          open={isOpen('receivablesPayables')}
+          onToggle={() => toggleSection('receivablesPayables')}
+        >
+          {/* Authoritative totals lead. The period-filtered cards used to come
+              first, which made these full-book figures look contradictory. */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+            <ReceivablesCardDrilldown />
+            <PayablesCardDrilldown />
+          </div>
+
+          <DailyReceivablesPayablesSection heading="Movement in period" />
+
+          <ServiceCentreReceivablesPanel />
+        </Band>
+
+        {/* ─────────── 3 · CASH MOVEMENT ─────────── */}
         <Band
           title="Cash Movement"
           subtitle="Money in and out — today, and across the last 7 days"
@@ -297,7 +316,12 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
             <Card className="rounded-2xl shadow-sm h-full flex flex-col">
               <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
                 <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
-                  <p className="text-sm font-semibold tracking-tight">Today&apos;s Money Flow</p>
+                  <p className="flex items-center gap-2.5 text-sm font-semibold tracking-tight">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                      <Scale className="h-4 w-4 text-primary" />
+                    </span>
+                    Today&apos;s Money Flow
+                  </p>
                   <span className="text-[11px] text-muted-foreground">{todayLabel}</span>
                 </div>
                 <div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
@@ -333,10 +357,13 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
             <Card className="rounded-2xl shadow-sm h-full flex flex-col">
               <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
                 <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
-                  <p className="text-sm font-semibold tracking-tight">Cash Inflows &amp; Outflows — Last 7 Days</p>
-                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                    <BarChart3 className="h-3.5 w-3.5" /> UGX
-                  </span>
+                  <p className="flex items-center gap-2.5 text-sm font-semibold tracking-tight">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950/40">
+                      <BarChart3 className="h-4 w-4 text-blue-600" />
+                    </span>
+                    <span className="min-w-0">Cash Inflows &amp; Outflows — Last 7 Days</span>
+                  </p>
+                  <span className="text-[11px] text-muted-foreground shrink-0">UGX</span>
                 </div>
                 {cashFlowDays.length > 0 && (sevenDayCashFlow?.totalInflow || sevenDayCashFlow?.totalOutflow) ? (
                   <>
@@ -365,30 +392,14 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                     </div>
                   </>
                 ) : (
-                  <p className="text-xs text-muted-foreground flex-1 flex items-center justify-center min-h-[16rem]">No cash movement recorded in the last 7 days.</p>
+                  <div className="flex-1 flex flex-col items-center justify-center gap-2 min-h-[16rem] text-center">
+                    <BarChart3 className="h-5 w-5 text-muted-foreground/50" />
+                    <p className="text-xs text-muted-foreground">No cash movement recorded in the last 7 days.</p>
+                  </div>
                 )}
               </CardContent>
             </Card>
           </div>
-        </Band>
-
-        {/* ─────────── 3 · RECEIVABLES & PAYABLES ─────────── */}
-        <Band
-          title="Receivables & Payables"
-          subtitle="Authoritative open balances first, then movement over a chosen period"
-          open={isOpen('receivablesPayables')}
-          onToggle={() => toggleSection('receivablesPayables')}
-        >
-          {/* Authoritative totals lead. The period-filtered cards used to come
-              first, which made these full-book figures look contradictory. */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-            <ReceivablesCardDrilldown />
-            <PayablesCardDrilldown />
-          </div>
-
-          <DailyReceivablesPayablesSection heading="Movement in period" />
-
-          <ServiceCentreReceivablesPanel />
         </Band>
 
         {/* ─────────── 4 · ADVANCES PORTFOLIO ─────────── */}

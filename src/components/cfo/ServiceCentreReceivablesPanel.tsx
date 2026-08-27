@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Building2, ChevronRight, Loader2, Search } from 'lucide-react';
+import { AlertTriangle, Building2, ChevronRight, Loader2, Search } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -38,17 +38,21 @@ export function ServiceCentreReceivablesPanel() {
 
   return (
     <>
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="flex flex-wrap items-center gap-2 text-sm">
-            <Building2 className="h-4 w-4 text-primary" />
-            Service Centre receivables
+      <Card className="rounded-2xl shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="flex items-center gap-2.5 text-sm">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                <Building2 className="h-4 w-4 text-primary" />
+              </span>
+              Service Centre receivables
+            </CardTitle>
             {t && (
               <Badge variant="outline" className="border-0 bg-primary/10 text-[10px] text-primary">
                 {t.centres} active
               </Badge>
             )}
-          </CardTitle>
+          </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {isLoading ? (
@@ -56,9 +60,12 @@ export function ServiceCentreReceivablesPanel() {
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : isError ? (
-            <p className="py-6 text-center text-xs text-muted-foreground">
-              Service centre receivables could not be loaded.
-            </p>
+            <div className="flex flex-col items-center gap-2 py-8 text-center">
+              <AlertTriangle className="h-5 w-5 text-muted-foreground/60" />
+              <p className="text-xs text-muted-foreground">
+                Service centre receivables could not be loaded.
+              </p>
+            </div>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
@@ -69,10 +76,13 @@ export function ServiceCentreReceivablesPanel() {
               </div>
 
               {Number(t?.unallocated_daily ?? 0) > 0 && (
-                <p className="rounded-lg bg-amber-500/10 p-2 text-[11px] text-amber-600">
-                  {formatUGX(Number(t?.unallocated_daily))} per day is not yet shared between agents — Agent Ops
-                  still has to distribute it.
-                </p>
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+                  <p className="text-[11px] text-amber-700 dark:text-amber-500">
+                    {formatUGX(Number(t?.unallocated_daily))} per day is not yet shared between agents — Agent Ops
+                    still has to distribute it.
+                  </p>
+                </div>
               )}
 
               <div className="relative">
@@ -86,9 +96,12 @@ export function ServiceCentreReceivablesPanel() {
               </div>
 
               {rows.length === 0 ? (
-                <p className="py-6 text-center text-xs text-muted-foreground">
-                  No active service centre receivables.
-                </p>
+                <div className="flex flex-col items-center gap-2 py-8 text-center">
+                  <Building2 className="h-5 w-5 text-muted-foreground/50" />
+                  <p className="text-xs text-muted-foreground">
+                    No active service centre receivables.
+                  </p>
+                </div>
               ) : (
                 <div className="space-y-1.5">
                   {rows.map((r) => (
@@ -96,7 +109,7 @@ export function ServiceCentreReceivablesPanel() {
                       key={r.receivable_id}
                       type="button"
                       onClick={() => setRow(r)}
-                      className="flex w-full items-center gap-2 rounded-lg border p-2 text-left transition-colors hover:bg-muted/50"
+                      className="flex w-full items-center gap-2.5 rounded-lg border border-border p-2.5 text-left transition-colors hover:border-primary/40 hover:bg-muted/50"
                     >
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-xs font-medium">{r.centre_agent_name}</span>
@@ -172,9 +185,9 @@ export function ServiceCentreReceivablesPanel() {
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
-    <div className="rounded-lg bg-muted/40 px-2 py-1.5">
-      <p className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={`font-mono text-xs font-bold tabular-nums ${tone ?? ''}`}>{value}</p>
+    <div className="rounded-xl border border-border bg-card p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className={`mt-1 font-mono text-sm font-bold tabular-nums ${tone ?? ''}`}>{value}</p>
     </div>
   );
 }

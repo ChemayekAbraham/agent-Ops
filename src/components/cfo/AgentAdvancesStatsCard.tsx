@@ -142,9 +142,9 @@ export function AgentAdvancesTrendChart({ hideHeader = false }: { hideHeader?: b
   }
 
   return (
-    <div className="rounded-xl border bg-muted/20 p-3">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Last 30 days · Disbursed vs Recovered</p>
+    <div className="rounded-xl border border-border bg-muted/20 p-3 sm:p-4">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Last 30 days · Disbursed vs Recovered</p>
         {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
       </div>
       {chart}
@@ -160,11 +160,13 @@ export function AgentAdvancesStatsCard() {
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2 flex-wrap">
           <div>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <HandCoins className="h-4 w-4 text-purple-600" />
+            <CardTitle className="flex items-center gap-2.5 text-base">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-50 dark:bg-purple-950/40">
+                <HandCoins className="h-4 w-4 text-purple-600" />
+              </span>
               Agent Advances — Full Portfolio
             </CardTitle>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1.5">
               Every advance ever disbursed, plus the last 30 days of daily disbursements and recoveries.
             </p>
           </div>
@@ -200,10 +202,10 @@ export function AgentAdvancesStatsCard() {
 
 function StatTile({ icon, label, value, tone, hint }: { icon: React.ReactNode; label: string; value: string; tone: string; hint?: string }) {
   return (
-    <div className="rounded-xl border bg-card p-3">
+    <div className="rounded-xl border border-border bg-card p-3">
       <div className="flex items-center gap-1.5 text-muted-foreground text-[10px] uppercase font-semibold tracking-wider">
-        {icon}
-        {label}
+        <span className="shrink-0">{icon}</span>
+        <span className="truncate">{label}</span>
       </div>
       <p className={`text-base font-bold font-mono tabular-nums mt-1 ${tone}`}>{value}</p>
       {hint && <p className="text-[10px] text-muted-foreground mt-0.5">{hint}</p>}

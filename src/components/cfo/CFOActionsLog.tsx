@@ -422,7 +422,7 @@ export function CFOActionsLog() {
 
   if (isLoading) {
     return (
-      <Card className="rounded-lg shadow-sm">
+      <Card className="rounded-2xl shadow-sm">
         <CardContent className="p-4 flex justify-center">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </CardContent>
@@ -434,7 +434,10 @@ export function CFOActionsLog() {
     <Card className="rounded-2xl shadow-sm">
       <CardContent className="p-4 sm:p-5">
         <div className="flex items-center justify-between gap-2 mb-1 flex-wrap">
-          <div className="flex items-center gap-2 text-sm font-bold tracking-tight">
+          <div className="flex items-center gap-2.5 text-sm font-semibold tracking-tight">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <FileText className="h-4 w-4 text-primary" />
+            </span>
             <span>CFO Actions Log</span>
             {total > 0 && (
               <Badge variant="secondary" className="text-[10px]">{total.toLocaleString()}</Badge>
@@ -469,14 +472,14 @@ export function CFOActionsLog() {
               aria-label={`${open ? 'Collapse' : 'Expand'} CFO Actions Log`}
               className="text-muted-foreground hover:text-foreground shrink-0"
             >
-              <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
           </div>
         </div>
 
         {open && (
         <>
-        <p className="text-[10px] text-muted-foreground mb-3">
+        <p className="text-[11px] text-muted-foreground mb-3 mt-1">
           Derived directly from the general ledger — every posted cash movement appears automatically.
         </p>
 
@@ -567,7 +570,10 @@ export function CFOActionsLog() {
         </div>
 
         {!filtered.length ? (
-          <p className="text-sm text-muted-foreground text-center py-4">No movements found.</p>
+          <div className="flex flex-col items-center gap-2 py-8 text-center">
+            <FileText className="h-5 w-5 text-muted-foreground/50" />
+            <p className="text-xs text-muted-foreground">No movements found.</p>
+          </div>
         ) : (
           <>
           <div className="space-y-2 max-h-[500px] overflow-y-auto">
@@ -582,7 +588,7 @@ export function CFOActionsLog() {
               const avatarSeed = r.user_id || partyName;
 
               return (
-                <div key={r.group_id} className="flex items-start gap-3 px-1 py-2 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
+                <div key={r.group_id} className="flex items-start gap-3 rounded-lg px-2 py-2.5 border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors">
                   <div className={`h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${toneFor(avatarSeed)}`}>
                     {initialsFor(partyName)}
                   </div>
