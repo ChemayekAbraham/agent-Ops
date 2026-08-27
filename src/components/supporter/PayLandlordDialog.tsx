@@ -142,7 +142,7 @@ export function PayLandlordDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold">
-            {step === 'success' ? 'Payment Submitted!' : 'Pay Landlord'}
+            {step === 'success' ? 'Support Submitted!' : 'Pay Landlord'}
           </DialogTitle>
         </DialogHeader>
 
@@ -330,23 +330,24 @@ export function PayLandlordDialog({
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-success/20 flex items-center justify-center">
               <CheckCircle2 className="h-8 w-8 text-success" />
             </div>
-            <h3 className="text-xl font-bold mb-2">Payment Proof Submitted!</h3>
+            <h3 className="text-xl font-bold mb-2">Support Submitted!</h3>
             <p className="text-muted-foreground text-sm mb-4">
-              Your payment is being verified by our team. Once confirmed, you'll start earning 15% monthly ROI on {formatUGX(Number(request.rent_amount))}.
+              Your payment is being verified by our team. Once confirmed, you'll start earning 15% monthly returns on the {formatUGX(Number(request.rent_amount))} you supported.
             </p>
             
-            {/* Investment Account Info */}
+            {/* Support portfolio info */}
             <Card className="border-0 bg-primary/5 mb-3">
               <CardContent className="p-3">
-                <p className="text-xs text-muted-foreground">Investment Account</p>
+                <p className="text-xs text-muted-foreground">Support Portfolio</p>
                 <p className="font-bold text-primary">
                   Rent Funding - {new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  This funding has been added to your investment account
+                  This support has been added to your portfolio
                 </p>
               </CardContent>
             </Card>
+
             
             <Card className="border-0 bg-success/10">
               <CardContent className="p-3">
