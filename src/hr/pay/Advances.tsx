@@ -233,7 +233,7 @@ export default function Advances() {
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={isApprover ? 10 : 9} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={(isApprover ? 10 : 9) + (isPreparer ? 1 : 0)} className="py-8 text-center text-sm text-muted-foreground">
                   No salary advances recorded.
                 </TableCell>
               </TableRow>
