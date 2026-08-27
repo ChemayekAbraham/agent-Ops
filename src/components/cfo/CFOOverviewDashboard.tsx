@@ -47,7 +47,9 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const [exportingCommissions, setExportingCommissions] = useState(false);
   const [activeBreakdown, setActiveBreakdown] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    todayFlow: true,
+    // Lookup tools and the audit log start folded away so the numbers stay
+    // above the fold; every other band opens by default.
+    tools: false,
   });
   // Sections default to expanded unless explicitly collapsed above; the chevron toggles.
   const isOpen = (key: string) => openSections[key] !== false;
@@ -192,185 +194,225 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         </div>
       </div>
 
-      {/* Main financial surface */}
-      <div className="space-y-5">
-        {/* ══════════════ THREE HEADLINE CARDS ══════════════ */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <HeroCard
-            icon={<PiggyBank className="h-5 w-5 text-emerald-600" />}
-            iconBg="bg-emerald-50 dark:bg-emerald-950/40"
-            title="Money We Have"
-            value={fmt(totalCash)}
-            valueColor="text-emerald-600"
-            items={[
-              { dot: 'bg-emerald-500', label: 'Platform / Treasury Balance', value: fmt(platformCash?.a1 ?? 0) },
-              { dot: 'bg-emerald-500', label: 'Cash in Transit (A5)', value: fmt(platformCash?.a5 ?? 0) },
-            ]}
-            footer="Total available across all accounts"
-            footerTone="bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400"
-            onClick={() => setActiveBreakdown('cash')}
-          />
-          <HeroCard
-            icon={<Package className="h-5 w-5 text-orange-600" />}
-            iconBg="bg-orange-50 dark:bg-orange-950/40"
-            title="Money We Owe"
-            value={fmt(walletTotal)}
-            valueColor="text-orange-600"
-            items={[
-              { dot: 'bg-orange-500', label: 'Withdrawable User Wallets', value: fmt(walletTotal) },
-              { dot: 'bg-orange-500', label: 'All Recorded Liabilities', value: fmt(totalLiabilities) },
-            ]}
-            footer="Commitments not yet paid out"
-            footerTone="bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400"
-            onClick={() => setActiveBreakdown('wallets')}
-          />
-          <HeroCard
-            icon={<BarChart3 className="h-5 w-5 text-blue-600" />}
-            iconBg="bg-blue-50 dark:bg-blue-950/40"
-            title="Money We Can Use"
-            value={fmt(moneyWeCanUse)}
-            valueColor={moneyWeCanUse >= 0 ? 'text-blue-600' : 'text-destructive'}
-            items={[
-              { dot: 'bg-blue-500', label: 'Available for Operations', value: fmt(moneyWeCanUse) },
-            ]}
-            footer="After obligations and restrictions"
-            footerTone="bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400"
-            onClick={() => setActiveBreakdown('earnings')}
-          />
-        </div>
+      {/* ══════════════════════════════════════════════════════════════
+          Main financial surface. Grouped into collapsible bands so the
+          page reads top-down: what we hold → how it moved → what is
+          owed to/by us → the advances book → lookup tools.
+         ══════════════════════════════════════════════════════════════ */}
+      <div className="space-y-6">
 
-        {/* ══════════════ DAILY RECEIVABLES & PAYABLES ══════════════ */}
-        <DailyReceivablesPayablesSection />
+        {/* ─────────── 1 · CASH POSITION ─────────── */}
+        <Band
+          title="Cash Position"
+          subtitle="What we hold right now, and where it sits"
+          open={isOpen('position')}
+          onToggle={() => toggleSection('position')}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <HeroCard
+              icon={<PiggyBank className="h-5 w-5 text-emerald-600" />}
+              iconBg="bg-emerald-50 dark:bg-emerald-950/40"
+              title="Money We Have"
+              value={fmt(totalCash)}
+              valueColor="text-emerald-600"
+              items={[
+                { dot: 'bg-emerald-500', label: 'Platform / Treasury Balance', value: fmt(platformCash?.a1 ?? 0) },
+                { dot: 'bg-emerald-500', label: 'Cash in Transit (A5)', value: fmt(platformCash?.a5 ?? 0) },
+              ]}
+              footer="Total available across all accounts"
+              footerTone="bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400"
+              onClick={() => setActiveBreakdown('cash')}
+            />
+            <HeroCard
+              icon={<Package className="h-5 w-5 text-orange-600" />}
+              iconBg="bg-orange-50 dark:bg-orange-950/40"
+              title="Money We Owe"
+              value={fmt(walletTotal)}
+              valueColor="text-orange-600"
+              items={[
+                { dot: 'bg-orange-500', label: 'Withdrawable User Wallets', value: fmt(walletTotal) },
+                { dot: 'bg-orange-500', label: 'All Recorded Liabilities', value: fmt(totalLiabilities) },
+              ]}
+              footer="Commitments not yet paid out"
+              footerTone="bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400"
+              onClick={() => setActiveBreakdown('wallets')}
+            />
+            <HeroCard
+              icon={<BarChart3 className="h-5 w-5 text-blue-600" />}
+              iconBg="bg-blue-50 dark:bg-blue-950/40"
+              title="Money We Can Use"
+              value={fmt(moneyWeCanUse)}
+              valueColor={moneyWeCanUse >= 0 ? 'text-blue-600' : 'text-destructive'}
+              items={[
+                { dot: 'bg-blue-500', label: 'Available for Operations', value: fmt(moneyWeCanUse) },
+              ]}
+              footer="After obligations and restrictions"
+              footerTone="bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400"
+              onClick={() => setActiveBreakdown('earnings')}
+            />
+          </div>
 
-        {/* ══════════════ RECEIVABLES & PAYABLES CARDS (tap for breakdown & forecast) ══════════════ */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-          <ReceivablesCardDrilldown />
-          <PayablesCardDrilldown />
-        </div>
+          {/* Where that same cash sits — a split of "Money We Have", so it
+              belongs directly beneath it rather than further down the page. */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <HeroCard
+              icon={<Vault className="h-5 w-5 text-indigo-600" />}
+              iconBg="bg-indigo-50 dark:bg-indigo-950/40"
+              title="Money in Treasury / Platform"
+              value={fmt(treasuryPosition?.value ?? 0)}
+              valueColor="text-indigo-600"
+              items={[
+                { dot: 'bg-indigo-500', label: 'Cash held outside the bank', value: fmt(treasuryPosition?.value ?? 0) },
+                { dot: 'bg-indigo-500', label: 'Ledger entries', value: String(treasuryPosition?.count ?? 0) },
+              ]}
+              footer="Position view — part of Money We Have, not added to it"
+              footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic"
+            />
+            <HeroCard
+              icon={<Landmark className="h-5 w-5 text-sky-600" />}
+              iconBg="bg-sky-50 dark:bg-sky-950/40"
+              title="Money in Bank"
+              value={fmt(bankPosition?.value ?? 0)}
+              valueColor="text-sky-600"
+              items={[
+                { dot: 'bg-sky-500', label: 'Net banked cash', value: fmt(bankPosition?.value ?? 0) },
+                { dot: 'bg-sky-500', label: 'Ledger entries', value: String(bankPosition?.count ?? 0) },
+              ]}
+              footer="Position view — part of Money We Have, not added to it"
+              footerTone="bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic"
+            />
+          </div>
+        </Band>
 
-        {/* ══════════════ SERVICE CENTRE RECEIVABLES (read-only) ══════════════ */}
-        <ServiceCentreReceivablesPanel />
-
-
-
-        {/* ══════════════ WHERE THE MONEY SITS ══════════════ */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <HeroCard
-            icon={<Vault className="h-5 w-5 text-indigo-600" />}
-            iconBg="bg-indigo-50 dark:bg-indigo-950/40"
-            title="Money in Treasury / Platform"
-            value={fmt(treasuryPosition?.value ?? 0)}
-            valueColor="text-indigo-600"
-            items={[
-              { dot: 'bg-indigo-500', label: 'Cash held outside the bank', value: fmt(treasuryPosition?.value ?? 0) },
-              { dot: 'bg-indigo-500', label: 'Ledger entries', value: String(treasuryPosition?.count ?? 0) },
-            ]}
-            footer="Position view — part of Money We Have, not added to it"
-            footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic"
-          />
-          <HeroCard
-            icon={<Landmark className="h-5 w-5 text-sky-600" />}
-            iconBg="bg-sky-50 dark:bg-sky-950/40"
-            title="Money in Bank"
-            value={fmt(bankPosition?.value ?? 0)}
-            valueColor="text-sky-600"
-            items={[
-              { dot: 'bg-sky-500', label: 'Net banked cash', value: fmt(bankPosition?.value ?? 0) },
-              { dot: 'bg-sky-500', label: 'Ledger entries', value: String(bankPosition?.count ?? 0) },
-            ]}
-            footer="Position view — part of Money We Have, not added to it"
-            footerTone="bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic"
-          />
-        </div>
-
-
-        {/* ══════════════ CASH INFLOWS & OUTFLOWS CHART ══════════════ */}
-        <Card className="rounded-2xl shadow-sm h-full flex flex-col">
-          <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
-            <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
-              <p className="text-sm font-semibold tracking-tight">Cash Inflows &amp; Outflows — Last 7 Days</p>
-              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                <BarChart3 className="h-3.5 w-3.5" /> UGX
-              </span>
-            </div>
-            {cashFlowDays.length > 0 && (sevenDayCashFlow?.totalInflow || sevenDayCashFlow?.totalOutflow) ? (
-              <>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={cashFlowDays} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barCategoryGap="18%" barGap={2}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                      <YAxis tickFormatter={(v: number) => fmtShort(v)} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={52} />
-                      <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-                      <Legend wrapperStyle={{ fontSize: 11 }} />
-                      <Bar name="Cash In" dataKey="inflow" fill="#10b981" radius={[4, 4, 0, 0]} barSize={24} />
-                      <Bar name="Cash Out" dataKey="outflow" fill="#f97316" radius={[4, 4, 0, 0]} barSize={24} />
-                    </ComposedChart>
-                  </ResponsiveContainer>
+        {/* ─────────── 2 · CASH MOVEMENT ─────────── */}
+        <Band
+          title="Cash Movement"
+          subtitle="Money in and out — today, and across the last 7 days"
+          open={isOpen('movement')}
+          onToggle={() => toggleSection('movement')}
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+            {/* Today — moved up beside the 7-day chart so both flow views sit
+                together instead of being separated by the rest of the page. */}
+            <Card className="rounded-2xl shadow-sm h-full flex flex-col">
+              <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
+                <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
+                  <p className="text-sm font-semibold tracking-tight">Today&apos;s Money Flow</p>
+                  <span className="text-[11px] text-muted-foreground">{todayLabel}</span>
                 </div>
-                <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
-                  <span className="text-[11px] font-medium text-muted-foreground">Net Cash Flow (7 days)</span>
-                  <span
-                    className={`text-sm font-semibold tabular-nums ${
-                      netSevenDayCashFlow >= 0 ? 'text-emerald-600' : 'text-destructive'
-                    }`}
-                  >
-                    {netSevenDayCashFlow >= 0 ? '+' : '-'}UGX {fmtShort(Math.abs(netSevenDayCashFlow))}
+                <div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
+                  <FlowRow
+                    label="Came In"
+                    value={fmtShort(todayCashFlow?.cashInToday ?? 0)}
+                    color="text-emerald-600"
+                    iconBg="bg-emerald-50 dark:bg-emerald-950/40"
+                    icon={<ArrowDownRight className="h-5 w-5" />}
+                    onClick={() => setActiveBreakdown('cashIn')}
+                  />
+                  <FlowRow
+                    label="Went Out"
+                    value={fmtShort(todayCashFlow?.cashOutToday ?? 0)}
+                    color="text-destructive"
+                    iconBg="bg-destructive/10"
+                    icon={<ArrowUpRight className="h-5 w-5" />}
+                    onClick={() => setActiveBreakdown('cashOut')}
+                  />
+                  <FlowRow
+                    label="Net Change"
+                    value={`${netToday >= 0 ? '+' : ''}${fmtShort(netToday)}`}
+                    color={netToday >= 0 ? 'text-primary' : 'text-destructive'}
+                    iconBg="bg-primary/10"
+                    icon={<Scale className="h-5 w-5" />}
+                    onClick={() => setActiveBreakdown('netCash')}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Last 7 days */}
+            <Card className="rounded-2xl shadow-sm h-full flex flex-col">
+              <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
+                <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
+                  <p className="text-sm font-semibold tracking-tight">Cash Inflows &amp; Outflows — Last 7 Days</p>
+                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <BarChart3 className="h-3.5 w-3.5" /> UGX
                   </span>
                 </div>
-              </>
-            ) : (
-              <p className="text-xs text-muted-foreground flex-1 flex items-center justify-center min-h-[16rem]">No cash movement recorded in the last 7 days.</p>
-            )}
-          </CardContent>
-        </Card>
+                {cashFlowDays.length > 0 && (sevenDayCashFlow?.totalInflow || sevenDayCashFlow?.totalOutflow) ? (
+                  <>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={cashFlowDays} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barCategoryGap="18%" barGap={2}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                          <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+                          <YAxis tickFormatter={(v: number) => fmtShort(v)} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={52} />
+                          <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
+                          <Legend wrapperStyle={{ fontSize: 11 }} />
+                          <Bar name="Cash In" dataKey="inflow" fill="#10b981" radius={[4, 4, 0, 0]} barSize={24} />
+                          <Bar name="Cash Out" dataKey="outflow" fill="#f97316" radius={[4, 4, 0, 0]} barSize={24} />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                      <span className="text-[11px] font-medium text-muted-foreground">Net Cash Flow (7 days)</span>
+                      <span
+                        className={`text-sm font-semibold tabular-nums ${
+                          netSevenDayCashFlow >= 0 ? 'text-emerald-600' : 'text-destructive'
+                        }`}
+                      >
+                        {netSevenDayCashFlow >= 0 ? '+' : '-'}UGX {fmtShort(Math.abs(netSevenDayCashFlow))}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground flex-1 flex items-center justify-center min-h-[16rem]">No cash movement recorded in the last 7 days.</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </Band>
 
-        {/* Agent Advances — Full Portfolio */}
-        <AgentAdvancesStatsCard />
+        {/* ─────────── 3 · RECEIVABLES & PAYABLES ─────────── */}
+        <Band
+          title="Receivables & Payables"
+          subtitle="Authoritative open balances first, then movement over a chosen period"
+          open={isOpen('receivablesPayables')}
+          onToggle={() => toggleSection('receivablesPayables')}
+        >
+          {/* Authoritative totals lead. The period-filtered cards used to come
+              first, which made these full-book figures look contradictory. */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+            <ReceivablesCardDrilldown />
+            <PayablesCardDrilldown />
+          </div>
 
-        {/* ══════════════ RECEIPT NUMBER TRACKER ══════════════ */}
-        <ReceiptNumberLookupPanel className="rounded-2xl shadow-sm" />
+          <DailyReceivablesPayablesSection heading="Movement in period" />
 
-        {/* ══════════════ CFO ACTIONS LOG ══════════════ */}
-        <CFOActionsLog />
+          <ServiceCentreReceivablesPanel />
+        </Band>
 
-        {/* Today's Money Flow */}
-        <Card className="rounded-2xl shadow-sm overflow-hidden">
-          <CardContent className="p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-3 mb-4">
-              <p className="text-sm font-bold tracking-tight">Today's Money Flow</p>
-              <SectionToggle open={isOpen('todayFlow')} onToggle={() => toggleSection('todayFlow')} label="Today's Money Flow" />
-            </div>
-            {isOpen('todayFlow') && (
-              <div className="rounded-lg border border-border overflow-hidden grid grid-cols-3 divide-x divide-border">
-                <FlowCell
-                  label="Came In"
-                  value={fmtShort(todayCashFlow?.cashInToday ?? 0)}
-                  color="text-emerald-600"
-                  iconBg="bg-emerald-50 dark:bg-emerald-950/40"
-                  icon={<ArrowDownRight className="h-5 w-5" />}
-                  onClick={() => setActiveBreakdown('cashIn')}
-                />
-                <FlowCell
-                  label="Went Out"
-                  value={fmtShort(todayCashFlow?.cashOutToday ?? 0)}
-                  color="text-destructive"
-                  iconBg="bg-destructive/10"
-                  icon={<ArrowUpRight className="h-5 w-5" />}
-                  onClick={() => setActiveBreakdown('cashOut')}
-                />
-                <FlowCell
-                  label="Net Change"
-                  value={`${netToday >= 0 ? '+' : ''}${fmtShort(netToday)}`}
-                  color={netToday >= 0 ? 'text-primary' : 'text-destructive'}
-                  iconBg="bg-primary/10"
-                  icon={<Scale className="h-5 w-5" />}
-                  onClick={() => setActiveBreakdown('netCash')}
-                />
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* ─────────── 4 · ADVANCES PORTFOLIO ─────────── */}
+        <Band
+          title="Advances Portfolio"
+          subtitle="Agent advances across the full book"
+          open={isOpen('advances')}
+          onToggle={() => toggleSection('advances')}
+        >
+          <AgentAdvancesStatsCard />
+        </Band>
+
+        {/* ─────────── 5 · TOOLS & AUDIT TRAIL ─────────── */}
+        {/* Lookup tools rather than at-a-glance numbers, so this band starts
+            collapsed and no longer pushes the flow views below the fold. */}
+        <Band
+          title="Tools & Audit Trail"
+          subtitle="Receipt lookup and the log of CFO actions"
+          open={isOpen('tools')}
+          onToggle={() => toggleSection('tools')}
+        >
+          <ReceiptNumberLookupPanel className="rounded-2xl shadow-sm" />
+          <CFOActionsLog />
+        </Band>
       </div>
 
       {/* ── BREAKDOWNS ── */}
@@ -462,6 +504,33 @@ function SectionToggle({ open, onToggle, label }: { open: boolean; onToggle: () 
 }
 
 
+/**
+ * A titled, collapsible band of the overview. Bands give the page a top-down
+ * reading order (position → movement → receivables/payables → advances →
+ * tools) and let the CFO fold away what they are not looking at.
+ */
+function Band({ title, subtitle, open, onToggle, children }: {
+  title: string;
+  subtitle?: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-start justify-between gap-3 border-b border-border pb-2">
+        <div className="min-w-0">
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">{title}</h2>
+          {subtitle && <p className="text-[11px] text-muted-foreground/80 mt-0.5">{subtitle}</p>}
+        </div>
+        <SectionToggle open={open} onToggle={onToggle} label={title} />
+      </div>
+      {open && <div className="space-y-4">{children}</div>}
+    </section>
+  );
+}
+
+
 function HeroCard({ icon, iconBg, title, value, valueColor, items, footer, footerTone, onClick }: {
   icon: React.ReactNode;
   iconBg: string;
@@ -525,16 +594,18 @@ function HeroCard({ icon, iconBg, title, value, valueColor, items, footer, foote
 
 
 
-function FlowCell({ label, value, color, icon, iconBg, onClick }: {
+function FlowRow({ label, value, color, icon, iconBg, onClick }: {
   label: string; value: string; color: string; icon: React.ReactNode; iconBg?: string; onClick?: () => void;
 }) {
   return (
-    <button onClick={onClick} className="flex items-center justify-center gap-3 py-6 px-3 hover:bg-muted/30 transition-colors">
-      <div className={`h-12 w-12 rounded-full flex items-center justify-center shrink-0 ${iconBg || 'bg-muted'} ${color}`}>{icon}</div>
-      <div className="min-w-0 text-left">
-        <p className="text-[11px] text-muted-foreground font-medium">{label}</p>
-        <p className={`text-2xl font-bold tabular-nums leading-tight ${color}`}>{value}</p>
-      </div>
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-3 px-3 py-4 text-left hover:bg-muted/30 transition-colors"
+    >
+      <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${iconBg || 'bg-muted'} ${color}`}>{icon}</div>
+      <p className="flex-1 min-w-0 text-[11px] text-muted-foreground font-medium">{label}</p>
+      <p className={`text-base font-bold tabular-nums shrink-0 ${color}`}>{value}</p>
+      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
     </button>
   );
 }

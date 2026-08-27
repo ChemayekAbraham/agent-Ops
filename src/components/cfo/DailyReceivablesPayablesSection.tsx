@@ -41,7 +41,14 @@ function MetricRow({ label, value, tone }: { label: string; value: string; tone?
   );
 }
 
-export function DailyReceivablesPayablesSection() {
+interface DailyReceivablesPayablesSectionProps {
+  /** Heading shown above the cards. Override when a parent already titles the block. */
+  heading?: string;
+}
+
+export function DailyReceivablesPayablesSection({
+  heading = 'Receivables & Payables',
+}: DailyReceivablesPayablesSectionProps) {
   const [preset, setPreset] = useState<Preset>('today');
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
   const [customTo, setCustomTo] = useState<Date | undefined>();
@@ -71,7 +78,7 @@ export function DailyReceivablesPayablesSection() {
       {/* header + filter */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 className="text-sm font-semibold tracking-tight">Receivables &amp; Payables</h2>
+          <h2 className="text-sm font-semibold tracking-tight">{heading}</h2>
           <p className="text-[11px] text-muted-foreground mt-0.5">{rangeLabel}</p>
         </div>
         <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-sm">
