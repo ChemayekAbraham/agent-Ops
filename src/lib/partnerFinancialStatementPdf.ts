@@ -28,6 +28,16 @@ export const humanize = (v: unknown): string => {
   return s.replace(/_/g, ' ').trim() || '—';
 };
 
+/**
+ * Same humanising for data-table cells, but empty values stay blank so the
+ * statement never prints placeholder dashes for data that does not exist.
+ */
+const humanizeCell = (v: unknown): string => {
+  const s = v == null ? '' : String(v);
+  const cleaned = s.replace(/_/g, ' ').trim();
+  return cleaned === '—' ? '' : cleaned;
+};
+
 async function loadLogoBase64(): Promise<string | null> {
   try {
     const res = await fetch(welileLogoUrl);
@@ -125,7 +135,7 @@ export async function generatePartnerFinancialStatementPdf(
       startY: 23,
       margin: { left: margin, right: margin },
       head: [section.headers.map(humanize)],
-      body: section.rows.map((r) => r.map(humanize)),
+      body: section.rows.map((r) => r.map(humanizeCell)),
       styles: { fontSize: 7.6, cellPadding: 1.6, overflow: 'linebreak', textColor: [40, 40, 40] },
       headStyles: { fillColor: THEME_PRIMARY, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.8 },
       alternateRowStyles: { fillColor: THEME_STRIPE },
