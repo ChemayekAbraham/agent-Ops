@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useDeferredValue } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -25,6 +25,7 @@ export default function TenantAssignAgentDialog({
   const qc = useQueryClient();
   const [agentId, setAgentId] = useState<string>(currentAgentId || '');
   const [agentQuery, setAgentQuery] = useState('');
+  const deferredAgentQuery = useDeferredValue(agentQuery.trim());
   const [agentDropdownOpen, setAgentDropdownOpen] = useState(false);
   const agentPickerRef = useRef<HTMLDivElement>(null);
   const [listingId, setListingId] = useState<string>('');
@@ -51,14 +52,17 @@ export default function TenantAssignAgentDialog({
     },
   });
 
-  // Load all agents (single-role, enabled)
+  // Search only real registered agents: rent-assigned agents and registered
+  // parent/sub-agents. The RPC filters server-side so matches are not lost to
+  // the API row cap before the user types a name.
   const { data: agents = [], isLoading: agentsLoading } = useQuery({
-    queryKey: ['tenant-assign-agents'],
+    queryKey: ['tenant-assign-agents', deferredAgentQuery],
     enabled: open,
     queryFn: async () => {
-      // Security-definer RPC — works for operators / agents / funders
-      // who otherwise cannot SELECT public.user_roles directly.
-      const { data, error } = await supabase.rpc('list_assignable_agents');
+      const { data, error } = await (supabase as any).rpc('list_assignable_agents', {
+        p_search: deferredAgentQuery || null,
+        p_limit: 100,
+      });
       if (error) throw error;
       return ((data || []) as Array<{ id: string; full_name: string | null; phone: string | null }>)
         .filter(p => p.full_name || p.phone)
