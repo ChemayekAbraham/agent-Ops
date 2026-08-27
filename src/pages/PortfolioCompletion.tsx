@@ -180,19 +180,10 @@ export default function PortfolioCompletion() {
       setProfile(profileRes.data as ProfileSnapshot);
       const ag = (agreementRes.data || {}) as AgreementSnapshot;
       setExistingSig(ag.partner_signature_data_url || null);
-      setNationalId(profileRes.data?.national_id || '');
-      setMobileMoneyName(profileRes.data?.mobile_money_name || ag.momo_name || '');
-      setAddress(ag.address || profileRes.data?.landmark || '');
-      setKinName(ag.kin_name || '');
-      setKinContact(ag.kin_contact || '');
-      const mode: 'momo' | 'bank' = ag.payout_mode === 'bank' ? 'bank' : 'momo';
-      setPayoutMode(mode);
-      setMomoProvider(ag.momo_provider || 'MTN Mobile Money');
-      setMomoNumber(ag.momo_number || profileRes.data?.phone || '');
-      setMomoName(ag.momo_name || profileRes.data?.mobile_money_name || profileRes.data?.full_name || '');
-      setBankName(ag.bank_name || '');
-      setBankAccountName(ag.bank_account_name || profileRes.data?.full_name || '');
-      setBankAccountNumber(ag.bank_account_number || '');
+      // Saved details are held aside, NOT written into the form. The partner
+      // decides whether to prefill from them or type everything fresh.
+      setSaved({ profile: profileRes.data as ProfileSnapshot, agreement: ag });
+
       setStatus('ready');
     };
 
