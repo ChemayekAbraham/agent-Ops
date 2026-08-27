@@ -22,6 +22,7 @@ export const AGENT_PRODUCT_PAGES = [
   { slug: 'boutique', category: 'boutique' as AgentProductCategory, label: 'Agent Boutique', desc: 'Branded merchandise sales & recoveries', icon: ShoppingBag, color: 'bg-rose-500', to: '/agent-ops/products/boutique' },
   { slug: 'signages', category: 'signage' as AgentProductCategory, label: 'Signages', desc: 'Shop signage production & agent contributions', icon: Signpost, color: 'bg-green-600', to: '/agent-ops/products/signages' },
   { slug: 'advances', category: null, label: 'Agent Advances', desc: 'Advance requests, limits & repayment queues', icon: HandCoins, color: 'bg-violet-600', to: '/agent-ops/products/advances' },
+  { slug: 'lending-agents', category: null, label: 'Welile Lending Agents', desc: 'Lending agent onboarding, offers & loan books', icon: HandCoins, color: 'bg-violet-700', to: '/agent-ops/products/lending-agents' },
 ] as const;
 
 export const AGENT_PRODUCTS_HUB_PATH = '/executive-hub?tab=agent-ops&section=agent-products-services';
