@@ -29,6 +29,7 @@ import { useNavigate } from 'react-router-dom';
 import { COOScaleVisionView } from '@/components/coo/COOScaleVisionView';
 import { WelileOperationsHub } from '@/components/executive/WelileOperationsHub';
 import COOOverviewSnapshot from '@/components/coo/COOOverviewSnapshot';
+import { ServiceCentreReceivablesPanel } from '@/components/cfo/ServiceCentreReceivablesPanel';
 import COODepartmentBudgets from '@/components/coo/COODepartmentBudgets';
 import { COOServiceCentreVetting } from '@/components/coo/COOServiceCentreVetting';
 import { AgentNetworkBadge } from '@/components/executive/tenant-ops/AgentNetworkBadge';
@@ -303,6 +304,9 @@ export default function COODashboardPage() {
 
             {/* Operations snapshot: KPIs, trends, review queue & partner returns */}
             <COOOverviewSnapshot />
+
+            {/* Service centre receivables: what agents owe on centre funding */}
+            <ServiceCentreReceivablesPanel />
 
             {/* Quick Navigation Grid */}
             <div>

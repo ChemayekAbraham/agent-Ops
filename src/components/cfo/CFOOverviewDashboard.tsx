@@ -25,6 +25,7 @@ import { ReceiptNumberLookupPanel } from '@/components/financial-ops/ReceiptNumb
 import { AgentAdvancesStatsCard } from '@/components/cfo/AgentAdvancesStatsCard';
 import { DailyReceivablesPayablesSection } from '@/components/cfo/DailyReceivablesPayablesSection';
 import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilldown';
+import { ServiceCentreReceivablesPanel } from '@/components/cfo/ServiceCentreReceivablesPanel';
 import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
 
 
@@ -246,6 +247,9 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           <ReceivablesCardDrilldown />
           <PayablesCardDrilldown />
         </div>
+
+        {/* ══════════════ SERVICE CENTRE RECEIVABLES (read-only) ══════════════ */}
+        <ServiceCentreReceivablesPanel />
 
 
 
