@@ -21,7 +21,6 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { generateCfoLedgerTrailPdf } from '@/lib/cfoLedgerTrailPdf';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { formatUgxExact } from '@/lib/currencyFormat';
 
 /**
  * Ledger-derived CFO Actions Trail.
@@ -52,8 +51,8 @@ type TrailRow = {
   total_count: number;
 };
 
-// Shared with the rest of the CFO overview so one screen speaks one format.
-const fmt = formatUgxExact;
+const fmt = (n: number) =>
+  new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(n);
 
 // Human-friendly labels for the common ledger categories. Anything not listed
 // is auto-humanized (snake_case → Title Case), so new categories never vanish.

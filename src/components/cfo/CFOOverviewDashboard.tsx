@@ -9,7 +9,7 @@ import {
   Loader2, ArrowDownRight, ArrowUpRight, Scale, Wallet,
   ChevronRight, Info, CalendarDays, Download,
   PiggyBank, BarChart3, Package, ChevronDown,
-  Landmark, Vault, AlertTriangle, ShieldCheck, RefreshCw, Clock,
+  Landmark, Vault,
 } from 'lucide-react';
 import {
   ResponsiveContainer, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -19,7 +19,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { KPIBreakdownSheet } from '@/components/cfo/KPIBreakdownSheet';
 import { CashSourcesSheet } from '@/components/cfo/CashSourcesSheet';
-import { formatUgxExact as fmt } from '@/lib/currencyFormat';
 
 import { CFOActionsLog } from '@/components/cfo/CFOActionsLog';
 import { ReceiptNumberLookupPanel } from '@/components/financial-ops/ReceiptNumberLookupPanel';
@@ -34,6 +33,8 @@ interface CFOOverviewDashboardProps {
   onTabChange?: (tab: string) => void;
 }
 
+const fmt = (n: number) =>
+  `${n < 0 ? '-' : ''}UGX ${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.abs(n))}`;
 
 const fmtShort = (n: number) => {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -56,9 +57,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const { user } = useAuth();
   const {
     platformCash, liabilities, revenue, receivables, moneyFlow,
-    todayCashFlow, isLoading,
-    integrityChecks, pendingApprovals,
-    dataUpdatedAt, isRefreshing, refetchAll,
+    todayCashFlow, isLoading
   } = useCFOOverviewData();
   const { data: sevenDayCashFlow } = useCFO7DayCashFlow();
 
@@ -139,10 +138,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const bankPosition = (platformCash?.positions ?? []).find((p: any) => p.category === 'bank_cash');
   const totalLiabilities = liabilities?.totalLiabilities ?? 0;
   const walletTotal = liabilities?.tenantFunds ?? 0;
-  // Deliberately NOT clamped at zero. If user wallets exceed cash on hand the
-  // platform is underwater, and that is precisely the case this figure exists
-  // to surface - a floor of zero would render it as a healthy balance.
-  const moneyWeCanUse = totalCash - walletTotal;
+  const moneyWeCanUse = Math.max(0, totalCash - walletTotal);
   const netToday = todayCashFlow?.netToday ?? 0;
 
   
@@ -162,46 +158,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const todayLabel = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
-
-  /* ── what needs a decision today ── */
-  const attentionItems = [
-    {
-      key: 'approvals',
-      count: pendingApprovals?.count ?? 0,
-      label: (n: number) => `${n} approval${n === 1 ? '' : 's'} waiting`,
-      detail: pendingApprovals?.totalAmount ? fmt(pendingApprovals.totalAmount) : null,
-      tone: 'text-amber-700 dark:text-amber-500',
-      chip: 'bg-amber-50 dark:bg-amber-950/40',
-    },
-    {
-      key: 'drift',
-      count: integrityChecks?.walletDriftCount ?? 0,
-      label: (n: number) => `${n} wallet${n === 1 ? '' : 's'} drifted from the ledger`,
-      detail: null,
-      tone: 'text-destructive',
-      chip: 'bg-destructive/10',
-    },
-    {
-      key: 'groups',
-      count: integrityChecks?.missingGroupCount ?? 0,
-      label: (n: number) => `${n} ledger entr${n === 1 ? 'y' : 'ies'} missing a group`,
-      detail: null,
-      tone: 'text-destructive',
-      chip: 'bg-destructive/10',
-    },
-    {
-      key: 'negative',
-      count: integrityChecks?.negativeLedgerCount ?? 0,
-      label: (n: number) => `${n} negative balance${n === 1 ? '' : 's'}`,
-      detail: null,
-      tone: 'text-destructive',
-      chip: 'bg-destructive/10',
-    },
-  ].filter((i) => i.count > 0);
-
-  const asOfLabel = dataUpdatedAt
-    ? new Date(dataUpdatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-    : null;
 
   const cashFlowDays = sevenDayCashFlow?.days ?? [];
   const netSevenDayCashFlow = sevenDayCashFlow?.netFlow ?? 0;
@@ -223,26 +179,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           <div className="flex items-center gap-2 h-10 px-4 rounded-lg border border-border bg-card text-xs font-medium shadow-sm">
             <CalendarDays className="h-4 w-4 text-muted-foreground" />
             {todayLabel}
-            {asOfLabel && (
-              <>
-                <span className="text-muted-foreground/50" aria-hidden>|</span>
-                <span className="inline-flex items-center gap-1 text-muted-foreground">
-                  <Clock className="h-3.5 w-3.5" />
-                  as of {asOfLabel}
-                </span>
-              </>
-            )}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-10 rounded-lg gap-2 text-xs shadow-sm"
-            onClick={refetchAll}
-            disabled={isRefreshing}
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -255,11 +192,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           </Button>
         </div>
       </div>
-
-      {/* ══════════════ NEEDS ATTENTION ══════════════ */}
-      {/* Reads integrityChecks and pendingApprovals, which useCFOOverviewData
-          already fetched on every load but nothing rendered. No new queries. */}
-      <AttentionStrip items={attentionItems} />
 
       {/* ══════════════════════════════════════════════════════════════
           Main financial surface. Grouped into collapsible bands so the
@@ -311,20 +243,10 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               value={fmt(moneyWeCanUse)}
               valueColor={moneyWeCanUse >= 0 ? 'text-blue-600' : 'text-destructive'}
               items={[
-                moneyWeCanUse >= 0
-                  ? { dot: 'bg-blue-500', label: 'Available for Operations', value: fmt(moneyWeCanUse) }
-                  : { dot: 'bg-destructive', label: 'Shortfall against user wallets', value: fmt(moneyWeCanUse) },
+                { dot: 'bg-blue-500', label: 'Available for Operations', value: fmt(moneyWeCanUse) },
               ]}
-              footer={
-                moneyWeCanUse >= 0
-                  ? 'After obligations and restrictions'
-                  : 'Obligations exceed cash on hand'
-              }
-              footerTone={
-                moneyWeCanUse >= 0
-                  ? 'bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400'
-                  : 'bg-destructive/10 text-destructive'
-              }
+              footer="After obligations and restrictions"
+              footerTone="bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400"
               onClick={() => setActiveBreakdown('earnings')}
             />
           </div>
@@ -572,53 +494,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
 }
 
 /* ── Sub-components ── */
-
-/**
- * What needs a decision today. Fed entirely by payloads `useCFOOverviewData`
- * already returns, so this costs no additional queries. Renders a quiet
- * all-clear when every check is zero, because "nothing outstanding" is itself
- * information a CFO wants confirmed rather than inferred from absence.
- */
-function AttentionStrip({ items }: {
-  items: { key: string; count: number; label: (n: number) => string; detail: string | null; tone: string; chip: string }[];
-}) {
-  if (items.length === 0) {
-    return (
-      <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/40">
-          <ShieldCheck className="h-4 w-4 text-emerald-600" />
-        </span>
-        <p className="text-xs text-muted-foreground">
-          Nothing waiting on you — no pending approvals, no ledger drift, no negative balances.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-xl border border-amber-500/40 bg-amber-50/50 dark:bg-amber-950/20 shadow-sm overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-amber-500/30 px-4 py-2">
-        <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
-        <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-amber-700 dark:text-amber-500">
-          Needs attention
-        </p>
-      </div>
-      <div className="grid grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-y-0 sm:divide-x lg:grid-cols-4">
-        {items.map((i) => (
-          <div key={i.key} className="flex items-center gap-2.5 px-4 py-3">
-            <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${i.chip}`}>
-              <span className={`text-xs font-bold tabular-nums ${i.tone}`}>{i.count}</span>
-            </span>
-            <div className="min-w-0">
-              <p className="text-xs font-medium leading-tight">{i.label(i.count)}</p>
-              {i.detail && <p className="text-[11px] text-muted-foreground tabular-nums">{i.detail}</p>}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function SectionToggle({ open, onToggle, label }: { open: boolean; onToggle: () => void; label: string }) {
   return (
