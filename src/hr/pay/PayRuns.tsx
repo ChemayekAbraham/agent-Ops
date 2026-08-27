@@ -83,6 +83,7 @@ function useRunAuthority() {
         preparer: prep?.data === true,
         approver: appr?.data === true,
         releaser: rel?.data === true,
+        ruleAdmin: ruleAdm?.data === true,
         loaded: true,
       });
     })();
