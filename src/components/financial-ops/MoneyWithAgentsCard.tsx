@@ -723,6 +723,20 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
         readOnlyReason={readOnlyReason}
       />
 
+      <MerchantCapacityBulkOverrideDialog
+        open={bulkOverrideOpen}
+        onOpenChange={setBulkOverrideOpen}
+        desks={rows
+          .filter((r) => !!r.agentId)
+          .map((r) => ({
+            agentId: r.agentId as string,
+            agentName: r.agentName || r.label || 'Merchant agent',
+            capacity: capacityFor(r.agentId),
+          }))}
+        canEdit={canEditFloat}
+        readOnlyReason={readOnlyReason}
+      />
+
 
 
       <div className="mt-4">
