@@ -915,7 +915,7 @@ export function DailyRentReport({ mode }: Props) {
       <Card className="p-0 overflow-hidden">
         <div className="p-3 border-b flex items-center justify-between">
           <div className="text-sm font-semibold">
-            {mode === 'tenant' ? 'Daily Repayments' : 'Daily Collections'} · {filtered.length} rows
+            {mode === 'tenant' ? 'Daily Repayments' : 'Daily Collections'} · {txRows.length} rows
           </div>
           {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
         </div>
@@ -927,12 +927,12 @@ export function DailyRentReport({ mode }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 && (
-                <tr><td colSpan={headers.length} className="px-3 py-6 text-center text-muted-foreground">No rows for this day.</td></tr>
+              {txRows.length === 0 && (
+                <tr><td colSpan={headers.length} className="px-3 py-6 text-center text-muted-foreground">No rows for this period.</td></tr>
               )}
-              {filtered.map((r, rowIdx) => (
+              {txRows.map((r, rowIdx) => (
                 <tr key={r.id} className="border-t hover:bg-muted/40">
-                  {(bodyRows[rowIdx] ?? []).map((cell, i) => (
+                  {(txBodyRows[rowIdx] ?? []).map((cell, i) => (
                     <td key={i} className="px-2 py-1.5 whitespace-nowrap">
                       {i === statusColIndex ? (
                         <Badge variant={r.status === 'successful' ? 'default' : r.status === 'pending' ? 'secondary' : 'destructive'} className="text-[10px]">{r.status}</Badge>
@@ -942,11 +942,11 @@ export function DailyRentReport({ mode }: Props) {
                 </tr>
               ))}
             </tbody>
-            {filtered.length > 0 && (
+            {txRows.length > 0 && (
               <tfoot className="bg-muted/60 font-semibold">
                 <tr>
                   <td colSpan={headers.length - 1} className="px-2 py-1.5 text-right">Total</td>
-                  <td className="px-2 py-1.5">{formatUGX(totals.sum)}</td>
+                  <td className="px-2 py-1.5">{formatUGX(txTotals.sum)}</td>
                 </tr>
               </tfoot>
             )}
@@ -970,7 +970,7 @@ export function DailyRentReport({ mode }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {agentRanking.map(a => {
+                {agentTable.map(a => {
                   const rate = a.count ? (a.successful / a.count) * 100 : 0;
                   return (
                     <tr key={a.agent_id} className="border-t">
