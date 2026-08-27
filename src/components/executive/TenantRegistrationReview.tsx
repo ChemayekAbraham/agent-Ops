@@ -89,7 +89,7 @@ export function TenantRegistrationReview({ tenantId, tenantName, onBack }: Props
         .limit(1)
         .maybeSingle();
 
-      const [profileRes, landlordRes, lc1Res] = await Promise.all([
+      const [profileRes, landlordRes, lc1Res, docsRes] = await Promise.all([
         supabase.from('profiles')
           .select('full_name, phone, email, city, country, national_id, mobile_money_number, mobile_money_provider')
           .eq('id', tenantId)
@@ -106,16 +106,32 @@ export function TenantRegistrationReview({ tenantId, tenantName, onBack }: Props
               .eq('id', reqData.lc1_id)
               .maybeSingle()
           : Promise.resolve({ data: null }),
+        // Authoritative photo custody: what the agent actually uploaded from the
+        // tenant profile sheet lives in tenant_documents, not in the rent request
+        // snapshot (which can be stale after a re-upload).
+        supabase.rpc('get_tenant_documents' as any, { p_tenant_id: tenantId }),
       ]);
+
+      const docRows: any[] = Array.isArray(docsRes?.data) ? (docsRes.data as any[]) : [];
+      const currentHouseDocs = docRows
+        .filter(d => d.doc_type === 'house_image' && d.is_current !== false && d.public_url)
+        .sort((a, b) => (b.version ?? 0) - (a.version ?? 0));
+      const currentPassport = docRows.find(d => d.doc_type === 'tenant_passport' && d.is_current !== false && d.public_url);
 
       return {
         profile: profileRes.data,
         landlord: landlordRes.data,
         lc1: lc1Res.data,
         request: reqData,
+        houseImages: currentHouseDocs.length > 0
+          ? currentHouseDocs.map(d => d.public_url as string)
+          : ((reqData?.house_image_urls as string[] | null) ?? []),
+        houseImagesFromDocs: currentHouseDocs.length > 0,
+        passportUrl: (currentPassport?.public_url as string | undefined) ?? reqData?.tenant_photo_url ?? null,
       };
     },
   });
+
 
   const startEdit = (section: SectionKey) => {
     const sectionData = data?.[section] as Record<string, any> | null;
