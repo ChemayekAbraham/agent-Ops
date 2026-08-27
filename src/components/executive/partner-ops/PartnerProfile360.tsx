@@ -89,49 +89,85 @@ function Field({ icon: Icon, label, value }: { icon?: any; label: string; value?
 interface Col { key: string; label: string; render?: (r: Row) => string; align?: 'right'; wrap?: boolean }
 
 /** One table renderer reused by every tab — keeps markup and export logic DRY. */
-function DataTable({ cols, rows, empty, onRowClick }: { cols: Col[]; rows: Row[]; empty: string; onRowClick?: (r: Row) => void }) {
+function DataTable({ cols, rows, empty, onRowClick, pageSize = 10 }: { cols: Col[]; rows: Row[]; empty: string; onRowClick?: (r: Row) => void; pageSize?: number }) {
+  const [page, setPage] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const current = Math.min(page, totalPages - 1);
+  useEffect(() => { setPage(0); }, [rows]);
+
   if (!rows.length) {
     return <p className="py-8 text-center text-xs text-muted-foreground">{empty}</p>;
   }
-  return (
-    <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full min-w-[560px] text-xs">
-        <thead className="bg-muted/50">
-          <tr>
-            {cols.map((c) => (
-              <th key={c.key} className={cn('px-3 py-2 text-left font-semibold whitespace-nowrap', c.align === 'right' && 'text-right')}>
-                {c.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y">
-          {rows.map((r, i) => (
-            <tr
-              key={r.id || i}
-              onClick={onRowClick ? () => onRowClick(r) : undefined}
-              className={cn('hover:bg-muted/30', onRowClick && 'cursor-pointer')}
-            >
-              {cols.map((c) => (
-                <td
-                  key={c.key}
-                  className={cn(
-                    'px-3 py-2',
-                    c.wrap ? 'max-w-[260px] whitespace-normal break-words align-top' : 'whitespace-nowrap',
-                    c.align === 'right' && 'text-right tabular-nums',
-                  )}
-                >
-                  {c.render ? c.render(r) : (r[c.key] ?? '—')}
-                </td>
-              ))}
 
+  const start = current * pageSize;
+  const visible = rows.slice(start, start + pageSize);
+
+  return (
+    <div className="w-full min-w-0 space-y-2">
+      <div className="w-full max-w-full overflow-x-auto rounded-lg border">
+        <table className="w-full min-w-[560px] text-xs">
+          <thead className="bg-muted/50">
+            <tr>
+              {cols.map((c) => (
+                <th key={c.key} className={cn('px-3 py-2 text-left font-semibold whitespace-nowrap', c.align === 'right' && 'text-right')}>
+                  {c.label}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y">
+            {visible.map((r, i) => (
+              <tr
+                key={r.id || `${start + i}`}
+                onClick={onRowClick ? () => onRowClick(r) : undefined}
+                className={cn('hover:bg-muted/30', onRowClick && 'cursor-pointer')}
+              >
+                {cols.map((c) => (
+                  <td
+                    key={c.key}
+                    className={cn(
+                      'px-3 py-2',
+                      c.wrap ? 'max-w-[220px] whitespace-normal break-words align-top' : 'whitespace-nowrap',
+                      c.align === 'right' && 'text-right tabular-nums',
+                    )}
+                  >
+                    {c.render ? c.render(r) : (r[c.key] ?? '—')}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {rows.length > pageSize && (
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+          <span>
+            Showing {start + 1}–{Math.min(start + pageSize, rows.length)} of {rows.length}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <Button
+              type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px]"
+              disabled={current === 0}
+              onClick={() => setPage(current - 1)}
+            >
+              Previous
+            </Button>
+            <span className="px-1">Page {current + 1} of {totalPages}</span>
+            <Button
+              type="button" variant="outline" size="sm" className="h-7 px-2 text-[11px]"
+              disabled={current >= totalPages - 1}
+              onClick={() => setPage(current + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
 
 
 const toSheet = (name: string, cols: Col[], rows: Row[]): XlsxSheet => ({
