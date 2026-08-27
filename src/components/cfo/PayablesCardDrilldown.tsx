@@ -82,8 +82,8 @@ export function PayablesCardDrilldown() {
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
-          side="right"
-          className="w-full sm:max-w-2xl lg:max-w-4xl xl:max-w-5xl overflow-y-auto overflow-x-hidden p-4 sm:p-6"
+          side="center"
+          className="overflow-y-auto overflow-x-hidden p-4 sm:p-6"
         >
           <SheetHeader className="text-left">
             <SheetTitle className="text-base sm:text-lg">
