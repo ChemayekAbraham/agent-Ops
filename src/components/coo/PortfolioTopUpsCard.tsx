@@ -374,7 +374,14 @@ function TopUpsDialog({ open, onOpenChange, rows, loading, onRefresh }: {
                       </div>
                     </TableCell>
                     <TableCell className="text-sm whitespace-nowrap">{format(new Date(r.createdAt), 'dd MMM yyyy, HH:mm')}</TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums whitespace-nowrap">{formatUGX(r.amount)}</TableCell>
+                    <TableCell className="text-right whitespace-nowrap">
+                      <div className="leading-tight">
+                        {r.previousCapital != null && (
+                          <p className="text-[11px] text-muted-foreground tabular-nums">Before: {formatUGX(r.previousCapital)}</p>
+                        )}
+                        <p className="font-semibold tabular-nums">{formatUGX(r.amount)}</p>
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={r.group === 'applied' ? 'secondary' : 'outline'} className={cn('text-[10px]', r.group === 'pending' && 'border-amber-500/40 text-amber-600')}>
                         {r.group === 'applied' ? 'Applied' : 'Pending'}
