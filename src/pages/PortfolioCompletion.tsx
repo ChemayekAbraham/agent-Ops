@@ -514,6 +514,12 @@ export default function PortfolioCompletion() {
             <h2 className="text-sm font-bold">Payout method</h2>
             <p className="text-[11px] text-muted-foreground mt-0.5">Where Welile sends your monthly returns.</p>
           </div>
+          {paymentNeedsUpdate && (
+            <p className="rounded-md border border-amber-500/60 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-800">
+              You changed your details — enter your payment details again so your returns reach the right account.
+            </p>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
             <Button
               type="button"
