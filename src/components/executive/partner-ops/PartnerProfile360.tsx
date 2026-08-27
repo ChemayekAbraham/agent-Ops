@@ -503,11 +503,11 @@ export function PartnerProfile360() {
      * returns were missing from the statement entirely. Fetch them explicitly.
      */
     let returnsLegs: Row[] = [];
-    if (selectedId) {
+    if (selected?.user_id) {
       const { data: legs } = await supabase
         .from('general_ledger')
         .select('id, transaction_date, created_at, amount, category, description, reference_id')
-        .eq('user_id', selectedId)
+        .eq('user_id', selected?.user_id)
         .in('category', ['roi_reinvestment', 'roi_payout', 'roi_wallet_credit', 'roi_accrued'])
         .order('transaction_date', { ascending: true })
         .limit(500);
