@@ -188,7 +188,6 @@ export function useCFODailyReceivablesPayables(range: DailyRange) {
         },
       };
 
-      };
     },
   });
 }
