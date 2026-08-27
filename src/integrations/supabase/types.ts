@@ -44304,7 +44304,7 @@ export type Database = {
         Returns: boolean
       }
       list_assignable_agents: {
-        Args: never
+        Args: { p_limit?: number; p_search?: string }
         Returns: {
           full_name: string
           id: string
