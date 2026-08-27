@@ -70,13 +70,18 @@ export default function PortfolioCompletion() {
   const [profile, setProfile] = useState<ProfileSnapshot | null>(null);
   const [existingSig, setExistingSig] = useState<string | null>(null);
 
-  // Form state — only edit fields that are missing
+  // Saved details held aside for optional prefill — never auto-applied.
+  const [saved, setSaved] = useState<{ profile: ProfileSnapshot | null; agreement: AgreementSnapshot } | null>(null);
+  const [prefilled, setPrefilled] = useState(false);
+  const [paymentNeedsUpdate, setPaymentNeedsUpdate] = useState(false);
+
+  // Form state — starts empty; the partner types it or taps "Use my saved details"
   const [nationalId, setNationalId] = useState('');
   const [mobileMoneyName, setMobileMoneyName] = useState('');
   const [sigDataUrl, setSigDataUrl] = useState<string | null>(null);
   const [useExistingSig, setUseExistingSig] = useState(true);
 
-  // Contract-required fields (mirrors the funder-onboarding contract prefill)
+  // Contract-required fields
   const [address, setAddress] = useState('');
   const [kinName, setKinName] = useState('');
   const [kinContact, setKinContact] = useState('');
@@ -87,6 +92,53 @@ export default function PortfolioCompletion() {
   const [bankName, setBankName] = useState('');
   const [bankAccountName, setBankAccountName] = useState('');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
+
+  const hasSavedDetails = Boolean(
+    saved && (
+      saved.profile?.national_id || saved.agreement.address || saved.agreement.kin_name
+      || saved.agreement.momo_number || saved.agreement.bank_account_number
+    ),
+  );
+
+  /** Tap-to-prefill: copies the details already on file into the empty form. */
+  const applySavedDetails = () => {
+    if (!saved) return;
+    const ag = saved.agreement;
+    const p = saved.profile;
+    setNationalId(p?.national_id || '');
+    setMobileMoneyName(p?.mobile_money_name || ag.momo_name || '');
+    setAddress(ag.address || p?.landmark || '');
+    setKinName(ag.kin_name || '');
+    setKinContact(ag.kin_contact || '');
+    const mode: 'momo' | 'bank' = ag.payout_mode === 'bank' ? 'bank' : 'momo';
+    setPayoutMode(mode);
+    setMomoProvider(ag.momo_provider || 'MTN Mobile Money');
+    setMomoNumber(ag.momo_number || p?.phone || '');
+    setMomoName(ag.momo_name || p?.mobile_money_name || p?.full_name || '');
+    setBankName(ag.bank_name || '');
+    setBankAccountName(ag.bank_account_name || p?.full_name || '');
+    setBankAccountNumber(ag.bank_account_number || '');
+    setPrefilled(true);
+    setPaymentNeedsUpdate(false);
+    setFormError('');
+    toast.success('Your saved details have been filled in. Please check them before submitting.');
+  };
+
+  /**
+   * Identity details were changed after a prefill: the payment details on file
+   * can no longer be assumed correct, so they are cleared and must be re-entered.
+   */
+  const onIdentityEdited = () => {
+    if (!prefilled || paymentNeedsUpdate) return;
+    setPaymentNeedsUpdate(true);
+    setMomoNumber('');
+    setMomoName('');
+    setBankName('');
+    setBankAccountName('');
+    setBankAccountNumber('');
+    toast.info('You changed your details — please enter your payment details again.');
+  };
+
 
   // ─── Load: gate access and hydrate snapshots ───
   useEffect(() => {
@@ -180,19 +232,10 @@ export default function PortfolioCompletion() {
       setProfile(profileRes.data as ProfileSnapshot);
       const ag = (agreementRes.data || {}) as AgreementSnapshot;
       setExistingSig(ag.partner_signature_data_url || null);
-      setNationalId(profileRes.data?.national_id || '');
-      setMobileMoneyName(profileRes.data?.mobile_money_name || ag.momo_name || '');
-      setAddress(ag.address || profileRes.data?.landmark || '');
-      setKinName(ag.kin_name || '');
-      setKinContact(ag.kin_contact || '');
-      const mode: 'momo' | 'bank' = ag.payout_mode === 'bank' ? 'bank' : 'momo';
-      setPayoutMode(mode);
-      setMomoProvider(ag.momo_provider || 'MTN Mobile Money');
-      setMomoNumber(ag.momo_number || profileRes.data?.phone || '');
-      setMomoName(ag.momo_name || profileRes.data?.mobile_money_name || profileRes.data?.full_name || '');
-      setBankName(ag.bank_name || '');
-      setBankAccountName(ag.bank_account_name || profileRes.data?.full_name || '');
-      setBankAccountNumber(ag.bank_account_number || '');
+      // Saved details are held aside, NOT written into the form. The partner
+      // decides whether to prefill from them or type everything fresh.
+      setSaved({ profile: profileRes.data as ProfileSnapshot, agreement: ag });
+
       setStatus('ready');
     };
 
@@ -374,6 +417,29 @@ export default function PortfolioCompletion() {
           </CardContent>
         </Card>
 
+        {/* Optional prefill — nothing is filled in until the partner asks for it */}
+        {hasSavedDetails && (
+          <Card className="border-dashed">
+            <CardContent className="p-4 space-y-2">
+              <p className="text-sm font-bold">Use the details we already have?</p>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                We can fill this form with the details on your file. Otherwise leave it blank and type
+                everything yourself.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full h-10"
+                onClick={applySavedDetails}
+                disabled={status === 'submitting'}
+              >
+                {prefilled ? 'Refill my saved details' : 'Use my saved details'}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Identity fields */}
         <div className="space-y-3">
           <h2 className="text-sm font-bold">Your identity</h2>
@@ -386,7 +452,7 @@ export default function PortfolioCompletion() {
             <Input
               id="nin"
               value={nationalId}
-              onChange={(e) => setNationalId(e.target.value.toUpperCase())}
+              onChange={(e) => { setNationalId(e.target.value.toUpperCase()); onIdentityEdited(); }}
               placeholder="e.g. CM12345678ABCD"
               disabled={status === 'submitting'}
               maxLength={40}
@@ -399,7 +465,7 @@ export default function PortfolioCompletion() {
             <Textarea
               id="addr"
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
+              onChange={(e) => { setAddress(e.target.value); onIdentityEdited(); }}
               placeholder="District, division, village / street"
               disabled={status === 'submitting'}
               maxLength={240}
@@ -407,6 +473,7 @@ export default function PortfolioCompletion() {
             />
           </div>
         </div>
+
 
         {/* Next of kin */}
         <div className="space-y-3">
@@ -420,7 +487,7 @@ export default function PortfolioCompletion() {
               <Input
                 id="nok-name"
                 value={kinName}
-                onChange={(e) => setKinName(e.target.value)}
+                onChange={(e) => { setKinName(e.target.value); onIdentityEdited(); }}
                 placeholder="e.g. Sarah Nakato"
                 disabled={status === 'submitting'}
                 maxLength={120}
@@ -431,7 +498,7 @@ export default function PortfolioCompletion() {
               <Input
                 id="nok-contact"
                 value={kinContact}
-                onChange={(e) => setKinContact(e.target.value)}
+                onChange={(e) => { setKinContact(e.target.value); onIdentityEdited(); }}
                 placeholder="e.g. +256 7xx xxx xxx"
                 inputMode="tel"
                 disabled={status === 'submitting'}
@@ -447,6 +514,12 @@ export default function PortfolioCompletion() {
             <h2 className="text-sm font-bold">Payout method</h2>
             <p className="text-[11px] text-muted-foreground mt-0.5">Where Welile sends your monthly returns.</p>
           </div>
+          {paymentNeedsUpdate && (
+            <p className="rounded-md border border-amber-500/60 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-800">
+              You changed your details — enter your payment details again so your returns reach the right account.
+            </p>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
             <Button
               type="button"
