@@ -8,7 +8,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { useSupportedTenants } from '@/hooks/useSupportedTenants';
 import { useAvailableBalance } from '@/hooks/useAvailableBalance';
-import { FunderQuickActions } from '@/components/supporter/FunderQuickActions';
 const welileLogo = '/welile-colored.png';
 
 // Taller card (354x200) to give the Add Card button more room on mobile.
@@ -280,12 +279,6 @@ export function PartnerPortfolioWalletCard({ onAddCard, onPortfolios, onCalculat
         />
         <ActionButton label="More" onClick={onMore} icon={<Menu className="w-4 h-4" />} />
       </div>
-
-      {/* WALLET ACTIONS — same Deposit / Withdraw / Transfer flows as the wallet hero card */}
-      <FunderQuickActions
-        availableBalance={availableBalance}
-        onChanged={() => { refreshAvailable?.(); }}
-      />
     </div>
   );
 }

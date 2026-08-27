@@ -47,7 +47,6 @@ import { hapticTap } from '@/lib/haptics';
 
 // Virtual Houses components
 import { PortfolioSummaryCards } from '@/components/supporter/PortfolioSummaryCards';
-import { UnifiedWalletHeroCard } from '@/components/wallet/UnifiedWalletHeroCard';
 import { VirtualHousesFeed } from '@/components/supporter/VirtualHousesFeed';
 import { VirtualHouse } from '@/components/supporter/VirtualHouseCard';
 import { VirtualHouseDetailsSheet } from '@/components/supporter/VirtualHouseDetailsSheet';
@@ -74,7 +73,6 @@ import { useInactivityLock } from '@/hooks/useInactivityLock';
 import { SupporterInactivityLock } from '@/components/supporter/SupporterInactivityLock';
 import { WidgetErrorBoundary } from '@/components/shared/WidgetErrorBoundary';
 import {
-  WalletHeroSkeleton,
   WidgetCardSkeleton,
   ListSectionSkeleton,
 } from '@/components/skeletons/SectionSkeletons';
@@ -490,36 +488,8 @@ export default function SupporterDashboard({
 
           <MerchantCodePills />
 
-          {/* ═══ PORTFOLIO HERO CARD ═══ */}
-          {wallet ? (
-            <div id="funder-wallet-hero">
-            <UnifiedWalletHeroCard
-              balance={wallet?.balance ?? 0}
-              role="supporter"
-              secondaryLabel="Active Funds"
-              secondaryValue={_formatUGX(totalRentContributed)}
-              houses={supportedTenantCount}
-              housesLabel="Tenants"
-              returnPerMonth={_formatUGX(totalRoiEarned)}
-              deployed={_formatUGX(totalRentContributed)}
-              onOpenWallet={() => setShowWallet(true)}
-              onHousesTap={() => {
-                const el = document.getElementById('supported-tenants');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
-              onReturnTap={() => {
-                setInvestmentsTab('accounts');
-                setShowInvestments(true);
-              }}
-              onDeployedTap={() => {
-                setInvestmentsTab('accounts');
-                setShowInvestments(true);
-              }}
-            />
-            </div>
-          ) : (
-            <WalletHeroSkeleton />
-          )}
+
+
 
           <WidgetErrorBoundary label="Portfolio card">
             <PartnerPortfolioWalletCard
