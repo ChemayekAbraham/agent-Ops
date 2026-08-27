@@ -32,7 +32,7 @@ export interface MerchantCapacity {
 const round = (n: number, step = 5000) => Math.max(0, Math.round(n / step) * step);
 
 /** Performance multiplier from the allocation score + explicit recommendation. */
-function performanceFactor(r: MerchantFloatAllocationRow): number {
+export function performanceFactor(r: MerchantFloatAllocationRow): number {
   if (r.blocker) return 0;
   if (!r.isActive) return 0;
   const scoreFactor = Math.min(1.25, Math.max(0.15, (r.allocationScore || 0) / 80));
