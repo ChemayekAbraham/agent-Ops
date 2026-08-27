@@ -497,6 +497,30 @@ export function PartnerProfile360() {
 
     const portfolios = data.portfolios || [];
 
+    /**
+     * Returns activity lives on PLATFORM-scope ledger legs, while get_partner_360
+     * only returns wallet-scope legs — which is why compounded (reinvested)
+     * returns were missing from the statement entirely. Fetch them explicitly.
+     */
+    let returnsLegs: Row[] = [];
+    if (selectedId) {
+      const { data: legs } = await supabase
+        .from('general_ledger')
+        .select('id, transaction_date, created_at, amount, category, description, reference_id')
+        .eq('user_id', selectedId)
+        .in('category', ['roi_reinvestment', 'roi_payout', 'roi_wallet_credit', 'roi_accrued'])
+        .order('transaction_date', { ascending: true })
+        .limit(500);
+      returnsLegs = legs || [];
+    }
+    const reinvested = returnsLegs
+      .filter((l) => String(l.category) === 'roi_reinvestment')
+      .reduce((s, l) => s + (Number(l.amount) || 0), 0);
+    const paidOut = returnsLegs
+      .filter((l) => String(l.category) !== 'roi_reinvestment')
+      .reduce((s, l) => s + (Number(l.amount) || 0), 0);
+
+
     // Portfolio-linked activity. Top-ups only exist as portfolio audit rows
     // (record_id = portfolio id) plus renewal top-ups; partner_self_topups
     // carry no portfolio link, so they are never attributed to a portfolio.
