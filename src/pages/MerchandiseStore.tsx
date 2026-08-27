@@ -173,9 +173,10 @@ export default function MerchandiseStore() {
   const firstInstallment = Math.min(installmentAmount, availableWallet);
   const dueNow = payMode === 'full' ? orderTotal : firstInstallment;
   const remainingAfter = Math.max(0, orderTotal - dueNow);
-  const insufficient = selected
+  const insufficient = selected && !walletBlocked
     ? (payMode === 'full' ? orderTotal > availableWallet : false)
     : false;
+
   // Installments work even with an empty wallet: nothing is taken at checkout
   // and the whole price is recovered later at 25% per recovery run.
   const zeroDown = payMode === 'installment' && dueNow <= 0;
