@@ -98,7 +98,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
               return (
                 <div
                   key={cat.key}
-                  className={`rounded-xl border border-border/60 bg-card ${catOpen ? 'lg:col-span-2' : ''}`}
+                  className="rounded-xl border border-border/60 bg-card"
                 >
                   <button
                     type="button"
