@@ -281,7 +281,106 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
           {!isLoading && rows.length === 0 && (
             <p className="text-xs text-muted-foreground">No merchant activity in the current window.</p>
           )}
+
+          {rows.length > 0 && (
+            <div className="rounded-xl border border-primary/25 bg-primary/[0.04] p-3">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Plan today's distribution
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    Enter the total you want to send out today. Each agent's share is worked out
+                    from their own verified payout record — not shared out equally.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-end gap-2">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Amount to distribute (UGX)
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={potInput}
+                      onChange={(e) => setPotInput(e.target.value)}
+                      placeholder="e.g. 5000000"
+                      className="h-9 w-40 rounded-lg border border-border bg-background px-2 font-mono text-sm tabular-nums outline-none focus:border-primary"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Record window
+                    </span>
+                    <select
+                      value={capacityWindow}
+                      onChange={(e) => setCapacityWindow(Number(e.target.value))}
+                      className="h-9 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-primary"
+                    >
+                      <option value={7}>Last 7 days</option>
+                      <option value={14}>Last 14 days</option>
+                      <option value={30}>Last 30 days</option>
+                      <option value={90}>Last 90 days</option>
+                    </select>
+                  </label>
+                  {potInput && (
+                    <button
+                      type="button"
+                      onClick={() => setPotInput('')}
+                      className="h-9 rounded-lg border border-border px-3 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Earned capacity today
+                  </p>
+                  <p className="font-mono text-sm font-bold tabular-nums text-primary">
+                    {perfLoading ? '—' : formatUGX(capacityTotal)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    across {eligibleDesks} qualifying desk{eligibleDesks === 1 ? '' : 's'}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Recommended split
+                  </p>
+                  <p className="font-mono text-sm font-bold tabular-nums text-foreground">
+                    {pot > 0 ? formatUGX(allocatedTotal) : '—'}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {pot > 0
+                      ? `of ${formatUGX(pot)} entered`
+                      : 'enter an amount to see each agent\u2019s share'}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Already with them
+                  </p>
+                  <p className="font-mono text-sm font-bold tabular-nums text-warning">
+                    {isLoading ? '—' : formatUGX(floatTotal)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    spendable float still on their phones
+                  </p>
+                </div>
+              </div>
+              {pot > 0 && capacityTotal === 0 && (
+                <p className="mt-2 text-[10px] font-medium text-destructive">
+                  No desk currently qualifies on record, so nothing can be recommended.
+                </p>
+              )}
+            </div>
+          )}
+
           {(rows.length > 0 || isLoading) && (
+
             <div className="flex items-center justify-between gap-3 px-3 py-2">
               <p className="text-[10px] text-muted-foreground">
                 Total float with merchant agents (evidenced only)
