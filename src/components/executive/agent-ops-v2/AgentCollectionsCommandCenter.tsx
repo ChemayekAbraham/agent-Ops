@@ -15,7 +15,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell,
 } from 'recharts';
 import {
-  CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search,
+  CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown,
 } from 'lucide-react';
 import { format, startOfDay, endOfDay, subDays, startOfMonth, startOfYear, addDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
