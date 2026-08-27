@@ -64,7 +64,14 @@ export function generateTenantCallingHubPdf(opts: {
   tables: CallingPdfTable[];
   comments?: CallingPdfComment[];
   generatedAt?: string;
+  /** Hub name for the header/footer band — defaults to the tenant hub. */
+  hubName?: string;
+  /** Footer source line — defaults to the tenant call sources. */
+  sourceNote?: string;
 }): Blob {
+  const hubName = opts.hubName || 'Tenant Calling Hub';
+  const sourceNote = opts.sourceNote || 'Welile tenant call reports, rent requests & agent collections';
+
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -84,7 +91,7 @@ export function generateTenantCallingHubPdf(opts: {
   doc.setFontSize(9);
   doc.text('WELILE', margin, 10);
   doc.setFontSize(13);
-  doc.text(`TENANT CALLING HUB — ${opts.reportTitle.toUpperCase()}`, margin, 17.5);
+  doc.text(`${hubName.toUpperCase()} — ${opts.reportTitle.toUpperCase()}`, margin, 17.5);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.text(`Period: ${opts.periodLabel}  ·  ${opts.subtitle}`, margin, 22.5);
@@ -341,7 +348,7 @@ export function generateTenantCallingHubPdf(opts: {
     doc.setFontSize(6.5);
     doc.setTextColor(120, 120, 130);
     doc.text(
-      `Tenant Calling Hub — ${opts.reportTitle} · Period ${opts.periodLabel} · Rows ${opts.scopeLabel} · Generated ${generated} · Reported by ${opts.actor} · Export PDF · Source: Welile tenant call reports, rent requests & agent collections`,
+      `${hubName} — ${opts.reportTitle} · Period ${opts.periodLabel} · Rows ${opts.scopeLabel} · Generated ${generated} · Reported by ${opts.actor} · Export PDF · Source: ${sourceNote}`,
       margin,
       pageHeight - 8,
       { maxWidth: contentWidth },

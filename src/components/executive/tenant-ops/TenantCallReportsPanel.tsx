@@ -27,9 +27,11 @@ import type { CallingListRow } from '@/hooks/useTenantCallingList';
 
 
 type ReportKind =
+  | 'calls_comprehensive'
   | 'comprehensive' | 'call_log' | 'all' | 'pending' | 'closed' | 'missed' | 'staff' | 'comments';
 
 const KINDS: { key: ReportKind; label: string; detail: string; file: string }[] = [
+  { key: 'calls_comprehensive', label: 'Comprehensive calls report', detail: 'Every call made in the selected day/range — tenant, agent, landlord, call date & time, status, money owed/paid and the comment recorded', file: 'Comprehensive-Calls-Report' },
   { key: 'comprehensive', label: 'Comprehensive tenant report', detail: 'Every tenant on this page — full profile, money, agent, landlord, call counts and all comments', file: 'Comprehensive-Tenant-Report' },
   { key: 'call_log', label: 'Full call log (with tenant detail)', detail: 'One row per call, every tenant + call field, comments included', file: 'Full-Call-Log-With-Tenant-Detail' },
   { key: 'all', label: 'All calls', detail: 'Every call logged in the window', file: 'All-Calls' },
@@ -94,6 +96,7 @@ export function TenantCallReportsPanel({
   searchLabel?: string;
 }) {
   const { user } = useAuth();
+  const [dayMode, setDayMode] = useState(false);
   const [preset, setPreset] = useState<Preset>('30d');
   const [from, setFrom] = useState<Date | undefined>(subDays(new Date(), 30));
   const [to, setTo] = useState<Date | undefined>(new Date());
@@ -438,7 +441,7 @@ export function TenantCallReportsPanel({
 
       const filtered = all.filter(r => {
         if (scope === 'filtered' && !inScope.has(r.tenant_id)) return false;
-        if (kind === 'all' || kind === 'call_log') return true;
+        if (kind === 'all' || kind === 'call_log' || kind === 'calls_comprehensive') return true;
         if (kind === 'comments') return !!r.comment;
         return statusOf(r) === kind;
       });
@@ -470,9 +473,9 @@ export function TenantCallReportsPanel({
           tables: [
             {
               title: `CALL LOG (${nfmt(filtered.length)})`,
-              head: ['Called at', 'Status', 'Tenant', 'Phone', 'District', 'Agent', 'Logged by', 'Follow-up', 'Outstanding', 'Missed d', 'Comment'],
-              widths: [22, 13, 28, 20, 17, 24, 24, 20, 22, 12, 56],
-              aligns: ['left', 'left', 'left', 'left', 'left', 'left', 'left', 'left', 'right', 'right', 'left'],
+              head: ['Called at', 'Status', 'Tenant', 'Phone', 'District', 'Agent', 'Landlord', 'Logged by', 'Follow-up', 'Daily', 'Repaid', 'Owed', 'Missed d', 'Comment'],
+              widths: [22, 12, 26, 19, 15, 21, 21, 21, 16, 16, 19, 19, 11, 44],
+              aligns: ['left', 'left', 'left', 'left', 'left', 'left', 'left', 'left', 'left', 'right', 'right', 'right', 'right', 'left'],
               body: filtered.map(r => {
                 const t = byTenant.get(r.tenant_id);
                 return [
@@ -482,8 +485,11 @@ export function TenantCallReportsPanel({
                   t?.phone || '—',
                   t?.district || '—',
                   t?.agent_name || '—',
+                  t?.landlord_name || '—',
                   staffName(r.called_by),
                   r.follow_up_at ? format(new Date(r.follow_up_at), 'dd MMM yy') : '—',
+                  ugx(t?.daily_repayment),
+                  ugx(t?.amount_repaid),
                   ugx(t?.outstanding_balance),
                   nfmt(t?.missed_days),
                   r.comment || '—',
@@ -559,7 +565,7 @@ export function TenantCallReportsPanel({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className={`flex flex-wrap items-center gap-1.5 ${dayMode ? 'hidden' : ''}`}>
           <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Period</span>
           {PRESETS.map(p => (
             <Button
@@ -567,7 +573,7 @@ export function TenantCallReportsPanel({
               size="sm"
               variant={preset === p.key ? 'default' : 'outline'}
               className="h-7 px-2 text-[11px]"
-              onClick={() => applyPreset(p.key)}
+              onClick={() => { setDayMode(false); applyPreset(p.key); }}
             >
               {p.label}
             </Button>
@@ -575,9 +581,23 @@ export function TenantCallReportsPanel({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {datePicker(from, d => { setFrom(d); setPreset('30d'); }, 'From')}
-          <span className="text-xs text-muted-foreground">to</span>
-          {datePicker(to, d => { setTo(d); setPreset('30d'); }, 'To')}
+          <div className="flex items-center gap-1">
+            <Button size="sm" variant={dayMode ? 'default' : 'outline'} className="h-7 px-2 text-[11px]" onClick={() => { setDayMode(true); const d = to || new Date(); setFrom(d); setTo(d); }}>
+              Single day
+            </Button>
+            <Button size="sm" variant={!dayMode ? 'default' : 'outline'} className="h-7 px-2 text-[11px]" onClick={() => setDayMode(false)}>
+              Date range
+            </Button>
+          </div>
+          {dayMode ? (
+            datePicker(from, d => { if (!d) return; setFrom(d); setTo(d); }, 'Pick a day')
+          ) : (
+            <>
+              {datePicker(from, d => { setFrom(d); setPreset('30d'); }, 'From')}
+              <span className="text-xs text-muted-foreground">to</span>
+              {datePicker(to, d => { setTo(d); setPreset('30d'); }, 'To')}
+            </>
+          )}
           {isLoading ? (
             <Badge variant="secondary" className="text-[10px]">Loading…</Badge>
           ) : (
