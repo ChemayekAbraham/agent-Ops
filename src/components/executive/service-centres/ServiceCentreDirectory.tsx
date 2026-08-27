@@ -6,13 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Building2, ExternalLink, Loader2, MapPin, Phone, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useServiceCentres, SC_STATUS_META, mapsUrl, type ServiceCentre, type ServiceCentreStatus } from '@/hooks/useServiceCentres';
 import { ServiceCentreCandidatesPanel } from './ServiceCentreCandidatesPanel';
+import { ServiceCentreDetailDialog } from './ServiceCentreDetailDialog';
+
 
 const FILTERS: ('all' | ServiceCentreStatus)[] = ['all', 'pending', 'verified', 'paid', 'rejected'];
 const PAGE = 15;
