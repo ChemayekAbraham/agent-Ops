@@ -76,7 +76,7 @@ function resolveWindow(period: PeriodKey, customFrom: string, customTo: string) 
 }
 
 export function ComprehensiveReportButton() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [period, setPeriod] = useState<PeriodKey>('this_month');
   const [customFrom, setCustomFrom] = useState(key(startOfMonth(new Date())));
