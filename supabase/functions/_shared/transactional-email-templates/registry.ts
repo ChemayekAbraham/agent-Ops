@@ -1,5 +1,4 @@
 import { template as testTemplate } from './test-email.tsx'
-// eslint-disable-next-line
 
 import { template as returnsDisbursementTemplate } from './returns-disbursement-confirmation.tsx'
 import { template as partnershipReturnsProcessingTemplate } from './partnership-returns-processing.tsx'
