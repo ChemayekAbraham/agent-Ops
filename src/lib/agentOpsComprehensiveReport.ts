@@ -543,7 +543,7 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
         <tr><td>Issued in period</td><td class="right num">${num(report.bikes.issued_today)}</td><td class="right num">${num(report.phones.issued_today)}</td></tr>
         <tr><td>Issued (cumulative in window)</td><td class="right num">${num(report.bikes.issued_total)}</td><td class="right num">${num(report.phones.issued_total)}</td></tr>
         <tr><td>Applications not yet issued</td><td class="right num">${num(report.bikes.pending_total ?? 0)}</td><td class="right num">${num(report.phones.pending_total ?? 0)}</td></tr>
-        <tr><td>Approved principal (issued units)</td><td class="right currency">${ugx(report.bikes.total_value)}</td><td class="right currency">${ugx(report.phones.total_value)}</td></tr>
+        <tr><td>Total value (issued + pending issue)</td><td class="right currency">${ugx(report.bikes.total_value)}</td><td class="right currency">${ugx(report.phones.total_value)}</td></tr>
         <tr><td>Collected</td><td class="right currency">${ugx(report.bikes.paid)}</td><td class="right currency">${ugx(report.phones.paid)}</td></tr>
         <tr><td>Outstanding receivable</td><td class="right currency">${ugx(report.bikes.outstanding)}</td><td class="right currency">${ugx(report.phones.outstanding)}</td></tr>
         <tr><td>Collection rate</td><td class="right pct">${pct(n(report.bikes.paid), n(report.bikes.total_value))}</td><td class="right pct">${pct(n(report.phones.paid), n(report.phones.total_value))}</td></tr>
