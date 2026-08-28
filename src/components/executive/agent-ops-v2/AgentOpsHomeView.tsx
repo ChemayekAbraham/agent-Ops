@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Bell, UserPlus, FileText, Banknote, Activity, TrendingUp, TrendingDown, Loader2, ChevronRight } from 'lucide-react';
 import { BriefDrillDownModal, type DrillMetric } from './BriefDrillDownModal';
 import { AgentDefinitionFunnel } from './AgentDefinitionFunnel';
+import { ComprehensiveReportButton } from './ComprehensiveReportButton';
+
 
 import {
   ResponsiveContainer,
