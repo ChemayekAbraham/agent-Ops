@@ -468,3 +468,86 @@ export async function endAssignment(input: {
     metadata: { reason: input.reason, ended_on: endedOn },
   });
 }
+
+/**
+ * Exits a staff member. One UPDATE writes active = false, ended_on and
+ * exit_reason together — the check constraints demand that the reason is at
+ * least 10 characters whenever ended_on is set, and that ended_on is only
+ * set when active is false. The ended_on IS NULL filter makes the call
+ * idempotent: an already-exited member cannot be exited twice.
+ */
+export async function exitStaff(input: {
+  staffId: string;
+  endedOn: string;
+  reason: string;
+}): Promise<void> {
+  const reason = input.reason.trim();
+  if (reason.length < 10) {
+    throw new Error('The exit reason must be at least 10 characters.');
+  }
+  if (Number.isNaN(Date.parse(input.endedOn))) {
+    throw new Error('The ended-on date is not a valid date.');
+  }
+
+  const rows = unwrap(
+    await supabase
+      .from('hr_staff')
+      .update({ active: false, ended_on: input.endedOn, exit_reason: reason })
+      .eq('id', input.staffId)
+      .is('ended_on', null)
+      .select('id'),
+  ) as unknown as { id: string }[];
+
+  if (!rows || rows.length === 0) {
+    throw new Error(
+      'Nothing was changed. The staff member may already be exited, or your role does not permit this change.',
+    );
+  }
+
+  const { data: auth } = await supabase.auth.getUser();
+  await supabase.from('audit_logs').insert({
+    action_type: 'hr_staff_exited',
+    table_name: 'hr_staff',
+    record_id: input.staffId,
+    user_id: auth?.user?.id ?? null,
+    metadata: { reason, ended_on: input.endedOn },
+  });
+}
+
+/**
+ * Reinstates an exited staff member. Both ended_on and exit_reason are
+ * nulled in the same statement as active = true — nulling only one would
+ * trip the check constraints.
+ */
+export async function reinstateStaff(input: {
+  staffId: string;
+  reason: string;
+}): Promise<void> {
+  const reason = input.reason.trim();
+  if (reason.length < 10) {
+    throw new Error('The reinstatement reason must be at least 10 characters.');
+  }
+
+  const rows = unwrap(
+    await supabase
+      .from('hr_staff')
+      .update({ active: true, ended_on: null, exit_reason: null })
+      .eq('id', input.staffId)
+      .select('id'),
+  ) as unknown as { id: string }[];
+
+  if (!rows || rows.length === 0) {
+    throw new Error(
+      'Nothing was changed. The staff member may not exist, or your role does not permit this change.',
+    );
+  }
+
+  const { data: auth } = await supabase.auth.getUser();
+  await supabase.from('audit_logs').insert({
+    action_type: 'hr_staff_reinstated',
+    table_name: 'hr_staff',
+    record_id: input.staffId,
+    user_id: auth?.user?.id ?? null,
+    metadata: { reason },
+  });
+}

@@ -50,6 +50,8 @@ import {
   transferPosition,
   endAssignment,
   enrollStaff,
+  exitStaff,
+  reinstateStaff,
   getActiveAssignmentsByStaff,
   getDepartments,
   getPositions,
@@ -90,6 +92,8 @@ export default function StaffDirectory() {
   const [transferFor, setTransferFor] = useState<Employee | null>(null);
   const [deptChangeFor, setDeptChangeFor] = useState<Employee | null>(null);
   const [removeFor, setRemoveFor] = useState<Employee | null>(null);
+  const [exitFor, setExitFor] = useState<Employee | null>(null);
+  const [reinstateFor, setReinstateFor] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -484,6 +488,20 @@ export default function StaffDirectory() {
                                   <Trash2 className="h-3.5 w-3.5 mr-2" />
                                   Remove position / department
                                 </DropdownMenuItem>
+                                {s.status === 'active' ? (
+                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => setExitFor(s)}
+                                  >
+                                    <AlertTriangle className="h-3.5 w-3.5 mr-2" />
+                                    Exit staff member
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem onClick={() => setReinstateFor(s)}>
+                                    <UserPlus className="h-3.5 w-3.5 mr-2" />
+                                    Reinstate staff member
+                                  </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -587,7 +605,204 @@ export default function StaffDirectory() {
         }}
         onDone={() => void load()}
       />
+
+      <ExitStaffDialog
+        staff={exitFor}
+        onOpenChange={(v) => {
+          if (!v) setExitFor(null);
+        }}
+        onDone={() => void load()}
+      />
+
+      <ReinstateStaffDialog
+        staff={reinstateFor}
+        onOpenChange={(v) => {
+          if (!v) setReinstateFor(null);
+        }}
+        onDone={() => void load()}
+      />
     </div>
+  );
+}
+
+/**
+ * Exits a staff member from HR. Exiting removes them from all future payroll
+ * runs, so the dialog warns that any period they worked must be settled
+ * before their final run is calculated.
+ */
+function ExitStaffDialog({
+  staff,
+  onOpenChange,
+  onDone,
+}: {
+  staff: Employee | null;
+  onOpenChange: (open: boolean) => void;
+  onDone: () => void;
+}) {
+  const open = staff !== null;
+  const [endedOn, setEndedOn] = useState(new Date().toISOString().slice(0, 10));
+  const [reason, setReason] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setEndedOn(new Date().toISOString().slice(0, 10));
+    setReason('');
+    setError(null);
+  }, [open, staff?.id]);
+
+  const handleConfirm = async () => {
+    if (!staff) return;
+    if (reason.trim().length < 10) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await exitStaff({ staffId: staff.id, endedOn, reason });
+      toast.success('Staff member exited');
+      onOpenChange(false);
+      onDone();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Exit failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Exit staff member</DialogTitle>
+          <DialogDescription>
+            Exiting removes this staff member from all future payroll runs. Any period
+            they worked must be settled before their final run is calculated.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="exit-ended-on">Last working day</Label>
+            <Input
+              id="exit-ended-on"
+              type="date"
+              value={endedOn}
+              onChange={(e) => setEndedOn(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="exit-reason">Reason (at least 10 characters)</Label>
+            <Textarea
+              id="exit-reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Why is this staff member exiting?"
+              rows={3}
+            />
+          </div>
+          {error && (
+            <div className="text-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              {error}
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => void handleConfirm()}
+            disabled={saving || reason.trim().length < 10}
+          >
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Confirm exit
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Reinstates an exited staff member, under the same 10-character reason rule. */
+function ReinstateStaffDialog({
+  staff,
+  onOpenChange,
+  onDone,
+}: {
+  staff: Employee | null;
+  onOpenChange: (open: boolean) => void;
+  onDone: () => void;
+}) {
+  const open = staff !== null;
+  const [reason, setReason] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setReason('');
+    setError(null);
+  }, [open, staff?.id]);
+
+  const handleConfirm = async () => {
+    if (!staff) return;
+    if (reason.trim().length < 10) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await reinstateStaff({ staffId: staff.id, reason });
+      toast.success('Staff member reinstated');
+      onOpenChange(false);
+      onDone();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Reinstatement failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Reinstate staff member</DialogTitle>
+          <DialogDescription>
+            Reinstating returns this staff member to the active directory.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="reinstate-reason">Reason (at least 10 characters)</Label>
+            <Textarea
+              id="reinstate-reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Why is this staff member being reinstated?"
+              rows={3}
+            />
+          </div>
+          {error && (
+            <div className="text-sm text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              {error}
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            onClick={() => void handleConfirm()}
+            disabled={saving || reason.trim().length < 10}
+          >
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Confirm reinstatement
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
