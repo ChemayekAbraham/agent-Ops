@@ -3,7 +3,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Inbox } from 'lucide-react';
 import BudgetReviewQueue from '@/components/budget/BudgetReviewQueue';
 import { useBudgetCycles } from '@/hooks/useDepartmentBudgets';
 
@@ -22,24 +21,14 @@ export default function COODepartmentBudgets() {
   useEffect(() => { if (cycleId === 'all' && cycles.length) setCycleId(cycles[0].id); }, [cycles, cycleId]);
 
   return (
-    <div className="space-y-4">
-      <Card className="border-primary/40">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-sm">
-            <Inbox className="h-4 w-4 text-primary" />
-            Budgets awaiting approval
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <BudgetReviewQueue
-            cycleId={null}
-            stage="coo"
-            onlyOpen
-            intro="Every department budget routed to you and still awaiting your decision — across all budget cycles. Open one to review its items, amounts, periods and supporting documents, then approve or reject."
-            emptyLabel="No budgets are awaiting your approval right now."
-          />
-        </CardContent>
-      </Card>
+    <div className="space-y-6">
+      <BudgetReviewQueue
+        cycleId={null}
+        stage="coo"
+        onlyOpen
+        intro="Every department budget routed to you and still awaiting your decision — across all budget cycles. Open one to review its items, amounts, periods and supporting documents, then approve or reject."
+        emptyLabel="No budgets are awaiting your approval right now."
+      />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
