@@ -82,8 +82,10 @@ const variance = (current: number, previous: number | undefined) => {
 const badge = (label: string, kind: 'pass' | 'warn' | 'fail') =>
   `<span class="doc-badge badge-${kind}">${esc(label)}</span>`;
 
+// Non-collection rates (product/receivable recovery) keep the generic ladder.
 const rateBadge = (rate: number) =>
   rate >= 90 ? badge('On track', 'pass') : rate >= 60 ? badge('Watch', 'warn') : badge('Attention', 'fail');
+
 
 /**
  * Daily rent collection standing — aligned with the daily eligibility gate and the
