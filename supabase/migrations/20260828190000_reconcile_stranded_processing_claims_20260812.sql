@@ -49,7 +49,9 @@ WITH targets AS (
 upd AS (
   UPDATE withdrawal_requests wr
   SET status = 'completed',
-      fin_ops_reference = 'MANUAL-RECON-20260828',
+      -- fin_ops_reference has a uniqueness constraint; suffix with the row's
+      -- own id so all 44 stay traceable as one batch without colliding.
+      fin_ops_reference = 'MANUAL-RECON-20260828-' || wr.id::text,
       processed_at = now(),
       updated_at = now()
   FROM targets t
