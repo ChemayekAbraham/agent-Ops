@@ -132,24 +132,32 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
   };
 
   const approve = useMutation({
-    mutationFn: async ({ id, amount }: { id: string; amount: number }) => {
-      const { data, error } = await db.rpc('approve_smartphone_order', {
-        p_sale_id: id,
-        p_total_amount: amount,
-      });
+    mutationFn: async ({ id, amount, stage }: { id: string; amount: number; stage: 'coo' | 'cfo' }) => {
+      const { data, error } = await db.rpc(
+        stage === 'cfo' ? 'cfo_disburse_smartphone_order' : 'coo_approve_smartphone_order',
+        stage === 'cfo'
+          ? { p_sale_id: id, p_amount: amount }
+          : { p_sale_id: id, p_total_amount: amount },
+      );
       if (error) throw error;
-      return data;
+      return { ...(data as any), stage };
     },
     onSuccess: (data: any) => {
-      toast.success(
-        `Order approved at ${formatUGX(Number(data?.total_amount || 0))}. ${formatUGX(Number(data?.payment_projection || 0))}/month (33%) recovery plan activated.`,
-      );
+      if (data?.stage === 'cfo') {
+        toast.success(
+          `${formatUGX(Number(data?.total_amount || 0))} disbursed to the agent's wallet float. ${formatUGX(Number(data?.payment_projection || 0))}/month (33%) recovery plan activated.`,
+        );
+      } else {
+        toast.success(
+          `Approved at ${formatUGX(Number(data?.total_amount || 0))} and forwarded to the CFO for disbursement.`,
+        );
+      }
       setApproveTarget(null);
       setOfficialAmount('');
       setDetailsTarget(null);
       invalidate();
     },
-    onError: (e: any) => toast.error(e.message || 'Could not approve order'),
+    onError: (e: any) => toast.error(e.message || 'Could not process this application'),
   });
 
 
@@ -170,9 +178,10 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
   });
 
   const scoped = useMemo(
-    () => (pendingOnly ? orders.filter((o) => isPending(o.order_status)) : orders),
+    () => (pendingOnly ? orders.filter((o) => isOpen(o.order_status)) : orders),
     [orders, pendingOnly],
   );
+
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
