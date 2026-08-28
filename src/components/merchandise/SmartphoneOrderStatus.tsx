@@ -171,7 +171,8 @@ export default function SmartphoneOrderStatus({
         { event: '*', schema: 'public', table: 'merchandise_sales', filter: `customer_id=eq.${userId}` },
         () => {
           queryClient.invalidateQueries({ queryKey: ['my-smartphone-orders'] });
-          queryClient.invalidateQueries({ queryKey: ['wallet-balance', userId] });
+          queryClient.invalidateQueries({ queryKey: ['wallet-view', userId] });
+
           queryClient.invalidateQueries({ queryKey: ['agent-commission-net', userId] });
           queryClient.invalidateQueries({ queryKey: ['merchandise-recovery-plan', userId] });
         },
