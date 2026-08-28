@@ -211,6 +211,28 @@ export function useBudgetCycles() {
   return { cycles, loading, reload: load };
 }
 
+/**
+ * Spending categories offered by the budget form.
+ *
+ * Read through budget_budgetable_accounts(), a SECURITY DEFINER function, so
+ * a department does not need a read grant on ledger_account_catalog - whose
+ * own policy restricts the chart of accounts to finance and executive roles.
+ * Without this the category dropdown is empty for every department and no
+ * budget can be filed.
+ *
+ * Falls back to selecting the table directly, which keeps finance roles
+ * working if the function is not deployed yet.
+ */
+async function fetchBudgetableAccounts(): Promise<{ data: BudgetAccount[] }> {
+  const { data, error } = await supabase.rpc('budget_budgetable_accounts' as never);
+  if (!error && data) return { data: data as unknown as BudgetAccount[] };
+  const fallback = await supabase
+    .from('ledger_account_catalog')
+    .select('code,label,section,nature')
+    .order('sort_order');
+  return { data: (fallback.data ?? []) as BudgetAccount[] };
+}
+
 export function useBudgetReferenceData() {
   const [accounts, setAccounts] = useState<BudgetAccount[]>([]);
   const [departments, setDepartments] = useState<BudgetDepartment[]>([]);
@@ -224,7 +246,7 @@ export function useBudgetReferenceData() {
       const userId = auth.user?.id ?? null;
 
       const [acc, dep, mine, primaryId] = await Promise.all([
-        supabase.from('ledger_account_catalog').select('code,label,section,nature').order('sort_order'),
+        fetchBudgetableAccounts(),
         supabase.from('hr_departments').select('id,name,key').eq('active', true).order('name'),
         userId
           ? supabase.rpc('budget_user_department_ids', { _user_id: userId }).then(({ data }) => ({
