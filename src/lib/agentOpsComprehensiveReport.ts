@@ -654,7 +654,7 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
       <td class="right num">${num(x.f.collections_count)}</td>
       <td class="right currency">${ugx(x.f.commission_balance)}</td>
       <td class="right pct">${x.exp > 0 ? `${x.rate.toFixed(1)}%` : '—'}</td>
-      <td>${x.exp > 0 ? rateBadge(x.rate) : PENDING}</td>
+      <td>${x.exp > 0 ? collectionRateBadge(x.rate) : PENDING}</td>
     </tr>`);
 
   const page6 = `
