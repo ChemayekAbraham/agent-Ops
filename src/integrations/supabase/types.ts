@@ -46073,30 +46073,18 @@ export type Database = {
         }
         Returns: undefined
       }
-      psm_confirm_commitment_for:
-        | {
-            Args: {
-              p_actor?: string
-              p_idempotency_key?: string
-              p_partner: string
-              p_promissory_note_id?: string
-              p_rent_request_ids: string[]
-              p_term_months?: number
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_actor?: string
-              p_funding_mode?: string
-              p_idempotency_key?: string
-              p_partner: string
-              p_promissory_note_id?: string
-              p_rent_request_ids: string[]
-              p_term_months?: number
-            }
-            Returns: Json
-          }
+      psm_confirm_commitment_for: {
+        Args: {
+          p_actor?: string
+          p_funding_mode?: string
+          p_idempotency_key?: string
+          p_partner: string
+          p_promissory_note_id?: string
+          p_rent_request_ids: string[]
+          p_term_months?: number
+        }
+        Returns: Json
+      }
       psm_disburse_landlord_float: {
         Args: {
           p_commitment_id: string
