@@ -378,7 +378,7 @@ function RemovedApplicationsPanel({
               <TableCell>{row.role_interest || '—'}</TableCell>
               <TableCell>{segmentLabelOfSource(row.source)}</TableCell>
               <TableCell>{row.location || '—'}</TableCell>
-              <TableCell>{row.status || '—'}</TableCell>
+              <TableCell><StageBadge stage={stageOf(row)} /></TableCell>
               <TableCell>{fmtDateTime(row.archived_at)}</TableCell>
               <TableCell>{row.public_ref || '—'}</TableCell>
               <TableCell className="text-right whitespace-nowrap">
