@@ -160,11 +160,14 @@ export function generateAgentProductsServicesPdf(opts: {
   cumulative?: ApsCumulative | null;
   /** Same report shape for the preceding equal-length period (dynamic PoP baseline). */
   prev?: ApsReport | null;
+  /** Canonical operational agent population, as shown in "Total Agents Composition & Sources". */
+  population?: AgentPopulation | null;
 }): Blob {
   const { report, actor } = opts;
   const rangeDays = Math.max(1, Math.round(Number(report.range_days) || 1));
   const prev = opts.prev ?? null;
   const cmpLabel = apsCompareLabel(rangeDays);
+
   /** Previous-period baselines: real prior-window report when available, else the RPC's day-over-day fields. */
   const base = {
     newAgents: prev ? Number(prev.agents.new_today) : Number(report.agents.new_prev),
