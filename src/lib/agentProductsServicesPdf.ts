@@ -18,6 +18,7 @@ export interface ApsServiceCentres {
 export interface ApsProduct {
   issued_today: number; issued_total: number; total_value: number;
   paid: number; outstanding: number; daily_receivable: number;
+  pending_total?: number;
 }
 export interface ApsTrendPoint {
   day: string; collected: number; advances_issued: number; advances_deducted: number;
@@ -46,6 +47,9 @@ export interface ApsProductRow {
   id: string; product: 'bike' | 'smartphone'; item_name: string; quantity: number;
   value: number; paid: number; outstanding: number; payment_status: string | null;
   order_status: string | null; payment_plan: string | null; sale_date: string | null;
+  /** Real handover date (CFO disbursement / lease activation / access acceptance). */
+  issued_date: string | null;
+  is_issued: boolean;
   client_name: string | null; client_phone: string | null; daily_rate: number;
   recovery_status: string | null; last_recovery_at: string | null;
   repayment_rate: number; repayment_position: string;
@@ -607,7 +611,8 @@ export function generateAgentProductsServicesPdf(opts: {
       ['Holder', 'Phone', 'Item', 'Issued', 'Value', 'Paid', 'Outstanding', 'Daily rate', '% repaid', 'Position'],
       [42, 26, 38, 26, 28, 28, 30, 24, 20, 30],
       rows.map(r => [
-        r.client_name || '—', r.client_phone || '—', r.item_name || '—', fmtDay(r.sale_date),
+        r.client_name || '—', r.client_phone || '—', r.item_name || '—',
+        r.is_issued ? fmtDay(r.issued_date ?? r.sale_date) : 'Not issued',
         apsUgx(r.value), apsUgx(r.paid), apsUgx(r.outstanding), apsUgx(r.daily_rate),
         `${num(r.repayment_rate)}%`, title(r.repayment_position),
       ]),
