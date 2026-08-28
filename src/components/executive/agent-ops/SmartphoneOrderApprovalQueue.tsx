@@ -453,7 +453,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
 
       <Dialog
         open={!!approveTarget}
-        onOpenChange={(o) => { if (!o && !approve.isPending) { setApproveTarget(null); setOfficialAmount(''); } }}
+        onOpenChange={(o) => { if (!o && !approve.isPending) closeApprove(); }}
       >
         <DialogContent className="max-w-sm">
           <DialogHeader>
