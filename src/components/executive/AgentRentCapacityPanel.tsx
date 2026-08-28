@@ -636,6 +636,13 @@ function CapacityRow({
         effective_daily_pct: row.expected_daily > 1 ? row.paid_today / row.expected_daily : 0,
         daily_status: row.daily_status,
         daily_rating: row.daily_rating,
+        tenants_due: (row as any).tenants_due ?? 0,
+        tenants_paid_today: (row as any).tenants_paid_today ?? 0,
+        tenants_paid_yesterday: (row as any).tenants_paid_yesterday ?? 0,
+        coverage_today: (row as any).coverage_today ?? 0,
+        coverage_yesterday: (row as any).coverage_yesterday ?? 0,
+        effective_coverage: (row as any).effective_coverage ?? 1,
+
         can_post_rent_today: row.daily_status !== 'blocked',
         good_days_last_week: (row as any).good_days_last_week ?? 0,
         unlimited_posting: (row as any).unlimited_posting ?? false,
