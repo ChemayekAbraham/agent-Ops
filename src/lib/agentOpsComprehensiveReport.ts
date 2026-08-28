@@ -169,7 +169,7 @@ function pageShell(index: number, total: number, content: string, meta: string) 
 }
 
 export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput): string {
-  const { report, prev, fromDate, toDate, periodLabel, actor } = input;
+  const { report, prev, population, fromDate, toDate, periodLabel, actor } = input;
   const generated = new Date();
   const refId = `AOR-${format(generated, 'yyyyMMdd-HHmm')}`;
   const periodText = `${dayLabel(fromDate)} – ${dayLabel(toDate)}`;
