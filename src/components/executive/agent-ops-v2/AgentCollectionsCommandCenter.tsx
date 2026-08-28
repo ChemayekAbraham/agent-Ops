@@ -17,6 +17,7 @@ import {
 import {
   CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown,
 } from 'lucide-react';
+import { ComprehensiveReportButton } from './ComprehensiveReportButton';
 import { format, startOfDay, endOfDay, subDays, startOfMonth, startOfYear, addDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
@@ -263,6 +264,7 @@ export function AgentCollectionsCommandCenter() {
           <h2 className="text-base font-semibold">Collections Command Center</h2>
           {isFetching && <RefreshCw className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
         </div>
+        <ComprehensiveReportButton />
         <div className="flex flex-wrap gap-1.5">
           {PRESETS.map(p => (
             <Button
