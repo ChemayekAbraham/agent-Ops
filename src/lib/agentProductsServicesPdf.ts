@@ -498,7 +498,8 @@ export function generateAgentProductsServicesPdf(opts: {
   // ===== 5. Motor bikes / 6. Smartphones =====
   const productBlock = (label: string, p: ApsProduct, pp?: ApsProduct | null) => [
     [`${label} — issued in period`, num(p.issued_today), cell(pp ? num(pp.issued_today) : `${num(p.issued_total)} total`), pct(p.issued_today, Number(pp?.issued_today) || 0, !!pp)],
-    [`${label} — total value`, apsUgx(p.total_value), '—', '—'],
+    [`${label} — pending issue`, `${num(p.pending_total ?? 0)} units`, apsUgx(p.pending_value ?? 0), '—'],
+    [`${label} — total value (incl. pending)`, apsUgx(p.total_value), '—', '—'],
     [`${label} — repaid to date`, apsUgx(p.paid), `${p.total_value > 0 ? ((Number(p.paid) / Number(p.total_value)) * 100).toFixed(1) : '0.0'}%`, '—'],
     [`${label} — outstanding`, apsUgx(p.outstanding), cell(pp ? apsUgx(pp.outstanding) : ''), pct(p.outstanding, Number(pp?.outstanding) || 0, !!pp)],
     [`${label} — daily recovery due`, apsUgx(p.daily_receivable), '—', '—'],
