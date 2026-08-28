@@ -30,7 +30,6 @@ export default function PayLandlord() {
     status: 'open',
     source: 'cfo_disbursement',
     created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
     landlord_name: 'Ssebunya Robert',
     landlord_phone: '0772419045',
     tenant_name: 'Nakato Grace',

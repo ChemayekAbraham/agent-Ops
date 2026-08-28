@@ -1123,17 +1123,25 @@ function MajorActionButton({
 }: {
   onClick: () => void;
   icon: typeof KeyRound;
-  tone: 'amber' | 'blue';
+  tone: 'amber' | 'blue' | 'primary' | 'rose';
   title: string;
   desc: string;
 }) {
   const toneClass =
     tone === 'amber'
       ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 hover:bg-amber-500/15 hover:border-amber-500/40'
+      : tone === 'primary'
+      ? 'bg-primary/10 text-primary border-primary/20 hover:bg-primary/15 hover:border-primary/40'
+      : tone === 'rose'
+      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20 hover:bg-rose-500/15 hover:border-rose-500/40'
       : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 hover:bg-blue-500/15 hover:border-blue-500/40';
   const iconBg =
     tone === 'amber'
       ? 'bg-amber-500/20'
+      : tone === 'primary'
+      ? 'bg-primary/20'
+      : tone === 'rose'
+      ? 'bg-rose-500/20'
       : 'bg-blue-500/20';
   return (
     <button

@@ -11,7 +11,7 @@ import { UserSearchPicker, type UserResult } from '@/components/cfo/UserSearchPi
 import { BucketTransferLauncher } from '@/components/financial-ops/BucketTransferDialog';
 import { BacklogSweepLauncher } from '@/components/financial-ops/BacklogSweepDialog';
 import { Info, Inbox, AlertOctagon, Send, Menu } from 'lucide-react';
-import { Wrench, Clock } from 'lucide-react';
+import { Wrench, Clock, TrendingUp } from 'lucide-react';
 import { SlidersHorizontal } from 'lucide-react';
 import { CalendarRange } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
