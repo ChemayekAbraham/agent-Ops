@@ -733,7 +733,10 @@ export function AgentProductsServicesReport() {
             <Kpi label="New agents added" value={num(report.agents.new_today)}
               current={report.agents.new_today} previous={pop.newAgents} compareLabel={compareLabel} />
             <Kpi label="Total agents" value={num(report.agents.total)}
-              current={report.agents.total} previous={pop.totalAgents} compareLabel={compareLabel} />
+              current={report.agents.total} previous={pop.totalAgents} compareLabel={compareLabel}
+              hint={report.agents.main_agents != null
+                ? `${num(report.agents.main_agents)} main · ${num(report.agents.sub_agents)} sub-agents`
+                : undefined} />
             <Kpi label="Rent collected" value={apsUgx(report.rent.collected_today)}
               current={report.rent.collected_today} previous={pop.collected} compareLabel={compareLabel} />
             <Kpi label="Expected target (period)" value={apsUgx(expectedTotal)}
