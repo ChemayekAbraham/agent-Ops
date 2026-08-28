@@ -309,12 +309,10 @@ export function AgentOpsHomeView({ range, onRangeChange, onOpenSection }: AgentO
         };
       });
 
-      // Active vs inactive: total agents vs unique agents who posted at least 1 rent request in range
-      const totalAgents = await supabase
-        .from('user_roles')
-        .select('user_id', { count: 'exact', head: true })
-        .eq('role', 'agent');
-      const totalAgentCount = totalAgents.count || 0;
+      // Total agents = operational agent universe (collected / collecting rent for a tenant).
+      // Role rows are a signup artefact and must never be used as the agent count.
+      const agentStats = await (supabase.rpc as any)('get_agent_ops_agent_stats', { p_days: 30 });
+      const totalAgentCount = (agentStats.data?.total_agents as number) || 0;
       const activeCurrSet = new Set(
         ((rentRequestsCurr.data ?? []) as Array<{ agent_id?: string | null }>)
           .map((r) => r.agent_id)

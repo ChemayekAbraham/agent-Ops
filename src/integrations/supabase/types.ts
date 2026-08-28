@@ -39259,6 +39259,16 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      agent_ops_collection_agents: {
+        Args: never
+        Returns: {
+          agent_id: string
+          ever_collected: boolean
+          is_sub_agent: boolean
+          last_collection: string
+          live_plan: boolean
+        }[]
+      }
       agent_ops_directory_guard: { Args: never; Returns: string }
       agent_ops_issue_agent_product: {
         Args: {

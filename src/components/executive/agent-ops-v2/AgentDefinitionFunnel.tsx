@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, UserCheck, Activity, Loader2, Info, Home, FileText, ScrollText, Network, ChevronRight, Search } from 'lucide-react';
+import { Users, UserCheck, Activity, Loader2, Info, Home, Banknote, UserX, Network, ChevronRight, Search } from 'lucide-react';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -29,18 +29,24 @@ interface AgentStats {
   total_users: number;
   total_agents: number;
   active_agents: number;
+  inactive_agents: number;
+  sub_agents: number;
+  primary_agents: number;
+  ever_collected: number;
+  live_plan_agents: number;
+  collected_in_window: number;
   operations: number;
   window_days: number;
   criteria: {
-    house_listings: number;
-    promissory_notes: number;
-    behalf_rent_requests: number;
-    subagents: number;
+    collections: number;
+    live_plans: number;
+    sub_agents: number;
+    primary_agents: number;
   };
   trend: Array<{ day: string; active_agents: number; operations: number }>;
 }
 
-type CriterionKey = 'house_listings' | 'promissory_notes' | 'behalf_rent_requests' | 'subagents';
+type CriterionKey = 'collections' | 'live_plans' | 'sub_agents' | 'primary_agents';
 
 interface CriterionUserRow {
   user_id: string;
@@ -51,13 +57,13 @@ interface CriterionUserRow {
 }
 
 const CRITERIA_META: Record<CriterionKey, { label: string; icon: typeof Home; color: string }> = {
-  house_listings: { label: 'Listed a house', icon: Home, color: 'hsl(var(--primary))' },
-  promissory_notes: { label: 'Posted a promissory note', icon: ScrollText, color: 'hsl(199 89% 48%)' },
-  behalf_rent_requests: { label: 'Rent request for a tenant', icon: FileText, color: 'hsl(38 92% 50%)' },
-  subagents: { label: 'Added a sub-agent', icon: Network, color: 'hsl(280 65% 60%)' },
+  collections: { label: 'Has collected rent for a tenant', icon: Banknote, color: 'hsl(var(--primary))' },
+  live_plans: { label: 'Collecting on a live rent plan', icon: Activity, color: 'hsl(160 84% 39%)' },
+  primary_agents: { label: 'Primary agent (no parent link)', icon: UserCheck, color: 'hsl(38 92% 50%)' },
+  sub_agents: { label: 'Sub-agent (verified relationship)', icon: Network, color: 'hsl(280 65% 60%)' },
 };
 
-const CRITERIA_ORDER: CriterionKey[] = ['house_listings', 'promissory_notes', 'behalf_rent_requests', 'subagents'];
+const CRITERIA_ORDER: CriterionKey[] = ['collections', 'live_plans', 'primary_agents', 'sub_agents'];
 
 function rangeToDays(range: DateRange): number {
   if (range === '24h') return 1;
@@ -91,6 +97,9 @@ export function AgentDefinitionFunnel({ range }: { range: DateRange }) {
   const totalUsers = data?.total_users ?? 0;
   const totalAgents = data?.total_agents ?? 0;
   const activeAgents = data?.active_agents ?? 0;
+  const inactiveAgents = data?.inactive_agents ?? Math.max(0, totalAgents - activeAgents);
+  const subAgents = data?.sub_agents ?? 0;
+  const primaryAgents = data?.primary_agents ?? 0;
 
   const trend = useMemo(
     () =>
@@ -135,9 +144,9 @@ export function AgentDefinitionFunnel({ range }: { range: DateRange }) {
     },
     {
       key: 'agents',
-      label: 'Agents',
+      label: 'Total Agents',
       value: totalAgents,
-      sub: 'Meet the agent criteria',
+      sub: 'Collected or collecting rent for a tenant',
       icon: UserCheck,
       accent: 'text-primary',
       bg: 'bg-primary/10',
@@ -149,12 +158,24 @@ export function AgentDefinitionFunnel({ range }: { range: DateRange }) {
       key: 'active',
       label: 'Active Agents',
       value: activeAgents,
-      sub: `Operated in last ${data?.window_days ?? days}d`,
+      sub: 'Live rent plan or collected in last 30d',
       icon: Activity,
+      accent: 'text-emerald-600 dark:text-emerald-400',
+      bg: 'bg-emerald-500/10',
+      barBg: 'bg-emerald-500',
+      shareOf: pct(activeAgents, totalAgents),
+      of: 'agents',
+    },
+    {
+      key: 'inactive',
+      label: 'Inactive Agents',
+      value: inactiveAgents,
+      sub: 'No live plan and no collection in 30d',
+      icon: UserX,
       accent: 'text-amber-600 dark:text-amber-400',
       bg: 'bg-amber-500/10',
       barBg: 'bg-amber-500',
-      shareOf: pct(activeAgents, totalAgents),
+      shareOf: pct(inactiveAgents, totalAgents),
       of: 'agents',
     },
   ];
@@ -168,7 +189,8 @@ export function AgentDefinitionFunnel({ range }: { range: DateRange }) {
             <Info className="h-3.5 w-3.5 text-muted-foreground" />
           </h3>
           <p className="text-[11px] text-muted-foreground">
-            Users become agents by acting — not by role. Funnel from all users → agents → active.
+            An agent is a person who has collected rent for a tenant, or is collecting/repaying on a live rent plan —
+            not a person holding the agent role. {fmt(primaryAgents)} primary · {fmt(subAgents)} sub-agents.
           </p>
         </div>
         <Badge variant="outline" className="text-[10px] gap-1 shrink-0">
