@@ -38,10 +38,14 @@ interface AgentFloatPayoutWizardProps {
    * agent's actual selection).
    */
   allocation?: LandlordFloatAllocation | null;
-  /** Called once the payout completes so the caller can refresh its own view. */
+  /**
+   * Fired when the agent taps "Done" after a payout that was opened from the
+   * Landlord Payout Float allocations list (i.e. `allocation` was supplied).
+   * The parent uses this to reopen that list so the agent lands back on it to
+   * withdraw for the next landlord, instead of dropping to the bare dashboard.
+   */
   onDone?: () => void;
 }
-
 
 type Step = 'select' | 'otp' | 'disburse' | 'done';
 
@@ -83,6 +87,29 @@ function waitingFor(since: string): string {
   const hours = Math.round(mins / 60);
   if (hours < 48) return `${hours} hour${hours === 1 ? '' : 's'}`;
   return `${Math.round(hours / 24)} days`;
+}
+
+function maskLandlordPhone(phone?: string | null): string {
+  if (!phone) return '';
+  const clean = phone.trim();
+  if (clean.startsWith('+256')) {
+    const rest = clean.slice(4).replace(/\s+/g, '');
+    if (rest.length >= 7) {
+      return `+256 ${rest.slice(0, 3)} ${rest.charAt(3)}•• •••`;
+    }
+  }
+  const digits = clean.replace(/\D/g, '');
+  if (digits.startsWith('256') && digits.length === 12) {
+    const nat = digits.slice(3);
+    return `+256 ${nat.slice(0, 3)} ${nat.charAt(3)}•• •••`;
+  }
+  if (digits.startsWith('0') && digits.length === 10) {
+    return `${digits.slice(0, 4)} ${digits.charAt(4)}•• •••`;
+  }
+  if (digits.length === 9) {
+    return `0${digits.slice(0, 3)} ${digits.charAt(3)}•• •••`;
+  }
+  return phone;
 }
 
 export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone }: AgentFloatPayoutWizardProps) {
@@ -895,8 +922,6 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
     },
     onSuccess: () => {
       setStep('done');
-      onDone?.();
-
       qc.invalidateQueries({ queryKey: ['agent-landlord-payout-float-balance'] });
       qc.invalidateQueries({ queryKey: ['agent-landlord-float-row'] });
       qc.invalidateQueries({ queryKey: ['agent-float-payout-requests'] });
@@ -1007,128 +1032,141 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
           {/* OTP Step — Verify landlord phone before payment */}
           {step === 'otp' && req && (
             <motion.div key="otp" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-              <div className="p-4 rounded-xl bg-chart-4/5 border border-chart-4/20 space-y-2">
-                <h3 className="font-bold text-sm text-chart-4 flex items-center gap-2">
-                  <Landmark className="h-4 w-4" />
-                  Pay {req.landlord?.name}
-                </h3>
-                <div className="flex items-center gap-2 text-xs font-mono bg-muted/50 p-2 rounded-lg">
-                  <Phone className="h-3.5 w-3.5 text-chart-4" />
-                  {landlordPhone || 'No phone number'}
+              {/* Payment Summary Header */}
+              <div className="p-4 rounded-xl bg-card border shadow-sm space-y-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="font-bold text-base text-foreground">
+                      Pay {req.landlord?.name || 'Landlord'}
+                    </h3>
+                    <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                      {maskLandlordPhone(landlordPhone)} · MTN Mobile Money
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] font-mono shrink-0">
+                    UGX
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t text-xs">
+                  <span className="text-muted-foreground font-medium">Amount to pay</span>
+                  <span className="font-bold text-base text-[#9234EA]">{formatUGX(effectiveAmount)}</span>
                 </div>
               </div>
 
-              <div className="space-y-3 p-3 rounded-xl border bg-card">
-                  <div className="space-y-1.5">
+              {/* Edit Amount / Phone accordion if needed */}
+              <div className="space-y-3 p-3 rounded-xl border bg-card/60 text-xs">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
                     <Label htmlFor="payout-amount" className="text-xs">
                       Amount to pay (UGX)
                     </Label>
-                    <Input
-                      id="payout-amount"
-                      inputMode="numeric"
-                      value={amountInput}
-                      onChange={(e) => setAmountInput(e.target.value.replace(/[^\d]/g, ''))}
-                      placeholder={String(req?.rent_amount ?? '')}
-                      className="h-10 font-mono"
-                    />
-                    <p className="text-[11px] text-muted-foreground">
-                      Rent due: {formatUGX(Number(req?.rent_amount ?? 0))} · You can pay less for a partial payout.
+                    <span className="text-[11px] text-muted-foreground">
+                      Rent due: {formatUGX(Number(req?.rent_amount ?? 0))}
+                    </span>
+                  </div>
+                  <Input
+                    id="payout-amount"
+                    inputMode="numeric"
+                    value={amountInput}
+                    onChange={(e) => setAmountInput(e.target.value.replace(/[^\d]/g, ''))}
+                    placeholder={String(req?.rent_amount ?? '')}
+                    className="h-9 font-mono"
+                  />
+                  {effectiveAmount > 0 && !withinRent && (
+                    <p className="text-[11px] text-destructive">
+                      Amount cannot exceed the rent due.
                     </p>
-                    {effectiveAmount > 0 && !withinRent && (
-                      <p className="text-[11px] text-destructive">
-                        Amount cannot exceed the rent due.
-                      </p>
-                    )}
-                    {effectiveAmount > 0 && withinRent && !withinFloat && (
-                      <p className="text-[11px] text-destructive">
-                        Amount exceeds your Landlord Payout Float ({formatUGX(availablePayoutFloat)}). Reduce the amount or request Landlord Payout Float first.
-                      </p>
-                    )}
-                  </div>
+                  )}
+                  {effectiveAmount > 0 && withinRent && !withinFloat && (
+                    <p className="text-[11px] text-destructive">
+                      Amount exceeds your Landlord Payout Float ({formatUGX(availablePayoutFloat)}). Reduce the amount or request Landlord Payout Float first.
+                    </p>
+                  )}
+                </div>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="payout-phone" className="text-xs">
-                      Landlord MoMo number
-                    </Label>
-                    <Input
-                      id="payout-phone"
-                      inputMode="tel"
-                      readOnly={landlordVerified}
-                      value={landlordVerified ? defaultLandlordPhone : (phoneOverride || defaultLandlordPhone)}
-                      onChange={(e) => { if (!landlordVerified) setPhoneOverride(e.target.value); }}
-                      placeholder="07XXXXXXXX"
-                      className={`h-10 font-mono ${landlordVerified ? 'bg-muted/60 cursor-not-allowed text-muted-foreground' : ''}`}
-                    />
-                    {landlordVerified ? (
-                      <div className="space-y-1.5">
-                        <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                          <ShieldCheck className="h-3 w-3 text-success" />
-                          Verified by Landlord Ops — this number is locked. To change it, send a request back to Landlord Ops.
-                        </p>
-                        {!showPhoneChangeReq ? (
-                          <button
-                            type="button"
-                            onClick={() => setShowPhoneChangeReq(true)}
-                            className="text-[11px] text-chart-4 font-medium inline-flex items-center gap-1"
-                          >
-                            <RefreshCw className="h-3 w-3" /> Request number change from Landlord Ops
-                          </button>
-                        ) : (
-                          <div className="space-y-2 rounded-lg border p-2 bg-muted/30">
-                            <Input
-                              value={newPhoneReq}
-                              onChange={(e) => setNewPhoneReq(e.target.value)}
-                              placeholder="New number e.g. 07XXXXXXXX"
-                              inputMode="tel"
-                              className="h-9 font-mono"
-                            />
-                            <Textarea
-                              value={phoneReqNote}
-                              onChange={(e) => setPhoneReqNote(e.target.value)}
-                              placeholder="Reason for the change (required)"
-                              rows={2}
-                              className="text-xs"
-                            />
-                            <div className="flex gap-2">
-                              <Button
-                                type="button"
-                                size="sm"
-                                className="flex-1 h-8"
-                                disabled={
-                                  submittingPhoneReq ||
-                                  !/^(?:\+?256|0)?\d{9}$/.test(newPhoneReq.replace(/\s+/g, '')) ||
-                                  phoneReqNote.trim().length < 5
-                                }
-                                onClick={submitPhoneChangeRequest}
-                              >
-                                {submittingPhoneReq ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Send to Landlord Ops'}
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="h-8"
-                                onClick={() => setShowPhoneChangeReq(false)}
-                              >
-                                Cancel
-                              </Button>
-                            </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="payout-phone" className="text-xs">
+                    Landlord MoMo number
+                  </Label>
+                  <Input
+                    id="payout-phone"
+                    inputMode="tel"
+                    readOnly={landlordVerified}
+                    value={landlordVerified ? defaultLandlordPhone : (phoneOverride || defaultLandlordPhone)}
+                    onChange={(e) => { if (!landlordVerified) setPhoneOverride(e.target.value); }}
+                    placeholder="07XXXXXXXX"
+                    className={`h-9 font-mono ${landlordVerified ? 'bg-muted/60 cursor-not-allowed text-muted-foreground' : ''}`}
+                  />
+                  {landlordVerified ? (
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                        <ShieldCheck className="h-3 w-3 text-success shrink-0" />
+                        Verified by Landlord Ops — number locked.
+                      </p>
+                      {!showPhoneChangeReq ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowPhoneChangeReq(true)}
+                          className="text-[11px] text-chart-4 font-medium inline-flex items-center gap-1 hover:underline"
+                        >
+                          <RefreshCw className="h-3 w-3" /> Request change from Landlord Ops
+                        </button>
+                      ) : (
+                        <div className="space-y-2 rounded-lg border p-2 bg-muted/30">
+                          <Input
+                            value={newPhoneReq}
+                            onChange={(e) => setNewPhoneReq(e.target.value)}
+                            placeholder="New number e.g. 07XXXXXXXX"
+                            inputMode="tel"
+                            className="h-8 font-mono text-xs"
+                          />
+                          <Textarea
+                            value={phoneReqNote}
+                            onChange={(e) => setPhoneReqNote(e.target.value)}
+                            placeholder="Reason for the change (required)"
+                            rows={2}
+                            className="text-xs"
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="flex-1 h-7 text-xs"
+                              disabled={
+                                submittingPhoneReq ||
+                                !/^(?:\+?256|0)?\d{9}$/.test(newPhoneReq.replace(/\s+/g, '')) ||
+                                phoneReqNote.trim().length < 5
+                              }
+                              onClick={submitPhoneChangeRequest}
+                            >
+                              {submittingPhoneReq ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Send to Landlord Ops'}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-xs"
+                              onClick={() => setShowPhoneChangeReq(false)}
+                            >
+                              Cancel
+                            </Button>
                           </div>
-                        )}
-                      </div>
-                    ) : (
-                      <>
-                        <p className="text-[11px] text-muted-foreground">
-                          {phoneOverride.trim() && phoneOverride.trim() !== defaultLandlordPhone
-                            ? 'Using overridden number — original on file: ' + (defaultLandlordPhone || 'none')
-                            : 'Edit if the number on file is wrong or out of service.'}
-                        </p>
-                        {!phoneValid && (
-                          <p className="text-[11px] text-destructive">Enter a valid Ugandan phone number.</p>
-                        )}
-                      </>
-                    )}
-                  </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-[11px] text-muted-foreground">
+                        {phoneOverride.trim() && phoneOverride.trim() !== defaultLandlordPhone
+                          ? 'Using overridden number — original on file: ' + (defaultLandlordPhone || 'none')
+                          : 'Edit if the number on file is wrong or out of service.'}
+                      </p>
+                      {!phoneValid && (
+                        <p className="text-[11px] text-destructive">Enter a valid Ugandan phone number.</p>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
 
               {challengeVerified ? (
@@ -1184,71 +1222,93 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
                     <RotateCcw className="h-3.5 w-3.5" /> Restart
                   </Button>
                 </div>
-              ) : !landlordOtp.otpSent ? (
-                <div className="space-y-2">
-                <Button
-                  type="button"
-                  onClick={() => handleSendOtp('manual')}
-                  disabled={
-                    preparingOtp ||
-                    landlordOtp.otpLoading ||
-                    (!!selectedRequest && sentLandlordsRef.current.has(String(selectedRequest.landlord_id)))
-                  }
-                  className="w-full gap-2 h-12 rounded-xl"
-                >
-                  {preparingOtp || landlordOtp.otpLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Phone className="h-4 w-4" />
-                  )}
-                  {preparingOtp
-                    ? 'Preparing OTP…'
-                    : landlordOtp.otpLoading
-                      ? 'Sending OTP…'
-                    : `Send OTP to Landlord (${landlordPhone || '—'})`}
-                </Button>
-                {(sendOtpError || sendBlockedReason) && (
-                  <p className="text-[11px] text-destructive text-center">
-                    {sendOtpError || sendBlockedReason}
-                  </p>
-                )}
-                {landlordOtp.cooldownSeconds > 0 && (
-                  <p className="text-[11px] text-muted-foreground text-center">
-                    Next code can be requested in {landlordOtp.cooldownSeconds}s.
-                  </p>
-                )}
-                </div>
-              ) : (
-                <div className="space-y-3 p-3 rounded-xl border-2 border-chart-4/30 bg-chart-4/5">
-                  <div className="text-center space-y-1">
-                    <p className="text-xs font-semibold text-chart-4">
-                      OTP sent to {landlordPhone}
+              ) : !landlordOtp.otpSent && (preparingOtp || landlordOtp.otpLoading) ? (
+                /* Screen 2: OTP Auto-Sending State */
+                <div className="space-y-3 p-6 rounded-2xl border-2 border-[#9234EA]/20 bg-[#9234EA]/5 text-center">
+                  <div className="relative w-12 h-12 mx-auto">
+                    <div className="absolute inset-0 rounded-full border-4 border-[#9234EA]/20" />
+                    <div className="absolute inset-0 rounded-full border-4 border-[#9234EA] border-t-transparent animate-spin" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-foreground">
+                      OTP sending to {maskLandlordPhone(landlordPhone)}
                     </p>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground max-w-xs mx-auto">
                       Ask the landlord to read the 6-digit code from their SMS.
                     </p>
                   </div>
-                  <div className="flex justify-center">
+                  {resendCooldown > 0 && (
+                    <p className="text-xs font-mono text-muted-foreground">
+                      resend in {Math.floor(resendCooldown / 60)}:{(resendCooldown % 60).toString().padStart(2, '0')}
+                    </p>
+                  )}
+                </div>
+              ) : !landlordOtp.otpSent ? (
+                <div className="space-y-2">
+                  <Button
+                    type="button"
+                    onClick={() => handleSendOtp('manual')}
+                    disabled={
+                      preparingOtp ||
+                      landlordOtp.otpLoading ||
+                      (!!selectedRequest && sentLandlordsRef.current.has(String(selectedRequest.landlord_id)))
+                    }
+                    className="w-full gap-2 h-12 rounded-xl"
+                  >
+                    {preparingOtp || landlordOtp.otpLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Phone className="h-4 w-4" />
+                    )}
+                    {preparingOtp
+                      ? 'Preparing OTP…'
+                      : landlordOtp.otpLoading
+                        ? 'Sending OTP…'
+                      : `Send OTP to Landlord (${maskLandlordPhone(landlordPhone) || '—'})`}
+                  </Button>
+                  {(sendOtpError || sendBlockedReason) && (
+                    <p className="text-[11px] text-destructive text-center">
+                      {sendOtpError || sendBlockedReason}
+                    </p>
+                  )}
+                  {landlordOtp.cooldownSeconds > 0 && (
+                    <p className="text-[11px] text-muted-foreground text-center">
+                      Next code can be requested in {landlordOtp.cooldownSeconds}s.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                /* Screen 3: Landlord reads the OTP */
+                <div className="space-y-4 p-4 rounded-2xl border-2 border-[#9234EA]/30 bg-[#9234EA]/5">
+                  <div className="text-center space-y-1">
+                    <h4 className="text-sm font-bold text-foreground">
+                      Verify Landlord OTP
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Ask the landlord for the 6-digit code we SMS-ed them ({maskLandlordPhone(landlordPhone)})
+                    </p>
+                  </div>
+                  <div className="flex justify-center py-1">
                     <InputOTP
                       maxLength={6}
                       value={otpCode}
                       onChange={handleVerifyOtp}
                       disabled={landlordOtp.otpLoading || isDisbursing || challengeVerified}
                     >
-                      <InputOTPGroup>
-                        <InputOTPSlot index={0} />
-                        <InputOTPSlot index={1} />
-                        <InputOTPSlot index={2} />
-                        <InputOTPSlot index={3} />
-                        <InputOTPSlot index={4} />
-                        <InputOTPSlot index={5} />
+                      <InputOTPGroup className="gap-1.5">
+                        <InputOTPSlot index={0} className="w-10 h-11 text-base font-bold rounded-lg border-2 border-border bg-background" />
+                        <InputOTPSlot index={1} className="w-10 h-11 text-base font-bold rounded-lg border-2 border-border bg-background" />
+                        <InputOTPSlot index={2} className="w-10 h-11 text-base font-bold rounded-lg border-2 border-border bg-background" />
+                        <InputOTPSlot index={3} className="w-10 h-11 text-base font-bold rounded-lg border-2 border-border bg-background" />
+                        <InputOTPSlot index={4} className="w-10 h-11 text-base font-bold rounded-lg border-2 border-border bg-background" />
+                        <InputOTPSlot index={5} className="w-10 h-11 text-base font-bold rounded-lg border-2 border-border bg-background" />
                       </InputOTPGroup>
                     </InputOTP>
                   </div>
                   {(landlordOtp.otpLoading || isDisbursing) && (
                     <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      {isDisbursing ? 'Sending money…' : 'Verifying…'}
+                      {isDisbursing ? 'Starting disbursement…' : 'Verifying…'}
                     </div>
                   )}
                   {landlordOtp.otpError && (
@@ -1256,9 +1316,9 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
                   )}
                   <div className="flex items-center justify-center">
                     {resendCooldown > 0 ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-[11px] font-medium text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/80 px-3 py-1 text-[11px] font-medium text-muted-foreground">
                         <Timer className="h-3 w-3" />
-                        You can request a new OTP in {Math.floor(resendCooldown / 60)}:{String(resendCooldown % 60).padStart(2, '0')}
+                        Didn't get the code? You can request a new one in {Math.floor(resendCooldown / 60)}:{(resendCooldown % 60).toString().padStart(2, '0')}
                       </span>
                     ) : (
                       <span className="text-[11px] text-muted-foreground">
@@ -1266,12 +1326,12 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center justify-between text-[11px]">
+                  <div className="flex items-center justify-between text-[11px] pt-1">
                     <button
                       type="button"
                       onClick={handleResendOtp}
                       disabled={resendCooldown > 0 || landlordOtp.otpLoading}
-                      className="text-chart-4 font-medium disabled:text-muted-foreground inline-flex items-center gap-1"
+                      className="text-[#9234EA] font-semibold disabled:text-muted-foreground inline-flex items-center gap-1 hover:underline"
                     >
                       <RefreshCw className="h-3 w-3" />
                       {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend OTP'}
@@ -1412,7 +1472,16 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
                   ? `${formatUGX(resumedPayoutAmount ?? effectiveAmount)} was already sent to ${req?.landlord?.name || 'the landlord'} via Mobile Money in an earlier session — the landlord's OTP was verified then. No new payment was made now.`
                   : `${req ? formatUGX(effectiveAmount) : ''} delivered to ${req?.landlord?.name || 'the landlord'} via Mobile Money.`}
               </p>
-              <Button onClick={handleClose}>Done</Button>
+              <Button
+                onClick={() => {
+                  // Capture before handleClose() resets selectedRequest/allocation-derived state.
+                  const cameFromList = !!allocation;
+                  handleClose();
+                  if (cameFromList) onDone?.();
+                }}
+              >
+                {allocation ? 'Pay Another Landlord' : 'Done'}
+              </Button>
             </motion.div>
           )}
         </AnimatePresence>

@@ -307,9 +307,7 @@ export function PromissoryNotesQueue() {
     whatsapp_number: 'WhatsApp number',
     phone_number: 'phone number',
     email: 'email',
-    partner_name: 'full name',
   };
-
   const cameInIdentity = (n: any) => {
     if (!n?.came_in || !n?.came_in_name) return null;
     const serverBasis = n.came_in_match_basis ? matchBasisLabel[String(n.came_in_match_basis)] : null;

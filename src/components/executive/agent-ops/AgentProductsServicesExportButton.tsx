@@ -141,18 +141,6 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
 
   const prevReport = prevQuery.data ?? null;
 
-  const populationQuery = useQuery({
-    queryKey: ['agent-operational-population', todayKey],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_agent_operational_population' as any, {
-        p_as_of: todayKey,
-      });
-      if (error) throw error;
-      return data as any;
-    },
-    staleTime: 120_000,
-  });
-
   const handlePdf = () => {
     if (!report) return;
     setExporting(true);
@@ -162,9 +150,7 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
         actor: actorName || 'Agent Ops user',
         cumulative,
         prev: prevReport,
-        population: populationQuery.data ?? null,
       });
-
       downloadBlob(blob, isRange ? `agent-products-services-${dayKey}_to_${todayKey}.pdf` : `agent-products-services-${todayKey}.pdf`);
       toast.success(isRange ? 'Cumulative report downloaded' : 'Daily report downloaded');
     } catch (err: any) {
