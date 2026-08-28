@@ -426,7 +426,8 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-primary" /> Approve smartphone order
+              <Check className="h-4 w-4 text-primary" />
+              {approveStage === 'cfo' ? 'Disburse & activate application' : 'COO approval — forward to CFO'}
             </DialogTitle>
           </DialogHeader>
 
@@ -446,13 +447,17 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-3 px-3 py-2">
-                  <span className="text-xs text-muted-foreground">Requested amount</span>
+                  <span className="text-xs text-muted-foreground">
+                    {approveStage === 'cfo' ? 'COO approved amount' : 'Requested amount'}
+                  </span>
                   <span className="text-xs font-semibold">{formatUGX(Number(approveTarget.total_amount || 0))}</span>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs">Official Phone Amount (UGX)</Label>
+                <Label className="text-xs">
+                  {approveStage === 'cfo' ? 'Amount to disburse (UGX)' : 'Official Phone Amount (UGX)'}
+                </Label>
                 <Input
                   type="number"
                   min={1000}
@@ -469,8 +474,18 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
                 <p className="text-[11px] text-muted-foreground">Monthly Recovery Projection (33%)</p>
                 <p className="text-lg font-bold text-primary">{formatUGX(officialProjection)}</p>
                 <p className="text-[11px] text-muted-foreground">
-                  Approving activates an official merchandise recovery plan of{' '}
-                  {formatUGX(officialAmountNumber)} and the agent begins 33% wallet repayments.
+                  {approveStage === 'cfo' ? (
+                    <>
+                      {formatUGX(officialAmountNumber)} will be released into the agent&apos;s wallet float
+                      (company money, not withdrawable), the application becomes active and 33% wallet
+                      repayments begin.
+                    </>
+                  ) : (
+                    <>
+                      No money moves yet. The application is locked at {formatUGX(officialAmountNumber)} and
+                      forwarded to the CFO, who releases the funds and activates it.
+                    </>
+                  )}
                 </p>
               </div>
             </div>
@@ -486,15 +501,21 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
             </Button>
             <Button
               disabled={approve.isPending || officialAmountNumber < 1000 || !approveTarget}
-              onClick={() => approveTarget && approve.mutate({ id: approveTarget.id, amount: officialAmountNumber })}
+              onClick={() =>
+                approveTarget &&
+                approve.mutate({ id: approveTarget.id, amount: officialAmountNumber, stage: approveStage })
+              }
             >
               {approve.isPending ? (
-                <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Approving…</>
+                <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Processing…</>
+              ) : approveStage === 'cfo' ? (
+                <><Check className="h-3.5 w-3.5 mr-1" /> Confirm disbursement</>
               ) : (
-                <><Check className="h-3.5 w-3.5 mr-1" /> Confirm approval</>
+                <><Check className="h-3.5 w-3.5 mr-1" /> Approve &amp; forward</>
               )}
             </Button>
           </DialogFooter>
+
         </DialogContent>
       </Dialog>
 
