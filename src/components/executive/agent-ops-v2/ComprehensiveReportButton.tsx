@@ -16,7 +16,9 @@ import {
 import type { ApsReport } from '@/lib/agentProductsServicesPdf';
 import {
   buildAgentOpsComprehensiveReportHtml, openAgentOpsComprehensiveReport,
+  type AgentPopulation,
 } from '@/lib/agentOpsComprehensiveReport';
+
 import { useAuth } from '@/hooks/useAuth';
 
 /**
@@ -95,6 +97,19 @@ export function ComprehensiveReportButton() {
     return data as unknown as ApsReport;
   };
 
+  /**
+   * Canonical agent network counts. Kept separate from the window-scoped
+   * report so network size is never inferred from role records or from
+   * recruited-but-never-operational sub-agent links.
+   */
+  const fetchPopulation = async (to: string): Promise<AgentPopulation | null> => {
+    const { data, error } = await supabase.rpc('get_agent_operational_population' as any, {
+      p_as_of: to,
+    });
+    if (error) return null;
+    return (data as unknown as AgentPopulation) ?? null;
+  };
+
   const handleGenerate = async () => {
     const { from, to } = window_;
     if (from > to) {
@@ -107,20 +122,23 @@ export function ComprehensiveReportButton() {
       const prevTo = key(subDays(new Date(from), 1));
       const prevFrom = key(subDays(new Date(prevTo), span));
 
-      const [report, prev] = await Promise.all([
+      const [report, prev, population] = await Promise.all([
         fetchReport(from, to),
         fetchReport(prevFrom, prevTo).catch(() => null),
+        fetchPopulation(to).catch(() => null),
       ]);
 
       const html = buildAgentOpsComprehensiveReportHtml({
         report,
         prev,
+        population,
         fromDate: from,
         toDate: to,
         periodLabel,
         actor: (user?.user_metadata?.full_name as string | undefined) || user?.email || 'Agent Operations',
       });
       openAgentOpsComprehensiveReport(html);
+
       setOpen(false);
       toast.success('Comprehensive report ready — use “Save as PDF / Print”.');
     } catch (e) {

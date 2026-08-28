@@ -17,15 +17,41 @@ import type { ApsReport } from './agentProductsServicesPdf';
  *  - Every page uses the one reporting window passed in.
  */
 
+export interface AgentPopulation {
+  as_of?: string;
+  total: number;
+  active: number;
+  inactive: number;
+  primary_total: number;
+  primary_active: number;
+  primary_inactive: number;
+  sub_total: number;
+  sub_active: number;
+  sub_inactive: number;
+  ever_collected: number;
+  live_plan_agents: number;
+  collected_last_30d: number;
+  live_plan_no_collection: number;
+  verified_subagent_links: number;
+}
+
 export interface AgentOpsReportInput {
   report: ApsReport;
   /** Preceding equal-length window, used only for variance columns. */
   prev?: ApsReport | null;
+  /**
+   * Canonical operational agent population from
+   * `get_agent_operational_population`. An agent is a person who has actually
+   * collected rent or currently carries a live (funded / repaying) plan — role
+   * records are never counted. When absent, network rows render as pending.
+   */
+  population?: AgentPopulation | null;
   fromDate: string; // yyyy-MM-dd
   toDate: string;   // yyyy-MM-dd
   periodLabel: string;
   actor: string;
 }
+
 
 const PENDING = '<span class="unavailable">Data source pending mapping</span>';
 
@@ -143,7 +169,7 @@ function pageShell(index: number, total: number, content: string, meta: string) 
 }
 
 export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput): string {
-  const { report, prev, fromDate, toDate, periodLabel, actor } = input;
+  const { report, prev, population, fromDate, toDate, periodLabel, actor } = input;
   const generated = new Date();
   const refId = `AOR-${format(generated, 'yyyyMMdd-HHmm')}`;
   const periodText = `${dayLabel(fromDate)} – ${dayLabel(toDate)}`;
@@ -164,13 +190,26 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
   const agentsCollected = rentRows.filter(r => Number(r.collected_today) > 0).length;
   const agentsShort = rentRows.length - agentsCollected;
 
+  // Canonical network figures. The reporting RPC's `agents.*` block counts a
+  // much wider universe (every rent-request agent plus every recruited
+  // sub-agent link), so it is never used for network size. Operational agent
+  // = has collected rent, or carries a live funded / repaying plan.
+  const networkTotal = population ? n(population.total) : null;
+  const networkActive = population ? n(population.active) : null;
+  const networkInactive = population ? n(population.inactive) : null;
+
   const narrative = `<strong>EXECUTIVE SUMMARY:</strong> Agent Operations recorded
     <strong class="currency">${ugx(collected)}</strong> in rent collections against
     <strong class="currency">${expectedTotal > 0 ? ugx(expectedTotal) : 'an expected amount that is pending mapping'}</strong>
     for ${esc(periodText)}${expectedTotal > 0 ? `, a <strong class="pct">${collectionRate.toFixed(1)}%</strong> collection rate` : ''}.
-    The network comprised <strong class="num">${num(agents.total)}</strong> agents, of which
-    <strong class="num">${num(agents.active_today)}</strong> were active in the period, managing
+    ${networkTotal !== null
+      ? `The operational agent network comprised <strong class="num">${num(networkTotal)}</strong> agents —
+         <strong class="num">${num(networkActive)}</strong> active and
+         <strong class="num">${num(networkInactive)}</strong> inactive — of which
+         <strong class="num">${num(agents.active_today)}</strong> transacted inside this reporting window, managing`
+      : `The network managed`}
     <strong class="num">${num(rent.live_plans)}</strong> live rent obligations.
+
     <strong class="currency">${ugx(outstandingRent)}</strong> of rent remained outstanding.
     Agent advances carried <strong class="currency">${ugx(adv.outstanding)}</strong> outstanding across
     <strong class="num">${num(adv.active_count)}</strong> repaying advances, and
@@ -213,9 +252,18 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
       </tr></thead>
       <tbody>
         <tr class="group-row"><td colspan="5">1. AGENT NETWORK STRUCTURE</td></tr>
-        ${matrixRow('Network size', 'Total agent network (unique individuals)', `<span class="num">${num(agents.total)}</span>`, `<span class="num">${num(agents.base)}</span> base`, variance(n(agents.total), prev ? n(prev.agents.total) : undefined))}
-        ${matrixRow('Primary collectors', 'Agents active in period', `<span class="num">${num(agents.active_today)}</span>`, pct(n(agents.active_today), n(agents.total)) + ' of network', variance(n(agents.active_today), prev ? n(prev.agents.active_today) : undefined))}
-        ${matrixRow('Onboarding', 'Agents onboarded in period', `<span class="num">${num(agents.new_today)}</span>`, `${num(subAgents)} sub-agent links`, variance(n(agents.new_today), prev ? n(prev.agents.new_today) : undefined))}
+        ${population
+          ? [
+              matrixRow('Network size', 'Total operational agents (unique individuals)', `<span class="num">${num(population.total)}</span>`, `${num(population.ever_collected)} have ever collected`, `position as at ${esc(dayLabel(population.as_of || toDate))}`),
+              matrixRow('Network status', 'Active agents', `<span class="num" style="color:var(--status-success)">${num(population.active)}</span>`, `${pct(n(population.active), n(population.total))} of network`, `<span class="pct">${pct(n(population.active), n(population.total))} active rate</span>`),
+              matrixRow('Network status', 'Inactive agents', `<span class="num" style="color:var(--status-danger)">${num(population.inactive)}</span>`, `${pct(n(population.inactive), n(population.total))} of network`, `no collection in 30 days &amp; no live plan`),
+              matrixRow('Primary agents', 'Primary agents (total / active / inactive)', `<span class="num">${num(population.primary_total)}</span> / <span class="num">${num(population.primary_active)}</span> / <span class="num">${num(population.primary_inactive)}</span>`, `${pct(n(population.primary_total), n(population.total))} of network`, `<span class="pct">${pct(n(population.primary_active), n(population.primary_total))} active</span>`),
+              matrixRow('Sub-agents', 'Sub-agents (total / active / inactive)', `<span class="num">${num(population.sub_total)}</span> / <span class="num">${num(population.sub_active)}</span> / <span class="num">${num(population.sub_inactive)}</span>`, `${num(population.verified_subagent_links)} verified links recruited`, `<span class="pct">${pct(n(population.sub_active), n(population.sub_total))} active</span>`),
+              matrixRow('Collection coverage', 'Agents carrying a live rent plan', `<span class="num">${num(population.live_plan_agents)}</span>`, `${num(population.collected_last_30d)} collected in last 30 days`, `${num(population.live_plan_no_collection)} live plans with no collection row`),
+              matrixRow('Onboarding', 'Agents transacting in period', `<span class="num">${num(agents.active_today)}</span>`, `${num(agents.new_today)} newly qualified · ${num(subAgents)} sub-agent links`, variance(n(agents.active_today), prev ? n(prev.agents.active_today) : undefined)),
+            ].join('')
+          : `<tr><td colspan="5">${PENDING}</td></tr>`}
+
 
         <tr class="group-row"><td colspan="5">2. RENT OPERATIONS &amp; COLLECTIONS</td></tr>
         ${matrixRow('Financial volume', 'Total rent collected', `<span class="currency">${ugx(collected)}</span>`, expectedTotal > 0 ? `<span class="currency">${ugx(expectedTotal)}</span>` : PENDING, expectedTotal > 0 ? `<span class="pct">${collectionRate.toFixed(1)}% collection rate</span>` : PENDING)}
@@ -233,12 +281,17 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
 
     <div class="methodology-box">
       <div class="methodology-title">Counting definitions &amp; date integrity</div>
-      An <strong>agent</strong> is a person with at least one rent obligation they collect on or repay; a
-      <strong>sub-agent</strong> is an agent linked to a parent agent. Individuals are counted once by user ID, never by
-      name or phone. Rent collected uses the collection timestamp, rent expected uses the scheduled daily obligation,
-      onboarding uses the account creation timestamp, advances use request / approval / repayment timestamps and
+      An <strong>operational agent</strong> is a person who has recorded at least one rent collection
+      <strong>or</strong> currently carries at least one live (funded / repaying) rent plan. Holding the agent role is
+      <strong>not</strong> counted — role records include tens of thousands of signup artefacts and are excluded.
+      An agent is <strong>active</strong> when they collected within the last 30 days or hold a live plan, and
+      <strong>inactive</strong> when they have neither. A <strong>sub-agent</strong> is identified by a verified
+      parent link, not by role; recruited-but-never-operational links are excluded from the network total.
+      Individuals are counted once by user ID, never by name or phone. Rent collected uses the collection timestamp,
+      rent expected uses the scheduled daily obligation, advances use request / approval / repayment timestamps and
       service centres use the request timestamp. All day boundaries are Africa/Kampala (EAT).
     </div>`;
+
 
   // ---------- Page 2: rent collections --------------------------------------
   const perAgentExpected = (r: any) =>
