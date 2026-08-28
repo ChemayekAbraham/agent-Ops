@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
+import { Toggle, GooeyFilter } from '@/components/ui/liquid-toggle';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { TrendingUp, Target, Coins, Zap, Download, Share2, RefreshCw, BarChart3, GitCompare, ChevronDown, Shield, Clock, ArrowRight, Save, Layers, X, Wifi, DollarSign, Loader2, Mail, Heart } from 'lucide-react';
