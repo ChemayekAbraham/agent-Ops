@@ -226,6 +226,8 @@ Deno.serve(async (req) => {
       amount: finalAmount, wallet_transaction_id: credit.wallet_transaction_id,
     });
     await auditLog(admin, actor.id, requisitionId, "staff_requisition_approved_credited", comment || `Credited ${fmtUGX(finalAmount)}`);
+    // Growth commission claims: releasing the claim moves the counter baseline forward.
+    await setGrowthClaimStatus(admin, requisitionId, "released", now);
 
     try {
       await admin.from("system_events").insert({
