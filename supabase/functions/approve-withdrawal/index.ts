@@ -3019,6 +3019,13 @@ Deno.serve(async (req) => {
         });
       }
       if (merchantTelecomShortfall > 0) {
+        // Telecom-kind shortfalls skip needs_review and file straight to
+        // pending_reimbursement: the fee is Welile's own fixed tier schedule
+        // (getTelecomSendingCharge), reserved against float in the same
+        // reserve_merchant_float call as the principal, under a row lock — so
+        // unlike a principal shortfall there is nothing for a human to
+        // independently verify here. See supabase/migrations/
+        // 20260828160000_telecom_shortfall_is_confirmed_owed.sql.
         rows.push({
           agent_id: user.id,
           withdrawal_id,
@@ -3027,13 +3034,14 @@ Deno.serve(async (req) => {
           telecom_charge: merchantTelecomExpected,
           float_used: merchantTelecomCharge,
           shortfall_amount: Math.round(merchantTelecomShortfall),
-          status: "needs_review",
+          status: "pending_reimbursement",
+          reviewed_at: new Date().toISOString(),
           evidence: shortfallEvidence,
           note:
             `Telecom sending charge of UGX ${merchantTelecomExpected.toLocaleString()} paid from the ` +
             `merchant's own line (float could not cover UGX ` +
-            `${Math.round(merchantTelecomShortfall).toLocaleString()}) — awaiting the ` +
-            `merchant's confirmation.`,
+            `${Math.round(merchantTelecomShortfall).toLocaleString()}) — auto-confirmed as owed, ` +
+            `since the fee is a fixed platform charge rather than something to verify.`,
         });
       }
       try {
@@ -3050,14 +3058,28 @@ Deno.serve(async (req) => {
         } else {
           merchantOutOfPocketRecorded = true;
           try {
+            // Principal still needs a human to confirm it; telecom (fixed fee,
+            // reserved alongside the principal under a row lock) is auto-
+            // confirmed at insert time — the audit description must say which
+            // actually happened here rather than always claiming "review".
+            const parts: string[] = [];
+            if (merchantPrincipalShortfall > 0) {
+              parts.push(
+                `UGX ${Math.round(merchantPrincipalShortfall).toLocaleString()} principal filed for finance review`,
+              );
+            }
+            if (merchantTelecomShortfall > 0) {
+              parts.push(
+                `UGX ${Math.round(merchantTelecomShortfall).toLocaleString()} telecom charge auto-confirmed as owed`,
+              );
+            }
             await admin.from("system_events").insert({
               event_type: "wallet_transfer",
               user_id: user.id,
               description:
                 `Company float was short by UGX ` +
                 `${Math.round(merchantPrincipalShortfall + merchantTelecomShortfall).toLocaleString()} ` +
-                `on withdrawal ${withdrawal_id}. Filed for finance review — becomes money owed ` +
-                `only once the merchant confirms they used their own money.`,
+                `on withdrawal ${withdrawal_id}: ${parts.join("; ")}.`,
               metadata: {
                 withdrawal_id,
                 payout_amount: amount,
@@ -3066,7 +3088,8 @@ Deno.serve(async (req) => {
                 telecom_charge: merchantTelecomExpected,
                 principal_shortfall: Math.round(merchantPrincipalShortfall),
                 telecom_shortfall: Math.round(merchantTelecomShortfall),
-                status: "needs_review",
+                principal_status: merchantPrincipalShortfall > 0 ? "needs_review" : null,
+                telecom_status: merchantTelecomShortfall > 0 ? "pending_reimbursement" : null,
               },
             });
           } catch (_e) { /* non-blocking */ }
