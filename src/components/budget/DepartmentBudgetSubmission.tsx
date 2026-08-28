@@ -20,6 +20,7 @@ import {
   type BudgetSubmission, type BudgetLine,
 } from '@/hooks/useDepartmentBudgets';
 import { departmentKeysForDashboard } from './departmentScope';
+import { useAuth } from '@/hooks/useAuth';
 
 interface DraftLine {
   description: string;
@@ -38,6 +39,15 @@ const emptyLine = (): DraftLine => ({
 
 const EDITABLE_STATUSES = ['draft'];
 
+/**
+ * Mirrors public.is_budget_reviewer(). Reviewers are exempt from the
+ * budget_can_file_for_department() guard in budget_save_draft, and
+ * can_access_budget_submission() lets them submit, so they may legitimately
+ * file for any active department. Used only to decide which departments to
+ * offer; the database remains the authority on every write.
+ */
+const BUDGET_REVIEWER_ROLES = ['cfo', 'ceo', 'super_admin', 'manager', 'financial_ops'];
+
 interface Props {
   /** Dashboard the page was opened from (e.g. 'tenant-ops'); locks the form to that hub's department. */
   dashboard?: string;
@@ -50,6 +60,7 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
   const { cycles, loading: cyclesLoading } = useBudgetCycles();
   const {
     accounts,
+    departments,
     myDepartments: allMyDepartments,
     primaryDepartmentId,
     loading: refLoading,
@@ -70,6 +81,24 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     [allMyDepartments, allowedKeys],
   );
 
+  /**
+   * A reviewer opening the page unscoped may file for any active department,
+   * so offer the full list rather than only their own HR postings. An explicit
+   * hub scope (?dashboard=tenant-ops) still wins: that lock is deliberate, and
+   * widening it here would let a hub page file outside its own hub.
+   */
+  const { roles } = useAuth();
+  const isReviewer = useMemo(
+    () => (roles ?? []).some(r => BUDGET_REVIEWER_ROLES.includes(r as string)),
+    [roles],
+  );
+  const filingOnBehalf = isReviewer && !allowedKeys;
+  const selectableDepartments = filingOnBehalf ? departments : myDepartments;
+  const myDepartmentIds = useMemo(
+    () => new Set(myDepartments.map(d => d.id)),
+    [myDepartments],
+  );
+
   const [cycleId, setCycleId] = useState<string>('');
   const [departmentId, setDepartmentId] = useState<string>('');
   const [submissions, setSubmissions] = useState<BudgetSubmission[]>([]);
@@ -87,8 +116,8 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
   const cycle = useMemo(() => cycles.find(c => c.id === cycleId), [cycles, cycleId]);
   const active = useMemo(() => submissions.find(s => s.id === activeId) ?? null, [submissions, activeId]);
   const selectedDepartment = useMemo(
-    () => myDepartments.find(d => d.id === departmentId) ?? null,
-    [myDepartments, departmentId],
+    () => selectableDepartments.find(d => d.id === departmentId) ?? null,
+    [selectableDepartments, departmentId],
   );
   const readOnly = active ? !EDITABLE_STATUSES.includes(active.status) : false;
 
@@ -102,6 +131,13 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     // posting exists, the field stays empty so an alphabetically-first
     // department is never silently pre-selected on the user's behalf.
     if (refLoading) return;
+    // Filing on behalf of departments: never preselect. A reviewer's own HR
+    // posting is not the department they are usually budgeting for, and a
+    // prefilled field invites submitting under the wrong one.
+    if (filingOnBehalf) {
+      if (departmentId && !selectableDepartments.some(d => d.id === departmentId)) setDepartmentId('');
+      return;
+    }
     if (!myDepartments.length) { if (departmentId) setDepartmentId(''); return; }
     if (myDepartments.some(d => d.id === departmentId)) return;
     const preferred = primaryDepartmentId
@@ -109,7 +145,7 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
       : null;
     if (preferred) { setDepartmentId(preferred.id); return; }
     setDepartmentId(myDepartments.length === 1 ? myDepartments[0].id : '');
-  }, [myDepartments, departmentId, primaryDepartmentId, refLoading]);
+  }, [myDepartments, departmentId, primaryDepartmentId, refLoading, filingOnBehalf, selectableDepartments]);
 
 
   useEffect(() => {
@@ -242,13 +278,15 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     return <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading budget cycles…</div>;
   }
 
-  if (!myDepartments.length) {
+  if (!selectableDepartments.length) {
     return (
       <Card>
         <CardContent className="p-6 text-sm text-muted-foreground">
-          {allowedKeys
-            ? 'You do not have an active department assignment for this hub, so there is no budget to prepare here. Ask HR to post you to this department.'
-            : 'No active department is linked to your account, so a budget cannot be prepared. Ask HR to add your active department assignment — budgets are always filed under your own department.'}
+          {filingOnBehalf
+            ? 'No active departments are registered, so there is nothing to budget for yet. Ask HR to add the company departments.'
+            : allowedKeys
+              ? 'You do not have an active department assignment for this hub, so there is no budget to prepare here. Ask HR to post you to this department.'
+              : 'No active department is linked to your account, so a budget cannot be prepared. Ask HR to add your active department assignment — budgets are always filed under your own department.'}
         </CardContent>
       </Card>
     );
@@ -278,16 +316,32 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
             </div>
             <div>
               <Label className="text-xs">Department</Label>
-              {myDepartments.length > 1 ? (
+              {selectableDepartments.length > 1 ? (
                 <Select value={departmentId} onValueChange={setDepartmentId}>
                   <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
                   <SelectContent className="z-[100]">
-                    {myDepartments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                    {filingOnBehalf ? (
+                      /* Own postings first so a reviewer filing for their own
+                         department does not hunt through the full list. */
+                      <>
+                        {selectableDepartments.filter(d => myDepartmentIds.has(d.id)).map(d => (
+                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                        ))}
+                        {selectableDepartments.some(d => myDepartmentIds.has(d.id)) && (
+                          <div className="my-1 border-t border-border" role="separator" />
+                        )}
+                        {selectableDepartments.filter(d => !myDepartmentIds.has(d.id)).map(d => (
+                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                        ))}
+                      </>
+                    ) : (
+                      selectableDepartments.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)
+                    )}
                   </SelectContent>
                 </Select>
               ) : (
-                /* Single posting: the department is fixed to the user's own
-                   department so a budget can never be filed under another. */
+                /* Single posting and not a reviewer: the department is fixed to
+                   the user's own so a budget can never be filed under another. */
                 <div
                   className="flex h-10 items-center rounded-md border border-input bg-muted/50 px-3 text-sm"
                   aria-readonly="true"
@@ -295,9 +349,16 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
                   {selectedDepartment?.name ?? '—'}
                 </div>
               )}
-              {myDepartments.length > 1 && !departmentId && (
+              {selectableDepartments.length > 1 && !departmentId && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Your home department could not be resolved — pick the department this budget belongs to.
+                  {filingOnBehalf
+                    ? 'Pick the department this budget belongs to.'
+                    : 'Your home department could not be resolved — pick the department this budget belongs to.'}
+                </p>
+              )}
+              {filingOnBehalf && selectedDepartment && !myDepartmentIds.has(selectedDepartment.id) && (
+                <p className="mt-1 text-[11px] text-amber-600">
+                  Filing on behalf of {selectedDepartment.name} — you are not posted to this department.
                 </p>
               )}
               {route && (
