@@ -85,7 +85,7 @@ function waitingFor(since: string): string {
   return `${Math.round(hours / 24)} days`;
 }
 
-export function AgentFloatPayoutWizard({ open, onOpenChange, allocation }: AgentFloatPayoutWizardProps) {
+export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone }: AgentFloatPayoutWizardProps) {
   const { user } = useAuth();
   const qc = useQueryClient();
   const geo = useCaptureLocation();
