@@ -1403,7 +1403,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation }: Agent
               </h3>
               <p className="text-muted-foreground text-sm">
                 {resumedExistingPayout
-                  ? `${req ? formatUGX(effectiveAmount) : ''} was already sent to ${req?.landlord?.name || 'the landlord'} via Mobile Money in an earlier session — the landlord's OTP was verified then. No new payment was made now.`
+                  ? `${formatUGX(resumedPayoutAmount ?? effectiveAmount)} was already sent to ${req?.landlord?.name || 'the landlord'} via Mobile Money in an earlier session — the landlord's OTP was verified then. No new payment was made now.`
                   : `${req ? formatUGX(effectiveAmount) : ''} delivered to ${req?.landlord?.name || 'the landlord'} via Mobile Money.`}
               </p>
               <Button onClick={handleClose}>Done</Button>
