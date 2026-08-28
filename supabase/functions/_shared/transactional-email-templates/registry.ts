@@ -99,4 +99,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'portfolio-renewal-apology': portfolioRenewalApologyTemplate,
   'partner-portfolio-invite': partnerPortfolioInviteTemplate,
   'performance-assessment-report': performanceAssessmentReportTemplate,
+  'board-technology-memo': boardTechnologyMemoTemplate,
 }
