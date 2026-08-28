@@ -120,6 +120,137 @@ function NewAgentPercentages({ rows, newCount, prevCount, totalAgents, compareLa
   );
 }
 
+/**
+ * Composition of the canonical operational agent population: main vs sub-agents,
+ * and active (rent collecting) vs inactive / onboarding agents.
+ */
+function TotalAgentsComposition({ population, asOf }: {
+  population: AgentPopulation; asOf: string;
+}) {
+  const total = Math.max(0, Number(population.total) || 0);
+  const share = (v: number) => (total > 0 ? (v / total) * 100 : 0);
+  const fmtPct = (v: number) => `${share(v).toFixed(1)}%`;
+  const g = (v: unknown) => Math.max(0, Number(v) || 0);
+
+  const structure = [
+    { label: 'Main agents', count: g(population.primary_total), cls: 'bg-primary',
+      hint: `${num(g(population.primary_active))} active · ${num(g(population.primary_inactive))} inactive` },
+    { label: 'Sub-agents', count: g(population.sub_total), cls: 'bg-purple-500',
+      hint: `${num(g(population.sub_active))} active · ${num(g(population.sub_inactive))} inactive` },
+  ];
+
+  const activity = [
+    { label: 'Active rent collecting agents', count: g(population.active), cls: 'bg-emerald-500',
+      hint: 'Collected in the last 30 days or carries a live plan' },
+    { label: 'Inactive / onboarding agents', count: g(population.inactive), cls: 'bg-amber-500',
+      hint: 'No collection in 30 days and no live plan' },
+  ];
+
+  const Bar = ({ segments }: { segments: { label: string; count: number; cls: string }[] }) => (
+    <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted">
+      {segments.map(s => (
+        <div key={s.label} className={cn('h-full', s.cls)}
+          style={{ width: `${share(s.count)}%` }} title={`${s.label}: ${num(s.count)} (${fmtPct(s.count)})`} />
+      ))}
+    </div>
+  );
+
+  const Legend = ({ segments }: { segments: { label: string; count: number; cls: string; hint?: string }[] }) => (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {segments.map(s => (
+        <div key={s.label} className="rounded-xl border bg-card p-3">
+          <div className="flex items-center gap-1.5">
+            <span className={cn('h-2 w-2 rounded-full', s.cls)} />
+            <p className="text-[11px] text-muted-foreground">{s.label}</p>
+          </div>
+          <p className="text-lg font-bold">{num(s.count)}
+            <span className="ml-1.5 text-xs font-semibold text-muted-foreground">{fmtPct(s.count)}</span>
+          </p>
+          {s.hint && <p className="text-[10px] text-muted-foreground">{s.hint}</p>}
+        </div>
+      ))}
+    </div>
+  );
+
+  const rows = [
+    { group: 'Network structure', ...structure[0] },
+    { group: 'Network structure', ...structure[1] },
+    { group: 'Collection activity', ...activity[0] },
+    { group: 'Collection activity', ...activity[1] },
+  ];
+
+  return (
+    <Card>
+      <CardHeader className="p-3 pb-1">
+        <CardTitle className="text-xs font-bold">Total Agents Composition &amp; Sources</CardTitle>
+        <p className="text-[10px] text-muted-foreground">
+          How the total of {num(total)} operational agents as at {asOf} is made up. An operational agent has
+          recorded at least one rent collection or carries a live rent plan.
+        </p>
+      </CardHeader>
+      <CardContent className="p-3 pt-1 space-y-3">
+        <div className="rounded-xl border bg-card p-3">
+          <div className="flex items-baseline justify-between">
+            <p className="text-[11px] text-muted-foreground">Total agents</p>
+            <p className="text-lg font-bold">{num(total)}</p>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-semibold">By network structure</p>
+          <Bar segments={structure} />
+          <Legend segments={structure} />
+        </div>
+
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-semibold">By collection activity</p>
+          <Bar segments={activity} />
+          <Legend segments={activity} />
+        </div>
+
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-xs">
+            <thead className="bg-muted/50">
+              <tr>
+                <th className="px-2 py-2 text-left font-semibold whitespace-nowrap">Source</th>
+                <th className="px-2 py-2 text-left font-semibold whitespace-nowrap">Grouping</th>
+                <th className="px-2 py-2 text-right font-semibold whitespace-nowrap">Agents</th>
+                <th className="px-2 py-2 text-right font-semibold whitespace-nowrap">% of total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={`${r.group}-${r.label}`} className={cn('border-t', i % 2 ? 'bg-muted/20' : '')}>
+                  <td className="px-2 py-1.5 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className={cn('h-2 w-2 rounded-full', r.cls)} />{r.label}
+                    </span>
+                  </td>
+                  <td className="px-2 py-1.5 text-muted-foreground whitespace-nowrap">{r.group}</td>
+                  <td className="px-2 py-1.5 text-right whitespace-nowrap">{num(r.count)}</td>
+                  <td className="px-2 py-1.5 text-right whitespace-nowrap">{fmtPct(r.count)}</td>
+                </tr>
+              ))}
+              <tr className="border-t bg-muted/40 font-semibold">
+                <td className="px-2 py-1.5 whitespace-nowrap">Total agents</td>
+                <td className="px-2 py-1.5 text-muted-foreground whitespace-nowrap">Each grouping sums to total</td>
+                <td className="px-2 py-1.5 text-right whitespace-nowrap">{num(total)}</td>
+                <td className="px-2 py-1.5 text-right whitespace-nowrap">100.0%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p className="text-[10px] text-muted-foreground">
+          Main + sub-agents = total agents. Active + inactive = total agents. The two groupings are two
+          independent views of the same population, so they are not added together.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+
 
 const num = (n: any) => Math.round(Number(n) || 0).toLocaleString();
 const title = (s: any) => String(s ?? '—').replace(/_/g, ' ');
