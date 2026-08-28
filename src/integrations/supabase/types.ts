@@ -20028,6 +20028,9 @@ export type Database = {
           id: string
           issued_channel: string | null
           item_name: string
+          lease_activated_at: string | null
+          lease_daily_rate: number | null
+          lease_term_months: number | null
           model_type: string | null
           notes: string | null
           order_status: string
@@ -20047,6 +20050,7 @@ export type Database = {
           unit_cost: number
           unit_price: number
           updated_at: string
+          valuation_amount: number | null
         }
         Insert: {
           access_accepted_at?: string | null
@@ -20068,6 +20072,9 @@ export type Database = {
           id?: string
           issued_channel?: string | null
           item_name: string
+          lease_activated_at?: string | null
+          lease_daily_rate?: number | null
+          lease_term_months?: number | null
           model_type?: string | null
           notes?: string | null
           order_status?: string
@@ -20087,6 +20094,7 @@ export type Database = {
           unit_cost?: number
           unit_price: number
           updated_at?: string
+          valuation_amount?: number | null
         }
         Update: {
           access_accepted_at?: string | null
@@ -20108,6 +20116,9 @@ export type Database = {
           id?: string
           issued_channel?: string | null
           item_name?: string
+          lease_activated_at?: string | null
+          lease_daily_rate?: number | null
+          lease_term_months?: number | null
           model_type?: string | null
           notes?: string | null
           order_status?: string
@@ -20127,6 +20138,7 @@ export type Database = {
           unit_cost?: number
           unit_price?: number
           updated_at?: string
+          valuation_amount?: number | null
         }
         Relationships: [
           {
@@ -39331,6 +39343,16 @@ export type Database = {
         Returns: Json
       }
       agent_order_spiro_bike: { Args: { p_amount: number }; Returns: Json }
+      agent_order_spiro_bike_lease: {
+        Args: {
+          p_daily_rate?: number
+          p_lease_term_months?: number
+          p_model: string
+          p_note?: string
+          p_valuation: number
+        }
+        Returns: Json
+      }
       agent_per_tenant_max: { Args: { _agent_id: string }; Returns: number }
       agent_product_category: { Args: { p_item_name: string }; Returns: string }
       agent_purchase_merchandise: {
@@ -40122,7 +40144,15 @@ export type Database = {
         Args: { _submission_id: string; _user_id: string }
         Returns: boolean
       }
+      can_cfo_disburse_bike_leases: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       can_cfo_disburse_smartphone_orders: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      can_coo_approve_bike_leases: {
         Args: { _user_id: string }
         Returns: boolean
       }
@@ -40145,6 +40175,7 @@ export type Database = {
         Returns: boolean
       }
       can_replay_settlement: { Args: { _user_id: string }; Returns: boolean }
+      can_review_bike_leases: { Args: { _user_id: string }; Returns: boolean }
       can_review_smartphone_orders: {
         Args: { _user_id: string }
         Returns: boolean
@@ -40249,6 +40280,10 @@ export type Database = {
           p_payee_phone?: string
           p_payee_user_id?: string
         }
+        Returns: Json
+      }
+      cfo_disburse_bike_lease: {
+        Args: { p_note?: string; p_sale_id: string; p_valuation?: number }
         Returns: Json
       }
       cfo_disburse_smartphone_order: {
@@ -40504,6 +40539,15 @@ export type Database = {
         Returns: number
       }
       continent_for_country: { Args: { p_country: string }; Returns: string }
+      coo_approve_bike_lease: {
+        Args: {
+          p_lease_term_months?: number
+          p_note?: string
+          p_sale_id: string
+          p_valuation?: number
+        }
+        Returns: Json
+      }
       coo_approve_smartphone_order: {
         Args: { p_note?: string; p_sale_id: string; p_total_amount?: number }
         Returns: Json
@@ -44359,6 +44403,30 @@ export type Database = {
               phone: string
             }[]
           }
+      list_bike_lease_orders: {
+        Args: { p_status?: string }
+        Returns: {
+          amount_outstanding: number
+          amount_paid: number
+          cfo_disbursed_at: string
+          client_name: string
+          client_phone: string
+          coo_approved_at: string
+          created_at: string
+          customer_id: string
+          disbursed_amount: number
+          id: string
+          lease_activated_at: string
+          lease_daily_rate: number
+          lease_term_months: number
+          model_type: string
+          order_status: string
+          payment_projection: number
+          rejection_reason: string
+          tracking_reference: string
+          valuation_amount: number
+        }[]
+      }
       list_joined_partners: {
         Args: { p_limit?: number; p_offset?: number }
         Returns: Json
@@ -46249,6 +46317,10 @@ export type Database = {
           p_reason: string
           p_request_id: string
         }
+        Returns: Json
+      }
+      reject_bike_lease: {
+        Args: { p_reason: string; p_sale_id: string }
         Returns: Json
       }
       reject_field_collection: {

@@ -22,6 +22,8 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
 import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatus';
 import { useMerchandiseOrderLock } from '@/hooks/useMerchandiseOrderLock';
+import SpiroBikeOrderDialog from '@/components/merchandise/SpiroBikeOrderDialog';
+import BikeLeaseStatus from '@/components/merchandise/BikeLeaseStatus';
 import SmartphoneOrderDialog from '@/components/merchandise/SmartphoneOrderDialog';
 
 import { StorageImage } from '@/components/ui/StorageImage';
@@ -85,8 +87,6 @@ export default function MerchandiseStore() {
 
 
   const [bikeOpen, setBikeOpen] = useState(false);
-  const [bikeAmount, setBikeAmount] = useState('');
-  const [orderingBike, setOrderingBike] = useState(false);
   const [catalogPage, setCatalogPage] = useState(1);
   const [shareItem, setShareItem] = useState<CatalogItem | null>(null);
   // Post-purchase receipt shown to the buyer as explicit confirmation.
@@ -349,34 +349,6 @@ export default function MerchandiseStore() {
 
 
 
-
-  const bikeAmountNum = Math.max(0, parseInt(bikeAmount || '0', 10) || 0);
-
-  const orderSpiroBike = async () => {
-    if (bikeAmountNum < 1000) {
-      toast.error('Enter an amount of at least UGX 1,000');
-      return;
-    }
-    if (bikeAmountNum > availableWallet) {
-      toast.error(
-        `Amount exceeds your available wallet balance of ${formatUGX(availableWallet)}. Enter ${formatUGX(availableWallet)} or less.`
-      );
-      return;
-    }
-    setOrderingBike(true);
-    const { error } = await db.rpc('agent_order_spiro_bike', { p_amount: bikeAmountNum });
-    setOrderingBike(false);
-    if (error) {
-      toast.error(error.message || 'Could not place Spiro bike order');
-      return;
-    }
-    toast.success(`Welile Spiro Bike requested. ${formatUGX(bikeAmountNum)} will be recovered from your wallet.`);
-    setBikeOpen(false);
-    setBikeAmount('');
-    queryClient.invalidateQueries({ queryKey: ['my-merchandise-plans', user?.id] });
-    queryClient.invalidateQueries({ queryKey: ['my-merchandise-deductions', user?.id] });
-  };
-
   return (
     <div className="min-h-[100dvh] bg-background pb-24">
       <Button
@@ -476,24 +448,19 @@ export default function MerchandiseStore() {
               className="h-11 w-11 rounded-xl object-cover shrink-0 border border-primary/20"
             />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold leading-tight">Order a Welile Spiro Bike</p>
+              <p className="text-sm font-bold leading-tight">Apply for a Spiro electric bike</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                Get a Spiro bike on credit. Choose how much can be deducted from your wallet — final price is set by marketing.
+                Pick a model and lease term. The COO approves the valuation, then the CFO releases the bike and activates your lease.
               </p>
             </div>
-            <Button size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => { setBikeAmount(''); setBikeOpen(true); }}>
-              Order
+            <Button size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => setBikeOpen(true)}>
+              Apply
             </Button>
           </CardContent>
         </Card>
 
-        {/* Spiro bike order status */}
-        <SmartphoneOrderStatus
-          userId={user?.id}
-          itemName="Welile Spiro Bike"
-          title="Spiro bike order status"
-          onRequestNewOrder={() => { setBikeAmount(''); setBikeOpen(true); }}
-        />
+        {/* Spiro bike lease status */}
+        <BikeLeaseStatus userId={user?.id} onRequestNewOrder={() => setBikeOpen(true)} />
 
         {/* Catalog */}
         <div>
@@ -890,62 +857,7 @@ export default function MerchandiseStore() {
       <SmartphoneOrderDialog open={phoneOpen} onOpenChange={setPhoneOpen} userId={user?.id} />
 
 
-      {/* Spiro bike order dialog */}
-      <Dialog open={bikeOpen} onOpenChange={(o) => { if (!o) setBikeOpen(false); }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Bike className="h-4 w-4 text-primary" /> Order a Welile Spiro Bike
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <img
-              src={spiroBikeAsset.url}
-              alt="Welile Spiro Bike"
-              className="w-full h-40 object-cover rounded-lg border border-border"
-            />
-            <p className="text-xs text-muted-foreground">
-              Marketing sets the final bike price. Enter the amount you're comfortable having recovered
-              from your wallet toward the Spiro bike.
-            </p>
-            <div className="space-y-1">
-              <Label className="text-xs">Amount to deduct (UGX)</Label>
-              <Input
-                type="number"
-                min={1000}
-                step={1000}
-                inputMode="numeric"
-                placeholder="e.g. 50000"
-                value={bikeAmount}
-                onChange={(e) => setBikeAmount(e.target.value)}
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Available wallet balance: <span className="font-semibold">{formatUGX(availableWallet)}</span>
-              </p>
-            </div>
-            {bikeAmountNum > 0 && (
-              <div className="rounded-lg bg-muted/50 px-3 py-2 flex justify-between text-sm">
-                <span className="text-muted-foreground">Will be recovered from wallet</span>
-                <span className="font-bold">{formatUGX(bikeAmountNum)}</span>
-              </div>
-            )}
-            {bikeAmountNum > availableWallet && (
-              <p className="text-[11px] font-medium text-destructive">
-                Amount exceeds your available wallet balance of {formatUGX(availableWallet)}.
-              </p>
-            )}
-            <p className="text-[11px] text-muted-foreground">
-              This amount is recovered from your withdrawable wallet — 15% up to 4 times a day until fully paid.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBikeOpen(false)} disabled={orderingBike}>Cancel</Button>
-            <Button onClick={orderSpiroBike} disabled={orderingBike || bikeAmountNum < 1000 || bikeAmountNum > availableWallet}>
-              {orderingBike ? 'Ordering…' : 'Confirm order'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SpiroBikeOrderDialog open={bikeOpen} onOpenChange={setBikeOpen} userId={user?.id} />
 
       {/* Share fallback dialog */}
       <Dialog open={!!shareItem} onOpenChange={(o) => { if (!o) setShareItem(null); }}>
