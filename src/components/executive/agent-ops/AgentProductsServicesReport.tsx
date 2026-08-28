@@ -860,18 +860,41 @@ export function AgentProductsServicesReport() {
             </CardContent>
           </Card>
 
-          {/* Detail tabs */}
+          {/* Detail tabs — ordered dynamically by record volume: smallest/empty sections first, high-volume sections last */}
           <Card>
             <CardContent className="p-3">
-              <Tabs defaultValue="agents">
+              {(() => {
+                const counts: Record<string, number> = {
+                  agents: (report.agent_float_rows || []).length,
+                  new: (report.new_agent_rows || []).length,
+                  rent: (report.rent_rows || []).length,
+                  advances: (report.advance_rows || []).length,
+                  sc: (report.service_centre_rows || []).length,
+                  bikes: (report.product_rows || []).filter(r => r.product === 'bike').length,
+                  phones: (report.product_rows || []).filter(r => r.product === 'smartphone').length,
+                };
+                const labels: Record<string, string> = {
+                  agents: 'Agent performance',
+                  new: 'New agents',
+                  rent: 'Rent receivables',
+                  advances: 'Advances',
+                  sc: 'Service centres',
+                  bikes: 'Motor bikes',
+                  phones: 'Smartphones',
+                };
+                const tieBreak = ['sc', 'bikes', 'phones', 'new', 'advances', 'rent', 'agents'];
+                const orderedTabs = Object.keys(labels).sort(
+                  (a, b) => counts[a] - counts[b] || tieBreak.indexOf(a) - tieBreak.indexOf(b),
+                );
+                return (
+              <Tabs defaultValue={orderedTabs[0]}>
                 <TabsList className="flex flex-wrap h-auto gap-1">
-                  <TabsTrigger value="agents" className="text-[11px]">Agent performance</TabsTrigger>
-                  <TabsTrigger value="new" className="text-[11px]">New agents</TabsTrigger>
-                  <TabsTrigger value="rent" className="text-[11px]">Rent receivables</TabsTrigger>
-                  <TabsTrigger value="advances" className="text-[11px]">Advances</TabsTrigger>
-                  <TabsTrigger value="sc" className="text-[11px]">Service centres</TabsTrigger>
-                  <TabsTrigger value="bikes" className="text-[11px]">Motor bikes</TabsTrigger>
-                  <TabsTrigger value="phones" className="text-[11px]">Smartphones</TabsTrigger>
+                  {orderedTabs.map(v => (
+                    <TabsTrigger key={v} value={v} className="text-[11px]">
+                      {labels[v]}
+                      <span className="ml-1 text-[10px] opacity-60">({counts[v]})</span>
+                    </TabsTrigger>
+                  ))}
                 </TabsList>
 
                 <TabsContent value="agents" className="mt-3 space-y-3">
