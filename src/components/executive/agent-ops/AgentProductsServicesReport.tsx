@@ -548,7 +548,9 @@ export function AgentProductsServicesReport() {
         actor: actorName || 'Agent Ops user',
         cumulative,
         prev: prevReport,
+        population: populationQuery.data ?? null,
       });
+
       downloadBlob(blob, isRange ? `agent-products-services-${dayKey}_to_${todayKey}.pdf` : `agent-products-services-${todayKey}.pdf`);
       toast.success(isRange ? 'Cumulative report downloaded' : 'Daily report downloaded');
     } catch (err: any) {
