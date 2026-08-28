@@ -120,12 +120,11 @@ async function exportCatalogPdf(rows: SmartphoneCatalogEntry[], from: string, to
 /** Agent Ops dialog to manage phone models agents can order. */
 export function SmartphoneCatalogDialog() {
   const [open, setOpen] = useState(false);
-  const [brand, setBrand] = useState('');
-  const [modelName, setModelName] = useState('');
-  const [amount, setAmount] = useState('');
-  const [specifications, setSpecifications] = useState('');
-  const [moreSpecifications, setMoreSpecifications] = useState('');
+  const [brandChoice, setBrandChoice] = useState<string>(NEW_BRAND);
+  const [newBrand, setNewBrand] = useState('');
+  const [rows, setRows] = useState<ModelRow[]>([emptyRow()]);
   const [search, setSearch] = useState('');
+
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
