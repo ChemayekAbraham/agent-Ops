@@ -283,7 +283,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
                   <p className="text-[11px] text-destructive">Rejected: {o.rejection_reason}</p>
                 )}
 
-                {isPending(o.order_status) && (
+                {isOpen(o.order_status) && (
                   <div className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
                     <Button
                       size="sm"
@@ -291,11 +291,14 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
                       disabled={rowBusy(o.id)}
                     >
                       {approve.isPending && approve.variables?.id === o.id ? (
-                        <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Approving…</>
+                        <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Processing…</>
+                      ) : isAwaitingCfo(o.order_status) ? (
+                        <><Check className="h-3.5 w-3.5 mr-1" /> Disburse &amp; activate</>
                       ) : (
-                        <><Check className="h-3.5 w-3.5 mr-1" /> Approve</>
+                        <><Check className="h-3.5 w-3.5 mr-1" /> Approve &amp; send to CFO</>
                       )}
                     </Button>
+
 
                     <Button
                       size="sm"
