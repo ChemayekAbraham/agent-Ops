@@ -90,7 +90,7 @@ export async function getMetricSnapshots(params: {
   let query = supabase
     .from('hr_metric_snapshots')
     .select(
-      'id, staff_id, department_id, metric_key, metric_version, period_start, period_end, value, computed_at, inputs_snapshot, locked',
+      'id, staff_id, department_id, metric_key, metric_version, period_start, period_end, value, subject_kind, computed_at, inputs_snapshot, locked',
     )
     .order('period_start', { ascending: true });
 
@@ -106,13 +106,13 @@ export async function getMetricSnapshots(params: {
     id: row.id,
     metric_definition_id: idByKey[row.metric_key] ?? row.metric_key,
     metric_definition_version: row.metric_version,
-    subject_type: params.subjectType,
+    subject_type: row.subject_kind === 'org' ? 'org' : params.subjectType,
     subject_id: params.subjectType === 'employee' ? row.staff_id : row.department_id,
     assignment_id: null,
     period_type: 'monthly',
     period_start: row.period_start,
     period_end: row.period_end,
-    value: Number(row.value ?? 0),
+    value: row.value === null || row.value === undefined ? null : Number(row.value),
     target_value: null,
     attainment_pct: null,
     status: row.locked ? 'locked' : 'open',
@@ -134,7 +134,7 @@ export async function getSnapshots(params: {
   let query = supabase
     .from('hr_metric_snapshots')
     .select(
-      'id, staff_id, department_id, metric_key, metric_version, period_start, period_end, value, computed_at, inputs_snapshot, locked',
+      'id, staff_id, department_id, metric_key, metric_version, period_start, period_end, value, subject_kind, computed_at, inputs_snapshot, locked',
     )
     .order('period_start', { ascending: true });
   if (params.periodStart) query = query.gte('period_start', params.periodStart);
@@ -150,13 +150,20 @@ export async function getSnapshots(params: {
     id: row.id,
     metric_definition_id: idByKey[row.metric_key] ?? row.metric_key,
     metric_definition_version: row.metric_version,
-    subject_type: 'employee',
+    subject_type:
+      row.subject_kind === 'staff'
+        ? 'employee'
+        : row.subject_kind === 'department'
+          ? 'department'
+          : row.subject_kind === 'org'
+            ? 'org'
+            : 'employee',
     subject_id: row.staff_id,
     assignment_id: null,
     period_type: 'monthly',
     period_start: row.period_start,
     period_end: row.period_end,
-    value: Number(row.value ?? 0),
+    value: row.value === null || row.value === undefined ? null : Number(row.value),
     target_value: null,
     attainment_pct: null,
     status: row.locked ? 'locked' : 'open',
