@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import {
   ClipboardList,
   CalendarCheck,
@@ -13,11 +13,19 @@ import {
   ShieldCheck,
   TrendingUp,
   Wallet,
+  UserPlus,
+  UserCheck,
+  UserX,
+  CheckCircle2,
+  XCircle,
+  CalendarDays,
+  MapPin,
 } from 'lucide-react';
 import { HubEntryCard } from '@/components/ops/HubEntryCard';
 import { RepaymentTrendChart } from '@/components/executive/RepaymentTrendChart';
 import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 import { useTenantRepaymentReliability } from '@/hooks/useTenantRepaymentReliability';
+import { useTenantOpsAcquisition } from '@/hooks/useTenantOpsAcquisition';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import type { TenantOpsViewKey } from './tenantOpsNav';
@@ -34,6 +42,7 @@ import type { TenantOpsViewKey } from './tenantOpsNav';
 export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsViewKey) => void }) {
   const { data: counts, isLoading } = useTenantOpsToolCounts();
   const { data: reliability, isLoading: loadingReliability } = useTenantRepaymentReliability(800);
+  const { data: acquisition, isLoading: loadingAcquisition } = useTenantOpsAcquisition();
   const c = counts;
 
   const expected = c?.expected_today ?? 0;
@@ -51,38 +60,76 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
     ].filter((d) => d.value > 0);
   }, [reliability]);
 
+  const num = (v: number | undefined) => (v ?? 0).toLocaleString('en-US');
+  const inactiveTenants = Math.max(0, (c?.tenant_count ?? 0) - (c?.active_tenants ?? 0));
+  const growthPct = acquisition?.growthPct;
+  const growthLabel =
+    growthPct == null ? '—' : `${growthPct >= 0 ? '+' : ''}${growthPct.toFixed(1)}%`;
+
   const stats: { label: string; value: string; hint: string; icon: typeof Users; view: TenantOpsViewKey; tone?: string }[] = [
     {
-      label: 'Awaiting review',
-      value: (c?.review_requests ?? 0).toLocaleString('en-US'),
-      hint: `${c?.new_requests ?? 0} brand new`,
-      icon: ClipboardList,
-      view: 'pipeline',
-      tone: 'bg-warning/10 text-warning',
-    },
-    {
-      label: 'Active plans',
-      value: (c?.active_plans ?? 0).toLocaleString('en-US'),
-      hint: `${c?.repaying_plans ?? 0} repaying`,
-      icon: TrendingUp,
-      view: 'pipeline-hub',
-      tone: 'bg-primary/10 text-primary',
-    },
-    {
-      label: 'Tenants',
-      value: (c?.tenant_count ?? 0).toLocaleString('en-US'),
-      hint: `${c?.active_tenants ?? 0} active`,
+      label: 'Total Tenants',
+      value: num(c?.tenant_count),
+      hint: `${num(c?.active_tenants)} active`,
       icon: Users,
       view: 'all-tenants-hub',
       tone: 'bg-primary/10 text-primary',
     },
     {
-      label: 'Paid today',
-      value: (c?.paid_today_tenants ?? 0).toLocaleString('en-US'),
-      hint: `${c?.unpaid_today_tenants ?? 0} still unpaid`,
-      icon: CalendarCheck,
-      view: 'daily',
+      label: 'New Tenants Today',
+      value: num(acquisition?.newToday),
+      hint: `${num(acquisition?.newThisWeek)} this week`,
+      icon: UserPlus,
+      view: 'all-tenants-hub',
       tone: 'bg-success/10 text-success',
+    },
+    {
+      label: 'New Tenants This Month',
+      value: num(acquisition?.newThisMonth),
+      hint: `Growth ${growthLabel}`,
+      icon: CalendarDays,
+      view: 'all-tenants-hub',
+      tone: 'bg-success/10 text-success',
+    },
+    {
+      label: 'Active Tenants',
+      value: num(c?.active_tenants),
+      hint: `${num(c?.paid_today_tenants)} paid today`,
+      icon: UserCheck,
+      view: 'all-tenants-hub',
+      tone: 'bg-primary/10 text-primary',
+    },
+    {
+      label: 'Inactive Tenants',
+      value: num(inactiveTenants),
+      hint: 'No active rent plan',
+      icon: UserX,
+      view: 'all-tenants-hub',
+      tone: 'bg-muted text-muted-foreground',
+    },
+    {
+      label: 'Applications Today',
+      value: num(acquisition?.applicationsToday),
+      hint: `${num(c?.review_requests)} awaiting review`,
+      icon: ClipboardList,
+      view: 'pipeline',
+      tone: 'bg-warning/10 text-warning',
+    },
+    {
+      label: 'Applications Approved',
+      value: num(acquisition?.applicationsApproved),
+      hint: `${num(c?.approvals_today)} approved today`,
+      icon: CheckCircle2,
+      view: 'pipeline-hub',
+      tone: 'bg-success/10 text-success',
+    },
+    {
+      label: 'Applications Rejected',
+      value: num(acquisition?.applicationsRejected),
+      hint: `${num(c?.rejected_30d)} in last 30 days`,
+      icon: XCircle,
+      view: 'pipeline',
+      tone: 'bg-destructive/10 text-destructive',
     },
   ];
 
@@ -169,26 +216,135 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-2 gap-2 lg:col-span-2 lg:grid-cols-2">
-          {stats.map((s) => (
-            <button
-              key={s.label}
-              type="button"
-              onClick={() => onNavigate(s.view)}
-              className="group rounded-2xl border border-border/60 bg-card p-3.5 text-left shadow-sm transition-all hover:border-primary/50 hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-            >
-              <div className="flex items-center gap-2">
-                <div className={cn('rounded-xl p-2 shrink-0', s.tone)}>
-                  <s.icon className="h-4 w-4" />
+        <div className="lg:col-span-2 space-y-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Executive summary
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+            {stats.map((s) => (
+              <button
+                key={s.label}
+                type="button"
+                onClick={() => onNavigate(s.view)}
+                className="group rounded-2xl border border-border/60 bg-card p-3.5 text-left shadow-sm transition-all hover:border-primary/50 hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+              >
+                <div className="flex items-center gap-2">
+                  <div className={cn('rounded-xl p-2 shrink-0', s.tone)}>
+                    <s.icon className="h-4 w-4" />
+                  </div>
+                  <p className="min-w-0 text-[10px] font-semibold uppercase leading-tight tracking-wider text-muted-foreground break-words line-clamp-2">
+                    {s.label}
+                  </p>
                 </div>
-                <p className="min-w-0 text-[10px] font-semibold uppercase leading-tight tracking-wider text-muted-foreground break-words line-clamp-2">
-                  {s.label}
+                <p className="mt-2 text-xl font-bold tabular-nums leading-none">
+                  {isLoading || loadingAcquisition ? '—' : s.value}
                 </p>
-              </div>
-              <p className="mt-2 text-xl font-bold tabular-nums leading-none">{isLoading ? '—' : s.value}</p>
-              <p className="mt-1 text-[11px] leading-snug text-muted-foreground break-words line-clamp-2">{s.hint}</p>
-            </button>
-          ))}
+                <p className="mt-1 text-[11px] leading-snug text-muted-foreground break-words line-clamp-2">{s.hint}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Tenant Acquisition */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-bold tracking-tight flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-primary" />
+              Tenant Acquisition
+            </h3>
+            <p className="text-[11px] text-muted-foreground">
+              Registrations and distribution across locations, service centres and agents.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
+            <span className="rounded-full bg-muted px-2.5 py-1">
+              Today: <span className="text-foreground">{loadingAcquisition ? '—' : num(acquisition?.newToday)}</span>
+            </span>
+            <span className="rounded-full bg-muted px-2.5 py-1">
+              This week: <span className="text-foreground">{loadingAcquisition ? '—' : num(acquisition?.newThisWeek)}</span>
+            </span>
+            <span className="rounded-full bg-muted px-2.5 py-1">
+              This month: <span className="text-foreground">{loadingAcquisition ? '—' : num(acquisition?.newThisMonth)}</span>
+            </span>
+            <span className={cn(
+              'rounded-full px-2.5 py-1',
+              growthPct != null && growthPct < 0 ? 'bg-destructive/10 text-destructive' : 'bg-success/10 text-success'
+            )}>
+              Growth: {loadingAcquisition ? '—' : growthLabel}
+            </span>
+          </div>
+        </div>
+
+        <Card className="border shadow-sm">
+          <CardHeader className="pb-2 px-3 sm:px-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              New Tenant Registrations (30 Days)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-2 sm:px-4 pb-3">
+            <div className="h-[220px]">
+              {loadingAcquisition ? (
+                <div className="h-full w-full animate-pulse rounded-xl bg-muted" />
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={acquisition?.trend ?? []} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10 }}
+                      className="fill-muted-foreground"
+                      interval="preserveStartEnd"
+                      minTickGap={40}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10 }}
+                      className="fill-muted-foreground"
+                      allowDecimals={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                      }}
+                      formatter={(value: number) => [`${value} new tenants`, 'Registrations']}
+                      labelFormatter={(label, payload) => payload?.[0]?.payload?.fullDate || label}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="count"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <BreakdownBars
+            title="Tenants by location"
+            bars={acquisition?.byLocation ?? []}
+            loading={loadingAcquisition}
+          />
+          <BreakdownBars
+            title="Tenants by service centre"
+            bars={acquisition?.byServiceCentre ?? []}
+            loading={loadingAcquisition}
+          />
+          <BreakdownBars
+            title="Tenants by agent"
+            bars={acquisition?.byAgent ?? []}
+            loading={loadingAcquisition}
+          />
         </div>
       </div>
 
@@ -313,5 +469,62 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Compact horizontal-bar breakdown card (top 8 rows + overflow note),
+ * styled to match the rest of the Classic Home cards.
+ */
+function BreakdownBars({
+  title,
+  bars,
+  loading,
+}: {
+  title: string;
+  bars: { label: string; value: number }[];
+  loading?: boolean;
+}) {
+  const top = bars.slice(0, 8);
+  const max = top.reduce((m, b) => Math.max(m, b.value), 0);
+  return (
+    <Card className="border shadow-sm">
+      <CardHeader className="pb-2 px-3 sm:px-4">
+        <CardTitle className="text-sm font-semibold">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="px-3 sm:px-4 pb-3">
+        {loading ? (
+          <div className="h-[180px] w-full animate-pulse rounded-xl bg-muted" />
+        ) : top.length === 0 ? (
+          <div className="flex h-[180px] items-center justify-center text-xs text-muted-foreground">
+            No data yet
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {top.map((b) => (
+              <div key={b.label} className="space-y-1">
+                <div className="flex items-center justify-between gap-2 text-[11px]">
+                  <span className="min-w-0 truncate font-medium text-foreground">{b.label}</span>
+                  <span className="shrink-0 font-bold tabular-nums text-foreground">
+                    {b.value.toLocaleString('en-US')}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary"
+                    style={{ width: max > 0 ? `${Math.max(3, (b.value / max) * 100)}%` : '0%' }}
+                  />
+                </div>
+              </div>
+            ))}
+            {bars.length > top.length && (
+              <p className="pt-1 text-[10px] text-muted-foreground">
+                +{bars.length - top.length} more
+              </p>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
