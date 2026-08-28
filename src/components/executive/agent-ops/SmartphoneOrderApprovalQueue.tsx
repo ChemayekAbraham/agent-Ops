@@ -193,6 +193,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
   }, [scoped, search]);
 
   const pendingCount = useMemo(() => orders.filter((o) => isPending(o.order_status)).length, [orders]);
+  const awaitingCfoCount = useMemo(() => orders.filter((o) => isAwaitingCfo(o.order_status)).length, [orders]);
 
   const rowBusy = (id: string) =>
     (approve.isPending && approve.variables?.id === id) ||
@@ -204,9 +205,16 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
       <CardHeader className="pb-3">
         <CardTitle className="flex flex-wrap items-center gap-2 text-base">
           <Smartphone className="h-4 w-4 text-primary" />
-          {pendingOnly ? 'Pending applications' : 'Smartphone orders awaiting approval'}
-          <Badge variant="secondary">{pendingCount} pending</Badge>
+          {pendingOnly ? 'Pending applications' : 'Smartphone applications'}
+          <Badge variant="secondary">{pendingCount} awaiting COO</Badge>
+          <Badge variant="outline" className={STATUS_TONE.coo_approved}>
+            {awaitingCfoCount} awaiting CFO
+          </Badge>
         </CardTitle>
+        <p className="text-[11px] text-muted-foreground">
+          Stage 1 — COO approves the official amount and forwards to the CFO. Stage 2 — CFO releases the
+          amount into the agent's wallet float and activates the 33% recovery plan.
+        </p>
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -214,6 +222,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
           className="mt-2 h-9"
         />
       </CardHeader>
+
       <CardContent className="space-y-2">
         {isLoading ? (
           <p className="text-sm text-muted-foreground flex items-center gap-2">
