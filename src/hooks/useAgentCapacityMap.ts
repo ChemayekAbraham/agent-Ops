@@ -52,16 +52,23 @@ export const UNLIMITED_PER_TENANT_MAX = Number.MAX_SAFE_INTEGER;
 
 /**
  * Daily rating tiers based on the BEST of yesterday's and today's
- * collection ratios (paid / expected_daily). 20% is the unblock line
- * and is explicitly the start of "Good". Using the best of the two
- * lets a strong day TODAY immediately lift an agent out of "Very Bad"
- * instead of forcing them to wait until tomorrow.
+ * COVERAGE-SAFE collection ratios. The server view
+ * `v_agent_daily_eligibility` caps every tenant's contribution at that
+ * tenant's own `daily_repayment`, so over-collecting from one tenant can
+ * no longer cover for tenants who paid nothing.
  *
  *   ≥ 75%        → Very Good  (emerald, allowed)
  *   20% – <75%   → Good       (green,   allowed)
  *   15% – <20%   → Fair       (amber,   BLOCKED)
  *   5%  – <15%   → Bad        (orange,  BLOCKED)
  *   < 5%         → Very Bad   (red,     BLOCKED)
+ *
+ * TENANT COVERAGE GATE (2026-08-28): the tier above is then demoted by
+ * how many DUE tenants actually paid (coverage = tenants_paid / tenants_due):
+ *   coverage = 100%  → no demotion
+ *   50–99%           → one tier down
+ *   < 50%            → two tiers down
+ * "Very Good" is therefore unreachable unless every due tenant paid.
  */
 export const DAILY_RATING_THRESHOLDS = {
   very_good: 0.75,
@@ -70,20 +77,34 @@ export const DAILY_RATING_THRESHOLDS = {
   bad:       0.05,
 } as const;
 
+/** Tenant-coverage bands driving the rating demotion. */
+export const COVERAGE_BANDS = { full: 1, partial: 0.50 } as const;
+
 export type DailyRating =
   | 'Very Good' | 'Good' | 'Fair' | 'Bad' | 'Very Bad' | 'Starter';
 
+const RATING_LADDER: DailyRating[] =
+  ['Very Good', 'Good', 'Fair', 'Bad', 'Very Bad'];
+
 export function classifyDailyRating(
   active_count: number,
-  yesterday_pct: number,
+  effective_pct: number,
+  coverage = 1,
 ): DailyRating {
   if (active_count <= 0) return 'Starter';
-  if (yesterday_pct >= DAILY_RATING_THRESHOLDS.very_good) return 'Very Good';
-  if (yesterday_pct >= DAILY_RATING_THRESHOLDS.good)      return 'Good';
-  if (yesterday_pct >= DAILY_RATING_THRESHOLDS.fair)      return 'Fair';
-  if (yesterday_pct >= DAILY_RATING_THRESHOLDS.bad)       return 'Bad';
-  return 'Very Bad';
+  let idx: number;
+  if (effective_pct >= DAILY_RATING_THRESHOLDS.very_good)   idx = 0;
+  else if (effective_pct >= DAILY_RATING_THRESHOLDS.good)   idx = 1;
+  else if (effective_pct >= DAILY_RATING_THRESHOLDS.fair)   idx = 2;
+  else if (effective_pct >= DAILY_RATING_THRESHOLDS.bad)    idx = 3;
+  else                                                     idx = 4;
+  const cov = Number.isFinite(coverage) ? coverage : 1;
+  const demote = cov >= COVERAGE_BANDS.full ? 0
+    : cov >= COVERAGE_BANDS.partial ? 1
+    : 2;
+  return RATING_LADDER[Math.min(RATING_LADDER.length - 1, idx + demote)];
 }
+
 
 /**
  * Agent rating tiers based on **last 7 days' Daily Response Rate (DRR)**.
