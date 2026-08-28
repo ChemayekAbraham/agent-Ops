@@ -252,6 +252,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation }: Agent
     setSelectedRequest(null);
     setAllocationPrepping(false);
     setResumedExistingPayout(false);
+    setResumedPayoutAmount(null);
     setProvider('');
     setTid('');
     setNotes('');
