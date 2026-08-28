@@ -681,7 +681,11 @@ export function AgentProductsServicesReport() {
                         { key: 'client_name', label: 'Holder' },
                         { key: 'client_phone', label: 'Phone' },
                         { key: 'item_name', label: 'Item' },
-                        { key: 'sale_date', label: 'Issued', render: r => r.sale_date ? format(new Date(`${r.sale_date}T00:00:00`), 'dd MMM yy') : '—' },
+                        { key: 'issued_date', label: 'Issued', render: r => {
+                          if (!r.is_issued) return <span className="text-muted-foreground">Not issued</span>;
+                          const d = r.issued_date ?? r.sale_date;
+                          return d ? format(new Date(`${d}T00:00:00`), 'dd MMM yy') : '—';
+                        } },
                         { key: 'value', label: 'Value', align: 'right', render: r => apsUgx(r.value) },
                         { key: 'paid', label: 'Paid', align: 'right', render: r => apsUgx(r.paid) },
                         { key: 'outstanding', label: 'Outstanding', align: 'right', render: r => apsUgx(r.outstanding) },
@@ -690,8 +694,9 @@ export function AgentProductsServicesReport() {
                         { key: 'repayment_position', label: 'Position', render: r => (
                           <Badge variant="outline" className={cn('text-[10px]',
                             r.repayment_position === 'cleared' && 'border-emerald-500 text-emerald-600',
+                            r.repayment_position === 'pending_issue' && 'border-amber-500 text-amber-600',
                             r.repayment_position === 'behind' && 'border-destructive text-destructive')}>
-                            {title(r.repayment_position)}
+                            {r.repayment_position === 'pending_issue' ? 'Pending issue' : title(r.repayment_position)}
                           </Badge>
                         ) },
                       ]}
