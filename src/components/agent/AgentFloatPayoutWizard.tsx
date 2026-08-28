@@ -1349,6 +1349,17 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation }: Agent
 
           {step === 'disburse' && req && activePayoutId && (
             <motion.div key="disburse" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              {resumedExistingPayout && (
+                <div className="mb-3 rounded-xl border border-chart-4/30 bg-chart-4/5 p-3 text-center space-y-1">
+                  <p className="text-xs font-semibold text-chart-4">
+                    This payment was already sent earlier
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    The landlord's OTP was already verified when you submitted it, so no new code is
+                    needed. Nothing new is being sent now — this screen only tracks that payment.
+                  </p>
+                </div>
+              )}
               <LandlordPayoutProgress
                 payoutId={activePayoutId}
                 landlordName={req.landlord?.name || 'Landlord'}
@@ -1383,9 +1394,13 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation }: Agent
                 className="w-16 h-16 mx-auto rounded-full bg-success/20 flex items-center justify-center">
                 <CheckCircle2 className="h-8 w-8 text-success" />
               </motion.div>
-              <h3 className="text-lg font-semibold">Payment Sent!</h3>
+              <h3 className="text-lg font-semibold">
+                {resumedExistingPayout ? 'Already Paid' : 'Payment Sent!'}
+              </h3>
               <p className="text-muted-foreground text-sm">
-                {req ? formatUGX(effectiveAmount) : ''} delivered to {req?.landlord?.name || 'the landlord'} via Mobile Money.
+                {resumedExistingPayout
+                  ? `${req ? formatUGX(effectiveAmount) : ''} was already sent to ${req?.landlord?.name || 'the landlord'} via Mobile Money in an earlier session — the landlord's OTP was verified then. No new payment was made now.`
+                  : `${req ? formatUGX(effectiveAmount) : ''} delivered to ${req?.landlord?.name || 'the landlord'} via Mobile Money.`}
               </p>
               <Button onClick={handleClose}>Done</Button>
             </motion.div>
