@@ -26,8 +26,9 @@ import { useSmartphoneCatalog } from '@/components/executive/agent-ops/Smartphon
 
 const db = supabase as any;
 
-/** Wallet recovery rate applied to every approved smartphone order. */
-export const SMARTPHONE_RECOVERY_RATE = 0.33;
+/** Internal recovery markup used only to derive the agent-facing daily repayment. */
+const SMARTPHONE_RECOVERY_RATE = 0.33;
+const SMARTPHONE_REPAYMENT_DAYS = 365;
 
 
 
@@ -38,10 +39,9 @@ interface Props {
 }
 
 /**
- * Structured smartphone order form (brand, model type, total amount, 33%
- * payment projection). Orders are submitted as Pending Approval — no wallet
- * balance is required up front and nothing is charged until an executive
- * approves the order on the Agent Smart Phones page.
+ * Structured smartphone order form. Orders are submitted as Pending Approval —
+ * no wallet balance is required up front and nothing is charged until an
+ * executive approves the order on the Agent Smart Phones page.
  */
 export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Props) {
   const queryClient = useQueryClient();
@@ -56,7 +56,9 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
   const matched = activeCatalog.find((c) => c.brand === brand && c.model_name === modelType);
   const totalAmount = Math.max(0, Math.round(Number(matched?.default_amount ?? 0)) || 0);
-  const accessAmount = Math.round(totalAmount * SMARTPHONE_RECOVERY_RATE + totalAmount);
+  const dailyRepayment = totalAmount > 0
+    ? Math.max(1, Math.ceil(totalAmount * (1 + SMARTPHONE_RECOVERY_RATE) / SMARTPHONE_REPAYMENT_DAYS))
+    : 0;
 
   const canSubmit = !!brand && !!modelType && totalAmount >= 1000;
 
