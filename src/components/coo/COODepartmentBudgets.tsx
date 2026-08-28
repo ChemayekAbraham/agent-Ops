@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Inbox } from 'lucide-react';
 import BudgetReviewQueue from '@/components/budget/BudgetReviewQueue';
 import { useBudgetCycles } from '@/hooks/useDepartmentBudgets';
 
@@ -9,6 +11,9 @@ import { useBudgetCycles } from '@/hooks/useDepartmentBudgets';
  * COO review stage for department budgets, scoped server-side to Tenant Ops,
  * Agent Ops, Landlord Ops and Partner Ops. Approval forwards the submission to
  * the CFO queue; a rejection or revision request returns it to the department.
+ *
+ * "Budgets awaiting approval" is deliberately unscoped by budget cycle so a
+ * pending submission can never be hidden by the cycle selector below it.
  */
 export default function COODepartmentBudgets() {
   const { cycles } = useBudgetCycles();
@@ -17,21 +22,44 @@ export default function COODepartmentBudgets() {
   useEffect(() => { if (cycleId === 'all' && cycles.length) setCycleId(cycles[0].id); }, [cycles, cycleId]);
 
   return (
-    <div className="space-y-3">
-      <div className="flex justify-end">
-        <Select value={cycleId} onValueChange={setCycleId}>
-          <SelectTrigger className="h-8 w-[240px] text-xs"><SelectValue placeholder="Budget cycle" /></SelectTrigger>
-          <SelectContent className="z-[100]">
-            <SelectItem value="all">All budget cycles</SelectItem>
-            {cycles.map(c => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.title}{c.financial_year ? ` · ${c.financial_year}` : ''}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <BudgetReviewQueue cycleId={cycleId === 'all' ? null : cycleId} stage="coo" />
+    <div className="space-y-4">
+      <Card className="border-primary/40">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Inbox className="h-4 w-4 text-primary" />
+            Budgets awaiting approval
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <BudgetReviewQueue
+            cycleId={null}
+            stage="coo"
+            onlyOpen
+            intro="Every department budget routed to you and still awaiting your decision — across all budget cycles. Open one to review its items, amounts, periods and supporting documents, then approve or reject."
+            emptyLabel="No budgets are awaiting your approval right now."
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+          <CardTitle className="text-sm">All department budgets</CardTitle>
+          <Select value={cycleId} onValueChange={setCycleId}>
+            <SelectTrigger className="h-8 w-[240px] text-xs"><SelectValue placeholder="Budget cycle" /></SelectTrigger>
+            <SelectContent className="z-[100]">
+              <SelectItem value="all">All budget cycles</SelectItem>
+              {cycles.map(c => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.title}{c.financial_year ? ` · ${c.financial_year}` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardHeader>
+        <CardContent>
+          <BudgetReviewQueue cycleId={cycleId === 'all' ? null : cycleId} stage="coo" />
+        </CardContent>
+      </Card>
     </div>
   );
 }

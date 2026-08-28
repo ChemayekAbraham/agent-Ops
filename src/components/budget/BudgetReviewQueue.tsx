@@ -23,7 +23,14 @@ interface Props {
   cycleId: string | null;
   /** 'cfo' = full queue (post-COO for ops departments); 'coo' = the four ops departments only. */
   stage: BudgetReviewStage;
+  /** Show only submissions this reviewer can still act on (hides decided history). */
+  onlyOpen?: boolean;
+  /** Intro copy override for the section. */
+  intro?: string;
+  /** Empty-state copy override. */
+  emptyLabel?: string;
 }
+
 
 /** Stages where the reviewer of this screen may still act on the submission. */
 const OPEN_STATUSES: Record<BudgetReviewStage, string[]> = {
@@ -37,7 +44,7 @@ const OPEN_STATUSES: Record<BudgetReviewStage, string[]> = {
  * total — is summed live from budget_submission_lines server-side; nothing is
  * hard-coded and no accounting/ledger logic is touched.
  */
-export default function BudgetReviewQueue({ cycleId, stage }: Props) {
+export default function BudgetReviewQueue({ cycleId, stage, onlyOpen, intro, emptyLabel }: Props) {
   const [rows, setRows] = useState<BudgetQueueRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -179,19 +186,23 @@ export default function BudgetReviewQueue({ cycleId, stage }: Props) {
     () => rows.filter(r => OPEN_STATUSES[stage].includes(r.status)),
     [rows, stage],
   );
-  const requested = useMemo(() => rows.reduce((sum, r) => sum + r.total_amount, 0), [rows]);
+  const visibleRows = onlyOpen ? awaiting : rows;
+  const requested = useMemo(
+    () => visibleRows.reduce((sum, r) => sum + r.total_amount, 0),
+    [visibleRows],
+  );
   const approved = useMemo(
-    () => rows.reduce((sum, r) => sum + (isCoo ? r.coo_approved_total : r.cfo_approved_total), 0),
-    [rows, isCoo],
+    () => visibleRows.reduce((sum, r) => sum + (isCoo ? r.coo_approved_total : r.cfo_approved_total), 0),
+    [visibleRows, isCoo],
   );
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          {isCoo
+          {intro ?? (isCoo
             ? 'Tenant Ops, Agent Ops, Landlord Ops and Partner Ops budgets. Your approval forwards them to the CFO.'
-            : 'Budgets that have reached the CFO. Operations departments appear only after COO approval.'}
+            : 'Budgets that have reached the CFO. Operations departments appear only after COO approval.')}
         </p>
         <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={load}>
           <RefreshCw className="h-3.5 w-3.5" /> Refresh
@@ -210,11 +221,14 @@ export default function BudgetReviewQueue({ cycleId, stage }: Props) {
         </div>
       )}
 
-      {!loading && rows.length === 0 && (
-        <p className="text-xs text-muted-foreground">No department budgets in this queue yet.</p>
+      {!loading && visibleRows.length === 0 && (
+        <p className="text-xs text-muted-foreground">
+          {emptyLabel ?? 'No department budgets in this queue yet.'}
+        </p>
       )}
 
-      {rows.map(s => {
+      {visibleRows.map(s => {
+
         const open = OPEN_STATUSES[stage].includes(s.status);
         const lineDecision = (l: BudgetLine) => (isCoo ? l.coo_status : l.status);
         return (
