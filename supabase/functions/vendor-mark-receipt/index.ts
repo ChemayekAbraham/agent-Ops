@@ -31,12 +31,12 @@ async function verifyVendorSessionToken(
     const validSignature = await crypto.subtle.verify(
       'HMAC',
       key,
-      fromBase64Url(signature),
+      fromBase64Url(signature) as unknown as BufferSource,
       new TextEncoder().encode(payload),
     );
     if (!validSignature) return false;
 
-    const claims = JSON.parse(new TextDecoder().decode(fromBase64Url(payload))) as {
+    const claims = JSON.parse(new TextDecoder().decode(fromBase64Url(payload) as unknown as Uint8Array<ArrayBuffer>)) as {
       vendorId?: unknown;
       exp?: unknown;
     };

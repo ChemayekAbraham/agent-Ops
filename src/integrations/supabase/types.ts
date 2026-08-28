@@ -23184,7 +23184,10 @@ export type Database = {
           approver_role: string | null
           created_at: string
           extracted_amount: number | null
+          extracted_date: string | null
+          extracted_phone: string | null
           extracted_tid: string | null
+          extracted_time: string | null
           id: string
           ip_address: string | null
           metadata: Json
@@ -23205,7 +23208,10 @@ export type Database = {
           approver_role?: string | null
           created_at?: string
           extracted_amount?: number | null
+          extracted_date?: string | null
+          extracted_phone?: string | null
           extracted_tid?: string | null
+          extracted_time?: string | null
           id?: string
           ip_address?: string | null
           metadata?: Json
@@ -23226,7 +23232,10 @@ export type Database = {
           approver_role?: string | null
           created_at?: string
           extracted_amount?: number | null
+          extracted_date?: string | null
+          extracted_phone?: string | null
           extracted_tid?: string | null
+          extracted_time?: string | null
           id?: string
           ip_address?: string | null
           metadata?: Json
@@ -23666,6 +23675,90 @@ export type Database = {
           storage_path?: string | null
           updated_at?: string
           withdrawal_id?: string | null
+        }
+        Relationships: []
+      }
+      payout_proof_ocr_log: {
+        Row: {
+          approver_email: string | null
+          approver_id: string | null
+          approver_role: string | null
+          created_at: string
+          extracted_amount: number | null
+          extracted_date: string | null
+          extracted_phone: string | null
+          extracted_tid: string | null
+          extracted_time: string | null
+          id: string
+          ip_address: string | null
+          metadata: Json
+          model_confidence: string | null
+          reference_entered: string | null
+          request_owner_id: string | null
+          requested_amount: number | null
+          sms_extracted_amount: number | null
+          sms_extracted_tid: string | null
+          storage_bucket: string | null
+          storage_path: string | null
+          user_agent: string | null
+          validation_code: string | null
+          validation_message: string | null
+          validation_result: string
+          withdrawal_request_id: string | null
+        }
+        Insert: {
+          approver_email?: string | null
+          approver_id?: string | null
+          approver_role?: string | null
+          created_at?: string
+          extracted_amount?: number | null
+          extracted_date?: string | null
+          extracted_phone?: string | null
+          extracted_tid?: string | null
+          extracted_time?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          model_confidence?: string | null
+          reference_entered?: string | null
+          request_owner_id?: string | null
+          requested_amount?: number | null
+          sms_extracted_amount?: number | null
+          sms_extracted_tid?: string | null
+          storage_bucket?: string | null
+          storage_path?: string | null
+          user_agent?: string | null
+          validation_code?: string | null
+          validation_message?: string | null
+          validation_result: string
+          withdrawal_request_id?: string | null
+        }
+        Update: {
+          approver_email?: string | null
+          approver_id?: string | null
+          approver_role?: string | null
+          created_at?: string
+          extracted_amount?: number | null
+          extracted_date?: string | null
+          extracted_phone?: string | null
+          extracted_tid?: string | null
+          extracted_time?: string | null
+          id?: string
+          ip_address?: string | null
+          metadata?: Json
+          model_confidence?: string | null
+          reference_entered?: string | null
+          request_owner_id?: string | null
+          requested_amount?: number | null
+          sms_extracted_amount?: number | null
+          sms_extracted_tid?: string | null
+          storage_bucket?: string | null
+          storage_path?: string | null
+          user_agent?: string | null
+          validation_code?: string | null
+          validation_message?: string | null
+          validation_result?: string
+          withdrawal_request_id?: string | null
         }
         Relationships: []
       }
@@ -36371,6 +36464,8 @@ export type Database = {
           payout_proof_type: string | null
           payout_proof_uploaded_at: string | null
           payout_proof_uploaded_by: string | null
+          payout_proof_verification_status: string | null
+          payout_proof_verified_at: string | null
           payout_route_ref: string | null
           pool_funded: boolean
           preferred_cashout_agent_id: string | null
@@ -36439,6 +36534,8 @@ export type Database = {
           payout_proof_type?: string | null
           payout_proof_uploaded_at?: string | null
           payout_proof_uploaded_by?: string | null
+          payout_proof_verification_status?: string | null
+          payout_proof_verified_at?: string | null
           payout_route_ref?: string | null
           pool_funded?: boolean
           preferred_cashout_agent_id?: string | null
@@ -36507,6 +36604,8 @@ export type Database = {
           payout_proof_type?: string | null
           payout_proof_uploaded_at?: string | null
           payout_proof_uploaded_by?: string | null
+          payout_proof_verification_status?: string | null
+          payout_proof_verified_at?: string | null
           payout_route_ref?: string | null
           pool_funded?: boolean
           preferred_cashout_agent_id?: string | null

@@ -93,11 +93,11 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createClient(supabaseUrl, serviceKey)
-  const token = generateToken()
+  const reportToken = generateToken()
 
   const { error: insertError } = await supabase
     .from('support_diagnostic_reports')
-    .insert({ token, report, metadata })
+    .insert({ token: reportToken, report, metadata })
 
   if (insertError) {
     console.error('Failed to store diagnostic report', insertError)
@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
     })
   }
 
-  const supportLink = `${appOrigin}/support-report/${token}`
+  const supportLink = `${appOrigin}/support-report/${reportToken}`
   const supportInbox = Deno.env.get('SUPPORT_INBOX_EMAIL') || DEFAULT_SUPPORT_INBOX
   const generatedAt = new Date().toISOString()
 
@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
   // The one-time link is always returned even if email delivery failed,
   // so the user can still share it with support manually.
   return new Response(
-    JSON.stringify({ success: true, supportLink, token, emailQueued }),
+    JSON.stringify({ success: true, supportLink, token: reportToken, emailQueued }),
     { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   )
 })
