@@ -14927,7 +14927,9 @@ export type Database = {
         Row: {
           active: boolean
           created_at: string
+          ended_on: string | null
           enrolled_by: string | null
+          exit_reason: string | null
           id: string
           staff_ref: string
           user_id: string
@@ -14935,7 +14937,9 @@ export type Database = {
         Insert: {
           active?: boolean
           created_at?: string
+          ended_on?: string | null
           enrolled_by?: string | null
+          exit_reason?: string | null
           id?: string
           staff_ref?: string
           user_id: string
@@ -14943,7 +14947,9 @@ export type Database = {
         Update: {
           active?: boolean
           created_at?: string
+          ended_on?: string | null
           enrolled_by?: string | null
+          exit_reason?: string | null
           id?: string
           staff_ref?: string
           user_id?: string
