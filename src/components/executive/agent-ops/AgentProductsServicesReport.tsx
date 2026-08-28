@@ -29,6 +29,65 @@ import {
 } from '@/lib/agentProductsServicesPdf';
 
 const PAGE_SIZE = 15;
+
+/** Percentage view of agent additions: growth vs the previous period and per-type share. */
+function NewAgentPercentages({ rows, newCount, prevCount, totalAgents, compareLabel }: {
+  rows: { agent_type: string }[]; newCount: number; prevCount: number;
+  totalAgents: number; compareLabel?: string;
+}) {
+  const added = newCount || rows.length;
+  const main = rows.filter(r => r.agent_type === 'main agent').length;
+  const sub = rows.filter(r => r.agent_type === 'sub-agent').length;
+  const denom = main + sub || added;
+  const share = (n: number) => (denom > 0 ? (n / denom) * 100 : 0);
+  const growth = apsPctChange(added, prevCount);
+  const baseShare = totalAgents > 0 ? (added / totalAgents) * 100 : 0;
+  const pct = (n: number) => `${n.toFixed(1)}%`;
+
+  return (
+    <div className="grid gap-2 sm:grid-cols-3">
+      <div className="rounded-xl border bg-card p-3">
+        <p className="text-[11px] text-muted-foreground">Growth vs previous period</p>
+        <p className={cn('text-lg font-bold',
+          growth === null || growth === 0 ? 'text-muted-foreground'
+            : growth > 0 ? 'text-emerald-600' : 'text-destructive')}>
+          {apsPctLabel(added, prevCount)}
+        </p>
+        <p className="text-[10px] text-muted-foreground">
+          {num(added)} added vs {num(prevCount)} {compareLabel ?? 'previously'}
+        </p>
+      </div>
+
+      <div className="rounded-xl border bg-card p-3">
+        <p className="text-[11px] text-muted-foreground">Share of total agent base</p>
+        <p className="text-lg font-bold">{pct(baseShare)}</p>
+        <p className="text-[10px] text-muted-foreground">{num(added)} of {num(totalAgents)} agents</p>
+      </div>
+
+      <div className="rounded-xl border bg-card p-3">
+        <p className="text-[11px] text-muted-foreground">Breakdown by agent type</p>
+        <div className="mt-1 space-y-1.5">
+          {[
+            { label: 'Main agents', count: main, cls: 'bg-primary' },
+            { label: 'Sub-agents', count: sub, cls: 'bg-purple-500' },
+          ].map(t => (
+            <div key={t.label}>
+              <div className="flex items-baseline justify-between text-[10px]">
+                <span className="text-muted-foreground">{t.label}</span>
+                <span className="font-semibold">{pct(share(t.count))} · {num(t.count)}</span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div className={cn('h-full rounded-full', t.cls)} style={{ width: `${share(t.count)}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 const num = (n: any) => Math.round(Number(n) || 0).toLocaleString();
 const title = (s: any) => String(s ?? '—').replace(/_/g, ' ');
 const toDateKey = (d: Date) => format(d, 'yyyy-MM-dd');
@@ -597,7 +656,14 @@ export function AgentProductsServicesReport() {
                   />
                 </TabsContent>
 
-                <TabsContent value="new" className="mt-3">
+                <TabsContent value="new" className="mt-3 space-y-3">
+                  <NewAgentPercentages
+                    rows={report.new_agent_rows}
+                    newCount={Number(report.agents.new_today) || 0}
+                    prevCount={Number(pop.newAgents) || 0}
+                    totalAgents={Number(report.agents.total) || 0}
+                    compareLabel={compareLabel}
+                  />
                   <PagedTable
                     rows={report.new_agent_rows}
                     searchKeys={['name', 'phone', 'location', 'agent_type', 'parent_name']}
