@@ -766,138 +766,22 @@ function ApplicationsTab() {
           <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
           No applications match these filters.
         </div>
+      ) : groupBy === 'none' ? (
+        renderTable(filteredSorted)
       ) : (
-        <Card className="overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">
-                  <Checkbox
-                    checked={allVisibleSelected}
-                    onCheckedChange={toggleSelectAllVisible}
-                    aria-label="Select all shown applications"
-                  />
-                </TableHead>
-                <TableHead className="w-12">#</TableHead>
-                <TableHead
-                  className="cursor-pointer select-none"
-                  onClick={() => toggleSort('name')}
-                >
-                  Full name
-                  {sortConfig.key === 'name' && (
-                    <span className="ml-1">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </TableHead>
-                <TableHead
-                  className="cursor-pointer select-none"
-                  onClick={() => toggleSort('role_interest')}
-                >
-                  Role interest
-                  {sortConfig.key === 'role_interest' && (
-                    <span className="ml-1">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Came from</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Experience</TableHead>
-                <TableHead
-                  className="cursor-pointer select-none"
-                  onClick={() => toggleSort('status')}
-                >
-                  Status
-                  {sortConfig.key === 'status' && (
-                    <span className="ml-1">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </TableHead>
-                <TableHead
-                  className="cursor-pointer select-none"
-                  onClick={() => toggleSort('created')}
-                >
-                  Created
-                  {sortConfig.key === 'created' && (
-                    <span className="ml-1">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </TableHead>
-                <TableHead>Reference</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredSorted.map((row, idx) => (
-                <TableRow
-                  key={row.id}
-                  className={`cursor-pointer ${rowToneClass(row.status, row.shortlist_round)}`}
-                  onClick={() => setSelected(row)}
-                >
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      checked={selectedIds.has(row.id)}
-                      onCheckedChange={() => toggleRowSelected(row.id)}
-                      aria-label={`Select ${row.full_name || 'application'}`}
-                    />
-                  </TableCell>
-                  <TableCell>{idx + 1}</TableCell>
-                  <TableCell>{row.full_name || '—'}</TableCell>
-                  <TableCell>{row.role_interest || '—'}</TableCell>
-                  <TableCell>{row.category || '—'}</TableCell>
-                  <TableCell>{segmentLabelOfSource(row.source)}</TableCell>
-                  <TableCell>{row.location || '—'}</TableCell>
-                  <TableCell>{row.experience_level || '—'}</TableCell>
-                  <TableCell>
-                    {row.status === 'shortlisted'
-                      ? `Shortlist ${row.shortlist_round ?? 1}`
-                      : row.status === 'contacted'
-                        ? row.shortlist_round
-                          ? `Contacted · reached Shortlist ${row.shortlist_round}`
-                          : 'Contacted'
-                      : row.status
-                        ? `${row.status.charAt(0).toUpperCase() + row.status.slice(1)}${
-                            row.shortlist_round ? ` · reached Shortlist ${row.shortlist_round}` : ''
-                          }`
-                        : '—'}
-                  </TableCell>
-                  <TableCell>{fmtDateTime(row.created_at)}</TableCell>
-                  <TableCell>{row.public_ref || '—'}</TableCell>
-                  <TableCell
-                    className="text-right whitespace-nowrap"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="inline-flex gap-1">
-                      {getAvailableDecisions(row.status, row.shortlist_round ?? null).map((a) => (
-                        <Button
-                          key={`${a.status}-${a.round ?? 'none'}`}
-                          size="sm"
-                          variant="outline"
-                          className={`h-7 px-2 text-xs ${
-                            (a.round ?? 0) >= 2 ? SHORTLIST_LEVEL_2_CLASS : ''
-                          }`}
-                          onClick={() => {
-                            setPending({ row, kind: a.status, writer: a.writer, round: a.round });
-                          }}
-                        >
-                          {a.label}
-                        </Button>
-                      ))}
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => {
-                          setPending({ row, kind: 'remove' });
-                        }}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+        <div className="space-y-4">
+          {groups.map((g) => (
+            <div key={g.key} className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-semibold text-foreground">{g.label}</h4>
+                <span className="text-xs text-muted-foreground">{fmtCount(g.rows.length)}</span>
+              </div>
+              {renderTable(g.rows)}
+            </div>
+          ))}
+        </div>
       )}
+
       </>
       )}
 
