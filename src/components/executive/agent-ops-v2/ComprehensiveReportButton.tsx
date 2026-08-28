@@ -16,7 +16,9 @@ import {
 import type { ApsReport } from '@/lib/agentProductsServicesPdf';
 import {
   buildAgentOpsComprehensiveReportHtml, openAgentOpsComprehensiveReport,
+  type AgentPopulation,
 } from '@/lib/agentOpsComprehensiveReport';
+
 import { useAuth } from '@/hooks/useAuth';
 
 /**
