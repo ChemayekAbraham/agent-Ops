@@ -84,6 +84,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
   const [detailsTarget, setDetailsTarget] = useState<SmartphoneOrderRow | null>(null);
   const [approveTarget, setApproveTarget] = useState<SmartphoneOrderRow | null>(null);
   const [officialAmount, setOfficialAmount] = useState('');
+  const [repaymentDays, setRepaymentDays] = useState('30');
 
   const approveStage: 'coo' | 'cfo' = approveTarget && isAwaitingCfo(approveTarget.order_status) ? 'cfo' : 'coo';
 
@@ -97,12 +98,28 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
     } else {
       setOfficialAmount(existing > 0 ? String(Math.round(existing * 1.33)) : '');
     }
+    const days = Number(o.access_repayment_days || 0);
+    setRepaymentDays(days > 0 ? String(days) : '30');
   };
 
-
+  const closeApprove = () => {
+    setApproveTarget(null);
+    setOfficialAmount('');
+    setRepaymentDays('30');
+  };
 
   const officialAmountNumber = Math.max(0, Math.round(Number(officialAmount || 0) || 0));
   const officialProjection = Math.round(officialAmountNumber * 0.33);
+
+  // Repayment maths shown to both the executive and (once saved) the agent:
+  // Difference = Access Amount (Total) − Phone Amount, spread over 30 days to get
+  // the daily wallet deduction, then multiplied by the chosen number of days.
+  const phoneAmountNumber = Math.max(0, Math.round(Number(approveTarget?.total_amount || 0)));
+  const accessDifference = Math.max(0, officialAmountNumber - phoneAmountNumber);
+  const dailyDeduction = Math.round(accessDifference / 30);
+  const repaymentDaysNumber = Math.max(0, Math.round(Number(repaymentDays || 0) || 0));
+  const totalPayable = dailyDeduction * repaymentDaysNumber;
+
 
 
   const { data: wallet, isLoading: walletLoading } = useQuery({
