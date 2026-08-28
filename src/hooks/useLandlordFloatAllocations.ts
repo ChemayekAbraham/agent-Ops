@@ -51,6 +51,7 @@ export type InflightPayout = {
 type PayoutMatchRow = InflightPayout & {
   rent_request_id: string | null;
   landlord_id: string | null;
+  tenant_id: string | null;
 };
 
 /**
@@ -68,6 +69,23 @@ const INFLIGHT_PAYOUT_STATUSES = [
   'awaiting_agent_receipt',
   'completed',
 ];
+
+/**
+ * Statuses eligible for the legacy no-rent_request_id fallback match (see
+ * `payoutByTenantLandlord` below). Deliberately excludes the terminal
+ * `awaiting_agent_receipt` / `completed` states — a payout that already
+ * finished should not permanently mask a *different*, later allocation for
+ * the same tenant+landlord that has no rent_request_id linking it to that
+ * old payout. `INFLIGHT_PAYOUT_STATUSES` above stays the full list for the
+ * primary rent_request_id match, where a completed/awaiting-receipt payout
+ * for the SAME cycle is exactly what should keep showing "upload receipt".
+ */
+const FALLBACK_ELIGIBLE_STATUSES = new Set([
+  'otp_verified',
+  'pending_merchant_payout',
+  'pending_finops_disbursement',
+  'disbursing',
+]);
 
 /**
  * Plain-language status for an already-submitted payout, written for the agent
@@ -171,7 +189,7 @@ export function useLandlordFloatAllocations(opts?: { onlyOpen?: boolean }) {
         rentRequestIds.length || landlordIds.length
           ? supabase
               .from('landlord_payouts')
-              .select('id, amount, status, created_at, rent_request_id, landlord_id')
+              .select('id, amount, status, created_at, rent_request_id, landlord_id, tenant_id')
               .eq('agent_id', user.id)
               .in('status', INFLIGHT_PAYOUT_STATUSES)
               .order('created_at', { ascending: false })
@@ -188,13 +206,18 @@ export function useLandlordFloatAllocations(opts?: { onlyOpen?: boolean }) {
       // Newest-first, so the first match per key is the current attempt.
       const payoutRows = ((payoutsRes.data ?? []) as unknown) as PayoutMatchRow[];
       const payoutByRentRequest = new Map<string, PayoutMatchRow>();
-      const payoutByLandlord = new Map<string, PayoutMatchRow>();
+      // Legacy-only fallback, keyed by tenant+landlord (not landlord alone —
+      // one landlord can have many tenants, and matching on landlord_id alone
+      // let a payout for tenant A mask a completely unrelated allocation for
+      // tenant B). Only ever consulted for allocations with no rent_request_id.
+      const payoutByTenantLandlord = new Map<string, PayoutMatchRow>();
       for (const p of payoutRows) {
         if (p.rent_request_id && !payoutByRentRequest.has(p.rent_request_id)) {
           payoutByRentRequest.set(p.rent_request_id, p);
         }
-        if (p.landlord_id && !payoutByLandlord.has(p.landlord_id)) {
-          payoutByLandlord.set(p.landlord_id, p);
+        if (p.tenant_id && p.landlord_id && FALLBACK_ELIGIBLE_STATUSES.has(p.status)) {
+          const key = `${p.tenant_id}|${p.landlord_id}`;
+          if (!payoutByTenantLandlord.has(key)) payoutByTenantLandlord.set(key, p);
         }
       }
 
@@ -202,7 +225,16 @@ export function useLandlordFloatAllocations(opts?: { onlyOpen?: boolean }) {
         const live = r.landlord_id ? landlordById.get(r.landlord_id) : null;
         const payout =
           (r.rent_request_id ? payoutByRentRequest.get(r.rent_request_id) : null) ??
-          (r.landlord_id ? payoutByLandlord.get(r.landlord_id) : null) ??
+          // Only ever fall back when THIS allocation has no rent_request_id of
+          // its own (legacy rows). A renewal always gets a fresh
+          // rent_request_id, so it must never inherit a prior cycle's payout
+          // just because it shares a landlord — that was misattributing
+          // UGX 19.55M across 22 open allocations to stale, already-closed
+          // payouts (agent saw "Paid — upload receipt" for rent it hadn't
+          // been paid for yet, with no way back to the OTP/pay screen).
+          (!r.rent_request_id && r.tenant_id && r.landlord_id
+            ? payoutByTenantLandlord.get(`${r.tenant_id}|${r.landlord_id}`)
+            : null) ??
           null;
         return {
           ...r,
