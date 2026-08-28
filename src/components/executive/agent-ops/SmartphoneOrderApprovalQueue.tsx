@@ -480,15 +480,15 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
                 </div>
                 <div className="flex items-center justify-between gap-3 px-3 py-2">
                   <span className="text-xs text-muted-foreground">
-                    {approveStage === 'cfo' ? 'COO approved amount' : 'Requested amount'}
+                    {approveStage === 'cfo' ? 'COO approved amount' : 'Phone amount'}
                   </span>
-                  <span className="text-xs font-semibold">{formatUGX(Number(approveTarget.total_amount || 0))}</span>
+                  <span className="text-xs font-semibold">{formatUGX(phoneAmountNumber)}</span>
                 </div>
               </div>
 
               <div className="space-y-1">
                 <Label className="text-xs">
-                  {approveStage === 'cfo' ? 'Amount to disburse (UGX)' : 'Official Phone Amount (UGX)'}
+                  {approveStage === 'cfo' ? 'Amount to disburse (UGX)' : 'Access Amount (Total) — UGX'}
                 </Label>
                 <Input
                   type="number"
@@ -501,6 +501,54 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
                   onChange={(e) => setOfficialAmount(e.target.value)}
                 />
               </div>
+
+              {approveStage === 'coo' && (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-xs" htmlFor="smartphone-repayment-days">
+                      Repayment Period (Days)
+                    </Label>
+                    <Input
+                      id="smartphone-repayment-days"
+                      type="number"
+                      min={1}
+                      step={1}
+                      inputMode="numeric"
+                      placeholder="e.g. 30"
+                      value={repaymentDays}
+                      onChange={(e) => setRepaymentDays(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="rounded-lg border border-primary/40 bg-primary/10 p-3 space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Daily wallet deduction
+                    </p>
+                    <p className="text-2xl font-bold text-primary">
+                      {formatUGX(dailyDeduction)} <span className="text-sm font-medium">/ day</span>
+                    </p>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-md bg-background/70 px-2 py-1.5">
+                        <p className="text-[10px] text-muted-foreground">Difference</p>
+                        <p className="text-xs font-semibold">{formatUGX(accessDifference)}</p>
+                      </div>
+                      <div className="rounded-md bg-background/70 px-2 py-1.5">
+                        <p className="text-[10px] text-muted-foreground">Days</p>
+                        <p className="text-xs font-semibold">{repaymentDaysNumber || '—'}</p>
+                      </div>
+                      <div className="rounded-md bg-background/70 px-2 py-1.5">
+                        <p className="text-[10px] text-muted-foreground">Total payable</p>
+                        <p className="text-xs font-semibold">{formatUGX(totalPayable)}</p>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      {formatUGX(dailyDeduction)} is deducted from the agent&apos;s wallet each day for{' '}
+                      {repaymentDaysNumber || 0} days — {formatUGX(totalPayable)} in total. Difference ={' '}
+                      {formatUGX(officialAmountNumber)} − {formatUGX(phoneAmountNumber)}, spread over 30 days.
+                    </p>
+                  </div>
+                </>
+              )}
 
               <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1">
                 <p className="text-[11px] text-muted-foreground">Monthly Recovery Projection (33%)</p>
@@ -520,6 +568,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
                   )}
                 </p>
               </div>
+
             </div>
           )}
 
