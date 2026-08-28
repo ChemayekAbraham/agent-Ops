@@ -20017,6 +20017,7 @@ export type Database = {
         Row: {
           access_accepted_at: string | null
           access_daily_amount: number | null
+          access_repayment_days: number | null
           amount_outstanding: number
           amount_paid: number
           brand: string | null
@@ -20061,6 +20062,7 @@ export type Database = {
         Insert: {
           access_accepted_at?: string | null
           access_daily_amount?: number | null
+          access_repayment_days?: number | null
           amount_outstanding?: number
           amount_paid?: number
           brand?: string | null
@@ -20105,6 +20107,7 @@ export type Database = {
         Update: {
           access_accepted_at?: string | null
           access_daily_amount?: number | null
+          access_repayment_days?: number | null
           amount_outstanding?: number
           amount_paid?: number
           brand?: string | null
@@ -40565,7 +40568,13 @@ export type Database = {
         Returns: Json
       }
       coo_approve_smartphone_order: {
-        Args: { p_note?: string; p_sale_id: string; p_total_amount?: number }
+        Args: {
+          p_daily_deduction?: number
+          p_note?: string
+          p_repayment_days?: number
+          p_sale_id: string
+          p_total_amount?: number
+        }
         Returns: Json
       }
       country_to_continent: { Args: { p_country: string }; Returns: string }
@@ -44491,6 +44500,8 @@ export type Database = {
       list_smartphone_orders: {
         Args: { p_status?: string }
         Returns: {
+          access_daily_amount: number
+          access_repayment_days: number
           amount_outstanding: number
           amount_paid: number
           brand: string
