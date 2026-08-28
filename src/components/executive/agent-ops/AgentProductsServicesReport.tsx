@@ -30,6 +30,41 @@ import {
 
 const PAGE_SIZE = 15;
 
+/** Reusable percentage tiles: each metric shown as a share or a growth rate. */
+function PctSummary({ items }: {
+  items: {
+    label: string;
+    /** Share of a base, 0-100. */
+    pct: number | null;
+    /** Optional growth pair: renders +X% instead of a share. */
+    growth?: { current: number; previous: number };
+    hint?: string;
+    invert?: boolean;
+  }[];
+}) {
+  return (
+    <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
+      {items.map(it => {
+        const g = it.growth ? apsPctChange(it.growth.current, it.growth.previous) : null;
+        const value = it.growth
+          ? apsPctLabel(it.growth.current, it.growth.previous)
+          : it.pct === null ? '—' : `${it.pct.toFixed(1)}%`;
+        const dir = it.growth ? g : null;
+        const tone = dir === null || dir === 0
+          ? ''
+          : (it.invert ? dir < 0 : dir > 0) ? 'text-emerald-600' : 'text-destructive';
+        return (
+          <div key={it.label} className="rounded-xl border bg-card p-3">
+            <p className="text-[11px] text-muted-foreground">{it.label}</p>
+            <p className={cn('text-lg font-bold', tone)}>{value}</p>
+            {it.hint && <p className="text-[10px] text-muted-foreground">{it.hint}</p>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /** Percentage view of agent additions: growth vs the previous period and per-type share. */
 function NewAgentPercentages({ rows, newCount, prevCount, totalAgents, compareLabel }: {
   rows: { agent_type: string }[]; newCount: number; prevCount: number;
@@ -637,7 +672,25 @@ export function AgentProductsServicesReport() {
                   <TabsTrigger value="phones" className="text-[11px]">Smartphones</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="agents" className="mt-3">
+                <TabsContent value="agents" className="mt-3 space-y-3">
+                  {(() => {
+                    const rows = report.agent_float_rows || [];
+                    const total = rows.length;
+                    const collecting = rows.filter(r => Number(r.collections_count) > 0).length;
+                    const floatIn = rows.reduce((a, r) => a + (Number(r.float_received) || 0), 0);
+                    const floatOut = rows.reduce((a, r) => a + (Number(r.float_paid_out) || 0), 0);
+                    const collected = rows.reduce((a, r) => a + (Number(r.collections_amount) || 0), 0);
+                    const top = [...rows].sort((a, b) => Number(b.collections_amount) - Number(a.collections_amount))[0];
+                    const share = (n: number, d: number) => (d > 0 ? (n / d) * 100 : null);
+                    return (
+                      <PctSummary items={[
+                        { label: 'Agents that collected', pct: share(collecting, total), hint: `${num(collecting)} of ${num(total)} agents` },
+                        { label: 'Float deployed to landlords', pct: share(floatOut, floatIn), hint: 'Paid out as share of float received' },
+                        { label: 'Top agent concentration', pct: share(Number(top?.collections_amount) || 0, collected), hint: top ? `${top.agent_name}` : 'No collections' },
+                        { label: 'Collections growth', pct: null, growth: { current: collected, previous: Number(pop.collected) || 0 }, hint: compareLabel },
+                      ]} />
+                    );
+                  })()}
                   <PagedTable
                     rows={report.agent_float_rows}
                     searchKeys={['agent_name', 'phone', 'location']}
@@ -683,7 +736,23 @@ export function AgentProductsServicesReport() {
                   />
                 </TabsContent>
 
-                <TabsContent value="rent" className="mt-3">
+                <TabsContent value="rent" className="mt-3 space-y-3">
+                  {(() => {
+                    const rows = report.rent_rows || [];
+                    const collected = Number(report.rent.collected_today) || 0;
+                    const repaid = rows.reduce((a, r) => a + (Number(r.repaid_to_date) || 0), 0);
+                    const outstanding = Number(report.rent.outstanding) || 0;
+                    const paying = rows.filter(r => Number(r.collected_today) > 0).length;
+                    const share = (n: number, d: number) => (d > 0 ? (n / d) * 100 : null);
+                    return (
+                      <PctSummary items={[
+                        { label: 'Collection rate vs expected', pct: share(collected, expectedTotal), hint: 'Collected as share of period target' },
+                        { label: 'Portfolio repaid to date', pct: share(repaid, repaid + outstanding), hint: 'Repaid vs repaid + outstanding' },
+                        { label: 'Agents collecting today', pct: share(paying, rows.length), hint: `${num(paying)} of ${num(rows.length)} with live plans` },
+                        { label: 'Outstanding growth', pct: null, growth: { current: outstanding, previous: Number(pop.outstanding) || 0 }, invert: true, hint: compareLabel },
+                      ]} />
+                    );
+                  })()}
                   <PagedTable
                     rows={report.rent_rows}
                     searchKeys={['agent_name', 'phone', 'location']}
@@ -702,7 +771,25 @@ export function AgentProductsServicesReport() {
                   />
                 </TabsContent>
 
-                <TabsContent value="advances" className="mt-3">
+                <TabsContent value="advances" className="mt-3 space-y-3">
+                  {(() => {
+                    const a = report.advances;
+                    const submitted = Number(a.submitted) || 0;
+                    const approved = Number(a.approved) || 0;
+                    const rejected = Number(a.rejected) || 0;
+                    const decided = approved + rejected;
+                    const recovered = (report.advance_rows || []).reduce((s2, r) => s2 + (Number(r.recovered) || 0), 0);
+                    const outstanding = Number(a.outstanding) || 0;
+                    const share = (n: number, d: number) => (d > 0 ? (n / d) * 100 : null);
+                    return (
+                      <PctSummary items={[
+                        { label: 'Approval rate', pct: share(approved, decided || submitted), hint: `${num(approved)} approved of ${num(decided || submitted)} decided` },
+                        { label: 'Rejection rate', pct: share(rejected, decided || submitted), hint: `${num(rejected)} rejected` },
+                        { label: 'Recovery rate', pct: share(recovered, recovered + outstanding), hint: 'Recovered vs recovered + outstanding' },
+                        { label: 'Issued growth', pct: null, growth: { current: Number(a.issued_today) || 0, previous: Number(pop.advIssued) || 0 }, hint: compareLabel },
+                      ]} />
+                    );
+                  })()}
                   <PagedTable
                     rows={report.advance_rows}
                     searchKeys={['agent_name', 'phone', 'status']}
