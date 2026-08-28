@@ -20014,11 +20014,17 @@ export type Database = {
           amount_outstanding: number
           amount_paid: number
           brand: string | null
+          cfo_disbursed_at: string | null
+          cfo_disbursed_by: string | null
           client_name: string | null
           client_phone: string | null
+          coo_approved_at: string | null
+          coo_approved_by: string | null
           created_at: string
           created_by: string | null
           customer_id: string | null
+          disbursed_amount: number | null
+          disbursement_group_id: string | null
           id: string
           issued_channel: string | null
           item_name: string
@@ -20048,11 +20054,17 @@ export type Database = {
           amount_outstanding?: number
           amount_paid?: number
           brand?: string | null
+          cfo_disbursed_at?: string | null
+          cfo_disbursed_by?: string | null
           client_name?: string | null
           client_phone?: string | null
+          coo_approved_at?: string | null
+          coo_approved_by?: string | null
           created_at?: string
           created_by?: string | null
           customer_id?: string | null
+          disbursed_amount?: number | null
+          disbursement_group_id?: string | null
           id?: string
           issued_channel?: string | null
           item_name: string
@@ -20082,11 +20094,17 @@ export type Database = {
           amount_outstanding?: number
           amount_paid?: number
           brand?: string | null
+          cfo_disbursed_at?: string | null
+          cfo_disbursed_by?: string | null
           client_name?: string | null
           client_phone?: string | null
+          coo_approved_at?: string | null
+          coo_approved_by?: string | null
           created_at?: string
           created_by?: string | null
           customer_id?: string | null
+          disbursed_amount?: number | null
+          disbursement_group_id?: string | null
           id?: string
           issued_channel?: string | null
           item_name?: string
@@ -40104,6 +40122,14 @@ export type Database = {
         Args: { _submission_id: string; _user_id: string }
         Returns: boolean
       }
+      can_cfo_disburse_smartphone_orders: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      can_coo_approve_smartphone_orders: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       can_manage_deleted_accounts: {
         Args: { p_user_id: string }
         Returns: boolean
@@ -40223,6 +40249,10 @@ export type Database = {
           p_payee_phone?: string
           p_payee_user_id?: string
         }
+        Returns: Json
+      }
+      cfo_disburse_smartphone_order: {
+        Args: { p_amount?: number; p_note?: string; p_sale_id: string }
         Returns: Json
       }
       cfo_promissory_bookings_report: {
@@ -40474,6 +40504,10 @@ export type Database = {
         Returns: number
       }
       continent_for_country: { Args: { p_country: string }; Returns: string }
+      coo_approve_smartphone_order: {
+        Args: { p_note?: string; p_sale_id: string; p_total_amount?: number }
+        Returns: Json
+      }
       country_to_continent: { Args: { p_country: string }; Returns: string }
       create_campaign_link:
         | {
@@ -44376,10 +44410,13 @@ export type Database = {
           amount_outstanding: number
           amount_paid: number
           brand: string
+          cfo_disbursed_at: string
           client_name: string
           client_phone: string
+          coo_approved_at: string
           created_at: string
           customer_id: string
+          disbursed_amount: number
           id: string
           model_type: string
           order_status: string
