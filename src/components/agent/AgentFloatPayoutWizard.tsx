@@ -252,6 +252,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation }: Agent
     setSelectedRequest(null);
     setAllocationPrepping(false);
     setResumedExistingPayout(false);
+    setResumedPayoutAmount(null);
     setProvider('');
     setTid('');
     setNotes('');
@@ -441,6 +442,9 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation }: Agent
   // no OTP is asked for — so the success screen must say so instead of showing
   // a fresh "Payment Sent!" that looks like a brand-new, OTP-free payment.
   const [resumedExistingPayout, setResumedExistingPayout] = useState(false);
+  // Amount of the earlier payout we are only tracking (never re-sent), so the
+  // summary shows what was actually paid instead of the remaining allocation.
+  const [resumedPayoutAmount, setResumedPayoutAmount] = useState<number | null>(null);
 
   // ─── Challenge row is the SINGLE SOURCE OF TRUTH ───────────────────────
   // Every decision the wizard makes (show OTP inputs / hide them / advance
@@ -755,6 +759,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation }: Agent
         if (allocation.inflight_payout) {
           setActivePayoutId(allocation.inflight_payout.id);
           setResumedExistingPayout(true);
+          setResumedPayoutAmount(Number(allocation.inflight_payout.amount) || null);
           setStep('disburse');
         } else {
           setStep('otp');
@@ -1399,7 +1404,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation }: Agent
               </h3>
               <p className="text-muted-foreground text-sm">
                 {resumedExistingPayout
-                  ? `${req ? formatUGX(effectiveAmount) : ''} was already sent to ${req?.landlord?.name || 'the landlord'} via Mobile Money in an earlier session — the landlord's OTP was verified then. No new payment was made now.`
+                  ? `${formatUGX(resumedPayoutAmount ?? effectiveAmount)} was already sent to ${req?.landlord?.name || 'the landlord'} via Mobile Money in an earlier session — the landlord's OTP was verified then. No new payment was made now.`
                   : `${req ? formatUGX(effectiveAmount) : ''} delivered to ${req?.landlord?.name || 'the landlord'} via Mobile Money.`}
               </p>
               <Button onClick={handleClose}>Done</Button>
