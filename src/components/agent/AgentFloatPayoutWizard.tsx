@@ -758,6 +758,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation }: Agent
         if (allocation.inflight_payout) {
           setActivePayoutId(allocation.inflight_payout.id);
           setResumedExistingPayout(true);
+          setResumedPayoutAmount(Number(allocation.inflight_payout.amount) || null);
           setStep('disburse');
         } else {
           setStep('otp');
