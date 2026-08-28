@@ -44,7 +44,7 @@ const OPEN_STATUSES: Record<BudgetReviewStage, string[]> = {
  * total — is summed live from budget_submission_lines server-side; nothing is
  * hard-coded and no accounting/ledger logic is touched.
  */
-export default function BudgetReviewQueue({ cycleId, stage }: Props) {
+export default function BudgetReviewQueue({ cycleId, stage, onlyOpen, intro, emptyLabel }: Props) {
   const [rows, setRows] = useState<BudgetQueueRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
