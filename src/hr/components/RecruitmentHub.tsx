@@ -136,26 +136,86 @@ function isAlwaysOpen(posting: JobPosting): boolean {
   return posting.requisition_id === null && posting.closes_at === null;
 }
 
-function rowToneClass(
-  status: string | null,
-  shortlistRound: number | null,
-  context: 'list' | 'bin' = 'list'
-): string {
-  const round = shortlistRound ?? 1;
+type Stage = 'new' | 'shortlist_1' | 'shortlist_2' | 'shortlist_3' | 'hold' | 'rejected' | 'hired';
+
+/**
+ * The stage an applicant has reached. `status` is overwritten by the contacted
+ * write, so the level is read from `shortlist_round` first — never from
+ * `status` alone.
+ */
+function stageOf(row: { status: string | null; shortlist_round: number | null }): Stage {
+  if (row.status === 'hired') return 'hired';
+  if (row.status === 'rejected') return 'rejected';
+  if (row.status === 'hold') return 'hold';
+  const round = row.shortlist_round;
+  if (round === 1) return 'shortlist_1';
+  if (round === 2) return 'shortlist_2';
+  if (round === 3) return 'shortlist_3';
+  if (row.status === 'shortlisted') return 'shortlist_1';
+  return 'new';
+}
+
+/** Contact is a fact of its own, held in `contacted_at`. */
+function wasContacted(row: { contacted_at: string | null }): boolean {
+  return row.contacted_at != null;
+}
+
+const STAGE_ORDER: Stage[] = [
+  'new',
+  'shortlist_1',
+  'shortlist_2',
+  'shortlist_3',
+  'hold',
+  'rejected',
+  'hired',
+];
+
+const STAGE_META: Record<Stage, { label: string; className: string }> = {
+  new: { label: 'New', className: 'bg-muted text-muted-foreground border-border' },
+  shortlist_1: {
+    label: 'Shortlist 1',
+    className: 'bg-violet-500/10 text-violet-700 border-violet-400/70 dark:text-violet-300',
+  },
+  shortlist_2: {
+    label: 'Shortlist 2',
+    className: 'bg-violet-500/20 text-violet-800 border-violet-500/80 dark:text-violet-200',
+  },
+  shortlist_3: {
+    label: 'Shortlist 3',
+    className: 'bg-violet-600/25 text-violet-900 border-violet-600/90 dark:text-violet-100',
+  },
+  hold: {
+    label: 'Hold',
+    className: 'bg-amber-500/10 text-amber-700 border-amber-400/70 dark:text-amber-300',
+  },
+  rejected: {
+    label: 'Rejected',
+    className: 'bg-neutral-500/10 text-neutral-700 border-neutral-400/60 dark:text-neutral-300',
+  },
+  hired: {
+    label: 'Hired',
+    className: 'bg-emerald-500/10 text-emerald-700 border-emerald-400/70 dark:text-emerald-300',
+  },
+};
+
+function StageBadge({ stage }: { stage: Stage }) {
+  const meta = STAGE_META[stage];
+  return (
+    <Badge variant="outline" className={`text-xs font-medium ${meta.className}`}>
+      {meta.label}
+    </Badge>
+  );
+}
+
+function rowToneClass(stage: Stage, context: 'list' | 'bin' = 'list'): string {
   if (context === 'bin') {
-    switch (status) {
-      case 'shortlisted':
-        if (round === 1) {
-          return 'border-l-2 border-violet-400/70 dark:border-violet-400/80';
-        }
-        if (round === 2) {
-          return 'border-l-2 border-violet-500/80 dark:border-violet-400/90';
-        }
+    switch (stage) {
+      case 'shortlist_1':
+        return 'border-l-2 border-violet-400/70 dark:border-violet-400/80';
+      case 'shortlist_2':
+        return 'border-l-2 border-violet-500/80 dark:border-violet-400/90';
+      case 'shortlist_3':
         return 'border-l-2 border-violet-600/90 dark:border-violet-500';
-      case 'contacted':
-        return 'border-l-2 border-sky-400/70 dark:border-sky-400/80';
-      case 'interviewing':
-        return 'border-l-2 border-teal-400/70 dark:border-teal-400/80';
       case 'hold':
         return 'border-l-2 border-amber-400/70 dark:border-amber-400/80';
       case 'hired':
@@ -163,25 +223,17 @@ function rowToneClass(
       case 'rejected':
         return 'border-l-2 border-neutral-400/60 dark:border-neutral-400/70';
       case 'new':
-      case null:
-      case '':
       default:
         return '';
     }
   }
-  switch (status) {
-    case 'shortlisted':
-      if (round === 1) {
-        return 'bg-violet-500/10 border-l-2 border-violet-400/70 hover:bg-violet-500/20 dark:bg-violet-500/10 dark:border-violet-400/80 dark:hover:bg-violet-500/20';
-      }
-      if (round === 2) {
-        return 'bg-violet-500/20 border-l-2 border-violet-500/80 hover:bg-violet-500/30 dark:bg-violet-500/15 dark:border-violet-400/90 dark:hover:bg-violet-500/25';
-      }
+  switch (stage) {
+    case 'shortlist_1':
+      return 'bg-violet-500/10 border-l-2 border-violet-400/70 hover:bg-violet-500/20 dark:bg-violet-500/10 dark:border-violet-400/80 dark:hover:bg-violet-500/20';
+    case 'shortlist_2':
+      return 'bg-violet-500/20 border-l-2 border-violet-500/80 hover:bg-violet-500/30 dark:bg-violet-500/15 dark:border-violet-400/90 dark:hover:bg-violet-500/25';
+    case 'shortlist_3':
       return 'bg-violet-600/25 border-l-2 border-violet-600/90 hover:bg-violet-600/35 dark:bg-violet-600/20 dark:border-violet-500 dark:hover:bg-violet-600/30';
-    case 'contacted':
-      return 'bg-sky-500/10 border-l-2 border-sky-400/70 hover:bg-sky-500/20 dark:bg-sky-500/10 dark:border-sky-400/80 dark:hover:bg-sky-500/20';
-    case 'interviewing':
-      return 'bg-teal-500/10 border-l-2 border-teal-400/70 hover:bg-teal-500/20 dark:bg-teal-500/10 dark:border-teal-400/80 dark:hover:bg-teal-500/20';
     case 'hold':
       return 'bg-amber-500/10 border-l-2 border-amber-400/70 hover:bg-amber-500/20 dark:bg-amber-500/10 dark:border-amber-400/80 dark:hover:bg-amber-500/20';
     case 'hired':
@@ -189,13 +241,11 @@ function rowToneClass(
     case 'rejected':
       return 'bg-neutral-500/10 border-l-2 border-neutral-400/60 hover:bg-neutral-500/20 dark:bg-neutral-500/10 dark:border-neutral-400/70 dark:hover:bg-neutral-500/20';
     case 'new':
-    case null:
-    case '':
-      return '';
     default:
       return '';
   }
 }
+
 
 type JobApplicationRow = Database['public']['Tables']['job_applications']['Row'];
 
