@@ -400,7 +400,7 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
 
     <h3 class="chart-header-title">Agent Payment Behaviour</h3>
     <div class="chart-header-sub">Ranked by collection rate against each agent's own expected daily obligation, not by absolute money collected. Standing follows the daily gate: 50%+ is good standing (agent can post), under 15% needs attention.</div>
-    <div class="summary-card-title">Best 5</div>
+    <div class="summary-card-title">Highest 5 by collection rate</div>
     ${table(
       [{ label: 'Agent' }, { label: 'Phone' }, { label: 'Tenants', right: true }, { label: 'Expected', right: true },
        { label: 'Paid', right: true }, { label: 'Outstanding', right: true }, { label: 'Collection rate', right: true }],
