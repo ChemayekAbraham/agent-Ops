@@ -91,17 +91,19 @@ const CONTACTED = 'contacted_filter';
 const FILTER_OPTIONS: {
   value: string;
   label: string;
-  match: (status: string | null, round: number | null) => boolean;
+  match: (row: JobApplicationRow) => boolean;
 }[] = [
   { value: ALL, label: 'All', match: () => true },
-  { value: 'new', label: 'Shortlist', match: (s) => s === 'new' || s === null || s === '' },
-  { value: 'hold', label: 'Hold', match: (s) => s === 'hold' },
-  // A shortlisted row with no round recorded is a level 1 row.
-  { value: SHORTLIST_1, label: 'Shortlist 1', match: (s, r) => s === 'shortlisted' && (r ?? 1) === 1 },
-  { value: SHORTLIST_2, label: 'Shortlist 2', match: (s, r) => s === 'shortlisted' && r === 2 },
-  { value: SHORTLIST_3, label: 'Shortlist 3', match: (s, r) => s === 'shortlisted' && r === 3 },
-  { value: CONTACTED, label: 'Contacted', match: (s) => s === 'contacted' },
+  { value: 'new', label: 'New', match: (r) => stageOf(r) === 'new' },
+  { value: SHORTLIST_1, label: 'Shortlist 1', match: (r) => stageOf(r) === 'shortlist_1' },
+  { value: SHORTLIST_2, label: 'Shortlist 2', match: (r) => stageOf(r) === 'shortlist_2' },
+  { value: SHORTLIST_3, label: 'Shortlist 3', match: (r) => stageOf(r) === 'shortlist_3' },
+  { value: 'hold', label: 'Hold', match: (r) => stageOf(r) === 'hold' },
+  { value: 'rejected', label: 'Rejected', match: (r) => stageOf(r) === 'rejected' },
+  { value: CONTACTED, label: 'Contacted', match: (r) => wasContacted(r) },
+  { value: NOT_CONTACTED, label: 'Not yet contacted', match: (r) => !wasContacted(r) },
 ];
+
 
 
 const POSTING_STATUS_CLASS: Record<JobPosting['status'], string> = {
