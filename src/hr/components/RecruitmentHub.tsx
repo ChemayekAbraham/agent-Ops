@@ -655,7 +655,159 @@ function ApplicationsTab() {
     }
   };
 
+  /** Row groups for the "Group by" selector. Empty groups are omitted. */
+  const groups = useMemo(() => {
+    if (groupBy === 'role') {
+      const map = new Map<string, JobApplicationRow[]>();
+      filteredSorted.forEach((r) => {
+        const label = (r.role_interest ?? '').trim() || 'Unspecified';
+        const list = map.get(label);
+        if (list) list.push(r);
+        else map.set(label, [r]);
+      });
+      return [...map.entries()]
+        .map(([label, list]) => ({ key: label, label, rows: list }))
+        .sort((a, b) => b.rows.length - a.rows.length);
+    }
+    if (groupBy === 'stage') {
+      return STAGE_ORDER.map((stage) => ({
+        key: stage,
+        label: STAGE_META[stage].label,
+        rows: filteredSorted.filter((r) => stageOf(r) === stage),
+      })).filter((g) => g.rows.length > 0);
+    }
+    return [];
+  }, [filteredSorted, groupBy]);
+
+  const renderTable = (list: JobApplicationRow[]) => (
+    <Card className="overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-10">
+              <Checkbox
+                checked={allVisibleSelected}
+                onCheckedChange={toggleSelectAllVisible}
+                aria-label="Select all shown applications"
+              />
+            </TableHead>
+            <TableHead className="w-12">#</TableHead>
+            <TableHead
+              className="cursor-pointer select-none"
+              onClick={() => toggleSort('name')}
+            >
+              Full name
+              {sortConfig.key === 'name' && (
+                <span className="ml-1">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>
+              )}
+            </TableHead>
+            <TableHead
+              className="cursor-pointer select-none"
+              onClick={() => toggleSort('role_interest')}
+            >
+              Role
+              {sortConfig.key === 'role_interest' && (
+                <span className="ml-1">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>
+              )}
+            </TableHead>
+            <TableHead
+              className="cursor-pointer select-none"
+              onClick={() => toggleSort('status')}
+            >
+              Stage
+              {sortConfig.key === 'status' && (
+                <span className="ml-1">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>
+              )}
+            </TableHead>
+            <TableHead>Contacted</TableHead>
+            <TableHead>Location</TableHead>
+            <TableHead>Experience</TableHead>
+            <TableHead
+              className="cursor-pointer select-none"
+              onClick={() => toggleSort('created')}
+            >
+              Applied
+              {sortConfig.key === 'created' && (
+                <span className="ml-1">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>
+              )}
+            </TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {list.map((row, idx) => (
+            <TableRow
+              key={row.id}
+              className={`cursor-pointer ${rowToneClass(stageOf(row))}`}
+              onClick={() => setSelected(row)}
+            >
+              <TableCell onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={selectedIds.has(row.id)}
+                  onCheckedChange={() => toggleRowSelected(row.id)}
+                  aria-label={`Select ${row.full_name || 'application'}`}
+                />
+              </TableCell>
+              <TableCell>{idx + 1}</TableCell>
+              <TableCell>{row.full_name || '—'}</TableCell>
+              <TableCell>{row.role_interest || '—'}</TableCell>
+              <TableCell>
+                <StageBadge stage={stageOf(row)} />
+              </TableCell>
+              <TableCell>
+                {wasContacted(row) ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <Check className="h-3.5 w-3.5" />
+                    {fmtDate(row.contacted_at)}
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
+              </TableCell>
+              <TableCell>{row.location || '—'}</TableCell>
+              <TableCell>{row.experience_level || '—'}</TableCell>
+              <TableCell>{fmtDateTime(row.created_at)}</TableCell>
+              <TableCell
+                className="text-right whitespace-nowrap"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="inline-flex gap-1">
+                  {getAvailableDecisions(row.status, row.shortlist_round ?? null).map((a) => (
+                    <Button
+                      key={`${a.status}-${a.round ?? 'none'}`}
+                      size="sm"
+                      variant="outline"
+                      className={`h-7 px-2 text-xs ${
+                        (a.round ?? 0) >= 2 ? SHORTLIST_LEVEL_2_CLASS : ''
+                      }`}
+                      onClick={() => {
+                        setPending({ row, kind: a.status, writer: a.writer, round: a.round });
+                      }}
+                    >
+                      {a.label}
+                    </Button>
+                  ))}
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => {
+                      setPending({ row, kind: 'remove' });
+                    }}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Card>
+  );
+
   if (isLoading) {
+
     return (
       <div className="space-y-3">
         <Skeleton className="h-9 w-full" />
