@@ -88,15 +88,11 @@ function NewAgentPercentages({ rows, newCount, prevCount, totalAgents, compareLa
             : growth > 0 ? 'text-emerald-600' : 'text-destructive')}>
           {apsPctLabel(added, prevCount)}
         </p>
-        <p className="text-[10px] text-muted-foreground">
-          {num(added)} added vs {num(prevCount)} {compareLabel ?? 'previously'}
-        </p>
       </div>
 
       <div className="rounded-xl border bg-card p-3">
         <p className="text-[11px] text-muted-foreground">Share of total agent base</p>
         <p className="text-lg font-bold">{pct(baseShare)}</p>
-        <p className="text-[10px] text-muted-foreground">{num(added)} of {num(totalAgents)} agents</p>
       </div>
 
       <div className="rounded-xl border bg-card p-3">
@@ -109,7 +105,7 @@ function NewAgentPercentages({ rows, newCount, prevCount, totalAgents, compareLa
             <div key={t.label}>
               <div className="flex items-baseline justify-between text-[10px]">
                 <span className="text-muted-foreground">{t.label}</span>
-                <span className="font-semibold">{pct(share(t.count))} · {num(t.count)}</span>
+                <span className="font-semibold">{pct(share(t.count))}</span>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                 <div className={cn('h-full rounded-full', t.cls)} style={{ width: `${share(t.count)}%` }} />
@@ -532,45 +528,40 @@ export function AgentProductsServicesReport() {
           {/* KPI strip */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             <Kpi label="New agents added" value={num(report.agents.new_today)}
-              current={report.agents.new_today} previous={pop.newAgents} compareLabel={compareLabel}
-              hint={`${num(report.new_agent_rows.filter(r => r.agent_type === 'main agent').length)} main · ${num(report.new_agent_rows.filter(r => r.agent_type === 'sub-agent').length)} sub`} />
+              current={report.agents.new_today} previous={pop.newAgents} compareLabel={compareLabel} />
             <Kpi label="Total agents" value={num(report.agents.total)}
-              current={report.agents.total} previous={pop.totalAgents} compareLabel={compareLabel}
-              hint={`${num(report.agents.active_today)} active`} />
+              current={report.agents.total} previous={pop.totalAgents} compareLabel={compareLabel} />
             <Kpi label="Rent collected" value={apsUgx(report.rent.collected_today)}
               current={report.rent.collected_today} previous={pop.collected} compareLabel={compareLabel} />
             <Kpi label="Expected target (period)" value={apsUgx(expectedTotal)}
               current={pop.expectedTotal === undefined ? undefined : expectedTotal}
               previous={pop.expectedTotal} compareLabel={compareLabel}
-              hint={`${num(report.rent.live_plans)} live plans · ${apsUgx(report.rent.daily_receivable)}/day over ${num(expectedDays)} day${expectedDays === 1 ? '' : 's'}`} />
+              hint={`${apsUgx(report.rent.daily_receivable)}/day`} />
             <Kpi label="Collection rate vs expected"
               value={`${expectedTotal > 0 ? ((Number(report.rent.collected_today) / expectedTotal) * 100).toFixed(1) : '0.0'}%`}
-              hint={`collected ${apsUgx(report.rent.collected_today)} of ${apsUgx(expectedTotal)}`} />
+              hint={`${apsUgx(report.rent.collected_today)} of ${apsUgx(expectedTotal)}`} />
             <Kpi label="Outstanding receivable" value={apsUgx(report.rent.outstanding)}
               current={pop.outstanding === undefined ? undefined : report.rent.outstanding}
-              previous={pop.outstanding} invert compareLabel={compareLabel}
-              hint={`avg ${num(report.rent.avg_days_outstanding)} days outstanding`} />
+              previous={pop.outstanding} invert compareLabel={compareLabel} />
             <Kpi label="Advances issued" value={apsUgx(report.advances.issued_today)}
               current={pop.advIssued === undefined ? undefined : report.advances.issued_today}
-              previous={pop.advIssued} compareLabel={compareLabel}
-              hint={`${num(report.advances.issued_count)} issued · ${num(report.advances.submitted)} requested`} />
+              previous={pop.advIssued} compareLabel={compareLabel} />
             <Kpi label="Advance outstanding" value={apsUgx(report.advances.outstanding)}
               current={pop.advOutstanding === undefined ? undefined : report.advances.outstanding}
               previous={pop.advOutstanding} invert compareLabel={compareLabel}
-              hint={`${num(report.advances.active_count)} active · ${apsUgx(report.advances.deducted_today)} recovered`} />
+              hint={`${apsUgx(report.advances.deducted_today)} recovered`} />
             <Kpi label="Active service centres" value={num(report.service_centres.active_total)}
               current={pop.scActive === undefined ? report.service_centres.new_today : report.service_centres.active_total}
               previous={pop.scActive === undefined ? report.service_centres.new_prev : pop.scActive}
-              compareLabel={compareLabel}
-              hint={`${num(report.service_centres.new_this_month)} this month${scTarget > 0 ? ` / target ${num(scTarget)}` : ''}`} />
+              compareLabel={compareLabel} />
             <Kpi label="Bikes outstanding" value={apsUgx(bikes?.outstanding)}
               current={pop.bikes === undefined ? undefined : Number(bikes?.outstanding) || 0}
               previous={pop.bikes} invert compareLabel={compareLabel}
-              hint={`${num(bikes?.issued_total)} issued · ${apsUgx(bikes?.daily_receivable)} due daily`} />
+              hint={`${apsUgx(bikes?.daily_receivable)} due daily`} />
             <Kpi label="Smartphones outstanding" value={apsUgx(phones?.outstanding)}
               current={pop.phones === undefined ? undefined : Number(phones?.outstanding) || 0}
               previous={pop.phones} invert compareLabel={compareLabel}
-              hint={`${num(phones?.issued_total)} issued · ${apsUgx(phones?.daily_receivable)} due daily`} />
+              hint={`${apsUgx(phones?.daily_receivable)} due daily`} />
             <Kpi label="Requests approved / rejected" value={`${num(report.advances.approved)} / ${num(report.advances.rejected)}`}
               current={pop.advApproved === undefined ? undefined : report.advances.approved}
               previous={pop.advApproved} compareLabel={compareLabel}
@@ -684,7 +675,7 @@ export function AgentProductsServicesReport() {
                     const share = (n: number, d: number) => (d > 0 ? (n / d) * 100 : null);
                     return (
                       <PctSummary items={[
-                        { label: 'Agents that collected', pct: share(collecting, total), hint: `${num(collecting)} of ${num(total)} agents` },
+                        { label: 'Agents that collected', pct: share(collecting, total) },
                         { label: 'Float deployed to landlords', pct: share(floatOut, floatIn), hint: 'Paid out as share of float received' },
                         { label: 'Top agent concentration', pct: share(Number(top?.collections_amount) || 0, collected), hint: top ? `${top.agent_name}` : 'No collections' },
                         { label: 'Collections growth', pct: null, growth: { current: collected, previous: Number(pop.collected) || 0 }, hint: compareLabel },
@@ -748,7 +739,7 @@ export function AgentProductsServicesReport() {
                       <PctSummary items={[
                         { label: 'Collection rate vs expected', pct: share(collected, expectedTotal), hint: 'Collected as share of period target' },
                         { label: 'Portfolio repaid to date', pct: share(repaid, repaid + outstanding), hint: 'Repaid vs repaid + outstanding' },
-                        { label: 'Agents collecting today', pct: share(paying, rows.length), hint: `${num(paying)} of ${num(rows.length)} with live plans` },
+                        { label: 'Agents collecting today', pct: share(paying, rows.length) },
                         { label: 'Outstanding growth', pct: null, growth: { current: outstanding, previous: Number(pop.outstanding) || 0 }, invert: true, hint: compareLabel },
                       ]} />
                     );
@@ -783,8 +774,8 @@ export function AgentProductsServicesReport() {
                     const share = (n: number, d: number) => (d > 0 ? (n / d) * 100 : null);
                     return (
                       <PctSummary items={[
-                        { label: 'Approval rate', pct: share(approved, decided || submitted), hint: `${num(approved)} approved of ${num(decided || submitted)} decided` },
-                        { label: 'Rejection rate', pct: share(rejected, decided || submitted), hint: `${num(rejected)} rejected` },
+                        { label: 'Approval rate', pct: share(approved, decided || submitted) },
+                        { label: 'Rejection rate', pct: share(rejected, decided || submitted) },
                         { label: 'Recovery rate', pct: share(recovered, recovered + outstanding), hint: 'Recovered vs recovered + outstanding' },
                         { label: 'Issued growth', pct: null, growth: { current: Number(a.issued_today) || 0, previous: Number(pop.advIssued) || 0 }, hint: compareLabel },
                       ]} />
