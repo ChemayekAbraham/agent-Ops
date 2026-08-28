@@ -9,7 +9,7 @@ import {
   describeInflightPayout,
   type LandlordFloatAllocation,
 } from '@/hooks/useLandlordFloatAllocations';
-import { Loader2, Landmark, ArrowRight, Inbox, User, Search, Lock, Clock3 } from 'lucide-react';
+import { Loader2, Landmark, ArrowRight, Inbox, User, Phone, Search, Lock, Clock3 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -24,29 +24,6 @@ const WITHDRAW_LOCK_MS = 10 * 60 * 1000;
 
 const lockStorageKey = (agentId?: string | null) => `welile-ll-withdraw-lock:${agentId ?? 'anon'}`;
 const allocationLockKey = (a: LandlordFloatAllocation) => a.landlord_id || a.id;
-
-function maskLandlordPhone(phone?: string | null): string {
-  if (!phone) return '';
-  const clean = phone.trim();
-  if (clean.startsWith('+256')) {
-    const rest = clean.slice(4).replace(/\s+/g, '');
-    if (rest.length >= 7) {
-      return `+256 ${rest.slice(0, 3)} ${rest.charAt(3)}•• •••`;
-    }
-  }
-  const digits = clean.replace(/\D/g, '');
-  if (digits.startsWith('256') && digits.length === 12) {
-    const nat = digits.slice(3);
-    return `+256 ${nat.slice(0, 3)} ${nat.charAt(3)}•• •••`;
-  }
-  if (digits.startsWith('0') && digits.length === 10) {
-    return `${digits.slice(0, 4)} ${digits.charAt(4)}•• •••`;
-  }
-  if (digits.length === 9) {
-    return `0${digits.slice(0, 3)} ${digits.charAt(3)}•• •••`;
-  }
-  return phone;
-}
 
 function loadLocks(agentId?: string | null): Record<string, number> {
   try {
@@ -205,8 +182,8 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                   const lockExpiry = locks[allocationLockKey(a)] ?? 0;
                   const remainingMs = Math.max(0, lockExpiry - now);
                   const isLocked = remainingMs > 0;
-                  const mins = Math.floor(remainingMs / 60000).toString().padStart(2, '0');
-                  const secs = Math.floor((remainingMs % 60000) / 1000).toString().padStart(2, '0');
+                  const mins = Math.floor(remainingMs / 60000);
+                  const secs = Math.floor((remainingMs % 60000) / 1000);
                   // Already submitted and still moving through the merchant
                   // queue — this row is not work to do, it is work to track.
                   const inflight = a.inflight_payout
@@ -218,12 +195,12 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                     onClick={() => handleSelect(a)}
                     disabled={isLocked}
                     aria-disabled={isLocked}
-                    className={`w-full text-left p-3.5 rounded-xl border-2 transition-all touch-manipulation ${
+                    className={`w-full text-left p-3 rounded-xl border-2 transition-colors touch-manipulation ${
                       isLocked
-                        ? 'border-border/60 bg-muted/30 opacity-70 cursor-not-allowed'
+                        ? 'border-border bg-muted/40 opacity-60 cursor-not-allowed'
                         : inflight
                           ? 'border-amber-500/40 bg-amber-500/5 hover:border-amber-500/60'
-                          : 'border-border/80 bg-card hover:border-[#9234EA]/50 hover:bg-[#9234EA]/5 active:scale-[0.99] shadow-sm'
+                          : 'border-border bg-card hover:border-[#9234EA]/40 hover:bg-[#9234EA]/5 active:scale-[0.99]'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
@@ -234,19 +211,20 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                             {a.tenant_name}
                           </div>
                         )}
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground truncate mt-0.5">
-                          <span>{a.landlord_name}</span>
-                          {a.landlord_phone && (
-                            <>
-                              <span>·</span>
-                              <span className="font-mono">{maskLandlordPhone(a.landlord_phone)}</span>
-                            </>
-                          )}
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground truncate mt-0.5">
+                          <User className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          Landlord: {a.landlord_name}
                         </div>
+                        {a.landlord_phone && (
+                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5 truncate">
+                            <Phone className="h-3 w-3 shrink-0" />
+                            {a.landlord_phone}
+                          </div>
+                        )}
                       </div>
                       {inflight && (
-                        <Badge className="text-[10px] uppercase font-semibold shrink-0 bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/15">
-                          merchant
+                        <Badge className="text-[9px] shrink-0 bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/15">
+                          {inflight.label}
                         </Badge>
                       )}
                       {!inflight && a.status === 'partially_paid' && (
@@ -256,7 +234,7 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                         <Badge variant="outline" className="text-[9px] shrink-0">Legacy</Badge>
                       )}
                     </div>
-                    <div className="flex items-end justify-between gap-2 mt-2 pt-1">
+                    <div className="flex items-end justify-between gap-2">
                       <div>
                         <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
                           {inflight ? 'Sent' : 'Remaining'}
@@ -270,23 +248,22 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                           </div>
                         )}
                       </div>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 text-xs font-semibold text-[#9234EA]">
                         {isLocked ? (
-                          <div className="flex items-center gap-1.5 text-xs font-mono font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-1 rounded-md border border-amber-500/20">
-                            <Lock className="h-3 w-3" />
-                            <span>{mins}:{secs}</span>
-                            <span className="text-[10px] text-muted-foreground">locked</span>
-                          </div>
+                          <span className="flex items-center gap-1 text-muted-foreground">
+                            <Lock className="h-3.5 w-3.5" />
+                            {mins}:{secs.toString().padStart(2, '0')}
+                          </span>
                         ) : inflight ? (
-                          <span className="flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-500">
+                          <span className="flex items-center gap-1 text-amber-600 dark:text-amber-500">
                             <Clock3 className="h-3.5 w-3.5" />
                             Track
                           </span>
                         ) : (
-                          <span className="flex items-center gap-1 text-xs font-semibold text-[#9234EA]">
+                          <>
                             Withdraw
-                            <ArrowRight className="h-3.5 w-3.5" />
-                          </span>
+                            <ArrowRight className="h-4 w-4" />
+                          </>
                         )}
                       </div>
                     </div>
