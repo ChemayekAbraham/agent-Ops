@@ -21,8 +21,8 @@ type DefinitionRow = {
 
 type SnapshotRow = {
   id: string;
-  staff_id: string;
-  department_id: string;
+  staff_id: string | null;
+  department_id: string | null;
   metric_key: string;
   metric_version: number;
   period_start: string;

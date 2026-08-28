@@ -60,7 +60,8 @@ export interface MetricSnapshot {
   metric_definition_id: string;
   metric_definition_version: number;
   subject_type: 'employee' | 'department' | 'org';
-  subject_id: string;
+  /** null for an org-wide metric, which has no subject. */
+  subject_id: string | null;
   /** Which posting this was measured under. Null for department subjects. */
   assignment_id: string | null;
   period_type: MetricPeriodType;
