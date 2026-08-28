@@ -252,9 +252,18 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
       </tr></thead>
       <tbody>
         <tr class="group-row"><td colspan="5">1. AGENT NETWORK STRUCTURE</td></tr>
-        ${matrixRow('Network size', 'Total agent network (unique individuals)', `<span class="num">${num(agents.total)}</span>`, `<span class="num">${num(agents.base)}</span> base`, variance(n(agents.total), prev ? n(prev.agents.total) : undefined))}
-        ${matrixRow('Primary collectors', 'Agents active in period', `<span class="num">${num(agents.active_today)}</span>`, pct(n(agents.active_today), n(agents.total)) + ' of network', variance(n(agents.active_today), prev ? n(prev.agents.active_today) : undefined))}
-        ${matrixRow('Onboarding', 'Agents onboarded in period', `<span class="num">${num(agents.new_today)}</span>`, `${num(subAgents)} sub-agent links`, variance(n(agents.new_today), prev ? n(prev.agents.new_today) : undefined))}
+        ${population
+          ? [
+              matrixRow('Network size', 'Total operational agents (unique individuals)', `<span class="num">${num(population.total)}</span>`, `${num(population.ever_collected)} have ever collected`, variance(n(population.total), undefined)),
+              matrixRow('Network status', 'Active agents', `<span class="num" style="color:var(--status-success)">${num(population.active)}</span>`, `${pct(n(population.active), n(population.total))} of network`, `<span class="pct">${pct(n(population.active), n(population.total))} active rate</span>`),
+              matrixRow('Network status', 'Inactive agents', `<span class="num" style="color:var(--status-danger)">${num(population.inactive)}</span>`, `${pct(n(population.inactive), n(population.total))} of network`, `no collection in 30 days &amp; no live plan`),
+              matrixRow('Primary agents', 'Primary agents (total / active / inactive)', `<span class="num">${num(population.primary_total)}</span> / <span class="num">${num(population.primary_active)}</span> / <span class="num">${num(population.primary_inactive)}</span>`, `${pct(n(population.primary_total), n(population.total))} of network`, `<span class="pct">${pct(n(population.primary_active), n(population.primary_total))} active</span>`),
+              matrixRow('Sub-agents', 'Sub-agents (total / active / inactive)', `<span class="num">${num(population.sub_total)}</span> / <span class="num">${num(population.sub_active)}</span> / <span class="num">${num(population.sub_inactive)}</span>`, `${num(population.verified_subagent_links)} verified links recruited`, `<span class="pct">${pct(n(population.sub_active), n(population.sub_total))} active</span>`),
+              matrixRow('Collection coverage', 'Agents carrying a live rent plan', `<span class="num">${num(population.live_plan_agents)}</span>`, `${num(population.collected_last_30d)} collected in last 30 days`, `${num(population.live_plan_no_collection)} live plans with no collection row`),
+              matrixRow('Onboarding', 'Agents transacting in period', `<span class="num">${num(agents.active_today)}</span>`, `${num(agents.new_today)} newly qualified · ${num(subAgents)} sub-agent links`, variance(n(agents.active_today), prev ? n(prev.agents.active_today) : undefined)),
+            ].join('')
+          : `<tr><td colspan="5">${PENDING}</td></tr>`}
+
 
         <tr class="group-row"><td colspan="5">2. RENT OPERATIONS &amp; COLLECTIONS</td></tr>
         ${matrixRow('Financial volume', 'Total rent collected', `<span class="currency">${ugx(collected)}</span>`, expectedTotal > 0 ? `<span class="currency">${ugx(expectedTotal)}</span>` : PENDING, expectedTotal > 0 ? `<span class="pct">${collectionRate.toFixed(1)}% collection rate</span>` : PENDING)}
