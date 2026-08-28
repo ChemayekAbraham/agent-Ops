@@ -397,8 +397,18 @@ export function AgentOpsHomeView({ range, onRangeChange, onOpenSection }: AgentO
 
   return (
     <div className="space-y-4 pb-20 sm:pb-4">
+      {/* Comprehensive report export — single centralised reporting period */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-foreground">Agent Operations Overview</h2>
+          <p className="text-[11px] text-muted-foreground">Export the full board-grade operations report</p>
+        </div>
+        <ComprehensiveReportButton />
+      </div>
+
       {/* Summary: Total Users → Agents → Active Agents + trend */}
       <AgentDefinitionFunnel range={range} />
+
 
       {/* Compact Active Users stat — share of the whole platform active in range */}
       <ActiveUsersStat range={range} />
