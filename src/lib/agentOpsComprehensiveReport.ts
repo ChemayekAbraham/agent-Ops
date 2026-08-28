@@ -281,12 +281,17 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
 
     <div class="methodology-box">
       <div class="methodology-title">Counting definitions &amp; date integrity</div>
-      An <strong>agent</strong> is a person with at least one rent obligation they collect on or repay; a
-      <strong>sub-agent</strong> is an agent linked to a parent agent. Individuals are counted once by user ID, never by
-      name or phone. Rent collected uses the collection timestamp, rent expected uses the scheduled daily obligation,
-      onboarding uses the account creation timestamp, advances use request / approval / repayment timestamps and
+      An <strong>operational agent</strong> is a person who has recorded at least one rent collection
+      <strong>or</strong> currently carries at least one live (funded / repaying) rent plan. Holding the agent role is
+      <strong>not</strong> counted — role records include tens of thousands of signup artefacts and are excluded.
+      An agent is <strong>active</strong> when they collected within the last 30 days or hold a live plan, and
+      <strong>inactive</strong> when they have neither. A <strong>sub-agent</strong> is identified by a verified
+      parent link, not by role; recruited-but-never-operational links are excluded from the network total.
+      Individuals are counted once by user ID, never by name or phone. Rent collected uses the collection timestamp,
+      rent expected uses the scheduled daily obligation, advances use request / approval / repayment timestamps and
       service centres use the request timestamp. All day boundaries are Africa/Kampala (EAT).
     </div>`;
+
 
   // ---------- Page 2: rent collections --------------------------------------
   const perAgentExpected = (r: any) =>
