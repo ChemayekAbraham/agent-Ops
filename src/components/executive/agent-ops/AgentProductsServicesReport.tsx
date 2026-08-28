@@ -309,6 +309,60 @@ function Kpi({ label, value, hint, current, previous, invert, compareLabel }: {
   );
 }
 
+/** Unified SERVICE CENTRES summary card. Replaces separate Active/Pending tiles. */
+function ServiceCentreConsolidatedCard({ report, compareLabel, previous }: {
+  report: ApsReport; compareLabel?: string;
+  previous?: { scActive?: number; scPending?: number; scApprovedVolume?: number; scRejected?: number };
+}) {
+  const sc = report.service_centres;
+  const active = Math.max(0, Number(sc.active_total) || 0);
+  const pending = Math.max(0, Number(sc.pending_total) || 0);
+  const approvedVolume = Math.max(0, Number(sc.approved_volume) || 0);
+  const rejected = Math.max(0, Number(sc.rejected_count) || 0);
+  const target = Math.max(0, Number(sc.monthly_target) || 0);
+  const targetPct = target > 0 ? (active / target) * 100 : 0;
+
+  const subItems = [
+    { label: 'Pending verification', value: num(pending), current: pending, previous: previous?.scPending, invert: true },
+    { label: 'New this month', value: num(sc.new_this_month), current: sc.new_this_month, previous: sc.new_prev },
+    { label: 'Approved volume', value: apsUgx(approvedVolume), current: approvedVolume, previous: previous?.scApprovedVolume },
+    { label: 'Rejected', value: num(rejected), current: rejected, previous: previous?.scRejected, invert: true },
+  ];
+
+  return (
+    <Card className="border sm:col-span-2 lg:col-span-2">
+      <CardContent className="p-3 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Service centres</p>
+            <p className="text-2xl font-bold">{num(active)}</p>
+            <p className="text-[10px] text-muted-foreground">Total active service centres</p>
+          </div>
+          {target > 0 && (
+            <div className="text-right">
+              <p className="text-[10px] text-muted-foreground">Monthly target</p>
+              <p className="text-sm font-bold">{num(target)}</p>
+              <p className="text-[10px] font-semibold text-emerald-600">{targetPct.toFixed(1)}%</p>
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          {subItems.map(it => (
+            <div key={it.label} className="rounded-lg border bg-card/50 p-2">
+              <p className="text-[10px] text-muted-foreground">{it.label}</p>
+              <p className="text-sm font-bold">{it.value}</p>
+              {it.current !== undefined && it.previous !== undefined && (
+                <TrendPill current={it.current} previous={it.previous} invert={it.invert} compareLabel={compareLabel} />
+              )}
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 /** Small client-side paginated table (data already fetched in one RPC round trip). */
 function PagedTable<T extends Record<string, any>>({
   rows, columns, searchKeys, emptyLabel,
@@ -520,6 +574,8 @@ export function AgentProductsServicesReport() {
       advApproved: p ? Number(p.advances.approved) : undefined,
       scActive: p ? Number(p.service_centres.active_total) : undefined,
       scPending: p ? Number(p.service_centres.pending_total) : undefined,
+      scApprovedVolume: p ? Number(p.service_centres.approved_volume) : undefined,
+      scRejected: p ? Number(p.service_centres.rejected_count) : undefined,
       bikes: p ? Number(p.bikes?.outstanding ?? 0) : undefined,
       phones: p ? Number(p.phones?.outstanding ?? 0) : undefined,
     };
@@ -697,10 +753,7 @@ export function AgentProductsServicesReport() {
               current={pop.advOutstanding === undefined ? undefined : report.advances.outstanding}
               previous={pop.advOutstanding} invert compareLabel={compareLabel}
               hint={`${apsUgx(report.advances.deducted_today)} recovered`} />
-            <Kpi label="Active service centres" value={num(report.service_centres.active_total)}
-              current={pop.scActive === undefined ? report.service_centres.new_today : report.service_centres.active_total}
-              previous={pop.scActive === undefined ? report.service_centres.new_prev : pop.scActive}
-              compareLabel={compareLabel} />
+            <ServiceCentreConsolidatedCard report={report} previous={pop} compareLabel={compareLabel} />
             <Kpi label="Bikes outstanding" value={apsUgx(bikes?.outstanding)}
               current={pop.bikes === undefined ? undefined : Number(bikes?.outstanding) || 0}
               previous={pop.bikes} invert compareLabel={compareLabel}
@@ -713,10 +766,6 @@ export function AgentProductsServicesReport() {
               current={pop.advApproved === undefined ? undefined : report.advances.approved}
               previous={pop.advApproved} compareLabel={compareLabel}
               hint="advance decisions" />
-            <Kpi label="Pending service centres" value={num(report.service_centres.pending_total)}
-              current={pop.scPending === undefined ? undefined : report.service_centres.pending_total}
-              previous={pop.scPending} invert compareLabel={compareLabel}
-              hint="awaiting verification" />
           </div>
 
           {/* Total agents composition & sources */}

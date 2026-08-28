@@ -14,6 +14,7 @@ export interface ApsAdvances {
 export interface ApsServiceCentres {
   active_total: number; new_today: number; new_prev: number; new_this_month: number;
   pending_total: number; monthly_target: number; target_month: string;
+  rejected_count: number; approved_volume: number;
 }
 export interface ApsProduct {
   issued_today: number; issued_total: number; total_value: number;
@@ -502,9 +503,9 @@ export function generateAgentProductsServicesPdf(opts: {
       detail: `${num(report.advances.issued_count)} issued · ${num(report.advances.approved)} approved / ${num(report.advances.rejected)} rejected`,
     },
     {
-      label: 'Active service centres',
+      label: 'Service centres',
       value: num(serviceCentreRows.length || report.service_centres.active_total),
-      detail: `unique agent locations · ${num(report.service_centres.pending_total)} pending verification`,
+      detail: `${num(report.service_centres.pending_total)} pending · ${apsUgx(report.service_centres.approved_volume)} approved · ${num(report.service_centres.rejected_count)} rejected`,
     },
     {
       label: 'Equipment outstanding',
@@ -592,6 +593,8 @@ export function generateAgentProductsServicesPdf(opts: {
     { label: 'Active service centres (unique agent locations)', value: num(serviceCentreRows.length) },
     { label: 'Added this month', value: num(report.service_centres.new_this_month), note: scTarget > 0 ? `target ${num(scTarget)}` : undefined },
     { label: 'Pending verification', value: num(report.service_centres.pending_total) },
+    { label: 'Approved volume', value: apsUgx(report.service_centres.approved_volume) },
+    { label: 'Rejected', value: num(report.service_centres.rejected_count) },
     { label: 'Bikes issued (units)', value: num(bikeRows.length) },
     { label: 'Bikes outstanding', value: apsUgx(report.bikes.outstanding) },
     { label: 'Bikes daily recovery due', value: apsUgx(report.bikes.daily_receivable) },
