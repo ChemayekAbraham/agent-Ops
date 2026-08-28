@@ -471,3 +471,60 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
     </div>
   );
 }
+
+/**
+ * Compact horizontal-bar breakdown card (top 8 rows + overflow note),
+ * styled to match the rest of the Classic Home cards.
+ */
+function BreakdownBars({
+  title,
+  bars,
+  loading,
+}: {
+  title: string;
+  bars: { label: string; value: number }[];
+  loading?: boolean;
+}) {
+  const top = bars.slice(0, 8);
+  const max = top.reduce((m, b) => Math.max(m, b.value), 0);
+  return (
+    <Card className="border shadow-sm">
+      <CardHeader className="pb-2 px-3 sm:px-4">
+        <CardTitle className="text-sm font-semibold">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="px-3 sm:px-4 pb-3">
+        {loading ? (
+          <div className="h-[180px] w-full animate-pulse rounded-xl bg-muted" />
+        ) : top.length === 0 ? (
+          <div className="flex h-[180px] items-center justify-center text-xs text-muted-foreground">
+            No data yet
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {top.map((b) => (
+              <div key={b.label} className="space-y-1">
+                <div className="flex items-center justify-between gap-2 text-[11px]">
+                  <span className="min-w-0 truncate font-medium text-foreground">{b.label}</span>
+                  <span className="shrink-0 font-bold tabular-nums text-foreground">
+                    {b.value.toLocaleString('en-US')}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary"
+                    style={{ width: max > 0 ? `${Math.max(3, (b.value / max) * 100)}%` : '0%' }}
+                  />
+                </div>
+              </div>
+            ))}
+            {bars.length > top.length && (
+              <p className="pt-1 text-[10px] text-muted-foreground">
+                +{bars.length - top.length} more
+              </p>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
