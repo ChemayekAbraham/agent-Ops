@@ -1,20 +1,24 @@
-# Fix the eye toggle on the Partner Portfolio wallet card
+# Fix eye-icon toggle state on partner portfolio wallet card
 
-## Diagnosis
+## Problem
+In `PartnerPortfolioWalletCard.tsx` the visibility icon is inverted:
+- Amount hidden (`showAmount === false`) currently renders the open `Eye` icon.
+- Amount revealed (`showAmount === true`) currently renders the crossed `EyeOff` icon.
 
-In `src/components/supporter/portfolio/PartnerPortfolioWalletCard.tsx`:
+This is the opposite of the expected convention: a crossed/closed eye should indicate "hidden", and an open eye should indicate "visible".
 
-1. **The amount auto-hides 2 seconds after every tap** (lines 63–70). The moment you tap the eye to reveal the amount, a `setTimeout(2000)` fires and hides it again almost immediately — so it *feels* like the eye hides the amount instead of revealing it.
-2. **The amount starts hidden** (`useState(false)`, line 60), so the card opens masked with `UGX ••••••` even though the eye affordance suggests the balance is the primary content.
+## Changes
+1. Swap the icon mapping in the toggle button so:
+   - `showAmount === false` → render `EyeOff` (hidden).
+   - `showAmount === true`  → render `Eye` (visible).
+2. Remove the 2-second auto-hide `useEffect` and its `hideTimeoutRef`. The auto-hide timer compounds the confusion by flipping the amount back to hidden shortly after the user reveals it, making the toggle feel unresponsive or "vice versa".
 
-The icon mapping itself (Eye when hidden, EyeOff when visible) is conventional; the 2-second auto-hide is what makes it behave "vice versa".
+## Files to edit
+- `src/components/supporter/portfolio/PartnerPortfolioWalletCard.tsx`
 
-## Fix
-
-Single file: `src/components/supporter/portfolio/PartnerPortfolioWalletCard.tsx`
-
-- Default the amount to **visible** (`useState(true)`).
-- **Remove the 2-second auto-hide timer** entirely (`hideTimeoutRef` and its `useEffect`) — the amount stays in whatever state the user chooses until they tap the eye again.
-- Keep the existing toggle, icons, and `aria-label`/`aria-pressed` semantics (Eye = click to show, EyeOff = click to hide).
-
-No data, hooks, or backend changes. UI-only.
+## Verification
+- Open `/dashboard/funder` (or any route that renders `PartnerPortfolioWalletCard`).
+- Confirm the card initially shows a crossed `EyeOff` icon while the amount is masked as `UGX ••••••`.
+- Click the icon: it should switch to the open `Eye` icon and reveal the formatted amount.
+- Click again: it should switch back to the crossed `EyeOff` icon and mask the amount.
+- Confirm the revealed amount does not auto-hide after 2 seconds.
