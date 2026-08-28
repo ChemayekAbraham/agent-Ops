@@ -19,6 +19,8 @@ export interface ApsProduct {
   issued_today: number; issued_total: number; total_value: number;
   paid: number; outstanding: number; daily_receivable: number;
   pending_total?: number;
+  /** Value of ordered-but-not-yet-issued units, already included in total_value. */
+  pending_value?: number;
 }
 export interface ApsTrendPoint {
   day: string; collected: number; advances_issued: number; advances_deducted: number;
