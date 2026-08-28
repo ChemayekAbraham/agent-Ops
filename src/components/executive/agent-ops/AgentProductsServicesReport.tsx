@@ -532,45 +532,40 @@ export function AgentProductsServicesReport() {
           {/* KPI strip */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             <Kpi label="New agents added" value={num(report.agents.new_today)}
-              current={report.agents.new_today} previous={pop.newAgents} compareLabel={compareLabel}
-              hint={`${num(report.new_agent_rows.filter(r => r.agent_type === 'main agent').length)} main · ${num(report.new_agent_rows.filter(r => r.agent_type === 'sub-agent').length)} sub`} />
+              current={report.agents.new_today} previous={pop.newAgents} compareLabel={compareLabel} />
             <Kpi label="Total agents" value={num(report.agents.total)}
-              current={report.agents.total} previous={pop.totalAgents} compareLabel={compareLabel}
-              hint={`${num(report.agents.active_today)} active`} />
+              current={report.agents.total} previous={pop.totalAgents} compareLabel={compareLabel} />
             <Kpi label="Rent collected" value={apsUgx(report.rent.collected_today)}
               current={report.rent.collected_today} previous={pop.collected} compareLabel={compareLabel} />
             <Kpi label="Expected target (period)" value={apsUgx(expectedTotal)}
               current={pop.expectedTotal === undefined ? undefined : expectedTotal}
               previous={pop.expectedTotal} compareLabel={compareLabel}
-              hint={`${num(report.rent.live_plans)} live plans · ${apsUgx(report.rent.daily_receivable)}/day over ${num(expectedDays)} day${expectedDays === 1 ? '' : 's'}`} />
+              hint={`${apsUgx(report.rent.daily_receivable)}/day`} />
             <Kpi label="Collection rate vs expected"
               value={`${expectedTotal > 0 ? ((Number(report.rent.collected_today) / expectedTotal) * 100).toFixed(1) : '0.0'}%`}
-              hint={`collected ${apsUgx(report.rent.collected_today)} of ${apsUgx(expectedTotal)}`} />
+              hint={`${apsUgx(report.rent.collected_today)} of ${apsUgx(expectedTotal)}`} />
             <Kpi label="Outstanding receivable" value={apsUgx(report.rent.outstanding)}
               current={pop.outstanding === undefined ? undefined : report.rent.outstanding}
-              previous={pop.outstanding} invert compareLabel={compareLabel}
-              hint={`avg ${num(report.rent.avg_days_outstanding)} days outstanding`} />
+              previous={pop.outstanding} invert compareLabel={compareLabel} />
             <Kpi label="Advances issued" value={apsUgx(report.advances.issued_today)}
               current={pop.advIssued === undefined ? undefined : report.advances.issued_today}
-              previous={pop.advIssued} compareLabel={compareLabel}
-              hint={`${num(report.advances.issued_count)} issued · ${num(report.advances.submitted)} requested`} />
+              previous={pop.advIssued} compareLabel={compareLabel} />
             <Kpi label="Advance outstanding" value={apsUgx(report.advances.outstanding)}
               current={pop.advOutstanding === undefined ? undefined : report.advances.outstanding}
               previous={pop.advOutstanding} invert compareLabel={compareLabel}
-              hint={`${num(report.advances.active_count)} active · ${apsUgx(report.advances.deducted_today)} recovered`} />
+              hint={`${apsUgx(report.advances.deducted_today)} recovered`} />
             <Kpi label="Active service centres" value={num(report.service_centres.active_total)}
               current={pop.scActive === undefined ? report.service_centres.new_today : report.service_centres.active_total}
               previous={pop.scActive === undefined ? report.service_centres.new_prev : pop.scActive}
-              compareLabel={compareLabel}
-              hint={`${num(report.service_centres.new_this_month)} this month${scTarget > 0 ? ` / target ${num(scTarget)}` : ''}`} />
+              compareLabel={compareLabel} />
             <Kpi label="Bikes outstanding" value={apsUgx(bikes?.outstanding)}
               current={pop.bikes === undefined ? undefined : Number(bikes?.outstanding) || 0}
               previous={pop.bikes} invert compareLabel={compareLabel}
-              hint={`${num(bikes?.issued_total)} issued · ${apsUgx(bikes?.daily_receivable)} due daily`} />
+              hint={`${apsUgx(bikes?.daily_receivable)} due daily`} />
             <Kpi label="Smartphones outstanding" value={apsUgx(phones?.outstanding)}
               current={pop.phones === undefined ? undefined : Number(phones?.outstanding) || 0}
               previous={pop.phones} invert compareLabel={compareLabel}
-              hint={`${num(phones?.issued_total)} issued · ${apsUgx(phones?.daily_receivable)} due daily`} />
+              hint={`${apsUgx(phones?.daily_receivable)} due daily`} />
             <Kpi label="Requests approved / rejected" value={`${num(report.advances.approved)} / ${num(report.advances.rejected)}`}
               current={pop.advApproved === undefined ? undefined : report.advances.approved}
               previous={pop.advApproved} compareLabel={compareLabel}
