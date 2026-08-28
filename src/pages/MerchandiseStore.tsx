@@ -351,34 +351,6 @@ export default function MerchandiseStore() {
 
 
 
-
-  const bikeAmountNum = Math.max(0, parseInt(bikeAmount || '0', 10) || 0);
-
-  const orderSpiroBike = async () => {
-    if (bikeAmountNum < 1000) {
-      toast.error('Enter an amount of at least UGX 1,000');
-      return;
-    }
-    if (bikeAmountNum > availableWallet) {
-      toast.error(
-        `Amount exceeds your available wallet balance of ${formatUGX(availableWallet)}. Enter ${formatUGX(availableWallet)} or less.`
-      );
-      return;
-    }
-    setOrderingBike(true);
-    const { error } = await db.rpc('agent_order_spiro_bike', { p_amount: bikeAmountNum });
-    setOrderingBike(false);
-    if (error) {
-      toast.error(error.message || 'Could not place Spiro bike order');
-      return;
-    }
-    toast.success(`Welile Spiro Bike requested. ${formatUGX(bikeAmountNum)} will be recovered from your wallet.`);
-    setBikeOpen(false);
-    setBikeAmount('');
-    queryClient.invalidateQueries({ queryKey: ['my-merchandise-plans', user?.id] });
-    queryClient.invalidateQueries({ queryKey: ['my-merchandise-deductions', user?.id] });
-  };
-
   return (
     <div className="min-h-[100dvh] bg-background pb-24">
       <Button
