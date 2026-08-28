@@ -356,9 +356,9 @@ export default function HRInternshipApplications() {
         </div>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
+      <Tabs value={activeTab} onValueChange={setTab}>
         <TabsList>
-          {GROUPS.map((g) => (
+          {visibleGroups.map((g) => (
             <TabsTrigger key={g.key} value={g.key} className="gap-2">
               {g.label}
               <Badge variant="secondary" className="text-[10px] px-1.5">
@@ -370,12 +370,13 @@ export default function HRInternshipApplications() {
             </TabsTrigger>
           ))}
         </TabsList>
-        {GROUPS.map((g) => (
+        {visibleGroups.map((g) => (
           <TabsContent key={g.key} value={g.key} className="mt-4">
             {renderTable(grouped[g.key] ?? [])}
           </TabsContent>
         ))}
       </Tabs>
+
 
       <Sheet open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
