@@ -152,7 +152,6 @@ export function apsAgentExpectedTotal(row: ApsRentRow, rangeDays?: number | null
   return (Number(row.daily_receivable) || 0) * days;
 }
 const num = (n: any) => Math.round(Number(n) || 0).toLocaleString();
-const title = (s: any) => String(s ?? '—').replace(/_/g, ' ');
 
 export function generateAgentProductsServicesPdf(opts: {
   report: ApsReport;
@@ -166,7 +165,6 @@ export function generateAgentProductsServicesPdf(opts: {
   const rangeDays = Math.max(1, Math.round(Number(report.range_days) || 1));
   const prev = opts.prev ?? null;
   const cmpLabel = apsCompareLabel(rangeDays);
-  const prevCol = apsPrevColumnLabel(rangeDays);
   /** Previous-period baselines: real prior-window report when available, else the RPC's day-over-day fields. */
   const base = {
     newAgents: prev ? Number(prev.agents.new_today) : Number(report.agents.new_prev),
@@ -189,11 +187,8 @@ export function generateAgentProductsServicesPdf(opts: {
     bikes: prev ? Number(prev.bikes?.outstanding) : 0,
     phones: prev ? Number(prev.phones?.outstanding) : 0,
   };
-  const hasPrev = !!prev;
-  const cell = (v: string) => (hasPrev || v ? v : '—');
-  const pct = (current: number, previous: number, available = true) =>
-    available ? apsPctLabel(current, previous) : '—';
   const exportType = opts.exportType || 'PDF';
+
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -223,7 +218,7 @@ export function generateAgentProductsServicesPdf(opts: {
   doc.setFontSize(9);
   doc.text('WELILE', margin, 9);
   doc.setFontSize(13);
-  doc.text('AGENT PRODUCTS & SERVICES — DAILY REPORT', margin, 16.5);
+  doc.text('AGENT PRODUCTS & SERVICES — EXECUTIVE SUMMARY', margin, 16.5);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.text(`${isRange ? 'Reporting period' : 'Reporting day'}: ${periodLabel}  ·  ${report.timezone}`, margin, 21.5);
@@ -235,6 +230,33 @@ export function generateAgentProductsServicesPdf(opts: {
   doc.text(`Reported by: ${actor}`, pageWidth - margin, y, { align: 'right' });
   y += 6;
 
+  // ---------------------------------------------------------------------------
+  // Primitives
+  // ---------------------------------------------------------------------------
+  const sectionTitle = (text: string, sub?: string) => {
+    ensure(sub ? 12 : 8);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(brand[0], brand[1], brand[2]);
+    doc.text(text.toUpperCase(), margin, y);
+    y += 4;
+    if (sub) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.8);
+      doc.setTextColor(125, 120, 138);
+      doc.text(sub, margin, y);
+      y += 4;
+    }
+    doc.setDrawColor(brand[0], brand[1], brand[2]);
+    doc.line(margin, y, margin + contentWidth, y);
+    y += 4;
+  };
+
+  const clip = (text: string, widthMm: number, size: number) => {
+    const maxChars = Math.floor(widthMm / (size * 0.19));
+    return text.length > maxChars ? `${text.slice(0, Math.max(1, maxChars - 1))}…` : text;
+  };
+
   const drawTable = (
     tblTitle: string,
     head: string[],
@@ -243,16 +265,16 @@ export function generateAgentProductsServicesPdf(opts: {
     aligns: ('left' | 'right')[] = [],
   ) => {
     if (!body.length) return;
-    // Normalise the supplied relative widths so every table fills exactly
-    // 100% of the printable width — never wider, never short.
     const ratioTotal = widthRatios.reduce((a, b) => a + (b > 0 ? b : 0), 0) || 1;
     const widths = widthRatios.map((w) => ((w > 0 ? w : 0) / ratioTotal) * contentWidth);
     ensure(18);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.setTextColor(brand[0], brand[1], brand[2]);
-    doc.text(tblTitle, margin, y);
-    y += 3;
+    if (tblTitle) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(70, 60, 90);
+      doc.text(tblTitle, margin, y);
+      y += 3;
+    }
     const drawHead = () => {
       doc.setFillColor(brand[0], brand[1], brand[2]);
       doc.rect(margin, y, contentWidth, 6, 'F');
@@ -271,46 +293,33 @@ export function generateAgentProductsServicesPdf(opts: {
     };
     drawHead();
     body.forEach((r, idx) => {
-      if (y + 5.2 > pageHeight - 16) { newPage(); drawHead(); }
+      if (y + 5.6 > pageHeight - 16) { newPage(); drawHead(); }
       if (idx % 2 === 1) {
         doc.setFillColor(248, 248, 252);
-        doc.rect(margin, y, contentWidth, 5.2, 'F');
+        doc.rect(margin, y, contentWidth, 5.6, 'F');
       }
       let cx = margin + 2;
-      r.forEach((cell, i) => {
+      r.forEach((c, i) => {
         const align = aligns[i] === 'right' ? 'right' : 'left';
-        const text = String(cell ?? '');
-        const maxChars = Math.floor(widths[i] / 1.55);
-        const shown = text.length > maxChars ? `${text.slice(0, Math.max(1, maxChars - 1))}…` : text;
-        doc.setFontSize(7.2);
+        doc.setFontSize(7.4);
         doc.setTextColor(35, 35, 45);
-        doc.text(shown, align === 'right' ? cx + widths[i] - 4 : cx, y + 3.6, { align });
+        doc.text(clip(String(c ?? ''), widths[i] - 4, 7.4), align === 'right' ? cx + widths[i] - 4 : cx, y + 3.8, { align });
         cx += widths[i];
       });
-      y += 5.2;
+      y += 5.6;
     });
-    y += 5;
+    y += 6;
   };
 
-  const w4: number[] = [110, 50, 50, 50];
-  const a4: ('left' | 'right')[] = ['left', 'right', 'right', 'right'];
-
-  // ===== KPI summary cards (before the detailed sections) =====
+  /** Big KPI cards, four per row by default. */
   const drawKpiCards = (
     cards: { label: string; value: string; detail?: string }[],
     perRow = 4,
-    title = 'DAILY SUMMARY',
   ) => {
     if (!cards.length) return;
     const gap = 3;
     const cardW = (contentWidth - gap * (perRow - 1)) / perRow;
-    const cardH = 17;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.setTextColor(brand[0], brand[1], brand[2]);
-    ensure(6 + cardH);
-    doc.text(title, margin, y);
-    y += 3;
+    const cardH = 18;
     for (let i = 0; i < cards.length; i += perRow) {
       const row = cards.slice(i, i + perRow);
       ensure(cardH + 2);
@@ -320,42 +329,147 @@ export function generateAgentProductsServicesPdf(opts: {
         doc.setDrawColor(226, 220, 238);
         doc.roundedRect(x, y, cardW, cardH, 1.5, 1.5, 'FD');
         doc.setFillColor(brand[0], brand[1], brand[2]);
-        doc.rect(x, y, 1.2, cardH, 'F');
+        doc.rect(x, y, 1.4, cardH, 'F');
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(6.4);
         doc.setTextColor(110, 100, 125);
-        doc.text(c.label.toUpperCase(), x + 4, y + 5);
+        doc.text(clip(c.label.toUpperCase(), cardW - 7, 6.4), x + 4, y + 5);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.setTextColor(35, 35, 45);
-        const maxChars = Math.floor((cardW - 7) / 1.95);
-        const shown = c.value.length > maxChars ? `${c.value.slice(0, Math.max(1, maxChars - 1))}…` : c.value;
-        doc.text(shown, x + 4, y + 11);
+        doc.setFontSize(11);
+        doc.setTextColor(30, 30, 42);
+        doc.text(clip(c.value, cardW - 7, 11), x + 4, y + 11.5);
         if (c.detail) {
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(6.2);
           doc.setTextColor(120, 115, 130);
-          const dMax = Math.floor((cardW - 7) / 1.25);
-          doc.text(
-            c.detail.length > dMax ? `${c.detail.slice(0, Math.max(1, dMax - 1))}…` : c.detail,
-            x + 4,
-            y + 14.8,
-          );
+          doc.text(clip(c.detail, cardW - 7, 6.2), x + 4, y + 15.5);
         }
       });
       y += cardH + gap;
     }
-    y += 3;
+    y += 2;
   };
+
+  /** Clean two-column label/value grid — replaces the dense metric tables. */
+  const drawKpiGrid = (
+    rows: { label: string; value: string; note?: string }[],
+    columns = 2,
+  ) => {
+    if (!rows.length) return;
+    const gap = 6;
+    const colW = (contentWidth - gap * (columns - 1)) / columns;
+    const rowH = 7.4;
+    const perCol = Math.ceil(rows.length / columns);
+    ensure(perCol * rowH + 2);
+    const startY = y;
+    rows.forEach((r, i) => {
+      const col = Math.floor(i / perCol);
+      const rowIdx = i % perCol;
+      const x = margin + col * (colW + gap);
+      const ry = startY + rowIdx * rowH;
+      if (rowIdx % 2 === 1) {
+        doc.setFillColor(249, 248, 253);
+        doc.rect(x, ry, colW, rowH, 'F');
+      }
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.4);
+      doc.setTextColor(90, 85, 105);
+      doc.text(clip(r.label, colW * 0.58, 7.4), x + 2, ry + 5);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.8);
+      doc.setTextColor(30, 30, 42);
+      doc.text(clip(r.value, colW * 0.4, 7.8), x + colW - 2, ry + 5, { align: 'right' });
+      if (r.note) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6);
+        doc.setTextColor(140, 135, 150);
+        doc.text(clip(r.note, colW * 0.4, 6), x + colW - 2, ry + 2.2, { align: 'right' });
+      }
+    });
+    y = startY + perCol * rowH + 5;
+  };
+
+  /** Horizontal percentage progress bar with caption. */
+  const drawProgress = (label: string, pctValue: number, caption: string) => {
+    const p = Math.max(0, Math.min(100, Number(pctValue) || 0));
+    ensure(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.2);
+    doc.setTextColor(60, 55, 75);
+    doc.text(label, margin, y + 3);
+    doc.setFontSize(7.2);
+    doc.setTextColor(brand[0], brand[1], brand[2]);
+    doc.text(`${p.toFixed(1)}%`, margin + contentWidth, y + 3, { align: 'right' });
+    const barY = y + 4.6;
+    doc.setFillColor(234, 230, 242);
+    doc.roundedRect(margin, barY, contentWidth, 3.2, 1.2, 1.2, 'F');
+    if (p > 0) {
+      doc.setFillColor(brand[0], brand[1], brand[2]);
+      doc.roundedRect(margin, barY, Math.max(1.5, (contentWidth * p) / 100), 3.2, 1.2, 1.2, 'F');
+    }
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.2);
+    doc.setTextColor(130, 125, 142);
+    doc.text(caption, margin, barY + 6.4);
+    y = barY + 9;
+  };
+
+  // ---------------------------------------------------------------------------
+  // Clean, de-duplicated, issued-only datasets
+  // ---------------------------------------------------------------------------
+  const ACTIVE_SC = new Set(['active', 'verified', 'approved']);
+  const serviceCentreRows = (() => {
+    const seen = new Set<string>();
+    return report.service_centre_rows
+      .filter((r) => ACTIVE_SC.has(String(r.status || '').toLowerCase()))
+      .filter((r) => {
+        const key = `${(r.agent_name || r.id).trim().toLowerCase()}|${(r.location_name || '').trim().toLowerCase()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  })();
+
+  const issuedRows = report.product_rows.filter((r) => r.is_issued);
+  const bikeRows = issuedRows.filter((r) => r.product === 'bike');
+  const phoneRows = issuedRows.filter((r) => r.product === 'smartphone');
+  const pendingCount = report.product_rows.length - issuedRows.length;
+
+  /** Rent receivables excluding archived/inactive records with no live position. */
+  const rentRows = report.rent_rows.filter(
+    (r) =>
+      Number(r.live_plans) > 0 ||
+      Number(r.outstanding) > 0 ||
+      Number(r.collected_today) > 0 ||
+      Number(r.daily_receivable) > 0,
+  );
 
   const expectedTotal = apsExpectedTotal(report);
   const expectedDays = Math.max(1, Math.round(Number(report.rent.expected_days ?? rangeDays) || 1));
-  const collectionRatePct =
-    expectedTotal > 0 ? (Number(report.rent.collected_today) / expectedTotal) * 100 : 0;
+  const collectionRatePct = expectedTotal > 0 ? (Number(report.rent.collected_today) / expectedTotal) * 100 : 0;
+  const scTarget = Number(report.service_centres.monthly_target) || 0;
+  const scTargetPct = scTarget > 0 ? (Number(report.service_centres.new_this_month) / scTarget) * 100 : 0;
+  const advRecoveryPct =
+    Number(report.advances.outstanding) + Number(report.advances.deducted_today) > 0
+      ? (Number(report.advances.deducted_today) /
+          (Number(report.advances.outstanding) + Number(report.advances.deducted_today))) * 100
+      : 0;
+  const productValue = Number(report.bikes.total_value) + Number(report.phones.total_value);
+  const productPaid = Number(report.bikes.paid) + Number(report.phones.paid);
+  const productOutstanding = Number(report.bikes.outstanding) + Number(report.phones.outstanding);
+  const productRepaidPct = productValue > 0 ? (productPaid / productValue) * 100 : 0;
+
+  // ===========================================================================
+  // PAGE 1 — Daily KPI header
+  // ===========================================================================
+  sectionTitle(
+    '1. Daily performance headline',
+    `${isRange ? 'Cumulative' : 'Single-day'} position · ${periodLabel} · compared with the ${rangeDays === 1 ? 'previous day' : `prior ${rangeDays} days`}`,
+  );
 
   drawKpiCards([
     {
-      label: 'Rent collected today',
+      label: 'Rent collected',
       value: apsUgx(report.rent.collected_today),
       detail: `${num(report.rent.collections_today)} entries · ${apsPctLabel(report.rent.collected_today, base.collected)} ${cmpLabel}`,
     },
@@ -365,265 +479,275 @@ export function generateAgentProductsServicesPdf(opts: {
       detail: `expected ${apsUgx(expectedTotal)} over ${num(expectedDays)} day${expectedDays === 1 ? '' : 's'}`,
     },
     {
-      label: 'Outstanding receivable',
+      label: 'Outstanding rent receivable',
       value: apsUgx(report.rent.outstanding),
-      detail: hasPrev
-        ? `${num(report.rent.live_plans)} live plans · ${apsPctLabel(report.rent.outstanding, base.outstanding)} ${cmpLabel}`
-        : `${num(report.rent.live_plans)} live plans · ${num(report.rent.avg_days_outstanding)} avg days`,
+      detail: `${num(report.rent.live_plans)} live plans · ${num(report.rent.avg_days_outstanding)} avg days`,
     },
     {
-      label: 'Active agents today',
+      label: 'Active agents',
       value: num(report.agents.active_today),
-      detail: `${num(report.agents.total)} on register · ${apsPctLabel(report.agents.new_today, base.newAgents)} new ${cmpLabel}`,
-    },
-    {
-      label: 'Advances issued today',
-      value: apsUgx(report.advances.issued_today),
-      detail: hasPrev
-        ? `${num(report.advances.issued_count)} advance(s) · ${apsPctLabel(report.advances.issued_today, base.advIssued)} ${cmpLabel}`
-        : `${num(report.advances.issued_count)} advance(s) · ${num(report.advances.approved)} approved`,
-    },
-    {
-      label: 'Advances outstanding',
-      value: apsUgx(report.advances.outstanding),
-      detail: hasPrev
-        ? `${num(report.advances.active_count)} active · ${apsPctLabel(report.advances.outstanding, base.advOutstanding)} ${cmpLabel}`
-        : `${num(report.advances.active_count)} active · recovered ${apsUgx(report.advances.deducted_today)}`,
-    },
-    {
-      label: 'Service centres',
-      value: num(report.service_centres.active_total),
-      detail: hasPrev
-        ? `+${num(report.service_centres.new_today)} new · ${apsPctLabel(report.service_centres.active_total, base.scActive)} ${cmpLabel}`
-        : `+${num(report.service_centres.new_today)} today · ${num(report.service_centres.pending_total)} pending`,
-    },
-    {
-      label: 'Products outstanding',
-      value: apsUgx(Number(report.bikes.outstanding) + Number(report.phones.outstanding)),
-      detail: hasPrev
-        ? `bikes ${apsUgx(report.bikes.outstanding)} · ${apsPctLabel(
-            Number(report.bikes.outstanding) + Number(report.phones.outstanding),
-            base.bikes + base.phones,
-          )} ${cmpLabel}`
-        : `bikes ${apsUgx(report.bikes.outstanding)} · phones ${apsUgx(report.phones.outstanding)}`,
+      detail: `${num(report.agents.total)} on register · +${num(report.agents.new_today)} new`,
     },
   ]);
 
-  // ===== 1. New agents =====
-  drawTable('1. NEW AGENTS', ['Metric', 'Current period', prevCol, 'Change'], w4, [
-    ['New agents added', num(report.agents.new_today), num(base.newAgents), apsPctLabel(report.agents.new_today, base.newAgents)],
-    ['Total agents (register)', num(report.agents.total), num(report.agents.base), apsPctLabel(report.agents.total, report.agents.base)],
-    ['Active agents (collected)', num(report.agents.active_today), cell(hasPrev ? num(base.activeAgents) : ''), pct(report.agents.active_today, base.activeAgents, hasPrev)],
-  ], a4);
+  drawKpiCards([
+    {
+      label: 'Advances outstanding',
+      value: apsUgx(report.advances.outstanding),
+      detail: `${num(report.advances.active_count)} active · recovered ${apsUgx(report.advances.deducted_today)}`,
+    },
+    {
+      label: 'Advances issued',
+      value: apsUgx(report.advances.issued_today),
+      detail: `${num(report.advances.issued_count)} issued · ${num(report.advances.approved)} approved / ${num(report.advances.rejected)} rejected`,
+    },
+    {
+      label: 'Active service centres',
+      value: num(serviceCentreRows.length || report.service_centres.active_total),
+      detail: `unique agent locations · ${num(report.service_centres.pending_total)} pending verification`,
+    },
+    {
+      label: 'Equipment outstanding',
+      value: apsUgx(productOutstanding),
+      detail: `bikes ${apsUgx(report.bikes.outstanding)} · phones ${apsUgx(report.phones.outstanding)}`,
+    },
+  ]);
 
-  if (report.new_agent_rows.length) {
-    const rows = report.new_agent_rows;
-    const mainCount = rows.filter(r => (r.agent_type || '').toLowerCase() !== 'sub').length;
-    const subCount = rows.length - mainCount;
-    const parentTally = new Map<string, number>();
-    rows.forEach(r => {
-      const p = (r.parent_name || '').trim();
-      if (!p) return;
-      parentTally.set(p, (parentTally.get(p) || 0) + 1);
+  y += 2;
+  sectionTitle('Progress against targets');
+  drawProgress(
+    'Rent collection vs expected receivable',
+    collectionRatePct,
+    `${apsUgx(report.rent.collected_today)} collected of ${apsUgx(expectedTotal)} expected`,
+  );
+  drawProgress(
+    'Advance recovery rate',
+    advRecoveryPct,
+    `${apsUgx(report.advances.deducted_today)} recovered against ${apsUgx(report.advances.outstanding)} still outstanding`,
+  );
+  drawProgress(
+    'Service centres added this month vs target',
+    scTargetPct,
+    scTarget > 0
+      ? `${num(report.service_centres.new_this_month)} of ${num(scTarget)} target (${report.service_centres.target_month})`
+      : `${num(report.service_centres.new_this_month)} added this month · no monthly target set`,
+  );
+  drawProgress(
+    'Equipment repayment progress (issued units only)',
+    productRepaidPct,
+    `${apsUgx(productPaid)} repaid of ${apsUgx(productValue)} issued value`,
+  );
+
+  // ===========================================================================
+  // PAGE 2 — Category breakdown
+  // ===========================================================================
+  newPage();
+  sectionTitle(
+    '2. Category breakdown',
+    'Rent · Advances · Service centres · Bikes & smartphones — issued positions only, archived records excluded',
+  );
+
+  drawKpiGrid([
+    { label: 'Rent collected', value: apsUgx(report.rent.collected_today), note: `${apsPctLabel(report.rent.collected_today, base.collected)} ${cmpLabel}` },
+    { label: 'Collection entries', value: num(report.rent.collections_today) },
+    { label: 'Expected daily receivable', value: apsUgx(report.rent.daily_receivable) },
+    { label: `Expected target (${num(expectedDays)} day${expectedDays === 1 ? '' : 's'})`, value: apsUgx(expectedTotal) },
+    { label: 'Collection rate vs expected', value: `${collectionRatePct.toFixed(1)}%` },
+    { label: 'Outstanding rent receivable', value: apsUgx(report.rent.outstanding) },
+    { label: 'Live rent plans', value: num(report.rent.live_plans) },
+    { label: 'Average days outstanding', value: num(report.rent.avg_days_outstanding) },
+  ]);
+
+  drawTable(
+    'CATEGORY TOTALS',
+    ['Category', 'Value in period', 'Outstanding', 'Volume', 'Share of outstanding'],
+    [46, 34, 34, 30, 30],
+    (() => {
+      const totalOutstanding =
+        Number(report.rent.outstanding) + Number(report.advances.outstanding) + productOutstanding;
+      const share = (v: number) => (totalOutstanding > 0 ? `${((v / totalOutstanding) * 100).toFixed(1)}%` : '—');
+      return [
+        ['Rent', apsUgx(report.rent.collected_today), apsUgx(report.rent.outstanding), `${num(report.rent.live_plans)} plans`, share(Number(report.rent.outstanding))],
+        ['Advances', apsUgx(report.advances.issued_today), apsUgx(report.advances.outstanding), `${num(report.advances.active_count)} active`, share(Number(report.advances.outstanding))],
+        ['Service centres', '—', '—', `${num(serviceCentreRows.length)} active`, '—'],
+        ['Motor bikes', apsUgx(report.bikes.paid), apsUgx(report.bikes.outstanding), `${num(bikeRows.length)} issued`, share(Number(report.bikes.outstanding))],
+        ['Smartphones', apsUgx(report.phones.paid), apsUgx(report.phones.outstanding), `${num(phoneRows.length)} issued`, share(Number(report.phones.outstanding))],
+      ];
+    })(),
+    ['left', 'right', 'right', 'right', 'right'],
+  );
+
+  sectionTitle('Advances');
+  drawKpiGrid([
+    { label: 'Requests submitted', value: num(report.advances.submitted) },
+    { label: 'Requests approved', value: num(report.advances.approved) },
+    { label: 'Requests rejected', value: num(report.advances.rejected) },
+    { label: 'Amount issued', value: apsUgx(report.advances.issued_today) },
+    { label: 'Recovered in period', value: apsUgx(report.advances.deducted_today) },
+    { label: 'Outstanding balance', value: apsUgx(report.advances.outstanding) },
+  ]);
+
+  sectionTitle('Service centres, bikes & smartphones');
+  drawKpiGrid([
+    { label: 'Active service centres (unique agent locations)', value: num(serviceCentreRows.length) },
+    { label: 'Added this month', value: num(report.service_centres.new_this_month), note: scTarget > 0 ? `target ${num(scTarget)}` : undefined },
+    { label: 'Pending verification', value: num(report.service_centres.pending_total) },
+    { label: 'Bikes issued (units)', value: num(bikeRows.length) },
+    { label: 'Bikes outstanding', value: apsUgx(report.bikes.outstanding) },
+    { label: 'Bikes daily recovery due', value: apsUgx(report.bikes.daily_receivable) },
+    { label: 'Smartphones issued (units)', value: num(phoneRows.length) },
+    { label: 'Smartphones outstanding', value: apsUgx(report.phones.outstanding) },
+    { label: 'Smartphones daily recovery due', value: apsUgx(report.phones.daily_receivable) },
+    { label: 'Orders pending issue (excluded above)', value: `${num(pendingCount)} units` },
+  ]);
+
+  // ===========================================================================
+  // PAGE 3 — 14-day collection trend
+  // ===========================================================================
+  newPage();
+  sectionTitle('3. 14-day collection trend', 'Daily rent collected, advances issued and recovered, and agents added');
+
+  const series = [...report.trend].sort((a, b) => a.day.localeCompare(b.day)).slice(-14);
+  if (series.length > 1) {
+    const chartH = 46;
+    const max = Math.max(...series.map((s) => Number(s.collected) || 0), 1);
+    const step = contentWidth / series.length;
+    const barW = Math.max(3, Math.min(16, step - 4));
+    doc.setDrawColor(232, 230, 240);
+    doc.setFillColor(252, 251, 254);
+    doc.rect(margin, y, contentWidth, chartH, 'FD');
+    // gridlines
+    [0.25, 0.5, 0.75].forEach((g) => {
+      const gy = y + chartH - chartH * g;
+      doc.setDrawColor(238, 236, 245);
+      doc.line(margin, gy, margin + contentWidth, gy);
     });
-    const topParent = [...parentTally.entries()].sort((a, b) => b[1] - a[1])[0];
-    drawKpiCards(
-      [
-        { label: 'Total registered', value: num(rows.length), detail: 'new agents in period' },
-        { label: 'Main agents', value: num(mainCount), detail: `${rows.length ? ((mainCount / rows.length) * 100).toFixed(0) : '0'}% of new` },
-        { label: 'Sub-agents', value: num(subCount), detail: `${rows.length ? ((subCount / rows.length) * 100).toFixed(0) : '0'}% of new` },
-        {
-          label: 'Top parent agent',
-          value: topParent ? topParent[0] : '—',
-          detail: topParent ? `${num(topParent[1])} sub-agent(s) recruited` : 'no parent recorded',
-        },
-      ],
-      4,
-      'NEW AGENTS SUMMARY',
+    series.forEach((s, i) => {
+      const h = ((Number(s.collected) || 0) / max) * (chartH - 6);
+      const bx = margin + i * step + (step - barW) / 2;
+      doc.setFillColor(brand[0], brand[1], brand[2]);
+      doc.roundedRect(bx, y + chartH - h, barW, Math.max(0.6, h), 0.6, 0.6, 'F');
+    });
+    y += chartH + 3;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6);
+    doc.setTextColor(130, 125, 142);
+    series.forEach((s, i) => {
+      doc.text(format(new Date(`${s.day}T00:00:00`), 'dd MMM'), margin + i * step + step / 2, y, { align: 'center' });
+    });
+    y += 5;
+    const totalCollected = series.reduce((a, s) => a + (Number(s.collected) || 0), 0);
+    doc.setFontSize(6.6);
+    doc.setTextColor(120, 115, 132);
+    doc.text(`Peak day ${apsUgx(max)} · period total ${apsUgx(totalCollected)} · daily average ${apsUgx(totalCollected / series.length)}`, margin, y);
+    y += 7;
+
+    drawTable(
+      'DAILY BREAKDOWN',
+      ['Day', 'Collected', 'Advances issued', 'Advances recovered', 'New agents', 'Service centres'],
+      [30, 40, 40, 40, 26, 30],
+      series.map((s) => [
+        fmtDay(s.day), apsUgx(s.collected), apsUgx(s.advances_issued),
+        apsUgx(s.advances_deducted), num(s.new_agents), num(s.service_centres_added),
+      ]),
+      ['left', 'right', 'right', 'right', 'right', 'right'],
     );
+  } else {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.4);
+    doc.setTextColor(130, 125, 142);
+    doc.text('Not enough trend history for the selected period.', margin, y);
+    y += 8;
   }
 
-
-  // ===== 1b. Cumulative build-up to the reporting date =====
   const cumWindows = opts.cumulative?.windows ?? [];
   if (cumWindows.length) {
     drawTable(
       `CUMULATIVE BUILD-UP TO ${dayLabel}`,
       ['Window', 'From', 'Rent collected', 'Collections', 'New agents', 'Advances issued', 'Advances recovered'],
-      [34, 22, 34, 20, 20, 34, 34],
-      cumWindows.map(w => [
-        apsWindowLabel(w.days),
-        fmtDay(w.from_date),
-        apsUgx(w.rent_collected),
+      [34, 24, 34, 24, 22, 34, 34],
+      cumWindows.map((w) => [
+        apsWindowLabel(w.days), fmtDay(w.from_date), apsUgx(w.rent_collected),
         `${num(w.collections_count)} (${num(w.collecting_agents)} agents)`,
-        num(w.new_agents),
-        `${apsUgx(w.advances_issued)} · ${num(w.advances_count)}`,
-        apsUgx(w.advances_recovered),
+        num(w.new_agents), apsUgx(w.advances_issued), apsUgx(w.advances_recovered),
       ]),
       ['left', 'left', 'right', 'right', 'right', 'right', 'right'],
     );
   }
 
-  // ===== 2. Rent receivables =====
-  drawTable('2. RENT RECEIVABLES', ['Metric', 'Current period', prevCol, 'Change'], w4, [
-    ['Rent collected', apsUgx(report.rent.collected_today), apsUgx(base.collected), apsPctLabel(report.rent.collected_today, base.collected)],
-    ['Collection entries recorded', num(report.rent.collections_today), cell(hasPrev ? num(base.collections) : ''), pct(report.rent.collections_today, base.collections, hasPrev)],
-    ['Expected daily receivable (per day)', apsUgx(report.rent.daily_receivable), cell(hasPrev ? apsUgx(base.dailyReceivable) : ''), pct(report.rent.daily_receivable, base.dailyReceivable, hasPrev)],
-    [`Expected target (cumulative, ${num(expectedDays)} day${expectedDays === 1 ? '' : 's'})`, apsUgx(expectedTotal), cell(hasPrev ? apsUgx(base.expectedTotal) : ''), pct(expectedTotal, base.expectedTotal, hasPrev)],
-    ['Collection rate vs expected', `${collectionRatePct.toFixed(1)}%`, '—', '—'],
-    ['Total outstanding receivable', apsUgx(report.rent.outstanding), cell(hasPrev ? apsUgx(base.outstanding) : ''), pct(report.rent.outstanding, base.outstanding, hasPrev)],
-    ['Live rent plans', num(report.rent.live_plans), '—', '—'],
-    ['Average duration outstanding (days)', num(report.rent.avg_days_outstanding), '—', '—'],
-  ], a4);
+  // ===========================================================================
+  // PAGE 4 — Top 10 agent performers
+  // ===========================================================================
+  newPage();
+  sectionTitle(
+    '4. Top 10 agent performers',
+    'Ranked by rent collected in the reporting period · archived and inactive records excluded',
+  );
 
-  // ===== 3. Advances =====
-  drawTable('3. ADVANCES', ['Metric', 'Current period', prevCol, 'Change'], w4, [
-    ['Requests submitted', num(report.advances.submitted), cell(hasPrev ? num(base.advSubmitted) : ''), pct(report.advances.submitted, base.advSubmitted, hasPrev)],
-    ['Requests approved', num(report.advances.approved), cell(hasPrev ? num(base.advApproved) : ''), pct(report.advances.approved, base.advApproved, hasPrev)],
-    ['Requests rejected', num(report.advances.rejected), cell(hasPrev ? num(base.advRejected) : ''), pct(report.advances.rejected, base.advRejected, hasPrev)],
-    ['Advance amount issued', apsUgx(report.advances.issued_today), cell(hasPrev ? apsUgx(base.advIssued) : `${num(report.advances.issued_count)} advance(s)`), pct(report.advances.issued_today, base.advIssued, hasPrev)],
-    ['Recovered (deductions)', apsUgx(report.advances.deducted_today), cell(hasPrev ? apsUgx(base.advRecovered) : ''), pct(report.advances.deducted_today, base.advRecovered, hasPrev)],
-    ['Outstanding advance balance', apsUgx(report.advances.outstanding), cell(hasPrev ? apsUgx(base.advOutstanding) : `${num(report.advances.active_count)} active`), pct(report.advances.outstanding, base.advOutstanding, hasPrev)],
-  ], a4);
-
-  // ===== 4. Service centres =====
-  const scTarget = Number(report.service_centres.monthly_target) || 0;
-  drawTable('4. SERVICE CENTRES', ['Metric', 'Current period', prevCol, 'Change'], w4, [
-    ['Active service centres', num(report.service_centres.active_total), cell(hasPrev ? num(base.scActive) : ''), pct(report.service_centres.active_total, base.scActive, hasPrev)],
-    ['New in period', num(report.service_centres.new_today), num(base.scNew), apsPctLabel(report.service_centres.new_today, base.scNew)],
-    ['Added this month', num(report.service_centres.new_this_month), scTarget > 0 ? `target ${num(scTarget)}` : 'no target set', scTarget > 0 ? `${((Number(report.service_centres.new_this_month) / scTarget) * 100).toFixed(1)}% of target` : '—'],
-    ['Pending verification', num(report.service_centres.pending_total), cell(hasPrev ? num(base.scPending) : ''), pct(report.service_centres.pending_total, base.scPending, hasPrev)],
-  ], a4);
-
-  // ===== 5. Motor bikes / 6. Smartphones =====
-  const productBlock = (label: string, p: ApsProduct, pp?: ApsProduct | null) => [
-    [`${label} — issued in period`, num(p.issued_today), cell(pp ? num(pp.issued_today) : `${num(p.issued_total)} total`), pct(p.issued_today, Number(pp?.issued_today) || 0, !!pp)],
-    [`${label} — pending issue`, `${num(p.pending_total ?? 0)} units`, apsUgx(p.pending_value ?? 0), '—'],
-    [`${label} — total value (incl. pending)`, apsUgx(p.total_value), '—', '—'],
-    [`${label} — repaid to date`, apsUgx(p.paid), `${p.total_value > 0 ? ((Number(p.paid) / Number(p.total_value)) * 100).toFixed(1) : '0.0'}%`, '—'],
-    [`${label} — outstanding`, apsUgx(p.outstanding), cell(pp ? apsUgx(pp.outstanding) : ''), pct(p.outstanding, Number(pp?.outstanding) || 0, !!pp)],
-    [`${label} — daily recovery due`, apsUgx(p.daily_receivable), '—', '—'],
-  ];
-  drawTable('5. MOTOR BIKES', ['Metric', 'Current period', prevCol, 'Change'], w4, productBlock('Bikes', report.bikes, prev?.bikes ?? null), a4);
-  drawTable('6. SMARTPHONES', ['Metric', 'Current period', prevCol, 'Change'], w4, productBlock('Smartphones', report.phones, prev?.phones ?? null), a4);
-
-  // ===== 14-day trend =====
-  if (report.trend.length > 1) {
-    ensure(52);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.setTextColor(brand[0], brand[1], brand[2]);
-    doc.text('14-DAY RENT COLLECTION TREND', margin, y);
-    y += 4;
-    const chartH = 30;
-    const series = [...report.trend].sort((a, b) => a.day.localeCompare(b.day));
-    const max = Math.max(...series.map(s => Number(s.collected) || 0), 1);
-    const step = (contentWidth - 4) / series.length;
-    const barW = Math.max(2, Math.min(12, step - 2));
-    doc.setDrawColor(230, 230, 238);
-    doc.rect(margin, y, contentWidth, chartH);
-    series.forEach((s, i) => {
-      const h = ((Number(s.collected) || 0) / max) * (chartH - 4);
-      doc.setFillColor(brand[0], brand[1], brand[2]);
-      doc.rect(margin + 2 + i * step, y + chartH - h, barW, h, 'F');
+  const byAgent = new Map<string, { name: string; phone: string | null; location: string | null; collected: number; count: number; outstanding: number; plans: number; closing_float: number }>();
+  rentRows.forEach((r) => {
+    byAgent.set(r.agent_id, {
+      name: r.agent_name || '—', phone: r.phone, location: r.location,
+      collected: Number(r.collected_today) || 0, count: 0,
+      outstanding: Number(r.outstanding) || 0, plans: Number(r.live_plans) || 0, closing_float: 0,
     });
-    y += chartH + 3;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.5);
-    doc.setTextColor(120, 120, 130);
-    doc.text(fmtDay(series[0].day), margin, y);
-    doc.text(`peak ${apsUgx(max)}`, margin + contentWidth / 2, y, { align: 'center' });
-    doc.text(fmtDay(series[series.length - 1].day), margin + contentWidth, y, { align: 'right' });
-    y += 6;
+  });
+  report.agent_float_rows.forEach((f) => {
+    const existing = byAgent.get(f.agent_id);
+    if (existing) {
+      existing.count = Number(f.collections_count) || 0;
+      existing.closing_float = Number(f.closing_float) || 0;
+      if (!existing.collected) existing.collected = Number(f.collections_amount) || 0;
+    } else if (Number(f.collections_amount) > 0 || Number(f.closing_float) > 0) {
+      byAgent.set(f.agent_id, {
+        name: f.agent_name || '—', phone: f.phone, location: f.location,
+        collected: Number(f.collections_amount) || 0, count: Number(f.collections_count) || 0,
+        outstanding: 0, plans: 0, closing_float: Number(f.closing_float) || 0,
+      });
+    }
+  });
+  const top = [...byAgent.values()].sort((a, b) => b.collected - a.collected || b.outstanding - a.outstanding).slice(0, 10);
+  const topCollected = top.reduce((a, r) => a + r.collected, 0);
+  const bestCollected = Math.max(...top.map((r) => r.collected), 1);
+
+  if (top.length) {
+    drawKpiCards([
+      { label: 'Top 10 collections', value: apsUgx(topCollected), detail: `${num(top.length)} agents ranked` },
+      {
+        label: 'Share of total collected',
+        value: Number(report.rent.collected_today) > 0 ? `${((topCollected / Number(report.rent.collected_today)) * 100).toFixed(1)}%` : '—',
+        detail: `of ${apsUgx(report.rent.collected_today)} collected`,
+      },
+      { label: 'Best performer', value: top[0].name, detail: apsUgx(top[0].collected) },
+      { label: 'Agents with a live position', value: num(byAgent.size), detail: 'active receivable records only' },
+    ]);
 
     drawTable(
-      'DAILY BREAKDOWN (LAST 14 DAYS)',
-      ['Day', 'New agents', 'Collected', 'Advances issued', 'Advances recovered', 'Service centres'],
-      [40, 34, 60, 60, 60, 40],
-      series.map(s => [
-        fmtDay(s.day), num(s.new_agents), apsUgx(s.collected),
-        apsUgx(s.advances_issued), apsUgx(s.advances_deducted), num(s.service_centres_added),
-      ]),
-      ['left', 'right', 'right', 'right', 'right', 'right'],
-    );
-  }
-
-  // ===== 7. Individual agent performance =====
-  if (report.agent_float_rows.length) {
-    drawTable(
-      `7. INDIVIDUAL AGENT PERFORMANCE — FLOAT & COLLECTIONS (${num(report.agent_float_rows.length)} agent${report.agent_float_rows.length === 1 ? '' : 's'})`,
-      ['Agent', 'Phone', 'Location', 'Float received', 'Paid out', 'Closing float', 'Commission', 'Collected', 'Txns'],
-      [46, 28, 30, 34, 30, 32, 30, 32, 20],
-      report.agent_float_rows.map(r => [
-        r.agent_name || '—', r.phone || '—', r.location || '—',
-        apsUgx(r.float_received), apsUgx(r.float_paid_out), apsUgx(r.closing_float),
-        apsUgx(r.commission_balance), apsUgx(r.collections_amount), num(r.collections_count),
-      ]),
-      ['left', 'left', 'left', 'right', 'right', 'right', 'right', 'right', 'right'],
-    );
-  }
-
-  if (report.rent_rows.length) {
-    drawTable(
-      `AGENT RENT RECEIVABLES DETAIL (${num(report.rent_rows.length)} agent${report.rent_rows.length === 1 ? '' : 's'})`,
-      ['Agent', 'Phone', 'Plans', 'Daily due', 'Expected (period)', 'Collected', 'Repaid to date', 'Outstanding', 'Avg days'],
-      [44, 26, 16, 32, 36, 34, 34, 36, 28],
-      report.rent_rows.map(r => [
-        r.agent_name || '—', r.phone || '—', num(r.live_plans),
-        apsUgx(r.daily_receivable), apsUgx(apsAgentExpectedTotal(r, expectedDays)),
-        apsUgx(r.collected_today), apsUgx(r.repaid_to_date),
-        apsUgx(r.outstanding), num(r.avg_days_outstanding),
-      ]),
-      ['left', 'left', 'right', 'right', 'right', 'right', 'right', 'right', 'right'],
-    );
-  }
-
-  if (report.advance_rows.length) {
-    drawTable(
-      `AGENT ADVANCES DETAIL (${num(report.advance_rows.length)} advance${report.advance_rows.length === 1 ? '' : 's'})`,
-      ['Agent', 'Phone', 'Status', 'Principal', 'Recovered', 'Outstanding', 'Installment', 'Deducted today'],
-      [50, 30, 26, 38, 38, 38, 34, 38],
-      report.advance_rows.map(r => [
-        r.agent_name || '—', r.phone || '—', title(r.status),
-        apsUgx(r.principal), apsUgx(r.recovered), apsUgx(r.outstanding),
-        apsUgx(r.installment), apsUgx(r.deducted_today),
+      '',
+      ['#', 'Agent', 'Location', 'Collected', 'Contribution', 'Plans', 'Outstanding', 'Closing float'],
+      [10, 44, 32, 34, 30, 16, 34, 32],
+      top.map((r, i) => [
+        `${i + 1}`, r.name, r.location || '—', apsUgx(r.collected),
+        `${((r.collected / bestCollected) * 100).toFixed(0)}% of best`,
+        num(r.plans), apsUgx(r.outstanding), apsUgx(r.closing_float),
       ]),
       ['left', 'left', 'left', 'right', 'right', 'right', 'right', 'right'],
     );
-  }
 
-  if (report.service_centre_rows.length) {
-    drawTable(
-      `SERVICE CENTRE REGISTER (${num(report.service_centre_rows.length)} record${report.service_centre_rows.length === 1 ? '' : 's'})`,
-      ['Agent', 'Phone', 'Location', 'Status', 'Created', 'Verified', 'Approved'],
-      [50, 30, 56, 28, 38, 38, 38],
-      report.service_centre_rows.map(r => [
-        r.agent_name || '—', r.agent_phone || '—', r.location_name || '—',
-        title(r.status), fmtDay(r.created_at), fmtDay(r.verified_at), fmtDay(r.approved_at),
-      ]),
-      ['left', 'left', 'left', 'left', 'left', 'left', 'left'],
-    );
+    sectionTitle('Relative contribution');
+    top.slice(0, 5).forEach((r) => {
+      drawProgress(
+        r.name,
+        (r.collected / bestCollected) * 100,
+        `${apsUgx(r.collected)} collected · ${num(r.count)} entries · ${num(r.plans)} live plans`,
+      );
+    });
+  } else {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.4);
+    doc.setTextColor(130, 125, 142);
+    doc.text('No agent collections recorded for the selected period.', margin, y);
   }
-
-  const bikeRows = report.product_rows.filter(r => r.product === 'bike');
-  const phoneRows = report.product_rows.filter(r => r.product === 'smartphone');
-  const productTable = (label: string, rows: ApsProductRow[]) => {
-    if (!rows.length) return;
-    drawTable(
-      `${label} — REPAYMENT POSITIONS (${num(rows.length)} record${rows.length === 1 ? '' : 's'})`,
-      ['Holder', 'Phone', 'Item', 'Issued', 'Value', 'Paid', 'Outstanding', 'Daily rate', '% repaid', 'Position'],
-      [42, 26, 38, 26, 28, 28, 30, 24, 20, 30],
-      rows.map(r => [
-        r.client_name || '—', r.client_phone || '—', r.item_name || '—',
-        r.is_issued ? fmtDay(r.issued_date ?? r.sale_date) : 'Not issued',
-        apsUgx(r.value), apsUgx(r.paid), apsUgx(r.outstanding), apsUgx(r.daily_rate),
-        `${num(r.repayment_rate)}%`, title(r.repayment_position),
-      ]),
-      ['left', 'left', 'left', 'left', 'right', 'right', 'right', 'right', 'right', 'left'],
-    );
-  };
-  productTable('MOTOR BIKES', bikeRows);
-  productTable('SMARTPHONES', phoneRows);
 
   // ===== Audit footer =====
   const pages = doc.getNumberOfPages();
@@ -638,7 +762,7 @@ export function generateAgentProductsServicesPdf(opts: {
     doc.setFontSize(6.5);
     doc.setTextColor(120, 120, 130);
     doc.text(
-      `Agent Products & Services — Daily Report · Day ${dayLabel} · Generated ${generated} (${report.timezone}) · Reported by ${actor} · Export ${exportType} · Source: agent register, rent requests, agent collections, agent advances, service centres, merchandise sales & production ledger`,
+      `Agent Products & Services — Executive Summary · Period ${periodLabel} · Generated ${generated} (${report.timezone}) · Reported by ${actor} · Export ${exportType} · Issued positions only; service centres de-duplicated by unique agent location; archived rent records excluded`,
       margin,
       pageHeight - 8,
       { maxWidth: contentWidth },
@@ -648,3 +772,4 @@ export function generateAgentProductsServicesPdf(opts: {
 
   return doc.output('blob');
 }
+

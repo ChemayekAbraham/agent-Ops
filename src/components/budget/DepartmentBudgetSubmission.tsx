@@ -489,6 +489,15 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
                         ))}
                       </SelectContent>
                     </Select>
+                    {/* An empty catalogue is a permissions problem, not an
+                        empty list. Say so rather than rendering a dropdown
+                        with nothing in it and no way to tell why. */}
+                    {!budgetableAccounts.length && !refLoading && (
+                      <p className="mt-1 text-[11px] text-destructive">
+                        No spending categories are available to your account, so this budget cannot be
+                        filed. Ask Finance to grant access to the chart of accounts.
+                      </p>
+                    )}
                   </div>
                   <div className="grid grid-cols-3 gap-2 sm:col-span-2">
                     <div>
