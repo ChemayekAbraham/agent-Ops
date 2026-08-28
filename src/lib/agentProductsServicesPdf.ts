@@ -1,7 +1,13 @@
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 
-export interface ApsAgents { new_today: number; new_prev: number; total: number; base: number; active_today: number }
+export interface ApsAgents {
+  new_today: number; new_prev: number; total: number; base: number; active_today: number;
+  /** All user accounts holding the agent role. */
+  total_registered?: number;
+  /** Qualified agents with active collections, rent requests or listings. */
+  operational?: number;
+}
 export interface ApsRent {
   collected_today: number; collected_prev: number; collections_today: number;
   outstanding: number; daily_receivable: number; live_plans: number; avg_days_outstanding: number;
