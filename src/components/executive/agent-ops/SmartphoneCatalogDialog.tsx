@@ -335,53 +335,119 @@ export function SmartphoneCatalogDialog() {
           </DialogHeader>
 
           <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs">Brand</Label>
-                <Input value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="e.g. Samsung" />
+                <Select value={brandChoice} onValueChange={setBrandChoice}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a brand" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {brands.map((b) => (
+                      <SelectItem key={b} value={b}>
+                        {b}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={NEW_BRAND}>+ New brand…</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Model name <span className="text-muted-foreground font-normal">— optional</span></Label>
-                <Input value={modelName} onChange={(e) => setModelName(e.target.value)} placeholder="e.g. Galaxy A14" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Default amount (UGX) <span className="text-muted-foreground font-normal">— optional</span></Label>
-                <Input
-                  type="number"
-                  min={1000}
-                  step={1000}
-                  inputMode="numeric"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="e.g. 1200000"
-                />
-              </div>
+              {brandChoice === NEW_BRAND && (
+                <div className="space-y-1">
+                  <Label className="text-xs">New brand name</Label>
+                  <Input value={newBrand} onChange={(e) => setNewBrand(e.target.value)} placeholder="e.g. Samsung" />
+                </div>
+              )}
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Phone specifications <span className="text-muted-foreground font-normal">— optional</span></Label>
-              <textarea
-                value={specifications}
-                onChange={(e) => setSpecifications(e.target.value)}
-                placeholder={'e.g. 6.5" display, 128GB storage, 4GB RAM, Black'}
-                rows={3}
-                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">More specifications <span className="text-muted-foreground font-normal">— optional</span></Label>
-              <textarea
-                value={moreSpecifications}
-                onChange={(e) => setMoreSpecifications(e.target.value)}
-                placeholder="e.g. Battery 5000mAh, dual SIM, 1 year warranty"
-                rows={3}
-                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-              />
-            </div>
-            <Button className="w-full" onClick={() => addEntry.mutate()} disabled={addEntry.isPending}>
 
-              {addEntry.isPending ? 'Saving…' : 'Add to catalog'}
-            </Button>
+            <div className="space-y-2">
+              {rows.map((row, idx) => (
+                <div key={row.key} className="space-y-2 rounded-lg border bg-muted/30 p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      {effectiveBrand.trim() ? `${effectiveBrand.trim()} · ` : ''}Model {idx + 1}
+                    </p>
+                    {rows.length > 1 && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-destructive hover:text-destructive"
+                        onClick={() => removeRow(row.key)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">
+                        Model name <span className="text-muted-foreground font-normal">— optional</span>
+                      </Label>
+                      <Input
+                        value={row.modelName}
+                        onChange={(e) => updateRow(row.key, { modelName: e.target.value })}
+                        placeholder="e.g. Galaxy A14"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">
+                        Default amount (UGX) <span className="text-muted-foreground font-normal">— optional</span>
+                      </Label>
+                      <Input
+                        type="number"
+                        min={1000}
+                        step={1000}
+                        inputMode="numeric"
+                        value={row.amount}
+                        onChange={(e) => updateRow(row.key, { amount: e.target.value })}
+                        placeholder="e.g. 1200000"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">
+                        Phone specifications <span className="text-muted-foreground font-normal">— optional</span>
+                      </Label>
+                      <textarea
+                        value={row.specifications}
+                        onChange={(e) => updateRow(row.key, { specifications: e.target.value })}
+                        placeholder={'e.g. 6.5" display, 128GB storage, 4GB RAM, Black'}
+                        rows={2}
+                        className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">
+                        More specifications <span className="text-muted-foreground font-normal">— optional</span>
+                      </Label>
+                      <textarea
+                        value={row.moreSpecifications}
+                        onChange={(e) => updateRow(row.key, { moreSpecifications: e.target.value })}
+                        placeholder="e.g. Battery 5000mAh, dual SIM, 1 year warranty"
+                        rows={2}
+                        className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-2">
+              <Button variant="outline" className="gap-1.5 sm:w-auto" onClick={addRow}>
+                <Plus className="h-4 w-4" /> Add another model
+              </Button>
+              <Button className="flex-1" onClick={() => addEntry.mutate()} disabled={addEntry.isPending}>
+                {addEntry.isPending
+                  ? 'Saving…'
+                  : rows.length > 1
+                    ? `Add ${rows.length} models to catalog`
+                    : 'Add to catalog'}
+              </Button>
+            </div>
           </div>
+
 
 
 
