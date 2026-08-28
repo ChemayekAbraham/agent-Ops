@@ -71,8 +71,8 @@ const GROUPS = [
   { key: 'closed', label: 'Closed', statuses: ['declined', 'not_selected', 'withdrawn'] as AppStatus[] },
 ] as const;
 
-/** Fallback bucket for rows whose status maps to no group. Never part of GROUPS. */
-const UNMAPPED_GROUP = { key: 'unmapped', label: 'Unmapped', statuses: [] as AppStatus[] } as const;
+
+
 
 
 const CLOSED_STATUSES = GROUPS.find((g) => g.key === 'closed')!.statuses;
