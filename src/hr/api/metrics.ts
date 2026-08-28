@@ -28,6 +28,7 @@ type SnapshotRow = {
   period_start: string;
   period_end: string;
   value: number | null;
+  subject_kind: string;
   computed_at: string;
   inputs_snapshot: Record<string, number | string>;
   locked: boolean;

@@ -59,14 +59,15 @@ export interface MetricSnapshot {
   id: string;
   metric_definition_id: string;
   metric_definition_version: number;
-  subject_type: 'employee' | 'department';
+  subject_type: 'employee' | 'department' | 'org';
   subject_id: string;
   /** Which posting this was measured under. Null for department subjects. */
   assignment_id: string | null;
   period_type: MetricPeriodType;
   period_start: string;
   period_end: string;
-  value: number;
+  /** null means the metric was not computed for this period — not the same as zero. */
+  value: number | null;
   target_value: number | null;
   attainment_pct: number | null;
   status: SnapshotStatus;
