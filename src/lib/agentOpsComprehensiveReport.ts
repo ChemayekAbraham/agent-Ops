@@ -190,13 +190,26 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
   const agentsCollected = rentRows.filter(r => Number(r.collected_today) > 0).length;
   const agentsShort = rentRows.length - agentsCollected;
 
+  // Canonical network figures. The reporting RPC's `agents.*` block counts a
+  // much wider universe (every rent-request agent plus every recruited
+  // sub-agent link), so it is never used for network size. Operational agent
+  // = has collected rent, or carries a live funded / repaying plan.
+  const networkTotal = population ? n(population.total) : null;
+  const networkActive = population ? n(population.active) : null;
+  const networkInactive = population ? n(population.inactive) : null;
+
   const narrative = `<strong>EXECUTIVE SUMMARY:</strong> Agent Operations recorded
     <strong class="currency">${ugx(collected)}</strong> in rent collections against
     <strong class="currency">${expectedTotal > 0 ? ugx(expectedTotal) : 'an expected amount that is pending mapping'}</strong>
     for ${esc(periodText)}${expectedTotal > 0 ? `, a <strong class="pct">${collectionRate.toFixed(1)}%</strong> collection rate` : ''}.
-    The network comprised <strong class="num">${num(agents.total)}</strong> agents, of which
-    <strong class="num">${num(agents.active_today)}</strong> were active in the period, managing
+    ${networkTotal !== null
+      ? `The operational agent network comprised <strong class="num">${num(networkTotal)}</strong> agents —
+         <strong class="num">${num(networkActive)}</strong> active and
+         <strong class="num">${num(networkInactive)}</strong> inactive — of which
+         <strong class="num">${num(agents.active_today)}</strong> transacted inside this reporting window, managing`
+      : `The network managed`}
     <strong class="num">${num(rent.live_plans)}</strong> live rent obligations.
+
     <strong class="currency">${ugx(outstandingRent)}</strong> of rent remained outstanding.
     Agent advances carried <strong class="currency">${ugx(adv.outstanding)}</strong> outstanding across
     <strong class="num">${num(adv.active_count)}</strong> repaying advances, and
