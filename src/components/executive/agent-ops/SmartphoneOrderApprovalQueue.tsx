@@ -152,12 +152,23 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
   };
 
   const approve = useMutation({
-    mutationFn: async ({ id, amount, stage }: { id: string; amount: number; stage: 'coo' | 'cfo' }) => {
+    mutationFn: async ({
+      id,
+      amount,
+      stage,
+      daily,
+      days,
+    }: { id: string; amount: number; stage: 'coo' | 'cfo'; daily?: number; days?: number }) => {
       const { data, error } = await db.rpc(
         stage === 'cfo' ? 'cfo_disburse_smartphone_order' : 'coo_approve_smartphone_order',
         stage === 'cfo'
           ? { p_sale_id: id, p_amount: amount }
-          : { p_sale_id: id, p_total_amount: amount },
+          : {
+              p_sale_id: id,
+              p_total_amount: amount,
+              p_daily_deduction: daily ?? null,
+              p_repayment_days: days ?? null,
+            },
       );
       if (error) throw error;
       return { ...(data as any), stage };
@@ -168,15 +179,16 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
           `${formatUGX(Number(data?.total_amount || 0))} disbursed to the agent's wallet float. ${formatUGX(Number(data?.payment_projection || 0))}/month (33%) recovery plan activated.`,
         );
       } else {
+        const daily = Number(data?.access_daily_amount || 0);
         toast.success(
-          `Approved at ${formatUGX(Number(data?.total_amount || 0))} and forwarded to the CFO for disbursement.`,
+          `Approved at ${formatUGX(Number(data?.total_amount || 0))}${daily > 0 ? ` · ${formatUGX(daily)}/day for ${Number(data?.access_repayment_days || 0)} days` : ''} and forwarded to the CFO for disbursement.`,
         );
       }
-      setApproveTarget(null);
-      setOfficialAmount('');
+      closeApprove();
       setDetailsTarget(null);
       invalidate();
     },
+
     onError: (e: any) => toast.error(e.message || 'Could not process this application'),
   });
 
