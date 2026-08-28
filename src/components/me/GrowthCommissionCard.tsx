@@ -116,7 +116,7 @@ export function GrowthCommissionCard() {
     try {
       const { data, error } = await invokeEdgeFunction<{ ok?: boolean; message?: string; error?: string }>(
         'growth-commission-claim',
-        {},
+        { body: {}, silent: true },
       );
       if (error || data?.error) {
         toast.error(data?.message || data?.error || error?.message || 'Could not raise the claim');
