@@ -552,7 +552,21 @@ export function useAgentCapacityMap(agentIds: string[]) {
         // solely by the per-tenant cap above.
         const can_post_rent_today =
           unlimited_posting || is_new_agent ? true : !daily_blocked;
-        const daily_rating = classifyDailyRating(exp.count, effective_daily_pct);
+        const tenants_due            = elig?.tenants_due            ?? 0;
+        const tenants_paid_today     = elig?.tenants_paid_today     ?? 0;
+        const tenants_paid_yesterday = elig?.tenants_paid_yesterday ?? 0;
+        const coverage_today         = elig?.coverage_today         ?? 0;
+        const coverage_yesterday     = elig?.coverage_yesterday     ?? 0;
+        // No server row (or no due tenants) → treat coverage as full so the
+        // rating is never demoted on missing data.
+        const effective_coverage = tenants_due > 0
+          ? (elig?.effective_coverage ?? Math.max(coverage_today, coverage_yesterday))
+          : 1;
+        const daily_rating = classifyDailyRating(
+          exp.count,
+          effective_daily_pct,
+          effective_coverage,
+        );
         out.set(id, {
           used: exp.used,
           active_count: exp.count,
