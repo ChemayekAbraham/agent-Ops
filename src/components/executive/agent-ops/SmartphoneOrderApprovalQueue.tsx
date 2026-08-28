@@ -39,7 +39,10 @@ interface SmartphoneOrderRow {
   coo_approved_at?: string | null;
   cfo_disbursed_at?: string | null;
   disbursed_amount?: number | null;
+  access_daily_amount?: number | null;
+  access_repayment_days?: number | null;
 }
+
 
 const STATUS_TONE: Record<string, string> = {
   pending_approval: 'bg-amber-500/15 text-amber-600 border-amber-500/30',
