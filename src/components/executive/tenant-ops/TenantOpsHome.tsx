@@ -330,17 +330,17 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
         </Card>
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <AnalyticsChart
+          <BreakdownBars
             title="Tenants by location"
             bars={acquisition?.byLocation ?? []}
             loading={loadingAcquisition}
           />
-          <AnalyticsChart
+          <BreakdownBars
             title="Tenants by service centre"
             bars={acquisition?.byServiceCentre ?? []}
             loading={loadingAcquisition}
           />
-          <AnalyticsChart
+          <BreakdownBars
             title="Tenants by agent"
             bars={acquisition?.byAgent ?? []}
             loading={loadingAcquisition}
