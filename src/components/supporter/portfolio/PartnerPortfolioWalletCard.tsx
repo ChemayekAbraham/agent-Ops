@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Calculator, Eye, EyeOff, Menu, Plus, Users, Wallet } from 'lucide-react';
 import { usePartnerPortfolios } from '@/hooks/usePartnerPortfolios';
 import { computeAccrual, normalizePortfolioState } from '@/lib/portfolioAccrual';
@@ -58,16 +58,6 @@ export function PartnerPortfolioWalletCard({ onAddCard, onPortfolios, onCalculat
   const { tenants, isLoading: tenantsLoading } = useSupportedTenants();
   const { available: availableBalance, refresh: refreshAvailable } = useAvailableBalance(user?.id);
   const [showAmount, setShowAmount] = useState(false);
-  const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (showAmount) {
-      hideTimeoutRef.current = setTimeout(() => setShowAmount(false), 2000);
-    }
-    return () => {
-      if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
-    };
-  }, [showAmount]);
 
   const active = useMemo(
     // Locked portfolios (open redemption) stop accruing but the capital is still
@@ -184,9 +174,9 @@ export function PartnerPortfolioWalletCard({ onAddCard, onPortfolios, onCalculat
                   className="shrink-0 rounded p-0.5 text-white/70 hover:text-white hover:bg-white/10 transition"
                 >
                   {showAmount ? (
-                    <EyeOff style={{ width: 'clamp(12px, 3cqw, 18px)', height: 'clamp(12px, 3cqw, 18px)' }} />
-                  ) : (
                     <Eye style={{ width: 'clamp(12px, 3cqw, 18px)', height: 'clamp(12px, 3cqw, 18px)' }} />
+                  ) : (
+                    <EyeOff style={{ width: 'clamp(12px, 3cqw, 18px)', height: 'clamp(12px, 3cqw, 18px)' }} />
                   )}
                 </button>
               </div>
