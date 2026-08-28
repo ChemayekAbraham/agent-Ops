@@ -39980,6 +39980,15 @@ export type Database = {
         Args: { _note?: string; _submission_id: string }
         Returns: undefined
       }
+      budget_budgetable_accounts: {
+        Args: never
+        Returns: {
+          code: string
+          label: string
+          nature: string
+          section: string
+        }[]
+      }
       budget_can_access_department: {
         Args: { _department_id: string; _user_id?: string }
         Returns: boolean
