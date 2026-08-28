@@ -189,11 +189,8 @@ export function generateAgentProductsServicesPdf(opts: {
     bikes: prev ? Number(prev.bikes?.outstanding) : 0,
     phones: prev ? Number(prev.phones?.outstanding) : 0,
   };
-  const hasPrev = !!prev;
-  const cell = (v: string) => (hasPrev || v ? v : '—');
-  const pct = (current: number, previous: number, available = true) =>
-    available ? apsPctLabel(current, previous) : '—';
   const exportType = opts.exportType || 'PDF';
+
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
