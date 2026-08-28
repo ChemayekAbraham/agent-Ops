@@ -13157,7 +13157,7 @@ export type Database = {
       hr_metric_snapshots: {
         Row: {
           computed_at: string
-          department_id: string
+          department_id: string | null
           id: string
           inputs_snapshot: Json
           locked: boolean
@@ -13165,12 +13165,13 @@ export type Database = {
           metric_version: number
           period_end: string
           period_start: string
-          staff_id: string
+          staff_id: string | null
+          subject_kind: string
           value: number | null
         }
         Insert: {
           computed_at?: string
-          department_id: string
+          department_id?: string | null
           id?: string
           inputs_snapshot?: Json
           locked?: boolean
@@ -13178,12 +13179,13 @@ export type Database = {
           metric_version?: number
           period_end: string
           period_start: string
-          staff_id: string
+          staff_id?: string | null
+          subject_kind?: string
           value?: number | null
         }
         Update: {
           computed_at?: string
-          department_id?: string
+          department_id?: string | null
           id?: string
           inputs_snapshot?: Json
           locked?: boolean
@@ -13191,7 +13193,8 @@ export type Database = {
           metric_version?: number
           period_end?: string
           period_start?: string
-          staff_id?: string
+          staff_id?: string | null
+          subject_kind?: string
           value?: number | null
         }
         Relationships: [
