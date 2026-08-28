@@ -758,6 +758,215 @@ export function generateAgentProductsServicesPdf(opts: {
     doc.text('No agent collections recorded for the selected period.', margin, y);
   }
 
+  // ===========================================================================
+  // PAGES 5+ — Full detail tables (every dataset shown on screen)
+  // ===========================================================================
+  const title = (s?: string | null) =>
+    !s ? '—' : String(s).replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+  const fmtStamp = (d?: string | null) => {
+    if (!d) return '—';
+    try { return format(new Date(d.length <= 10 ? `${d}T00:00:00` : d), 'dd MMM yy'); } catch { return String(d); }
+  };
+  const sum = <T,>(rows: T[], pick: (r: T) => any) =>
+    rows.reduce((a, r) => a + (Number(pick(r)) || 0), 0);
+
+  // ---- 5. Agent performance (float & collections) ---------------------------
+  const floatRows = [...(report.agent_float_rows || [])].sort(
+    (a, b) => (Number(b.collections_amount) || 0) - (Number(a.collections_amount) || 0),
+  );
+  if (floatRows.length) {
+    newPage();
+    sectionTitle(
+      '5. Agent performance — float & collections',
+      `${num(floatRows.length)} agents · ranked by amount collected in the period`,
+    );
+    drawTable(
+      '',
+      ['Agent', 'Phone', 'Location', 'Float received', 'Paid out', 'Closing float', 'Commission', 'Collected', 'Txns'],
+      [40, 24, 28, 30, 26, 28, 26, 30, 14],
+      [
+        ...floatRows.map((r) => [
+          r.agent_name || '—', r.phone || '—', r.location || '—',
+          apsUgx(r.float_received), apsUgx(r.float_paid_out), apsUgx(r.closing_float),
+          apsUgx(r.commission_balance), apsUgx(r.collections_amount), num(r.collections_count),
+        ]),
+        [
+          'TOTAL', '', `${num(floatRows.length)} agents`,
+          apsUgx(sum(floatRows, (r) => r.float_received)),
+          apsUgx(sum(floatRows, (r) => r.float_paid_out)),
+          apsUgx(sum(floatRows, (r) => r.closing_float)),
+          apsUgx(sum(floatRows, (r) => r.commission_balance)),
+          apsUgx(sum(floatRows, (r) => r.collections_amount)),
+          num(sum(floatRows, (r) => r.collections_count)),
+        ],
+      ],
+      ['left', 'left', 'left', 'right', 'right', 'right', 'right', 'right', 'right'],
+    );
+  }
+
+  // ---- 6. New agents --------------------------------------------------------
+  const newAgentRows = report.new_agent_rows || [];
+  if (newAgentRows.length) {
+    newPage();
+    sectionTitle('6. New agents registered', `${num(newAgentRows.length)} agents added in the period`);
+    drawTable(
+      '',
+      ['Agent', 'Phone', 'Location', 'Type', 'Parent agent', 'Added'],
+      [46, 26, 34, 24, 40, 26],
+      newAgentRows.map((r) => [
+        r.name || '—', r.phone || '—', r.location || '—', title(r.agent_type),
+        r.parent_name || '—',
+        (() => { try { return r.created_at ? format(new Date(r.created_at), 'dd MMM yy HH:mm') : '—'; } catch { return '—'; } })(),
+      ]),
+      ['left', 'left', 'left', 'left', 'left', 'left'],
+    );
+  }
+
+  // ---- 7. Rent receivables --------------------------------------------------
+  if (rentRows.length) {
+    newPage();
+    sectionTitle(
+      '7. Rent receivables by agent',
+      `${num(rentRows.length)} agents with a live rent position · expected figures cover ${num(expectedDays)} day${expectedDays === 1 ? '' : 's'}`,
+    );
+    drawTable(
+      '',
+      ['Agent', 'Phone', 'Plans', 'Daily due', 'Expected (period)', 'Collected', 'Repaid to date', 'Outstanding', 'Avg days'],
+      [38, 24, 14, 26, 30, 28, 30, 30, 16],
+      [
+        ...rentRows.map((r) => [
+          r.agent_name || '—', r.phone || '—', num(r.live_plans),
+          apsUgx(r.daily_receivable), apsUgx(apsAgentExpectedTotal(r, expectedDays)),
+          apsUgx(r.collected_today), apsUgx(r.repaid_to_date), apsUgx(r.outstanding),
+          num(r.avg_days_outstanding),
+        ]),
+        [
+          'TOTAL', '', num(sum(rentRows, (r) => r.live_plans)),
+          apsUgx(sum(rentRows, (r) => r.daily_receivable)),
+          apsUgx(sum(rentRows, (r) => apsAgentExpectedTotal(r, expectedDays))),
+          apsUgx(sum(rentRows, (r) => r.collected_today)),
+          apsUgx(sum(rentRows, (r) => r.repaid_to_date)),
+          apsUgx(sum(rentRows, (r) => r.outstanding)),
+          '',
+        ],
+      ],
+      ['left', 'left', 'right', 'right', 'right', 'right', 'right', 'right', 'right'],
+    );
+  }
+
+  // ---- 8. Advances ----------------------------------------------------------
+  const advanceRows = report.advance_rows || [];
+  if (advanceRows.length) {
+    newPage();
+    sectionTitle('8. Agent advances', `${num(advanceRows.length)} active or newly issued advances`);
+    drawTable(
+      '',
+      ['Agent', 'Phone', 'Status', 'Principal', 'Recovered', 'Outstanding', 'Installment', 'Deducted', 'Issued'],
+      [38, 24, 24, 28, 28, 28, 26, 26, 20],
+      [
+        ...advanceRows.map((r) => [
+          r.agent_name || '—', r.phone || '—', title(r.status),
+          apsUgx(r.principal), apsUgx(r.recovered), apsUgx(r.outstanding),
+          apsUgx(r.installment), apsUgx(r.deducted_today), fmtStamp(r.issued_at),
+        ]),
+        [
+          'TOTAL', '', `${num(advanceRows.length)} records`,
+          apsUgx(sum(advanceRows, (r) => r.principal)),
+          apsUgx(sum(advanceRows, (r) => r.recovered)),
+          apsUgx(sum(advanceRows, (r) => r.outstanding)),
+          apsUgx(sum(advanceRows, (r) => r.installment)),
+          apsUgx(sum(advanceRows, (r) => r.deducted_today)),
+          '',
+        ],
+      ],
+      ['left', 'left', 'left', 'right', 'right', 'right', 'right', 'right', 'left'],
+    );
+  }
+
+  // ---- 9. Service centres ---------------------------------------------------
+  if (serviceCentreRows.length) {
+    newPage();
+    sectionTitle(
+      '9. Service centres',
+      `${num(serviceCentreRows.length)} unique agent locations · de-duplicated by agent and location`,
+    );
+    drawTable(
+      '',
+      ['Agent', 'Phone', 'Location', 'Status', 'Created', 'Verified', 'Approved'],
+      [44, 28, 44, 24, 22, 22, 22],
+      serviceCentreRows.map((r) => [
+        r.agent_name || '—', r.agent_phone || '—', r.location_name || '—', title(r.status),
+        fmtStamp(r.created_at), fmtStamp(r.verified_at), fmtStamp(r.approved_at),
+      ]),
+      ['left', 'left', 'left', 'left', 'left', 'left', 'left'],
+    );
+  }
+
+  // ---- 10 / 11. Equipment registers ----------------------------------------
+  const drawProductRegister = (
+    index: number,
+    heading: string,
+    rows: ApsProductRow[],
+    totals: ApsProduct,
+  ) => {
+    if (!rows.length) return;
+    newPage();
+    sectionTitle(
+      `${index}. ${heading}`,
+      `${num(rows.length)} issued units · ${apsUgx(totals.outstanding)} outstanding · ${apsUgx(totals.daily_receivable)} due daily`,
+    );
+    drawTable(
+      '',
+      ['Holder', 'Phone', 'Item', 'Issued', 'Value', 'Paid', 'Outstanding', 'Daily rate', '% repaid', 'Position'],
+      [34, 24, 34, 20, 26, 24, 28, 24, 18, 24],
+      [
+        ...rows.map((r) => [
+          r.client_name || '—', r.client_phone || '—', r.item_name || '—',
+          r.is_issued ? fmtStamp(r.issued_date ?? r.sale_date) : 'Not issued',
+          apsUgx(r.value), apsUgx(r.paid), apsUgx(r.outstanding), apsUgx(r.daily_rate),
+          `${num(r.repayment_rate)}%`,
+          r.repayment_position === 'pending_issue' ? 'Pending issue' : title(r.repayment_position),
+        ]),
+        [
+          'TOTAL', '', `${num(rows.length)} units`, '',
+          apsUgx(sum(rows, (r) => r.value)), apsUgx(sum(rows, (r) => r.paid)),
+          apsUgx(sum(rows, (r) => r.outstanding)), apsUgx(sum(rows, (r) => r.daily_rate)), '', '',
+        ],
+      ],
+      ['left', 'left', 'left', 'left', 'right', 'right', 'right', 'right', 'right', 'left'],
+    );
+  };
+  drawProductRegister(10, 'Motor bike register (issued units)', bikeRows, report.bikes);
+  drawProductRegister(11, 'Smartphone register (issued units)', phoneRows, report.phones);
+
+  // ---- 12. Orders pending issue --------------------------------------------
+  const pendingRows = report.product_rows.filter((r) => !r.is_issued);
+  if (pendingRows.length) {
+    newPage();
+    sectionTitle(
+      '12. Orders pending issue',
+      `${num(pendingRows.length)} ordered units not yet handed over · excluded from outstanding balances above`,
+    );
+    drawTable(
+      '',
+      ['Holder', 'Phone', 'Product', 'Item', 'Ordered', 'Value', 'Daily rate', 'Order status', 'Payment plan'],
+      [34, 24, 22, 36, 22, 28, 24, 28, 28],
+      [
+        ...pendingRows.map((r) => [
+          r.client_name || '—', r.client_phone || '—',
+          r.product === 'bike' ? 'Motor bike' : 'Smartphone', r.item_name || '—',
+          fmtStamp(r.sale_date), apsUgx(r.value), apsUgx(r.daily_rate),
+          title(r.order_status), title(r.payment_plan),
+        ]),
+        [
+          'TOTAL', '', '', `${num(pendingRows.length)} units`, '',
+          apsUgx(sum(pendingRows, (r) => r.value)), apsUgx(sum(pendingRows, (r) => r.daily_rate)), '', '',
+        ],
+      ],
+      ['left', 'left', 'left', 'left', 'left', 'right', 'right', 'left', 'left'],
+    );
+  }
+
   // ===== Audit footer =====
   const pages = doc.getNumberOfPages();
   const generated = (() => {
