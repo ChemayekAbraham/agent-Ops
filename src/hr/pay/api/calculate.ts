@@ -256,7 +256,28 @@ export async function calculateRun(runId: string): Promise<{ payslips: number; m
       latestByKey.set(key, row);
     }
   }
-  const compRows = Array.from(latestByKey.values());
+  // 3a. Exited staff are excluded from every run. A staff member is payable only
+  // while hr_staff.active is true; hr_staff.ended_on can only be set when active
+  // is false, so this one filter covers both.
+  const candidateStaffIds = Array.from(
+    new Set(compRowsRaw.map((r) => r.staff_id as string)),
+  );
+
+  const activeStaffRows =
+    candidateStaffIds.length > 0
+      ? ((unwrap(
+          await supabase
+            .from('hr_staff')
+            .select('id')
+            .eq('active', true)
+            .in('id', candidateStaffIds),
+        ) ?? []) as Array<{ id: string }>)
+      : [];
+
+  const activeStaffIds = new Set(activeStaffRows.map((s) => s.id));
+  const compRows = Array.from(latestByKey.values()).filter((r) =>
+    activeStaffIds.has(r.staff_id as string),
+  );
 
   if (compRows.length === 0) {
     throw new Error('No active compensation records. Enter compensation before calculating.');
