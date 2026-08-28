@@ -21,8 +21,8 @@ type DefinitionRow = {
 
 type SnapshotRow = {
   id: string;
-  staff_id: string;
-  department_id: string;
+  staff_id: string | null;
+  department_id: string | null;
   metric_key: string;
   metric_version: number;
   period_start: string;
@@ -107,7 +107,14 @@ export async function getMetricSnapshots(params: {
     metric_definition_id: idByKey[row.metric_key] ?? row.metric_key,
     metric_definition_version: row.metric_version,
     subject_type: row.subject_kind === 'org' ? 'org' : params.subjectType,
-    subject_id: params.subjectType === 'employee' ? row.staff_id : row.department_id,
+    subject_id:
+      row.subject_kind === 'staff'
+        ? row.staff_id
+        : row.subject_kind === 'department'
+          ? row.department_id
+          : row.subject_kind === 'org'
+            ? null
+            : row.staff_id,
     assignment_id: null,
     period_type: 'monthly',
     period_start: row.period_start,
@@ -158,7 +165,14 @@ export async function getSnapshots(params: {
           : row.subject_kind === 'org'
             ? 'org'
             : 'employee',
-    subject_id: row.staff_id,
+    subject_id:
+      row.subject_kind === 'staff'
+        ? row.staff_id
+        : row.subject_kind === 'department'
+          ? row.department_id
+          : row.subject_kind === 'org'
+            ? null
+            : row.staff_id,
     assignment_id: null,
     period_type: 'monthly',
     period_start: row.period_start,
