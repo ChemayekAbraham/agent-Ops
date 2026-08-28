@@ -350,8 +350,9 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Status</span>
                   <Badge variant="outline" className={STATUS_TONE[detailsTarget.order_status] || ''}>
-                    {detailsTarget.order_status.replace(/_/g, ' ')}
+                    {statusLabel(detailsTarget.order_status)}
                   </Badge>
+
                 </div>
 
                 <div className="rounded-lg border divide-y">
