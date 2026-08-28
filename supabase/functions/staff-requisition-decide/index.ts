@@ -85,6 +85,8 @@ Deno.serve(async (req) => {
       ? { supervisor_decided_by: actor.id, supervisor_decided_at: now, supervisor_note: comment || null }
       : stageKey === "coo"
       ? { coo_decided_by: actor.id, coo_decided_at: now, coo_note: comment || null }
+      : stageKey === "ceo"
+      ? { ceo_decided_by: actor.id, ceo_decided_at: now, ceo_note: comment || null }
       : { cfo_decided_by: actor.id, cfo_decided_at: now, cfo_note: comment || null };
 
     // ── Reject ───────────────────────────────────────────────────────────────
@@ -103,6 +105,7 @@ Deno.serve(async (req) => {
         .single();
       await logEvent(admin, requisitionId, actor.id, actorName, "rejected", stageKey, comment, { amount: row.amount });
       await auditLog(admin, actor.id, requisitionId, "staff_requisition_rejected", comment);
+      await setGrowthClaimStatus(admin, requisitionId, "rejected");
       await notifyRequester(admin, updated, `Requisition ${row.requisition_code} was declined at ${stageLabel(stageKey)} review: ${comment}`);
       return json({ ok: true, requisition: updated }, 200);
     }
@@ -137,7 +140,11 @@ Deno.serve(async (req) => {
     const isFinalStage = stageKey === row.final_stage;
 
     if (!isFinalStage) {
-      const nextStage = stageKey === "supervisor" ? "coo" : row.final_stage;
+      const nextStage = stageKey === "supervisor"
+        ? "coo"
+        : stageKey === "ceo" && row.final_stage === "cfo"
+        ? "cfo"
+        : row.final_stage;
       const { data: updated } = await admin
         .from("staff_requisitions")
         .update({
@@ -219,6 +226,8 @@ Deno.serve(async (req) => {
       amount: finalAmount, wallet_transaction_id: credit.wallet_transaction_id,
     });
     await auditLog(admin, actor.id, requisitionId, "staff_requisition_approved_credited", comment || `Credited ${fmtUGX(finalAmount)}`);
+    // Growth commission claims: releasing the claim moves the counter baseline forward.
+    await setGrowthClaimStatus(admin, requisitionId, "released", now);
 
     try {
       await admin.from("system_events").insert({
@@ -322,5 +331,24 @@ async function notifyApprovers(admin: any, approverRole: string, row: any) {
     })));
   } catch (e) {
     console.error("notifyApprovers failed (non-fatal)", e);
+  }
+}
+
+/**
+ * Growth commission claims own their counting window. Releasing a claim is what
+ * moves the "new platform users since" baseline forward; a rejected claim frees
+ * its window so those users are counted again on the next claim.
+ */
+// deno-lint-ignore no-explicit-any
+async function setGrowthClaimStatus(
+  admin: any, requisitionId: string, status: "rejected" | "released", creditedAt?: string,
+) {
+  try {
+    await admin
+      .from("growth_commission_claims")
+      .update({ status, ...(creditedAt ? { credited_at: creditedAt } : {}) })
+      .eq("requisition_id", requisitionId);
+  } catch (e) {
+    console.error("setGrowthClaimStatus failed (non-fatal)", e);
   }
 }

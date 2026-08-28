@@ -109,3 +109,4 @@
 - [CFO payables layer](mem://features/cfo/payables-forecast) — `v_payables_lines` authoritative payables + `get_payables_total/breakdown/predictive_forecast/forecast_accuracy`, PayablesCardDrilldown beside receivables
 - [House photo sync](mem://features/tenant/house-photo-sync) — Agent listing photo updates propagate to the tenant's rent record photos (and back) via DB triggers
 - [Portfolio change audit](mem://features/partner-ops/portfolio-change-audit) — `portfolio_change_log` + DB triggers + `portfolio-change-notify` edge fn emailing every portfolio create/principal edit/date edit/terms edit/top-up/compound/renew/delete + partner suspension to jlukodda@gmail.com & pexpert46@gmail.com; action-triggered, no cron
+- [Growth Commission Claim](mem://features/growth-commission-claim) — UGX 50 per new platform user, My Space claim → CEO → CFO → wallet credit, counter baseline moves on release

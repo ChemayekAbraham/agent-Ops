@@ -12199,6 +12199,89 @@ export type Database = {
           },
         ]
       }
+      growth_commission_beneficiaries: {
+        Row: {
+          active: boolean
+          created_at: string
+          note: string | null
+          rate_per_user: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          note?: string | null
+          rate_per_user?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          note?: string | null
+          rate_per_user?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      growth_commission_claims: {
+        Row: {
+          amount: number
+          claim_code: string
+          created_at: string
+          credited_at: string | null
+          id: string
+          rate_per_user: number
+          requisition_id: string | null
+          status: string
+          updated_at: string
+          user_count: number
+          user_id: string
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          amount: number
+          claim_code?: string
+          created_at?: string
+          credited_at?: string | null
+          id?: string
+          rate_per_user?: number
+          requisition_id?: string | null
+          status?: string
+          updated_at?: string
+          user_count: number
+          user_id: string
+          window_end: string
+          window_start: string
+        }
+        Update: {
+          amount?: number
+          claim_code?: string
+          created_at?: string
+          credited_at?: string | null
+          id?: string
+          rate_per_user?: number
+          requisition_id?: string | null
+          status?: string
+          updated_at?: string
+          user_count?: number
+          user_id?: string
+          window_end?: string
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "growth_commission_claims_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       house_assignment_audit: {
         Row: {
           assigned_at: string
@@ -31441,6 +31524,9 @@ export type Database = {
           approved_amount: number | null
           attachment_urls: string[]
           category: string | null
+          ceo_decided_at: string | null
+          ceo_decided_by: string | null
+          ceo_note: string | null
           cfo_decided_at: string | null
           cfo_decided_by: string | null
           cfo_note: string | null
@@ -31479,6 +31565,9 @@ export type Database = {
           approved_amount?: number | null
           attachment_urls?: string[]
           category?: string | null
+          ceo_decided_at?: string | null
+          ceo_decided_by?: string | null
+          ceo_note?: string | null
           cfo_decided_at?: string | null
           cfo_decided_by?: string | null
           cfo_note?: string | null
@@ -31517,6 +31606,9 @@ export type Database = {
           approved_amount?: number | null
           attachment_urls?: string[]
           category?: string | null
+          ceo_decided_at?: string | null
+          ceo_decided_by?: string | null
+          ceo_note?: string | null
           cfo_decided_at?: string | null
           cfo_decided_by?: string | null
           cfo_note?: string | null
@@ -44143,6 +44235,17 @@ export type Database = {
         }[]
       }
       grade_receivables_forecast_snapshots: { Args: never; Returns: Json }
+      growth_commission_next_window: {
+        Args: { _user_id?: string }
+        Returns: {
+          amount: number
+          eligible: boolean
+          rate_per_user: number
+          user_count: number
+          window_end: string
+          window_start: string
+        }[]
+      }
       has_agent_capability: {
         Args: { _agent_id: string; _capability: string }
         Returns: boolean
