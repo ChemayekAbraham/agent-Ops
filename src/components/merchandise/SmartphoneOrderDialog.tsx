@@ -89,9 +89,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
     setSubmitting(true);
     const { error } = await db.rpc('agent_order_smartphone', {
-      p_total_amount: totalAmount,
-      p_brand: brand.trim(),
-      p_model_type: modelType.trim() || 'Unspecified',
+      p_amount: totalAmount,
     });
     setSubmitting(false);
     if (error) {
