@@ -1,14 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  format,
-  subDays,
-  startOfDay,
-  startOfWeek,
-  startOfMonth,
-  subMonths,
-  eachDayOfInterval,
-} from 'date-fns';
+import { format, startOfDay } from 'date-fns';
 
 export interface TenantOpsAcquisition {
   newToday: number;
