@@ -120,57 +120,12 @@ export function useTenantOpsAcquisition(enabled: boolean = true) {
           .is('unassigned_at', null),
         supabase
           .from('service_centre_entries')
-          .select('id, agent_name, agent_location, district'),
+          .select('id, stationed_location'),
       ]);
-
-      // Registration counts
-      let newToday = 0;
-      let newThisWeek = 0;
-      let newThisMonth = 0;
-      let prevMonth = 0;
-      const dayBuckets = new Map<number, number>();
-      for (const iso of registrations) {
-        const d = new Date(iso);
-        if (d >= todayStart) newToday += 1;
-        if (d >= weekStart) newThisWeek += 1;
-        if (d >= monthStart) newThisMonth += 1;
-        else if (d >= prevMonthStart) prevMonth += 1;
-        if (d >= trendStart) {
-          const key = startOfDay(d).getTime();
-          dayBuckets.set(key, (dayBuckets.get(key) || 0) + 1);
-        }
-      }
-
-      const trend = eachDayOfInterval({ start: trendStart, end: todayStart }).map((day) => ({
-        date: format(day, 'd MMM'),
-        fullDate: format(day, 'EEE, d MMM yyyy'),
-        count: dayBuckets.get(startOfDay(day).getTime()) || 0,
-      }));
-
-      const growthPct =
-        prevMonth > 0 ? ((newThisMonth - prevMonth) / prevMonth) * 100 : null;
-
-      // Geo breakdowns (existing RPC data)
-      const districtRows = ((districtGeoRes.data || []) as GeoRow[]).filter(
-        (r) => r.key !== 'unassigned'
-      );
-      const byLocation = districtRows
-        .map((r) => ({ label: r.label, value: r.tenants_total }))
-        .sort((a, b) => b.value - a.value);
-
-      const agentRows = (agentGeoRes.data || []) as GeoRow[];
-      const byAgent = agentRows
-        .filter((r) => r.key !== 'unassigned')
-        .map((r) => ({ label: r.label, value: r.tenants_total }))
-        .sort((a, b) => b.value - a.value);
-
-      // Service centre grouping: agents assigned to centres, labelled by centre location.
+...
       const centreLabels = new Map<string, string>();
       for (const e of entriesRes.data || []) {
-        centreLabels.set(
-          e.id,
-          e.district || e.agent_location || e.agent_name || 'Service centre'
-        );
+        centreLabels.set(e.id, e.stationed_location || 'Service centre');
       }
       const agentToCentre = new Map<string, string>();
       for (const a of assignmentsRes.data || []) {
