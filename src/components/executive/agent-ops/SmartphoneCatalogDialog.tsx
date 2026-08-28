@@ -26,6 +26,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
 
 const db = supabase as any;
@@ -117,15 +124,35 @@ async function exportCatalogPdf(rows: SmartphoneCatalogEntry[], from: string, to
   doc.save(`welile-smartphone-catalog-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
+const NEW_BRAND = '__new__';
+
+interface ModelRow {
+  key: string;
+  modelName: string;
+  amount: string;
+  specifications: string;
+  moreSpecifications: string;
+}
+
+function emptyRow(): ModelRow {
+  return {
+    key: Math.random().toString(36).slice(2),
+    modelName: '',
+    amount: '',
+    specifications: '',
+    moreSpecifications: '',
+  };
+}
+
 /** Agent Ops dialog to manage phone models agents can order. */
 export function SmartphoneCatalogDialog() {
+
   const [open, setOpen] = useState(false);
-  const [brand, setBrand] = useState('');
-  const [modelName, setModelName] = useState('');
-  const [amount, setAmount] = useState('');
-  const [specifications, setSpecifications] = useState('');
-  const [moreSpecifications, setMoreSpecifications] = useState('');
+  const [brandChoice, setBrandChoice] = useState<string>(NEW_BRAND);
+  const [newBrand, setNewBrand] = useState('');
+  const [rows, setRows] = useState<ModelRow[]>([emptyRow()]);
   const [search, setSearch] = useState('');
+
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -171,31 +198,63 @@ export function SmartphoneCatalogDialog() {
     return n;
   };
 
+  const brands = useMemo(
+    () => Array.from(new Set(entries.map((e) => e.brand.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [entries],
+  );
+
+  const effectiveBrand = brandChoice === NEW_BRAND ? newBrand : brandChoice;
+
+  const updateRow = (key: string, patch: Partial<ModelRow>) =>
+    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+
+  const addRow = () => setRows((prev) => [...prev, emptyRow()]);
+  const removeRow = (key: string) =>
+    setRows((prev) => (prev.length === 1 ? [emptyRow()] : prev.filter((r) => r.key !== key)));
+
   const addEntry = useMutation({
     mutationFn: async () => {
-      if (brand.trim().length < 2) throw new Error('Enter a brand');
-      if (modelName.trim().length > 0 && modelName.trim().length < 2) throw new Error('Model name is too short');
-      const total = parseAmount(amount);
-      const { error } = await db.from('smartphone_catalog').insert({
-        brand: brand.trim(),
-        model_name: modelName.trim() || null,
-        default_amount: total,
-        specifications: specifications.trim() || null,
-        more_specifications: moreSpecifications.trim() || null,
+      const b = effectiveBrand.trim();
+      if (b.length < 2) throw new Error('Select an existing brand or enter a new one');
+
+      const filled = rows.filter(
+        (r) => r.modelName.trim() || r.amount.trim() || r.specifications.trim() || r.moreSpecifications.trim(),
+      );
+      const usable = filled.length > 0 ? filled : rows.slice(0, 1);
+
+      const payload = usable.map((r) => {
+        if (r.modelName.trim().length > 0 && r.modelName.trim().length < 2) {
+          throw new Error('Model name is too short');
+        }
+        return {
+          brand: b,
+          model_name: r.modelName.trim() || null,
+          default_amount: parseAmount(r.amount),
+          specifications: r.specifications.trim() || null,
+          more_specifications: r.moreSpecifications.trim() || null,
+        };
       });
+
+      const seen = new Set<string>();
+      for (const p of payload) {
+        const k = (p.model_name ?? '').toLowerCase();
+        if (seen.has(k)) throw new Error(`Duplicate model in this form: ${p.model_name || 'any model'}`);
+        seen.add(k);
+      }
+
+      const { error } = await db.from('smartphone_catalog').insert(payload);
       if (error) throw error;
+      return payload.length;
     },
-    onSuccess: () => {
-      toast.success('Phone added to catalog');
-      setBrand('');
-      setModelName('');
-      setAmount('');
-      setSpecifications('');
-      setMoreSpecifications('');
+    onSuccess: (count) => {
+      toast.success(count === 1 ? 'Phone added to catalog' : `${count} models added to catalog`);
+      setRows([emptyRow()]);
+      if (brandChoice === NEW_BRAND) setNewBrand('');
       invalidate();
     },
     onError: (e: any) => toast.error(e.message || 'Could not add phone'),
   });
+
 
 
   const updateEntry = useMutation({
@@ -275,7 +334,7 @@ export function SmartphoneCatalogDialog() {
             <Plus className="h-4 w-4" /> Manage Phone Catalog
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[88vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Smartphone className="h-4 w-4 text-primary" /> Smartphone catalog
@@ -283,53 +342,119 @@ export function SmartphoneCatalogDialog() {
           </DialogHeader>
 
           <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs">Brand</Label>
-                <Input value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="e.g. Samsung" />
+                <Select value={brandChoice} onValueChange={setBrandChoice}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a brand" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {brands.map((b) => (
+                      <SelectItem key={b} value={b}>
+                        {b}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={NEW_BRAND}>+ New brand…</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Model name <span className="text-muted-foreground font-normal">— optional</span></Label>
-                <Input value={modelName} onChange={(e) => setModelName(e.target.value)} placeholder="e.g. Galaxy A14" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Default amount (UGX) <span className="text-muted-foreground font-normal">— optional</span></Label>
-                <Input
-                  type="number"
-                  min={1000}
-                  step={1000}
-                  inputMode="numeric"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="e.g. 1200000"
-                />
-              </div>
+              {brandChoice === NEW_BRAND && (
+                <div className="space-y-1">
+                  <Label className="text-xs">New brand name</Label>
+                  <Input value={newBrand} onChange={(e) => setNewBrand(e.target.value)} placeholder="e.g. Samsung" />
+                </div>
+              )}
             </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Phone specifications <span className="text-muted-foreground font-normal">— optional</span></Label>
-              <textarea
-                value={specifications}
-                onChange={(e) => setSpecifications(e.target.value)}
-                placeholder={'e.g. 6.5" display, 128GB storage, 4GB RAM, Black'}
-                rows={3}
-                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">More specifications <span className="text-muted-foreground font-normal">— optional</span></Label>
-              <textarea
-                value={moreSpecifications}
-                onChange={(e) => setMoreSpecifications(e.target.value)}
-                placeholder="e.g. Battery 5000mAh, dual SIM, 1 year warranty"
-                rows={3}
-                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-              />
-            </div>
-            <Button className="w-full" onClick={() => addEntry.mutate()} disabled={addEntry.isPending}>
 
-              {addEntry.isPending ? 'Saving…' : 'Add to catalog'}
-            </Button>
+            <div className="space-y-2">
+              {rows.map((row, idx) => (
+                <div key={row.key} className="space-y-2 rounded-lg border bg-muted/30 p-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      {effectiveBrand.trim() ? `${effectiveBrand.trim()} · ` : ''}Model {idx + 1}
+                    </p>
+                    {rows.length > 1 && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-destructive hover:text-destructive"
+                        onClick={() => removeRow(row.key)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">
+                        Model name <span className="text-muted-foreground font-normal">— optional</span>
+                      </Label>
+                      <Input
+                        value={row.modelName}
+                        onChange={(e) => updateRow(row.key, { modelName: e.target.value })}
+                        placeholder="e.g. Galaxy A14"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">
+                        Default amount (UGX) <span className="text-muted-foreground font-normal">— optional</span>
+                      </Label>
+                      <Input
+                        type="number"
+                        min={1000}
+                        step={1000}
+                        inputMode="numeric"
+                        value={row.amount}
+                        onChange={(e) => updateRow(row.key, { amount: e.target.value })}
+                        placeholder="e.g. 1200000"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">
+                        Phone specifications <span className="text-muted-foreground font-normal">— optional</span>
+                      </Label>
+                      <textarea
+                        value={row.specifications}
+                        onChange={(e) => updateRow(row.key, { specifications: e.target.value })}
+                        placeholder={'e.g. 6.5" display, 128GB storage, 4GB RAM, Black'}
+                        rows={2}
+                        className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">
+                        More specifications <span className="text-muted-foreground font-normal">— optional</span>
+                      </Label>
+                      <textarea
+                        value={row.moreSpecifications}
+                        onChange={(e) => updateRow(row.key, { moreSpecifications: e.target.value })}
+                        placeholder="e.g. Battery 5000mAh, dual SIM, 1 year warranty"
+                        rows={2}
+                        className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-2">
+              <Button variant="outline" className="gap-1.5 sm:w-auto" onClick={addRow}>
+                <Plus className="h-4 w-4" /> Add another model
+              </Button>
+              <Button className="flex-1" onClick={() => addEntry.mutate()} disabled={addEntry.isPending}>
+                {addEntry.isPending
+                  ? 'Saving…'
+                  : rows.length > 1
+                    ? `Add ${rows.length} models to catalog`
+                    : 'Add to catalog'}
+              </Button>
+            </div>
           </div>
+
 
 
 
