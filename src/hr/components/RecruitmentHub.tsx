@@ -87,6 +87,8 @@ const SHORTLIST_1 = 'shortlist_1';
 const SHORTLIST_2 = 'shortlist_2';
 const SHORTLIST_3 = 'shortlist_3';
 const CONTACTED = 'contacted_filter';
+const NOT_CONTACTED = 'not_contacted_filter';
+
 
 const FILTER_OPTIONS: {
   value: string;
