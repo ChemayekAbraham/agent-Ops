@@ -1,5 +1,8 @@
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
+import type { AgentPopulation } from '@/lib/agentOpsComprehensiveReport';
+
+
 
 export interface ApsAgents { new_today: number; new_prev: number; total: number; base: number; active_today: number }
 export interface ApsRent {
