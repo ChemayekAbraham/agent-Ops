@@ -110,6 +110,14 @@ export function TenantCallingHub() {
         <KPICard title="Calls logged today" value={isLoading ? '—' : calledToday.toLocaleString('en-US')} icon={Users} color="bg-blue-500/10 text-blue-600" />
       </div>
 
+      {/* Reports are placed first so they are reachable without scrolling through the full calling list. */}
+      <TenantCallReportsPanel
+        rows={rows}
+        filteredRows={visible}
+        filterLabel={tabs.find(t => t.key === tab)?.label}
+        searchLabel={search.trim() || undefined}
+      />
+
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -226,13 +234,6 @@ export function TenantCallingHub() {
           )}
         </CardContent>
       </Card>
-
-      <TenantCallReportsPanel
-        rows={rows}
-        filteredRows={visible}
-        filterLabel={tabs.find(t => t.key === tab)?.label}
-        searchLabel={search.trim() || undefined}
-      />
 
 
       <TenantCallDrawer row={open} open={!!open} onClose={() => setOpen(null)} />
