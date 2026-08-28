@@ -191,31 +191,63 @@ export function SmartphoneCatalogDialog() {
     return n;
   };
 
+  const brands = useMemo(
+    () => Array.from(new Set(entries.map((e) => e.brand.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [entries],
+  );
+
+  const effectiveBrand = brandChoice === NEW_BRAND ? newBrand : brandChoice;
+
+  const updateRow = (key: string, patch: Partial<ModelRow>) =>
+    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+
+  const addRow = () => setRows((prev) => [...prev, emptyRow()]);
+  const removeRow = (key: string) =>
+    setRows((prev) => (prev.length === 1 ? [emptyRow()] : prev.filter((r) => r.key !== key)));
+
   const addEntry = useMutation({
     mutationFn: async () => {
-      if (brand.trim().length < 2) throw new Error('Enter a brand');
-      if (modelName.trim().length > 0 && modelName.trim().length < 2) throw new Error('Model name is too short');
-      const total = parseAmount(amount);
-      const { error } = await db.from('smartphone_catalog').insert({
-        brand: brand.trim(),
-        model_name: modelName.trim() || null,
-        default_amount: total,
-        specifications: specifications.trim() || null,
-        more_specifications: moreSpecifications.trim() || null,
+      const b = effectiveBrand.trim();
+      if (b.length < 2) throw new Error('Select an existing brand or enter a new one');
+
+      const filled = rows.filter(
+        (r) => r.modelName.trim() || r.amount.trim() || r.specifications.trim() || r.moreSpecifications.trim(),
+      );
+      const usable = filled.length > 0 ? filled : rows.slice(0, 1);
+
+      const payload = usable.map((r) => {
+        if (r.modelName.trim().length > 0 && r.modelName.trim().length < 2) {
+          throw new Error('Model name is too short');
+        }
+        return {
+          brand: b,
+          model_name: r.modelName.trim() || null,
+          default_amount: parseAmount(r.amount),
+          specifications: r.specifications.trim() || null,
+          more_specifications: r.moreSpecifications.trim() || null,
+        };
       });
+
+      const seen = new Set<string>();
+      for (const p of payload) {
+        const k = (p.model_name ?? '').toLowerCase();
+        if (seen.has(k)) throw new Error(`Duplicate model in this form: ${p.model_name || 'any model'}`);
+        seen.add(k);
+      }
+
+      const { error } = await db.from('smartphone_catalog').insert(payload);
       if (error) throw error;
+      return payload.length;
     },
-    onSuccess: () => {
-      toast.success('Phone added to catalog');
-      setBrand('');
-      setModelName('');
-      setAmount('');
-      setSpecifications('');
-      setMoreSpecifications('');
+    onSuccess: (count) => {
+      toast.success(count === 1 ? 'Phone added to catalog' : `${count} models added to catalog`);
+      setRows([emptyRow()]);
+      if (brandChoice === NEW_BRAND) setNewBrand('');
       invalidate();
     },
     onError: (e: any) => toast.error(e.message || 'Could not add phone'),
   });
+
 
 
   const updateEntry = useMutation({
