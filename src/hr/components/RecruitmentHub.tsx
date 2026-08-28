@@ -409,7 +409,7 @@ function ApplicationsTab() {
   const [segmentFilter, setSegmentFilter] = useState<string>(SEGMENT_ALL);
   const [groupBy, setGroupBy] = useState<'none' | 'role' | 'stage'>('role');
   const [sortConfig, setSortConfig] = useState<
-    { key: 'name' | 'role_interest' | 'status' | 'created'; dir: 'asc' | 'desc' }
+    { key: 'name' | 'role_interest' | 'stage' | 'created'; dir: 'asc' | 'desc' }
   >({ key: 'created', dir: 'desc' });
   const [pending, setPending] = useState<
     {
@@ -512,11 +512,11 @@ function ApplicationsTab() {
         const bv = (b.role_interest ?? '').toLowerCase();
         return av.localeCompare(bv) * (sortConfig.dir === 'asc' ? 1 : -1);
       });
-    } else if (sortConfig.key === 'status') {
+    } else if (sortConfig.key === 'stage') {
       sorted.sort((a, b) => {
-        const av = (a.status ?? '').toLowerCase();
-        const bv = (b.status ?? '').toLowerCase();
-        return av.localeCompare(bv) * (sortConfig.dir === 'asc' ? 1 : -1);
+        const av = STAGE_ORDER.indexOf(stageOf(a));
+        const bv = STAGE_ORDER.indexOf(stageOf(b));
+        return (av - bv) * (sortConfig.dir === 'asc' ? 1 : -1);
       });
     } else {
       sorted.sort((a, b) => {
@@ -528,7 +528,7 @@ function ApplicationsTab() {
     return sorted;
   }, [rows, search, statusFilter, segmentFilter, sortConfig]);
 
-  const toggleSort = (key: 'name' | 'role_interest' | 'status' | 'created') => {
+  const toggleSort = (key: 'name' | 'role_interest' | 'stage' | 'created') => {
     setSortConfig((prev) =>
       prev.key === key
         ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
@@ -681,16 +681,29 @@ function ApplicationsTab() {
     return [];
   }, [filteredSorted, groupBy]);
 
-  const renderTable = (list: JobApplicationRow[]) => (
+  const renderTable = (list: JobApplicationRow[]) => {
+    const listIds = list.map((r) => r.id);
+    const allInListSelected =
+      listIds.length > 0 && listIds.every((id) => selectedIds.has(id));
+    const toggleSelectAllInList = () => {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (allInListSelected) listIds.forEach((id) => next.delete(id));
+        else listIds.forEach((id) => next.add(id));
+        return next;
+      });
+    };
+
+    return (
     <Card className="overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead className="w-10">
               <Checkbox
-                checked={allVisibleSelected}
-                onCheckedChange={toggleSelectAllVisible}
-                aria-label="Select all shown applications"
+                checked={allInListSelected}
+                onCheckedChange={toggleSelectAllInList}
+                aria-label="Select all applications in this group"
               />
             </TableHead>
             <TableHead className="w-12">#</TableHead>
@@ -714,10 +727,10 @@ function ApplicationsTab() {
             </TableHead>
             <TableHead
               className="cursor-pointer select-none"
-              onClick={() => toggleSort('status')}
+              onClick={() => toggleSort('stage')}
             >
               Stage
-              {sortConfig.key === 'status' && (
+              {sortConfig.key === 'stage' && (
                 <span className="ml-1">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>
               )}
             </TableHead>
@@ -807,6 +820,7 @@ function ApplicationsTab() {
       </Table>
     </Card>
   );
+};
 
   if (isLoading) {
 
