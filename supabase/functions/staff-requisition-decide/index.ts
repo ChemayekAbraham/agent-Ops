@@ -105,6 +105,7 @@ Deno.serve(async (req) => {
         .single();
       await logEvent(admin, requisitionId, actor.id, actorName, "rejected", stageKey, comment, { amount: row.amount });
       await auditLog(admin, actor.id, requisitionId, "staff_requisition_rejected", comment);
+      await setGrowthClaimStatus(admin, requisitionId, "rejected");
       await notifyRequester(admin, updated, `Requisition ${row.requisition_code} was declined at ${stageLabel(stageKey)} review: ${comment}`);
       return json({ ok: true, requisition: updated }, 200);
     }
