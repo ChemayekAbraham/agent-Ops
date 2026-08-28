@@ -87,8 +87,6 @@ export default function MerchandiseStore() {
 
 
   const [bikeOpen, setBikeOpen] = useState(false);
-  const [bikeAmount, setBikeAmount] = useState('');
-  const [orderingBike, setOrderingBike] = useState(false);
   const [catalogPage, setCatalogPage] = useState(1);
   const [shareItem, setShareItem] = useState<CatalogItem | null>(null);
   // Post-purchase receipt shown to the buyer as explicit confirmation.
