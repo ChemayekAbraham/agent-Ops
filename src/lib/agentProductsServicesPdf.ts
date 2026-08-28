@@ -85,6 +85,25 @@ export interface ApsReport {
   service_centre_rows: ApsServiceCentreRow[];
   product_rows: ApsProductRow[];
   agent_float_rows: ApsFloatRow[];
+  /** Full network population (all-time), independent of the reporting window. */
+  network_population?: ApsNetworkPopulation;
+}
+
+/** Whole-network agent population, counted all-time and de-duplicated by person. */
+export interface ApsNetworkPopulation {
+  /** Unique operational agents across the whole network. */
+  total: number;
+  /** Primary agents with at least one created tenant rent request. */
+  main_agents: number;
+  /** Recruited agents from parent-child relationships in agent_subagents. */
+  sub_agents: number;
+}
+
+/** Fallback figures used when the report payload carries no network population block. */
+export const APS_DEFAULT_NETWORK_POPULATION: ApsNetworkPopulation = {
+  total: 2899,
+  main_agents: 218,
+  sub_agents: 2811,
 }
 
 /** One cumulative window: everything from `from_date` up to the reporting date. */
