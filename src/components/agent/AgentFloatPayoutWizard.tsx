@@ -753,6 +753,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation }: Agent
         // form would just look broken.
         if (allocation.inflight_payout) {
           setActivePayoutId(allocation.inflight_payout.id);
+          setResumedExistingPayout(true);
           setStep('disburse');
         } else {
           setStep('otp');
