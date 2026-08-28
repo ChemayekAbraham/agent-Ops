@@ -37,7 +37,7 @@ import DeviceAccessDialog from '@/components/merchandise/DeviceAccessDialog';
 const db = supabase as any;
 
 
-type OrderStatus = 'submitted' | 'pending_approval' | 'approved' | 'rejected' | 'processing' | 'completed' | 'failed';
+type OrderStatus = 'submitted' | 'pending_approval' | 'coo_approved' | 'approved' | 'rejected' | 'processing' | 'completed' | 'failed';
 
 interface SmartphoneOrder {
   id: string;
@@ -54,6 +54,7 @@ interface SmartphoneOrder {
 const STATUS_META: Record<OrderStatus, { label: string; icon: typeof Clock; className: string }> = {
   submitted: { label: 'Submitted', icon: Clock, className: 'bg-muted text-muted-foreground border-border' },
   pending_approval: { label: 'Pending approval', icon: Clock, className: 'bg-amber-500/15 text-amber-600 border-amber-500/30' },
+  coo_approved: { label: 'Approved — awaiting disbursement', icon: Clock, className: 'bg-sky-500/15 text-sky-600 border-sky-500/30' },
   approved: { label: 'Approved', icon: CheckCircle2, className: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' },
   rejected: { label: 'Rejected', icon: XCircle, className: 'bg-destructive/15 text-destructive border-destructive/30' },
   processing: { label: 'Processing', icon: Loader2, className: 'bg-amber-500/15 text-amber-600 border-amber-500/30' },
@@ -61,7 +62,7 @@ const STATUS_META: Record<OrderStatus, { label: string; icon: typeof Clock; clas
   failed: { label: 'Failed', icon: XCircle, className: 'bg-destructive/15 text-destructive border-destructive/30' },
 };
 
-const KNOWN_STATUSES: OrderStatus[] = ['submitted', 'pending_approval', 'approved', 'rejected', 'processing', 'completed', 'failed'];
+const KNOWN_STATUSES: OrderStatus[] = ['submitted', 'pending_approval', 'coo_approved', 'approved', 'rejected', 'processing', 'completed', 'failed'];
 
 /** Access amount is only revealed once an executive approves the order. */
 const APPROVED_STATUSES: OrderStatus[] = ['approved', 'processing', 'completed'];
@@ -73,6 +74,7 @@ const CANCELLABLE_STATUSES: OrderStatus[] = ['submitted', 'pending_approval', 'r
 function normalizeStatus(value: unknown): OrderStatus {
   return KNOWN_STATUSES.includes(value as OrderStatus) ? (value as OrderStatus) : 'submitted';
 }
+
 
 /** Access Fee = smartphone cost plus the 1.33× markup shown to agents. */
 const accessFee = (unitPrice: number) => Math.round(Number(unitPrice) * 1.33);
