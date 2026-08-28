@@ -719,7 +719,22 @@ export function AgentProductsServicesReport() {
               hint="awaiting verification" />
           </div>
 
+          {/* Total agents composition & sources */}
+          {populationQuery.isLoading ? (
+            <Skeleton className="h-64 rounded-xl" />
+          ) : populationQuery.error ? (
+            <Card><CardContent className="p-4 text-xs text-destructive">
+              {(populationQuery.error as any)?.message || 'Could not load the agent population composition'}
+            </CardContent></Card>
+          ) : populationQuery.data ? (
+            <TotalAgentsComposition
+              population={populationQuery.data}
+              asOf={format(today, 'dd MMM yyyy')}
+            />
+          ) : null}
+
           {/* Cumulative build-up */}
+
           <Card>
             <CardHeader className="p-3 pb-1">
               <CardTitle className="text-xs font-bold">
