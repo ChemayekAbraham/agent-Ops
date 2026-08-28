@@ -85,6 +85,21 @@ const badge = (label: string, kind: 'pass' | 'warn' | 'fail') =>
 const rateBadge = (rate: number) =>
   rate >= 90 ? badge('On track', 'pass') : rate >= 60 ? badge('Watch', 'warn') : badge('Attention', 'fail');
 
+/**
+ * Daily rent collection standing — aligned with the daily eligibility gate and the
+ * rating ladder (see agent-collection-coverage-bug-2026-08-28_v2):
+ * >= 75% Very Good, >= 50% Good (posting gate), >= 15% Fair, below that Attention.
+ */
+const collectionRateBadge = (rate: number) =>
+  rate >= 75
+    ? badge('Very good', 'pass')
+    : rate >= 50
+      ? badge('Good standing', 'pass')
+      : rate >= 15
+        ? badge('Watch', 'warn')
+        : badge('Attention', 'fail');
+
+
 function table(headers: { label: string; right?: boolean }[], rows: string[], empty: string) {
   if (!rows.length) {
     return `<p class="empty-state">${esc(empty)}</p>`;
