@@ -3298,7 +3298,40 @@ Deno.serve(async (req) => {
         awaiting: "merchant confirmation that own money was used",
       };
       const rows: Record<string, unknown>[] = [];
+      let autoConfirmPrincipal = false;
       if (merchantPrincipalShortfall > 0) {
+        // ── Auto-confirmation gate (2026-08-28) ─────────────────────────
+        // A float deficit alone still isn't proof the merchant personally
+        // paid the customer (their own cash never touches the ledger) — the
+        // 2026-08-19 fix specifically walked back auto-promoting a shortfall
+        // straight into a confirmed debt for exactly that reason. What's
+        // changed since then is the proof-of-payment image is now itself
+        // independently verified server-side (see the proof-vision block
+        // above) rather than merely "a file exists". Auto-confirm ONLY when
+        // BOTH hold:
+        //   1. is_evidenced — the SAME canonical point-in-time reconstruction
+        //      `v_merchant_oop_evidence` uses (merchant_float_position_at),
+        //      not a locally-recomputed approximation, so this claim would
+        //      already read as evidenced the moment anyone looks it up.
+        //   2. The proof image was actually vision-verified as a MATCH this
+        //      settlement (proofVerificationStatus === 'match') — not just
+        //      that a proof file is attached. A present-but-unverified or
+        //      mismatched/unreadable proof still requires a human.
+        // Anything short of both stays exactly as before: needs_review.
+        let isEvidenced = false;
+        try {
+          const { data: floatPos, error: floatPosErr } = await admin.rpc(
+            "merchant_float_position_at",
+            { p_agent_id: user.id, p_at: new Date().toISOString() },
+          );
+          if (!floatPosErr && floatPos != null) {
+            isEvidenced = Number(floatPos) < 0;
+          }
+        } catch (e) {
+          console.warn("[approve-withdrawal] merchant_float_position_at check failed", e);
+        }
+        autoConfirmPrincipal = isEvidenced && proofVerificationStatus === "match";
+
         rows.push({
           agent_id: user.id,
           withdrawal_id,
@@ -3307,14 +3340,25 @@ Deno.serve(async (req) => {
           telecom_charge: merchantTelecomExpected,
           float_used: merchantFloatConsumed,
           shortfall_amount: Math.round(merchantPrincipalShortfall),
-          status: "needs_review",
-          evidence: shortfallEvidence,
-          note:
-            `Merchant paid UGX ${amount.toLocaleString()} while holding only ` +
-            `UGX ${Math.round(merchantFloatAvailable).toLocaleString()} float. ` +
-            `Company float was short by UGX ` +
-            `${Math.round(merchantPrincipalShortfall).toLocaleString()} — awaiting the ` +
-            `merchant's confirmation that this came from their own money.`,
+          status: autoConfirmPrincipal ? "pending_reimbursement" : "needs_review",
+          ...(autoConfirmPrincipal ? { reviewed_at: new Date().toISOString() } : {}),
+          evidence: {
+            ...shortfallEvidence,
+            is_evidenced: isEvidenced,
+            proof_image_verification_status: proofVerificationStatus,
+            auto_confirmed: autoConfirmPrincipal,
+          },
+          note: autoConfirmPrincipal
+            ? `AUTO-CONFIRMED — Merchant paid UGX ${amount.toLocaleString()} while holding only ` +
+              `UGX ${Math.round(merchantFloatAvailable).toLocaleString()} float. Company float was ` +
+              `short by UGX ${Math.round(merchantPrincipalShortfall).toLocaleString()}, the float deficit ` +
+              `is evidenced by the ledger, and the uploaded proof-of-payment image was independently ` +
+              `verified as a match — auto-confirmed as owed without waiting for manual review.`
+            : `Merchant paid UGX ${amount.toLocaleString()} while holding only ` +
+              `UGX ${Math.round(merchantFloatAvailable).toLocaleString()} float. ` +
+              `Company float was short by UGX ` +
+              `${Math.round(merchantPrincipalShortfall).toLocaleString()} — awaiting the ` +
+              `merchant's confirmation that this came from their own money.`,
         });
       }
       if (merchantTelecomShortfall > 0) {
@@ -3357,14 +3401,18 @@ Deno.serve(async (req) => {
         } else {
           merchantOutOfPocketRecorded = true;
           try {
-            // Principal still needs a human to confirm it; telecom (fixed fee,
-            // reserved alongside the principal under a row lock) is auto-
-            // confirmed at insert time — the audit description must say which
+            // Principal normally needs a human to confirm it, unless the
+            // stricter auto-confirm gate above fired (evidenced deficit +
+            // vision-matched proof); telecom (fixed fee, reserved alongside
+            // the principal under a row lock) is auto-confirmed at insert
+            // time either way — the audit description must say which
             // actually happened here rather than always claiming "review".
             const parts: string[] = [];
             if (merchantPrincipalShortfall > 0) {
               parts.push(
-                `UGX ${Math.round(merchantPrincipalShortfall).toLocaleString()} principal filed for finance review`,
+                autoConfirmPrincipal
+                  ? `UGX ${Math.round(merchantPrincipalShortfall).toLocaleString()} principal auto-confirmed as owed (evidenced deficit + verified proof match)`
+                  : `UGX ${Math.round(merchantPrincipalShortfall).toLocaleString()} principal filed for finance review`,
               );
             }
             if (merchantTelecomShortfall > 0) {
@@ -3387,7 +3435,10 @@ Deno.serve(async (req) => {
                 telecom_charge: merchantTelecomExpected,
                 principal_shortfall: Math.round(merchantPrincipalShortfall),
                 telecom_shortfall: Math.round(merchantTelecomShortfall),
-                principal_status: merchantPrincipalShortfall > 0 ? "needs_review" : null,
+                principal_status:
+                  merchantPrincipalShortfall > 0
+                    ? autoConfirmPrincipal ? "pending_reimbursement" : "needs_review"
+                    : null,
                 telecom_status: merchantTelecomShortfall > 0 ? "pending_reimbursement" : null,
               },
             });
