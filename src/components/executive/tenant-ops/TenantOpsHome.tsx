@@ -26,7 +26,6 @@ import { RepaymentTrendChart } from '@/components/executive/RepaymentTrendChart'
 import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 import { useTenantRepaymentReliability } from '@/hooks/useTenantRepaymentReliability';
 import { useTenantOpsAcquisition } from '@/hooks/useTenantOpsAcquisition';
-import { AnalyticsChart } from '@/components/executive/AnalyticsChart';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import type { TenantOpsViewKey } from './tenantOpsNav';
