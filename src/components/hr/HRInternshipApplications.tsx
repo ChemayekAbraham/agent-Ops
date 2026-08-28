@@ -112,7 +112,7 @@ function FieldGroup({ title, children }: { title: string; children: React.ReactN
 
 export default function HRInternshipApplications() {
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState<string>(GROUPS[0].key);
+  const [statusFilter, setStatusFilter] = useState<'all' | AppStatus>('all');
   const [selected, setSelected] = useState<ApplicationRow | null>(null);
   const [pendingStatus, setPendingStatus] = useState<AppStatus | ''>('');
   const [reason, setReason] = useState('');
