@@ -864,7 +864,14 @@ function FinOpsHome({
       </div>
 
       {/* Above-the-fold highest frequency daily operations */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+        <MajorActionButton
+          onClick={() => onOpenTool('cash_codes')}
+          icon={KeyRound}
+          tone="amber"
+          title="Cash Deposit Codes"
+          desc="Read pending codes back to depositors — codes expire in 2 min."
+        />
         <MajorActionButton
           onClick={() => onOpenTool('email_tx')}
           icon={Mail}
