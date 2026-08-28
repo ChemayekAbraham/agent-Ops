@@ -441,6 +441,9 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation }: Agent
   // no OTP is asked for — so the success screen must say so instead of showing
   // a fresh "Payment Sent!" that looks like a brand-new, OTP-free payment.
   const [resumedExistingPayout, setResumedExistingPayout] = useState(false);
+  // Amount of the earlier payout we are only tracking (never re-sent), so the
+  // summary shows what was actually paid instead of the remaining allocation.
+  const [resumedPayoutAmount, setResumedPayoutAmount] = useState<number | null>(null);
 
   // ─── Challenge row is the SINGLE SOURCE OF TRUTH ───────────────────────
   // Every decision the wizard makes (show OTP inputs / hide them / advance
