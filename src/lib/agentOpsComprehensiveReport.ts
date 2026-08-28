@@ -328,7 +328,7 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
         <td class="right currency">${ugx(pos(Number(r.outstanding)))}</td>
         <td class="right pct">${exp > 0 ? `${rate.toFixed(1)}%` : '—'}</td>
         <td class="right num">${num(r.avg_days_outstanding)}</td>
-        <td class="right">${exp > 0 ? rateBadge(rate) : PENDING}</td>
+        <td class="right">${exp > 0 ? collectionRateBadge(rate) : PENDING}</td>
       </tr>`;
     });
 
@@ -397,7 +397,7 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
     </div>
 
     <h3 class="chart-header-title">Agent Payment Behaviour</h3>
-    <div class="chart-header-sub">Ranked by collection rate against each agent's own expected amount, not by absolute money collected.</div>
+    <div class="chart-header-sub">Ranked by collection rate against each agent's own expected daily obligation, not by absolute money collected. Standing follows the daily gate: 50%+ is good standing (agent can post), under 15% needs attention.</div>
     <div class="summary-card-title">Best 5</div>
     ${table(
       [{ label: 'Agent' }, { label: 'Phone' }, { label: 'Tenants', right: true }, { label: 'Expected', right: true },
