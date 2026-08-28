@@ -335,6 +335,20 @@ export function AgentProductsServicesReport() {
 
   const cumulative = cumulativeQuery.data ?? null;
 
+  /** Canonical operational agent population (main vs sub, active vs inactive). */
+  const populationQuery = useQuery({
+    queryKey: ['agent-operational-population', todayKey],
+    queryFn: async (): Promise<AgentPopulation> => {
+      const { data, error } = await supabase.rpc('get_agent_operational_population' as any, {
+        p_as_of: todayKey,
+      });
+      if (error) throw error;
+      return data as unknown as AgentPopulation;
+    },
+    staleTime: 60_000,
+  });
+
+
   // ===== Dynamic period-over-period baseline: the equal-length window immediately before =====
   const prevFrom = useMemo(() => subDays(day, rangeDays), [day, rangeDays]);
   const prevTo = useMemo(() => subDays(day, 1), [day]);
