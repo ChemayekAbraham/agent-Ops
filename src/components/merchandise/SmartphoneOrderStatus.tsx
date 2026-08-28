@@ -157,6 +157,29 @@ export default function SmartphoneOrderStatus({
     },
   });
 
+  /**
+   * Realtime: the COO approval and the CFO disbursement both update this
+   * agent's `merchandise_sales` row. Refresh the status card AND the wallet
+   * caches so the float credit shows up without a manual reload.
+   */
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase
+      .channel(`my-smartphone-orders-${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'merchandise_sales', filter: `customer_id=eq.${userId}` },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['my-smartphone-orders'] });
+          queryClient.invalidateQueries({ queryKey: ['wallet-balance', userId] });
+          queryClient.invalidateQueries({ queryKey: ['agent-commission-net', userId] });
+          queryClient.invalidateQueries({ queryKey: ['merchandise-recovery-plan', userId] });
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [userId, queryClient]);
+
   /** Keep the dropdown pointed at a still-existing order (newest by default). */
   useEffect(() => {
     if (orders.length === 0) {
