@@ -19,7 +19,7 @@ type Mode = 'v2' | 'intel' | 'classic';
 
 
 export function TenantOpsHub() {
-  const [mode, setMode] = useState<Mode>('v2');
+  const [mode, setMode] = useState<Mode>('classic');
   const [opsUserId, setOpsUserId] = useState<string | null>(null);
   const [behaviorTenantId, setBehaviorTenantId] = useState<string | null>(null);
   const [welileHomesOpen, setWelileHomesOpen] = useState(false);
