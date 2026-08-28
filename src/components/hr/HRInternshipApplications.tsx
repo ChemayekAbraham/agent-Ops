@@ -31,6 +31,36 @@ const ALL_STATUSES = [
 ] as const;
 type AppStatus = (typeof ALL_STATUSES)[number];
 
+/** Sort rank of a status; unknown or missing values sort last. */
+function statusRank(status: string | null | undefined): number {
+  const i = ALL_STATUSES.indexOf(status as AppStatus);
+  return i === -1 ? ALL_STATUSES.length : i;
+}
+
+/** Row tint by pipeline stage. Empty string means no tint. */
+function internshipToneClass(status: string | null | undefined): string {
+  switch (status) {
+    case 'screening':
+      return 'bg-sky-500/10 border-l-2 border-sky-400/70 hover:bg-sky-500/20 dark:bg-sky-500/10 dark:border-sky-400/80 dark:hover:bg-sky-500/20';
+    case 'interviewing':
+      return 'bg-teal-500/10 border-l-2 border-teal-400/70 hover:bg-teal-500/20 dark:bg-teal-500/10 dark:border-teal-400/80 dark:hover:bg-teal-500/20';
+    case 'offered':
+      return 'bg-violet-500/10 border-l-2 border-violet-400/70 hover:bg-violet-500/20 dark:bg-violet-500/10 dark:border-violet-400/80 dark:hover:bg-violet-500/20';
+    case 'placed':
+      return 'bg-emerald-500/10 border-l-2 border-emerald-400/70 hover:bg-emerald-500/20 dark:bg-emerald-500/10 dark:border-emerald-400/80 dark:hover:bg-emerald-500/20';
+    case 'retained':
+      return 'bg-amber-500/10 border-l-2 border-amber-400/70 hover:bg-amber-500/20 dark:bg-amber-500/10 dark:border-amber-400/80 dark:hover:bg-amber-500/20';
+    case 'declined':
+    case 'not_selected':
+    case 'withdrawn':
+      return 'bg-neutral-500/10 border-l-2 border-neutral-400/60 hover:bg-neutral-500/20 dark:bg-neutral-500/10 dark:border-neutral-400/70 dark:hover:bg-neutral-500/20';
+    case 'new':
+    case null:
+    default:
+      return '';
+  }
+}
+
 /** Statuses that mean the applicant has been contacted or moved past contact. */
 const CONTACTED_OR_LATER: AppStatus[] = ['screening', 'interviewing', 'offered', 'placed', 'retained'];
 
@@ -40,6 +70,10 @@ const GROUPS = [
   { key: 'placed', label: 'Placed', statuses: ['placed'] as AppStatus[] },
   { key: 'closed', label: 'Closed', statuses: ['declined', 'not_selected', 'withdrawn'] as AppStatus[] },
 ] as const;
+
+/** Fallback bucket for rows whose status maps to no group. Never part of GROUPS. */
+const UNMAPPED_GROUP = { key: 'unmapped', label: 'Unmapped', statuses: [] as AppStatus[] } as const;
+
 
 const CLOSED_STATUSES = GROUPS.find((g) => g.key === 'closed')!.statuses;
 const ACTIVE_STATUSES = GROUPS.find((g) => g.key === 'active')!.statuses;
@@ -152,15 +186,37 @@ export default function HRInternshipApplications() {
   const grouped = useMemo(() => {
     const map: Record<string, ApplicationRow[]> = {};
     for (const g of GROUPS) map[g.key] = [];
+    map[UNMAPPED_GROUP.key] = [];
     for (const app of searched) {
       const status = (app.status ?? ACTIVE_STATUSES[0]) as AppStatus;
       const group = GROUPS.find((g) => g.statuses.includes(status));
-      map[(group ?? GROUPS[0]).key].push(app);
+      map[group ? group.key : UNMAPPED_GROUP.key].push(app);
     }
     return map;
   }, [searched]);
 
+  const visibleGroups = (grouped[UNMAPPED_GROUP.key]?.length ?? 0) > 0
+    ? [...GROUPS, UNMAPPED_GROUP]
+    : [...GROUPS];
+
+  const activeTab = visibleGroups.some((g) => g.key === tab) ? tab : GROUPS[0].key;
+
+  const [sortConfig, setSortConfig] = useState<{ key: 'status' | 'created'; dir: 'asc' | 'desc' }>({
+    key: 'created',
+    dir: 'desc',
+  });
+
+  const toggleSort = (key: 'status' | 'created') => {
+    setSortConfig((prev) =>
+      prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' },
+    );
+  };
+
+  const sortIndicator = (key: 'status' | 'created') =>
+    sortConfig.key === key ? (sortConfig.dir === 'asc' ? '↑' : '↓') : '';
+
   const arrivedCount = Object.keys(newArrivals).length;
+
 
   const openRow = (app: ApplicationRow) => {
     setSelected(app);
@@ -201,7 +257,14 @@ export default function HRInternshipApplications() {
     queryClient.invalidateQueries({ queryKey: QUERY_KEY });
   }, [selected, pendingStatus, reason, user?.id, queryClient]);
 
-  const renderTable = (rows: ApplicationRow[]) => (
+  const renderTable = (rows: ApplicationRow[]) => {
+    const mult = sortConfig.dir === 'asc' ? 1 : -1;
+    const sortedRows = [...rows].sort((a, b) =>
+      sortConfig.key === 'status'
+        ? (statusRank(a.status) - statusRank(b.status)) * mult
+        : (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * mult,
+    );
+    return (
     <Card>
       <CardContent className="p-0">
         {isLoading ? (
@@ -217,20 +280,25 @@ export default function HRInternshipApplications() {
                   <TableHead>Phone</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Institution</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('status')}>
+                    Status <span>{sortIndicator('status')}</span>
+                  </TableHead>
                   <TableHead>Referral Code</TableHead>
-                  <TableHead>Applied At</TableHead>
+                  <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('created')}>
+                    Applied At <span>{sortIndicator('created')}</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((app) => {
+                {sortedRows.map((app) => {
                   const isNew = Boolean(newArrivals[app.id]);
                   return (
                     <TableRow
                       key={app.id}
                       onClick={() => openRow(app)}
-                      className={`cursor-pointer ${isNew ? 'border-l-4 border-l-emerald-500 animate-pulse bg-emerald-500/5' : ''}`}
+                      className={`cursor-pointer ${isNew ? 'border-l-4 border-l-emerald-500 animate-pulse bg-emerald-500/5' : internshipToneClass(app.status)}`}
                     >
+
                       <TableCell className="font-medium">
                         <span className="inline-flex items-center gap-2">
                           {app.full_name}
@@ -262,7 +330,9 @@ export default function HRInternshipApplications() {
         )}
       </CardContent>
     </Card>
-  );
+    );
+  };
+
 
   return (
     <div className="space-y-6">
@@ -286,9 +356,9 @@ export default function HRInternshipApplications() {
         </div>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
+      <Tabs value={activeTab} onValueChange={setTab}>
         <TabsList>
-          {GROUPS.map((g) => (
+          {visibleGroups.map((g) => (
             <TabsTrigger key={g.key} value={g.key} className="gap-2">
               {g.label}
               <Badge variant="secondary" className="text-[10px] px-1.5">
@@ -300,12 +370,13 @@ export default function HRInternshipApplications() {
             </TabsTrigger>
           ))}
         </TabsList>
-        {GROUPS.map((g) => (
+        {visibleGroups.map((g) => (
           <TabsContent key={g.key} value={g.key} className="mt-4">
             {renderTable(grouped[g.key] ?? [])}
           </TabsContent>
         ))}
       </Tabs>
+
 
       <Sheet open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
