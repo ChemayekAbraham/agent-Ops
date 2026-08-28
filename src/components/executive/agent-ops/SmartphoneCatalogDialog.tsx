@@ -117,8 +117,29 @@ async function exportCatalogPdf(rows: SmartphoneCatalogEntry[], from: string, to
   doc.save(`welile-smartphone-catalog-${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
+const NEW_BRAND = '__new__';
+
+interface ModelRow {
+  key: string;
+  modelName: string;
+  amount: string;
+  specifications: string;
+  moreSpecifications: string;
+}
+
+function emptyRow(): ModelRow {
+  return {
+    key: Math.random().toString(36).slice(2),
+    modelName: '',
+    amount: '',
+    specifications: '',
+    moreSpecifications: '',
+  };
+}
+
 /** Agent Ops dialog to manage phone models agents can order. */
 export function SmartphoneCatalogDialog() {
+
   const [open, setOpen] = useState(false);
   const [brandChoice, setBrandChoice] = useState<string>(NEW_BRAND);
   const [newBrand, setNewBrand] = useState('');
