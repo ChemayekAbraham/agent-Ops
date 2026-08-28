@@ -570,6 +570,13 @@ export function useAgentCapacityMap(agentIds: string[]) {
         out.set(id, {
           used: exp.used,
           active_count: exp.count,
+          tenants_due,
+          tenants_paid_today,
+          tenants_paid_yesterday,
+          coverage_today,
+          coverage_yesterday,
+          effective_coverage,
+
           active_tenant_count,
           paying_tenants_last_week: payingTenantsByAgent.get(id)?.size || 0,
           unfunded_tenant_count: unfundedTenantsByAgent.get(id)?.size || 0,
