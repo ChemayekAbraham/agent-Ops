@@ -43,6 +43,7 @@ import type { TenantOpsViewKey } from './tenantOpsNav';
 export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsViewKey) => void }) {
   const { data: counts, isLoading } = useTenantOpsToolCounts();
   const { data: reliability, isLoading: loadingReliability } = useTenantRepaymentReliability(800);
+  const { data: acquisition, isLoading: loadingAcquisition } = useTenantOpsAcquisition();
   const c = counts;
 
   const expected = c?.expected_today ?? 0;
@@ -60,38 +61,76 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
     ].filter((d) => d.value > 0);
   }, [reliability]);
 
+  const num = (v: number | undefined) => (v ?? 0).toLocaleString('en-US');
+  const inactiveTenants = Math.max(0, (c?.tenant_count ?? 0) - (c?.active_tenants ?? 0));
+  const growthPct = acquisition?.growthPct;
+  const growthLabel =
+    growthPct == null ? '—' : `${growthPct >= 0 ? '+' : ''}${growthPct.toFixed(1)}%`;
+
   const stats: { label: string; value: string; hint: string; icon: typeof Users; view: TenantOpsViewKey; tone?: string }[] = [
     {
-      label: 'Awaiting review',
-      value: (c?.review_requests ?? 0).toLocaleString('en-US'),
-      hint: `${c?.new_requests ?? 0} brand new`,
-      icon: ClipboardList,
-      view: 'pipeline',
-      tone: 'bg-warning/10 text-warning',
-    },
-    {
-      label: 'Active plans',
-      value: (c?.active_plans ?? 0).toLocaleString('en-US'),
-      hint: `${c?.repaying_plans ?? 0} repaying`,
-      icon: TrendingUp,
-      view: 'pipeline-hub',
-      tone: 'bg-primary/10 text-primary',
-    },
-    {
-      label: 'Tenants',
-      value: (c?.tenant_count ?? 0).toLocaleString('en-US'),
-      hint: `${c?.active_tenants ?? 0} active`,
+      label: 'Total Tenants',
+      value: num(c?.tenant_count),
+      hint: `${num(c?.active_tenants)} active`,
       icon: Users,
       view: 'all-tenants-hub',
       tone: 'bg-primary/10 text-primary',
     },
     {
-      label: 'Paid today',
-      value: (c?.paid_today_tenants ?? 0).toLocaleString('en-US'),
-      hint: `${c?.unpaid_today_tenants ?? 0} still unpaid`,
-      icon: CalendarCheck,
-      view: 'daily',
+      label: 'New Tenants Today',
+      value: num(acquisition?.newToday),
+      hint: `${num(acquisition?.newThisWeek)} this week`,
+      icon: UserPlus,
+      view: 'all-tenants-hub',
       tone: 'bg-success/10 text-success',
+    },
+    {
+      label: 'New Tenants This Month',
+      value: num(acquisition?.newThisMonth),
+      hint: `Growth ${growthLabel}`,
+      icon: CalendarDays,
+      view: 'all-tenants-hub',
+      tone: 'bg-success/10 text-success',
+    },
+    {
+      label: 'Active Tenants',
+      value: num(c?.active_tenants),
+      hint: `${num(c?.paid_today_tenants)} paid today`,
+      icon: UserCheck,
+      view: 'all-tenants-hub',
+      tone: 'bg-primary/10 text-primary',
+    },
+    {
+      label: 'Inactive Tenants',
+      value: num(inactiveTenants),
+      hint: 'No active rent plan',
+      icon: UserX,
+      view: 'all-tenants-hub',
+      tone: 'bg-muted text-muted-foreground',
+    },
+    {
+      label: 'Applications Today',
+      value: num(acquisition?.applicationsToday),
+      hint: `${num(c?.review_requests)} awaiting review`,
+      icon: ClipboardList,
+      view: 'pipeline',
+      tone: 'bg-warning/10 text-warning',
+    },
+    {
+      label: 'Applications Approved',
+      value: num(acquisition?.applicationsApproved),
+      hint: `${num(c?.approvals_today)} approved today`,
+      icon: CheckCircle2,
+      view: 'pipeline-hub',
+      tone: 'bg-success/10 text-success',
+    },
+    {
+      label: 'Applications Rejected',
+      value: num(acquisition?.applicationsRejected),
+      hint: `${num(c?.rejected_30d)} in last 30 days`,
+      icon: XCircle,
+      view: 'pipeline',
+      tone: 'bg-destructive/10 text-destructive',
     },
   ];
 
