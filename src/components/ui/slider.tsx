@@ -1,5 +1,7 @@
-import * as React from "react";
+"use client";
+
 import * as SliderPrimitive from "@radix-ui/react-slider";
+import * as React from "react";
 
 import { cn } from "@/lib/utils";
 import {
@@ -77,7 +79,7 @@ const Slider = React.forwardRef<
     );
   };
 
-  return (
+  const slider = (
     <SliderPrimitive.Root
       ref={ref}
       className={cn("relative flex w-full touch-none select-none items-center", className)}
@@ -92,6 +94,12 @@ const Slider = React.forwardRef<
         <React.Fragment key={index}>{renderThumb(value)}</React.Fragment>
       ))}
     </SliderPrimitive.Root>
+  );
+
+  return showTooltip ? (
+    <TooltipProvider delayDuration={0}>{slider}</TooltipProvider>
+  ) : (
+    slider
   );
 });
 Slider.displayName = SliderPrimitive.Root.displayName;
