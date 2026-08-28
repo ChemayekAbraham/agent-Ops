@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
+  Check,
   FileText,
   Search,
   Users,
@@ -406,6 +407,7 @@ function ApplicationsTab() {
   const [selected, setSelected] = useState<JobApplicationRow | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>(ALL);
   const [segmentFilter, setSegmentFilter] = useState<string>(SEGMENT_ALL);
+  const [groupBy, setGroupBy] = useState<'none' | 'role' | 'stage'>('role');
   const [sortConfig, setSortConfig] = useState<
     { key: 'name' | 'role_interest' | 'status' | 'created'; dir: 'asc' | 'desc' }
   >({ key: 'created', dir: 'desc' });
@@ -863,6 +865,16 @@ function ApplicationsTab() {
                 {s.label}
               </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+        <Select value={groupBy} onValueChange={(v) => setGroupBy(v as 'none' | 'role' | 'stage')}>
+          <SelectTrigger className="w-full sm:w-40">
+            <SelectValue placeholder="Group by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">No grouping</SelectItem>
+            <SelectItem value="role">Group by role</SelectItem>
+            <SelectItem value="stage">Group by stage</SelectItem>
           </SelectContent>
         </Select>
         <Button
