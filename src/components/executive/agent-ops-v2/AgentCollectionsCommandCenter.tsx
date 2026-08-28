@@ -17,6 +17,7 @@ import {
 import {
   CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown,
 } from 'lucide-react';
+import { ComprehensiveReportButton } from './ComprehensiveReportButton';
 import { format, startOfDay, endOfDay, subDays, startOfMonth, startOfYear, addDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
