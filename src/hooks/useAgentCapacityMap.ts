@@ -22,7 +22,7 @@ export const AGENT_RENT_CAP_UGX = 100_000_000;
  *   Agents with no active rent collections yet (Starter)
  *   are always allowed to post their first request.
  */
-export const DAILY_ELIGIBILITY_THRESHOLD = 0.20;
+export const DAILY_ELIGIBILITY_THRESHOLD = 0.50;
 
 /**
  * New-agent onboarding rule:
@@ -72,7 +72,7 @@ export const UNLIMITED_PER_TENANT_MAX = Number.MAX_SAFE_INTEGER;
  */
 export const DAILY_RATING_THRESHOLDS = {
   very_good: 0.75,
-  good:      0.20,
+  good:      0.50,
   fair:      0.15,
   bad:       0.05,
 } as const;
