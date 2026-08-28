@@ -32,6 +32,7 @@ export default function PayLandlord() {
     created_at: new Date().toISOString(),
     landlord_name: 'Ssebunya Robert',
     landlord_phone: '0772419045',
+    mobile_money_provider: null,
     tenant_name: 'Nakato Grace',
     inflight_payout: null,
   };
