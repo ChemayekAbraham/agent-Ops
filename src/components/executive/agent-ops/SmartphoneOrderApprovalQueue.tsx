@@ -255,8 +255,9 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
                     </p>
                   </div>
                   <Badge variant="outline" className={STATUS_TONE[o.order_status] || ''}>
-                    {o.order_status.replace(/_/g, ' ')}
+                    {statusLabel(o.order_status)}
                   </Badge>
+
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
