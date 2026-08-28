@@ -107,7 +107,7 @@ export function useTenantOpsAcquisition(enabled: boolean = true) {
       const prevMonth = acq.prev_month || 0;
 
       const trend = (acq.trend || []).map((t) => {
-        const day = new Date(`${t.date}T00:00:00`);
+        const day = new Date(t.date);
         return {
           date: format(day, 'd MMM'),
           fullDate: format(day, 'EEE, d MMM yyyy'),
