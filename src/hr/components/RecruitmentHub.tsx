@@ -490,7 +490,7 @@ function ApplicationsTab() {
 
     if (statusFilter !== ALL) {
       const option = FILTER_OPTIONS.find((o) => o.value === statusFilter);
-      data = data.filter((r) => option?.match(r.status, r.shortlist_round ?? null) ?? false);
+      data = data.filter((r) => option?.match(r) ?? false);
     }
 
     if (segmentFilter !== SEGMENT_ALL) {
