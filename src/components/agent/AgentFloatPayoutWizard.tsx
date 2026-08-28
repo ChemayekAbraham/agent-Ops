@@ -435,6 +435,11 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation }: Agent
   const [disburseError, setDisburseError] = useState<string | null>(null);
   const [isDisbursing, setIsDisbursing] = useState(false);
   const [isRetryingDisburse, setIsRetryingDisburse] = useState(false);
+  // True when the wizard was opened on a payout that was ALREADY submitted in
+  // an earlier session (its float is held against it). Nothing new is sent and
+  // no OTP is asked for — so the success screen must say so instead of showing
+  // a fresh "Payment Sent!" that looks like a brand-new, OTP-free payment.
+  const [resumedExistingPayout, setResumedExistingPayout] = useState(false);
 
   // ─── Challenge row is the SINGLE SOURCE OF TRUTH ───────────────────────
   // Every decision the wizard makes (show OTP inputs / hide them / advance
