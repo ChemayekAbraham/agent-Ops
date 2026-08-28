@@ -27,6 +27,8 @@ import {
   generateAgentProductsServicesPdf, apsPctChange, apsPctLabel, apsUgx, type ApsReport,
   apsWindowLabel, apsCompareLabel, apsExpectedTotal, apsAgentExpectedTotal, type ApsCumulative,
 } from '@/lib/agentProductsServicesPdf';
+import type { AgentPopulation } from '@/lib/agentOpsComprehensiveReport';
+
 
 const PAGE_SIZE = 15;
 
