@@ -465,57 +465,83 @@ export function generateAgentProductsServicesPdf(opts: {
   const productOutstanding = Number(report.bikes.outstanding) + Number(report.phones.outstanding);
   const productRepaidPct = productValue > 0 ? (productPaid / productValue) * 100 : 0;
 
+  const pct1 = (n: number | null) => (n === null ? '—' : `${n.toFixed(1)}%`);
+  const share = (n: number, d: number) => (d > 0 ? (n / d) * 100 : null);
+  const title = (s: any) => String(s ?? '—').replace(/_/g, ' ');
+
   // ===========================================================================
-  // PAGE 1 — Daily KPI header
+  // 1. KPI strip — the exact cards, order, values and hints from the page
   // ===========================================================================
   sectionTitle(
     '1. Daily performance headline',
-    `${isRange ? 'Cumulative' : 'Single-day'} position · ${periodLabel} · compared with the ${rangeDays === 1 ? 'previous day' : `prior ${rangeDays} days`}`,
+    `${isRange ? 'Cumulative' : 'Single-day'} position · ${periodLabel} · ${report.timezone} · ${isRange ? `compared with the preceding ${num(rangeDays)} days` : 'compared with the previous day'}`,
   );
 
   drawKpiCards([
     {
+      label: 'New agents added',
+      value: num(report.agents.new_today),
+      detail: `${apsPctLabel(report.agents.new_today, base.newAgents)} ${cmpLabel}`,
+    },
+    {
+      label: 'Total agents',
+      value: num(report.agents.total),
+      detail: `${apsPctLabel(report.agents.total, base.totalAgents)} ${cmpLabel}`,
+    },
+    {
       label: 'Rent collected',
       value: apsUgx(report.rent.collected_today),
-      detail: `${num(report.rent.collections_today)} entries · ${apsPctLabel(report.rent.collected_today, base.collected)} ${cmpLabel}`,
+      detail: `${apsPctLabel(report.rent.collected_today, base.collected)} ${cmpLabel}`,
+    },
+    {
+      label: 'Expected target (period)',
+      value: apsUgx(expectedTotal),
+      detail: `${apsUgx(report.rent.daily_receivable)}/day`,
     },
     {
       label: 'Collection rate vs expected',
       value: `${collectionRatePct.toFixed(1)}%`,
-      detail: `expected ${apsUgx(expectedTotal)} over ${num(expectedDays)} day${expectedDays === 1 ? '' : 's'}`,
+      detail: `${apsUgx(report.rent.collected_today)} of ${apsUgx(expectedTotal)}`,
     },
     {
-      label: 'Outstanding rent receivable',
+      label: 'Outstanding receivable',
       value: apsUgx(report.rent.outstanding),
-      detail: `${num(report.rent.live_plans)} live plans · ${num(report.rent.avg_days_outstanding)} avg days`,
-    },
-    {
-      label: 'Active agents',
-      value: num(report.agents.active_today),
-      detail: `${num(report.agents.total)} on register · +${num(report.agents.new_today)} new`,
-    },
-  ]);
-
-  drawKpiCards([
-    {
-      label: 'Advances outstanding',
-      value: apsUgx(report.advances.outstanding),
-      detail: `${num(report.advances.active_count)} active · recovered ${apsUgx(report.advances.deducted_today)}`,
+      detail: prev ? `${apsPctLabel(report.rent.outstanding, base.outstanding)} ${cmpLabel}` : undefined,
     },
     {
       label: 'Advances issued',
       value: apsUgx(report.advances.issued_today),
-      detail: `${num(report.advances.issued_count)} issued · ${num(report.advances.approved)} approved / ${num(report.advances.rejected)} rejected`,
+      detail: prev ? `${apsPctLabel(report.advances.issued_today, base.advIssued)} ${cmpLabel}` : undefined,
+    },
+    {
+      label: 'Advance outstanding',
+      value: apsUgx(report.advances.outstanding),
+      detail: `${apsUgx(report.advances.deducted_today)} recovered`,
     },
     {
       label: 'Active service centres',
-      value: num(serviceCentreRows.length || report.service_centres.active_total),
-      detail: `unique agent locations · ${num(report.service_centres.pending_total)} pending verification`,
+      value: num(report.service_centres.active_total),
+      detail: prev ? `${apsPctLabel(report.service_centres.active_total, base.scActive)} ${cmpLabel}` : undefined,
     },
     {
-      label: 'Equipment outstanding',
-      value: apsUgx(productOutstanding),
-      detail: `bikes ${apsUgx(report.bikes.outstanding)} · phones ${apsUgx(report.phones.outstanding)}`,
+      label: 'Bikes outstanding',
+      value: apsUgx(report.bikes?.outstanding),
+      detail: `${apsUgx(report.bikes?.daily_receivable)} due daily · ${num(report.bikes?.pending_total ?? 0)} pending issue (${apsUgx(report.bikes?.pending_value ?? 0)})`,
+    },
+    {
+      label: 'Smartphones outstanding',
+      value: apsUgx(report.phones?.outstanding),
+      detail: `${apsUgx(report.phones?.daily_receivable)} due daily · ${num(report.phones?.pending_total ?? 0)} pending issue (${apsUgx(report.phones?.pending_value ?? 0)})`,
+    },
+    {
+      label: 'Requests approved / rejected',
+      value: `${num(report.advances.approved)} / ${num(report.advances.rejected)}`,
+      detail: 'advance decisions',
+    },
+    {
+      label: 'Pending service centres',
+      value: num(report.service_centres.pending_total),
+      detail: 'awaiting verification',
     },
   ]);
 
@@ -524,7 +550,7 @@ export function generateAgentProductsServicesPdf(opts: {
   drawProgress(
     'Rent collection vs expected receivable',
     collectionRatePct,
-    `${apsUgx(report.rent.collected_today)} collected of ${apsUgx(expectedTotal)} expected`,
+    `${apsUgx(report.rent.collected_today)} collected of ${apsUgx(expectedTotal)} expected over ${num(expectedDays)} day${expectedDays === 1 ? '' : 's'}`,
   );
   drawProgress(
     'Advance recovery rate',
@@ -545,73 +571,103 @@ export function generateAgentProductsServicesPdf(opts: {
   );
 
   // ===========================================================================
-  // PAGE 2 — Category breakdown
+  // 2. Total agents composition & sources (same figures as the page section)
+  // ===========================================================================
+  const population = opts.population ?? null;
+  if (population) {
+    newPage();
+    const g = (v: unknown) => Math.max(0, Number(v) || 0);
+    const totalPop = g(population.total);
+    const popShare = (v: number) => (totalPop > 0 ? (v / totalPop) * 100 : 0);
+    sectionTitle(
+      '2. Total agents composition & sources',
+      `How the total of ${num(totalPop)} operational agents as at ${dayLabel} is made up. An operational agent has recorded at least one rent collection or carries a live rent plan.`,
+    );
+
+    drawKpiCards([
+      { label: 'Total agents', value: num(totalPop), detail: 'operational population' },
+      {
+        label: 'Main agents',
+        value: `${num(g(population.primary_total))} · ${popShare(g(population.primary_total)).toFixed(1)}%`,
+        detail: `${num(g(population.primary_active))} active · ${num(g(population.primary_inactive))} inactive`,
+      },
+      {
+        label: 'Sub-agents',
+        value: `${num(g(population.sub_total))} · ${popShare(g(population.sub_total)).toFixed(1)}%`,
+        detail: `${num(g(population.sub_active))} active · ${num(g(population.sub_inactive))} inactive`,
+      },
+      {
+        label: 'Active rent collecting',
+        value: `${num(g(population.active))} · ${popShare(g(population.active)).toFixed(1)}%`,
+        detail: 'collected in the last 30 days or carries a live plan',
+      },
+    ]);
+
+    drawProgress(
+      'Main agents share of network',
+      popShare(g(population.primary_total)),
+      `${num(g(population.primary_total))} main agents · ${num(g(population.sub_total))} sub-agents`,
+    );
+    drawProgress(
+      'Active rent collecting agents',
+      popShare(g(population.active)),
+      `${num(g(population.active))} active · ${num(g(population.inactive))} inactive / onboarding`,
+    );
+
+    drawTable(
+      'COMPOSITION RECONCILIATION',
+      ['Source', 'Grouping', 'Agents', '% of total'],
+      [60, 60, 30, 30],
+      [
+        ['Main agents', 'Network structure', num(g(population.primary_total)), `${popShare(g(population.primary_total)).toFixed(1)}%`],
+        ['Sub-agents', 'Network structure', num(g(population.sub_total)), `${popShare(g(population.sub_total)).toFixed(1)}%`],
+        ['Active rent collecting agents', 'Collection activity', num(g(population.active)), `${popShare(g(population.active)).toFixed(1)}%`],
+        ['Inactive / onboarding agents', 'Collection activity', num(g(population.inactive)), `${popShare(g(population.inactive)).toFixed(1)}%`],
+        ['Total agents', 'Each grouping sums to total', num(totalPop), '100.0%'],
+      ],
+      ['left', 'left', 'right', 'right'],
+    );
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.2);
+    doc.setTextColor(130, 125, 142);
+    doc.text(
+      'Main + sub-agents = total agents. Active + inactive = total agents. The two groupings are two independent views of the same population, so they are not added together.',
+      margin,
+      y,
+      { maxWidth: contentWidth },
+    );
+    y += 8;
+  }
+
+  // ===========================================================================
+  // 3. Cumulative build-up (same table as the page)
+  // ===========================================================================
+  const cumWindows = opts.cumulative?.windows ?? [];
+  if (cumWindows.length) {
+    ensure(50);
+    sectionTitle(
+      `3. Cumulative build-up to ${dayLabel}`,
+      'Totals accumulated from 7, 30, 90 and 365 days ago up to the reporting date',
+    );
+    drawTable(
+      '',
+      ['Window', 'From', 'Rent collected', 'Collections', 'New agents', 'Advances issued', 'Advances recovered'],
+      [34, 24, 34, 30, 22, 34, 34],
+      cumWindows.map((w) => [
+        apsWindowLabel(w.days), fmtDay(w.from_date), apsUgx(w.rent_collected),
+        `${num(w.collections_count)} · ${num(w.collecting_agents)} agents`,
+        num(w.new_agents), `${apsUgx(w.advances_issued)} · ${num(w.advances_count)}`, apsUgx(w.advances_recovered),
+      ]),
+      ['left', 'left', 'right', 'right', 'right', 'right', 'right'],
+    );
+  }
+
+  // ===========================================================================
+  // 4. Rent collected — last 14 days (the page's chart)
   // ===========================================================================
   newPage();
-  sectionTitle(
-    '2. Category breakdown',
-    'Rent · Advances · Service centres · Bikes & smartphones — issued positions only, archived records excluded',
-  );
-
-  drawKpiGrid([
-    { label: 'Rent collected', value: apsUgx(report.rent.collected_today), note: `${apsPctLabel(report.rent.collected_today, base.collected)} ${cmpLabel}` },
-    { label: 'Collection entries', value: num(report.rent.collections_today) },
-    { label: 'Expected daily receivable', value: apsUgx(report.rent.daily_receivable) },
-    { label: `Expected target (${num(expectedDays)} day${expectedDays === 1 ? '' : 's'})`, value: apsUgx(expectedTotal) },
-    { label: 'Collection rate vs expected', value: `${collectionRatePct.toFixed(1)}%` },
-    { label: 'Outstanding rent receivable', value: apsUgx(report.rent.outstanding) },
-    { label: 'Live rent plans', value: num(report.rent.live_plans) },
-    { label: 'Average days outstanding', value: num(report.rent.avg_days_outstanding) },
-  ]);
-
-  drawTable(
-    'CATEGORY TOTALS',
-    ['Category', 'Value in period', 'Outstanding', 'Volume', 'Share of outstanding'],
-    [46, 34, 34, 30, 30],
-    (() => {
-      const totalOutstanding =
-        Number(report.rent.outstanding) + Number(report.advances.outstanding) + productOutstanding;
-      const share = (v: number) => (totalOutstanding > 0 ? `${((v / totalOutstanding) * 100).toFixed(1)}%` : '—');
-      return [
-        ['Rent', apsUgx(report.rent.collected_today), apsUgx(report.rent.outstanding), `${num(report.rent.live_plans)} plans`, share(Number(report.rent.outstanding))],
-        ['Advances', apsUgx(report.advances.issued_today), apsUgx(report.advances.outstanding), `${num(report.advances.active_count)} active`, share(Number(report.advances.outstanding))],
-        ['Service centres', '—', '—', `${num(serviceCentreRows.length)} active`, '—'],
-        ['Motor bikes', apsUgx(report.bikes.paid), apsUgx(report.bikes.outstanding), `${num(bikeRows.length)} issued`, share(Number(report.bikes.outstanding))],
-        ['Smartphones', apsUgx(report.phones.paid), apsUgx(report.phones.outstanding), `${num(phoneRows.length)} issued`, share(Number(report.phones.outstanding))],
-      ];
-    })(),
-    ['left', 'right', 'right', 'right', 'right'],
-  );
-
-  sectionTitle('Advances');
-  drawKpiGrid([
-    { label: 'Requests submitted', value: num(report.advances.submitted) },
-    { label: 'Requests approved', value: num(report.advances.approved) },
-    { label: 'Requests rejected', value: num(report.advances.rejected) },
-    { label: 'Amount issued', value: apsUgx(report.advances.issued_today) },
-    { label: 'Recovered in period', value: apsUgx(report.advances.deducted_today) },
-    { label: 'Outstanding balance', value: apsUgx(report.advances.outstanding) },
-  ]);
-
-  sectionTitle('Service centres, bikes & smartphones');
-  drawKpiGrid([
-    { label: 'Active service centres (unique agent locations)', value: num(serviceCentreRows.length) },
-    { label: 'Added this month', value: num(report.service_centres.new_this_month), note: scTarget > 0 ? `target ${num(scTarget)}` : undefined },
-    { label: 'Pending verification', value: num(report.service_centres.pending_total) },
-    { label: 'Bikes issued (units)', value: num(bikeRows.length) },
-    { label: 'Bikes outstanding', value: apsUgx(report.bikes.outstanding) },
-    { label: 'Bikes daily recovery due', value: apsUgx(report.bikes.daily_receivable) },
-    { label: 'Smartphones issued (units)', value: num(phoneRows.length) },
-    { label: 'Smartphones outstanding', value: apsUgx(report.phones.outstanding) },
-    { label: 'Smartphones daily recovery due', value: apsUgx(report.phones.daily_receivable) },
-    { label: 'Orders pending issue (excluded above)', value: `${num(pendingCount)} units` },
-  ]);
-
-  // ===========================================================================
-  // PAGE 3 — 14-day collection trend
-  // ===========================================================================
-  newPage();
-  sectionTitle('3. 14-day collection trend', 'Daily rent collected, advances issued and recovered, and agents added');
+  sectionTitle('4. Rent collected — last 14 days', 'Daily rent collected, advances issued and recovered, and agents added');
 
   const series = [...report.trend].sort((a, b) => a.day.localeCompare(b.day)).slice(-14);
   if (series.length > 1) {
@@ -622,9 +678,8 @@ export function generateAgentProductsServicesPdf(opts: {
     doc.setDrawColor(232, 230, 240);
     doc.setFillColor(252, 251, 254);
     doc.rect(margin, y, contentWidth, chartH, 'FD');
-    // gridlines
-    [0.25, 0.5, 0.75].forEach((g) => {
-      const gy = y + chartH - chartH * g;
+    [0.25, 0.5, 0.75].forEach((gl) => {
+      const gy = y + chartH - chartH * gl;
       doc.setDrawColor(238, 236, 245);
       doc.line(margin, gy, margin + contentWidth, gy);
     });
@@ -666,94 +721,225 @@ export function generateAgentProductsServicesPdf(opts: {
     y += 8;
   }
 
-  const cumWindows = opts.cumulative?.windows ?? [];
-  if (cumWindows.length) {
-    drawTable(
-      `CUMULATIVE BUILD-UP TO ${dayLabel}`,
-      ['Window', 'From', 'Rent collected', 'Collections', 'New agents', 'Advances issued', 'Advances recovered'],
-      [34, 24, 34, 24, 22, 34, 34],
-      cumWindows.map((w) => [
-        apsWindowLabel(w.days), fmtDay(w.from_date), apsUgx(w.rent_collected),
-        `${num(w.collections_count)} (${num(w.collecting_agents)} agents)`,
-        num(w.new_agents), apsUgx(w.advances_issued), apsUgx(w.advances_recovered),
-      ]),
-      ['left', 'left', 'right', 'right', 'right', 'right', 'right'],
-    );
-  }
-
   // ===========================================================================
-  // PAGE 4 — Top 10 agent performers
+  // 5. Agent performance tab
   // ===========================================================================
   newPage();
-  sectionTitle(
-    '4. Top 10 agent performers',
-    'Ranked by rent collected in the reporting period · archived and inactive records excluded',
+  const floatRows = report.agent_float_rows || [];
+  const collectingAgents = floatRows.filter((r) => Number(r.collections_count) > 0).length;
+  const floatIn = floatRows.reduce((a, r) => a + (Number(r.float_received) || 0), 0);
+  const floatOut = floatRows.reduce((a, r) => a + (Number(r.float_paid_out) || 0), 0);
+  const floatCollected = floatRows.reduce((a, r) => a + (Number(r.collections_amount) || 0), 0);
+  const topAgent = [...floatRows].sort((a, b) => Number(b.collections_amount) - Number(a.collections_amount))[0];
+
+  sectionTitle('5. Agent performance', 'Float received, deployed and closing position, commission earned and collections per agent');
+  drawKpiCards([
+    { label: 'Agents that collected', value: pct1(share(collectingAgents, floatRows.length)), detail: `${num(collectingAgents)} of ${num(floatRows.length)} agents` },
+    { label: 'Float deployed to landlords', value: pct1(share(floatOut, floatIn)), detail: 'paid out as share of float received' },
+    { label: 'Top agent concentration', value: pct1(share(Number(topAgent?.collections_amount) || 0, floatCollected)), detail: topAgent?.agent_name || 'No collections' },
+    { label: 'Collections growth', value: apsPctLabel(floatCollected, base.collected), detail: cmpLabel },
+  ]);
+  drawTable(
+    '',
+    ['Agent', 'Phone', 'Location', 'Float received', 'Paid out', 'Closing float', 'Commission', 'Collected', 'Txns'],
+    [40, 26, 30, 30, 26, 28, 28, 30, 14],
+    floatRows.map((r) => [
+      r.agent_name || '—', r.phone || '—', r.location || '—',
+      apsUgx(r.float_received), apsUgx(r.float_paid_out), apsUgx(r.closing_float),
+      apsUgx(r.commission_balance), apsUgx(r.collections_amount), num(r.collections_count),
+    ]),
+    ['left', 'left', 'left', 'right', 'right', 'right', 'right', 'right', 'right'],
   );
-
-  const byAgent = new Map<string, { name: string; phone: string | null; location: string | null; collected: number; count: number; outstanding: number; plans: number; closing_float: number }>();
-  rentRows.forEach((r) => {
-    byAgent.set(r.agent_id, {
-      name: r.agent_name || '—', phone: r.phone, location: r.location,
-      collected: Number(r.collected_today) || 0, count: 0,
-      outstanding: Number(r.outstanding) || 0, plans: Number(r.live_plans) || 0, closing_float: 0,
-    });
-  });
-  report.agent_float_rows.forEach((f) => {
-    const existing = byAgent.get(f.agent_id);
-    if (existing) {
-      existing.count = Number(f.collections_count) || 0;
-      existing.closing_float = Number(f.closing_float) || 0;
-      if (!existing.collected) existing.collected = Number(f.collections_amount) || 0;
-    } else if (Number(f.collections_amount) > 0 || Number(f.closing_float) > 0) {
-      byAgent.set(f.agent_id, {
-        name: f.agent_name || '—', phone: f.phone, location: f.location,
-        collected: Number(f.collections_amount) || 0, count: Number(f.collections_count) || 0,
-        outstanding: 0, plans: 0, closing_float: Number(f.closing_float) || 0,
-      });
-    }
-  });
-  const top = [...byAgent.values()].sort((a, b) => b.collected - a.collected || b.outstanding - a.outstanding).slice(0, 10);
-  const topCollected = top.reduce((a, r) => a + r.collected, 0);
-  const bestCollected = Math.max(...top.map((r) => r.collected), 1);
-
-  if (top.length) {
-    drawKpiCards([
-      { label: 'Top 10 collections', value: apsUgx(topCollected), detail: `${num(top.length)} agents ranked` },
-      {
-        label: 'Share of total collected',
-        value: Number(report.rent.collected_today) > 0 ? `${((topCollected / Number(report.rent.collected_today)) * 100).toFixed(1)}%` : '—',
-        detail: `of ${apsUgx(report.rent.collected_today)} collected`,
-      },
-      { label: 'Best performer', value: top[0].name, detail: apsUgx(top[0].collected) },
-      { label: 'Agents with a live position', value: num(byAgent.size), detail: 'active receivable records only' },
-    ]);
-
-    drawTable(
-      '',
-      ['#', 'Agent', 'Location', 'Collected', 'Contribution', 'Plans', 'Outstanding', 'Closing float'],
-      [10, 44, 32, 34, 30, 16, 34, 32],
-      top.map((r, i) => [
-        `${i + 1}`, r.name, r.location || '—', apsUgx(r.collected),
-        `${((r.collected / bestCollected) * 100).toFixed(0)}% of best`,
-        num(r.plans), apsUgx(r.outstanding), apsUgx(r.closing_float),
-      ]),
-      ['left', 'left', 'left', 'right', 'right', 'right', 'right', 'right'],
-    );
-
-    sectionTitle('Relative contribution');
-    top.slice(0, 5).forEach((r) => {
-      drawProgress(
-        r.name,
-        (r.collected / bestCollected) * 100,
-        `${apsUgx(r.collected)} collected · ${num(r.count)} entries · ${num(r.plans)} live plans`,
-      );
-    });
-  } else {
+  if (!floatRows.length) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.4);
     doc.setTextColor(130, 125, 142);
-    doc.text('No agent collections recorded for the selected period.', margin, y);
+    doc.text('No agent float or collection activity for this period.', margin, y);
+    y += 8;
   }
+
+  // ===========================================================================
+  // 6. New agents tab
+  // ===========================================================================
+  newPage();
+  const newRows = report.new_agent_rows || [];
+  const addedAgents = Number(report.agents.new_today) || newRows.length;
+  const mainAdded = newRows.filter((r) => r.agent_type === 'main agent').length;
+  const subAdded = newRows.filter((r) => r.agent_type === 'sub-agent').length;
+  const addedDenom = mainAdded + subAdded || addedAgents;
+
+  sectionTitle('6. New agents', 'Agents registered in the selected period, with growth and type mix');
+  drawKpiCards([
+    { label: 'Growth vs previous period', value: apsPctLabel(addedAgents, base.newAgents), detail: cmpLabel },
+    { label: 'Share of total agent base', value: pct1(share(addedAgents, Number(report.agents.total) || 0)), detail: `${num(addedAgents)} of ${num(report.agents.total)} agents` },
+    { label: 'Main agents added', value: `${num(mainAdded)} · ${pct1(share(mainAdded, addedDenom))}`, detail: 'of agents added' },
+    { label: 'Sub-agents added', value: `${num(subAdded)} · ${pct1(share(subAdded, addedDenom))}`, detail: 'of agents added' },
+  ]);
+  drawTable(
+    '',
+    ['Agent', 'Phone', 'Location', 'Type', 'Parent agent', 'Added'],
+    [44, 28, 34, 24, 40, 30],
+    newRows.map((r) => [
+      r.name || '—', r.phone || '—', r.location || '—', title(r.agent_type), r.parent_name || '—',
+      r.created_at ? format(new Date(r.created_at), 'dd MMM yy HH:mm') : '—',
+    ]),
+    ['left', 'left', 'left', 'left', 'left', 'left'],
+  );
+  if (!newRows.length) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.4);
+    doc.setTextColor(130, 125, 142);
+    doc.text('No new agents registered in this period.', margin, y);
+    y += 8;
+  }
+
+  // ===========================================================================
+  // 7. Rent receivables tab
+  // ===========================================================================
+  newPage();
+  const repaidTotal = rentRows.reduce((a, r) => a + (Number(r.repaid_to_date) || 0), 0);
+  const payingAgents = rentRows.filter((r) => Number(r.collected_today) > 0).length;
+
+  sectionTitle('7. Rent receivables', 'Live rent positions per agent · archived and inactive records excluded');
+  drawKpiCards([
+    { label: 'Collection rate vs expected', value: pct1(share(Number(report.rent.collected_today) || 0, expectedTotal)), detail: 'collected as share of period target' },
+    { label: 'Portfolio repaid to date', value: pct1(share(repaidTotal, repaidTotal + (Number(report.rent.outstanding) || 0))), detail: 'repaid vs repaid + outstanding' },
+    { label: 'Agents collecting in period', value: pct1(share(payingAgents, rentRows.length)), detail: `${num(payingAgents)} of ${num(rentRows.length)} agents` },
+    { label: 'Outstanding growth', value: apsPctLabel(Number(report.rent.outstanding) || 0, base.outstanding), detail: cmpLabel },
+  ]);
+  drawTable(
+    '',
+    ['Agent', 'Phone', 'Plans', 'Daily due', 'Expected (period)', 'Collected', 'Repaid to date', 'Outstanding', 'Avg days'],
+    [38, 26, 14, 26, 30, 28, 30, 30, 18],
+    rentRows.map((r) => [
+      r.agent_name || '—', r.phone || '—', num(r.live_plans), apsUgx(r.daily_receivable),
+      apsUgx(apsAgentExpectedTotal(r, expectedDays)), apsUgx(r.collected_today),
+      apsUgx(r.repaid_to_date), apsUgx(r.outstanding), num(r.avg_days_outstanding),
+    ]),
+    ['left', 'left', 'right', 'right', 'right', 'right', 'right', 'right', 'right'],
+  );
+  if (!rentRows.length) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.4);
+    doc.setTextColor(130, 125, 142);
+    doc.text('No live rent receivables.', margin, y);
+    y += 8;
+  }
+
+  // ===========================================================================
+  // 8. Advances tab
+  // ===========================================================================
+  newPage();
+  const advRows = report.advance_rows || [];
+  const advSubmitted = Number(report.advances.submitted) || 0;
+  const advApproved = Number(report.advances.approved) || 0;
+  const advRejected = Number(report.advances.rejected) || 0;
+  const advDecided = advApproved + advRejected;
+  const advRecovered = advRows.reduce((a, r) => a + (Number(r.recovered) || 0), 0);
+
+  sectionTitle('8. Advances', 'Requests, issuance and recovery position for the selected period');
+  drawKpiCards([
+    { label: 'Approval rate', value: pct1(share(advApproved, advDecided || advSubmitted)), detail: `${num(advApproved)} approved` },
+    { label: 'Rejection rate', value: pct1(share(advRejected, advDecided || advSubmitted)), detail: `${num(advRejected)} rejected` },
+    { label: 'Recovery rate', value: pct1(share(advRecovered, advRecovered + (Number(report.advances.outstanding) || 0))), detail: 'recovered vs recovered + outstanding' },
+    { label: 'Issued growth', value: apsPctLabel(Number(report.advances.issued_today) || 0, base.advIssued), detail: cmpLabel },
+  ]);
+  drawTable(
+    '',
+    ['Agent', 'Phone', 'Status', 'Principal', 'Recovered', 'Outstanding', 'Installment', 'Deducted'],
+    [40, 28, 26, 30, 30, 30, 28, 28],
+    advRows.map((r) => [
+      r.agent_name || '—', r.phone || '—', title(r.status), apsUgx(r.principal),
+      apsUgx(r.recovered), apsUgx(r.outstanding), apsUgx(r.installment), apsUgx(r.deducted_today),
+    ]),
+    ['left', 'left', 'left', 'right', 'right', 'right', 'right', 'right'],
+  );
+  if (!advRows.length) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.4);
+    doc.setTextColor(130, 125, 142);
+    doc.text('No active or newly issued advances.', margin, y);
+    y += 8;
+  }
+
+  // ===========================================================================
+  // 9. Service centres tab
+  // ===========================================================================
+  newPage();
+  sectionTitle('9. Service centres', 'De-duplicated by unique agent location · active, verified or approved only');
+  drawKpiCards([
+    { label: 'Active service centres', value: num(serviceCentreRows.length), detail: 'unique agent locations' },
+    { label: 'Added this month', value: num(report.service_centres.new_this_month), detail: scTarget > 0 ? `target ${num(scTarget)} (${report.service_centres.target_month})` : 'no monthly target set' },
+    { label: 'Target achievement', value: scTarget > 0 ? `${scTargetPct.toFixed(1)}%` : '—', detail: 'this month vs target' },
+    { label: 'Pending verification', value: num(report.service_centres.pending_total), detail: 'awaiting verification' },
+  ]);
+  drawTable(
+    '',
+    ['Agent', 'Phone', 'Location', 'Status', 'Created', 'Verified', 'Approved'],
+    [44, 28, 44, 26, 26, 26, 26],
+    serviceCentreRows.map((r) => [
+      r.agent_name || '—', r.agent_phone || '—', r.location_name || '—', title(r.status),
+      r.created_at ? format(new Date(r.created_at), 'dd MMM yy') : '—',
+      r.verified_at ? format(new Date(r.verified_at), 'dd MMM yy') : '—',
+      r.approved_at ? format(new Date(r.approved_at), 'dd MMM yy') : '—',
+    ]),
+    ['left', 'left', 'left', 'left', 'left', 'left', 'left'],
+  );
+  if (!serviceCentreRows.length) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.4);
+    doc.setTextColor(130, 125, 142);
+    doc.text('No service centre records.', margin, y);
+    y += 8;
+  }
+
+  // ===========================================================================
+  // 10 & 11. Motor bikes and smartphones tabs
+  // ===========================================================================
+  ([
+    { idx: 10, label: 'Motor bikes', rows: bikeRows, stats: report.bikes, empty: 'No motor bikes issued' },
+    { idx: 11, label: 'Smartphones', rows: phoneRows, stats: report.phones, empty: 'No smartphones issued' },
+  ] as const).forEach((group) => {
+    newPage();
+    sectionTitle(
+      `${group.idx}. ${group.label}`,
+      'Issued units only · orders pending issue are reported separately and excluded from the table',
+    );
+    drawKpiCards([
+      { label: 'Units issued', value: num(group.rows.length), detail: `${num(group.stats?.pending_total ?? 0)} pending issue (${apsUgx(group.stats?.pending_value ?? 0)})` },
+      { label: 'Issued value', value: apsUgx(group.stats?.total_value), detail: `${apsUgx(group.stats?.paid)} paid` },
+      { label: 'Outstanding', value: apsUgx(group.stats?.outstanding), detail: `${apsUgx(group.stats?.daily_receivable)} due daily` },
+      {
+        label: 'Repayment progress',
+        value: pct1(share(Number(group.stats?.paid) || 0, Number(group.stats?.total_value) || 0)),
+        detail: 'paid as share of issued value',
+      },
+    ]);
+    drawTable(
+      '',
+      ['Holder', 'Phone', 'Item', 'Issued', 'Value', 'Paid', 'Outstanding', 'Daily rate', '% repaid', 'Position'],
+      [34, 24, 34, 22, 26, 24, 28, 24, 18, 24],
+      group.rows.map((r) => {
+        const issued = r.issued_date ?? r.sale_date;
+        return [
+          r.client_name || '—', r.client_phone || '—', r.item_name || '—',
+          issued ? format(new Date(`${String(issued).slice(0, 10)}T00:00:00`), 'dd MMM yy') : '—',
+          apsUgx(r.value), apsUgx(r.paid), apsUgx(r.outstanding), apsUgx(r.daily_rate),
+          `${num(r.repayment_rate)}%`,
+          r.repayment_position === 'pending_issue' ? 'Pending issue' : title(r.repayment_position),
+        ];
+      }),
+      ['left', 'left', 'left', 'left', 'right', 'right', 'right', 'right', 'right', 'left'],
+    );
+    if (!group.rows.length) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.4);
+      doc.setTextColor(130, 125, 142);
+      doc.text(group.empty, margin, y);
+      y += 8;
+    }
+  });
+
 
   // ===== Audit footer =====
   const pages = doc.getNumberOfPages();
