@@ -157,9 +157,6 @@ function Row({ label, a, b }: { label: string; a: number; b: number }) {
   );
 }
 
-/** Departments that map to the executive dashboards a cycle is sent to. */
-const DEFAULT_TARGET_DEPARTMENTS = ['Marketing', 'Engineering & Product', 'Operations'];
-
 function CycleManager({ cycles, onCreated }: { cycles: ReturnType<typeof useBudgetCycles>['cycles']; onCreated: () => Promise<void> }) {
   const [title, setTitle] = useState('');
   const [fy, setFy] = useState('');
@@ -182,7 +179,13 @@ function CycleManager({ cycles, onCreated }: { cycles: ReturnType<typeof useBudg
         .order('name');
       const list = (data ?? []) as { id: string; name: string }[];
       setDepartments(list);
-      setTargetIds(list.filter(d => DEFAULT_TARGET_DEPARTMENTS.includes(d.name)).map(d => d.id));
+      // Every active department is targeted by default. The previous default
+      // was a hardcoded list of three display names ('Marketing',
+      // 'Engineering & Product', 'Operations'), so every other department was
+      // silently left out of the cycle and never notified - and renaming or
+      // adding a department in HR quietly changed who got a budget call.
+      // Excluding a department is now a deliberate act, not a default.
+      setTargetIds(list.map(d => d.id));
     })();
   }, []);
 
@@ -268,7 +271,27 @@ function CycleManager({ cycles, onCreated }: { cycles: ReturnType<typeof useBudg
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="z-[100] max-h-72 w-64 overflow-y-auto">
-                <DropdownMenuLabel className="text-xs">Departments</DropdownMenuLabel>
+                <DropdownMenuLabel className="flex items-center justify-between gap-2 text-xs">
+                  <span>Departments</span>
+                  <span className="flex gap-2 font-normal">
+                    <button
+                      type="button"
+                      className="text-primary hover:underline disabled:opacity-40 disabled:no-underline"
+                      disabled={targetIds.length === departments.length}
+                      onClick={() => setTargetIds(departments.map(d => d.id))}
+                    >
+                      All
+                    </button>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:underline disabled:opacity-40 disabled:no-underline"
+                      disabled={targetIds.length === 0}
+                      onClick={() => setTargetIds([])}
+                    >
+                      Clear
+                    </button>
+                  </span>
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {departments.map(d => (
                   <DropdownMenuCheckboxItem
