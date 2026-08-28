@@ -7,6 +7,10 @@ export interface ApsAgents {
   total_registered?: number;
   /** Qualified agents with active collections, rent requests or listings. */
   operational?: number;
+  /** Operational main agents (total = main_agents + sub_agents). */
+  main_agents?: number;
+  /** Operational verified sub-agents. */
+  sub_agents?: number;
 }
 export interface ApsRent {
   collected_today: number; collected_prev: number; collections_today: number;
