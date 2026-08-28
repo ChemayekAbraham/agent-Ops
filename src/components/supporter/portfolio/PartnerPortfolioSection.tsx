@@ -106,7 +106,7 @@ export function PartnerPortfolioSection({ onViewPortfolios, onExploreOpportuniti
 
           <button
             onClick={() => onViewPortfolios()}
-            className="w-full py-2.5 rounded-xl border border-border/60 text-xs font-bold text-foreground active:scale-[0.98] transition-transform touch-manipulation min-h-[44px]"
+            className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold active:scale-[0.98] transition-transform touch-manipulation min-h-[44px]"
           >
             View all {list.length} portfolios →
           </button>
