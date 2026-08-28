@@ -183,6 +183,8 @@ export default function MyModuleSummary() {
   const onTarget = scored.filter((row) => {
     const target = row.definition!.target_value;
     if (target === null || target === undefined) return false;
+    // No reading for this period — no verdict either way.
+    if (row.snapshot.value === null || row.snapshot.value === undefined) return false;
     return row.definition!.direction === 'lower_is_better'
       ? row.snapshot.value <= target
       : row.snapshot.value >= target;
