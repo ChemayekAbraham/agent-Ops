@@ -85,6 +85,8 @@ Deno.serve(async (req) => {
       ? { supervisor_decided_by: actor.id, supervisor_decided_at: now, supervisor_note: comment || null }
       : stageKey === "coo"
       ? { coo_decided_by: actor.id, coo_decided_at: now, coo_note: comment || null }
+      : stageKey === "ceo"
+      ? { ceo_decided_by: actor.id, ceo_decided_at: now, ceo_note: comment || null }
       : { cfo_decided_by: actor.id, cfo_decided_at: now, cfo_note: comment || null };
 
     // ── Reject ───────────────────────────────────────────────────────────────
