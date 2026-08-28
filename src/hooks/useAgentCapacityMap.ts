@@ -164,8 +164,19 @@ export type AgentCapacity = {
    *   - 'blocked' : yesterday < 20% of expected daily → blocked today, red
    */
   daily_status: 'starter' | 'good' | 'blocked';
-  /** 5-tier human label for yesterday's performance. */
+  /** 5-tier human label for yesterday's performance (coverage-adjusted). */
   daily_rating: DailyRating;
+  /** Number of tenants due to pay today (active, non-paused rent plans). */
+  tenants_due: number;
+  /** Tenants who actually paid today / yesterday. */
+  tenants_paid_today: number;
+  tenants_paid_yesterday: number;
+  /** Coverage = tenants_paid / tenants_due for today / yesterday (0..1). */
+  coverage_today: number;
+  coverage_yesterday: number;
+  /** The coverage actually driving the rating demotion (best of the two). */
+  effective_coverage: number;
+
   /** True iff agent may post a new rent request today. */
   can_post_rent_today: boolean;
   /**
