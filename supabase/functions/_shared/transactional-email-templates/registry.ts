@@ -46,6 +46,7 @@ import { template as smartphoneOrderReceiptTemplate } from './smartphone-order-r
 import { template as portfolioRenewalApologyTemplate } from './portfolio-renewal-apology.tsx'
 import { template as partnerPortfolioInviteTemplate } from './partner-portfolio-invite.tsx'
 import { template as performanceAssessmentReportTemplate } from './performance-assessment-report.tsx'
+import { template as boardTechnologyMemoTemplate } from './board-technology-memo.tsx'
 import type { TemplateEntry } from './types.ts'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
