@@ -58,8 +58,8 @@ export const UNLIMITED_PER_TENANT_MAX = Number.MAX_SAFE_INTEGER;
  * no longer cover for tenants who paid nothing.
  *
  *   ≥ 75%        → Very Good  (emerald, allowed)
- *   20% – <75%   → Good       (green,   allowed)
- *   15% – <20%   → Fair       (amber,   BLOCKED)
+ *   50% – <75%   → Good       (green,   allowed)
+ *   15% – <50%   → Fair       (amber,   BLOCKED)
  *   5%  – <15%   → Bad        (orange,  BLOCKED)
  *   < 5%         → Very Bad   (red,     BLOCKED)
  *
