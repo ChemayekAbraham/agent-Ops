@@ -140,7 +140,11 @@ Deno.serve(async (req) => {
     const isFinalStage = stageKey === row.final_stage;
 
     if (!isFinalStage) {
-      const nextStage = stageKey === "supervisor" ? "coo" : row.final_stage;
+      const nextStage = stageKey === "supervisor"
+        ? "coo"
+        : stageKey === "ceo" && row.final_stage === "cfo"
+        ? "cfo"
+        : row.final_stage;
       const { data: updated } = await admin
         .from("staff_requisitions")
         .update({
