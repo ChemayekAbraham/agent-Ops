@@ -820,6 +820,7 @@ function ApplicationsTab() {
       </Table>
     </Card>
   );
+};
 
   if (isLoading) {
 
