@@ -895,6 +895,8 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
     },
     onSuccess: () => {
       setStep('done');
+      onDone?.();
+
       qc.invalidateQueries({ queryKey: ['agent-landlord-payout-float-balance'] });
       qc.invalidateQueries({ queryKey: ['agent-landlord-float-row'] });
       qc.invalidateQueries({ queryKey: ['agent-float-payout-requests'] });
