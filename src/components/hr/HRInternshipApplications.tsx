@@ -183,23 +183,21 @@ export default function HRInternshipApplications() {
     );
   });
 
-  const grouped = useMemo(() => {
-    const map: Record<string, ApplicationRow[]> = {};
-    for (const g of GROUPS) map[g.key] = [];
-    map[UNMAPPED_GROUP.key] = [];
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
     for (const app of searched) {
       const status = (app.status ?? ACTIVE_STATUSES[0]) as AppStatus;
-      const group = GROUPS.find((g) => g.statuses.includes(status));
-      map[group ? group.key : UNMAPPED_GROUP.key].push(app);
+      counts[status] = (counts[status] ?? 0) + 1;
     }
-    return map;
+    return counts;
   }, [searched]);
 
-  const visibleGroups = (grouped[UNMAPPED_GROUP.key]?.length ?? 0) > 0
-    ? [...GROUPS, UNMAPPED_GROUP]
-    : [...GROUPS];
+  const visibleRows = statusFilter === 'all'
+    ? searched
+    : searched.filter(
+        (app: ApplicationRow) => (app.status ?? ACTIVE_STATUSES[0]) === statusFilter,
+      );
 
-  const activeTab = visibleGroups.some((g) => g.key === tab) ? tab : GROUPS[0].key;
 
   const [sortConfig, setSortConfig] = useState<{ key: 'status' | 'created'; dir: 'asc' | 'desc' }>({
     key: 'created',
