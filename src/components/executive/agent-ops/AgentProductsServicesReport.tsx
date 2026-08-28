@@ -557,11 +557,11 @@ export function AgentProductsServicesReport() {
             <Kpi label="Bikes outstanding" value={apsUgx(bikes?.outstanding)}
               current={pop.bikes === undefined ? undefined : Number(bikes?.outstanding) || 0}
               previous={pop.bikes} invert compareLabel={compareLabel}
-              hint={`${apsUgx(bikes?.daily_receivable)} due daily`} />
+              hint={`${apsUgx(bikes?.daily_receivable)} due daily · ${num(bikes?.pending_total ?? 0)} pending issue (${apsUgx(bikes?.pending_value ?? 0)})`} />
             <Kpi label="Smartphones outstanding" value={apsUgx(phones?.outstanding)}
               current={pop.phones === undefined ? undefined : Number(phones?.outstanding) || 0}
               previous={pop.phones} invert compareLabel={compareLabel}
-              hint={`${apsUgx(phones?.daily_receivable)} due daily`} />
+              hint={`${apsUgx(phones?.daily_receivable)} due daily · ${num(phones?.pending_total ?? 0)} pending issue (${apsUgx(phones?.pending_value ?? 0)})`} />
             <Kpi label="Requests approved / rejected" value={`${num(report.advances.approved)} / ${num(report.advances.rejected)}`}
               current={pop.advApproved === undefined ? undefined : report.advances.approved}
               previous={pop.advApproved} compareLabel={compareLabel}
