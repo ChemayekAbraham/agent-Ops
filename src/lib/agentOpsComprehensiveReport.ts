@@ -407,7 +407,7 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
       best,
       'Expected amounts are unavailable for this window.',
     )}
-    <div class="summary-card-title">Attention required — 5</div>
+    <div class="summary-card-title">Lowest 5 by collection rate</div>
     ${table(
       [{ label: 'Agent' }, { label: 'Phone' }, { label: 'Tenants', right: true }, { label: 'Expected', right: true },
        { label: 'Paid', right: true }, { label: 'Outstanding', right: true }, { label: 'Collection rate', right: true }],
