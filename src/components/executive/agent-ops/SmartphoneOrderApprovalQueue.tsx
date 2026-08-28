@@ -36,22 +36,42 @@ interface SmartphoneOrderRow {
   order_status: string;
   rejection_reason: string | null;
   created_at: string;
+  coo_approved_at?: string | null;
+  cfo_disbursed_at?: string | null;
+  disbursed_amount?: number | null;
 }
 
 const STATUS_TONE: Record<string, string> = {
   pending_approval: 'bg-amber-500/15 text-amber-600 border-amber-500/30',
   submitted: 'bg-amber-500/15 text-amber-600 border-amber-500/30',
+  coo_approved: 'bg-sky-500/15 text-sky-600 border-sky-500/30',
   approved: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
   completed: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
   rejected: 'bg-destructive/15 text-destructive border-destructive/30',
 };
 
+const STATUS_LABEL: Record<string, string> = {
+  pending_approval: 'Awaiting COO',
+  submitted: 'Awaiting COO',
+  coo_approved: 'Awaiting CFO disbursement',
+  approved: 'Disbursed & active',
+};
+
+const statusLabel = (s: string) => STATUS_LABEL[s] || s.replace(/_/g, ' ');
+
+/** Stage 1 — application still needs the COO decision. */
 const isPending = (s: string) => s === 'pending_approval' || s === 'submitted';
+/** Stage 2 — COO approved, waiting for the CFO to release the funds. */
+const isAwaitingCfo = (s: string) => s === 'coo_approved';
+/** Anything the executives still have to act on. */
+const isOpen = (s: string) => isPending(s) || isAwaitingCfo(s);
 
 /**
- * Executive queue for agent smartphone orders. Orders arrive as
- * Pending Approval with no wallet charge; approving one creates the
- * 33% wallet recovery plan, rejecting one requires a 10+ char reason.
+ * Executive queue for agent smartphone applications — a two-stage flow:
+ * stage 1 the COO approves the official amount and forwards the file to the
+ * CFO (no money moves); stage 2 the CFO disburses the access amount into the
+ * agent's wallet float, activates the order and starts the 33% recovery plan.
+ * Rejecting at either stage requires a 10+ character reason.
  */
 export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingOnly?: boolean } = {}) {
   const queryClient = useQueryClient();
@@ -62,12 +82,20 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
   const [approveTarget, setApproveTarget] = useState<SmartphoneOrderRow | null>(null);
   const [officialAmount, setOfficialAmount] = useState('');
 
+  const approveStage: 'coo' | 'cfo' = approveTarget && isAwaitingCfo(approveTarget.order_status) ? 'cfo' : 'coo';
+
   const openApprove = (o: SmartphoneOrderRow) => {
     setApproveTarget(o);
     const existing = Number(o.total_amount || 0);
-    // Access Amount = phone amount + 33% markup; saved as the approved total price
-    setOfficialAmount(existing > 0 ? String(Math.round(existing * 1.33)) : '');
+    // COO stage: Access Amount = phone amount + 33% markup, saved as the approved
+    // total price. CFO stage: the COO-approved amount is what gets disbursed.
+    if (isAwaitingCfo(o.order_status)) {
+      setOfficialAmount(existing > 0 ? String(Math.round(existing)) : '');
+    } else {
+      setOfficialAmount(existing > 0 ? String(Math.round(existing * 1.33)) : '');
+    }
   };
+
 
 
   const officialAmountNumber = Math.max(0, Math.round(Number(officialAmount || 0) || 0));
