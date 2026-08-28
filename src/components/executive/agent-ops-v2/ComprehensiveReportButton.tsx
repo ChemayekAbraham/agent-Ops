@@ -118,7 +118,7 @@ export function ComprehensiveReportButton() {
         fromDate: from,
         toDate: to,
         periodLabel,
-        actor: profile?.full_name || user?.email || 'Agent Operations',
+        actor: (user?.user_metadata?.full_name as string | undefined) || user?.email || 'Agent Operations',
       });
       openAgentOpsComprehensiveReport(html);
       setOpen(false);
