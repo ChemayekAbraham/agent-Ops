@@ -65,33 +65,9 @@ export function useTenantOpsAcquisition(enabled: boolean = true) {
     queryFn: async (): Promise<TenantOpsAcquisition> => {
       const now = new Date();
       const todayStart = startOfDay(now);
-      const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-      const monthStart = startOfMonth(now);
-      const prevMonthStart = startOfMonth(subMonths(now, 1));
-      const trendStart = subDays(todayStart, 29);
-      // Oldest data we need: previous month (for growth %) or 30-day trend.
-      const fetchFrom = prevMonthStart < trendStart ? prevMonthStart : trendStart;
-
-      // Tenant registration dates (role grant = registration) — paginated, single column.
-      const registrations: string[] = [];
-      let from = 0;
-      const pageSize = 1000;
-      for (;;) {
-        const { data, error } = await supabase
-          .from('user_roles')
-          .select('created_at')
-          .eq('role', 'tenant')
-          .gte('created_at', fetchFrom.toISOString())
-          .order('created_at', { ascending: true })
-          .range(from, from + pageSize - 1);
-        if (error) throw error;
-        const rows = data || [];
-        for (const r of rows) registrations.push(r.created_at);
-        if (rows.length < pageSize) break;
-        from += pageSize;
-      }
 
       const [
+        acquisitionRes,
         applicationsTodayRes,
         applicationsApprovedRes,
         applicationsRejectedRes,
@@ -100,6 +76,7 @@ export function useTenantOpsAcquisition(enabled: boolean = true) {
         assignmentsRes,
         entriesRes,
       ] = await Promise.all([
+        supabase.rpc('get_tenant_ops_acquisition'),
         supabase
           .from('rent_requests')
           .select('id', { count: 'exact', head: true })
@@ -122,29 +99,29 @@ export function useTenantOpsAcquisition(enabled: boolean = true) {
           .from('service_centre_entries')
           .select('id, stationed_location'),
       ]);
-      // Registration counts
-      let newToday = 0;
-      let newThisWeek = 0;
-      let newThisMonth = 0;
-      let prevMonth = 0;
-      const dayBuckets = new Map<number, number>();
-      for (const iso of registrations) {
-        const d = new Date(iso);
-        if (d >= todayStart) newToday += 1;
-        if (d >= weekStart) newThisWeek += 1;
-        if (d >= monthStart) newThisMonth += 1;
-        else if (d >= prevMonthStart) prevMonth += 1;
-        if (d >= trendStart) {
-          const key = startOfDay(d).getTime();
-          dayBuckets.set(key, (dayBuckets.get(key) || 0) + 1);
-        }
-      }
+      if (acquisitionRes.error) throw acquisitionRes.error;
 
-      const trend = eachDayOfInterval({ start: trendStart, end: todayStart }).map((day) => ({
-        date: format(day, 'd MMM'),
-        fullDate: format(day, 'EEE, d MMM yyyy'),
-        count: dayBuckets.get(startOfDay(day).getTime()) || 0,
-      }));
+      // Registration counts (existing tenant source, computed server-side)
+      const acq = (acquisitionRes.data || {}) as {
+        new_today?: number;
+        new_week?: number;
+        new_month?: number;
+        prev_month?: number;
+        trend?: { date: string; count: number }[];
+      };
+      const newToday = acq.new_today || 0;
+      const newThisWeek = acq.new_week || 0;
+      const newThisMonth = acq.new_month || 0;
+      const prevMonth = acq.prev_month || 0;
+
+      const trend = (acq.trend || []).map((t) => {
+        const day = new Date(`${t.date}T00:00:00`);
+        return {
+          date: format(day, 'd MMM'),
+          fullDate: format(day, 'EEE, d MMM yyyy'),
+          count: t.count,
+        };
+      });
 
       const growthPct =
         prevMonth > 0 ? ((newThisMonth - prevMonth) / prevMonth) * 100 : null;
