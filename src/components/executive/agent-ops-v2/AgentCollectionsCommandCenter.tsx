@@ -264,6 +264,7 @@ export function AgentCollectionsCommandCenter() {
           <h2 className="text-base font-semibold">Collections Command Center</h2>
           {isFetching && <RefreshCw className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
         </div>
+        <ComprehensiveReportButton />
         <div className="flex flex-wrap gap-1.5">
           {PRESETS.map(p => (
             <Button
