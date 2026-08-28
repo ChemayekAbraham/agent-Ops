@@ -573,20 +573,28 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
           )}
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              disabled={approve.isPending}
-              onClick={() => { setApproveTarget(null); setOfficialAmount(''); }}
-            >
+            <Button variant="outline" disabled={approve.isPending} onClick={closeApprove}>
               Cancel
             </Button>
             <Button
-              disabled={approve.isPending || officialAmountNumber < 1000 || !approveTarget}
+              disabled={
+                approve.isPending ||
+                officialAmountNumber < 1000 ||
+                !approveTarget ||
+                (approveStage === 'coo' && repaymentDaysNumber < 1)
+              }
               onClick={() =>
                 approveTarget &&
-                approve.mutate({ id: approveTarget.id, amount: officialAmountNumber, stage: approveStage })
+                approve.mutate({
+                  id: approveTarget.id,
+                  amount: officialAmountNumber,
+                  stage: approveStage,
+                  daily: approveStage === 'coo' ? dailyDeduction : undefined,
+                  days: approveStage === 'coo' ? repaymentDaysNumber : undefined,
+                })
               }
             >
+
               {approve.isPending ? (
                 <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Processing…</>
               ) : approveStage === 'cfo' ? (
