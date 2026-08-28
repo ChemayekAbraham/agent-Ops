@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import {
   ClipboardList,
   CalendarCheck,
@@ -13,6 +13,13 @@ import {
   ShieldCheck,
   TrendingUp,
   Wallet,
+  UserPlus,
+  UserCheck,
+  UserX,
+  CheckCircle2,
+  XCircle,
+  CalendarDays,
+  MapPin,
 } from 'lucide-react';
 import { HubEntryCard } from '@/components/ops/HubEntryCard';
 import { RepaymentTrendChart } from '@/components/executive/RepaymentTrendChart';
