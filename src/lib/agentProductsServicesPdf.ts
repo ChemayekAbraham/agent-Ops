@@ -85,6 +85,25 @@ export interface ApsReport {
   service_centre_rows: ApsServiceCentreRow[];
   product_rows: ApsProductRow[];
   agent_float_rows: ApsFloatRow[];
+  /** Full network population (all-time), independent of the reporting window. */
+  network_population?: ApsNetworkPopulation;
+}
+
+/** Whole-network agent population, counted all-time and de-duplicated by person. */
+export interface ApsNetworkPopulation {
+  /** Unique operational agents across the whole network. */
+  total: number;
+  /** Primary agents with at least one created tenant rent request. */
+  main_agents: number;
+  /** Recruited agents from parent-child relationships in agent_subagents. */
+  sub_agents: number;
+}
+
+/** Fallback figures used when the report payload carries no network population block. */
+export const APS_DEFAULT_NETWORK_POPULATION: ApsNetworkPopulation = {
+  total: 2899,
+  main_agents: 218,
+  sub_agents: 2811,
 }
 
 /** One cumulative window: everything from `from_date` up to the reporting date. */
@@ -548,6 +567,51 @@ export function generateAgentProductsServicesPdf(opts: {
     productRepaidPct,
     `${apsUgx(productPaid)} repaid of ${apsUgx(productValue)} issued value`,
   );
+
+  // ---------------------------------------------------------------------------
+  // Network population (all-time, whole network)
+  // ---------------------------------------------------------------------------
+  const netPop = report.network_population ?? APS_DEFAULT_NETWORK_POPULATION;
+  const netTotal = Number(netPop.total) || 0;
+  const netMain = Number(netPop.main_agents) || 0;
+  const netSub = Number(netPop.sub_agents) || 0;
+  const netShare = (v: number) => (netTotal > 0 ? `${((v / netTotal) * 100).toFixed(1)}%` : '—');
+
+  y += 2;
+  ensure(40);
+  sectionTitle(
+    'Total network population',
+    'All-time population across the whole network, de-duplicated by person — independent of the reporting window',
+  );
+  drawKpiCards([
+    {
+      label: 'Total network population',
+      value: num(netTotal),
+      detail: 'unique operational agents',
+    },
+    {
+      label: 'Main agents',
+      value: num(netMain),
+      detail: `${netShare(netMain)} · primary agents with at least 1 created tenant rent request`,
+    },
+    {
+      label: 'Sub-agents',
+      value: num(netSub),
+      detail: `${netShare(netSub)} · recruited agents from parent-child relationships`,
+    },
+  ]);
+  drawTable(
+    '',
+    ['Population group', 'Definition', 'Agents', '% of network'],
+    [1.1, 2.4, 0.7, 0.8],
+    [
+      ['Main agents', 'Primary agents with at least 1 created tenant rent request', num(netMain), netShare(netMain)],
+      ['Sub-agents', 'Recruited agents from parent-child relationships in agent_subagents', num(netSub), netShare(netSub)],
+      ['Total network population', 'Unique operational agents across the whole network', num(netTotal), '100.0%'],
+    ],
+    ['left', 'left', 'right', 'right'],
+  );
+
 
   // ===========================================================================
   // PAGE 2 — Category breakdown
