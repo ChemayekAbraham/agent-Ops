@@ -484,6 +484,7 @@ export function InvestmentCalculator() {
 
   return (
     <div className="space-y-3 sm:space-y-6">
+      <GooeyFilter />
       {/* Hero Card - Compact on mobile */}
       <div className="rounded-xl sm:rounded-2xl bg-gradient-to-br from-primary/15 to-success/10 p-px">
         <Card className="border-0 bg-background/90 backdrop-blur-sm overflow-hidden">
