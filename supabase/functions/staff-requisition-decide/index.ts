@@ -333,3 +333,22 @@ async function notifyApprovers(admin: any, approverRole: string, row: any) {
     console.error("notifyApprovers failed (non-fatal)", e);
   }
 }
+
+/**
+ * Growth commission claims own their counting window. Releasing a claim is what
+ * moves the "new platform users since" baseline forward; a rejected claim frees
+ * its window so those users are counted again on the next claim.
+ */
+// deno-lint-ignore no-explicit-any
+async function setGrowthClaimStatus(
+  admin: any, requisitionId: string, status: "rejected" | "released", creditedAt?: string,
+) {
+  try {
+    await admin
+      .from("growth_commission_claims")
+      .update({ status, ...(creditedAt ? { credited_at: creditedAt } : {}) })
+      .eq("requisition_id", requisitionId);
+  } catch (e) {
+    console.error("setGrowthClaimStatus failed (non-fatal)", e);
+  }
+}
