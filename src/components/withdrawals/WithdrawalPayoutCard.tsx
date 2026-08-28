@@ -19,6 +19,7 @@ import {
   Banknote, CheckCircle2, Loader2, Building2, Clock, Smartphone,
   UserCheck, ArrowRight, Phone, CreditCard, ChevronDown, XCircle,
   Copy, AlertTriangle, ClipboardPaste, Upload, X as XIcon, FileText, Lock,
+  ShieldCheck,
 } from 'lucide-react';
 import { parsePayoutConfirmationSms } from '@/utils/smsParser';
 import { usePayoutsUiEnabled } from '@/hooks/usePayoutsUiEnabled';
@@ -346,6 +347,9 @@ export function WithdrawalPayoutCard({
   );
   const parsedTid = parsedSms?.transactionId ?? null;
   const parsedAmount = parsedSms?.amount ?? null;
+  const parsedPhone = parsedSms?.phone ?? null;
+  const parsedDate = parsedSms?.date ?? null;
+  const parsedTime = parsedSms?.time ?? null;
   const hasPastedSms = pastedSms.trim().length > 0;
   const amountMatches = parsedAmount != null && parsedAmount === payoutAmount;
   const amountMismatch = parsedAmount != null && parsedAmount !== payoutAmount;
@@ -601,6 +605,27 @@ export function WithdrawalPayoutCard({
                     Taken
                   </Badge>
                 )}
+                {withdrawal?.payout_proof_verification_status && (
+                  <Badge
+                    variant="outline"
+                    className={`text-xs h-5 px-2 gap-1 max-w-full ${
+                      withdrawal.payout_proof_verification_status === 'match'
+                        ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                        : withdrawal.payout_proof_verification_status === 'mismatch'
+                        ? 'bg-destructive/15 text-destructive border-destructive/30'
+                        : 'bg-muted text-muted-foreground border-border'
+                    }`}
+                  >
+                    <ShieldCheck className="h-3 w-3 shrink-0" />
+                    <span className="truncate">
+                      {withdrawal.payout_proof_verification_status === 'match'
+                        ? 'Proof Photo Verified'
+                        : withdrawal.payout_proof_verification_status === 'mismatch'
+                        ? 'Proof Mismatch'
+                        : 'Proof Unverifiable'}
+                    </span>
+                  </Badge>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-between sm:justify-end">
@@ -803,7 +828,7 @@ export function WithdrawalPayoutCard({
                 {completingId === withdrawal.id && (
                   <div className="rounded-lg bg-blue-500/10 border border-blue-500/30 px-3 py-2 text-sm font-semibold text-blue-700 dark:text-blue-400 flex items-center gap-1.5">
                     <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-                    <span>Confirming payment… please wait</span>
+                    <span>Confirming payment &amp; verifying proof photo… please wait</span>
                   </div>
                 )}
                 <p className="text-sm font-semibold text-primary flex items-start gap-1.5">
@@ -835,7 +860,7 @@ export function WithdrawalPayoutCard({
                         className="text-sm resize-none"
                       />
                       <p className="text-[10px] text-muted-foreground">
-                        We only read the amount and transaction ID from this message.
+                        We only read the amount, TID, phone and date from this message.
                       </p>
                     </div>
                     <div className="rounded-xl border bg-muted/40 p-3 space-y-2 text-xs self-start">
@@ -856,6 +881,20 @@ export function WithdrawalPayoutCard({
                             {parsedAmount != null ? formatUGX(parsedAmount) : <span className="text-warning">Not found</span>}
                           </span>
                         </div>
+                        {parsedPhone && (
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-muted-foreground">Recipient Phone</span>
+                            <span className="font-mono font-semibold">{parsedPhone}</span>
+                          </div>
+                        )}
+                        {(parsedDate || parsedTime) && (
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-muted-foreground">Date / Time</span>
+                            <span className="font-medium text-foreground/80">
+                              {[parsedDate, parsedTime].filter(Boolean).join(' ')}
+                            </span>
+                          </div>
+                        )}
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-muted-foreground">Amount requested</span>
                           <span className="font-semibold tabular-nums">{formatUGX(payoutAmount)}</span>
@@ -945,7 +984,7 @@ export function WithdrawalPayoutCard({
                     title={completingId === withdrawal.id ? 'Request is being processed…' : 'Confirm this payout'}
                   >
                     {completingId === withdrawal.id || proofUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                    {proofUploading ? 'Uploading proof…' : completingId === withdrawal.id ? 'Confirming…' : 'Confirm Paid'}
+                    {proofUploading ? 'Uploading proof…' : completingId === withdrawal.id ? 'Verifying proof photo…' : 'Confirm Paid'}
                   </Button>
                 </div>
                 {/* Proof of payment upload — mandatory for bank & offline cash
