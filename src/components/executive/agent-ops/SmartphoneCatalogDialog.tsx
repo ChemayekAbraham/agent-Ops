@@ -26,6 +26,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
 
 const db = supabase as any;
@@ -327,7 +334,7 @@ export function SmartphoneCatalogDialog() {
             <Plus className="h-4 w-4" /> Manage Phone Catalog
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[88vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Smartphone className="h-4 w-4 text-primary" /> Smartphone catalog
