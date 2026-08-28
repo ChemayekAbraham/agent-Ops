@@ -174,9 +174,9 @@ export function PartnerPortfolioWalletCard({ onAddCard, onPortfolios, onCalculat
                   className="shrink-0 rounded p-0.5 text-white/70 hover:text-white hover:bg-white/10 transition"
                 >
                   {showAmount ? (
-                    <EyeOff style={{ width: 'clamp(12px, 3cqw, 18px)', height: 'clamp(12px, 3cqw, 18px)' }} />
-                  ) : (
                     <Eye style={{ width: 'clamp(12px, 3cqw, 18px)', height: 'clamp(12px, 3cqw, 18px)' }} />
+                  ) : (
+                    <EyeOff style={{ width: 'clamp(12px, 3cqw, 18px)', height: 'clamp(12px, 3cqw, 18px)' }} />
                   )}
                 </button>
               </div>
