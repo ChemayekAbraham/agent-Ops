@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertTriangle,
+  Check,
   FileText,
   Search,
   Users,
@@ -87,21 +88,25 @@ const SHORTLIST_1 = 'shortlist_1';
 const SHORTLIST_2 = 'shortlist_2';
 const SHORTLIST_3 = 'shortlist_3';
 const CONTACTED = 'contacted_filter';
+const NOT_CONTACTED = 'not_contacted_filter';
+
 
 const FILTER_OPTIONS: {
   value: string;
   label: string;
-  match: (status: string | null, round: number | null) => boolean;
+  match: (row: JobApplicationRow) => boolean;
 }[] = [
   { value: ALL, label: 'All', match: () => true },
-  { value: 'new', label: 'Shortlist', match: (s) => s === 'new' || s === null || s === '' },
-  { value: 'hold', label: 'Hold', match: (s) => s === 'hold' },
-  // A shortlisted row with no round recorded is a level 1 row.
-  { value: SHORTLIST_1, label: 'Shortlist 1', match: (s, r) => s === 'shortlisted' && (r ?? 1) === 1 },
-  { value: SHORTLIST_2, label: 'Shortlist 2', match: (s, r) => s === 'shortlisted' && r === 2 },
-  { value: SHORTLIST_3, label: 'Shortlist 3', match: (s, r) => s === 'shortlisted' && r === 3 },
-  { value: CONTACTED, label: 'Contacted', match: (s) => s === 'contacted' },
+  { value: 'new', label: 'New', match: (r) => stageOf(r) === 'new' },
+  { value: SHORTLIST_1, label: 'Shortlist 1', match: (r) => stageOf(r) === 'shortlist_1' },
+  { value: SHORTLIST_2, label: 'Shortlist 2', match: (r) => stageOf(r) === 'shortlist_2' },
+  { value: SHORTLIST_3, label: 'Shortlist 3', match: (r) => stageOf(r) === 'shortlist_3' },
+  { value: 'hold', label: 'Hold', match: (r) => stageOf(r) === 'hold' },
+  { value: 'rejected', label: 'Rejected', match: (r) => stageOf(r) === 'rejected' },
+  { value: CONTACTED, label: 'Contacted', match: (r) => wasContacted(r) },
+  { value: NOT_CONTACTED, label: 'Not yet contacted', match: (r) => !wasContacted(r) },
 ];
+
 
 
 const POSTING_STATUS_CLASS: Record<JobPosting['status'], string> = {
@@ -132,26 +137,86 @@ function isAlwaysOpen(posting: JobPosting): boolean {
   return posting.requisition_id === null && posting.closes_at === null;
 }
 
-function rowToneClass(
-  status: string | null,
-  shortlistRound: number | null,
-  context: 'list' | 'bin' = 'list'
-): string {
-  const round = shortlistRound ?? 1;
+type Stage = 'new' | 'shortlist_1' | 'shortlist_2' | 'shortlist_3' | 'hold' | 'rejected' | 'hired';
+
+/**
+ * The stage an applicant has reached. `status` is overwritten by the contacted
+ * write, so the level is read from `shortlist_round` first — never from
+ * `status` alone.
+ */
+function stageOf(row: { status: string | null; shortlist_round: number | null }): Stage {
+  if (row.status === 'hired') return 'hired';
+  if (row.status === 'rejected') return 'rejected';
+  if (row.status === 'hold') return 'hold';
+  const round = row.shortlist_round;
+  if (round === 1) return 'shortlist_1';
+  if (round === 2) return 'shortlist_2';
+  if (round === 3) return 'shortlist_3';
+  if (row.status === 'shortlisted') return 'shortlist_1';
+  return 'new';
+}
+
+/** Contact is a fact of its own, held in `contacted_at`. */
+function wasContacted(row: { contacted_at: string | null }): boolean {
+  return row.contacted_at != null;
+}
+
+const STAGE_ORDER: Stage[] = [
+  'new',
+  'shortlist_1',
+  'shortlist_2',
+  'shortlist_3',
+  'hold',
+  'rejected',
+  'hired',
+];
+
+const STAGE_META: Record<Stage, { label: string; className: string }> = {
+  new: { label: 'New', className: 'bg-muted text-muted-foreground border-border' },
+  shortlist_1: {
+    label: 'Shortlist 1',
+    className: 'bg-violet-500/10 text-violet-700 border-violet-400/70 dark:text-violet-300',
+  },
+  shortlist_2: {
+    label: 'Shortlist 2',
+    className: 'bg-violet-500/20 text-violet-800 border-violet-500/80 dark:text-violet-200',
+  },
+  shortlist_3: {
+    label: 'Shortlist 3',
+    className: 'bg-violet-600/25 text-violet-900 border-violet-600/90 dark:text-violet-100',
+  },
+  hold: {
+    label: 'Hold',
+    className: 'bg-amber-500/10 text-amber-700 border-amber-400/70 dark:text-amber-300',
+  },
+  rejected: {
+    label: 'Rejected',
+    className: 'bg-neutral-500/10 text-neutral-700 border-neutral-400/60 dark:text-neutral-300',
+  },
+  hired: {
+    label: 'Hired',
+    className: 'bg-emerald-500/10 text-emerald-700 border-emerald-400/70 dark:text-emerald-300',
+  },
+};
+
+function StageBadge({ stage }: { stage: Stage }) {
+  const meta = STAGE_META[stage];
+  return (
+    <Badge variant="outline" className={`text-xs font-medium ${meta.className}`}>
+      {meta.label}
+    </Badge>
+  );
+}
+
+function rowToneClass(stage: Stage, context: 'list' | 'bin' = 'list'): string {
   if (context === 'bin') {
-    switch (status) {
-      case 'shortlisted':
-        if (round === 1) {
-          return 'border-l-2 border-violet-400/70 dark:border-violet-400/80';
-        }
-        if (round === 2) {
-          return 'border-l-2 border-violet-500/80 dark:border-violet-400/90';
-        }
+    switch (stage) {
+      case 'shortlist_1':
+        return 'border-l-2 border-violet-400/70 dark:border-violet-400/80';
+      case 'shortlist_2':
+        return 'border-l-2 border-violet-500/80 dark:border-violet-400/90';
+      case 'shortlist_3':
         return 'border-l-2 border-violet-600/90 dark:border-violet-500';
-      case 'contacted':
-        return 'border-l-2 border-sky-400/70 dark:border-sky-400/80';
-      case 'interviewing':
-        return 'border-l-2 border-teal-400/70 dark:border-teal-400/80';
       case 'hold':
         return 'border-l-2 border-amber-400/70 dark:border-amber-400/80';
       case 'hired':
@@ -159,25 +224,17 @@ function rowToneClass(
       case 'rejected':
         return 'border-l-2 border-neutral-400/60 dark:border-neutral-400/70';
       case 'new':
-      case null:
-      case '':
       default:
         return '';
     }
   }
-  switch (status) {
-    case 'shortlisted':
-      if (round === 1) {
-        return 'bg-violet-500/10 border-l-2 border-violet-400/70 hover:bg-violet-500/20 dark:bg-violet-500/10 dark:border-violet-400/80 dark:hover:bg-violet-500/20';
-      }
-      if (round === 2) {
-        return 'bg-violet-500/20 border-l-2 border-violet-500/80 hover:bg-violet-500/30 dark:bg-violet-500/15 dark:border-violet-400/90 dark:hover:bg-violet-500/25';
-      }
+  switch (stage) {
+    case 'shortlist_1':
+      return 'bg-violet-500/10 border-l-2 border-violet-400/70 hover:bg-violet-500/20 dark:bg-violet-500/10 dark:border-violet-400/80 dark:hover:bg-violet-500/20';
+    case 'shortlist_2':
+      return 'bg-violet-500/20 border-l-2 border-violet-500/80 hover:bg-violet-500/30 dark:bg-violet-500/15 dark:border-violet-400/90 dark:hover:bg-violet-500/25';
+    case 'shortlist_3':
       return 'bg-violet-600/25 border-l-2 border-violet-600/90 hover:bg-violet-600/35 dark:bg-violet-600/20 dark:border-violet-500 dark:hover:bg-violet-600/30';
-    case 'contacted':
-      return 'bg-sky-500/10 border-l-2 border-sky-400/70 hover:bg-sky-500/20 dark:bg-sky-500/10 dark:border-sky-400/80 dark:hover:bg-sky-500/20';
-    case 'interviewing':
-      return 'bg-teal-500/10 border-l-2 border-teal-400/70 hover:bg-teal-500/20 dark:bg-teal-500/10 dark:border-teal-400/80 dark:hover:bg-teal-500/20';
     case 'hold':
       return 'bg-amber-500/10 border-l-2 border-amber-400/70 hover:bg-amber-500/20 dark:bg-amber-500/10 dark:border-amber-400/80 dark:hover:bg-amber-500/20';
     case 'hired':
@@ -185,13 +242,11 @@ function rowToneClass(
     case 'rejected':
       return 'bg-neutral-500/10 border-l-2 border-neutral-400/60 hover:bg-neutral-500/20 dark:bg-neutral-500/10 dark:border-neutral-400/70 dark:hover:bg-neutral-500/20';
     case 'new':
-    case null:
-    case '':
-      return '';
     default:
       return '';
   }
 }
+
 
 type JobApplicationRow = Database['public']['Tables']['job_applications']['Row'];
 
@@ -318,13 +373,13 @@ function RemovedApplicationsPanel({
         </TableHeader>
         <TableBody>
           {rows.map((row, idx) => (
-            <TableRow key={row.id} className={`bg-muted/40 ${rowToneClass(row.status, row.shortlist_round, 'bin')}`}>
+            <TableRow key={row.id} className={`bg-muted/40 ${rowToneClass(stageOf(row), 'bin')}`}>
               <TableCell>{idx + 1}</TableCell>
               <TableCell>{row.full_name || '—'}</TableCell>
               <TableCell>{row.role_interest || '—'}</TableCell>
               <TableCell>{segmentLabelOfSource(row.source)}</TableCell>
               <TableCell>{row.location || '—'}</TableCell>
-              <TableCell>{row.status || '—'}</TableCell>
+              <TableCell><StageBadge stage={stageOf(row)} /></TableCell>
               <TableCell>{fmtDateTime(row.archived_at)}</TableCell>
               <TableCell>{row.public_ref || '—'}</TableCell>
               <TableCell className="text-right whitespace-nowrap">
@@ -352,6 +407,7 @@ function ApplicationsTab() {
   const [selected, setSelected] = useState<JobApplicationRow | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>(ALL);
   const [segmentFilter, setSegmentFilter] = useState<string>(SEGMENT_ALL);
+  const [groupBy, setGroupBy] = useState<'none' | 'role' | 'stage'>('role');
   const [sortConfig, setSortConfig] = useState<
     { key: 'name' | 'role_interest' | 'status' | 'created'; dir: 'asc' | 'desc' }
   >({ key: 'created', dir: 'desc' });
@@ -436,7 +492,7 @@ function ApplicationsTab() {
 
     if (statusFilter !== ALL) {
       const option = FILTER_OPTIONS.find((o) => o.value === statusFilter);
-      data = data.filter((r) => option?.match(r.status, r.shortlist_round ?? null) ?? false);
+      data = data.filter((r) => option?.match(r) ?? false);
     }
 
     if (segmentFilter !== SEGMENT_ALL) {
@@ -601,7 +657,159 @@ function ApplicationsTab() {
     }
   };
 
+  /** Row groups for the "Group by" selector. Empty groups are omitted. */
+  const groups = useMemo(() => {
+    if (groupBy === 'role') {
+      const map = new Map<string, JobApplicationRow[]>();
+      filteredSorted.forEach((r) => {
+        const label = (r.role_interest ?? '').trim() || 'Unspecified';
+        const list = map.get(label);
+        if (list) list.push(r);
+        else map.set(label, [r]);
+      });
+      return [...map.entries()]
+        .map(([label, list]) => ({ key: label, label, rows: list }))
+        .sort((a, b) => b.rows.length - a.rows.length);
+    }
+    if (groupBy === 'stage') {
+      return STAGE_ORDER.map((stage) => ({
+        key: stage,
+        label: STAGE_META[stage].label,
+        rows: filteredSorted.filter((r) => stageOf(r) === stage),
+      })).filter((g) => g.rows.length > 0);
+    }
+    return [];
+  }, [filteredSorted, groupBy]);
+
+  const renderTable = (list: JobApplicationRow[]) => (
+    <Card className="overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-10">
+              <Checkbox
+                checked={allVisibleSelected}
+                onCheckedChange={toggleSelectAllVisible}
+                aria-label="Select all shown applications"
+              />
+            </TableHead>
+            <TableHead className="w-12">#</TableHead>
+            <TableHead
+              className="cursor-pointer select-none"
+              onClick={() => toggleSort('name')}
+            >
+              Full name
+              {sortConfig.key === 'name' && (
+                <span className="ml-1">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>
+              )}
+            </TableHead>
+            <TableHead
+              className="cursor-pointer select-none"
+              onClick={() => toggleSort('role_interest')}
+            >
+              Role
+              {sortConfig.key === 'role_interest' && (
+                <span className="ml-1">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>
+              )}
+            </TableHead>
+            <TableHead
+              className="cursor-pointer select-none"
+              onClick={() => toggleSort('status')}
+            >
+              Stage
+              {sortConfig.key === 'status' && (
+                <span className="ml-1">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>
+              )}
+            </TableHead>
+            <TableHead>Contacted</TableHead>
+            <TableHead>Location</TableHead>
+            <TableHead>Experience</TableHead>
+            <TableHead
+              className="cursor-pointer select-none"
+              onClick={() => toggleSort('created')}
+            >
+              Applied
+              {sortConfig.key === 'created' && (
+                <span className="ml-1">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>
+              )}
+            </TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {list.map((row, idx) => (
+            <TableRow
+              key={row.id}
+              className={`cursor-pointer ${rowToneClass(stageOf(row))}`}
+              onClick={() => setSelected(row)}
+            >
+              <TableCell onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={selectedIds.has(row.id)}
+                  onCheckedChange={() => toggleRowSelected(row.id)}
+                  aria-label={`Select ${row.full_name || 'application'}`}
+                />
+              </TableCell>
+              <TableCell>{idx + 1}</TableCell>
+              <TableCell>{row.full_name || '—'}</TableCell>
+              <TableCell>{row.role_interest || '—'}</TableCell>
+              <TableCell>
+                <StageBadge stage={stageOf(row)} />
+              </TableCell>
+              <TableCell>
+                {wasContacted(row) ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <Check className="h-3.5 w-3.5" />
+                    {fmtDate(row.contacted_at)}
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
+              </TableCell>
+              <TableCell>{row.location || '—'}</TableCell>
+              <TableCell>{row.experience_level || '—'}</TableCell>
+              <TableCell>{fmtDateTime(row.created_at)}</TableCell>
+              <TableCell
+                className="text-right whitespace-nowrap"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="inline-flex gap-1">
+                  {getAvailableDecisions(row.status, row.shortlist_round ?? null).map((a) => (
+                    <Button
+                      key={`${a.status}-${a.round ?? 'none'}`}
+                      size="sm"
+                      variant="outline"
+                      className={`h-7 px-2 text-xs ${
+                        (a.round ?? 0) >= 2 ? SHORTLIST_LEVEL_2_CLASS : ''
+                      }`}
+                      onClick={() => {
+                        setPending({ row, kind: a.status, writer: a.writer, round: a.round });
+                      }}
+                    >
+                      {a.label}
+                    </Button>
+                  ))}
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => {
+                      setPending({ row, kind: 'remove' });
+                    }}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Card>
+  );
+
   if (isLoading) {
+
     return (
       <div className="space-y-3">
         <Skeleton className="h-9 w-full" />
@@ -659,6 +867,16 @@ function ApplicationsTab() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={groupBy} onValueChange={(v) => setGroupBy(v as 'none' | 'role' | 'stage')}>
+          <SelectTrigger className="w-full sm:w-40">
+            <SelectValue placeholder="Group by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">No grouping</SelectItem>
+            <SelectItem value="role">Group by role</SelectItem>
+            <SelectItem value="stage">Group by stage</SelectItem>
+          </SelectContent>
+        </Select>
         <Button
           size="sm"
           variant={showRemoved ? 'default' : 'outline'}
@@ -712,138 +930,22 @@ function ApplicationsTab() {
           <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
           No applications match these filters.
         </div>
+      ) : groupBy === 'none' ? (
+        renderTable(filteredSorted)
       ) : (
-        <Card className="overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">
-                  <Checkbox
-                    checked={allVisibleSelected}
-                    onCheckedChange={toggleSelectAllVisible}
-                    aria-label="Select all shown applications"
-                  />
-                </TableHead>
-                <TableHead className="w-12">#</TableHead>
-                <TableHead
-                  className="cursor-pointer select-none"
-                  onClick={() => toggleSort('name')}
-                >
-                  Full name
-                  {sortConfig.key === 'name' && (
-                    <span className="ml-1">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </TableHead>
-                <TableHead
-                  className="cursor-pointer select-none"
-                  onClick={() => toggleSort('role_interest')}
-                >
-                  Role interest
-                  {sortConfig.key === 'role_interest' && (
-                    <span className="ml-1">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Came from</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Experience</TableHead>
-                <TableHead
-                  className="cursor-pointer select-none"
-                  onClick={() => toggleSort('status')}
-                >
-                  Status
-                  {sortConfig.key === 'status' && (
-                    <span className="ml-1">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </TableHead>
-                <TableHead
-                  className="cursor-pointer select-none"
-                  onClick={() => toggleSort('created')}
-                >
-                  Created
-                  {sortConfig.key === 'created' && (
-                    <span className="ml-1">{sortConfig.dir === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </TableHead>
-                <TableHead>Reference</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredSorted.map((row, idx) => (
-                <TableRow
-                  key={row.id}
-                  className={`cursor-pointer ${rowToneClass(row.status, row.shortlist_round)}`}
-                  onClick={() => setSelected(row)}
-                >
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      checked={selectedIds.has(row.id)}
-                      onCheckedChange={() => toggleRowSelected(row.id)}
-                      aria-label={`Select ${row.full_name || 'application'}`}
-                    />
-                  </TableCell>
-                  <TableCell>{idx + 1}</TableCell>
-                  <TableCell>{row.full_name || '—'}</TableCell>
-                  <TableCell>{row.role_interest || '—'}</TableCell>
-                  <TableCell>{row.category || '—'}</TableCell>
-                  <TableCell>{segmentLabelOfSource(row.source)}</TableCell>
-                  <TableCell>{row.location || '—'}</TableCell>
-                  <TableCell>{row.experience_level || '—'}</TableCell>
-                  <TableCell>
-                    {row.status === 'shortlisted'
-                      ? `Shortlist ${row.shortlist_round ?? 1}`
-                      : row.status === 'contacted'
-                        ? row.shortlist_round
-                          ? `Contacted · reached Shortlist ${row.shortlist_round}`
-                          : 'Contacted'
-                      : row.status
-                        ? `${row.status.charAt(0).toUpperCase() + row.status.slice(1)}${
-                            row.shortlist_round ? ` · reached Shortlist ${row.shortlist_round}` : ''
-                          }`
-                        : '—'}
-                  </TableCell>
-                  <TableCell>{fmtDateTime(row.created_at)}</TableCell>
-                  <TableCell>{row.public_ref || '—'}</TableCell>
-                  <TableCell
-                    className="text-right whitespace-nowrap"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="inline-flex gap-1">
-                      {getAvailableDecisions(row.status, row.shortlist_round ?? null).map((a) => (
-                        <Button
-                          key={`${a.status}-${a.round ?? 'none'}`}
-                          size="sm"
-                          variant="outline"
-                          className={`h-7 px-2 text-xs ${
-                            (a.round ?? 0) >= 2 ? SHORTLIST_LEVEL_2_CLASS : ''
-                          }`}
-                          onClick={() => {
-                            setPending({ row, kind: a.status, writer: a.writer, round: a.round });
-                          }}
-                        >
-                          {a.label}
-                        </Button>
-                      ))}
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => {
-                          setPending({ row, kind: 'remove' });
-                        }}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+        <div className="space-y-4">
+          {groups.map((g) => (
+            <div key={g.key} className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-semibold text-foreground">{g.label}</h4>
+                <span className="text-xs text-muted-foreground">{fmtCount(g.rows.length)}</span>
+              </div>
+              {renderTable(g.rows)}
+            </div>
+          ))}
+        </div>
       )}
+
       </>
       )}
 
