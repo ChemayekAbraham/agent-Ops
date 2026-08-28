@@ -88,15 +88,11 @@ function NewAgentPercentages({ rows, newCount, prevCount, totalAgents, compareLa
             : growth > 0 ? 'text-emerald-600' : 'text-destructive')}>
           {apsPctLabel(added, prevCount)}
         </p>
-        <p className="text-[10px] text-muted-foreground">
-          {num(added)} added vs {num(prevCount)} {compareLabel ?? 'previously'}
-        </p>
       </div>
 
       <div className="rounded-xl border bg-card p-3">
         <p className="text-[11px] text-muted-foreground">Share of total agent base</p>
         <p className="text-lg font-bold">{pct(baseShare)}</p>
-        <p className="text-[10px] text-muted-foreground">{num(added)} of {num(totalAgents)} agents</p>
       </div>
 
       <div className="rounded-xl border bg-card p-3">
@@ -109,7 +105,7 @@ function NewAgentPercentages({ rows, newCount, prevCount, totalAgents, compareLa
             <div key={t.label}>
               <div className="flex items-baseline justify-between text-[10px]">
                 <span className="text-muted-foreground">{t.label}</span>
-                <span className="font-semibold">{pct(share(t.count))} · {num(t.count)}</span>
+                <span className="font-semibold">{pct(share(t.count))}</span>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                 <div className={cn('h-full rounded-full', t.cls)} style={{ width: `${share(t.count)}%` }} />
@@ -679,7 +675,7 @@ export function AgentProductsServicesReport() {
                     const share = (n: number, d: number) => (d > 0 ? (n / d) * 100 : null);
                     return (
                       <PctSummary items={[
-                        { label: 'Agents that collected', pct: share(collecting, total), hint: `${num(collecting)} of ${num(total)} agents` },
+                        { label: 'Agents that collected', pct: share(collecting, total) },
                         { label: 'Float deployed to landlords', pct: share(floatOut, floatIn), hint: 'Paid out as share of float received' },
                         { label: 'Top agent concentration', pct: share(Number(top?.collections_amount) || 0, collected), hint: top ? `${top.agent_name}` : 'No collections' },
                         { label: 'Collections growth', pct: null, growth: { current: collected, previous: Number(pop.collected) || 0 }, hint: compareLabel },
@@ -743,7 +739,7 @@ export function AgentProductsServicesReport() {
                       <PctSummary items={[
                         { label: 'Collection rate vs expected', pct: share(collected, expectedTotal), hint: 'Collected as share of period target' },
                         { label: 'Portfolio repaid to date', pct: share(repaid, repaid + outstanding), hint: 'Repaid vs repaid + outstanding' },
-                        { label: 'Agents collecting today', pct: share(paying, rows.length), hint: `${num(paying)} of ${num(rows.length)} with live plans` },
+                        { label: 'Agents collecting today', pct: share(paying, rows.length) },
                         { label: 'Outstanding growth', pct: null, growth: { current: outstanding, previous: Number(pop.outstanding) || 0 }, invert: true, hint: compareLabel },
                       ]} />
                     );
@@ -778,8 +774,8 @@ export function AgentProductsServicesReport() {
                     const share = (n: number, d: number) => (d > 0 ? (n / d) * 100 : null);
                     return (
                       <PctSummary items={[
-                        { label: 'Approval rate', pct: share(approved, decided || submitted), hint: `${num(approved)} approved of ${num(decided || submitted)} decided` },
-                        { label: 'Rejection rate', pct: share(rejected, decided || submitted), hint: `${num(rejected)} rejected` },
+                        { label: 'Approval rate', pct: share(approved, decided || submitted) },
+                        { label: 'Rejection rate', pct: share(rejected, decided || submitted) },
                         { label: 'Recovery rate', pct: share(recovered, recovered + outstanding), hint: 'Recovered vs recovered + outstanding' },
                         { label: 'Issued growth', pct: null, growth: { current: Number(a.issued_today) || 0, previous: Number(pop.advIssued) || 0 }, hint: compareLabel },
                       ]} />
