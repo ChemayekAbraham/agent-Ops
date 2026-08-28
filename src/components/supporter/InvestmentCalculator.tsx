@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
+import { Toggle, GooeyFilter } from '@/components/ui/liquid-toggle';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { TrendingUp, Target, Coins, Zap, Download, Share2, RefreshCw, BarChart3, GitCompare, ChevronDown, Shield, Clock, ArrowRight, Save, Layers, X, Wifi, DollarSign, Loader2, Mail, Heart } from 'lucide-react';
@@ -484,6 +484,7 @@ export function InvestmentCalculator() {
 
   return (
     <div className="space-y-3 sm:space-y-6">
+      <GooeyFilter />
       {/* Hero Card - Compact on mobile */}
       <div className="rounded-xl sm:rounded-2xl bg-gradient-to-br from-primary/15 to-success/10 p-px">
         <Card className="border-0 bg-background/90 backdrop-blur-sm overflow-hidden">
@@ -669,9 +670,10 @@ export function InvestmentCalculator() {
                     <RefreshCw className={`h-4 w-4 shrink-0 ${isCompounding ? 'text-success' : 'text-muted-foreground'}`} />
                     <span className="text-sm font-medium text-left">Reinvest Rewards</span>
                   </div>
-                  <Switch
+                  <Toggle
                     checked={isCompounding}
                     onCheckedChange={setIsCompounding}
+                    variant="success"
                     className="pointer-events-none"
                   />
                 </button>
@@ -683,9 +685,10 @@ export function InvestmentCalculator() {
                     <GitCompare className={`h-4 w-4 shrink-0 ${showComparison ? 'text-primary' : 'text-muted-foreground'}`} />
                     <span className="text-sm font-medium text-left">Compare Mode</span>
                   </div>
-                  <Switch
+                  <Toggle
                     checked={showComparison}
                     onCheckedChange={setShowComparison}
+                    variant="default"
                     className="pointer-events-none"
                   />
                 </button>
