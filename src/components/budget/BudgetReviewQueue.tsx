@@ -186,19 +186,23 @@ export default function BudgetReviewQueue({ cycleId, stage, onlyOpen, intro, emp
     () => rows.filter(r => OPEN_STATUSES[stage].includes(r.status)),
     [rows, stage],
   );
-  const requested = useMemo(() => rows.reduce((sum, r) => sum + r.total_amount, 0), [rows]);
+  const visibleRows = onlyOpen ? awaiting : rows;
+  const requested = useMemo(
+    () => visibleRows.reduce((sum, r) => sum + r.total_amount, 0),
+    [visibleRows],
+  );
   const approved = useMemo(
-    () => rows.reduce((sum, r) => sum + (isCoo ? r.coo_approved_total : r.cfo_approved_total), 0),
-    [rows, isCoo],
+    () => visibleRows.reduce((sum, r) => sum + (isCoo ? r.coo_approved_total : r.cfo_approved_total), 0),
+    [visibleRows, isCoo],
   );
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          {isCoo
+          {intro ?? (isCoo
             ? 'Tenant Ops, Agent Ops, Landlord Ops and Partner Ops budgets. Your approval forwards them to the CFO.'
-            : 'Budgets that have reached the CFO. Operations departments appear only after COO approval.'}
+            : 'Budgets that have reached the CFO. Operations departments appear only after COO approval.')}
         </p>
         <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={load}>
           <RefreshCw className="h-3.5 w-3.5" /> Refresh
@@ -217,11 +221,14 @@ export default function BudgetReviewQueue({ cycleId, stage, onlyOpen, intro, emp
         </div>
       )}
 
-      {!loading && rows.length === 0 && (
-        <p className="text-xs text-muted-foreground">No department budgets in this queue yet.</p>
+      {!loading && visibleRows.length === 0 && (
+        <p className="text-xs text-muted-foreground">
+          {emptyLabel ?? 'No department budgets in this queue yet.'}
+        </p>
       )}
 
-      {rows.map(s => {
+      {visibleRows.map(s => {
+
         const open = OPEN_STATUSES[stage].includes(s.status);
         const lineDecision = (l: BudgetLine) => (isCoo ? l.coo_status : l.status);
         return (
