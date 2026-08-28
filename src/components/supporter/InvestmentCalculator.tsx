@@ -670,9 +670,10 @@ export function InvestmentCalculator() {
                     <RefreshCw className={`h-4 w-4 shrink-0 ${isCompounding ? 'text-success' : 'text-muted-foreground'}`} />
                     <span className="text-sm font-medium text-left">Reinvest Rewards</span>
                   </div>
-                  <Switch
+                  <Toggle
                     checked={isCompounding}
                     onCheckedChange={setIsCompounding}
+                    variant="success"
                     className="pointer-events-none"
                   />
                 </button>
@@ -684,9 +685,10 @@ export function InvestmentCalculator() {
                     <GitCompare className={`h-4 w-4 shrink-0 ${showComparison ? 'text-primary' : 'text-muted-foreground'}`} />
                     <span className="text-sm font-medium text-left">Compare Mode</span>
                   </div>
-                  <Switch
+                  <Toggle
                     checked={showComparison}
                     onCheckedChange={setShowComparison}
+                    variant="default"
                     className="pointer-events-none"
                   />
                 </button>
