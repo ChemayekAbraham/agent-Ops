@@ -82,8 +82,10 @@ const variance = (current: number, previous: number | undefined) => {
 const badge = (label: string, kind: 'pass' | 'warn' | 'fail') =>
   `<span class="doc-badge badge-${kind}">${esc(label)}</span>`;
 
+// Non-collection rates (product/receivable recovery) keep the generic ladder.
 const rateBadge = (rate: number) =>
   rate >= 90 ? badge('On track', 'pass') : rate >= 60 ? badge('Watch', 'warn') : badge('Attention', 'fail');
+
 
 /**
  * Daily rent collection standing — aligned with the daily eligibility gate and the
@@ -398,14 +400,14 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
 
     <h3 class="chart-header-title">Agent Payment Behaviour</h3>
     <div class="chart-header-sub">Ranked by collection rate against each agent's own expected daily obligation, not by absolute money collected. Standing follows the daily gate: 50%+ is good standing (agent can post), under 15% needs attention.</div>
-    <div class="summary-card-title">Best 5</div>
+    <div class="summary-card-title">Highest 5 by collection rate</div>
     ${table(
       [{ label: 'Agent' }, { label: 'Phone' }, { label: 'Tenants', right: true }, { label: 'Expected', right: true },
        { label: 'Paid', right: true }, { label: 'Outstanding', right: true }, { label: 'Collection rate', right: true }],
       best,
       'Expected amounts are unavailable for this window.',
     )}
-    <div class="summary-card-title">Attention required — 5</div>
+    <div class="summary-card-title">Lowest 5 by collection rate</div>
     ${table(
       [{ label: 'Agent' }, { label: 'Phone' }, { label: 'Tenants', right: true }, { label: 'Expected', right: true },
        { label: 'Paid', right: true }, { label: 'Outstanding', right: true }, { label: 'Collection rate', right: true }],
@@ -652,7 +654,7 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
       <td class="right num">${num(x.f.collections_count)}</td>
       <td class="right currency">${ugx(x.f.commission_balance)}</td>
       <td class="right pct">${x.exp > 0 ? `${x.rate.toFixed(1)}%` : '—'}</td>
-      <td>${x.exp > 0 ? rateBadge(x.rate) : PENDING}</td>
+      <td>${x.exp > 0 ? collectionRateBadge(x.rate) : PENDING}</td>
     </tr>`);
 
   const page6 = `
