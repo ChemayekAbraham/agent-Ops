@@ -254,7 +254,7 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
         <tr class="group-row"><td colspan="5">1. AGENT NETWORK STRUCTURE</td></tr>
         ${population
           ? [
-              matrixRow('Network size', 'Total operational agents (unique individuals)', `<span class="num">${num(population.total)}</span>`, `${num(population.ever_collected)} have ever collected`, variance(n(population.total), undefined)),
+              matrixRow('Network size', 'Total operational agents (unique individuals)', `<span class="num">${num(population.total)}</span>`, `${num(population.ever_collected)} have ever collected`, `position as at ${esc(dayLabel(population.as_of || toDate))}`),
               matrixRow('Network status', 'Active agents', `<span class="num" style="color:var(--status-success)">${num(population.active)}</span>`, `${pct(n(population.active), n(population.total))} of network`, `<span class="pct">${pct(n(population.active), n(population.total))} active rate</span>`),
               matrixRow('Network status', 'Inactive agents', `<span class="num" style="color:var(--status-danger)">${num(population.inactive)}</span>`, `${pct(n(population.inactive), n(population.total))} of network`, `no collection in 30 days &amp; no live plan`),
               matrixRow('Primary agents', 'Primary agents (total / active / inactive)', `<span class="num">${num(population.primary_total)}</span> / <span class="num">${num(population.primary_active)}</span> / <span class="num">${num(population.primary_inactive)}</span>`, `${pct(n(population.primary_total), n(population.total))} of network`, `<span class="pct">${pct(n(population.primary_active), n(population.primary_total))} active</span>`),
