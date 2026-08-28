@@ -305,6 +305,12 @@ export function useAgentCapacityMap(agentIds: string[]) {
         today_pct: number;
         yesterday_pct: number;
         effective_pct: number;
+        tenants_due: number;
+        tenants_paid_today: number;
+        tenants_paid_yesterday: number;
+        coverage_today: number;
+        coverage_yesterday: number;
+        effective_coverage: number;
       }>();
       (eligRows || []).forEach((r: any) => {
         eligByAgent.set(r.agent_id, {
@@ -315,8 +321,15 @@ export function useAgentCapacityMap(agentIds: string[]) {
           today_pct:       Number(r.today_pct)       || 0,
           yesterday_pct:   Number(r.yesterday_pct)   || 0,
           effective_pct:   Number(r.effective_pct)   || 0,
+          tenants_due:            Number(r.tenants_due)            || 0,
+          tenants_paid_today:     Number(r.tenants_paid_today)      || 0,
+          tenants_paid_yesterday: Number(r.tenants_paid_yesterday)  || 0,
+          coverage_today:         Number(r.coverage_today)          || 0,
+          coverage_yesterday:     Number(r.coverage_yesterday)      || 0,
+          effective_coverage:     Number(r.effective_coverage)      || 0,
         });
       });
+
 
       // ----- Weekly Good-Standing unlock: count "Good"+ days last week -----
       // Pull the last 7 days of saved daily eligibility history for every
