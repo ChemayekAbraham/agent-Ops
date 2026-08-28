@@ -1574,8 +1574,8 @@ Deno.serve(async (req) => {
     const siPlat = n(SI.platform_failures_7d);
     const siPlatRate = pct(siPlat, Math.max(1, siAttempts));
     const siSuccessRate = pct(siSuccess, Math.max(1, siAttempts));
-    const siUsersTried = n(SI.users_tried_7d);
-    const siUsersIn = n(SI.users_eventually_signed_in_7d);
+    const siUsersTried = n(SI.signin_sessions_tried_7d ?? SI.users_tried_7d);
+    const siUsersIn = n(SI.signin_sessions_succeeded_7d ?? SI.users_eventually_signed_in_7d);
     const siEventualRate = pct(siUsersIn, Math.max(1, siUsersTried));
 
     const smsTotal = n(SMS.total_30d);
@@ -1583,6 +1583,15 @@ Deno.serve(async (req) => {
     const smsAcceptedRate = pct(smsAccepted, Math.max(1, smsTotal));
     const smsConfirmed = n(SMS.delivered_confirmed);
     const smsConfirmedRate = pct(smsConfirmed, Math.max(1, smsTotal));
+    // No row in sms_delivery_log has ever reached status 'delivered', even
+    // though 94% of traffic is Yoola and 21,299 rows carry a provider message
+    // id — the every-10-minute sweep is running but never promoting anything.
+    // Until that is fixed, 0.0% means "not being recorded", not "not received",
+    // and must never be shown to the board as a delivery failure.
+    const smsConfirmBroken = smsConfirmed === 0 && n(SMS.dlr_capable) > 0;
+    const smsConfirmCell = smsConfirmBroken
+      ? 'Not being recorded'
+      : `${smsConfirmedRate.toFixed(1)}% of ${fmt(smsTotal)} over 30 days`;
     const smsUnresolved = n(SMS.pending) + n(SMS.queued);
     const smsFailed = n(SMS.failed);
 
@@ -1673,7 +1682,7 @@ Deno.serve(async (req) => {
     // apart from handset-confirmed; only Yoola traffic can ever be confirmed.
     const boardDeliveryRows: string[][] = [
       ['SMS accepted by a provider (30 days)', num(smsAccepted, smsTotal), 'Handed to the network — not proof of receipt'],
-      ['SMS confirmed on the handset (30 days)', num(smsConfirmed, smsTotal), `Only delivery-report-capable traffic can confirm (${num(n(SMS.dlr_capable), smsTotal)})`],
+      ['SMS confirmed on the handset (30 days)', smsConfirmBroken ? 'Not being recorded' : num(smsConfirmed, smsTotal), smsConfirmBroken ? 'Delivery-report sweep is running but has never recorded a confirmation — a measurement fault, not a delivery failure' : `Only delivery-report-capable traffic can confirm (${num(n(SMS.dlr_capable), smsTotal)})`],
       ['SMS still unresolved (30 days)', num(smsUnresolved, smsTotal), 'Neither confirmed nor failed'],
       ['SMS rejected outright (30 days)', num(smsFailed, smsTotal), 'Provider refused the message'],
       ['OTP messages accepted (30 days)', num(otpAccepted, otpSends), 'Login codes handed to a provider'],
@@ -1684,7 +1693,7 @@ Deno.serve(async (req) => {
       ['— unknown account', num(siUnknown, siAttempts), 'No account for that identifier'],
       ['— wrong credentials', num(siWrong, siAttempts), 'Account exists, credentials rejected'],
       ['— platform-attributable failure', `${fmt(siPlat)} of ${fmt(siAttempts)} (${siPlatRate.toFixed(2)}%)`, 'Rate-limited by us, or the attempt never resolved'],
-      ['People who eventually signed in (7 days)', num(siUsersIn, siUsersTried), 'Within the reporting window'],
+      ['Sign-in sessions that eventually succeeded (7 days)', num(siUsersIn, siUsersTried), 'A person retrying within one session counts once'],
     ];
 
     const boardTables: { title: string; headers: string[]; rows: string[][] }[] = [
@@ -1695,8 +1704,8 @@ Deno.serve(async (req) => {
     const boardHeadline: string[] = [
       `The platform served ${wLedgerNote} with no revenue-impacting outage, and financial ledger integrity held across ${fmt(P.txn_today)} balanced postings on the closing day.`,
       `Active participation stands at ${fmt(R.agents_active)} agents with real field activity, ${fmt(R.tenants_active)} tenants on a funded rent plan and ${fmt(R.funders_with_portfolio)} funders holding a portfolio.`,
-      `Sign-in worked for ${siEventualRate.toFixed(1)}% of the ${fmt(siUsersTried)} people who tried over the week, and only ${siPlatRate.toFixed(2)}% of ${fmt(siAttempts)} attempts failed for reasons attributable to the platform; the remainder were unknown accounts or wrong credentials.`,
-      `Messaging reach is only partly verifiable: ${smsAcceptedRate.toFixed(1)}% of ${fmt(smsTotal)} SMS were accepted by a provider but only ${smsConfirmedRate.toFixed(1)}% were confirmed on the handset, and ${em30Rate.toFixed(1)}% of ${fmt(em30)} e-mails were delivered with ${em30PendingRate.toFixed(1)}% still queued.`,
+      `Sign-in eventually worked in ${siEventualRate.toFixed(1)}% of the ${fmt(siUsersTried)} sign-in sessions over the week, and only ${siPlatRate.toFixed(2)}% of ${fmt(siAttempts)} attempts failed for reasons attributable to the platform; the remainder were unknown accounts or wrong credentials.`,
+      `Messaging reach is only partly verifiable: ${smsAcceptedRate.toFixed(1)}% of ${fmt(smsTotal)} SMS were accepted by a provider but handset confirmation is currently not being recorded at all (the delivery-report sweep is running yet has never marked a single message delivered), and ${em30Rate.toFixed(1)}% of ${fmt(em30)} e-mails were delivered with ${em30PendingRate.toFixed(1)}% still queued.`,
       ...(weeklyMode
         ? [`Technology health closed at ${wHealthLast} out of 100 and averaged ${wHealth} across the seven days, ${wHealthTrend > 0 ? `improving ${wHealthTrend} points` : wHealthTrend < 0 ? `declining ${Math.abs(wHealthTrend)} points` : 'flat'} from ${wHealthFirst} on ${weekStart} to ${wHealthLast} on ${dateStr}.`]
         : []),
@@ -1715,7 +1724,9 @@ Deno.serve(async (req) => {
       boardDecisions.push(`Note the elevated transaction rollback rate (${wRollbackRate.toFixed(2)}% ${periodWord}) and the engineering commitment to bring it back within tolerance.`);
     if (!backupOk)
       boardDecisions.push(`Note that the last successful backup is ${backupAgeLabel} against a weekly cadence; continuity assurance requires attention before the next cycle.`);
-    if (smsConfirmedRate < 50)
+    if (smsConfirmBroken)
+      boardDecisions.push(`Note that handset delivery confirmation for SMS is not being recorded: the sweep that collects delivery reports runs every ten minutes but has never marked a single message as delivered, so we currently cannot evidence receipt of any customer SMS. This is a measurement fault to be fixed, not evidence that messages are failing.`);
+    else if (smsConfirmedRate < 50)
       boardDecisions.push(`Note that only ${smsConfirmedRate.toFixed(1)}% of SMS can be confirmed as received because delivery reports are collected from one provider only; the remaining traffic is unverifiable rather than known-failed.`);
     if (em30PendingRate >= 5)
       boardDecisions.push(`Be aware that ${em30PendingRate.toFixed(1)}% of e-mails over 30 days never left the queue, which increases support load.`);
@@ -1728,13 +1739,13 @@ Deno.serve(async (req) => {
       ...(weeklyMode ? [['Health trend across the week', `${wHealthFirst} to ${wHealthLast} (${wHealthTrend >= 0 ? '+' : ''}${wHealthTrend})`, 'Flat or improving', wHealthTrend >= 0 ? 'On target' : 'Below target']] : []),
       ['Customers affected by an error', `${wErrRate.toFixed(2)}% of active customers`, 'Below 1.00%', wErrRate < 1 ? 'On target' : 'Below target'],
       ['Sign-in failures caused by the platform', `${siPlatRate.toFixed(2)}% of ${fmt(siAttempts)} attempts`, 'Below 0.50%', siPlatRate < 0.5 ? 'On target' : 'Below target'],
-      ['People who eventually signed in (7 days)', num(siUsersIn, siUsersTried), '95.0% or above', siEventualRate >= 95 ? 'On target' : 'Below target'],
+      ['Sign-in sessions that eventually succeeded (7 days)', num(siUsersIn, siUsersTried), '95.0% or above', siEventualRate >= 95 ? 'On target' : 'Below target'],
       ['Sign-in attempts succeeding first time', `${siSuccessRate.toFixed(1)}%`, '80.0% or above (customer error included)', siSuccessRate >= 80 ? 'On target' : 'Below target'],
       ['Automation success rate', `${(100 - wJobFailRate).toFixed(1)}%`, '99.0% or above', wJobFailRate <= 1 ? 'On target' : 'Below target'],
       ...(weeklyMode ? [['Failed automation runs (cumulative)', `${fmt(wFailedRuns)} over 7 days`, '5 or fewer over 7 days', wFailedRuns <= 5 ? 'On target' : 'Below target']] : []),
       ['E-mail delivery (excludes SMS)', `${em30Rate.toFixed(1)}% of ${fmt(em30)} over 30 days`, '95.0% or above', em30Rate >= 95 ? 'On target' : 'Below target'],
       ['SMS accepted by a provider', `${smsAcceptedRate.toFixed(1)}% of ${fmt(smsTotal)} over 30 days`, '95.0% or above', smsAcceptedRate >= 95 ? 'On target' : 'Below target'],
-      ['SMS confirmed on the handset', `${smsConfirmedRate.toFixed(1)}% of ${fmt(smsTotal)} over 30 days`, `Confirmable traffic only (${num(n(SMS.dlr_capable), smsTotal)})`, smsConfirmedRate >= 50 ? 'On target' : 'Below target'],
+      ['SMS confirmed on the handset', smsConfirmCell, smsConfirmBroken ? 'Measurement fault — being fixed' : `Confirmable traffic only (${num(n(SMS.dlr_capable), smsTotal)})`, smsConfirmBroken ? 'Not measured' : (smsConfirmedRate >= 50 ? 'On target' : 'Below target')],
       ['Transaction rollback rate', `${wRollbackRate.toFixed(2)}%`, 'Below 5.00%', wRollbackRate < 5 ? 'On target' : 'Below target'],
       ['Financial controls automated', `${fmt(Math.max(0, n(J.total_scheduled) - failingJobs.length))} of ${fmt(J.total_scheduled)}`, 'All scheduled jobs', failingJobs.length ? 'Below target' : 'On target'],
     ];
