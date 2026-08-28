@@ -342,38 +342,38 @@ export default function HRInternshipApplications() {
             <Users className="h-3 w-3 mr-1" />
             {applications.length}
           </Badge>
+          {arrivedCount > 0 && (
+            <span className="text-[10px] font-semibold text-emerald-600">+{arrivedCount}</span>
+          )}
         </div>
-        <div className="relative w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, phone, email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+        <div className="flex items-center gap-3">
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as 'all' | AppStatus)}>
+            <SelectTrigger className="w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All ({searched.length})</SelectItem>
+              {ALL_STATUSES.map((s) => (
+                <SelectItem key={s} value={s} className="capitalize">
+                  {s.replace('_', ' ')} ({statusCounts[s] ?? 0})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="relative w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, phone, email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setTab}>
-        <TabsList>
-          {visibleGroups.map((g) => (
-            <TabsTrigger key={g.key} value={g.key} className="gap-2">
-              {g.label}
-              <Badge variant="secondary" className="text-[10px] px-1.5">
-                {grouped[g.key]?.length ?? 0}
-              </Badge>
-              {g.key === GROUPS[0].key && arrivedCount > 0 && (
-                <span className="text-[10px] font-semibold text-emerald-600">+{arrivedCount}</span>
-              )}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        {visibleGroups.map((g) => (
-          <TabsContent key={g.key} value={g.key} className="mt-4">
-            {renderTable(grouped[g.key] ?? [])}
-          </TabsContent>
-        ))}
-      </Tabs>
+      {renderTable(visibleRows)}
+
 
 
       <Sheet open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>
