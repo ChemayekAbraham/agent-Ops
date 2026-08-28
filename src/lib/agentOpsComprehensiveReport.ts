@@ -17,15 +17,41 @@ import type { ApsReport } from './agentProductsServicesPdf';
  *  - Every page uses the one reporting window passed in.
  */
 
+export interface AgentPopulation {
+  as_of?: string;
+  total: number;
+  active: number;
+  inactive: number;
+  primary_total: number;
+  primary_active: number;
+  primary_inactive: number;
+  sub_total: number;
+  sub_active: number;
+  sub_inactive: number;
+  ever_collected: number;
+  live_plan_agents: number;
+  collected_last_30d: number;
+  live_plan_no_collection: number;
+  verified_subagent_links: number;
+}
+
 export interface AgentOpsReportInput {
   report: ApsReport;
   /** Preceding equal-length window, used only for variance columns. */
   prev?: ApsReport | null;
+  /**
+   * Canonical operational agent population from
+   * `get_agent_operational_population`. An agent is a person who has actually
+   * collected rent or currently carries a live (funded / repaying) plan — role
+   * records are never counted. When absent, network rows render as pending.
+   */
+  population?: AgentPopulation | null;
   fromDate: string; // yyyy-MM-dd
   toDate: string;   // yyyy-MM-dd
   periodLabel: string;
   actor: string;
 }
+
 
 const PENDING = '<span class="unavailable">Data source pending mapping</span>';
 
