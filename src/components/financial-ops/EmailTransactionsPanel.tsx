@@ -749,6 +749,10 @@ export function EmailTransactionsPanel() {
   });
   useEffect(() => { try { localStorage.setItem('gmail_filter_match', matchFilter); } catch {} }, [matchFilter]);
 
+  // Top-level workspace tab to separate inbox, review queues, analytics and diagnostics.
+  type EmailWorkspaceTab = 'inbox' | 'needs_review' | 'settled' | 'analytics' | 'diagnostics';
+  const [workspaceTab, setWorkspaceTab] = useState<EmailWorkspaceTab>('inbox');
+
   // Direction filter for the Recent emails list — lets Financial Ops slice
   // the captured Gmail traffic into money-in vs money-out (sends + charges)
   // without leaving the panel. Persisted so it survives reload.
@@ -3409,7 +3413,78 @@ export function EmailTransactionsPanel() {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3.5">
+      {/* ── Top Workspace Tab Navigation ── */}
+      <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-muted/60 border border-border/80 overflow-x-auto shadow-sm">
+        <button
+          type="button"
+          onClick={() => setWorkspaceTab('inbox')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+            workspaceTab === 'inbox'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Inbox className="h-4 w-4" /> Live Inbox
+          <span className="text-[11px] tabular-nums font-normal opacity-80">({rows.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setWorkspaceTab('needs_review');
+            setFocusView('ops');
+          }}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+            workspaceTab === 'needs_review'
+              ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <AlertTriangle className="h-4 w-4 text-amber-600" /> Needs Review
+          {(flaggedCount + unmatchedInCount + unmatchedOutCount) > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold">
+              {flaggedCount + unmatchedInCount + unmatchedOutCount}
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setWorkspaceTab('settled');
+            setFocusView('ops');
+          }}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+            workspaceTab === 'settled'
+              ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Auto-Matched & Settled
+        </button>
+        <button
+          type="button"
+          onClick={() => setWorkspaceTab('analytics')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+            workspaceTab === 'analytics'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <TrendingUp className="h-4 w-4" /> Analytics & Breakdown
+        </button>
+        <button
+          type="button"
+          onClick={() => setWorkspaceTab('diagnostics')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+            workspaceTab === 'diagnostics'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Wrench className="h-4 w-4" /> Connection & Diagnostics
+        </button>
+      </div>
+
       {/* ── Gmail-style app bar: hamburger, product name, one big rounded
           search field, then the layout switch on the far right. ───────── */}
       <div className="flex items-center gap-2 sm:gap-3 rounded-full border bg-card px-2 py-1.5 sm:px-3 sm:py-2">
@@ -3608,7 +3683,8 @@ export function EmailTransactionsPanel() {
       </div>
 
       {/* ── Gmail body: label rail on the left, mail list + ops panels on
-          the right. ──────────────────────────────────────────────────── */}
+          the right (visible on inbox, needs_review and settled tabs). ─── */}
+      {(workspaceTab === 'inbox' || workspaceTab === 'needs_review' || workspaceTab === 'settled') && (
       <div className="flex gap-4">
         <aside
           className={`${gmailNavOpen ? 'block' : 'hidden'} lg:block w-full max-w-[256px] shrink-0 lg:w-[232px] lg:sticky lg:top-3 lg:self-start`}
@@ -5683,11 +5759,14 @@ export function EmailTransactionsPanel() {
             </div>
           );
         })()}
+          </div>
+        </div>
       </div>
+      )}
 
-      <DebitBucketAuditSearch />
-
-      <div className="rounded-xl border bg-card p-3 flex flex-col gap-3">
+      {/* Action buttons on inbox tabs */}
+      {(workspaceTab === 'inbox' || workspaceTab === 'needs_review' || workspaceTab === 'settled') && (
+        <div className="rounded-xl border bg-card p-3 flex flex-col gap-3">
 
         <div className="flex flex-wrap items-center gap-2">
           <Button onClick={pollNow} disabled={polling} className="gap-2 flex-1 sm:flex-none min-w-[130px]">
@@ -5721,6 +5800,7 @@ export function EmailTransactionsPanel() {
           <BacklogSweepLauncher />
         </div>
       </div>
+      )}
 
       {/* Mobile fast-search — sits at the very top of the page (sticky) so ops
           can find a transaction by reference / TID / amount / sender name or
@@ -5810,486 +5890,327 @@ export function EmailTransactionsPanel() {
           CSV ({visibleRows.length})
         </Button>
       </div>
-      <div className={`rounded-xl border bg-card p-3 sm:p-4 flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3 sm:gap-4 ${mobileFiltersOpen ? 'flex' : 'hidden sm:flex'}`}>
-        <div className="flex-1 min-w-full sm:min-w-[200px]">
-          <h3 className="font-semibold text-sm">Date range</h3>
-          <p className="text-[11px] text-muted-foreground mt-0.5">
-            {searchActive
-              ? `Showing ${filteredRows.length} of ${rows.length} emails — search "${searchQuery}" (date range ignored while searching) · timezone ${tz}`
-              : rangeActive
-              ? `Showing ${filteredRows.length} of ${rows.length} emails — totals recomputed for ${fromDate || '…'} → ${toDate || '…'} (${tz})`
-              : `No range selected — showing all ${rows.length} emails · timezone ${tz}`}
-          </p>
-        </div>
-        <div className="flex flex-col flex-1 sm:flex-none min-w-[140px]">
-          <label
-            className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1"
-            title="Date boundaries and daily buckets are interpreted in this timezone."
-          >
-            Timezone
-          </label>
-          <select
-            value={tz}
-            onChange={(e) => setTz(e.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-          >
-            {TIMEZONE_OPTIONS.includes(tz) ? null : <option value={tz}>{tz}</option>}
-            {TIMEZONE_OPTIONS.map((z) => (
-              <option key={z} value={z}>{z}</option>
-            ))}
-            {browserTz && !TIMEZONE_OPTIONS.includes(browserTz) && (
-              <option value={browserTz}>{browserTz} (browser)</option>
-            )}
-          </select>
-        </div>
-        <div className="flex flex-col flex-1 sm:flex-none min-w-[130px]">
-          <label className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">From</label>
-          <input
-            type="date"
-            value={fromDate}
-            max={toDate || undefined}
-            onChange={(e) => setFromDate(e.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-          />
-        </div>
-        <div className="flex flex-col flex-1 sm:flex-none min-w-[130px]">
-          <label className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">To</label>
-          <input
-            type="date"
-            value={toDate}
-            min={fromDate || undefined}
-            onChange={(e) => setToDate(e.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-          />
-        </div>
-        <div className="flex flex-col flex-1 sm:flex-none min-w-[160px]">
-          <label
-            className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1"
-            title="Warn when the absolute Net (in − out) exceeds this amount — flags potentially unusual parsing."
-          >
-            Net warning ≥
-          </label>
-          <div className="relative">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground pointer-events-none">UGX</span>
-            <input
-              type="number"
-              min={0}
-              step={10000}
-              value={netThreshold}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setNetThreshold(Number.isFinite(v) && v >= 0 ? v : 0);
-              }}
-              className="h-9 w-full sm:w-36 rounded-md border border-input bg-background pl-10 pr-2 text-sm tabular-nums"
+      {/* ── Analytics & Breakdown Tab ── */}
+      {workspaceTab === 'analytics' && (
+        <div className="space-y-6 pt-2">
+          <div className="rounded-xl border bg-card p-3 sm:p-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3 sm:gap-4">
+            <div className="flex-1 min-w-full sm:min-w-[200px]">
+              <h3 className="font-semibold text-sm">Date range & Analytics</h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {searchActive
+                  ? `Showing ${filteredRows.length} of ${rows.length} emails — search "${searchQuery}" (date range ignored while searching) · timezone ${tz}`
+                  : rangeActive
+                  ? `Showing ${filteredRows.length} of ${rows.length} emails — totals recomputed for ${fromDate || '…'} → ${toDate || '…'} (${tz})`
+                  : `No range selected — showing all ${rows.length} emails · timezone ${tz}`}
+              </p>
+            </div>
+            <div className="flex flex-col flex-1 sm:flex-none min-w-[140px]">
+              <label
+                className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1"
+                title="Date boundaries and daily buckets are interpreted in this timezone."
+              >
+                Timezone
+              </label>
+              <select
+                value={tz}
+                onChange={(e) => setTz(e.target.value)}
+                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              >
+                {TIMEZONE_OPTIONS.includes(tz) ? null : <option value={tz}>{tz}</option>}
+                {TIMEZONE_OPTIONS.map((z) => (
+                  <option key={z} value={z}>{z}</option>
+                ))}
+                {browserTz && !TIMEZONE_OPTIONS.includes(browserTz) && (
+                  <option value={browserTz}>{browserTz} (browser)</option>
+                )}
+              </select>
+            </div>
+            <div className="flex flex-col flex-1 sm:flex-none min-w-[130px]">
+              <label className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">From</label>
+              <input
+                type="date"
+                value={fromDate}
+                max={toDate || undefined}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              />
+            </div>
+            <div className="flex flex-col flex-1 sm:flex-none min-w-[130px]">
+              <label className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">To</label>
+              <input
+                type="date"
+                value={toDate}
+                min={fromDate || undefined}
+                onChange={(e) => setToDate(e.target.value)}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              />
+            </div>
+            <div className="flex flex-col flex-1 sm:flex-none min-w-[160px]">
+              <label
+                className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1"
+                title="Warn when the absolute Net (in − out) exceeds this amount — flags potentially unusual parsing."
+              >
+                Net warning ≥
+              </label>
+              <div className="relative">
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px] text-muted-foreground pointer-events-none">UGX</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={10000}
+                  value={netThreshold}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    setNetThreshold(Number.isFinite(v) && v >= 0 ? v : 0);
+                  }}
+                  className="h-9 w-full sm:w-36 rounded-md border border-input bg-background pl-10 pr-2 text-sm tabular-nums"
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+              {[
+                { label: 'Today', days: 1 },
+                { label: 'Yesterday', days: 1, offset: 1 },
+                { label: '7d', days: 7 },
+                { label: '30d', days: 30 },
+                { label: '90d', days: 90 },
+              ].map((p) => (
+                <Button
+                  key={p.label}
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 sm:flex-none"
+                  onClick={() => {
+                    const todayKey = dateKeyInTz(new Date(), tz);
+                    const [y, m, d] = todayKey.split('-').map(Number);
+                    const offsetDays = (p as { offset?: number }).offset ?? 0;
+                    const toUtc = Date.UTC(y, m - 1, d) - offsetDays * 86_400_000;
+                    const fromUtc = toUtc - (p.days - 1) * 86_400_000;
+                    const fmtKey = (ms: number) => {
+                      const dt = new Date(ms);
+                      return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+                    };
+                    setFromDate(fmtKey(fromUtc));
+                    setToDate(fmtKey(toUtc));
+                  }}
+                >
+                  {p.label}
+                </Button>
+              ))}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex-1 sm:flex-none"
+                onClick={() => { setFromDate(''); setToDate(''); }}
+                disabled={!rangeActive}
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            <StatCard
+              tooltipSide={statTooltipSide}
+              label="Emails captured"
+              value={rows.length.toString()}
+              info={<p className="text-xs leading-relaxed">How many confirmation emails we have pulled in from Gmail.</p>}
+            />
+            <StatCard
+              tooltipSide={statTooltipSide}
+              label="Parsed transactions"
+              value={parsedCount.toString()}
+              info={<p className="text-xs leading-relaxed">Emails we successfully read and turned into a money amount.</p>}
+            />
+            <StatCard
+              tooltipSide={statTooltipSide}
+              label="Total amount (parsed)"
+              value={fmtUgx(totalAmount)}
+              info={<p className="text-xs leading-relaxed">All the money values added up across every readable email.</p>}
+            />
+            <StatCard
+              tooltipSide={statTooltipSide}
+              label="Total in (received)"
+              value={fmtUgx(totalIn)}
+              info={<p className="text-xs leading-relaxed">Money that came IN — deposits and payments received.</p>}
+              sub={<span className="text-[10px] text-emerald-600">↓ money received</span>}
+            />
+            <StatCard
+              tooltipSide={statTooltipSide}
+              label="Total out (sent + charges)"
+              value={fmtUgx(totalOut)}
+              info={<p className="text-xs leading-relaxed">Money that went OUT — payments sent plus provider fees.</p>}
+              sub={<span className="text-[10px] text-rose-600">↑ money sent</span>}
+            />
+            <StatCard
+              tooltipSide={statTooltipSide}
+              label="Total provider fees"
+              value={fmtUgx(totalFees)}
+              info={<p className="text-xs leading-relaxed">Charges taken by MTN, Airtel or the banks for these transactions.</p>}
+              sub={<span className="text-[10px] text-amber-600">{feeCount} row{feeCount === 1 ? '' : 's'} · MTN / Airtel / banks</span>}
+            />
+            <StatCard
+              tooltipSide={statTooltipSide}
+              label="Net (in − out)"
+              value={`${netAmount < 0 ? '-' : ''}${fmtUgx(Math.abs(netAmount))}`}
+              info={<p className="text-xs leading-relaxed">Net = Total in − Total out</p>}
+              sub={<span className={`text-[10px] ${netAmount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{netAmount >= 0 ? 'net inflow' : 'net outflow'}</span>}
+            />
+            <StatCard
+              tooltipSide={statTooltipSide}
+              label="Flagged (review)"
+              value={flaggedCount.toString()}
+              info={<p className="text-xs leading-relaxed">Rows that look unusual and are worth a quick human check. They still count toward totals.</p>}
+              sub={
+                flaggedCount > 0 ? (
+                  <span className="inline-flex items-center gap-1 text-amber-600 text-[10px]">
+                    <AlertTriangle className="h-3 w-3" /> counted, but verify
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-emerald-600">all parsed rows valid</span>
+                )
+              }
+            />
+            <StatCard
+              tooltipSide={statTooltipSide}
+              label="Unmatched deposits"
+              value={unmatchedInCount.toString()}
+              info={<p className="text-xs leading-relaxed">Incoming money not yet linked to a deposit request — may still need routing.</p>}
+              sub={
+                unmatchedInCount > 0 ? (
+                  <span className="inline-flex items-center gap-1 text-amber-600 text-[10px]">
+                    <AlertTriangle className="h-3 w-3" /> not linked to any deposit request
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-emerald-600">all deposits matched</span>
+                )
+              }
+            />
+            <StatCard
+              tooltipSide={statTooltipSide}
+              label="Unmatched payouts"
+              value={unmatchedOutCount.toString()}
+              info={<p className="text-xs leading-relaxed">Outgoing money not yet linked to a withdrawal — may still need routing.</p>}
+              sub={
+                unmatchedOutCount > 0 ? (
+                  <span className="inline-flex items-center gap-1 text-rose-600 text-[10px]">
+                    <AlertTriangle className="h-3 w-3" /> not routed or matched to withdrawal
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-emerald-600">all payouts settled</span>
+                )
+              }
             />
           </div>
-        </div>
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-          {[
-            { label: 'Today', days: 1 },
-            { label: 'Yesterday', days: 1, offset: 1 },
-            { label: '7d', days: 7 },
-            { label: '30d', days: 30 },
-            { label: '90d', days: 90 },
-          ].map((p) => (
-            <Button
-              key={p.label}
-              variant="outline"
-              size="sm"
-              className="flex-1 sm:flex-none"
-              onClick={() => {
-                // Anchor presets to "today" as seen in the selected timezone.
-                const todayKey = dateKeyInTz(new Date(), tz);
-                const [y, m, d] = todayKey.split('-').map(Number);
-                const offsetDays = (p as { offset?: number }).offset ?? 0;
-                const toUtc = Date.UTC(y, m - 1, d) - offsetDays * 86_400_000;
-                const fromUtc = toUtc - (p.days - 1) * 86_400_000;
-                const fmtKey = (ms: number) => {
-                  const dt = new Date(ms);
-                  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
-                };
-                setFromDate(fmtKey(fromUtc));
-                setToDate(fmtKey(toUtc));
-              }}
-            >
-              {p.label}
-            </Button>
-          ))}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex-1 sm:flex-none"
-            onClick={() => { setFromDate(''); setToDate(''); }}
-            disabled={!rangeActive}
-          >
-            Clear
-          </Button>
-        </div>
-      </div>
 
-      <GmailConnectionStatus
-        state={state}
-        lastSuccessAt={lastSuccessAt}
-        onRetry={pollNow}
-        retrying={polling}
-      />
+          <EmailPeriodComparison />
 
-      <GmailReconnectAuditPanel />
-
-      <EmailPeriodComparison />
-
-      <div className="sm:hidden">
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full gap-2"
-          onClick={() => setMobileStatsOpen((v) => !v)}
-        >
-          {mobileStatsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          {mobileStatsOpen ? 'Hide summary' : `Summary · ${rows.length} emails · net ${netAmount < 0 ? '-' : ''}${fmtUgx(Math.abs(netAmount))}`}
-        </Button>
-      </div>
-      <div className="flex items-center justify-end gap-2">
-        <Label htmlFor="tooltip-placement" className="text-[11px] uppercase tracking-wider text-muted-foreground">
-          Tooltip position
-        </Label>
-        <Select value={tooltipPlacement} onValueChange={(v) => setTooltipPlacement(v as typeof tooltipPlacement)}>
-          <SelectTrigger id="tooltip-placement" className="h-8 w-[120px] text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="auto">Auto</SelectItem>
-            <SelectItem value="top">Top</SelectItem>
-            <SelectItem value="bottom">Bottom</SelectItem>
-            <SelectItem value="left">Left</SelectItem>
-            <SelectItem value="right">Right</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className={`grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 ${mobileStatsOpen ? 'grid' : 'hidden sm:grid'}`}>
-        <StatCard
-          tooltipSide={statTooltipSide}
-          label="Emails captured"
-          value={rows.length.toString()}
-          info={<p className="text-xs leading-relaxed">How many confirmation emails we have pulled in from Gmail.</p>}
-        />
-        <StatCard
-          tooltipSide={statTooltipSide}
-          label="Parsed transactions"
-          value={parsedCount.toString()}
-          info={<p className="text-xs leading-relaxed">Emails we successfully read and turned into a money amount.</p>}
-        />
-        <StatCard
-          tooltipSide={statTooltipSide}
-          label="Total amount (parsed)"
-          value={fmtUgx(totalAmount)}
-          info={<p className="text-xs leading-relaxed">All the money values added up across every readable email.</p>}
-        />
-        <StatCard
-          tooltipSide={statTooltipSide}
-          label="Total in (received)"
-          value={fmtUgx(totalIn)}
-          info={<p className="text-xs leading-relaxed">Money that came IN — deposits and payments received.</p>}
-          sub={<span className="text-[10px] text-emerald-600">↓ money received</span>}
-        />
-        <StatCard
-          tooltipSide={statTooltipSide}
-          label="Total out (sent + charges)"
-          value={fmtUgx(totalOut)}
-          info={<p className="text-xs leading-relaxed">Money that went OUT — payments sent plus provider fees.</p>}
-          sub={<span className="text-[10px] text-rose-600">↑ money sent</span>}
-        />
-        <StatCard
-          tooltipSide={statTooltipSide}
-          label="Total provider fees"
-          value={fmtUgx(totalFees)}
-          info={<p className="text-xs leading-relaxed">Charges taken by MTN, Airtel or the banks for these transactions.</p>}
-          sub={<span className="text-[10px] text-amber-600">{feeCount} row{feeCount === 1 ? '' : 's'} · MTN / Airtel / banks</span>}
-        />
-        <StatCard
-          tooltipSide={statTooltipSide}
-          label="Net (in − out)"
-          value={`${netAmount < 0 ? '-' : ''}${fmtUgx(Math.abs(netAmount))}`}
-          info={
-            <div className="space-y-1.5 text-xs leading-relaxed">
-              <p className="font-semibold">How Net is calculated</p>
-              <p>
-                <span className="font-mono">Net = Total in − Total out</span>
-              </p>
-              <ul className="list-disc pl-4 space-y-0.5">
-                <li><span className="text-emerald-300">Total in</span> = sum of <code>amount</code> for rows where <code>direction = 'in'</code> (money received).</li>
-                <li><span className="text-rose-300">Total out</span> = sum of <code>amount</code> for rows where <code>direction = 'out'</code> or <code>'charge'</code> (sent + fees).</li>
-              </ul>
-              <p className="pt-1 border-t border-border/40">
-                Counts every <strong>parsed</strong> row with a usable amount that falls inside the selected date range. Flagged rows are still included — they are highlighted in amber for manual review but no longer excluded from totals.
-              </p>
-              <p className="text-muted-foreground">
-                Currently: {fmtUgx(totalIn)} − {fmtUgx(totalOut)} = {netAmount < 0 ? '-' : ''}{fmtUgx(Math.abs(netAmount))}
-              </p>
-            </div>
-          }
-          sub={
-            <div className="flex flex-col gap-1">
-              <span className={`text-[10px] ${netAmount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                {netAmount >= 0 ? 'net inflow' : 'net outflow'}
-              </span>
-              {netThreshold > 0 && Math.abs(netAmount) >= netThreshold && (
-                <Badge
-                  variant="outline"
-                  className="text-[10px] bg-amber-500/10 text-amber-700 border-amber-500/30 gap-1 w-fit"
-                  title={`|Net| ${fmtUgx(Math.abs(netAmount))} ≥ threshold ${fmtUgx(netThreshold)}. Review parsed emails for duplicates, misclassified direction, or unusually large amounts.`}
-                >
-                  <AlertTriangle className="h-3 w-3" /> unusual · review
-                </Badge>
-              )}
-            </div>
-          }
-        />
-        <StatCard
-          tooltipSide={statTooltipSide}
-          label="Last poll"
-          value={state?.last_polled_at ? format(new Date(state.last_polled_at), 'HH:mm:ss') : '—'}
-          info={<p className="text-xs leading-relaxed">The time we last checked Gmail for new emails (happens automatically every minute).</p>}
-          sub={state?.last_status === 'error' ? (
-            <span className="inline-flex items-center gap-1 text-destructive text-xs"><AlertCircle className="h-3 w-3" /> {state.last_error?.slice(0, 60)}</span>
-          ) : state?.last_status === 'ok' ? (
-            <span className="inline-flex items-center gap-1 text-emerald-600 text-xs"><CheckCircle2 className="h-3 w-3" /> ok</span>
-          ) : null}
-        />
-        <StatCard
-          tooltipSide={statTooltipSide}
-          label="Flagged (review)"
-          value={flaggedCount.toString()}
-          info={<p className="text-xs leading-relaxed">Rows that look unusual and are worth a quick human check. They still count toward totals.</p>}
-          sub={
-            flaggedCount > 0 ? (
-              <span className="inline-flex items-center gap-1 text-amber-600 text-[10px]">
-                <AlertTriangle className="h-3 w-3" /> counted, but verify
-              </span>
-            ) : (
-              <span className="text-[10px] text-emerald-600">all parsed rows valid</span>
-            )
-          }
-        />
-        <StatCard
-          tooltipSide={statTooltipSide}
-          label="Unmatched deposits"
-          value={unmatchedInCount.toString()}
-          info={<p className="text-xs leading-relaxed">Incoming money not yet linked to a deposit request — may still need routing.</p>}
-          sub={
-            unmatchedInCount > 0 ? (
-              <span className="inline-flex items-center gap-1 text-amber-600 text-[10px]">
-                <AlertTriangle className="h-3 w-3" /> not linked to any deposit request
-              </span>
-            ) : (
-              <span className="text-[10px] text-emerald-600">all deposits matched</span>
-            )
-          }
-        />
-        <StatCard
-          tooltipSide={statTooltipSide}
-          label="Unmatched payouts"
-          value={unmatchedOutCount.toString()}
-          info={<p className="text-xs leading-relaxed">Outgoing money not yet linked to a withdrawal — may still need routing.</p>}
-          sub={
-            unmatchedOutCount > 0 ? (
-              <span className="inline-flex items-center gap-1 text-rose-600 text-[10px]">
-                <AlertTriangle className="h-3 w-3" /> not routed or matched to withdrawal
-              </span>
-            ) : (
-              <span className="text-[10px] text-emerald-600">all payouts settled</span>
-            )
-          }
-        />
-      </div>
-
-      <DepositNumberConflictsPanel />
-
-
-
-      {channelBreakdown.length > 0 && (
-        <div className="rounded-xl border bg-card overflow-hidden">
-          <div className="p-4 border-b flex items-center justify-between">
-            <h3 className="font-semibold text-sm">Breakdown by channel</h3>
-            <span className="text-[11px] text-muted-foreground">parsed transactions only</span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th className="text-left px-4 py-2 font-semibold">Channel</th>
-                  <th className="text-right px-4 py-2 font-semibold">In (count)</th>
-                  <th className="text-right px-4 py-2 font-semibold text-emerald-700">Total in</th>
-                  <th className="text-right px-4 py-2 font-semibold">Out (count)</th>
-                  <th className="text-right px-4 py-2 font-semibold text-rose-700">Total out</th>
-                  <th className="text-right px-4 py-2 font-semibold">Fees (count)</th>
-                  <th className="text-right px-4 py-2 font-semibold text-amber-700">Total fees</th>
-                  <th className="text-right px-4 py-2 font-semibold">Net</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {channelBreakdown.map((b) => (
-                  <tr key={b.channel} className="hover:bg-muted/30">
-                    <td className="px-4 py-2 capitalize font-medium">{b.channel}</td>
-                    <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{b.inCount}</td>
-                    <td className="px-4 py-2 text-right tabular-nums font-mono text-emerald-700">{fmtUgx(b.inTotal)}</td>
-                    <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{b.outCount}</td>
-                    <td className="px-4 py-2 text-right tabular-nums font-mono text-rose-700">{fmtUgx(b.outTotal)}</td>
-                    <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{b.feeCount}</td>
-                    <td className="px-4 py-2 text-right tabular-nums font-mono text-amber-700">{fmtUgx(b.feeTotal)}</td>
-                    <td className={`px-4 py-2 text-right tabular-nums font-mono font-semibold ${b.net >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                      {b.net < 0 ? '-' : ''}{fmtUgx(Math.abs(b.net))}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-muted/30 font-semibold">
-                <tr>
-                  <td className="px-4 py-2">Total</td>
-                  <td className="px-4 py-2 text-right tabular-nums">{channelBreakdown.reduce((s, b) => s + b.inCount, 0)}</td>
-                  <td className="px-4 py-2 text-right tabular-nums font-mono text-emerald-700">{fmtUgx(totalIn)}</td>
-                  <td className="px-4 py-2 text-right tabular-nums">{channelBreakdown.reduce((s, b) => s + b.outCount, 0)}</td>
-                  <td className="px-4 py-2 text-right tabular-nums font-mono text-rose-700">{fmtUgx(totalOut)}</td>
-                  <td className="px-4 py-2 text-right tabular-nums">{channelBreakdown.reduce((s, b) => s + b.feeCount, 0)}</td>
-                  <td className="px-4 py-2 text-right tabular-nums font-mono text-amber-700">{fmtUgx(totalFees)}</td>
-                  <td className={`px-4 py-2 text-right tabular-nums font-mono ${netAmount >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                    {netAmount < 0 ? '-' : ''}{fmtUgx(Math.abs(netAmount))}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {dailySeries.length > 0 && (
-        <div className="rounded-xl border bg-card overflow-hidden">
-          <div className="p-4 border-b flex items-center justify-between">
-            <h3 className="font-semibold text-sm">In vs Out — daily</h3>
-            <span className="text-[11px] text-muted-foreground">
-              {dailySeries.length} day{dailySeries.length === 1 ? '' : 's'}
-              {rangeActive ? ' in selected range' : ''}
-              {dailySeries.length > 1 ? ' · drag the slider below to zoom' : ''}
-            </span>
-          </div>
-          {(() => {
-            // Summary for the currently-zoomed window. Defaults to the full series
-            // when no brush selection is active.
-            const start = chartBrush ? Math.max(0, Math.min(chartBrush.start, dailySeries.length - 1)) : 0;
-            const end = chartBrush ? Math.max(start, Math.min(chartBrush.end, dailySeries.length - 1)) : dailySeries.length - 1;
-            const windowDays = dailySeries.slice(start, end + 1);
-            if (windowDays.length === 0) return null;
-            const winIn = windowDays.reduce((s, d) => s + d.in, 0);
-            const winOut = windowDays.reduce((s, d) => s + d.out, 0);
-            const winNet = winIn - winOut;
-            const isZoomed = !!chartBrush && (start > 0 || end < dailySeries.length - 1);
-            return (
-              <div className="px-4 pt-3 pb-1 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs">
-                <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
-                  <span className="text-muted-foreground">{isZoomed ? 'Zoomed' : 'Full range'}:</span>
-                  {format(new Date(windowDays[0].date), 'MMM d')}
-                  {windowDays.length > 1 ? ` – ${format(new Date(windowDays[windowDays.length - 1].date), 'MMM d, yyyy')}` : `, ${format(new Date(windowDays[0].date), 'yyyy')}`}
-                  <span className="text-muted-foreground">({windowDays.length} day{windowDays.length === 1 ? '' : 's'})</span>
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full" style={{ background: 'hsl(142 71% 45%)' }} />
-                  <span className="text-muted-foreground">In</span>
-                  <span className="font-mono font-semibold text-emerald-600">{fmtUgx(winIn)}</span>
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full" style={{ background: 'hsl(0 72% 51%)' }} />
-                  <span className="text-muted-foreground">Out</span>
-                  <span className="font-mono font-semibold text-rose-600">{fmtUgx(winOut)}</span>
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="text-muted-foreground">Net</span>
-                  <span className={`font-mono font-semibold ${winNet >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {winNet < 0 ? '-' : ''}{fmtUgx(Math.abs(winNet))}
-                  </span>
-                </span>
-                {isZoomed && (
-                  <button
-                    type="button"
-                    onClick={() => setChartBrush(null)}
-                    className="ml-auto text-[11px] font-medium text-primary hover:underline"
-                  >
-                    Reset zoom
-                  </button>
-                )}
-                <div className={`flex items-center gap-1.5 ${isZoomed ? '' : 'ml-auto'}`}>
-                  <button
-                    type="button"
-                    onClick={() => exportZoomWindowCsv({ days: windowDays, totalIn: winIn, totalOut: winOut, net: winNet, zoomed: isZoomed })}
-                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted transition-colors"
-                    title="Export this date-range summary to CSV"
-                  >
-                    <FileDown className="h-3 w-3" /> CSV
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => exportZoomWindowPdf({ days: windowDays, totalIn: winIn, totalOut: winOut, net: winNet, zoomed: isZoomed })}
-                    className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-foreground hover:bg-muted transition-colors"
-                    title="Export this date-range summary to PDF"
-                  >
-                    <FileText className="h-3 w-3" /> PDF
-                  </button>
-                </div>
+          {channelBreakdown.length > 0 && (
+            <div className="rounded-xl border bg-card overflow-hidden">
+              <div className="p-4 border-b flex items-center justify-between">
+                <h3 className="font-semibold text-sm">Breakdown by channel</h3>
+                <span className="text-[11px] text-muted-foreground">parsed transactions only</span>
               </div>
-            );
-          })()}
-          <div className="p-4 h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={dailySeries} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                  tickFormatter={(v) => format(new Date(v), 'MMM d')}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-                  tickFormatter={(v) => (v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `${Math.round(v / 1_000)}k` : `${v}`)}
-                  width={50}
-                />
-                <RTooltip
-                  contentStyle={{
-                    background: 'hsl(var(--popover))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                  labelFormatter={(v) => format(new Date(v as string), 'PPP')}
-                  formatter={(v: number, name) => [fmtUgx(v), name]}
-                />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="in" name="In" stroke="hsl(142 71% 45%)" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="out" name="Out" stroke="hsl(0 72% 51%)" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="net" name="Net" stroke="hsl(var(--primary))" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
-                {dailySeries.length > 1 && (
-                  <Brush
-                    dataKey="date"
-                    height={22}
-                    travellerWidth={10}
-                    stroke="hsl(var(--primary))"
-                    fill="hsl(var(--muted))"
-                    tickFormatter={(v) => format(new Date(v as string), 'MMM d')}
-                    startIndex={chartBrush ? Math.min(chartBrush.start, dailySeries.length - 1) : 0}
-                    endIndex={chartBrush ? Math.min(chartBrush.end, dailySeries.length - 1) : dailySeries.length - 1}
-                    onChange={(range: { startIndex?: number; endIndex?: number }) => {
-                      if (typeof range.startIndex === 'number' && typeof range.endIndex === 'number') {
-                        setChartBrush({ start: range.startIndex, end: range.endIndex });
-                      }
-                    }}
-                  />
-                )}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <th className="text-left px-4 py-2 font-semibold">Channel</th>
+                      <th className="text-right px-4 py-2 font-semibold">In (count)</th>
+                      <th className="text-right px-4 py-2 font-semibold text-emerald-700">Total in</th>
+                      <th className="text-right px-4 py-2 font-semibold">Out (count)</th>
+                      <th className="text-right px-4 py-2 font-semibold text-rose-700">Total out</th>
+                      <th className="text-right px-4 py-2 font-semibold">Fees (count)</th>
+                      <th className="text-right px-4 py-2 font-semibold text-amber-700">Total fees</th>
+                      <th className="text-right px-4 py-2 font-semibold">Net</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {channelBreakdown.map((b) => (
+                      <tr key={b.channel} className="hover:bg-muted/30">
+                        <td className="px-4 py-2 capitalize font-medium">{b.channel}</td>
+                        <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{b.inCount}</td>
+                        <td className="px-4 py-2 text-right tabular-nums font-mono text-emerald-700">{fmtUgx(b.inTotal)}</td>
+                        <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{b.outCount}</td>
+                        <td className="px-4 py-2 text-right tabular-nums font-mono text-rose-700">{fmtUgx(b.outTotal)}</td>
+                        <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{b.feeCount}</td>
+                        <td className="px-4 py-2 text-right tabular-nums font-mono text-amber-700">{fmtUgx(b.feeTotal)}</td>
+                        <td className={`px-4 py-2 text-right tabular-nums font-mono font-semibold ${b.net >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                          {b.net < 0 ? '-' : ''}{fmtUgx(Math.abs(b.net))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-muted/30 font-semibold">
+                    <tr>
+                      <td className="px-4 py-2">Total</td>
+                      <td className="px-4 py-2 text-right tabular-nums">{channelBreakdown.reduce((s, b) => s + b.inCount, 0)}</td>
+                      <td className="px-4 py-2 text-right tabular-nums font-mono text-emerald-700">{fmtUgx(totalIn)}</td>
+                      <td className="px-4 py-2 text-right tabular-nums">{channelBreakdown.reduce((s, b) => s + b.outCount, 0)}</td>
+                      <td className="px-4 py-2 text-right tabular-nums font-mono text-rose-700">{fmtUgx(totalOut)}</td>
+                      <td className="px-4 py-2 text-right tabular-nums">{channelBreakdown.reduce((s, b) => s + b.feeCount, 0)}</td>
+                      <td className="px-4 py-2 text-right tabular-nums font-mono text-amber-700">{fmtUgx(totalFees)}</td>
+                      <td className={`px-4 py-2 text-right tabular-nums font-mono ${netAmount >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        {netAmount < 0 ? '-' : ''}{fmtUgx(Math.abs(netAmount))}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {dailySeries.length > 0 && (
+            <div className="rounded-xl border bg-card overflow-hidden">
+              <div className="p-4 border-b flex items-center justify-between">
+                <h3 className="font-semibold text-sm">In vs Out — daily</h3>
+                <span className="text-[11px] text-muted-foreground">{dailySeries.length} days</span>
+              </div>
+              <div className="p-4 h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={dailySeries} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                      tickFormatter={(v) => format(new Date(v), 'MMM d')}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                      tickFormatter={(v) => (v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `${Math.round(v / 1_000)}k` : `${v}`)}
+                      width={50}
+                    />
+                    <RTooltip
+                      contentStyle={{
+                        background: 'hsl(var(--popover))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: 8,
+                        fontSize: 12,
+                      }}
+                      labelFormatter={(v) => format(new Date(v as string), 'PPP')}
+                      formatter={(v: number, name) => [fmtUgx(v), name]}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    <Line type="monotone" dataKey="in" name="In" stroke="hsl(142 71% 45%)" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="out" name="Out" stroke="hsl(0 72% 51%)" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="net" name="Net" stroke="hsl(var(--primary))" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          <DebitBucketAuditSearch />
         </div>
       )}
 
-      {(() => {
-        // Unrouted money-out banner. Counts every payable outgoing row in the
+      {/* ── Needs Review Tab Operations & Banners ── */}
+      {workspaceTab === 'needs_review' && (
+        <div className="space-y-4 pt-2">
+          <DepositNumberConflictsPanel />
+
+          {(() => {
+            // Unrouted money-out banner. Counts every payable outgoing row in the
         // active date/search window that has NOT yet been routed to a wallet.
         // The "Auto-debit" button acts on EVERY row that has a possible
         // recipient match — as soon as the system detects a possible recipient
@@ -6698,6 +6619,34 @@ export function EmailTransactionsPanel() {
             <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setAlertSettingsOpen(true)}>
               <SlidersHorizontal className="h-3.5 w-3.5 mr-1" /> Alert settings
             </Button>
+          </div>
+        </div>
+      )}
+        </div>
+      )}
+
+      {/* ── Connection & Diagnostics Tab ── */}
+      {workspaceTab === 'diagnostics' && (
+        <div className="space-y-6 pt-2">
+          <GmailConnectionStatus
+            state={state}
+            lastSuccessAt={lastSuccessAt}
+            onRetry={pollNow}
+            retrying={polling}
+          />
+          <GmailReconnectAuditPanel />
+          <DepositNumberConflictsPanel />
+          <DedupAuditPanel />
+          <div className="rounded-xl border bg-card p-4 space-y-3">
+            <h3 className="text-sm font-semibold">Diagnostic & Recovery Tools</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <ArchivedPdfsDrawer />
+              <ReconnectGmailDialog />
+              <DebugPollDialog />
+              <SmsSetupGuide />
+              <BucketTransferLauncher />
+              <BacklogSweepLauncher />
+            </div>
           </div>
         </div>
       )}
@@ -7172,8 +7121,6 @@ export function EmailTransactionsPanel() {
         }}
         onDeleteRule={deleteUserRule}
       />
-      </div>
-      </div>
     </div>
   );
 }

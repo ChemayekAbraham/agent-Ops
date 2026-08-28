@@ -71,6 +71,44 @@ function toInt(raw: string): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
+// ─── shared field extractors (used by parseSMS AND parsePayoutConfirmationSms) ──
+/** YYYY-MM-DD, or undefined if no date pattern is found/valid. */
+export function extractDate(t: string): string | undefined {
+  const numericDate = t.match(/\b(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b/);
+  if (numericDate) {
+    const norm = normaliseDate(numericDate[1]);
+    if (norm) return norm;
+  }
+  const named = t.match(/\b(\d{1,2})[\s/-](Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s/-](\d{2,4})\b/i);
+  if (named) {
+    const norm = normaliseNamedDate(named[1], named[2], named[3]);
+    if (norm) return norm;
+  }
+  return undefined;
+}
+
+/** HH:MM 24h, or undefined if no time pattern is found/valid. */
+export function extractTime(t: string): string | undefined {
+  const timeMatch = t.match(/\b(\d{1,2}:\d{2}(?::\d{2})?\s?(?:AM|PM)?)\b/i);
+  if (!timeMatch) return undefined;
+  return normaliseTime(timeMatch[1]);
+}
+
+/**
+ * The recipient/sender phone number as shown in the SMS, if any. Checked in
+ * order: right after "from"/"to"/"by" (the counterparty), in parentheses
+ * after a name ("JOHN DOE (0700123456)"), then any Uganda-shaped number
+ * anywhere in the text.
+ */
+export function extractPhone(t: string): string | undefined {
+  const afterVerb = t.match(/\b(?:from|to|by)\s+((?:\+?256|0)\d{9})\b/);
+  if (afterVerb) return afterVerb[1];
+  const parens = t.match(/\(\s*((?:\+?256|0)\d{9})\s*\)/);
+  if (parens) return parens[1];
+  const anywhere = t.match(/\b((?:\+?256|0)\d{9})\b/);
+  return anywhere ? anywhere[1] : undefined;
+}
+
 // Currency token covering every common Ugandan spelling/spacing seen on MoMo,
 // Airtel Money and bank SMS: UGX, USh, UShs, U.Sh, U.Shs, UGShs, Shs, Sh,
 // Ush. — case-insensitive at the call sites. Keep this shared so amount, fee
@@ -182,26 +220,9 @@ export function parseSMS(text: string): ParsedSMS {
     if (phoneCp) out.counterparty = phoneCp[1];
   }
 
-  // ── Date ───────────────────────────────────────────────────────────
-  const numericDate = t.match(/\b(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b/);
-  if (numericDate) {
-    const norm = normaliseDate(numericDate[1]);
-    if (norm) out.date = norm;
-  }
-  if (!out.date) {
-    const named = t.match(/\b(\d{1,2})[\s/-](Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s/-](\d{2,4})\b/i);
-    if (named) {
-      const norm = normaliseNamedDate(named[1], named[2], named[3]);
-      if (norm) out.date = norm;
-    }
-  }
-
-  // ── Time ───────────────────────────────────────────────────────────
-  const timeMatch = t.match(/\b(\d{1,2}:\d{2}(?::\d{2})?\s?(?:AM|PM)?)\b/i);
-  if (timeMatch) {
-    const norm = normaliseTime(timeMatch[1]);
-    if (norm) out.time = norm;
-  }
+  // ── Date / Time ────────────────────────────────────────────────────
+  out.date = extractDate(t);
+  out.time = extractTime(t);
 
   // Fallback direction inference if verbs missing
   if (!out.direction && out.amount) {
@@ -216,20 +237,31 @@ export function parseSMS(text: string): ParsedSMS {
  * Focused payout-confirmation parser.
  *
  * Merchant agents paste their raw "you have sent…" MoMo/bank SMS after paying
- * a customer. We ONLY need the amount they sent and the transaction ID (TID /
- * bank reference). Everything else in the SMS — date, time, balance, fees,
- * counterparty — is ignored so the UI stays simple and does not reject a
- * valid paste just because some unrelated field looks odd.
+ * a customer. Amount and transaction ID (TID / bank reference) are the
+ * hard-block-critical fields and keep their own dedicated logic below (a
+ * payout SMS's amount is picked as the LARGEST currency-prefixed figure,
+ * which differs from parseSMS's verb-then-first-non-fee strategy — do not
+ * merge these). Date, time and phone are supporting evidence for the
+ * proof-of-payment image cross-check (never a hard block on their own) and
+ * are pulled via the same shared extractors parseSMS uses, so the UI stays
+ * simple and a valid paste is never rejected just because one of them looks
+ * odd.
  */
 export interface ParsedPayoutSMS {
   amount?: number;
   transactionId?: string;
+  date?: string;
+  time?: string;
+  phone?: string;
 }
 
 export function parsePayoutConfirmationSms(text: string): ParsedPayoutSMS {
   const out: ParsedPayoutSMS = {};
   if (!text) return out;
   const t = text.replace(/\s+/g, ' ').trim();
+  out.date = extractDate(t);
+  out.time = extractTime(t);
+  out.phone = extractPhone(t);
 
   // ── Transaction ID (same provider order as parseSMS) ─────────────────
   const mtnId = t.match(/(?:^|[^A-Za-z])(?:Financial\s+)?(?:Transaction\s+)?ID[:\s.#-]+(\d{8,18})\b/i);

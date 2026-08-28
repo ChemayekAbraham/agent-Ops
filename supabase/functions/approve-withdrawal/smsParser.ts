@@ -8,6 +8,10 @@
  *
  * Any field that can't be confidently parsed is left undefined — the
  * caller must hard-block submission until the required ones are set.
+ *
+ * A mirror of this module lives at `src/utils/smsParser.ts` (Deno edge
+ * functions bundle only their own directory, so the two copies can't
+ * share an import) — keep the two in sync.
  */
 
 export type TxDirection = 'in' | 'out' | 'charge';
@@ -69,6 +73,44 @@ function normaliseTime(raw: string): string | undefined {
 function toInt(raw: string): number | undefined {
   const n = Math.round(parseFloat(raw.replace(/,/g, '')));
   return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+// ─── shared field extractors (used by parseSMS AND parsePayoutConfirmationSms) ──
+/** YYYY-MM-DD, or undefined if no date pattern is found/valid. */
+export function extractDate(t: string): string | undefined {
+  const numericDate = t.match(/\b(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b/);
+  if (numericDate) {
+    const norm = normaliseDate(numericDate[1]);
+    if (norm) return norm;
+  }
+  const named = t.match(/\b(\d{1,2})[\s/-](Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s/-](\d{2,4})\b/i);
+  if (named) {
+    const norm = normaliseNamedDate(named[1], named[2], named[3]);
+    if (norm) return norm;
+  }
+  return undefined;
+}
+
+/** HH:MM 24h, or undefined if no time pattern is found/valid. */
+export function extractTime(t: string): string | undefined {
+  const timeMatch = t.match(/\b(\d{1,2}:\d{2}(?::\d{2})?\s?(?:AM|PM)?)\b/i);
+  if (!timeMatch) return undefined;
+  return normaliseTime(timeMatch[1]);
+}
+
+/**
+ * The recipient/sender phone number as shown in the SMS, if any. Checked in
+ * order: right after "from"/"to"/"by" (the counterparty), in parentheses
+ * after a name ("JOHN DOE (0700123456)"), then any Uganda-shaped number
+ * anywhere in the text.
+ */
+export function extractPhone(t: string): string | undefined {
+  const afterVerb = t.match(/\b(?:from|to|by)\s+((?:\+?256|0)\d{9})\b/);
+  if (afterVerb) return afterVerb[1];
+  const parens = t.match(/\(\s*((?:\+?256|0)\d{9})\s*\)/);
+  if (parens) return parens[1];
+  const anywhere = t.match(/\b((?:\+?256|0)\d{9})\b/);
+  return anywhere ? anywhere[1] : undefined;
 }
 
 // Currency token covering every common Ugandan spelling/spacing seen on MoMo,
@@ -182,26 +224,9 @@ export function parseSMS(text: string): ParsedSMS {
     if (phoneCp) out.counterparty = phoneCp[1];
   }
 
-  // ── Date ───────────────────────────────────────────────────────────
-  const numericDate = t.match(/\b(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b/);
-  if (numericDate) {
-    const norm = normaliseDate(numericDate[1]);
-    if (norm) out.date = norm;
-  }
-  if (!out.date) {
-    const named = t.match(/\b(\d{1,2})[\s/-](Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s/-](\d{2,4})\b/i);
-    if (named) {
-      const norm = normaliseNamedDate(named[1], named[2], named[3]);
-      if (norm) out.date = norm;
-    }
-  }
-
-  // ── Time ───────────────────────────────────────────────────────────
-  const timeMatch = t.match(/\b(\d{1,2}:\d{2}(?::\d{2})?\s?(?:AM|PM)?)\b/i);
-  if (timeMatch) {
-    const norm = normaliseTime(timeMatch[1]);
-    if (norm) out.time = norm;
-  }
+  // ── Date / Time ────────────────────────────────────────────────────
+  out.date = extractDate(t);
+  out.time = extractTime(t);
 
   // Fallback direction inference if verbs missing
   if (!out.direction && out.amount) {
@@ -216,19 +241,31 @@ export function parseSMS(text: string): ParsedSMS {
  * Focused payout-confirmation parser.
  *
  * Merchant agents paste their raw "you have sent…" MoMo/bank SMS after paying
- * a customer. We ONLY need the amount they sent and the transaction ID (TID /
- * bank reference). Everything else in the SMS — date, time, balance, fees,
- * counterparty — is ignored.
+ * a customer. Amount and transaction ID (TID / bank reference) are the
+ * hard-block-critical fields and keep their own dedicated logic below (a
+ * payout SMS's amount is picked as the LARGEST currency-prefixed figure,
+ * which differs from parseSMS's verb-then-first-non-fee strategy — do not
+ * merge these). Date, time and phone are supporting evidence for the
+ * proof-of-payment image cross-check (never a hard block on their own) and
+ * are pulled via the same shared extractors parseSMS uses, so the UI stays
+ * simple and a valid paste is never rejected just because one of them looks
+ * odd.
  */
 export interface ParsedPayoutSMS {
   amount?: number;
   transactionId?: string;
+  date?: string;
+  time?: string;
+  phone?: string;
 }
 
 export function parsePayoutConfirmationSms(text: string): ParsedPayoutSMS {
   const out: ParsedPayoutSMS = {};
   if (!text) return out;
   const t = text.replace(/\s+/g, ' ').trim();
+  out.date = extractDate(t);
+  out.time = extractTime(t);
+  out.phone = extractPhone(t);
 
   // ── Transaction ID (same provider order as parseSMS) ─────────────────
   const mtnId = t.match(/(?:^|[^A-Za-z])(?:Financial\s+)?(?:Transaction\s+)?ID[:\s.#-]+(\d{8,18})\b/i);
@@ -246,6 +283,9 @@ export function parsePayoutConfirmationSms(text: string): ParsedPayoutSMS {
   else if (generic && hasDigit(generic[1])) out.transactionId = generic[1].toUpperCase();
 
   // ── Amount ─────────────────────────────────────────────────────────
+  // For an outgoing payout SMS the sent amount is usually the largest
+  // currency-prefixed number that is NOT labelled as a fee/charge/balance.
+  // We intentionally do NOT extract fee/balance/counterparty.
   const CUR = String.raw`(?:UGX|UG\.?Shs?|U\.?Shs?|U\.?Sh\.?|Shs?|Ush\.?)`;
   const CUR_SUFFIX = String.raw`(?:${CUR}|/[=-])`;
   const AMT = String.raw`${CUR}?\s*\.?\s*([\d][\d,]*(?:\.\d+)?)`;
@@ -255,13 +295,17 @@ export function parsePayoutConfirmationSms(text: string): ParsedPayoutSMS {
     return Number.isFinite(n) && n > 0 ? n : undefined;
   }
 
+  // Strong verb first: "sent 50,000", "paid UGX 50,000", etc.
   const verbAmt = t.match(new RegExp(
     String.raw`(?:sent|paid|withdrew|withdrawn|debited|transferred|payment of|amount of|sum of|of)\s+` + AMT,
     'i',
   ));
-  if (verbAmt) out.amount = toInt(verbAmt[1]);
+  if (verbAmt) {
+    out.amount = toInt(verbAmt[1]);
+  }
 
   if (out.amount === undefined) {
+    // Pick the largest currency-prefixed amount, ignoring fee/balance labels.
     const amountRe = new RegExp(String.raw`${CUR}\s*\.?\s*([\d][\d,]*(?:\.\d+)?)`, 'gi');
     const skipRe = /(bal(?:ance)?|charge|fee|fees|tax|levy|new\s*balance)\s*[:.\-]?\s*$/i;
     let largest = 0;
@@ -275,6 +319,7 @@ export function parsePayoutConfirmationSms(text: string): ParsedPayoutSMS {
   }
 
   if (out.amount === undefined) {
+    // Trailing-currency fallback: "50,000/-", "50,000 UGX".
     const suffixRe = new RegExp(String.raw`([\d][\d,]*(?:\.\d+)?)\s*${CUR_SUFFIX}`, 'gi');
     let largest = 0;
     for (const m of t.matchAll(suffixRe)) {

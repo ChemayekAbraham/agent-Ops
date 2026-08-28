@@ -545,53 +545,34 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
   // smartphone screen for the inbox-style list.
   const emailTxFullscreen = activeTool === 'email_tx';
 
-  // Group the tool list into meaningful sections for the sidebar.
-
+  // Consolidated 4-tier sidebar structure for fast, intuitive scanning.
   const sidebarGroups: { title: string; items: MoreAction[] }[] = [
     {
-      title: 'Wallet Buckets',
-      items: [
-        { kind: 'tool', id: 'wallet_buckets', label: 'Wallet Buckets', desc: 'Drill into withdrawable, operational, landlord and merchant float buckets', icon: Wallet },
-      ],
-    },
-    {
-      title: 'Deposits & Reconciliation',
+      title: 'Daily Operations',
       items: moreActions.filter(a => [
-        'deposits','bridge_health','manual_float_credit','email_tx','auto_credit_review','offline_collections',
-        'recon','recon_review','mismatch_metrics',
+        'email_tx', 'deposits', 'stale_withdrawal_holds', 'cash_codes', 'auto_credit_review', 'merchant_float'
       ].includes(a.id as string)),
     },
     {
-      title: 'Withdrawals & Payouts',
+      title: 'Balances & Reconciliation',
       items: moreActions.filter(a => [
-        'stale_withdrawal_holds','withdrawal_history','withdrawal_notif_log','cashout_settlement',
-        'proxy_diagnostics','receipt_archive',
+        'wallet_buckets', 'recon', 'recon_review', 'mismatch_metrics', 'reports', 'liquidity_forecast', 'float_to_withdrawable'
       ].includes(a.id as string)),
     },
     {
-      title: 'Merchant Network',
+      title: 'Merchant Network & Cash-Out',
       items: moreActions.filter(a => [
-        'merchant_agents','merchant_float','merchant_float_requisition','merchant_float_allocation',
-      ].includes(a.id as string)),
-    },
-    {
-      title: 'Wallets & Users',
-      items: moreActions.filter(a => [
-        'liquidity_forecast','user_statements','earnings_explainer','funded_tenants','float_to_withdrawable',
-        'momo_sms_template',
+        'merchant_agents', 'cashout_settlement', 'merchant_claims', 'merchant_float_allocation', 'merchant_float_requisition',
+        'withdrawal_history', 'withdrawal_notif_log', 'proxy_diagnostics'
       ].includes(a.id as string)),
     },
     {
       title: 'Ledger & Audit',
       items: moreActions.filter(a => [
-        'ledgers','audit','topup_audit','sms_delivery_log','reports',
-      ].includes(a.id as string)),
-    },
-    {
-      title: 'Ops & Requisitions',
-      items: moreActions.filter(a => [
-        'ops','queue','search','opportunities','requisitions',
-        'employee_requisition_queue','employee_requisition_links',
+        'ledgers', 'audit', 'topup_audit', 'sms_delivery_log', 'user_statements', 'receipt_archive',
+        'earnings_explainer', 'bridge_health', 'manual_float_credit', 'offline_collections', 'funded_tenants',
+        'momo_sms_template', 'ops', 'queue', 'search', 'opportunities', 'requisitions',
+        'employee_requisition_queue', 'employee_requisition_links'
       ].includes(a.id as string)),
     },
   ];
@@ -882,21 +863,39 @@ function FinOpsHome({
         </div>
       </div>
 
-      {/* Major action buttons — cash deposit codes + email transactions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <MajorActionButton
-          onClick={() => onOpenTool('cash_codes')}
-          icon={KeyRound}
-          tone="amber"
-          title="Cash Deposit Codes"
-          desc="Read pending codes back to depositors — codes expire in 2 min."
-        />
+      {/* Above-the-fold highest frequency daily operations */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <MajorActionButton
           onClick={() => onOpenTool('email_tx')}
           icon={Mail}
           tone="blue"
           title="Email Transactions"
-          desc="Live transactions extracted from connected Gmail accounts."
+          desc="Live transaction inbox extracted from Gmail."
+        />
+        <MajorActionButton
+          onClick={() => onView('deposits')}
+          icon={ShieldCheck}
+          tone="primary"
+          title="Verify Deposits"
+          desc={`${queues?.depositsPending ?? 0} deposit${(queues?.depositsPending ?? 0) === 1 ? '' : 's'} awaiting verification.`}
+        />
+        <MajorActionButton
+          onClick={() => onOpenTool('stale_withdrawal_holds')}
+          icon={AlertTriangle}
+          tone="rose"
+          title="Stale Holds"
+          desc={
+            (staleHolds?.count ?? 0) > 0
+              ? `${staleHolds?.count} stuck hold${(staleHolds?.count ?? 0) === 1 ? '' : 's'} blocking balances.`
+              : '0 stuck withdrawal holds.'
+          }
+        />
+        <MajorActionButton
+          onClick={() => onOpenTool('merchant_float')}
+          icon={HandCoins}
+          tone="amber"
+          title="Merchant Float"
+          desc={`${queues?.activeClaims ?? 0} active claim${(queues?.activeClaims ?? 0) === 1 ? '' : 's'} & float requests.`}
         />
       </div>
 

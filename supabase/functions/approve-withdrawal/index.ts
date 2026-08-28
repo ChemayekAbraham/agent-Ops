@@ -15,6 +15,7 @@ import {
   type SmsAttemptRecord,
 } from "../_shared/smsDeliveryLog.ts";
 import { parsePayoutConfirmationSms } from "./smsParser.ts";
+import { extractProofFieldsFromImage } from "./proofVision.ts";
 
 /** Digit-tail normalizer: collapses carrier prefixes (MP/AT) + separators so
  *  "MP40781351736", "40781351736" and "40781351-736" all compare equal.
@@ -641,6 +642,17 @@ Deno.serve(async (req) => {
           ? (body as any).sms_text
           : null;
     const pasteSms = pasteSmsRaw && pasteSmsRaw.trim().length > 0 ? pasteSmsRaw : null;
+    // Hoisted so the proof-image verification block below (which runs for
+    // EVERY merchant settlement, cash or not, whether or not an SMS was
+    // pasted) can cross-check the image's extracted fields against whatever
+    // the pasted SMS already found.
+    let smsParsedAmount: number | null = null;
+    let smsParsedTid: string | null = null;
+    let smsParsedPhone: string | null = null;
+    let smsParsedDate: string | null = null;
+    // Set by the proof-image verification block below; persisted onto the
+    // withdrawal row alongside the other proof fields at completion.
+    let proofVerificationStatus: "match" | "mismatch" | "unverifiable" | null = null;
     // Hoisted so the post-claim "matched" audit write below can reach the
     // logger that is created inside the SMS-validation block. Without this the
     // post-claim call threw `logSmsPaste is not defined`, which aborted the
@@ -652,6 +664,10 @@ Deno.serve(async (req) => {
       | null = null;
     if (pasteSms && actingAsMerchant && !isCashPayout) {
       const parsed = parsePayoutConfirmationSms(pasteSms);
+      smsParsedAmount = parsed.amount ?? null;
+      smsParsedTid = parsed.transactionId ?? null;
+      smsParsedPhone = parsed.phone ?? null;
+      smsParsedDate = parsed.date ?? null;
       const requestedAmount = Math.round(Number((wr as any).amount || 0));
 
       // ── Structured parse log (one line per SMS paste) ──────────────────
@@ -722,6 +738,9 @@ Deno.serve(async (req) => {
             raw_sms: pasteSms,
             extracted_tid: parsed.transactionId ?? null,
             extracted_amount: parsed.amount ?? null,
+            extracted_date: parsed.date ?? null,
+            extracted_time: parsed.time ?? null,
+            extracted_phone: parsed.phone ?? null,
             reference_entered: reference ?? null,
             requested_amount: requestedAmount,
             validation_result: result,
@@ -815,6 +834,274 @@ Deno.serve(async (req) => {
       }
 
       // All checks passed for this paste.
+    }
+
+    // ── Server-side proof-of-payment IMAGE verification ─────────────────
+    // The block above only checks the pasted TEXT. Nothing has ever read the
+    // uploaded proof screenshot's contents — a merchant could paste a correct
+    // SMS and attach an unrelated/doctored image and the system would never
+    // notice. Runs vision extraction on the image the client already
+    // uploaded to Storage (payout_proof_path is authoritative — we NEVER
+    // trust a client-supplied base64 blob for this) and hard-blocks only on
+    // a confident, legible disagreement, mirroring the SMS block's
+    // philosophy exactly: an image the model can't read is "unverifiable",
+    // never a block. Runs for every merchant settlement (cash included,
+    // since a proof image is required there too), independent of whether an
+    // SMS was pasted.
+    if (actingAsMerchant) {
+      const proofPathForVision =
+        (typeof (body as any)?.payout_proof_path === "string" &&
+        (body as any).payout_proof_path.trim().length > 0
+          ? String((body as any).payout_proof_path).trim()
+          : null) ?? ((wr as any)?.payout_proof_path ?? null);
+      const proofBucketForVision =
+        typeof (body as any)?.payout_proof_bucket === "string" &&
+        (body as any).payout_proof_bucket.trim().length > 0
+          ? String((body as any).payout_proof_bucket).trim()
+          : "payment-proofs";
+      const requestedAmountForVision = Math.round(Number((wr as any).amount || 0));
+
+      const logProofVision = async (
+        validation_result: "match" | "mismatch" | "unverifiable",
+        validation_code: string | null,
+        validation_message: string | null,
+        extracted?: {
+          transactionId?: string | null;
+          amount?: number | null;
+          date?: string | null;
+          time?: string | null;
+          phone?: string | null;
+          confidence?: string | null;
+        } | null,
+      ) => {
+        proofVerificationStatus = validation_result;
+        try {
+          await admin.from("payout_proof_ocr_log").insert({
+            withdrawal_request_id: withdrawal_id,
+            request_owner_id: (wr as any)?.user_id ?? null,
+            storage_path: proofPathForVision,
+            storage_bucket: proofBucketForVision,
+            extracted_tid: extracted?.transactionId ?? null,
+            extracted_amount: extracted?.amount ?? null,
+            extracted_date: extracted?.date ?? null,
+            extracted_time: extracted?.time ?? null,
+            extracted_phone: extracted?.phone ?? null,
+            model_confidence: extracted?.confidence ?? null,
+            reference_entered: reference ?? null,
+            requested_amount: requestedAmountForVision,
+            sms_extracted_amount: smsParsedAmount,
+            sms_extracted_tid: smsParsedTid,
+            validation_result,
+            validation_code,
+            validation_message,
+            approver_id: user?.id ?? null,
+            approver_email: (user && (user.email as string)) || null,
+            approver_role: hasStaffRole ? "staff" : isCashoutAgent ? "cashout_agent" : "unknown",
+            ip_address:
+              req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+              req.headers.get("cf-connecting-ip") ||
+              req.headers.get("x-real-ip") ||
+              null,
+            user_agent: req.headers.get("user-agent") || null,
+            metadata: { payment_method: payment_method ?? null },
+          });
+        } catch (e) {
+          console.warn("[approve-withdrawal] proof ocr log insert failed", e);
+        }
+      };
+
+      if (proofPathForVision) {
+        // Idempotency: a retried settlement (transient ledger failure) must
+        // not re-charge the vision call or risk a flakier second verdict
+        // overturning an already-approved payout.
+        let existingVerdict: string | null = null;
+        try {
+          const { data: existing } = await admin
+            .from("payout_proof_ocr_log")
+            .select("validation_result")
+            .eq("withdrawal_request_id", withdrawal_id)
+            .eq("storage_path", proofPathForVision)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          existingVerdict = (existing as any)?.validation_result ?? null;
+        } catch (_e) {
+          /* no prior verdict found — proceed to a fresh check */
+        }
+
+        if (existingVerdict) {
+          proofVerificationStatus = existingVerdict as "match" | "mismatch" | "unverifiable";
+        } else {
+          const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+          if (!lovableApiKey) {
+            await logProofVision("unverifiable", "proof_vision_no_api_key", "LOVABLE_API_KEY not configured.");
+          } else {
+            const { data: fileData, error: dlErr } = await admin.storage
+              .from(proofBucketForVision)
+              .download(proofPathForVision);
+            if (dlErr || !fileData) {
+              await logProofVision(
+                "unverifiable",
+                "proof_vision_download_failed",
+                `Could not download proof image: ${dlErr?.message ?? "no data"}.`,
+              );
+            } else {
+              const bytes = new Uint8Array(await fileData.arrayBuffer());
+              let binary = "";
+              for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+              const base64Image = btoa(binary);
+              const mimeType = fileData.type || "image/jpeg";
+
+              const { fields, unverifiableReason } = await extractProofFieldsFromImage(
+                base64Image,
+                mimeType,
+                lovableApiKey,
+              );
+
+              if (!fields) {
+                await logProofVision(
+                  "unverifiable",
+                  "proof_vision_extraction_failed",
+                  unverifiableReason ?? "Extraction failed.",
+                );
+              } else {
+                // ── Hard-block: image amount vs. the actual withdrawal amount ──
+                if (fields.amount != null && Math.round(fields.amount) !== requestedAmountForVision) {
+                  const diff = Math.round(fields.amount) - requestedAmountForVision;
+                  await logProofVision(
+                    "mismatch",
+                    "proof_image_amount_mismatch",
+                    `Proof image shows UGX ${Math.round(fields.amount).toLocaleString()}, requested UGX ${requestedAmountForVision.toLocaleString()}.`,
+                    fields,
+                  );
+                  return new Response(
+                    JSON.stringify({
+                      error:
+                        `PROOF IMAGE AMOUNT MISMATCH — the uploaded proof shows a different amount.\n` +
+                        `• Expected (requested): UGX ${requestedAmountForVision.toLocaleString()}\n` +
+                        `• Shown in proof image: UGX ${Math.round(fields.amount).toLocaleString()}\n` +
+                        `Upload the correct proof, or paste the SMS for the correct transaction.`,
+                      code: "proof_image_amount_mismatch",
+                      mismatch_field: "amount",
+                      proof_image_amount: Math.round(fields.amount),
+                      requested_amount: requestedAmountForVision,
+                      difference: diff,
+                    }),
+                    { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+                  );
+                }
+
+                // ── Hard-block: image TID vs. the entered reference ───────
+                if (fields.transactionId) {
+                  const imgTid = normalizeMomoTid(fields.transactionId);
+                  const refTid = normalizeMomoTid(reference);
+                  if (imgTid.length > 0 && refTid.length > 0 && imgTid !== refTid) {
+                    await logProofVision(
+                      "mismatch",
+                      "proof_image_tid_mismatch",
+                      `TID mismatch — entered ${reference}, proof image shows ${fields.transactionId}.`,
+                      fields,
+                    );
+                    return new Response(
+                      JSON.stringify({
+                        error:
+                          `PROOF IMAGE TID MISMATCH — the uploaded proof's transaction ID does not match.\n` +
+                          `• Expected (entered reference): ${reference}\n` +
+                          `• Shown in proof image: ${fields.transactionId}\n` +
+                          `Upload the correct proof, or enter the reference that matches it.`,
+                        code: "proof_image_tid_mismatch",
+                        mismatch_field: "tid",
+                        proof_image_tid: fields.transactionId,
+                        reference,
+                      }),
+                      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+                    );
+                  }
+                }
+
+                // ── Hard-block: image amount vs. pasted-SMS amount (both ──
+                // independently claim an amount; disagreement means at least
+                // one is wrong — the same fraud shape either check alone
+                // already catches).
+                if (
+                  fields.amount != null &&
+                  smsParsedAmount != null &&
+                  Math.round(fields.amount) !== Math.round(smsParsedAmount)
+                ) {
+                  await logProofVision(
+                    "mismatch",
+                    "proof_image_sms_amount_mismatch",
+                    `Pasted SMS shows UGX ${Math.round(smsParsedAmount).toLocaleString()}, proof image shows UGX ${Math.round(fields.amount).toLocaleString()}.`,
+                    fields,
+                  );
+                  return new Response(
+                    JSON.stringify({
+                      error:
+                        `PROOF MISMATCH — the pasted SMS and the uploaded proof image disagree on the amount.\n` +
+                        `• Pasted SMS: UGX ${Math.round(smsParsedAmount).toLocaleString()}\n` +
+                        `• Proof image: UGX ${Math.round(fields.amount).toLocaleString()}\n` +
+                        `At least one of these does not belong to this payout.`,
+                      code: "proof_image_sms_amount_mismatch",
+                      mismatch_field: "amount",
+                    }),
+                    { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+                  );
+                }
+
+                // ── Soft, non-blocking findings routed to FinOps review ───
+                // Genuine ambiguity (TID/phone/date disagreement) belongs
+                // with a human, not a hard rule — screenshot-rendered
+                // timestamps and phone formatting are too noisy to auto-block.
+                const softMismatches: string[] = [];
+                if (smsParsedTid && fields.transactionId) {
+                  const a = normalizeMomoTid(smsParsedTid);
+                  const b = normalizeMomoTid(fields.transactionId);
+                  if (a.length > 0 && b.length > 0 && a !== b) softMismatches.push("tid_sms_vs_image");
+                }
+                if (fields.phone) {
+                  const smsPhoneDigits = (smsParsedPhone ?? "").replace(/\D+/g, "").slice(-9);
+                  const imgPhoneDigits = fields.phone.replace(/\D+/g, "").slice(-9);
+                  if (smsPhoneDigits && imgPhoneDigits && smsPhoneDigits !== imgPhoneDigits) {
+                    softMismatches.push("phone_sms_vs_image");
+                  }
+                }
+                if (smsParsedDate && fields.date && smsParsedDate !== fields.date) {
+                  softMismatches.push("date_sms_vs_image");
+                }
+                if (softMismatches.length > 0) {
+                  try {
+                    await admin.from("payout_proof_integrity_alerts").insert({
+                      issue_type: "sms_image_field_mismatch",
+                      severity: "medium",
+                      withdrawal_id,
+                      storage_path: proofPathForVision,
+                      details: {
+                        fields: softMismatches,
+                        extracted_from_image: fields,
+                        extracted_from_sms: {
+                          amount: smsParsedAmount,
+                          transactionId: smsParsedTid,
+                          phone: smsParsedPhone,
+                          date: smsParsedDate,
+                        },
+                      },
+                    });
+                  } catch (e) {
+                    console.warn("[approve-withdrawal] proof integrity alert insert failed", e);
+                  }
+                }
+
+                await logProofVision(
+                  "match",
+                  null,
+                  "Proof image verified — no confident disagreement found.",
+                  fields,
+                );
+              }
+            }
+          }
+        }
+      }
     }
 
     // Hoisted so the post-completion success-burn block can also write
@@ -2175,6 +2462,12 @@ Deno.serve(async (req) => {
                   payout_proof_uploaded_by: user.id,
                 }
               : {}),
+            ...(proofVerificationStatus
+              ? {
+                  payout_proof_verification_status: proofVerificationStatus,
+                  payout_proof_verified_at: new Date().toISOString(),
+                }
+              : {}),
             updated_at: new Date().toISOString(),
           } as any)
           .eq("id", withdrawal_id)
@@ -2323,6 +2616,12 @@ Deno.serve(async (req) => {
               ...((body as any)?.payout_proof_uploaded_by
                 ? { payout_proof_uploaded_by: String((body as any).payout_proof_uploaded_by) }
                 : { payout_proof_uploaded_by: user.id }),
+            }
+          : {}),
+        ...(proofVerificationStatus
+          ? {
+              payout_proof_verification_status: proofVerificationStatus,
+              payout_proof_verified_at: new Date().toISOString(),
             }
           : {}),
         // Re-stamp the settling merchant onto the row. The 15-min stale-claim

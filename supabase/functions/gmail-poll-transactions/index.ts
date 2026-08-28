@@ -491,6 +491,109 @@ async function raiseMerchantFloatAlert(
   }
 }
 
+// Visibility for the fuzzy name-match tier: an MTN "received" receipt whose
+// exact name match found nothing, but a looser token match found exactly one
+// plausible profile. Never auto-credited — just surfaced as a one-click
+// confirm for Financial Ops instead of disappearing into "no_user_match"
+// with no lead at all. Deliberately its own alert_type (not
+// 'email_receipt_unmatched') so the unrelated detect_deposit_match_failures()
+// sweep can never clobber the candidate suggestion in `details`.
+async function raisePossibleUserMatchAlert(
+  supabase: ReturnType<typeof createClient>,
+  opts: {
+    gmailRowId: string;
+    amount: number | null;
+    transactionId: string | null;
+    rawName: string;
+    candidateUserId: string;
+    candidateName: string | null;
+  },
+): Promise<void> {
+  try {
+    await supabase.from('deposit_match_alerts').upsert(
+      {
+        alert_type: 'email_receipt_possible_match',
+        subject_id: opts.gmailRowId,
+        subject_label: opts.rawName,
+        user_id: opts.candidateUserId,
+        amount: opts.amount,
+        transaction_reference: opts.transactionId,
+        age_minutes: 0,
+        severity: 'warning',
+        details: {
+          raw_name: opts.rawName,
+          candidate_user_id: opts.candidateUserId,
+          candidate_full_name: opts.candidateName,
+          reason: 'name_fuzzy_match_needs_confirmation',
+          observed_at: new Date().toISOString(),
+        },
+        resolved_at: null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'alert_type,subject_id' },
+    );
+  } catch (e) {
+    console.warn('[raisePossibleUserMatchAlert] upsert failed:', e);
+  }
+}
+
+// Token-based near-match for MTN "received" names when the exact ilike match
+// found nothing. MTN's SIM-registered name often differs slightly from the
+// platform profile (reordered names, a middle initial, a shop name) — this
+// requires every token of the SMS name to appear somewhere in a profile's
+// full_name (order-independent), and returns candidates ONLY when the result
+// is small enough to be a real signal, not a coincidence.
+async function resolveFuzzyNameCandidates(
+  supabase: ReturnType<typeof createClient>,
+  rawName: string,
+): Promise<Array<{ id: string; full_name: string | null; phone: string | null; email: string | null }>> {
+  const tokens = rawName
+    .split(' ')
+    .map((t) => t.replace(/[^A-Za-z]/g, ''))
+    .filter((t) => t.length >= 2)
+    .slice(0, 4);
+  if (tokens.length < 2) return [];
+
+  let query = supabase.from('profiles').select('id, full_name, phone, email');
+  for (const tok of tokens) {
+    query = query.ilike('full_name', `%${tok}%`);
+  }
+  const { data } = await query.limit(5);
+  return (data ?? []) as any;
+}
+
+// Sweep: resolve any open 'email_receipt_possible_match' alert whose row has
+// since been linked to a deposit (claimed by the payer, or hand-linked by
+// Financial Ops) — mirrors the other sweeps below. Bounded to keep the poll
+// cheap; a few stragglers just get picked up next tick.
+async function resolvePossibleUserMatchAlerts(
+  supabase: ReturnType<typeof createClient>,
+): Promise<void> {
+  const { data: openAlerts } = await supabase
+    .from('deposit_match_alerts')
+    .select('id, subject_id')
+    .eq('alert_type', 'email_receipt_possible_match')
+    .is('resolved_at', null)
+    .limit(50);
+  if (!openAlerts?.length) return;
+
+  const { data: linkedRows } = await supabase
+    .from('gmail_transactions')
+    .select('id')
+    .in('id', openAlerts.map((a: any) => a.subject_id))
+    .not('linked_deposit_request_id', 'is', null);
+  const linkedIds = new Set((linkedRows ?? []).map((r: any) => r.id));
+  if (!linkedIds.size) return;
+
+  const toResolve = openAlerts.filter((a: any) => linkedIds.has(a.subject_id)).map((a: any) => a.id);
+  if (!toResolve.length) return;
+
+  await supabase
+    .from('deposit_match_alerts')
+    .update({ resolved_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .in('id', toResolve);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -977,6 +1080,11 @@ Deno.serve(async (req) => {
         await sweepUnlinkedMerchantFloatSends(supabase);
       } catch (e) {
         console.warn('[gmail-poll] unlinked merchant float sweep failed (non-fatal):', e);
+      }
+      try {
+        await resolvePossibleUserMatchAlerts(supabase);
+      } catch (e) {
+        console.warn('[gmail-poll] possible-user-match alert resolve sweep failed (non-fatal):', e);
       }
     }
 
@@ -2199,6 +2307,58 @@ async function _tryAutoCreditOperationalFloat(
             reason: 'name_match_ambiguous',
             amount: parsed.amount ?? null,
             metadata: { gmail_message_id: gmailMessageId, raw_name: rawName, match_count: nameMatches.length },
+          });
+        }
+      } else {
+        // ── Fuzzy/near-match tier ────────────────────────────────────────
+        // No EXACT name match at all (nameMatches.length === 0). MTN's
+        // SIM-registered name often differs slightly from the platform
+        // profile — try a looser, order-independent token match, but treat
+        // any hit as a SUGGESTION only: never auto-credit off a fuzzy match.
+        // This just gives Financial Ops (or the payer) a concrete lead
+        // instead of the receipt disappearing into a bare "no_user_match"
+        // with nothing to act on.
+        const fuzzyCandidates = await resolveFuzzyNameCandidates(supabase, rawName);
+        if (fuzzyCandidates.length === 1) {
+          const candidate = fuzzyCandidates[0];
+          console.log(
+            `[gmail-poll] MTN name fuzzy-match (not auto-credited): "${rawName}" ≈ ` +
+            `"${candidate.full_name}" user=${candidate.id}`,
+          );
+          await logDepositDecision(supabase, {
+            source: 'matcher',
+            decision: 'flagged_for_review',
+            reason: 'name_fuzzy_match_needs_confirmation',
+            amount: parsed.amount ?? null,
+            metadata: {
+              gmail_message_id: gmailMessageId,
+              raw_name: rawName,
+              candidate_user_id: candidate.id,
+              candidate_full_name: candidate.full_name,
+            },
+          });
+          const { data: fuzzyGmailRow } = await supabase
+            .from('gmail_transactions')
+            .select('id')
+            .eq('gmail_message_id', gmailMessageId)
+            .maybeSingle();
+          if (fuzzyGmailRow?.id) {
+            await raisePossibleUserMatchAlert(supabase, {
+              gmailRowId: String(fuzzyGmailRow.id),
+              amount: parsed.amount ?? null,
+              transactionId: parsed.transaction_id ?? null,
+              rawName,
+              candidateUserId: candidate.id,
+              candidateName: candidate.full_name,
+            });
+          }
+        } else {
+          await logDepositDecision(supabase, {
+            source: 'matcher',
+            decision: 'skipped',
+            reason: fuzzyCandidates.length > 1 ? 'name_fuzzy_ambiguous' : 'name_no_match',
+            amount: parsed.amount ?? null,
+            metadata: { gmail_message_id: gmailMessageId, raw_name: rawName, candidate_count: fuzzyCandidates.length },
           });
         }
       }

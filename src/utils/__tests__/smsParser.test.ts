@@ -269,13 +269,15 @@ describe('parseSMS · edge cases / robustness', () => {
 });
 
 describe('parsePayoutConfirmationSms · merchant payout focus', () => {
-  it('extracts only amount and TID from an Airtel SMS', () => {
+  it('extracts amount, TID, date and time from an Airtel SMS', () => {
     const r = parsePayoutConfirmationSms(
       'PAID.TID 146525101664. UGX 300,000 to WELILE TECHNOLOGIES LIMITED Charge UGX 0. Bal UGX 323,546. 04-May-2026 16:20',
     );
     expect(r.amount).toBe(300000);
     expect(r.transactionId).toBe('TID146525101664');
-    expect(Object.keys(r)).toEqual(['transactionId', 'amount']);
+    expect(r.date).toBe('2026-05-04');
+    expect(r.time).toBe('16:20');
+    expect(r.phone).toBeUndefined();
   });
 
   it('extracts only amount and TID from an MTN sent SMS', () => {
@@ -322,5 +324,39 @@ describe('parsePayoutConfirmationSms · merchant payout focus', () => {
 
   it('does not throw on random noise', () => {
     expect(() => parsePayoutConfirmationSms('!!! ??? @@@ ... 12:99 99:99')).not.toThrow();
+  });
+});
+
+describe('parsePayoutConfirmationSms · date, time and phone (proof-of-payment cross-check evidence)', () => {
+  it('extracts an ISO date + 24h time and the recipient phone after "to"', () => {
+    const r = parsePayoutConfirmationSms(
+      'You have sent UGX 150000 to LYDIA NAMUGENYI, 0767652611 on 2026-05-05 15:08:28, fee: 1000. New balance: 4736158. ID :40479927536.',
+    );
+    expect(r.date).toBe('2026-05-05');
+    expect(r.time).toBe('15:08');
+    expect(r.phone).toBe('0767652611');
+  });
+
+  it('normalises a 12h AM/PM time into 24h', () => {
+    const r = parsePayoutConfirmationSms('Sent UGX 10,000. TID 12345678. 04-May-2026 3:08 PM');
+    expect(r.time).toBe('15:08');
+  });
+
+  it('extracts a +256-prefixed phone number', () => {
+    const r = parsePayoutConfirmationSms('PAID.TID 146525101664. UGX 300,000 to +256701234567 on 04-May-2026 16:20');
+    expect(r.phone).toBe('+256701234567');
+  });
+
+  it('extracts a phone number in parentheses after a name', () => {
+    const r = parsePayoutConfirmationSms('You have sent UGX 150,000 to LYDIA (0767652611). Fee UGX 1,000. TID 40479927536.');
+    expect(r.phone).toBe('0767652611');
+  });
+
+  it('leaves date, time and phone undefined when none are present, without throwing', () => {
+    const r = parsePayoutConfirmationSms('Sent UGX 25,000. TID 12345678.');
+    expect(r.amount).toBe(25000);
+    expect(r.date).toBeUndefined();
+    expect(r.time).toBeUndefined();
+    expect(r.phone).toBeUndefined();
   });
 });
