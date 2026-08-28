@@ -1082,6 +1082,8 @@ export function AgentProductsServicesReport() {
                   </TabsContent>
                 ))}
               </Tabs>
+                );
+              })()}
             </CardContent>
           </Card>
         </>
