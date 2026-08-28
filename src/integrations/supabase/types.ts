@@ -2021,6 +2021,8 @@ export type Database = {
         Row: {
           active_count: number
           agent_id: string
+          capped_paid: number | null
+          coverage_pct: number | null
           created_at: string
           day: string
           expected_daily: number
@@ -2028,11 +2030,15 @@ export type Database = {
           rating: string
           ratio: number
           status: string
+          tenants_due: number | null
+          tenants_paid: number | null
           updated_at: string
         }
         Insert: {
           active_count?: number
           agent_id: string
+          capped_paid?: number | null
+          coverage_pct?: number | null
           created_at?: string
           day: string
           expected_daily?: number
@@ -2040,11 +2046,15 @@ export type Database = {
           rating: string
           ratio?: number
           status: string
+          tenants_due?: number | null
+          tenants_paid?: number | null
           updated_at?: string
         }
         Update: {
           active_count?: number
           agent_id?: string
+          capped_paid?: number | null
+          coverage_pct?: number | null
           created_at?: string
           day?: string
           expected_daily?: number
@@ -2052,6 +2062,8 @@ export type Database = {
           rating?: string
           ratio?: number
           status?: string
+          tenants_due?: number | null
+          tenants_paid?: number | null
           updated_at?: string
         }
         Relationships: []
@@ -37397,10 +37409,18 @@ export type Database = {
         Row: {
           active_count: number | null
           agent_id: string | null
+          coverage_today: number | null
+          coverage_yesterday: number | null
+          effective_coverage: number | null
           effective_pct: number | null
           expected_daily: number | null
           paid_today: number | null
           paid_yesterday: number | null
+          raw_today_pct: number | null
+          raw_yesterday_pct: number | null
+          tenants_due: number | null
+          tenants_paid_today: number | null
+          tenants_paid_yesterday: number | null
           today_pct: number | null
           yesterday_pct: number | null
         }
@@ -39026,10 +39046,16 @@ export type Database = {
           roi_percentage: number
         }[]
       }
-      _classify_daily_rating: {
-        Args: { p_active_count: number; p_ratio: number }
-        Returns: string
-      }
+      _classify_daily_rating:
+        | { Args: { p_active_count: number; p_ratio: number }; Returns: string }
+        | {
+            Args: {
+              p_active_count: number
+              p_coverage: number
+              p_ratio: number
+            }
+            Returns: string
+          }
       _geo_cache_key: {
         Args: {
           p_city: string
@@ -41561,10 +41587,18 @@ export type Database = {
         Returns: {
           active_count: number
           agent_id: string
+          coverage_today: number
+          coverage_yesterday: number
+          effective_coverage: number
           effective_pct: number
           expected_daily: number
           paid_today: number
           paid_yesterday: number
+          raw_today_pct: number
+          raw_yesterday_pct: number
+          tenants_due: number
+          tenants_paid_today: number
+          tenants_paid_yesterday: number
           today_pct: number
           yesterday_pct: number
         }[]
