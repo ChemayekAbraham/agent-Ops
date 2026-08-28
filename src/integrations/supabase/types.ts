@@ -24464,6 +24464,54 @@ export type Database = {
           },
         ]
       }
+      portfolio_change_log: {
+        Row: {
+          action: string
+          after_values: Json
+          before_values: Json
+          changed_at: string
+          changed_by: string | null
+          changed_fields: string[]
+          created_at: string
+          id: string
+          notified_at: string | null
+          partner_id: string | null
+          partner_name: string | null
+          portfolio_code: string | null
+          portfolio_id: string | null
+        }
+        Insert: {
+          action: string
+          after_values?: Json
+          before_values?: Json
+          changed_at?: string
+          changed_by?: string | null
+          changed_fields?: string[]
+          created_at?: string
+          id?: string
+          notified_at?: string | null
+          partner_id?: string | null
+          partner_name?: string | null
+          portfolio_code?: string | null
+          portfolio_id?: string | null
+        }
+        Update: {
+          action?: string
+          after_values?: Json
+          before_values?: Json
+          changed_at?: string
+          changed_by?: string | null
+          changed_fields?: string[]
+          created_at?: string
+          id?: string
+          notified_at?: string | null
+          partner_id?: string | null
+          partner_name?: string | null
+          portfolio_code?: string | null
+          portfolio_id?: string | null
+        }
+        Relationships: []
+      }
       portfolio_completion_tokens: {
         Row: {
           consumed_at: string | null
@@ -41030,6 +41078,7 @@ export type Database = {
         }
         Returns: Json
       }
+      dispatch_portfolio_change_notice: { Args: never; Returns: undefined }
       dispatch_tenant_transfer_notice: {
         Args: {
           p_from_agent_id: string
