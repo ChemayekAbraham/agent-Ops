@@ -377,6 +377,16 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
 
               ['Outstanding', formatUGX(Number(detailsTarget.amount_outstanding || 0))],
             ];
+            const savedDaily = Number(detailsTarget.access_daily_amount || 0);
+            const savedDays = Number(detailsTarget.access_repayment_days || 0);
+            if (savedDaily > 0) {
+              rows.push(['Daily deduction', `${formatUGX(savedDaily)} / day`]);
+            }
+            if (savedDays > 0) {
+              rows.push(['Repayment period', `${savedDays} days`]);
+              if (savedDaily > 0) rows.push(['Total payable', formatUGX(savedDaily * savedDays)]);
+            }
+
             return (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
