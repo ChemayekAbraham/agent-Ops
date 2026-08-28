@@ -152,7 +152,6 @@ export function apsAgentExpectedTotal(row: ApsRentRow, rangeDays?: number | null
   return (Number(row.daily_receivable) || 0) * days;
 }
 const num = (n: any) => Math.round(Number(n) || 0).toLocaleString();
-const title = (s: any) => String(s ?? '—').replace(/_/g, ' ');
 
 export function generateAgentProductsServicesPdf(opts: {
   report: ApsReport;
@@ -166,7 +165,6 @@ export function generateAgentProductsServicesPdf(opts: {
   const rangeDays = Math.max(1, Math.round(Number(report.range_days) || 1));
   const prev = opts.prev ?? null;
   const cmpLabel = apsCompareLabel(rangeDays);
-  const prevCol = apsPrevColumnLabel(rangeDays);
   /** Previous-period baselines: real prior-window report when available, else the RPC's day-over-day fields. */
   const base = {
     newAgents: prev ? Number(prev.agents.new_today) : Number(report.agents.new_prev),
@@ -220,7 +218,7 @@ export function generateAgentProductsServicesPdf(opts: {
   doc.setFontSize(9);
   doc.text('WELILE', margin, 9);
   doc.setFontSize(13);
-  doc.text('AGENT PRODUCTS & SERVICES — DAILY REPORT', margin, 16.5);
+  doc.text('AGENT PRODUCTS & SERVICES — EXECUTIVE SUMMARY', margin, 16.5);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.text(`${isRange ? 'Reporting period' : 'Reporting day'}: ${periodLabel}  ·  ${report.timezone}`, margin, 21.5);
