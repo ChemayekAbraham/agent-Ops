@@ -23,7 +23,14 @@ interface Props {
   cycleId: string | null;
   /** 'cfo' = full queue (post-COO for ops departments); 'coo' = the four ops departments only. */
   stage: BudgetReviewStage;
+  /** Show only submissions this reviewer can still act on (hides decided history). */
+  onlyOpen?: boolean;
+  /** Intro copy override for the section. */
+  intro?: string;
+  /** Empty-state copy override. */
+  emptyLabel?: string;
 }
+
 
 /** Stages where the reviewer of this screen may still act on the submission. */
 const OPEN_STATUSES: Record<BudgetReviewStage, string[]> = {
