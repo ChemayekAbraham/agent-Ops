@@ -14,6 +14,7 @@ import { BusinessAdvanceQueue } from '@/components/ops/BusinessAdvanceQueue';
 
 import { SmartphoneCatalogDialog } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
 import { SmartphoneOrderApprovalQueue } from '@/components/executive/agent-ops/SmartphoneOrderApprovalQueue';
+import { BikeLeaseApprovalQueue } from '@/components/executive/agent-ops/BikeLeaseApprovalQueue';
 import { LendingAgentsPanel } from '@/components/executive/LendingAgentsPanel';
 
 
@@ -72,6 +73,8 @@ export default function AgentProductCategoryPage() {
           </div>
         ) : entry.slug === 'smart-phones' ? (
           <SmartphoneTabs category={entry.category ?? undefined} />
+        ) : entry.slug === 'motor-bikes' ? (
+          <MotorBikeTabs category={entry.category ?? undefined} />
         ) : (
           <div className="space-y-6">
             <AgentProductsPanel category={entry.category ?? undefined} />
@@ -121,4 +124,37 @@ function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
     </Tabs>
   );
 
+}
+
+function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
+  const { data: pendingCount = 0 } = useQuery({
+    queryKey: ['bike-lease-pending-count'],
+    queryFn: async () => {
+      const { data, error } = await db.rpc('list_bike_lease_orders', { p_status: null });
+      if (error) throw error;
+      return ((data || []) as { order_status: string }[]).filter((o) =>
+        [...PENDING_STATUSES, 'coo_approved'].includes(o.order_status),
+      ).length;
+    },
+  });
+
+  return (
+    <Tabs defaultValue="applications" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="applications" className="gap-2">
+          Bike Lease Applications
+          {pendingCount > 0 && <Badge variant="secondary">{pendingCount}</Badge>}
+        </TabsTrigger>
+        <TabsTrigger value="overview">Overview</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="applications" className="space-y-6">
+        <BikeLeaseApprovalQueue />
+      </TabsContent>
+
+      <TabsContent value="overview" className="space-y-6">
+        <AgentProductsPanel category={category} />
+      </TabsContent>
+    </Tabs>
+  );
 }
