@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Plus, Save, Send, Trash2, Upload, FileText, AlertTriangle } from 'lucide-react';
+import { Loader2, Plus, Save, Send, Trash2, Upload, FileText, AlertTriangle, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
@@ -30,14 +30,22 @@ interface DraftLine {
   period_month: string;
   justification: string;
   document_path: string;
+  /** Original filename, kept for display only; never sent to the server. */
+  document_name: string;
 }
 
 const emptyLine = (): DraftLine => ({
   description: '', account_code: '', quantity: '1', unit_amount: '',
-  period_month: '', justification: '', document_path: '',
+  period_month: '', justification: '', document_path: '', document_name: '',
 });
 
 const EDITABLE_STATUSES = ['draft'];
+
+/** Recovers a readable filename from a stored document path. */
+const documentDisplayName = (path: string) => {
+  const base = path.split('/').pop() ?? path;
+  return base.replace(/^\d+-/, '') || base;
+};
 
 /**
  * Mirrors public.is_budget_reviewer(). Reviewers are exempt from the
@@ -62,7 +70,6 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     accounts,
     departments,
     myDepartments: allMyDepartments,
-    primaryDepartmentId,
     loading: refLoading,
   } = useBudgetReferenceData();
 
@@ -140,12 +147,13 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     }
     if (!myDepartments.length) { if (departmentId) setDepartmentId(''); return; }
     if (myDepartments.some(d => d.id === departmentId)) return;
-    const preferred = primaryDepartmentId
-      ? myDepartments.find(d => d.id === primaryDepartmentId)
-      : null;
-    if (preferred) { setDepartmentId(preferred.id); return; }
+    // More than one posting: start on the "Select department" placeholder
+    // rather than defaulting to the home department. A prefilled department
+    // is easy to miss, and filing under the wrong one is the mistake this
+    // field exists to prevent. Only a single posting fills itself in, and
+    // that case renders as a fixed field with nothing to choose.
     setDepartmentId(myDepartments.length === 1 ? myDepartments[0].id : '');
-  }, [myDepartments, departmentId, primaryDepartmentId, refLoading, filingOnBehalf, selectableDepartments]);
+  }, [myDepartments, departmentId, refLoading, filingOnBehalf, selectableDepartments]);
 
 
   useEffect(() => {
@@ -191,6 +199,7 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
       period_month: r.period_month ?? '',
       justification: r.justification ?? '',
       document_path: r.document_path ?? '',
+      document_name: r.document_path ? documentDisplayName(r.document_path) : '',
     })) : [emptyLine()]);
   };
 
@@ -212,7 +221,7 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     setUploadingIdx(idx);
     try {
       const path = await uploadBudgetDocument(file, activeId);
-      updateLine(idx, { document_path: path });
+      updateLine(idx, { document_path: path, document_name: file.name });
       toast.success('Supporting document attached');
     } catch {
       toast.error('Upload failed');
@@ -221,34 +230,45 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     }
   };
 
+  /**
+   * Writes the current form state and returns the submission id, or null when
+   * the form is not yet valid (the reason is surfaced as a toast). Shared by
+   * Save draft and Submit so what is on screen is always what gets persisted.
+   */
+  const persistDraft = async (): Promise<string | null> => {
+    if (!cycleId || !departmentId) { toast.error('Pick a budget cycle and department'); return null; }
+    const payload = lines
+      .filter(l => l.description.trim() && l.account_code)
+      .map(l => ({
+        description: l.description.trim(),
+        account_code: l.account_code,
+        quantity: Number(l.quantity) || 1,
+        unit_amount: Number(l.unit_amount) || 0,
+        period_month: l.period_month || null,
+        justification: l.justification || null,
+        document_path: l.document_path || null,
+      }));
+    if (!payload.length) { toast.error('Add at least one line with a description and a budget category'); return null; }
+    const { data, error } = await supabase.rpc('budget_save_draft', {
+      p_submission_id: activeId,
+      p_call_id: cycleId,
+      p_department_id: departmentId,
+      p_title: title || null,
+      p_purpose: purpose || null,
+      p_lines: payload,
+    });
+    if (error) throw error;
+    const newId = data as unknown as string;
+    setActiveId(newId);
+    await registerBudgetDocuments(newId, payload.map(l => l.document_path).filter(Boolean) as string[]);
+    return newId;
+  };
+
   const saveDraft = async () => {
-    if (!cycleId || !departmentId) { toast.error('Pick a budget cycle and department'); return; }
     setSaving(true);
     try {
-      const payload = lines
-        .filter(l => l.description.trim() && l.account_code)
-        .map(l => ({
-          description: l.description.trim(),
-          account_code: l.account_code,
-          quantity: Number(l.quantity) || 1,
-          unit_amount: Number(l.unit_amount) || 0,
-          period_month: l.period_month || null,
-          justification: l.justification || null,
-          document_path: l.document_path || null,
-        }));
-      if (!payload.length) { toast.error('Add at least one line with a description and a budget category'); return; }
-      const { data, error } = await supabase.rpc('budget_save_draft', {
-        p_submission_id: activeId,
-        p_call_id: cycleId,
-        p_department_id: departmentId,
-        p_title: title || null,
-        p_purpose: purpose || null,
-        p_lines: payload,
-      });
-      if (error) throw error;
-      const newId = data as unknown as string;
-      setActiveId(newId);
-      await registerBudgetDocuments(newId, payload.map(l => l.document_path).filter(Boolean) as string[]);
+      const id = await persistDraft();
+      if (!id) return;
       toast.success('Draft saved');
       await loadSubmissions();
     } catch (e) {
@@ -258,11 +278,19 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     }
   };
 
+  /**
+   * Submit straight from a filled-in form. The draft is written first because
+   * budget_submit_submission works off persisted lines, but that is now an
+   * implementation detail rather than a step the user has to remember: filling
+   * the form and pressing Submit is enough, and any unsaved edits to an
+   * existing draft are captured in the same action.
+   */
   const submit = async () => {
-    if (!activeId) { toast.error('Save the draft first'); return; }
     setSubmitting(true);
     try {
-      const { data, error } = await supabase.rpc('budget_submit_submission', { p_submission_id: activeId });
+      const id = await persistDraft();
+      if (!id) return;
+      const { data, error } = await supabase.rpc('budget_submit_submission', { p_submission_id: id });
       if (error) throw error;
       const res = data as unknown as { is_late?: boolean };
       toast.success(res?.is_late ? 'Submitted — flagged as late' : 'Budget submitted for CFO review');
@@ -351,9 +379,7 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
               )}
               {selectableDepartments.length > 1 && !departmentId && (
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  {filingOnBehalf
-                    ? 'Pick the department this budget belongs to.'
-                    : 'Your home department could not be resolved — pick the department this budget belongs to.'}
+                  Pick the department this budget belongs to.
                 </p>
               )}
               {filingOnBehalf && selectedDepartment && !myDepartmentIds.has(selectedDepartment.id) && (
@@ -493,20 +519,47 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
                   </span>
                   <div className="flex items-center gap-2">
                     {l.document_path && (
-                      <Button size="sm" variant="ghost" className="h-7 gap-1 px-2 text-[11px]"
-                        onClick={async () => {
-                          try { window.open(await getBudgetDocumentUrl(l.document_path), '_blank'); }
-                          catch { toast.error('Could not open document'); }
-                        }}>
-                        <FileText className="h-3.5 w-3.5" /> View document
-                      </Button>
+                      /* Named, not "View document": the filename is how you
+                         tell whether the right file went on the right line. */
+                      <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-muted/40 py-1 pl-2 pr-1 text-[11px]">
+                        <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <button
+                          type="button"
+                          className="max-w-[16rem] truncate underline-offset-2 hover:underline"
+                          title={`Open ${l.document_name || documentDisplayName(l.document_path)}`}
+                          onClick={async () => {
+                            try { window.open(await getBudgetDocumentUrl(l.document_path), '_blank'); }
+                            catch { toast.error('Could not open document'); }
+                          }}
+                        >
+                          {l.document_name || documentDisplayName(l.document_path)}
+                        </button>
+                        {!readOnly && (
+                          <button
+                            type="button"
+                            aria-label={`Remove ${l.document_name || documentDisplayName(l.document_path)}`}
+                            title="Remove attachment"
+                            className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => {
+                              updateLine(idx, { document_path: '', document_name: '' });
+                              toast.success('Attachment removed');
+                            }}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </span>
                     )}
                     {!readOnly && (
                       <label className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px]">
                         {uploadingIdx === idx ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                        Attach
+                        {l.document_path ? 'Replace' : 'Attach'}
                         <input type="file" className="hidden"
-                          onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(idx, f); }} />
+                          onChange={e => {
+                            const f = e.target.files?.[0];
+                            if (f) handleUpload(idx, f);
+                            e.target.value = '';
+                          }} />
                       </label>
                     )}
                   </div>
@@ -537,7 +590,7 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
               <Plus className="h-3.5 w-3.5" /> New budget
             </Button>
             {!readOnly && (
-              <Button size="sm" onClick={submit} disabled={submitting || !activeId} variant="secondary" className="gap-2 text-xs">
+              <Button size="sm" onClick={submit} disabled={submitting || saving} variant="secondary" className="gap-2 text-xs">
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Submit for review
               </Button>
             )}
