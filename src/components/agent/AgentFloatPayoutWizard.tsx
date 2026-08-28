@@ -38,7 +38,10 @@ interface AgentFloatPayoutWizardProps {
    * agent's actual selection).
    */
   allocation?: LandlordFloatAllocation | null;
+  /** Called once the payout completes so the caller can refresh its own view. */
+  onDone?: () => void;
 }
+
 
 type Step = 'select' | 'otp' | 'disburse' | 'done';
 
