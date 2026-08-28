@@ -1920,6 +1920,12 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         open={floatPayoutOpen}
         onOpenChange={(o) => { setFloatPayoutOpen(o); if (!o) setSelectedFloatAllocation(null); }}
         allocation={selectedFloatAllocation}
+        onDone={() => {
+          // Same deferred-open pattern as the list → wizard hand-off below —
+          // opening the list dialog in the same tick the wizard closes steals
+          // focus/pointer state from the closing Radix dialog.
+          setTimeout(() => setFloatAllocationsOpen(true), 250);
+        }}
       />
       </LazyModal>
       <LazyModal when={floatAllocationsOpen}>

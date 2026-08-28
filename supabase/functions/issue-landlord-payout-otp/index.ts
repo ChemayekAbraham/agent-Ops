@@ -3,6 +3,7 @@ import "../_shared/smsFooterInterceptor.ts";
 // Issue OTP for agent-initiated landlord rent payout.
 // Validates float, creates an OTP challenge, sends SMS to landlord.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { confirmYoolaDelivery, extractYoolaMessageId } from "../_shared/yoolaDeliveryConfirm.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -216,11 +217,29 @@ async function sendOtpWithFallback(phone: string, message: string): Promise<SmsR
     return r;
   };
 
-  const primary = await run("yoola", () => sendYoolaSms(phone, message));
-  if (primary.ok) return { ...primary, attempts };
-  console.warn(
-    `[issue-landlord-payout-otp] Yoola send failed (${primary.reason ?? "unknown"}) — falling back to Africa's Talking`,
-  );
+  let primary = await run("yoola", () => sendYoolaSms(phone, message));
+  if (primary.ok) {
+    // Yoola accepting the HTTP request is NOT proof the landlord's handset got
+    // the OTP — the carrier can silently drop it. This code gates real money
+    // moving out of the Landlord Payout Float, so hold the send open and poll
+    // Yoola's delivery report before trusting it, exactly like the cash-deposit
+    // code flow (see _shared/yoolaDeliveryConfirm.ts). If delivery is not
+    // confirmed inside the window, treat Yoola as failed and fall over to
+    // Africa's Talking instead of leaving the landlord without a code.
+    const messageId = extractYoolaMessageId(primary.raw);
+    const confirmation = await confirmYoolaDelivery(messageId);
+    if (confirmation.outcome === "delivered") {
+      return { ...primary, attempts };
+    }
+    const reason = `Yoola accepted but did not confirm delivery (${confirmation.detail ?? confirmation.outcome})`;
+    primary = { ...primary, ok: false, reason };
+    attempts[attempts.length - 1] = { ...attempts[attempts.length - 1], accepted: false, reason };
+    console.warn(`[issue-landlord-payout-otp] ${reason} — falling back to Africa's Talking`);
+  } else {
+    console.warn(
+      `[issue-landlord-payout-otp] Yoola send failed (${primary.reason ?? "unknown"}) — falling back to Africa's Talking`,
+    );
+  }
   const at = await run("africastalking", () => sendSms(phone, message));
   if (at.ok) {
     return {
