@@ -161,17 +161,22 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               </Select>
             </div>
 
-            {totalAmount > 0 && (
-              <div className="rounded-lg border border-border bg-muted/40 p-3">
-                <p className="text-xs text-muted-foreground">Total access amount</p>
-                <p className="text-lg font-bold tabular-nums">{formatUGX(accessAmount)}</p>
+            {dailyRepayment > 0 && (
+              <div className="rounded-lg border border-border bg-muted/40 p-3 text-center">
+                <p className="text-xs text-muted-foreground">Daily repayment</p>
+                <p className="text-2xl font-bold tabular-nums">
+                  {formatUGX(dailyRepayment)}
+                  <span className="text-sm font-medium text-muted-foreground">/day</span>
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Deducted daily from your Welile Wallet for 365 days once approved.
+                </p>
               </div>
             )}
 
             <p className="text-[11px] text-muted-foreground">
               Your order is submitted as Pending Approval. Nothing is charged to your wallet until it is
-              approved — you can order even with a UGX 0 balance. Your payment projection is shown once the
-              order is approved.
+              approved — you can order even with a UGX 0 balance.
             </p>
           </TabsContent>
 
@@ -180,9 +185,9 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               <h4 className="font-semibold">Terms & Conditions</h4>
               <ol className="list-decimal pl-4 space-y-2 text-muted-foreground">
                 <li><span className="font-medium text-foreground">Eligibility:</span> Must have an active Welile Wallet and active tenants.</li>
-                <li><span className="font-medium text-foreground">Access Fee Only:</span> Welile pays only the Access Fee. You pay any remaining supplier balance directly.</li>
-                <li><span className="font-medium text-foreground">Repayment:</span> You must repay the Access Fee back to Welile through your wallet.</li>
-                <li><span className="font-medium text-foreground">Auto-Deduction:</span> Daily repayments (min. UGX 1,000) will be automatically deducted from your Welile Wallet.</li>
+                <li><span className="font-medium text-foreground">Up-front cost:</span> Welile covers the phone cost up front. You repay through your wallet.</li>
+                <li><span className="font-medium text-foreground">Repayment:</span> A fixed daily amount is deducted from your Welile Wallet.</li>
+                <li><span className="font-medium text-foreground">Auto-Deduction:</span> Daily repayments will be automatically deducted from your Welile Wallet.</li>
               </ol>
             </div>
           </TabsContent>
