@@ -217,26 +217,135 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-2 gap-2 lg:col-span-2 lg:grid-cols-2">
-          {stats.map((s) => (
-            <button
-              key={s.label}
-              type="button"
-              onClick={() => onNavigate(s.view)}
-              className="group rounded-2xl border border-border/60 bg-card p-3.5 text-left shadow-sm transition-all hover:border-primary/50 hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-            >
-              <div className="flex items-center gap-2">
-                <div className={cn('rounded-xl p-2 shrink-0', s.tone)}>
-                  <s.icon className="h-4 w-4" />
+        <div className="lg:col-span-2 space-y-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Executive summary
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+            {stats.map((s) => (
+              <button
+                key={s.label}
+                type="button"
+                onClick={() => onNavigate(s.view)}
+                className="group rounded-2xl border border-border/60 bg-card p-3.5 text-left shadow-sm transition-all hover:border-primary/50 hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+              >
+                <div className="flex items-center gap-2">
+                  <div className={cn('rounded-xl p-2 shrink-0', s.tone)}>
+                    <s.icon className="h-4 w-4" />
+                  </div>
+                  <p className="min-w-0 text-[10px] font-semibold uppercase leading-tight tracking-wider text-muted-foreground break-words line-clamp-2">
+                    {s.label}
+                  </p>
                 </div>
-                <p className="min-w-0 text-[10px] font-semibold uppercase leading-tight tracking-wider text-muted-foreground break-words line-clamp-2">
-                  {s.label}
+                <p className="mt-2 text-xl font-bold tabular-nums leading-none">
+                  {isLoading || loadingAcquisition ? '—' : s.value}
                 </p>
-              </div>
-              <p className="mt-2 text-xl font-bold tabular-nums leading-none">{isLoading ? '—' : s.value}</p>
-              <p className="mt-1 text-[11px] leading-snug text-muted-foreground break-words line-clamp-2">{s.hint}</p>
-            </button>
-          ))}
+                <p className="mt-1 text-[11px] leading-snug text-muted-foreground break-words line-clamp-2">{s.hint}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Tenant Acquisition */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-bold tracking-tight flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-primary" />
+              Tenant Acquisition
+            </h3>
+            <p className="text-[11px] text-muted-foreground">
+              Registrations and distribution across locations, service centres and agents.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
+            <span className="rounded-full bg-muted px-2.5 py-1">
+              Today: <span className="text-foreground">{loadingAcquisition ? '—' : num(acquisition?.newToday)}</span>
+            </span>
+            <span className="rounded-full bg-muted px-2.5 py-1">
+              This week: <span className="text-foreground">{loadingAcquisition ? '—' : num(acquisition?.newThisWeek)}</span>
+            </span>
+            <span className="rounded-full bg-muted px-2.5 py-1">
+              This month: <span className="text-foreground">{loadingAcquisition ? '—' : num(acquisition?.newThisMonth)}</span>
+            </span>
+            <span className={cn(
+              'rounded-full px-2.5 py-1',
+              growthPct != null && growthPct < 0 ? 'bg-destructive/10 text-destructive' : 'bg-success/10 text-success'
+            )}>
+              Growth: {loadingAcquisition ? '—' : growthLabel}
+            </span>
+          </div>
+        </div>
+
+        <Card className="border shadow-sm">
+          <CardHeader className="pb-2 px-3 sm:px-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              New Tenant Registrations (30 Days)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-2 sm:px-4 pb-3">
+            <div className="h-[220px]">
+              {loadingAcquisition ? (
+                <div className="h-full w-full animate-pulse rounded-xl bg-muted" />
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={acquisition?.trend ?? []} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10 }}
+                      className="fill-muted-foreground"
+                      interval="preserveStartEnd"
+                      minTickGap={40}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10 }}
+                      className="fill-muted-foreground"
+                      allowDecimals={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                      }}
+                      formatter={(value: number) => [`${value} new tenants`, 'Registrations']}
+                      labelFormatter={(label, payload) => payload?.[0]?.payload?.fullDate || label}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="count"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      dot={false}
+                      activeDot={{ r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <AnalyticsChart
+            title="Tenants by location"
+            bars={acquisition?.byLocation ?? []}
+            loading={loadingAcquisition}
+          />
+          <AnalyticsChart
+            title="Tenants by service centre"
+            bars={acquisition?.byServiceCentre ?? []}
+            loading={loadingAcquisition}
+          />
+          <AnalyticsChart
+            title="Tenants by agent"
+            bars={acquisition?.byAgent ?? []}
+            loading={loadingAcquisition}
+          />
         </div>
       </div>
 
