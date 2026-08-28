@@ -63,8 +63,41 @@ Deno.serve(async (req) => {
       });
     }
 
-    // OTP freshness check
-    const otpTime = otp_verified_at ? new Date(otp_verified_at).getTime() : Date.now();
+    // ── Landlord OTP is MANDATORY ────────────────────────────────────────
+    // A payout may only be created off a challenge row this agent actually
+    // had verified by the landlord. Previously `otp_verified_at` was trusted
+    // from the request body and silently defaulted to `now()`, so a caller
+    // could disburse landlord float with no OTP at all.
+    const { data: verifiedChallenge, error: chErr } = await adminClient
+      .from("landlord_payout_otp_challenges")
+      .select("id, verified_at, amount, landlord_id, rent_request_id")
+      .eq("agent_id", agentId)
+      .eq("landlord_id", landlord_id)
+      .eq("status", "verified")
+      .not("verified_at", "is", null)
+      .order("verified_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (chErr) {
+      console.error("[landlord-payout-disburse] challenge lookup failed:", chErr);
+      return new Response(
+        JSON.stringify({ error: "Could not confirm landlord OTP verification. Try again." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    if (!verifiedChallenge?.verified_at) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Landlord OTP verification is required before any money can be sent. Send the OTP to the landlord and enter the code they receive.",
+        }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // Freshness is measured against the SERVER-side verification timestamp.
+    const otpTime = new Date(verifiedChallenge.verified_at).getTime();
     const ageSeconds = (Date.now() - otpTime) / 1000;
     if (ageSeconds > OTP_FRESHNESS_SECONDS) {
       return new Response(
