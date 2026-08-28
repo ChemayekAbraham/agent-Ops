@@ -394,7 +394,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
                   <p className="text-[11px] text-destructive">Rejected: {detailsTarget.rejection_reason}</p>
                 )}
 
-                {isPending(detailsTarget.order_status) && (
+                {isOpen(detailsTarget.order_status) && (
                   <DialogFooter className="gap-2 sm:gap-2">
                     <Button
                       variant="outline"
@@ -406,11 +406,13 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
                       disabled={approve.isPending}
                       onClick={() => openApprove(detailsTarget)}
                     >
-                      <Check className="h-3.5 w-3.5 mr-1" /> Approve
+                      <Check className="h-3.5 w-3.5 mr-1" />
+                      {isAwaitingCfo(detailsTarget.order_status) ? 'Disburse & activate' : 'Approve & send to CFO'}
                     </Button>
 
                   </DialogFooter>
                 )}
+
               </div>
             );
           })()}
