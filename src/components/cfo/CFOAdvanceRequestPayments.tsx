@@ -474,59 +474,85 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border-2 border-primary/40 bg-primary/5 p-3 space-y-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Banknote className="h-4 w-4 text-primary" />
-          <Badge className="text-[10px] bg-primary text-primary-foreground uppercase tracking-widest">Agent Advance</Badge>
-          <h2 className="text-base font-bold">Applications &amp; Payouts</h2>
+      <div className="space-y-3">
+        <div>
+          <h2 className="text-base font-bold">Agent Advance Applications</h2>
+          <p className="text-xs text-muted-foreground">
+            Live view of every agent advance application. Select a card to filter the list below.
+          </p>
         </div>
-        <p className="text-[11px] text-muted-foreground">
-          Live view of every agent advance application. Edit the figures if needed, then <strong>Approve &amp; Disburse</strong> in one step — you&apos;ll confirm the exact amount before any money moves. Prefer a two-stage flow? Use <em>Approve only</em> to stage it and disburse later.
-        </p>
-        <div className="flex flex-wrap gap-2 pt-1">
-          <Button
-            size="sm"
-            variant={stageFilter === 'all' ? 'default' : 'outline'}
-            className="h-7 text-[11px]"
-            onClick={() => setStageFilter('all')}
-          >
-            All <span className="ml-1 opacity-70">{allRequests.length}</span>
-          </Button>
-          <Button
-            size="sm"
-            variant={stageFilter === 'pending' ? 'default' : 'outline'}
-            className="h-7 text-[11px]"
-            onClick={() => setStageFilter('pending')}
-          >
-            Agent Applied <span className="ml-1 opacity-70">{pendingApplications.length}</span>
-          </Button>
-          <Button
-            size="sm"
-            variant={stageFilter === 'ready' ? 'default' : 'outline'}
-            className="h-7 text-[11px]"
-            onClick={() => setStageFilter('ready')}
-          >
-            Ready to Pay <span className="ml-1 opacity-70">{readyToPay.length}</span>
-          </Button>
-          <Button
-            size="sm"
-            variant={stageFilter === 'cfo_approved' ? 'default' : 'outline'}
-            className="h-7 text-[11px]"
-            onClick={() => setStageFilter('cfo_approved')}
-          >
-            Approved · Disburse <span className="ml-1 opacity-70">{cfoApproved.length}</span>
-          </Button>
-          <Button
-            size="sm"
-            variant={stageFilter === 'cfo_rejected' ? 'default' : 'outline'}
-            className={cn(
-              'h-7 text-[11px]',
-              stageFilter === 'cfo_rejected' ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'border-rose-300 text-rose-700 hover:bg-rose-50',
-            )}
-            onClick={() => setStageFilter('cfo_rejected')}
-          >
-            Rejected <span className="ml-1 opacity-70">{cfoRejected.length}</span>
-          </Button>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            {
+              key: 'pending',
+              label: 'Agent Applied',
+              count: pendingApplications.length,
+              icon: Users,
+              tone: 'primary',
+            },
+            {
+              key: 'ready',
+              label: 'Ready to Pay',
+              count: readyToPay.length,
+              icon: Banknote,
+              tone: 'primary',
+            },
+            {
+              key: 'cfo_approved',
+              label: 'Approved',
+              count: cfoApproved.length,
+              icon: CheckCircle2,
+              tone: 'primary',
+            },
+            {
+              key: 'cfo_rejected',
+              label: 'Rejected',
+              count: cfoRejected.length,
+              icon: XCircle,
+              tone: 'destructive',
+            },
+          ].map((card) => {
+            const active = stageFilter === card.key;
+            const Icon = card.icon;
+            return (
+              <Card
+                key={card.key}
+                role="button"
+                tabIndex={0}
+                aria-pressed={active}
+                onClick={() => setStageFilter(active ? 'all' : (card.key as typeof stageFilter))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setStageFilter(active ? 'all' : (card.key as typeof stageFilter));
+                  }
+                }}
+                className={cn(
+                  'cursor-pointer transition-all hover:shadow-sm',
+                  active && card.tone === 'primary' && 'border-primary bg-primary/5 ring-1 ring-primary/20',
+                  active && card.tone === 'destructive' && 'border-destructive bg-destructive/5 ring-1 ring-destructive/20',
+                )}
+              >
+                <CardContent className="p-3 flex items-center gap-3">
+                  <div
+                    className={cn(
+                      'rounded-full p-2 shrink-0',
+                      active && card.tone === 'primary' && 'bg-primary text-primary-foreground',
+                      active && card.tone === 'destructive' && 'bg-destructive text-destructive-foreground',
+                      !active && 'bg-muted text-muted-foreground',
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-muted-foreground truncate">{card.label}</p>
+                    <p className="text-xl font-bold leading-tight">{card.count}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
 
