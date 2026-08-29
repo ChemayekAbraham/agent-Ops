@@ -190,8 +190,8 @@ export function CFOAdvancesManager() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">💰 Advance Management</h1>
-          <p className="text-sm text-muted-foreground">Manage advances for agents and staff with variable access fee rates.</p>
+          <h1 className="text-xl font-bold">Advance Repayments</h1>
+          <p className="text-sm text-muted-foreground">Track repayment progress on disbursed advances, record payments and export repayment reports.</p>
         </div>
         <div className="flex gap-2">
           <Button

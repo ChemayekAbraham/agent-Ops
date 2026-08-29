@@ -414,7 +414,7 @@ export default function CFODashboardPage() {
               <h1 className="text-xl font-bold">💵 Advance Requests</h1>
               <p className="text-sm text-muted-foreground">
                 Review, edit and approve agent &amp; business advance requests, then disburse in one step.
-                Track what&apos;s been disbursed under <strong>Disbursed &amp; Repayments</strong>.
+                Track what&apos;s been disbursed under <strong>Disbursed Advances</strong> and repayments under <strong>Advance Repayments</strong>.
               </p>
             </div>
             <CFOAdvanceRequestPayments onViewDisbursed={() => setActiveTab('advances-disbursed')} />
@@ -440,17 +440,18 @@ export default function CFODashboardPage() {
         return (
           <div className="space-y-6">
             <div>
-              <h1 className="text-xl font-bold">📋 Disbursed &amp; Repayments</h1>
+              <h1 className="text-xl font-bold">Disbursed Advances</h1>
               <p className="text-sm text-muted-foreground">
-                Every disbursed advance and its repayment progress. Use this to track outstanding balances and recoveries.
+                Every advance disbursed to an agent wallet. View, filter, cancel or reverse disbursed advances and open any row for the full disbursement detail.
               </p>
             </div>
             <div id="cfo-disbursed-advances" className="scroll-mt-24">
               <DisbursedAdvancesRegister />
             </div>
-            <CFOAdvancesManager />
           </div>
         );
+      case 'advance-repayments':
+        return <CFOAdvancesManager />;
       case 'approval-audit':
         return <ManagerApprovalAudit />;
       case 'agent-requisitions':
