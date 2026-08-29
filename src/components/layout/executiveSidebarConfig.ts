@@ -288,6 +288,8 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Human Resources',
       items: [
         { label: 'Overview', icon: LayoutDashboard, id: 'overview', access: HR_ACCESS },
+        { label: 'My Work', icon: ClipboardList, id: 'my-work', access: HR_ACCESS },
+        
         
         { label: 'People', icon: Users, id: 'hr-people', route: '/hr/people', access: HR_ACCESS },
         { label: 'Departments', icon: Building2, id: 'departments', access: HR_ACCESS },
@@ -311,7 +313,6 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Payroll enrollment', icon: Banknote, id: 'hr-pay-enrollment', route: '/hr/pay/enrollment', access: HR_ACCESS },
         { label: 'Advances', icon: Banknote, id: 'hr-pay-advances', route: '/hr/pay/advances', access: HR_ACCESS },
         { label: 'Payroll config', icon: Banknote, id: 'hr-pay-config', route: '/hr/pay/config', access: HR_ACCESS },
-        { label: 'Payroll (legacy)', icon: Banknote, id: 'payroll', access: HR_ACCESS },
       ],
     },
     {

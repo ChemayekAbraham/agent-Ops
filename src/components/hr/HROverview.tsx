@@ -103,13 +103,13 @@ export default function HROverview({ onNavigate }: HROverviewProps) {
     },
   });
 
-  const { data: draftPayroll = 0 } = useQuery({
-    queryKey: ['hr-draft-payroll'],
+  const { data: openPayRuns = 0 } = useQuery({
+    queryKey: ['hr-open-pay-runs'],
     queryFn: async () => {
       const { count } = await supabase
-        .from('payroll_batches')
+        .from('hr_pay_runs')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'draft');
+        .not('status', 'in', '("paid","cancelled")');
       return count || 0;
     },
   });
@@ -154,7 +154,7 @@ export default function HROverview({ onNavigate }: HROverviewProps) {
     { id: 'employees', label: 'Employee Directory', icon: Users, description: 'View & manage staff', badge: staffCount, color: 'text-primary' },
     { id: 'user-management', label: 'User Management', icon: UserCog, description: 'Roles & permissions', color: 'text-accent-foreground' },
     { id: 'leave', label: 'Leave Requests', icon: CalendarDays, description: 'Approve / reject', badge: pendingLeave, color: 'text-warning' },
-    { id: 'payroll', label: 'Payroll', icon: Banknote, description: 'Batches & salaries', badge: draftPayroll, color: 'text-success' },
+    { id: 'payroll', label: 'Payroll', icon: Banknote, description: 'Batches & salaries', badge: openPayRuns, color: 'text-success' },
     { id: 'disciplinary', label: 'Disciplinary', icon: AlertTriangle, description: 'Warnings & actions', badge: activeDisciplinary, color: 'text-destructive' },
     { id: 'audit', label: 'Audit Trail', icon: FileText, description: 'Activity logs', color: 'text-muted-foreground' },
   ];

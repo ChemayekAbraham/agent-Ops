@@ -4,11 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import HROverview from '@/components/hr/HROverview';
 import HRLeaveManagement from '@/components/hr/HRLeaveManagement';
-import HRPayroll from '@/components/hr/HRPayroll';
 import HRDisciplinary from '@/components/hr/HRDisciplinary';
 import HRAudit from '@/components/hr/HRAudit';
 import HRDepartments from '@/components/hr/HRDepartments';
-import HRInternshipApplications from '@/components/hr/HRInternshipApplications';
 import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWorkspace';
 
 export default function HRDashboard() {
@@ -60,11 +58,9 @@ export default function HRDashboard() {
       case 'requisitions': return <RequisitionsWorkspace />;
       case 'overview': return <HROverview onNavigate={setActiveSection} />;
       case 'leave': return <HRLeaveManagement />;
-      case 'payroll': return <HRPayroll />;
       case 'disciplinary': return <HRDisciplinary />;
       case 'audit': return <HRAudit />;
       case 'departments': return <HRDepartments />;
-      case 'internships': return <HRInternshipApplications />;
       default: return <HROverview onNavigate={setActiveSection} />;
     }
   };
