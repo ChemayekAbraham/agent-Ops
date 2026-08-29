@@ -43,7 +43,7 @@ import {
   getSnapshots,
   getTasks,
 } from '@/hr/api';
-import { supabase } from '@/hr/api/client';
+
 import type {
   Department,
   Employee,
@@ -52,11 +52,6 @@ import type {
   Task,
 } from '@/hr/types';
 
-/** Thresholds live on hr_metric_definitions but are not part of the shared contract type. */
-interface MetricThreshold {
-  amber_at: number | null;
-  red_at: number | null;
-}
 
 type PeriodChoice = 'this_month' | 'last_month' | 'last_3_months';
 
@@ -141,13 +136,12 @@ function formatValue(value: number | null, unit: string) {
 function cellClass(
   value: number | null,
   def: MetricDefinition,
-  threshold: MetricThreshold | undefined,
 ): string {
   if (value === null || def.target_value === null || def.target_value === undefined) {
     return 'text-muted-foreground';
   }
-  const red = threshold?.red_at ?? null;
-  const amber = threshold?.amber_at ?? null;
+  const red = def.red_at ?? null;
+  const amber = def.amber_at ?? null;
   const higherBetter = String(def.direction).startsWith('higher');
 
   if (higherBetter) {
@@ -180,7 +174,7 @@ export default function DepartmentProductivity() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [definitions, setDefinitions] = useState<MetricDefinition[]>([]);
   const [snapshots, setSnapshots] = useState<MetricSnapshot[]>([]);
-  const [thresholds, setThresholds] = useState<Record<string, MetricThreshold>>({});
+  
 
   const [recomputing, setRecomputing] = useState(false);
   const [lastRun, setLastRun] = useState<{ rows: number; at: Date } | null>(null);
@@ -203,28 +197,17 @@ export default function DepartmentProductivity() {
     if (!departmentId) return;
     setLoading(true);
     try {
-      const [staff, deptTasks, defs, snaps, thresholdRows] = await Promise.all([
+      const [staff, deptTasks, defs, snaps] = await Promise.all([
         getEmployees(),
         getTasks({ departmentId }),
         getMetricDefinitions(departmentId),
         getSnapshots({ departmentId, periodStart: bounds.start, periodEnd: bounds.end }),
-        supabase.from('hr_metric_definitions').select('id, amber_at, red_at'),
       ]);
 
       setPeople(staff.filter((p) => p.current_assignment?.department_id === departmentId));
       setTasks(deptTasks);
       setDefinitions(defs);
       setSnapshots(snaps);
-
-      const map: Record<string, MetricThreshold> = {};
-      for (const row of (thresholdRows.data ?? []) as {
-        id: string;
-        amber_at: number | null;
-        red_at: number | null;
-      }[]) {
-        map[row.id] = { amber_at: row.amber_at, red_at: row.red_at };
-      }
-      setThresholds(map);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not load the department view');
     } finally {
@@ -524,7 +507,7 @@ export default function DepartmentProductivity() {
                             return (
                               <TableCell
                                 key={def.id}
-                                className={`text-sm ${cellClass(value, def, thresholds[def.id])}`}
+                                className={`text-sm ${cellClass(value, def)}`}
                               >
                                 {formatValue(value, def.unit)}
                               </TableCell>

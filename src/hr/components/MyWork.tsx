@@ -170,11 +170,6 @@ const PRIORITY_DOT: Record<string, string> = {
   urgent: 'bg-destructive',
 };
 
-/** Thresholds live on hr_metric_definitions but are not part of the shared contract type. */
-interface MetricThreshold {
-  amber_at: number | null;
-  red_at: number | null;
-}
 
 /** A flagged comment on one of my tasks that I have not yet acknowledged. */
 interface AttentionItem {
@@ -248,13 +243,12 @@ function formatValue(value: number | null, unit: string) {
 function dotClass(
   value: number | null,
   def: MetricDefinition,
-  threshold: MetricThreshold | undefined,
 ): string {
   if (value === null || def.target_value === null || def.target_value === undefined) {
     return 'bg-muted-foreground/40';
   }
-  const red = threshold?.red_at ?? null;
-  const amber = threshold?.amber_at ?? null;
+  const red = def.red_at ?? null;
+  const amber = def.amber_at ?? null;
   const higherBetter = String(def.direction).startsWith('higher');
 
   if (higherBetter) {
@@ -286,7 +280,6 @@ export default function MyWork({ embedded = false }: MyWorkProps) {
   const [staff, setStaff] = useState<Employee | null>(null);
   const [definitions, setDefinitions] = useState<MetricDefinition[]>([]);
   const [snapshots, setSnapshots] = useState<MetricSnapshot[]>([]);
-  const [thresholds, setThresholds] = useState<Record<string, MetricThreshold>>({});
   const [tasks, setTasks] = useState<Task[]>([]);
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
   const [notePrompt, setNotePrompt] = useState<
@@ -308,11 +301,10 @@ export default function MyWork({ embedded = false }: MyWorkProps) {
       if (!me) return;
 
       const { start, end } = monthBounds(new Date());
-      const [defs, snaps, myTasks, thresholdRows, depts] = await Promise.all([
+      const [defs, snaps, myTasks, depts] = await Promise.all([
         getMetricDefinitions(me.current_assignment?.department_id),
         getSnapshots({ staffId: me.id, periodStart: start, periodEnd: end }),
         getTasks({ assigneeEmployeeId: me.id }),
-        supabase.from('hr_metric_definitions').select('id, amber_at, red_at'),
         getDepartments(),
       ]);
 
@@ -395,11 +387,6 @@ export default function MyWork({ embedded = false }: MyWorkProps) {
         setAttention([]);
       }
 
-      const map: Record<string, MetricThreshold> = {};
-      for (const row of (thresholdRows.data ?? []) as { id: string; amber_at: number | null; red_at: number | null }[]) {
-        map[row.id] = { amber_at: row.amber_at, red_at: row.red_at };
-      }
-      setThresholds(map);
     } catch (e) {
       if (!opts?.silent) toast.error(e instanceof Error ? e.message : 'Could not load your work');
     } finally {
@@ -459,10 +446,9 @@ export default function MyWork({ embedded = false }: MyWorkProps) {
       return {
         def,
         value: snap ? snap.value : null,
-        threshold: thresholds[def.id],
       };
     });
-  }, [definitions, snapshots, thresholds]);
+  }, [definitions, snapshots]);
 
   const openTasks = useMemo(() => {
     const now = Date.now();
@@ -698,14 +684,14 @@ export default function MyWork({ embedded = false }: MyWorkProps) {
             No metrics are configured for your department yet.
           </p>
         ) : (
-          tiles.map(({ def, value, threshold }) => (
+          tiles.map(({ def, value }) => (
             <Card key={def.id}>
               <CardContent className="p-3">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-[11px] font-medium leading-tight text-muted-foreground">
                     {def.name}
                   </p>
-                  <span className={`mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${dotClass(value, def, threshold)}`} />
+                  <span className={`mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${dotClass(value, def)}`} />
                 </div>
                 <p className="mt-1.5 text-lg font-bold text-foreground">
                   {formatValue(value, def.unit)}
