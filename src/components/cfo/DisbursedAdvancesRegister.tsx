@@ -41,14 +41,14 @@ import {
   Receipt,
   HandCoins,
   FileClock,
-  Ban,
+  
   Undo2,
   Eye,
 } from 'lucide-react';
 import { formatUGX, getRiskLevel } from '@/lib/agentAdvanceCalculations';
 import { differenceInDays, format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { CancelAdvanceDialog } from '@/components/cfo/CancelAdvanceDialog';
+
 import { ReverseAdvanceDialog } from '@/components/cfo/ReverseAdvanceDialog';
 import { BulkReverseAdvancesDialog } from '@/components/cfo/BulkReverseAdvancesDialog';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -98,7 +98,7 @@ export function DisbursedAdvancesRegister() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [selected, setSelected] = useState<AdvanceRow | null>(null);
-  const [cancelAdvance, setCancelAdvance] = useState<AdvanceRow | null>(null);
+  
   const [reverseAdvance, setReverseAdvance] = useState<AdvanceRow | null>(null);
   const [bulkIds, setBulkIds] = useState<string[] | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -399,20 +399,7 @@ export function DisbursedAdvancesRegister() {
       <DisbursementDetailDrawer
         advance={selected}
         onClose={() => setSelected(null)}
-        onCancel={(a) => { setSelected(null); setCancelAdvance(a); }}
         onReverse={(a) => { setSelected(null); setReverseAdvance(a); }}
-      />
-
-      <CancelAdvanceDialog
-        advance={cancelAdvance}
-        open={!!cancelAdvance}
-        onOpenChange={(o) => { if (!o) setCancelAdvance(null); }}
-        onSuccess={() => {
-          setCancelAdvance(null);
-          queryClient.invalidateQueries({ queryKey: ['disbursed-advances-register'] });
-          queryClient.invalidateQueries({ queryKey: ['cfo-advances'] });
-          queryClient.invalidateQueries({ queryKey: ['cfo-outstanding-advances'] });
-        }}
       />
 
       <ReverseAdvanceDialog
