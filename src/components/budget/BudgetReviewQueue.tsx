@@ -304,16 +304,15 @@ export default function BudgetReviewQueue({ cycleId, stage, onlyOpen, intro, emp
         <div className="overflow-x-auto rounded-lg border border-border">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead className="h-9 text-[11px] uppercase tracking-wider">Department</TableHead>
-                <TableHead className="h-9 text-[11px] uppercase tracking-wider">Budget Reference</TableHead>
-                <TableHead className="h-9 text-[11px] uppercase tracking-wider">Budget Item</TableHead>
-                <TableHead className="h-9 text-right text-[11px] uppercase tracking-wider">Amount (UGX)</TableHead>
-                <TableHead className="h-9 text-[11px] uppercase tracking-wider">Required Period</TableHead>
-                <TableHead className="h-9 text-[11px] uppercase tracking-wider">Priority</TableHead>
-                <TableHead className="h-9 whitespace-nowrap text-[11px] uppercase tracking-wider">Submitted Date</TableHead>
-                <TableHead className="h-9 text-[11px] uppercase tracking-wider">Status</TableHead>
-                <TableHead className="h-9 text-right text-[11px] uppercase tracking-wider">Action</TableHead>
+              <TableRow className="bg-muted/50">
+                <TableHead className="text-[11px] uppercase tracking-wider">Department</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider">Budget Item</TableHead>
+                <TableHead className="text-right text-[11px] uppercase tracking-wider">Amount (UGX)</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider">Required Period</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider">Priority</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider">Submitted</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider">Status</TableHead>
+                <TableHead className="w-8" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -322,61 +321,55 @@ export default function BudgetReviewQueue({ cycleId, stage, onlyOpen, intro, emp
                   key={s.id}
                   role="button"
                   tabIndex={0}
-                  className="cursor-pointer border-border/60"
+                  className="cursor-pointer"
                   onClick={() => openReview(s)}
                   onKeyDown={e => {
                     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openReview(s); }
                   }}
                 >
-                  <TableCell className="py-2.5">
+                  <TableCell className="py-3">
                     <div className="flex items-center gap-2">
                       <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      <span className="truncate text-sm font-medium text-foreground">{s.department_name}</span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">{s.department_name}</p>
+                        <p className="truncate font-mono text-[11px] text-muted-foreground">
+                          {s.reference} · v{s.version}
+                        </p>
+                      </div>
                     </div>
                   </TableCell>
-                  <TableCell className="whitespace-nowrap py-2.5 font-mono text-xs text-muted-foreground">
-                    {s.reference} · v{s.version}
-                  </TableCell>
-                  <TableCell className="max-w-[240px] truncate py-2.5 text-sm text-muted-foreground">
+                  <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                     {s.title || `${s.line_count} line item${s.line_count === 1 ? '' : 's'}`}
                   </TableCell>
-                  <TableCell className="whitespace-nowrap py-2.5 text-right font-mono text-sm font-semibold tabular-nums text-foreground">
+                  <TableCell className="whitespace-nowrap text-right font-mono text-sm font-semibold text-foreground">
                     {formatUGX(s.total_amount)}
                   </TableCell>
-                  <TableCell className="whitespace-nowrap py-2.5 text-sm text-muted-foreground">
+                  <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                     {s.cycle_title ?? 'Not specified'}
                   </TableCell>
-                  <TableCell className="py-2.5">
+                  <TableCell>
                     {s.is_late ? (
                       <Badge variant="destructive" className="gap-1 text-[10px]">
                         <AlertTriangle className="h-3 w-3" /> Urgent
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="text-[10px] font-normal">Standard</Badge>
+                      <span className="text-xs text-muted-foreground">Standard</span>
                     )}
                   </TableCell>
-                  <TableCell className="whitespace-nowrap py-2.5 text-sm text-muted-foreground">
+                  <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                     {s.submitted_at ? format(new Date(s.submitted_at), 'dd MMM yyyy') : '—'}
                   </TableCell>
-                  <TableCell className="py-2.5">
-                    <Badge variant="outline" className="whitespace-nowrap text-[10px] font-normal">
+                  <TableCell>
+                    <Badge variant="outline" className="text-[10px] font-normal">
                       {STATUS_LABEL[s.status] ?? s.status.replace(/_/g, ' ')}
                     </Badge>
                   </TableCell>
-                  <TableCell className="py-2.5 text-right">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 gap-1 px-2 text-[11px]"
-                      onClick={e => { e.stopPropagation(); openReview(s); }}
-                    >
-                      Review <ChevronRight className="h-3.5 w-3.5" />
-                    </Button>
+                  <TableCell className="text-right">
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
-
           </Table>
         </div>
       )}
