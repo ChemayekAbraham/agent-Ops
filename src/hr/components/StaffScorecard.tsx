@@ -121,11 +121,10 @@ function formatStamp(isoString: string | null) {
 function toneFor(
   value: number | null,
   def: MetricDefinition,
-  threshold: MetricThreshold | undefined,
 ): 'none' | 'good' | 'amber' | 'bad' {
   if (value === null || def.target_value === null || def.target_value === undefined) return 'none';
-  const red = threshold?.red_at ?? null;
-  const amber = threshold?.amber_at ?? null;
+  const red = def.red_at ?? null;
+  const amber = def.amber_at ?? null;
   const higherBetter = String(def.direction).startsWith('higher');
 
   if (higherBetter) {
@@ -191,7 +190,6 @@ export default function StaffScorecard({ staffId }: Props) {
   const [assignment, setAssignment] = useState<ActiveAssignment | null>(null);
   const [definitions, setDefinitions] = useState<MetricDefinition[]>([]);
   const [snapshots, setSnapshots] = useState<MetricSnapshot[]>([]);
-  const [thresholds, setThresholds] = useState<Record<string, MetricThreshold>>({});
   const [tasks, setTasks] = useState<Task[]>([]);
   const [trendMetricId, setTrendMetricId] = useState<string>('');
   const [accountId, setAccountId] = useState<string | null>(null);
@@ -221,13 +219,12 @@ export default function StaffScorecard({ staffId }: Props) {
         .maybeSingle();
       setAccountId(((staffRow.data as { user_id?: string } | null)?.user_id) ?? null);
 
-      const [assignmentsByStaff, defs, snaps, theirTasks, thresholdRows] = await Promise.all([
+      const [assignmentsByStaff, defs, snaps, theirTasks] = await Promise.all([
         getActiveAssignmentsByStaff(),
         getMetricDefinitions(person.current_assignment?.department_id),
         // Every period in the trend window, in one read.
         getSnapshots({ staffId: person.id, periodStart: oldest.start, periodEnd: periods[0].end }),
         getTasks({ assigneeEmployeeId: person.id }),
-        supabase.from('hr_metric_definitions').select('id, amber_at, red_at'),
       ]);
 
       const mine = assignmentsByStaff[person.id] ?? [];
@@ -235,16 +232,6 @@ export default function StaffScorecard({ staffId }: Props) {
       setDefinitions(defs);
       setSnapshots(snaps);
       setTasks(theirTasks);
-
-      const map: Record<string, MetricThreshold> = {};
-      for (const row of (thresholdRows.data ?? []) as {
-        id: string;
-        amber_at: number | null;
-        red_at: number | null;
-      }[]) {
-        map[row.id] = { amber_at: row.amber_at, red_at: row.red_at };
-      }
-      setThresholds(map);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not load this scorecard');
     } finally {
@@ -268,11 +255,11 @@ export default function StaffScorecard({ staffId }: Props) {
         def,
         snapshot: snap ?? null,
         value,
-        tone: toneFor(value, def, thresholds[def.id]),
+        tone: toneFor(value, def),
         attainment: attainment(value, def),
       };
     });
-  }, [definitions, snapshots, thresholds, period]);
+  }, [definitions, snapshots, period]);
 
   useEffect(() => {
     if (!trendMetricId && scored.length > 0) setTrendMetricId(scored[0].def.id);
