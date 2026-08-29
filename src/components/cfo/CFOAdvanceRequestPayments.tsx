@@ -795,13 +795,11 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
                               isCfoRejected
                                 ? 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/30 dark:text-rose-400'
                                 : isCfoApproved
-                                ? 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/30 dark:text-blue-400'
-                                : isPending
-                                  ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/30 dark:text-amber-400'
-                                  : 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/30 dark:text-emerald-400'
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/30 dark:text-emerald-400'
+                                : 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/30 dark:text-amber-400'
                             )}
                           >
-                            {isCfoRejected ? 'CFO Rejected' : isCfoApproved ? 'CFO Approved' : isPending ? 'Agent Applied' : 'Agent Ops Approved'}
+                            {isCfoRejected ? 'Rejected' : isCfoApproved ? 'Approved' : 'Pending'}
                           </Badge>
                         </td>
                         <td className="px-3 py-2 text-right">
@@ -889,13 +887,11 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
                         isCfoRejected
                           ? 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/30 dark:text-rose-400'
                           : isCfoApproved
-                          ? 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/30 dark:text-blue-400'
-                          : isPending
-                            ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/30 dark:text-amber-400'
-                            : 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/30 dark:text-emerald-400'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/30 dark:text-emerald-400'
+                          : 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/30 dark:text-amber-400'
                       )}
                     >
-                      {isCfoRejected ? 'CFO Rejected' : isCfoApproved ? 'CFO Approved' : isPending ? 'Agent Applied' : 'Agent Ops Approved'}
+                      {isCfoRejected ? 'Rejected' : isCfoApproved ? 'Approved' : 'Pending'}
                     </Badge>
                   </div>
                 </div>
