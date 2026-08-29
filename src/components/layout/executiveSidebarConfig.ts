@@ -289,17 +289,12 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       items: [
         { label: 'Overview', icon: LayoutDashboard, id: 'overview', access: HR_ACCESS },
         { label: 'My Work', icon: ClipboardList, id: 'my-work', access: HR_ACCESS },
-        
-        
+        { label: 'Recruitment', icon: UserCheck, id: 'hr-recruitment', route: '/hr/dashboard/recruitment', access: HR_ACCESS },
         { label: 'People', icon: Users, id: 'hr-people', route: '/hr/people', access: HR_ACCESS },
         { label: 'Departments', icon: Building2, id: 'departments', access: HR_ACCESS },
-        { label: 'Platform Users', icon: UserCog, id: 'user-management', route: '/platform-users', access: HR_ACCESS },
+        { label: 'Contracts', icon: FileText, id: 'hr-contracts', route: '/hr/contracts', access: HR_ACCESS },
         { label: 'Leave Management', icon: ClipboardList, id: 'leave', access: HR_ACCESS },
         { label: 'Disciplinary', icon: AlertTriangle, id: 'disciplinary', access: HR_ACCESS },
-        { label: 'Audit Trail', icon: FileText, id: 'audit', access: HR_ACCESS },
-        
-        { label: 'Requisitions', icon: ClipboardList, id: 'requisitions', access: HR_ACCESS },
-        { label: 'Contracts', icon: FileText, id: 'hr-contracts', route: '/hr/contracts', access: HR_ACCESS },
       ],
     },
     {
@@ -308,32 +303,34 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       collapsible: true,
       defaultOpen: false,
       items: [
-        { label: 'Approvals', icon: Banknote, id: 'hr-pay-approvals', route: '/approvals', access: HR_ACCESS },
-        { label: 'Pay runs', icon: Banknote, id: 'hr-pay-runs', route: '/hr/pay/runs', access: HR_ACCESS },
-        { label: 'Payroll enrollment', icon: Banknote, id: 'hr-pay-enrollment', route: '/hr/pay/enrollment', access: HR_ACCESS },
+        { label: 'Payroll Enrolment', icon: Banknote, id: 'hr-pay-enrollment', route: '/hr/pay/enrollment', access: HR_ACCESS },
+        { label: 'Pay Runs', icon: Banknote, id: 'hr-pay-runs', route: '/hr/pay/runs', access: HR_ACCESS },
         { label: 'Advances', icon: Banknote, id: 'hr-pay-advances', route: '/hr/pay/advances', access: HR_ACCESS },
-        { label: 'Payroll config', icon: Banknote, id: 'hr-pay-config', route: '/hr/pay/config', access: HR_ACCESS },
+        { label: 'Approvals', icon: Banknote, id: 'hr-pay-approvals', route: '/approvals', access: HR_ACCESS },
+        { label: 'Payroll Config', icon: Banknote, id: 'hr-pay-config', route: '/hr/pay/config', access: HR_ACCESS },
       ],
     },
     {
-      title: 'Hiring',
-      icon: UserCheck,
-      collapsible: true,
-      defaultOpen: true,
-      items: [
-        { label: 'Recruitment', icon: UserCheck, id: 'hr-recruitment', route: '/hr/dashboard/recruitment', access: HR_ACCESS },
-      ],
-    },
-    {
-      title: 'Productivity',
+      title: 'Performance',
       icon: TrendingUp,
       collapsible: true,
       defaultOpen: false,
       items: [
         { label: 'Executive Brief', icon: Gauge, id: 'hr-executive-brief', route: '/hr/dashboard/executive-brief', access: HR_ACCESS },
-        { label: 'Tasks', icon: ClipboardList, id: 'hr-tasks', route: '/hr/dashboard/tasks', access: HR_ACCESS },
         { label: 'Productivity', icon: TrendingUp, id: 'hr-productivity', route: '/hr/dashboard/productivity', access: HR_ACCESS },
+        { label: 'Tasks', icon: ClipboardList, id: 'hr-tasks', route: '/hr/dashboard/tasks', access: HR_ACCESS },
         { label: 'Metric Definitions', icon: Gauge, id: 'hr-metrics', route: '/hr/dashboard/metrics', access: HR_ACCESS },
+      ],
+    },
+    {
+      title: 'Administration',
+      icon: Shield,
+      collapsible: true,
+      defaultOpen: false,
+      items: [
+        { label: 'Requisitions', icon: ClipboardList, id: 'requisitions', access: HR_ACCESS },
+        { label: 'Platform Users', icon: UserCog, id: 'user-management', route: '/platform-users', access: HR_ACCESS },
+        { label: 'Audit Trail', icon: FileText, id: 'audit', access: HR_ACCESS },
       ],
     },
   ],
