@@ -715,7 +715,7 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
         </Card>
       )}
 
-      {/* Requests */}
+      {/* Requests — compact review table */}
       {requests.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center">
@@ -731,38 +731,61 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
             </h3>
             <Badge variant="secondary">{requests.length} shown</Badge>
           </div>
-          {requests.map((req: any) => {
-            const profile = req.profiles;
-            const isPending = req.status === 'pending';
-            const isCfoApproved = req.status === 'cfo_approved';
-            const isCfoRejected = req.status === 'cfo_rejected';
-            const currentRate = adjustedRates[req.id] ?? Number(req.monthly_rate);
-            const currentPrincipal = adjustedPrincipals[req.id] ?? Number(req.principal);
-            const currentCycle = adjustedCycles[req.id] ?? Number(req.cycle_days);
-            const currentRegFee = calculateRegistrationFee(currentPrincipal);
-            const adjAccessFee = calculateAccessFee(currentPrincipal, currentCycle, currentRate);
-            const adjTotal = currentPrincipal + adjAccessFee + currentRegFee;
-            const adjDaily = Math.ceil(adjTotal / currentCycle);
-            const profitPerRequest = adjAccessFee + currentRegFee;
-
-            return (
-              <Card key={req.id}>
-                <CardContent className="p-4">
-                  <button onClick={() => setEvalReq(req)} className="w-full text-left">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
-                        <User className="h-5 w-5 text-emerald-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold truncate flex items-center gap-1.5">
-                          <span className="truncate">{profile?.full_name || 'Agent'}</span>
+          <Card>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/50 border-b">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-semibold">Requester</th>
+                    <th className="text-left px-3 py-2 font-semibold">Department</th>
+                    <th className="text-left px-3 py-2 font-semibold">Advance Reference</th>
+                    <th className="text-left px-3 py-2 font-semibold">Purpose</th>
+                    <th className="text-right px-3 py-2 font-semibold">Amount (UGX)</th>
+                    <th className="text-left px-3 py-2 font-semibold">Required Date</th>
+                    <th className="text-left px-3 py-2 font-semibold">Submitted Date</th>
+                    <th className="text-left px-3 py-2 font-semibold">Status</th>
+                    <th className="text-right px-3 py-2 font-semibold">Review</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {requests.map((req: any) => {
+                    const profile = req.profiles;
+                    const isPending = req.status === 'pending';
+                    const isCfoApproved = req.status === 'cfo_approved';
+                    const isCfoRejected = req.status === 'cfo_rejected';
+                    const currentPrincipal = adjustedPrincipals[req.id] ?? Number(req.principal);
+                    const department = profile?.district || profile?.region || profile?.city || '—';
+                    const openDetails = () => setDetailReq(req);
+                    return (
+                      <tr
+                        key={req.id}
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`Review advance request from ${profile?.full_name || 'agent'}`}
+                        onClick={openDetails}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            openDetails();
+                          }
+                        }}
+                        className="cursor-pointer hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                      >
+                        <td className="px-3 py-2">
+                          <p className="font-semibold truncate max-w-[160px]">{profile?.full_name || 'Agent'}</p>
                           {(req.request_kind ?? 'new') === 'topup' && (
-                            <Badge variant="outline" className="shrink-0 text-[9px] px-1.5 py-0 h-4 uppercase tracking-wider bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-950/30 dark:text-violet-400">
+                            <Badge variant="outline" className="mt-0.5 text-[9px] px-1.5 py-0 h-4 uppercase tracking-wider bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-950/30 dark:text-violet-400">
                               Top-up +{Number(req.extend_days ?? 0)}d
                             </Badge>
                           )}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">{department}</td>
+                        <td className="px-3 py-2 font-mono text-[11px]">{req.id.slice(0, 8)}…</td>
+                        <td className="px-3 py-2 max-w-[200px] truncate text-muted-foreground">{req.reason || '—'}</td>
+                        <td className="px-3 py-2 text-right font-mono font-bold text-primary">{formatUGX(currentPrincipal)}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">{format(new Date(req.created_at), 'dd MMM yyyy')}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{format(new Date(req.created_at), 'dd MMM yyyy')}</td>
+                        <td className="px-3 py-2">
                           <Badge
                             variant="outline"
                             className={cn(
@@ -778,55 +801,191 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
                           >
                             {isCfoRejected ? 'CFO Rejected' : isCfoApproved ? 'CFO Approved' : isPending ? 'Agent Applied' : 'Agent Ops Approved'}
                           </Badge>
-                          <span>{profile?.phone} • {format(new Date(req.created_at), 'MMM d')}</span>
-                          {!isPending && !isCfoRejected && <span>• We earn <span className="text-emerald-600 font-bold">+{formatUGX(profitPerRequest)}</span></span>}
-                        </p>
-                        <AgentLocationBadge
-                          req={{
-                            agent_region: profile?.region,
-                            agent_district: profile?.district,
-                            agent_sub_county: profile?.sub_county,
-                            agent_parish: profile?.parish,
-                            agent_village: profile?.village,
-                            agent_city: profile?.city,
-                          }}
-                        />
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-lg font-bold text-primary">{formatUGX(currentPrincipal)}</p>
-                        <p className="text-[10px] text-muted-foreground">{currentCycle}d</p>
-                      </div>
-                    </div>
-                  </button>
-
-                  {/* Single-click entry to the evaluation + edit + approve popup */}
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      className={cn(
-                        'h-8 text-[11px] gap-1 text-white',
-                        isCfoRejected ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700',
-                      )}
-                      onClick={() => setEvalReq(req)}
-                    >
-                      <Sparkles className="h-3 w-3" />
-                      {isCfoRejected ? 'View rejection' : isCfoApproved ? 'Review & disburse' : 'Review & approve'} · {formatUGX(currentPrincipal)}
-                    </Button>
-                    {isCfoRejected && req.rejection_reason && (
-                      <p className="text-[10px] text-rose-700 dark:text-rose-400 self-center italic">
-                        Reason: {req.rejection_reason}
-                      </p>
-                    )}
-                    <p className="text-[10px] text-muted-foreground self-center">
-                      {isCfoRejected ? 'Rejected — visible to agent & Agent Ops.' : 'Opens evaluation + editable amount, then a single confirm.'}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[11px] gap-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDetails();
+                            }}
+                          >
+                            <Sparkles className="h-3 w-3" /> Review
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         </>
       )}
+
+      {/* Centered details sheet — full request + recovery plan. Approve/Reject
+          actions hand off to the existing evaluation and rejection dialogs. */}
+      {(() => {
+        const req = detailReq ? (allRequests as any[]).find((r: any) => r.id === detailReq.id) ?? detailReq : null;
+        if (!req) return null;
+        const profile = req.profiles;
+        const isPending = req.status === 'pending';
+        const isCfoApproved = req.status === 'cfo_approved';
+        const isCfoRejected = req.status === 'cfo_rejected';
+        const currentRate = adjustedRates[req.id] ?? Number(req.monthly_rate);
+        const currentPrincipal = adjustedPrincipals[req.id] ?? Number(req.principal);
+        const currentCycle = adjustedCycles[req.id] ?? Number(req.cycle_days);
+        const regFee = calculateRegistrationFee(currentPrincipal);
+        const accessFee = calculateAccessFee(currentPrincipal, currentCycle, currentRate);
+        const totalPayable = currentPrincipal + accessFee + regFee;
+        const daily = Math.ceil(totalPayable / currentCycle);
+        const department = profile?.district || profile?.region || profile?.city || '—';
+        return (
+          <Dialog open={!!detailReq} onOpenChange={(open) => !open && setDetailReq(null)}>
+            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="text-base">Advance request details</DialogTitle>
+                <DialogDescription className="text-xs">
+                  Reference <span className="font-mono">{req.id.slice(0, 8)}…</span> · submitted {format(new Date(req.created_at), 'dd MMM yyyy, HH:mm')}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3 text-xs">
+                {/* Requester */}
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/40">
+                  <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+                    <User className="h-4 w-4 text-emerald-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold truncate flex items-center gap-1.5">
+                      <span className="truncate">{profile?.full_name || 'Agent'}</span>
+                      {(req.request_kind ?? 'new') === 'topup' && (
+                        <Badge variant="outline" className="shrink-0 text-[9px] px-1.5 py-0 h-4 uppercase tracking-wider bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-950/30 dark:text-violet-400">
+                          Top-up +{Number(req.extend_days ?? 0)}d
+                        </Badge>
+                      )}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{profile?.phone} · {department}</p>
+                    <AgentLocationBadge
+                      req={{
+                        agent_region: profile?.region,
+                        agent_district: profile?.district,
+                        agent_sub_county: profile?.sub_county,
+                        agent_parish: profile?.parish,
+                        agent_village: profile?.village,
+                        agent_city: profile?.city,
+                      }}
+                    />
+                  </div>
+                  <div className="ml-auto shrink-0">
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'text-[9px] px-1.5 py-0 h-4 uppercase tracking-wider',
+                        isCfoRejected
+                          ? 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/30 dark:text-rose-400'
+                          : isCfoApproved
+                          ? 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/30 dark:text-blue-400'
+                          : isPending
+                            ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/30 dark:text-amber-400'
+                            : 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/30 dark:text-emerald-400'
+                      )}
+                    >
+                      {isCfoRejected ? 'CFO Rejected' : isCfoApproved ? 'CFO Approved' : isPending ? 'Agent Applied' : 'Agent Ops Approved'}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Request summary */}
+                <div className="rounded-lg border divide-y">
+                  <div className="flex justify-between px-3 py-2">
+                    <span className="text-muted-foreground">Purpose</span>
+                    <span className="text-right max-w-[60%]">{req.reason || '—'}</span>
+                  </div>
+                  <div className="flex justify-between px-3 py-2">
+                    <span className="text-muted-foreground">Amount requested</span>
+                    <span className="font-mono font-bold text-primary">{formatUGX(currentPrincipal)}</span>
+                  </div>
+                  <div className="flex justify-between px-3 py-2">
+                    <span className="text-muted-foreground">Required date</span>
+                    <span>{format(new Date(req.created_at), 'dd MMM yyyy')}</span>
+                  </div>
+                  <div className="flex justify-between px-3 py-2">
+                    <span className="text-muted-foreground">Monthly rate</span>
+                    <span className="font-mono">{Math.round(currentRate * 100)}%</span>
+                  </div>
+                  <div className="flex justify-between px-3 py-2">
+                    <span className="text-muted-foreground">Access fee</span>
+                    <span className="font-mono text-emerald-600">+{formatUGX(accessFee)}</span>
+                  </div>
+                  <div className="flex justify-between px-3 py-2">
+                    <span className="text-muted-foreground">Registration fee</span>
+                    <span className="font-mono text-emerald-600">+{formatUGX(regFee)}</span>
+                  </div>
+                </div>
+
+                {/* Recovery plan */}
+                <div className="rounded-lg border divide-y">
+                  <p className="px-3 py-2 font-bold uppercase tracking-wider text-[10px] text-muted-foreground">Recovery plan</p>
+                  <div className="flex justify-between px-3 py-2">
+                    <span className="text-muted-foreground">Total payable by agent</span>
+                    <span className="font-mono font-bold">{formatUGX(totalPayable)}</span>
+                  </div>
+                  <div className="flex justify-between px-3 py-2">
+                    <span className="text-muted-foreground">Cycle length</span>
+                    <span className="font-mono">{currentCycle} days</span>
+                  </div>
+                  <div className="flex justify-between px-3 py-2">
+                    <span className="text-muted-foreground">Repayment frequency</span>
+                    <span className="capitalize">{req.repayment_frequency ?? 'daily'}</span>
+                  </div>
+                  <div className="flex justify-between px-3 py-2">
+                    <span className="text-muted-foreground">Daily deduction</span>
+                    <span className="font-mono font-bold text-rose-500">{formatUGX(daily)}/d</span>
+                  </div>
+                </div>
+
+                {isCfoRejected && req.rejection_reason && (
+                  <div className="rounded-lg border border-rose-200 bg-rose-50 dark:bg-rose-950/20 p-2">
+                    <p className="text-[10px] font-bold uppercase text-rose-700 dark:text-rose-400">Rejection reason</p>
+                    <p className="text-rose-800 dark:text-rose-300">{req.rejection_reason}</p>
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter className="flex-col gap-2 sm:flex-row">
+                {!isCfoRejected && (
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto gap-2 border-rose-300 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                    onClick={() => {
+                      setDetailReq(null);
+                      setEvalReq(req);
+                    }}
+                  >
+                    <X className="h-4 w-4" /> Reject
+                  </Button>
+                )}
+                <Button
+                  className={cn(
+                    'w-full sm:flex-1 gap-2 text-white',
+                    isCfoRejected ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700',
+                  )}
+                  onClick={() => {
+                    setDetailReq(null);
+                    setEvalReq(req);
+                  }}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  {isCfoRejected ? 'View rejection' : isCfoApproved ? 'Review & disburse' : 'Approve'} · {formatUGX(currentPrincipal)}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
 
       {/* Confirmation Dialog */}
       {(() => {
