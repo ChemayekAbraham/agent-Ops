@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, Download, ShieldAlert, Loader2, Wallet, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -44,10 +44,15 @@ export function MerchantDebtSettlementDialog({
   open,
   onOpenChange,
   headlineOwed,
+  focusAgentId,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   headlineOwed?: number;
+  /** Reused from other "this agent is owed money" surfaces (e.g. the float
+   *  allocation panel's OWED row) — same dialog, no separate settlement UI,
+   *  just auto-expanded to the agent that was clicked. */
+  focusAgentId?: string;
 }) {
   const { data, isLoading, error } = useMerchantSettlementDebts(open);
   const { data: history } = useMerchantOopSettlementHistory(open);
@@ -57,6 +62,12 @@ export function MerchantDebtSettlementDialog({
   const [busy, setBusy] = useState(false);
   const [confirmSettleOpen, setConfirmSettleOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  useEffect(() => {
+    if (open && focusAgentId) {
+      setExpanded((e) => ({ ...e, [focusAgentId]: true }));
+    }
+  }, [open, focusAgentId]);
 
   const groups = useMemo(() => (data ?? []).filter((g) => g.payable > 0 || g.underReview > 0), [data]);
   const payableGroups = groups.filter((g) => g.payable > 0);
@@ -273,8 +284,13 @@ export function MerchantDebtSettlementDialog({
           )}
           {groups.map((g) => {
             const isOpen = !!expanded[g.agentId];
+            const isFocused = g.agentId === focusAgentId;
             return (
-              <div key={g.agentId} className="rounded-xl border border-border bg-background">
+              <div
+                key={g.agentId}
+                ref={isFocused ? (el) => el?.scrollIntoView({ block: 'center' }) : undefined}
+                className={`rounded-xl border bg-background ${isFocused ? 'border-primary ring-1 ring-primary/40' : 'border-border'}`}
+              >
                 <div className="flex items-start gap-3 p-3">
                   <Checkbox
                     checked={!!selected[g.agentId]}

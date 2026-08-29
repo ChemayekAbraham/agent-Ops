@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   useMerchantAgentFloatAllocation,
@@ -22,6 +23,7 @@ import {
   type MerchantFloatAllocationRow,
   type MerchantFloatAllocationRecommendation,
 } from '@/hooks/useMerchantAgentFloatAllocation';
+import { MerchantDebtSettlementDialog } from './MerchantDebtSettlementDialog';
 
 const RECOMMENDATION_META: Record<
   MerchantFloatAllocationRecommendation,
@@ -139,6 +141,7 @@ function EvidenceTrail({ agentId, days }: { agentId: string; days: number }) {
 
 function AgentRow({ row, days }: { row: MerchantFloatAllocationRow; days: number }) {
   const [open, setOpen] = useState(false);
+  const [settleOpen, setSettleOpen] = useState(false);
   return (
     <>
       <tr
@@ -246,10 +249,26 @@ function AgentRow({ row, days }: { row: MerchantFloatAllocationRow; days: number
                 value={`${row.needsReviewCount} · ${formatUGX(row.needsReviewAmount)}`}
                 tone={row.needsReviewCount > 0 ? 'text-amber-700 dark:text-amber-400' : undefined}
               />
-              <Metric
-                label="Awaiting reimbursement"
-                value={`${row.pendingReimbursementCount} · ${formatUGX(row.pendingReimbursementAmount)}`}
-              />
+              <div className="rounded-lg border border-border bg-background px-2.5 py-2 min-w-0 flex flex-col justify-between gap-1.5">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground truncate">
+                    Awaiting reimbursement
+                  </p>
+                  <p className="text-xs sm:text-sm font-bold tabular-nums mt-0.5">
+                    {row.pendingReimbursementCount} · {formatUGX(row.pendingReimbursementAmount)}
+                  </p>
+                </div>
+                {row.pendingReimbursementCount > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[11px] px-2 self-start"
+                    onClick={(e) => { e.stopPropagation(); setSettleOpen(true); }}
+                  >
+                    Settle
+                  </Button>
+                )}
+              </div>
               <Metric label="Available float now" value={formatUGX(row.availableFloat)} />
               <Metric label="Reserved float" value={formatUGX(row.reservedFloat)} />
               <Metric
@@ -284,6 +303,11 @@ function AgentRow({ row, days }: { row: MerchantFloatAllocationRow; days: number
           </td>
         </tr>
       )}
+      <MerchantDebtSettlementDialog
+        open={settleOpen}
+        onOpenChange={setSettleOpen}
+        focusAgentId={row.agentId}
+      />
     </>
   );
 }
