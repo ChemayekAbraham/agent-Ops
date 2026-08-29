@@ -964,7 +964,8 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
                     className="w-full sm:w-auto gap-2 border-rose-300 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
                     onClick={() => {
                       setDetailReq(null);
-                      setEvalReq(req);
+                      setRejectReason('');
+                      setRejectingReq(req);
                     }}
                   >
                     <X className="h-4 w-4" /> Reject
