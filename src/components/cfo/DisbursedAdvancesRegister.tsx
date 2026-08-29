@@ -426,6 +426,73 @@ export function DisbursedAdvancesRegister() {
             </Table>
           </div>
         )}
+
+        {/* Pagination */}
+        {filtered.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span>Rows per page</span>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(v) => {
+                  setPageSize(Number(v));
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="h-7 w-[70px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[10, 25, 50, 100].map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="hidden sm:inline">
+                Showing {startIndex + 1}–{endIndex} of {filtered.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              {pageNumbers.map((p, i) =>
+                typeof p === 'number' ? (
+                  <Button
+                    key={`${p}-${i}`}
+                    variant={p === safePage ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 min-w-[28px] px-2 text-xs"
+                    onClick={() => setPage(p)}
+                  >
+                    {p}
+                  </Button>
+                ) : (
+                  <span key={`ellipsis-${i}`} className="px-1 text-xs text-muted-foreground">
+                    ...
+                  </span>
+                ),
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage >= totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
 
       <DisbursementDetailDrawer
