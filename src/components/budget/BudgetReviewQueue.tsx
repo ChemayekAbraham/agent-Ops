@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet';
 import {
-  AlertTriangle, ArrowRightCircle, Building2, Calendar, CheckCircle2,
-  ChevronRight, Clock, FileText, Hash, Loader2, RefreshCw, RotateCcw,
+  AlertTriangle, ArrowRightCircle, Building2, CheckCircle2,
+  ChevronRight, FileText, Loader2, RefreshCw, RotateCcw,
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -22,6 +23,7 @@ import {
   BUDGET_ROUTE_LABEL, fetchBudgetReviewQueue, fetchLines, getBudgetDocumentUrl,
   type BudgetLine, type BudgetQueueRow, type BudgetReviewStage,
 } from '@/hooks/useDepartmentBudgets';
+
 
 interface Props {
   /** Budget cycle to scope the queue to; null shows every cycle. */
