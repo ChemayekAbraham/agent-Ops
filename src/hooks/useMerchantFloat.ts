@@ -1056,3 +1056,81 @@ export function useMerchantSettlementDebts(enabled = true) {
     },
   });
 }
+
+/**
+ * Pays a confirmed out-of-pocket claim back to the agent's WITHDRAWABLE
+ * wallet via `settle_merchant_out_of_pocket` — the only place this ever
+ * happens. Only `pending_reimbursement` (already-confirmed) claims settle;
+ * anything still `needs_review` or already `reimbursed` comes back in the
+ * RPC's `skipped` list instead. Posts under category `merchant_oop_reimbursement`,
+ * distinct from `agent_commission_earned`, so it never reads as commission.
+ */
+export function useSettleMerchantOutOfPocket() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { advanceIds: string[]; note?: string }) => {
+      if (!input.advanceIds.length) throw new Error('Nothing selected to settle.');
+      const { data, error } = await supabase.rpc('settle_merchant_out_of_pocket' as any, {
+        p_advance_ids: input.advanceIds,
+        p_note: input.note?.trim() || null,
+      });
+      if (error) throw error;
+      const row = (data ?? {}) as any;
+      if (!row?.ok) throw new Error('The settlement could not be recorded.');
+      return row as {
+        settled: Array<{ agent_id: string; amount: number; advance_ids: string[]; ledger_group_id: string }>;
+        skipped: Array<{ advance_id: string; reason: string }>;
+        batch_id: string;
+      };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['merchant-settlement-debts'] });
+      qc.invalidateQueries({ queryKey: ['merchant-own-money-review'] });
+      qc.invalidateQueries({ queryKey: ['merchant-float-positions'] });
+      qc.invalidateQueries({ queryKey: ['merchant-oop-settlement-history'] });
+    },
+  });
+}
+
+export interface MerchantOopSettlementHistoryRow {
+  id: string;
+  agentId: string;
+  agentName: string;
+  amount: number;
+  settledAt: string;
+  settledBy: string | null;
+  note: string | null;
+}
+
+/** "Recently settled" — read-only history of actual payouts made against agent own-money claims. */
+export function useMerchantOopSettlementHistory(enabled = true) {
+  return useQuery({
+    queryKey: ['merchant-oop-settlement-history'],
+    enabled,
+    staleTime: 20_000,
+    queryFn: async (): Promise<MerchantOopSettlementHistoryRow[]> => {
+      const { data, error } = await supabase
+        .from('merchant_oop_settlements' as any)
+        .select('id, agent_id, amount, settled_at, settled_by, note')
+        .order('settled_at', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      const rows = (data ?? []) as any[];
+      const ids = Array.from(new Set(rows.map((r) => r.agent_id).filter(Boolean).map(String)));
+      const names = new Map<string, string>();
+      if (ids.length) {
+        const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+        (profs ?? []).forEach((p: any) => names.set(String(p.id), p.full_name ?? 'Unknown agent'));
+      }
+      return rows.map((r) => ({
+        id: String(r.id),
+        agentId: String(r.agent_id),
+        agentName: names.get(String(r.agent_id)) ?? 'Unknown agent',
+        amount: Number(r.amount ?? 0),
+        settledAt: String(r.settled_at),
+        settledBy: r.settled_by ?? null,
+        note: r.note ?? null,
+      }));
+    },
+  });
+}

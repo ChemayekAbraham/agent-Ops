@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronDown, Download, ShieldAlert, Loader2 } from 'lucide-react';
+import { ChevronDown, Download, ShieldAlert, Loader2, Wallet, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import {
@@ -9,10 +9,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatUGX } from '@/lib/rentCalculations';
-import { useMerchantSettlementDebts } from '@/hooks/useMerchantFloat';
+import {
+  useMerchantSettlementDebts,
+  useSettleMerchantOutOfPocket,
+  useMerchantOopSettlementHistory,
+} from '@/hooks/useMerchantFloat';
 import {
   generateMerchantDebtSettlementPdf,
   buildMerchantDebtSettlementFilename,
@@ -36,9 +50,13 @@ export function MerchantDebtSettlementDialog({
   headlineOwed?: number;
 }) {
   const { data, isLoading, error } = useMerchantSettlementDebts(open);
+  const { data: history } = useMerchantOopSettlementHistory(open);
+  const settleMutation = useSettleMerchantOutOfPocket();
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
+  const [confirmSettleOpen, setConfirmSettleOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const groups = useMemo(() => (data ?? []).filter((g) => g.payable > 0 || g.underReview > 0), [data]);
   const payableGroups = groups.filter((g) => g.payable > 0);
@@ -97,6 +115,34 @@ export function MerchantDebtSettlementDialog({
       toast.error(e?.message || 'Could not build the PDF');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const sendToWallet = async () => {
+    setConfirmSettleOpen(false);
+    const advanceIds = chosen.flatMap((g) => g.payableLines.map((l) => l.id));
+    if (advanceIds.length === 0) {
+      toast.error('Nothing confirmed to settle yet');
+      return;
+    }
+    try {
+      const result = await settleMutation.mutateAsync({ advanceIds });
+      const settledCount = result.settled.reduce((s, r) => s + r.advance_ids.length, 0);
+      const settledTotal = result.settled.reduce((s, r) => s + r.amount, 0);
+      if (settledCount > 0) {
+        toast.success(
+          `Sent ${formatUGX(settledTotal)} to ${result.settled.length} agent wallet${result.settled.length === 1 ? '' : 's'} (${settledCount} claim${settledCount === 1 ? '' : 's'})`,
+        );
+      }
+      if (result.skipped.length > 0) {
+        toast.warning(`${result.skipped.length} claim(s) could not be settled — already paid or not yet confirmed`);
+      }
+      if (settledCount === 0 && result.skipped.length === 0) {
+        toast.error('Nothing was settled');
+      }
+      setSelected({});
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not send the settlement to the wallet');
     }
   };
 
@@ -171,12 +217,52 @@ export function MerchantDebtSettlementDialog({
             <p className="text-[11px] text-muted-foreground">
               Selected: <span className="font-mono font-bold text-foreground">{formatUGX(chosenTotal)}</span>
             </p>
-            <Button size="sm" onClick={download} disabled={busy || payableGroups.length === 0}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setHistoryOpen((v) => !v)}
+            >
+              <History className="mr-1.5 h-3.5 w-3.5" />
+              Recently settled
+            </Button>
+            <Button size="sm" variant="outline" onClick={download} disabled={busy || payableGroups.length === 0}>
               {busy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />}
               Download settlement PDF
             </Button>
+            <Button
+              size="sm"
+              onClick={() => setConfirmSettleOpen(true)}
+              disabled={settleMutation.isPending || chosen.length === 0}
+            >
+              {settleMutation.isPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Wallet className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Send to Wallet
+            </Button>
           </div>
         </div>
+
+        {historyOpen && (
+          <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-1.5 max-h-48 overflow-y-auto">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Recently settled — money already sent back to agent wallets
+            </p>
+            {(!history || history.length === 0) && (
+              <p className="text-[11px] text-muted-foreground">No settlements recorded yet.</p>
+            )}
+            {(history ?? []).map((h) => (
+              <div key={h.id} className="flex items-center justify-between gap-2 text-[11px]">
+                <span className="text-foreground truncate">{h.agentName}</span>
+                <span className="text-muted-foreground whitespace-nowrap">
+                  {format(new Date(h.settledAt), 'd MMM yyyy · HH:mm')}
+                </span>
+                <span className="font-mono font-semibold text-foreground shrink-0">{formatUGX(h.amount)}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="space-y-2">
           {isLoading && <p className="text-xs text-muted-foreground">Loading agent debts…</p>}
@@ -298,6 +384,22 @@ export function MerchantDebtSettlementDialog({
           })}
         </div>
       </DialogContent>
+
+      <AlertDialog open={confirmSettleOpen} onOpenChange={setConfirmSettleOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send {formatUGX(chosenTotal)} to {chosen.length} agent wallet{chosen.length === 1 ? '' : 's'}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This credits each selected agent's withdrawable wallet directly and marks their confirmed
+              own-money claims as reimbursed. This is a real money movement and cannot be undone from here.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={sendToWallet}>Send to Wallet</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
