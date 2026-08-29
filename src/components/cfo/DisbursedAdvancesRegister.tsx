@@ -429,7 +429,7 @@ export function DisbursedAdvancesRegister() {
   );
 }
 
-function DisbursementDetailDrawer({ advance, onClose, onCancel, onReverse }: { advance: AdvanceRow | null; onClose: () => void; onCancel: (a: AdvanceRow) => void; onReverse: (a: AdvanceRow) => void }) {
+function DisbursementDetailDrawer({ advance, onClose, onReverse }: { advance: AdvanceRow | null; onClose: () => void; onReverse: (a: AdvanceRow) => void }) {
   const { data: ledger = [], isLoading } = useQuery({
     queryKey: ['advance-ledger', advance?.id],
     enabled: !!advance?.id,
