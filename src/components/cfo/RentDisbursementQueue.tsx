@@ -1078,6 +1078,127 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
         )}
       </CardContent>
 
+      <Sheet open={!!reviewTarget} onOpenChange={(o) => { if (!o) setReviewTarget(null); }}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          {reviewTarget && (
+            <div className="space-y-5">
+              <SheetHeader>
+                <SheetTitle>Rent disbursement review</SheetTitle>
+                <SheetDescription>
+                  COO-approved payout for {reviewTarget.tenant_name} → {reviewTarget.landlord_name}.
+                </SheetDescription>
+              </SheetHeader>
+
+              <div className="rounded-xl border border-border/70 divide-y divide-border/60 text-sm">
+                {[
+                  { label: 'Tenant', value: reviewTarget.tenant_name },
+                  { label: 'Landlord', value: reviewTarget.landlord_name },
+                  { label: 'Agent', value: reviewTarget.agent_name },
+                  {
+                    label: 'Location',
+                    value:
+                      [reviewTarget.request_city, reviewTarget.request_district, reviewTarget.request_country]
+                        .filter(Boolean)
+                        .join(', ') || '—',
+                  },
+                  { label: 'Approved', value: format(new Date(reviewTarget.created_at), 'dd MMM yyyy') },
+                  { label: 'Request reference', value: reviewTarget.id },
+                ].map(row => (
+                  <div key={row.label} className="flex items-start justify-between gap-3 px-3.5 py-2.5">
+                    <span className="text-xs text-muted-foreground shrink-0">{row.label}</span>
+                    <span className="font-medium text-right break-all">{row.value}</span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                  <span className="text-xs text-muted-foreground">Payout to</span>
+                  {reviewTarget.payout_target === 'landlord_wallet' ? (
+                    <Badge className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border-emerald-200">
+                      <Wallet className="h-3 w-3 mr-1" />
+                      Landlord Wallet
+                    </Badge>
+                  ) : (
+                    <Badge className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border-amber-200">
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      Agent Float
+                    </Badge>
+                  )}
+                </div>
+                {reviewTarget.partner_reserved_stage && (
+                  <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                    <span className="text-xs text-muted-foreground">Partner status</span>
+                    <Badge className="text-[10px] px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border-violet-200">
+                      {PARTNER_RESERVED_LABEL[reviewTarget.partner_reserved_stage]}
+                    </Badge>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-lg bg-muted/40 py-2.5">
+                  <p className="text-[10px] text-muted-foreground">Rent out</p>
+                  <p className="font-bold text-sm text-orange-600">{fmt(reviewTarget.rent_amount)}</p>
+                </div>
+                <div className="rounded-lg bg-muted/40 py-2.5">
+                  <p className="text-[10px] text-muted-foreground">Fees</p>
+                  <p className="font-bold text-sm text-emerald-600">{fmt(reviewTarget.access_fee + reviewTarget.request_fee)}</p>
+                </div>
+                <div className="rounded-lg bg-muted/40 py-2.5">
+                  <p className="text-[10px] text-muted-foreground">Repayment</p>
+                  <p className="font-bold text-sm text-primary">{fmt(reviewTarget.total_repayment)}</p>
+                </div>
+              </div>
+
+              {reviewTarget.partner_reserved_stage && (
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  {PARTNER_RESERVED_HINT[reviewTarget.partner_reserved_stage]}
+                </p>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  className="flex-1 h-11 rounded-xl font-semibold"
+                  onClick={() => {
+                    singleDisburse.mutate(reviewTarget.id);
+                    setReviewTarget(null);
+                  }}
+                  disabled={singleDisburse.isPending || !!reviewTarget.partner_reserved_stage}
+                  title={
+                    reviewTarget.partner_reserved_stage
+                      ? PARTNER_RESERVED_HINT[reviewTarget.partner_reserved_stage]
+                      : `Fund this tenant on ${reviewTarget.agent_name}'s float`
+                  }
+                >
+                  {singleDisburse.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Banknote className="h-3.5 w-3.5 mr-1" />}
+                  Fund this float
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 h-11 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => {
+                    setRejectTarget(reviewTarget);
+                    setRejectReason('');
+                    setReviewTarget(null);
+                  }}
+                >
+                  <XCircle className="h-3.5 w-3.5 mr-1" />
+                  Reject
+                </Button>
+              </div>
+
+              {reviewTarget.assigned_agent_id || reviewTarget.agent_id ? (
+                <button
+                  type="button"
+                  className="text-xs font-medium text-primary hover:underline"
+                  onClick={() => setDrilldownAgentId(reviewTarget.assigned_agent_id || reviewTarget.agent_id)}
+                >
+                  Open agent profile
+                </button>
+              ) : null}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
       <Dialog
         open={!!rejectTarget}
         onOpenChange={(o) => { if (!o) { setRejectTarget(null); setRejectReason(''); } }}
