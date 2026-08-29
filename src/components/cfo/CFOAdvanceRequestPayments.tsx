@@ -59,10 +59,8 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'agent_ops_approved' | 'cfo_approved' | 'cfo_rejected'>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const [requesterFilter, setRequesterFilter] = useState('');
-  const [requiredFrom, setRequiredFrom] = useState('');
-  const [requiredTo, setRequiredTo] = useState('');
-  const [amountMin, setAmountMin] = useState('');
-  const [amountMax, setAmountMax] = useState('');
+  const [submittedFrom, setSubmittedFrom] = useState('');
+  const [submittedTo, setSubmittedTo] = useState('');
   // Post-disbursement success dialog payload — shows the CFO what was sent and
   // a shortcut to the full list of disbursed advances.
   const [disbursed, setDisbursed] = useState<null | {
