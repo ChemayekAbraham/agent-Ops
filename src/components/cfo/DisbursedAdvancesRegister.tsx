@@ -41,14 +41,14 @@ import {
   Receipt,
   HandCoins,
   FileClock,
-  Ban,
+  
   Undo2,
   Eye,
 } from 'lucide-react';
 import { formatUGX, getRiskLevel } from '@/lib/agentAdvanceCalculations';
 import { differenceInDays, format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { CancelAdvanceDialog } from '@/components/cfo/CancelAdvanceDialog';
+
 import { ReverseAdvanceDialog } from '@/components/cfo/ReverseAdvanceDialog';
 import { BulkReverseAdvancesDialog } from '@/components/cfo/BulkReverseAdvancesDialog';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -98,7 +98,7 @@ export function DisbursedAdvancesRegister() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [selected, setSelected] = useState<AdvanceRow | null>(null);
-  const [cancelAdvance, setCancelAdvance] = useState<AdvanceRow | null>(null);
+  
   const [reverseAdvance, setReverseAdvance] = useState<AdvanceRow | null>(null);
   const [bulkIds, setBulkIds] = useState<string[] | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -367,16 +367,6 @@ export function DisbursedAdvancesRegister() {
                       <TableCell>{statusBadge(a.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {(a.status === 'active' || a.status === 'overdue') && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-[11px] gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
-                              onClick={(e) => { e.stopPropagation(); setCancelAdvance(a); }}
-                            >
-                              <Ban className="h-3 w-3" /> Cancel
-                            </Button>
-                          )}
                           {!(a as any).reversed_at && (
                             <Button
                               size="sm"
@@ -409,20 +399,7 @@ export function DisbursedAdvancesRegister() {
       <DisbursementDetailDrawer
         advance={selected}
         onClose={() => setSelected(null)}
-        onCancel={(a) => { setSelected(null); setCancelAdvance(a); }}
         onReverse={(a) => { setSelected(null); setReverseAdvance(a); }}
-      />
-
-      <CancelAdvanceDialog
-        advance={cancelAdvance}
-        open={!!cancelAdvance}
-        onOpenChange={(o) => { if (!o) setCancelAdvance(null); }}
-        onSuccess={() => {
-          setCancelAdvance(null);
-          queryClient.invalidateQueries({ queryKey: ['disbursed-advances-register'] });
-          queryClient.invalidateQueries({ queryKey: ['cfo-advances'] });
-          queryClient.invalidateQueries({ queryKey: ['cfo-outstanding-advances'] });
-        }}
       />
 
       <ReverseAdvanceDialog
@@ -452,7 +429,7 @@ export function DisbursedAdvancesRegister() {
   );
 }
 
-function DisbursementDetailDrawer({ advance, onClose, onCancel, onReverse }: { advance: AdvanceRow | null; onClose: () => void; onCancel: (a: AdvanceRow) => void; onReverse: (a: AdvanceRow) => void }) {
+function DisbursementDetailDrawer({ advance, onClose, onReverse }: { advance: AdvanceRow | null; onClose: () => void; onReverse: (a: AdvanceRow) => void }) {
   const { data: ledger = [], isLoading } = useQuery({
     queryKey: ['advance-ledger', advance?.id],
     enabled: !!advance?.id,
@@ -633,15 +610,6 @@ function DisbursementDetailDrawer({ advance, onClose, onCancel, onReverse }: { a
               )}
             </div>
 
-            {(advance.status === 'active' || advance.status === 'overdue') && (
-              <Button
-                variant="outline"
-                className="w-full gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
-                onClick={() => onCancel(advance)}
-              >
-                <Ban className="h-4 w-4" /> Cancel this advance
-              </Button>
-            )}
             {!(advance as any).reversed_at && (
               <Button
                 variant="destructive"
