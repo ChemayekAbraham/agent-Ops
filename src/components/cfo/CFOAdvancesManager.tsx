@@ -136,6 +136,11 @@ export function CFOAdvancesManager() {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [filter, pageSize]);
+
+
   const pageNumbers = useMemo(() => {
     const pages: (number | string)[] = [];
     if (totalPages <= 7) {
