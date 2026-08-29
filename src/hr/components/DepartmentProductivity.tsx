@@ -6,8 +6,6 @@ import {
   CartesianGrid,
   Cell,
   Legend,
-  Line,
-  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -98,14 +96,6 @@ function periodBounds(choice: PeriodChoice): { start: string; end: string } {
     start: iso(new Date(now.getFullYear(), now.getMonth(), 1)),
     end: iso(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
   };
-}
-
-/** Monday-anchored start of the week containing `d`. */
-function weekStart(d: Date) {
-  const copy = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const day = (copy.getDay() + 6) % 7;
-  copy.setDate(copy.getDate() - day);
-  return copy;
 }
 
 function humanize(value: string) {
@@ -219,12 +209,6 @@ export default function DepartmentProductivity() {
     void load();
   }, [load]);
 
-  const nameById = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const p of people) map[p.id] = p.full_name || p.staff_number || p.id;
-    return map;
-  }, [people]);
-
   /** Alphabetical only. No ranking of people anywhere on this page. */
   const roster = useMemo(
     () =>
@@ -236,15 +220,28 @@ export default function DepartmentProductivity() {
 
   const completedBars = useMemo(
     () =>
-      roster.map((p) => ({
-        name: p.full_name || p.staff_number,
-        completed: tasks.filter(
+      roster.map((p) => {
+        const personTasks = tasks.filter(
           (t) =>
             t.assignee_employee_id === p.id &&
             t.status === 'completed' &&
             withinPeriod(t.completed_at, bounds.start, bounds.end),
-        ).length,
-      })),
+        );
+        const dueTasks = personTasks.filter(
+          (t) => t.due_at !== null && t.due_at !== undefined,
+        );
+        const onTimeTasks = dueTasks.filter(
+          (t) =>
+            new Date(t.completed_at as string).getTime() <=
+            new Date(t.due_at as string).getTime(),
+        );
+        return {
+          name: p.full_name || p.staff_number,
+          completed: personTasks.length,
+          due: dueTasks.length,
+          onTime: onTimeTasks.length,
+        };
+      }),
     [roster, tasks, bounds.start, bounds.end],
   );
 
@@ -257,46 +254,6 @@ export default function DepartmentProductivity() {
       fill: SERIES_COLOURS[i % SERIES_COLOURS.length],
     }));
   }, [tasks]);
-
-  /** One series per person: on-time completions ÷ completions, per calendar week. */
-  const onTimeSeries = useMemo(() => {
-    const startDate = new Date(`${bounds.start}T00:00:00`);
-    const endDate = new Date(`${bounds.end}T00:00:00`);
-    const weeks: { key: number; label: string }[] = [];
-    for (let d = weekStart(startDate); d <= endDate; d.setDate(d.getDate() + 7)) {
-      weeks.push({
-        key: weekStart(d).getTime(),
-        label: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }),
-      });
-    }
-
-    const totals: Record<number, Record<string, { done: number; onTime: number }>> = {};
-    for (const w of weeks) totals[w.key] = {};
-
-    for (const t of tasks) {
-      if (t.status !== 'completed') continue;
-      if (!withinPeriod(t.completed_at, bounds.start, bounds.end)) continue;
-      const key = weekStart(new Date(t.completed_at as string)).getTime();
-      if (!totals[key]) continue;
-      const person = t.assignee_employee_id;
-      if (!person || !nameById[person]) continue;
-      const bucket = (totals[key][person] ??= { done: 0, onTime: 0 });
-      bucket.done += 1;
-      const onTime =
-        !t.due_at || new Date(t.completed_at as string).getTime() <= new Date(t.due_at).getTime();
-      if (onTime) bucket.onTime += 1;
-    }
-
-    const rows = weeks.map((w) => {
-      const row: Record<string, string | number | null> = { label: w.label };
-      for (const p of roster) {
-        const b = totals[w.key][p.id];
-        row[p.id] = b && b.done > 0 ? Math.round((b.onTime / b.done) * 100) : null;
-      }
-      return row;
-    });
-    return rows;
-  }, [tasks, roster, nameById, bounds.start, bounds.end]);
 
   /** Latest snapshot in the window, per person per definition. */
   const valueFor = useCallback(
@@ -384,7 +341,7 @@ export default function DepartmentProductivity() {
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Tasks completed in the period</CardTitle>
+                <CardTitle className="text-sm">Tasks completed, deadlines met</CardTitle>
               </CardHeader>
               <CardContent className="h-64">
                 {completedBars.length === 0 ? (
@@ -396,7 +353,10 @@ export default function DepartmentProductivity() {
                       <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-20} height={50} textAnchor="end" />
                       <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                       <Tooltip />
-                      <Bar dataKey="completed" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="completed" name="Completed" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="due" name="Had a deadline" fill={SERIES_COLOURS[1]} radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="onTime" name="Met the deadline" fill={SERIES_COLOURS[2]} radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 )}
@@ -433,39 +393,6 @@ export default function DepartmentProductivity() {
               </CardContent>
             </Card>
           </div>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">On-time rate per week</CardTitle>
-            </CardHeader>
-            <CardContent className="h-72">
-              {roster.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nobody is posted here yet</p>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={onTimeSeries} margin={{ top: 8, right: 12, bottom: 0, left: -18 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-                    <YAxis domain={[0, 100]} unit="%" tick={{ fontSize: 10 }} />
-                    <Tooltip />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                    {roster.map((p, i) => (
-                      <Line
-                        key={p.id}
-                        type="monotone"
-                        dataKey={p.id}
-                        name={p.full_name || p.staff_number}
-                        stroke={SERIES_COLOURS[i % SERIES_COLOURS.length]}
-                        strokeWidth={2}
-                        dot={{ r: 2 }}
-                        connectNulls
-                      />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
 
           <Card>
             <CardHeader className="pb-2">
