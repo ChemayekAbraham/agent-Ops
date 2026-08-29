@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { ChevronRight, Loader2, User } from 'lucide-react';
 import { toast } from 'sonner';
 import HRPlaceholderPage from '@/hr/pages/HRPlaceholderPage';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import {
   Select,
   SelectContent,
@@ -49,12 +56,33 @@ function firstOfNextMonth(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
+/** Display-only reference derived from the advance id. Not stored anywhere. */
+function advanceRef(id: string): string {
+  return `ADV-${id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+}
+
 const STATUS_CLASS: Record<string, string> = {
   requested: 'bg-amber-100 text-amber-800',
   approved: 'bg-green-100 text-green-800',
   rejected: 'bg-muted text-muted-foreground',
   settled: 'bg-blue-100 text-blue-800',
 };
+
+const STATUS_LABEL: Record<string, string> = {
+  requested: 'Requested',
+  approved: 'Approved',
+  rejected: 'Rejected',
+  settled: 'Settled',
+};
+
+function Kpi({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border p-3">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="mt-0.5 font-mono text-sm font-semibold text-foreground">{value}</p>
+    </div>
+  );
+}
 
 export default function Advances() {
   const [rows, setRows] = useState<AdvanceRow[]>([]);
@@ -64,6 +92,9 @@ export default function Advances() {
   const [isPreparer, setIsPreparer] = useState(false);
   const [isApprover, setIsApprover] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  // Details sheet
+  const [detailRow, setDetailRow] = useState<AdvanceRow | null>(null);
 
   // Request dialog
   const [open, setOpen] = useState(false);
@@ -109,18 +140,34 @@ export default function Advances() {
     void load();
   }, [load]);
 
+  // Load the staff directory for every viewer (not just preparers) so the table
+  // can show the Department column and a reliable requester name. Failure is
+  // non-fatal: the department column falls back to a dash.
   useEffect(() => {
-    if (!isPreparer || staff.length > 0) return;
+    if (staff.length > 0) return;
     listStaffForPayroll()
       .then(setStaff)
-      .catch((err) => toast.error((err as Error).message));
-  }, [isPreparer, staff.length]);
+      .catch(() => {
+        /* department column falls back to '—' */
+      });
+  }, [staff.length]);
 
   const staffLabel = useMemo(() => {
     const map = new Map<string, string>();
     staff.forEach((s) => map.set(s.staffId, s.name));
     return map;
   }, [staff]);
+
+  const staffDepartment = useMemo(() => {
+    const map = new Map<string, string>();
+    staff.forEach((s) => map.set(s.staffId, s.department));
+    return map;
+  }, [staff]);
+
+  const requesterName = useCallback(
+    (row: AdvanceRow) => row.staff_name ?? staffLabel.get(row.staff_id) ?? '—',
+    [staffLabel],
+  );
 
   function resetForm() {
     setStaffId('');
@@ -161,6 +208,7 @@ export default function Advances() {
     try {
       await decideAdvance(row.id, true, '');
       toast.success('Advance approved.');
+      setDetailRow(null);
       await load();
     } catch (err) {
       toast.error((err as Error).message);
@@ -177,6 +225,21 @@ export default function Advances() {
     const final = editRow.principal - value * (installments - 1);
     return { installments, final };
   }, [editRow, editMode, editRecoveryValue]);
+
+  function openEdit(row: AdvanceRow) {
+    setEditRow(row);
+    setEditPurpose(row.purpose);
+    setEditMode(row.recovery_mode);
+    setEditRecoveryValue(String(row.recovery_value));
+    setEditFirstOn(row.first_recovery_on);
+    setEditError('');
+  }
+
+  function openReject(row: AdvanceRow) {
+    setRejectRow(row);
+    setRejectNote('');
+    setRejectError('');
+  }
 
   async function submitEdit() {
     if (!editRow) return;
@@ -215,6 +278,7 @@ export default function Advances() {
       toast.success('Advance rejected.');
       setRejectRow(null);
       setRejectNote('');
+      setDetailRow(null);
       await load();
     } catch (err) {
       setRejectError((err as Error).message);
@@ -235,10 +299,9 @@ export default function Advances() {
       )}
 
       {loading && (
-        <p className="text-sm text-muted-foreground">
-          <Loader2 className="mr-1 inline h-3.5 w-3.5 animate-spin" />
-          Loading…
-        </p>
+        <div className="flex items-center gap-2 py-2 text-xs text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading advance requests…
+        </div>
       )}
       {error && (
         <p role="alert" className="text-sm font-medium text-destructive">
@@ -246,107 +309,211 @@ export default function Advances() {
         </p>
       )}
 
-      {!loading && !error && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Staff ref</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead className="text-right">Principal</TableHead>
-              <TableHead>Purpose</TableHead>
-              <TableHead>Recovery</TableHead>
-              <TableHead>First recovery</TableHead>
-              <TableHead className="text-right">Recovered so far</TableHead>
-              <TableHead className="text-right">Outstanding</TableHead>
-              <TableHead>Status</TableHead>
-              {isPreparer && <TableHead />}
-              {isApprover && <TableHead />}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={(isApprover ? 10 : 9) + (isPreparer ? 1 : 0)} className="py-8 text-center text-sm text-muted-foreground">
-                  No salary advances recorded.
-                </TableCell>
-              </TableRow>
-            )}
-            {rows.map((row) => (
-              <TableRow key={row.id}>
-                <TableCell className="font-mono text-xs">{row.staff_ref ?? '—'}</TableCell>
-                <TableCell>{row.staff_name ?? staffLabel.get(row.staff_id) ?? '—'}</TableCell>
-                <TableCell className="text-right">{formatAmount(row.principal)}</TableCell>
-                <TableCell className="max-w-[220px] text-xs">{row.purpose}</TableCell>
-                <TableCell className="text-xs">
-                  {row.recovery_mode === 'fixed'
-                    ? `${formatAmount(row.recovery_value)} per month`
-                    : `${row.recovery_value}% of gross`}
-                </TableCell>
-                <TableCell className="text-xs">{formatDate(row.first_recovery_on)}</TableCell>
-                <TableCell className="text-right">{formatAmount(row.recovered)}</TableCell>
-                <TableCell className="text-right font-medium">{formatAmount(row.outstanding)}</TableCell>
-                <TableCell>
-                  <span
-                    className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
-                      STATUS_CLASS[row.status] ?? 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    {row.status}
-                  </span>
-                </TableCell>
-                {isPreparer && (
-                  <TableCell className="whitespace-nowrap text-right">
-                    {row.status === 'requested' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={busyId === row.id}
-                        onClick={() => {
-                          setEditRow(row);
-                          setEditPurpose(row.purpose);
-                          setEditMode(row.recovery_mode);
-                          setEditRecoveryValue(String(row.recovery_value));
-                          setEditFirstOn(row.first_recovery_on);
-                          setEditError('');
-                        }}
-                      >
-                        Edit
-                      </Button>
-                    )}
-                  </TableCell>
-                )}
-                {isApprover && (
-                  <TableCell className="whitespace-nowrap text-right">
-                    {row.status === 'requested' && (
-                      <span className="inline-flex gap-2">
-                        <Button
-                          size="sm"
-                          disabled={busyId === row.id}
-                          onClick={() => void approve(row)}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={busyId === row.id}
-                          onClick={() => {
-                            setRejectRow(row);
-                            setRejectNote('');
-                            setRejectError('');
-                          }}
-                        >
-                          Reject
-                        </Button>
-                      </span>
-                    )}
-                  </TableCell>
-                )}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      {!loading && !error && rows.length === 0 && (
+        <div className="rounded-lg border border-dashed border-border bg-muted/30 p-6 text-center">
+          <p className="text-sm text-muted-foreground">No salary advances recorded.</p>
+        </div>
       )}
+
+      {!loading && !error && rows.length > 0 && (
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 hover:bg-muted/50">
+                <TableHead className="h-9 text-[11px] uppercase tracking-wider">Requester</TableHead>
+                <TableHead className="h-9 text-[11px] uppercase tracking-wider">Department</TableHead>
+                <TableHead className="h-9 text-[11px] uppercase tracking-wider">Advance Reference</TableHead>
+                <TableHead className="h-9 text-[11px] uppercase tracking-wider">Purpose</TableHead>
+                <TableHead className="h-9 text-right text-[11px] uppercase tracking-wider">Amount (UGX)</TableHead>
+                <TableHead className="h-9 whitespace-nowrap text-[11px] uppercase tracking-wider">Required Date</TableHead>
+                <TableHead className="h-9 whitespace-nowrap text-[11px] uppercase tracking-wider">Submitted Date</TableHead>
+                <TableHead className="h-9 text-[11px] uppercase tracking-wider">Status</TableHead>
+                <TableHead className="h-9 text-right text-[11px] uppercase tracking-wider">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  role="button"
+                  tabIndex={0}
+                  className="cursor-pointer border-border/60"
+                  onClick={() => setDetailRow(row)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setDetailRow(row);
+                    }
+                  }}
+                >
+                  <TableCell className="py-2.5">
+                    <div className="flex items-center gap-2">
+                      <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">{requesterName(row)}</p>
+                        <p className="font-mono text-[11px] text-muted-foreground">{row.staff_ref ?? '—'}</p>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="max-w-[160px] truncate py-2.5 text-sm text-muted-foreground">
+                    {staffDepartment.get(row.staff_id) || '—'}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap py-2.5 font-mono text-xs text-muted-foreground">
+                    {advanceRef(row.id)}
+                  </TableCell>
+                  <TableCell className="max-w-[220px] truncate py-2.5 text-sm text-muted-foreground">
+                    {row.purpose}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap py-2.5 text-right font-mono text-sm font-semibold tabular-nums text-foreground">
+                    {formatAmount(row.principal)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap py-2.5 text-sm text-muted-foreground">
+                    {formatDate(row.first_recovery_on)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap py-2.5 text-sm text-muted-foreground">
+                    {formatDate(row.requested_at)}
+                  </TableCell>
+                  <TableCell className="py-2.5">
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                        STATUS_CLASS[row.status] ?? 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {STATUS_LABEL[row.status] ?? row.status}
+                    </span>
+                  </TableCell>
+                  <TableCell className="py-2.5 text-right">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 gap-1 px-2 text-[11px]"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDetailRow(row);
+                      }}
+                    >
+                      Review <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      <Sheet open={Boolean(detailRow)} onOpenChange={(next) => !next && setDetailRow(null)}>
+        <SheetContent side="center" className="flex max-h-[90vh] w-[95vw] flex-col sm:max-w-2xl">
+          {detailRow && (
+            <>
+              <SheetHeader>
+                <SheetTitle className="pr-6 text-base">Advance Details</SheetTitle>
+                <SheetDescription>
+                  {requesterName(detailRow)} · {advanceRef(detailRow.id)} · UGX {formatAmount(detailRow.principal)}
+                </SheetDescription>
+              </SheetHeader>
+
+              <div className="mt-2 flex-1 space-y-5 overflow-y-auto pr-1">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  <Kpi label="Requester" value={requesterName(detailRow)} />
+                  <Kpi label="Staff ref" value={detailRow.staff_ref ?? '—'} />
+                  <Kpi label="Department" value={staffDepartment.get(detailRow.staff_id) || '—'} />
+                  <Kpi label="Advance reference" value={advanceRef(detailRow.id)} />
+                  <Kpi label="Amount (UGX)" value={formatAmount(detailRow.principal)} />
+                  <Kpi label="Required date" value={formatDate(detailRow.first_recovery_on)} />
+                  <Kpi label="Submitted" value={formatDate(detailRow.requested_at)} />
+                  <Kpi label="Currency" value={detailRow.currency} />
+                  <div className="rounded-lg border border-border p-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Status</p>
+                    <p className="mt-1">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                          STATUS_CLASS[detailRow.status] ?? 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {STATUS_LABEL[detailRow.status] ?? detailRow.status}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Purpose / Justification</p>
+                  <p className="whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-3 text-sm leading-relaxed text-foreground">
+                    {detailRow.purpose}
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Recovery plan</p>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    <Kpi
+                      label="Recovery mode"
+                      value={detailRow.recovery_mode === 'fixed' ? 'Fixed monthly' : 'Percent of gross'}
+                    />
+                    <Kpi
+                      label={detailRow.recovery_mode === 'fixed' ? 'Per month (UGX)' : 'Percent of gross'}
+                      value={
+                        detailRow.recovery_mode === 'fixed'
+                          ? formatAmount(detailRow.recovery_value)
+                          : `${detailRow.recovery_value}%`
+                      }
+                    />
+                    <Kpi label="First recovery" value={formatDate(detailRow.first_recovery_on)} />
+                    <Kpi label="Recovered so far (UGX)" value={formatAmount(detailRow.recovered)} />
+                    <Kpi label="Outstanding (UGX)" value={formatAmount(detailRow.outstanding)} />
+                  </div>
+                </div>
+
+                {detailRow.decision_note && (
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Decision note</p>
+                    <p className="whitespace-pre-wrap rounded-lg border border-border bg-muted/30 p-3 text-sm leading-relaxed text-foreground">
+                      {detailRow.decision_note}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {detailRow.status === 'requested' && (isApprover || isPreparer) && (
+                <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+                  {isPreparer && (
+                    <Button
+                      variant="outline"
+                      disabled={busyId === detailRow.id}
+                      onClick={() => {
+                        const row = detailRow;
+                        setDetailRow(null);
+                        openEdit(row);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                  )}
+                  {isApprover && (
+                    <>
+                      <Button
+                        variant="outline"
+                        disabled={busyId === detailRow.id}
+                        onClick={() => openReject(detailRow)}
+                      >
+                        Reject
+                      </Button>
+                      <Button
+                        disabled={busyId === detailRow.id}
+                        onClick={() => void approve(detailRow)}
+                      >
+                        {busyId === detailRow.id && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+                        Approve
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : (setOpen(false), resetForm()))}>
         <DialogContent>
