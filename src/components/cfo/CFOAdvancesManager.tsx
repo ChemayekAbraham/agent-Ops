@@ -54,6 +54,9 @@ export function CFOAdvancesManager() {
   const [paymentSearchOpen, setPaymentSearchOpen] = useState(false);
   const [termsAdvance, setTermsAdvance] = useState<any | null>(null);
   const [cancelAdvance, setCancelAdvance] = useState<any | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
 
   const handleExportPayments = async () => {
     if (filtered.length === 0) return;
