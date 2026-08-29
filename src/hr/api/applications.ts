@@ -234,32 +234,6 @@ export async function markApplicationContacted(
   return data as unknown as JobApplicationRow;
 }
 
-/**
- * Record that a shortlisted person has been contacted. Writes the `contacted`
- * status plus the contact stamps only: the shortlist round, the decision fields
- * and the archive stamps are all left exactly as they are, so the level the
- * person reached and any earlier decision remain readable.
- */
-export async function recordApplicationContacted(
-  applicationId: string,
-): Promise<JobApplicationRow> {
-  const contactedBy = await actingUserId();
-
-  const { data, error } = await supabase
-    .from('job_applications')
-    .update({
-      status: 'contacted',
-      contacted_at: new Date().toISOString(),
-      contacted_by: contactedBy,
-    })
-    .eq('id', applicationId)
-    .select(COLUMNS)
-    .single();
-
-  if (error) throw new Error(error.message);
-  return data as unknown as JobApplicationRow;
-}
-
 export interface CareersEmailResult {
   requested: number;
   sent: number;
