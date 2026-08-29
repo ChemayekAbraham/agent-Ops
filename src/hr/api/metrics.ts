@@ -46,6 +46,8 @@ function mapDefinition(row: DefinitionRow): MetricDefinition {
     unit: row.unit as MetricDefinition['unit'],
     direction: row.direction as MetricDefinition['direction'],
     target_value: row.target_value,
+    amber_at: row.amber_at,
+    red_at: row.red_at,
     target_basis: 'target',
     period_type: 'monthly',
     source: row.measurement_mode === 'output' ? 'derived_task' : 'manual_entry',
@@ -63,7 +65,7 @@ export async function getMetricDefinitions(
   let query = supabase
     .from('hr_metric_definitions')
     .select(
-      'id, department_id, key, name, description, unit, direction, measurement_mode, target_value, version, active, created_at',
+      'id, department_id, key, name, description, unit, direction, measurement_mode, target_value, amber_at, red_at, version, active, created_at',
     )
     .eq('active', true)
     .order('display_order', { ascending: true, nullsFirst: true })
