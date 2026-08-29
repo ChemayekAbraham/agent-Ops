@@ -37,7 +37,9 @@ export interface MetricDefinition {
   unit: MetricUnit;
   direction: MetricDirection;
   target_value: number | null;
-  /** Thresholds must be defensible. "Below team average" is not a threshold. */
+  /** Thresholds carried by the definition row itself (amber/red traffic-light bounds). */
+  amber_at: number | null;
+  red_at: number | null;
   target_basis: 'target' | 'sla' | 'own_trend';
   period_type: MetricPeriodType;
   source: 'derived_task' | 'manual_entry' | 'external_system';

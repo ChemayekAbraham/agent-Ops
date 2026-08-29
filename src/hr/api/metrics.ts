@@ -14,6 +14,8 @@ type DefinitionRow = {
   direction: string;
   measurement_mode: string;
   target_value: number | null;
+  amber_at: number | null;
+  red_at: number | null;
   version: number;
   active: boolean;
   created_at: string;
