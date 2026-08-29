@@ -62,7 +62,7 @@ import {
   APPLICATION_DECISIONS,
   archiveApplication,
   recordApplicationDecision,
-  recordApplicationContacted,
+  markApplicationContacted,
   restoreApplication,
   sendCareersEmails,
   type ApplicationDecision,
@@ -273,9 +273,11 @@ interface DecisionAction {
  * Only the actions that make sense for where the row already stands are shown.
  * Shortlist level lives in `shortlist_round`, not in the status string, so a
  * shortlisted row with no round recorded is read as level 1. Level 3 is the
- * last level, so it offers no further shortlist step.
+ * last level, so it offers no further shortlist step. Contact is a fact of its
+ * own held in `contacted_at`, so the Contacted action is withheld on that and
+ * never on the status string.
  */
-function getAvailableDecisions(status: string | null, round: number | null): DecisionAction[] {
+function getAvailableDecisions(status: string | null, round: number | null, contacted: boolean): DecisionAction[] {
   const level = round ?? (status === 'shortlisted' ? 1 : 0);
   const actions: DecisionAction[] = [];
 
@@ -283,7 +285,7 @@ function getAvailableDecisions(status: string | null, round: number | null): Dec
   else if (level === 1) actions.push({ status: 'shortlisted', round: 2, label: 'Shortlist 2', writer: 'decision' });
   else if (level === 2) actions.push({ status: 'shortlisted', round: 3, label: 'Shortlist 3', writer: 'decision' });
 
-  if (status !== 'contacted') {
+  if (!contacted) {
     actions.push({ status: 'contacted', round: null, label: 'Contacted', writer: 'contacted' });
   }
 
@@ -618,7 +620,7 @@ function ApplicationsTab() {
         toast.success(`${pending.row.full_name || 'Application'} removed from the list`);
         setSelected(null);
       } else if (pending.writer === 'contacted') {
-        await recordApplicationContacted(pending.row.id);
+        await markApplicationContacted(pending.row.id);
         toast.success(`${pending.row.full_name || 'Applicant'} marked as contacted`);
       } else {
         // The target round travels with the decision in a single write.
@@ -787,7 +789,7 @@ function ApplicationsTab() {
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="inline-flex gap-1">
-                  {getAvailableDecisions(row.status, row.shortlist_round ?? null).map((a) => (
+                  {getAvailableDecisions(row.status, row.shortlist_round ?? null, wasContacted(row)).map((a) => (
                     <Button
                       key={`${a.status}-${a.round ?? 'none'}`}
                       size="sm"
@@ -974,7 +976,7 @@ function ApplicationsTab() {
               <Separator />
               <Label className="text-xs text-muted-foreground">Decision</Label>
               <div className="flex flex-wrap gap-2">
-                {getAvailableDecisions(selected.status, selected.shortlist_round ?? null).map((a) => (
+                {getAvailableDecisions(selected.status, selected.shortlist_round ?? null, wasContacted(selected)).map((a) => (
                   <Button
                     key={`${a.status}-${a.round ?? 'none'}`}
                     size="sm"
