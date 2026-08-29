@@ -366,7 +366,7 @@ export function DisbursedAdvancesRegister() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((a) => {
+                {paginated.map((a) => {
                   const daysLeft = Math.max(0, differenceInDays(new Date(a.expires_at), new Date()));
                   const risk = getRiskLevel(a);
                   return (
