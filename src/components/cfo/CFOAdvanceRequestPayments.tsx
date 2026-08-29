@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { format, addDays, differenceInCalendarDays, max as dateMax, min as dateMin, isAfter, startOfMonth, endOfMonth } from 'date-fns';
-import { CheckCircle2, Loader2, Pencil, User, Banknote, X, TrendingUp, Percent, Wallet, Users, FileText, AlertTriangle, ShieldX } from 'lucide-react';
+import { CheckCircle2, Loader2, Pencil, User, Banknote, X, FileText, AlertTriangle, ShieldX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sparkles } from 'lucide-react';
 import { AgentAdvanceEvaluationDialog } from '@/components/agent/AgentAdvanceEvaluationDialog';
