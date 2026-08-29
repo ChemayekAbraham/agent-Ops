@@ -154,7 +154,36 @@ export function DisbursedAdvancesRegister() {
     setAgentQuery('');
     setFromDate('');
     setToDate('');
+    setPage(1);
   };
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, filtered.length);
+  const paginated = useMemo(
+    () => filtered.slice(startIndex, endIndex),
+    [filtered, startIndex, endIndex],
+  );
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const pageNumbers = useMemo(() => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (safePage > 3) pages.push(1, '...');
+      for (let i = Math.max(2, safePage - 1); i <= Math.min(totalPages - 1, safePage + 1); i++) {
+        pages.push(i);
+      }
+      if (safePage < totalPages - 2) pages.push('...', totalPages);
+      else if (safePage < totalPages - 1) pages.push(totalPages);
+    }
+    return pages;
+  }, [safePage, totalPages]);
 
   // Rows a reversal can still touch: not yet reversed. The reversal window and
   // recovery amounts are decided server-side, never here.
