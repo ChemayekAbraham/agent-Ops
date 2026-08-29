@@ -21053,6 +21053,57 @@ export type Database = {
         }
         Relationships: []
       }
+      merchant_oop_settlements: {
+        Row: {
+          advance_id: string
+          agent_id: string
+          amount: number
+          batch_id: string
+          id: string
+          ledger_group_id: string | null
+          note: string | null
+          settled_at: string
+          settled_by: string
+        }
+        Insert: {
+          advance_id: string
+          agent_id: string
+          amount: number
+          batch_id: string
+          id?: string
+          ledger_group_id?: string | null
+          note?: string | null
+          settled_at?: string
+          settled_by: string
+        }
+        Update: {
+          advance_id?: string
+          agent_id?: string
+          amount?: number
+          batch_id?: string
+          id?: string
+          ledger_group_id?: string | null
+          note?: string | null
+          settled_at?: string
+          settled_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merchant_oop_settlements_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: true
+            referencedRelation: "merchant_out_of_pocket_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merchant_oop_settlements_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: true
+            referencedRelation: "v_merchant_oop_evidence"
+            referencedColumns: ["advance_id"]
+          },
+        ]
+      }
       merchant_out_of_pocket_advances: {
         Row: {
           agent_id: string
@@ -47258,6 +47309,10 @@ export type Database = {
       }
       set_withdrawal_account: {
         Args: { p_name: string; p_number: string; p_provider: string }
+        Returns: Json
+      }
+      settle_merchant_out_of_pocket: {
+        Args: { p_advance_ids: string[]; p_note?: string }
         Returns: Json
       }
       show_limit: { Args: never; Returns: number }
