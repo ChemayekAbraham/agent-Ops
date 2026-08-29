@@ -123,6 +123,20 @@ export function CFOAdvancesManager() {
     return advances.filter((a: any) => a.status === filter);
   }, [advances, filter]);
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, filtered.length);
+  const paginated = useMemo(
+    () => filtered.slice(startIndex, endIndex),
+    [filtered, startIndex, endIndex],
+  );
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+
   const totalIssued = advances.reduce((s: number, a: any) => s + Number(a.principal), 0);
   const totalOutstanding = advances.filter((a: any) => a.status !== 'completed').reduce((s: number, a: any) => s + Number(a.outstanding_balance), 0);
   const totalAccruedInterest = advances.reduce((s: number, a: any) => s + Math.max(0, Number(a.outstanding_balance) - Number(a.principal)), 0);
