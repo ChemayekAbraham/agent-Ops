@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,9 +41,10 @@ import {
   Receipt,
   HandCoins,
   FileClock,
-  
   Undo2,
   Eye,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { formatUGX, getRiskLevel } from '@/lib/agentAdvanceCalculations';
 import { differenceInDays, format } from 'date-fns';
@@ -98,7 +99,9 @@ export function DisbursedAdvancesRegister() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [selected, setSelected] = useState<AdvanceRow | null>(null);
-  
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   const [reverseAdvance, setReverseAdvance] = useState<AdvanceRow | null>(null);
   const [bulkIds, setBulkIds] = useState<string[] | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -151,7 +154,36 @@ export function DisbursedAdvancesRegister() {
     setAgentQuery('');
     setFromDate('');
     setToDate('');
+    setPage(1);
   };
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, filtered.length);
+  const paginated = useMemo(
+    () => filtered.slice(startIndex, endIndex),
+    [filtered, startIndex, endIndex],
+  );
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const pageNumbers = useMemo(() => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (safePage > 3) pages.push(1, '...');
+      for (let i = Math.max(2, safePage - 1); i <= Math.min(totalPages - 1, safePage + 1); i++) {
+        pages.push(i);
+      }
+      if (safePage < totalPages - 2) pages.push('...', totalPages);
+      else if (safePage < totalPages - 1) pages.push(totalPages);
+    }
+    return pages;
+  }, [safePage, totalPages]);
 
   // Rows a reversal can still touch: not yet reversed. The reversal window and
   // recovery amounts are decided server-side, never here.
@@ -334,7 +366,7 @@ export function DisbursedAdvancesRegister() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((a) => {
+                {paginated.map((a) => {
                   const daysLeft = Math.max(0, differenceInDays(new Date(a.expires_at), new Date()));
                   const risk = getRiskLevel(a);
                   return (
@@ -392,6 +424,73 @@ export function DisbursedAdvancesRegister() {
                 })}
               </TableBody>
             </Table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {filtered.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span>Rows per page</span>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(v) => {
+                  setPageSize(Number(v));
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="h-7 w-[70px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[10, 25, 50, 100].map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <span className="hidden sm:inline">
+                Showing {startIndex + 1}–{endIndex} of {filtered.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              {pageNumbers.map((p, i) =>
+                typeof p === 'number' ? (
+                  <Button
+                    key={`${p}-${i}`}
+                    variant={p === safePage ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-7 min-w-[28px] px-2 text-xs"
+                    onClick={() => setPage(p)}
+                  >
+                    {p}
+                  </Button>
+                ) : (
+                  <span key={`ellipsis-${i}`} className="px-1 text-xs text-muted-foreground">
+                    ...
+                  </span>
+                ),
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage >= totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>
