@@ -11,6 +11,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -48,6 +55,14 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
   const [rejectingReq, setRejectingReq] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState<string>('');
   const [dupRejectReq, setDupRejectReq] = useState<any | null>(null);
+  // Table filters — pure client-side, applied on top of the existing stage filter.
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'agent_ops_approved' | 'cfo_approved' | 'cfo_rejected'>('all');
+  const [departmentFilter, setDepartmentFilter] = useState<string>('all');
+  const [requesterFilter, setRequesterFilter] = useState('');
+  const [requiredFrom, setRequiredFrom] = useState('');
+  const [requiredTo, setRequiredTo] = useState('');
+  const [amountMin, setAmountMin] = useState('');
+  const [amountMax, setAmountMax] = useState('');
   // Post-disbursement success dialog payload — shows the CFO what was sent and
   // a shortcut to the full list of disbursed advances.
   const [disbursed, setDisbursed] = useState<null | {
@@ -105,6 +120,68 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
         : stageFilter === 'cfo_rejected'
           ? cfoRejected
           : allRequests.filter((r: any) => r.status !== 'cfo_rejected');
+
+  const departmentOptions = useMemo(() => {
+    const set = new Set<string>();
+    (requests as any[]).forEach((req) => {
+      const profile = req.profiles;
+      set.add(profile?.district || profile?.region || profile?.city || '—');
+    });
+    return Array.from(set).sort();
+  }, [requests]);
+
+  const filteredRequests = useMemo(() => {
+    return (requests as any[]).filter((req) => {
+      const profile = req.profiles;
+      const department = profile?.district || profile?.region || profile?.city || '—';
+
+      if (statusFilter !== 'all' && req.status !== statusFilter) return false;
+      if (departmentFilter !== 'all' && department !== departmentFilter) return false;
+      if (requesterFilter.trim()) {
+        const term = requesterFilter.toLowerCase();
+        const name = (profile?.full_name || '').toLowerCase();
+        const phone = (profile?.phone || '').toLowerCase();
+        if (!name.includes(term) && !phone.includes(term)) return false;
+      }
+
+      const created = new Date(req.created_at);
+      if (requiredFrom) {
+        const from = new Date(requiredFrom);
+        from.setHours(0, 0, 0, 0);
+        if (created < from) return false;
+      }
+      if (requiredTo) {
+        const to = new Date(requiredTo);
+        to.setHours(23, 59, 59, 999);
+        if (created > to) return false;
+      }
+
+      const principal = Number(req.principal);
+      if (amountMin && !Number.isNaN(Number(amountMin)) && principal < Number(amountMin)) return false;
+      if (amountMax && !Number.isNaN(Number(amountMax)) && principal > Number(amountMax)) return false;
+
+      return true;
+    });
+  }, [requests, statusFilter, departmentFilter, requesterFilter, requiredFrom, requiredTo, amountMin, amountMax]);
+
+  const hasActiveFilters =
+    statusFilter !== 'all' ||
+    departmentFilter !== 'all' ||
+    requesterFilter !== '' ||
+    requiredFrom !== '' ||
+    requiredTo !== '' ||
+    amountMin !== '' ||
+    amountMax !== '';
+
+  const clearFilters = () => {
+    setStatusFilter('all');
+    setDepartmentFilter('all');
+    setRequesterFilter('');
+    setRequiredFrom('');
+    setRequiredTo('');
+    setAmountMin('');
+    setAmountMax('');
+  };
 
   const advanceAgentIds = (allRequests as any[]).map((r) => r.agent_id).filter(Boolean);
   const { data: cfoDuplicateMap = {} } = useAgentDuplicateMap(advanceAgentIds);
@@ -607,99 +684,209 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
         </Card>
       ) : (
         <>
+          {/* Filter bar */}
+          <Card className="border-muted">
+            <CardContent className="p-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3 items-end">
+                <div className="space-y-1">
+                  <Label htmlFor="adv-status" className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Status</Label>
+                  <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+                    <SelectTrigger id="adv-status" className="h-8 text-xs">
+                      <SelectValue placeholder="All statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      <SelectItem value="pending">Agent Applied</SelectItem>
+                      <SelectItem value="agent_ops_approved">Ready to Pay</SelectItem>
+                      <SelectItem value="cfo_approved">Approved</SelectItem>
+                      <SelectItem value="cfo_rejected">Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="adv-dept" className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Department</Label>
+                  <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                    <SelectTrigger id="adv-dept" className="h-8 text-xs">
+                      <SelectValue placeholder="All departments" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All departments</SelectItem>
+                      {departmentOptions.map((d) => (
+                        <SelectItem key={d} value={d}>{d}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="adv-requester" className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Requester</Label>
+                  <Input
+                    id="adv-requester"
+                    type="text"
+                    placeholder="Search name or phone"
+                    value={requesterFilter}
+                    onChange={(e) => setRequesterFilter(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Required Date</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="date"
+                      value={requiredFrom}
+                      onChange={(e) => setRequiredFrom(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                    <span className="text-muted-foreground">-</span>
+                    <Input
+                      type="date"
+                      value={requiredTo}
+                      onChange={(e) => setRequiredTo(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Amount (UGX)</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      placeholder="Min"
+                      value={amountMin}
+                      onChange={(e) => setAmountMin(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                    <span className="text-muted-foreground">-</span>
+                    <Input
+                      type="number"
+                      placeholder="Max"
+                      value={amountMax}
+                      onChange={(e) => setAmountMax(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs w-full"
+                    onClick={clearFilters}
+                    disabled={!hasActiveFilters}
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold">
               {stageFilter === 'pending' ? 'Agent-Submitted Applications' : stageFilter === 'ready' ? 'Agent Ops-Approved · Awaiting CFO Approval' : stageFilter === 'cfo_approved' ? 'CFO-Approved · Ready to Disburse' : 'All Agent Advance Applications'}
             </h3>
-            <Badge variant="secondary">{requests.length} shown</Badge>
+            <Badge variant="secondary">{filteredRequests.length} of {requests.length} shown</Badge>
           </div>
           <Card>
             <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead className="bg-muted/50 border-b">
-                  <tr>
-                    <th className="text-left px-3 py-2 font-semibold">Requester</th>
-                    <th className="text-left px-3 py-2 font-semibold">Department</th>
-                    <th className="text-left px-3 py-2 font-semibold">Advance Reference</th>
-                    <th className="text-left px-3 py-2 font-semibold">Purpose</th>
-                    <th className="text-right px-3 py-2 font-semibold">Amount (UGX)</th>
-                    <th className="text-left px-3 py-2 font-semibold">Required Date</th>
-                    <th className="text-left px-3 py-2 font-semibold">Submitted Date</th>
-                    <th className="text-left px-3 py-2 font-semibold">Status</th>
-                    <th className="text-right px-3 py-2 font-semibold">Review</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {requests.map((req: any) => {
-                    const profile = req.profiles;
-                    const isPending = req.status === 'pending';
-                    const isCfoApproved = req.status === 'cfo_approved';
-                    const isCfoRejected = req.status === 'cfo_rejected';
-                    const currentPrincipal = adjustedPrincipals[req.id] ?? Number(req.principal);
-                    const department = profile?.district || profile?.region || profile?.city || '—';
-                    const openDetails = () => setDetailReq(req);
-                    return (
-                      <tr
-                        key={req.id}
-                        tabIndex={0}
-                        role="button"
-                        aria-label={`Review advance request from ${profile?.full_name || 'agent'}`}
-                        onClick={openDetails}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            openDetails();
-                          }
-                        }}
-                        className="cursor-pointer hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                      >
-                        <td className="px-3 py-2">
-                          <p className="font-semibold truncate max-w-[160px]">{profile?.full_name || 'Agent'}</p>
-                          {(req.request_kind ?? 'new') === 'topup' && (
-                            <Badge variant="outline" className="mt-0.5 text-[9px] px-1.5 py-0 h-4 uppercase tracking-wider bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-950/30 dark:text-violet-400">
-                              Top-up +{Number(req.extend_days ?? 0)}d
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-muted-foreground">{department}</td>
-                        <td className="px-3 py-2 font-mono text-[11px]">{req.id.slice(0, 8)}…</td>
-                        <td className="px-3 py-2 max-w-[200px] truncate text-muted-foreground">{req.reason || '—'}</td>
-                        <td className="px-3 py-2 text-right font-mono font-bold text-primary">{formatUGX(currentPrincipal)}</td>
-                        <td className="px-3 py-2 whitespace-nowrap">{format(new Date(req.created_at), 'dd MMM yyyy')}</td>
-                        <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{format(new Date(req.created_at), 'dd MMM yyyy')}</td>
-                        <td className="px-3 py-2">
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              'text-[9px] px-1.5 py-0 h-4 uppercase tracking-wider',
-                              isCfoRejected
-                                ? 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/30 dark:text-rose-400'
-                                : isCfoApproved
-                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/30 dark:text-emerald-400'
-                                : 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/30 dark:text-amber-400'
-                            )}
-                          >
-                            {isCfoRejected ? 'Rejected' : isCfoApproved ? 'Approved' : 'Pending'}
-                          </Badge>
-                        </td>
-                        <td className="px-3 py-2 text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-[11px] gap-1"
-                            onClick={(e) => {
-                              e.stopPropagation();
+              {filteredRequests.length === 0 ? (
+                <div className="py-8 text-center">
+                  <Banknote className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No requests match the selected filters.</p>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={clearFilters}>Clear filters</Button>
+                </div>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/50 border-b">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-semibold">Requester</th>
+                      <th className="text-left px-3 py-2 font-semibold">Department</th>
+                      <th className="text-left px-3 py-2 font-semibold">Advance Reference</th>
+                      <th className="text-left px-3 py-2 font-semibold">Purpose</th>
+                      <th className="text-right px-3 py-2 font-semibold">Amount (UGX)</th>
+                      <th className="text-left px-3 py-2 font-semibold">Required Date</th>
+                      <th className="text-left px-3 py-2 font-semibold">Submitted Date</th>
+                      <th className="text-left px-3 py-2 font-semibold">Status</th>
+                      <th className="text-right px-3 py-2 font-semibold">Review</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {filteredRequests.map((req: any) => {
+                      const profile = req.profiles;
+                      const isPending = req.status === 'pending';
+                      const isCfoApproved = req.status === 'cfo_approved';
+                      const isCfoRejected = req.status === 'cfo_rejected';
+                      const currentPrincipal = adjustedPrincipals[req.id] ?? Number(req.principal);
+                      const department = profile?.district || profile?.region || profile?.city || '—';
+                      const openDetails = () => setDetailReq(req);
+                      return (
+                        <tr
+                          key={req.id}
+                          tabIndex={0}
+                          role="button"
+                          aria-label={`Review advance request from ${profile?.full_name || 'agent'}`}
+                          onClick={openDetails}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
                               openDetails();
-                            }}
-                          >
-                            <Sparkles className="h-3 w-3" /> Review
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                            }
+                          }}
+                          className="cursor-pointer hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                        >
+                          <td className="px-3 py-2">
+                            <p className="font-semibold truncate max-w-[160px]">{profile?.full_name || 'Agent'}</p>
+                            {(req.request_kind ?? 'new') === 'topup' && (
+                              <Badge variant="outline" className="mt-0.5 text-[9px] px-1.5 py-0 h-4 uppercase tracking-wider bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-950/30 dark:text-violet-400">
+                                Top-up +{Number(req.extend_days ?? 0)}d
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-muted-foreground">{department}</td>
+                          <td className="px-3 py-2 font-mono text-[11px]">{req.id.slice(0, 8)}…</td>
+                          <td className="px-3 py-2 max-w-[200px] truncate text-muted-foreground">{req.reason || '—'}</td>
+                          <td className="px-3 py-2 text-right font-mono font-bold text-primary">{formatUGX(currentPrincipal)}</td>
+                          <td className="px-3 py-2 whitespace-nowrap">{format(new Date(req.created_at), 'dd MMM yyyy')}</td>
+                          <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{format(new Date(req.created_at), 'dd MMM yyyy')}</td>
+                          <td className="px-3 py-2">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                'text-[9px] px-1.5 py-0 h-4 uppercase tracking-wider',
+                                isCfoRejected
+                                  ? 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/30 dark:text-rose-400'
+                                  : isCfoApproved
+                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/30 dark:text-emerald-400'
+                                  : 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/30 dark:text-amber-400'
+                              )}
+                            >
+                              {isCfoRejected ? 'Rejected' : isCfoApproved ? 'Approved' : 'Pending'}
+                            </Badge>
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] gap-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openDetails();
+                              }}
+                            >
+                              <Sparkles className="h-3 w-3" /> Review
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
             </div>
           </Card>
         </>
