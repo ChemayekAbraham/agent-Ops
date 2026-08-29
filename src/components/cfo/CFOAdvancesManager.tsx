@@ -374,7 +374,7 @@ export function CFOAdvancesManager() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((adv: any) => {
+              {paginated.map((adv: any) => {
                 const risk = getRiskLevel(adv);
                 const daysLeft = Math.max(0, differenceInDays(new Date(adv.expires_at), new Date()));
                 const interest = Math.max(0, Number(adv.outstanding_balance) - Number(adv.principal));
