@@ -736,40 +736,19 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Required Date</Label>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Submitted Date Range</Label>
                   <div className="flex items-center gap-2">
                     <Input
                       type="date"
-                      value={requiredFrom}
-                      onChange={(e) => setRequiredFrom(e.target.value)}
+                      value={submittedFrom}
+                      onChange={(e) => setSubmittedFrom(e.target.value)}
                       className="h-8 text-xs"
                     />
                     <span className="text-muted-foreground">-</span>
                     <Input
                       type="date"
-                      value={requiredTo}
-                      onChange={(e) => setRequiredTo(e.target.value)}
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Amount (UGX)</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      placeholder="Min"
-                      value={amountMin}
-                      onChange={(e) => setAmountMin(e.target.value)}
-                      className="h-8 text-xs"
-                    />
-                    <span className="text-muted-foreground">-</span>
-                    <Input
-                      type="number"
-                      placeholder="Max"
-                      value={amountMax}
-                      onChange={(e) => setAmountMax(e.target.value)}
+                      value={submittedTo}
+                      onChange={(e) => setSubmittedTo(e.target.value)}
                       className="h-8 text-xs"
                     />
                   </div>
