@@ -49,11 +49,6 @@ const TREND_PERIODS = 6;
 
 const DASH = '—';
 
-/** Thresholds live on hr_metric_definitions but are not part of the shared contract type. */
-interface MetricThreshold {
-  amber_at: number | null;
-  red_at: number | null;
-}
 
 interface Period {
   start: string;
