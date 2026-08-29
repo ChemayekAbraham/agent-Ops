@@ -41,9 +41,10 @@ import {
   Receipt,
   HandCoins,
   FileClock,
-  
   Undo2,
   Eye,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { formatUGX, getRiskLevel } from '@/lib/agentAdvanceCalculations';
 import { differenceInDays, format } from 'date-fns';
