@@ -426,7 +426,7 @@ function ReviewSheet({
   return (
     <>
       <SheetHeader>
-        <SheetTitle className="pr-6 text-base">Review Budget Submission</SheetTitle>
+        <SheetTitle className="pr-6 text-base">Budget Details</SheetTitle>
         <SheetDescription>
           {s.department_name} · {s.reference} · {formatUGX(s.total_amount)}
         </SheetDescription>
@@ -438,7 +438,29 @@ function ReviewSheet({
           <Kpi label="Reference" value={s.reference} />
           <Kpi label="Version" value={`v${s.version}`} />
           <Kpi label="Status" value={STATUS_LABEL[s.status] ?? s.status.replace(/_/g, ' ')} />
+          <Kpi label="Amount (UGX)" value={formatUGX(s.total_amount)} />
+          <Kpi label="Required period" value={s.cycle_title ?? 'Not specified'} />
+          <Kpi label="Priority" value={s.is_late ? 'Urgent (late)' : 'Standard'} />
+          <Kpi
+            label="Submitted"
+            value={s.submitted_at ? format(new Date(s.submitted_at), 'dd MMM yyyy') : '—'}
+          />
+          <Kpi label="Approval route" value={BUDGET_ROUTE_LABEL[s.route]} />
+          <Kpi label="Line items" value={String(s.line_count)} />
+          <Kpi
+            label={isCoo ? 'COO approved' : 'CFO approved'}
+            value={formatUGX(isCoo ? s.coo_approved_total : s.cfo_approved_total)}
+          />
+          <Kpi label="Undecided lines" value={String(s.pending_lines)} />
         </div>
+
+        {(s.coo_comment || s.cfo_comment) && (
+          <div className="space-y-1 rounded-lg border border-border p-3 text-xs text-muted-foreground">
+            {s.coo_comment && <p><span className="font-medium text-foreground">COO comment:</span> {s.coo_comment}</p>}
+            {s.cfo_comment && <p><span className="font-medium text-foreground">CFO comment:</span> {s.cfo_comment}</p>}
+          </div>
+        )}
+
 
         {(s.title || s.purpose) && (
           <div className="rounded-lg border border-border p-3">
