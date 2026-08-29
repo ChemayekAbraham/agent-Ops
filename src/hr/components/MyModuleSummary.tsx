@@ -157,7 +157,7 @@ export default function MyModuleSummary() {
           <p className="text-xs text-muted-foreground mt-1">
             Once someone enrols you on the Staff tab, your own tasks and metrics will appear here automatically.
           </p>
-          <Link to="/hr/dashboard/staff" className="text-[11px] text-primary font-medium inline-flex items-center gap-0.5 mt-2 hover:underline">
+          <Link to="/hr/people?tab=directory" className="text-[11px] text-primary font-medium inline-flex items-center gap-0.5 mt-2 hover:underline">
             Open Staff <ArrowRight className="h-3 w-3" />
           </Link>
         </CardContent>
@@ -215,7 +215,7 @@ export default function MyModuleSummary() {
         <Tile
           icon={Users}
           label="Staff"
-          route="/hr/dashboard/staff"
+          route="/hr/people?tab=directory"
           primary={primaryAssignment?.position_title || 'No position'}
           detail={primaryAssignment?.department_name || 'No department assigned'}
           badge={assignments.length > 1 ? `${assignments.length} roles` : undefined}
@@ -272,14 +272,14 @@ export default function MyModuleSummary() {
         <Tile
           icon={Users}
           label="Staff Enrolled"
-          route="/hr/dashboard/staff"
+          route="/hr/people?tab=directory"
           primary={`${staffDirectory.length}`}
           detail={`${activeStaff} active`}
         />
         <Tile
           icon={Building2}
           label="Departments Tracked"
-          route="/hr/dashboard/staff"
+          route="/hr/people?tab=directory"
           primary={`${departments.length}`}
           detail={`${departmentsWithStaff} with staff assigned`}
         />
@@ -299,7 +299,7 @@ export default function MyModuleSummary() {
           <p className="text-[10px] text-muted-foreground mt-0.5">Your tasks and your numbers</p>
         </Link>
         <Link
-          to="/hr/dashboard/staff"
+          to="/hr/people?tab=directory"
           className="w-full text-left rounded-xl border border-border/50 bg-card hover:bg-muted/40 p-3.5 transition-all active:scale-[0.97] touch-manipulation group block"
         >
           <div className="flex items-start justify-between mb-2">
