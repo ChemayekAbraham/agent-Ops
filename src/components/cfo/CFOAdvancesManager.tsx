@@ -471,6 +471,65 @@ export function CFOAdvancesManager() {
               })}
             </TableBody>
           </Table>
+          {/* Pagination */}
+          {filtered.length > 0 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Rows per page:</span>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}
+                >
+                  <SelectTrigger className="h-8 w-[70px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[10, 25, 50, 100].map((size) => (
+                      <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="hidden sm:inline">
+                  {startIndex + 1}-{endIndex} of {filtered.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage <= 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                {pageNumbers.map((p, idx) => (
+                  p === '...' ? (
+                    <span key={`ellipsis-${idx}`} className="px-2 text-muted-foreground">...</span>
+                  ) : (
+                    <Button
+                      key={p}
+                      variant={safePage === p ? 'default' : 'outline'}
+                      size="sm"
+                      className="h-8 w-8 px-0"
+                      onClick={() => setPage(Number(p))}
+                    >
+                      {p}
+                    </Button>
+                  )
+                ))}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safePage >= totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
