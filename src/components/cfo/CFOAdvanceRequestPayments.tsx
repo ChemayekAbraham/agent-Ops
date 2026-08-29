@@ -156,25 +156,21 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
 
       return true;
     });
-  }, [requests, statusFilter, departmentFilter, requesterFilter, requiredFrom, requiredTo, amountMin, amountMax]);
+  }, [requests, statusFilter, departmentFilter, requesterFilter, submittedFrom, submittedTo]);
 
   const hasActiveFilters =
     statusFilter !== 'all' ||
     departmentFilter !== 'all' ||
     requesterFilter !== '' ||
-    requiredFrom !== '' ||
-    requiredTo !== '' ||
-    amountMin !== '' ||
-    amountMax !== '';
+    submittedFrom !== '' ||
+    submittedTo !== '';
 
   const clearFilters = () => {
     setStatusFilter('all');
     setDepartmentFilter('all');
     setRequesterFilter('');
-    setRequiredFrom('');
-    setRequiredTo('');
-    setAmountMin('');
-    setAmountMax('');
+    setSubmittedFrom('');
+    setSubmittedTo('');
   };
 
   const advanceAgentIds = (allRequests as any[]).map((r) => r.agent_id).filter(Boolean);
