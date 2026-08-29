@@ -559,39 +559,53 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {[
             {
               key: 'pending',
               label: 'Agent Applied',
               count: pendingApplications.length,
               icon: Users,
-              tone: 'primary',
-            },
-            {
-              key: 'ready',
-              label: 'Ready to Pay',
-              count: readyToPay.length,
-              icon: Banknote,
-              tone: 'primary',
+              tone: 'purple',
             },
             {
               key: 'cfo_approved',
               label: 'Approved',
               count: cfoApproved.length,
               icon: CheckCircle2,
-              tone: 'primary',
+              tone: 'green',
             },
             {
               key: 'cfo_rejected',
               label: 'Rejected',
               count: cfoRejected.length,
               icon: XCircle,
-              tone: 'destructive',
+              tone: 'red',
             },
           ].map((card) => {
             const active = stageFilter === card.key;
             const Icon = card.icon;
+            const toneClasses =
+              card.tone === 'purple'
+                ? {
+                    activeBorder: 'border-purple-500 bg-purple-50 ring-1 ring-purple-200 dark:bg-purple-950/20 dark:ring-purple-900/40',
+                    activeIcon: 'bg-purple-600 text-white',
+                    inactiveIcon: 'bg-purple-100 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400',
+                    value: 'text-purple-700 dark:text-purple-400',
+                  }
+                : card.tone === 'green'
+                ? {
+                    activeBorder: 'border-emerald-500 bg-emerald-50 ring-1 ring-emerald-200 dark:bg-emerald-950/20 dark:ring-emerald-900/40',
+                    activeIcon: 'bg-emerald-600 text-white',
+                    inactiveIcon: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400',
+                    value: 'text-emerald-700 dark:text-emerald-400',
+                  }
+                : {
+                    activeBorder: 'border-rose-500 bg-rose-50 ring-1 ring-rose-200 dark:bg-rose-950/20 dark:ring-rose-900/40',
+                    activeIcon: 'bg-rose-600 text-white',
+                    inactiveIcon: 'bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400',
+                    value: 'text-rose-700 dark:text-rose-400',
+                  };
             return (
               <Card
                 key={card.key}
@@ -606,25 +620,25 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
                   }
                 }}
                 className={cn(
-                  'cursor-pointer transition-all hover:shadow-sm',
-                  active && card.tone === 'primary' && 'border-primary bg-primary/5 ring-1 ring-primary/20',
-                  active && card.tone === 'destructive' && 'border-destructive bg-destructive/5 ring-1 ring-destructive/20',
+                  'cursor-pointer transition-all hover:shadow-sm border',
+                  active && toneClasses.activeBorder,
+                  !active && 'border-border bg-card hover:bg-muted/30',
                 )}
               >
                 <CardContent className="p-3 flex items-center gap-3">
                   <div
                     className={cn(
-                      'rounded-full p-2 shrink-0',
-                      active && card.tone === 'primary' && 'bg-primary text-primary-foreground',
-                      active && card.tone === 'destructive' && 'bg-destructive text-destructive-foreground',
-                      !active && 'bg-muted text-muted-foreground',
+                      'rounded-full p-2.5 shrink-0 transition-colors',
+                      active ? toneClasses.activeIcon : toneClasses.inactiveIcon,
                     )}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-5 w-5" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-medium text-muted-foreground truncate">{card.label}</p>
-                    <p className="text-xl font-bold leading-tight">{card.count}</p>
+                    <p className={cn('text-2xl font-bold leading-tight', active ? toneClasses.value : 'text-foreground')}>
+                      {card.count}
+                    </p>
                   </div>
                 </CardContent>
               </Card>
