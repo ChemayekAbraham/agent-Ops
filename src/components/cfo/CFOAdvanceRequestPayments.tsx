@@ -143,20 +143,16 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
       }
 
       const created = new Date(req.created_at);
-      if (requiredFrom) {
-        const from = new Date(requiredFrom);
+      if (submittedFrom) {
+        const from = new Date(submittedFrom);
         from.setHours(0, 0, 0, 0);
         if (created < from) return false;
       }
-      if (requiredTo) {
-        const to = new Date(requiredTo);
+      if (submittedTo) {
+        const to = new Date(submittedTo);
         to.setHours(23, 59, 59, 999);
         if (created > to) return false;
       }
-
-      const principal = Number(req.principal);
-      if (amountMin && !Number.isNaN(Number(amountMin)) && principal < Number(amountMin)) return false;
-      if (amountMax && !Number.isNaN(Number(amountMax)) && principal > Number(amountMax)) return false;
 
       return true;
     });
