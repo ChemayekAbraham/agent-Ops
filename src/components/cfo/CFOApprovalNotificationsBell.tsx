@@ -13,6 +13,7 @@ import {
   ArrowDownToLine,
   Check,
   ClipboardList,
+  AlertCircle,
 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -40,7 +41,7 @@ export function CFOApprovalNotificationsBell({
 }: {
   onJump: (tabId: string) => void;
 }) {
-  const { notifications, total, isLoading } = useCfoApprovalNotifications();
+  const { notifications, failed, total, isLoading } = useCfoApprovalNotifications();
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const {
@@ -104,7 +105,7 @@ export function CFOApprovalNotificationsBell({
           {isLoading && (
             <p className="px-4 py-6 text-sm text-muted-foreground">Checking approvals…</p>
           )}
-          {!isLoading && notifications.length === 0 && (
+          {!isLoading && notifications.length === 0 && failed.length === 0 && (
             <p className="px-4 py-6 text-sm text-muted-foreground">
               No pending approvals right now.
             </p>
@@ -129,6 +130,26 @@ export function CFOApprovalNotificationsBell({
                 </span>
                 <span className="text-xs font-bold text-primary">{n.count}</span>
               </button>
+            );
+          })}
+          {failed.map((n) => {
+            const Icon = icons[n.key] ?? Bell;
+            return (
+              <div
+                key={n.key}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left opacity-70"
+              >
+                <span className="h-8 w-8 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center shrink-0">
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-medium truncate">{n.title}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Temporarily unavailable — retrying automatically
+                  </span>
+                </span>
+                <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+              </div>
             );
           })}
         </div>

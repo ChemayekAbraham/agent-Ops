@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -19,6 +19,11 @@ import { supabase } from '@/integrations/supabase/client';
  *  - Partner Top-ups: pending_wallet_operations operation_type 'portfolio_topup', status 'pending'
  *  - Director / Employee Requisitions: status 'pending'
  *  - Wallet Withdrawals: withdrawal_requests status 'pending'
+ *
+ * Each category is fetched as its own independent query: if one queue fails
+ * (transient network error, temporary RLS hiccup), the other queues keep
+ * showing their correct counts and only the affected category is reported as
+ * unavailable.
  *
  * No approval logic is duplicated here — counts only. Kept live via realtime
  * so the badge falls away as soon as items are approved/rejected/cancelled.
@@ -45,105 +50,163 @@ export interface CfoApprovalNotification {
   tabId: string;
 }
 
-const countOf = (res: { count: number | null; error: unknown }) =>
-  res.error ? 0 : res.count ?? 0;
+const HEAD = { count: 'exact' as const, head: true };
+
+interface CategoryDef {
+  key: CfoApprovalNotificationKey;
+  title: string;
+  tabId: string;
+  table: string;
+  fetchCount: () => PromiseLike<{ count: number | null; error: unknown }>;
+}
+
+const DEFINITIONS: CategoryDef[] = [
+  {
+    key: 'roi',
+    title: 'ROI Requests Awaiting Approval',
+    tabId: 'roi-requests',
+    table: 'pending_wallet_operations',
+    fetchCount: () =>
+      supabase
+        .from('pending_wallet_operations')
+        .select('id', HEAD)
+        .eq('category', 'roi_payout')
+        .eq('status', 'coo_approved'),
+  },
+  {
+    key: 'rent',
+    title: 'Rent Disbursements Awaiting Approval',
+    tabId: 'landlord-payout-float',
+    table: 'rent_requests',
+    fetchCount: () => supabase.from('rent_requests').select('id', HEAD).eq('status', 'coo_approved'),
+  },
+  {
+    key: 'agentAdvances',
+    title: 'Agent Advance Requests Awaiting Approval',
+    tabId: 'advances',
+    table: 'agent_advance_requests',
+    fetchCount: () =>
+      supabase
+        .from('agent_advance_requests')
+        .select('id', HEAD)
+        .in('status', ['pending', 'agent_ops_approved']),
+  },
+  {
+    key: 'businessAdvances',
+    title: 'Business Advances Awaiting Disbursement',
+    tabId: 'advances',
+    table: 'business_advances',
+    fetchCount: () =>
+      (supabase as any).from('business_advances').select('id', HEAD).eq('status', 'coo_approved'),
+  },
+  {
+    key: 'creditDraws',
+    title: 'Credit Access Draws Awaiting Approval',
+    tabId: 'wallet-payout',
+    table: 'credit_access_draws',
+    fetchCount: () =>
+      supabase.from('credit_access_draws').select('id', HEAD).eq('status', 'pending_cfo'),
+  },
+  {
+    key: 'allocationReturns',
+    title: 'Allocation Returns Awaiting Approval',
+    tabId: 'unfunding-approvals',
+    table: 'agent_allocation_return_requests',
+    fetchCount: () =>
+      (supabase as any)
+        .from('agent_allocation_return_requests')
+        .select('id', HEAD)
+        .eq('status', 'pending'),
+  },
+  {
+    key: 'unfunding',
+    title: 'Unfunding Requests Awaiting Approval',
+    tabId: 'unfunding-approvals',
+    table: 'agent_unfunding_requests',
+    fetchCount: () =>
+      supabase.from('agent_unfunding_requests').select('id', HEAD).eq('status', 'pending'),
+  },
+  {
+    key: 'merchantFloat',
+    title: 'Merchant Float Requests Awaiting Approval',
+    tabId: 'merchant-float',
+    table: 'float_requests',
+    fetchCount: () => supabase.from('float_requests').select('id', HEAD).eq('status', 'pending'),
+  },
+  {
+    key: 'agentRequisitions',
+    title: 'Agent Requisitions Awaiting Approval',
+    tabId: 'agent-requisitions',
+    table: 'pending_wallet_operations',
+    fetchCount: () =>
+      supabase
+        .from('pending_wallet_operations')
+        .select('id', HEAD)
+        .eq('category', 'agent_requisition')
+        .eq('status', 'pending'),
+  },
+  {
+    key: 'partnerTopups',
+    title: 'Partner Top-ups Awaiting Verification',
+    tabId: 'partner-topups',
+    table: 'pending_wallet_operations',
+    fetchCount: () =>
+      supabase
+        .from('pending_wallet_operations')
+        .select('id', HEAD)
+        .eq('operation_type', 'portfolio_topup')
+        .eq('status', 'pending'),
+  },
+  {
+    key: 'directorRequisitions',
+    title: 'Director Requisitions Awaiting Approval',
+    tabId: 'requisitions',
+    table: 'director_requisitions',
+    fetchCount: () =>
+      supabase.from('director_requisitions').select('id', HEAD).eq('status', 'pending'),
+  },
+  {
+    key: 'employeeRequisitions',
+    title: 'Employee Requisitions Awaiting Approval',
+    tabId: 'employee-requisitions',
+    table: 'employee_requisitions',
+    fetchCount: () =>
+      supabase.from('employee_requisitions').select('id', HEAD).eq('status', 'pending'),
+  },
+  {
+    key: 'withdrawals',
+    title: 'Wallet Withdrawals Awaiting Approval',
+    tabId: 'withdrawals',
+    table: 'withdrawal_requests',
+    fetchCount: () =>
+      supabase.from('withdrawal_requests').select('id', HEAD).eq('status', 'pending'),
+  },
+];
 
 export function useCfoApprovalNotifications() {
   const queryClient = useQueryClient();
 
-  const query = useQuery({
-    queryKey: ['cfo-approval-notifications'],
-    staleTime: 30_000,
-    refetchInterval: 60_000,
-    queryFn: async () => {
-      const head = { count: 'exact' as const, head: true };
-      const [
-        roi,
-        rent,
-        agentAdvances,
-        businessAdvances,
-        creditDraws,
-        allocationReturns,
-        unfunding,
-        merchantFloat,
-        agentRequisitions,
-        partnerTopups,
-        directorRequisitions,
-        employeeRequisitions,
-        withdrawals,
-      ] = await Promise.all([
-        supabase
-          .from('pending_wallet_operations')
-          .select('id', head)
-          .eq('category', 'roi_payout')
-          .eq('status', 'coo_approved'),
-        supabase.from('rent_requests').select('id', head).eq('status', 'coo_approved'),
-        supabase
-          .from('agent_advance_requests')
-          .select('id', head)
-          .in('status', ['pending', 'agent_ops_approved']),
-        (supabase as any)
-          .from('business_advances')
-          .select('id', head)
-          .eq('status', 'coo_approved'),
-        supabase.from('credit_access_draws').select('id', head).eq('status', 'pending_cfo'),
-        (supabase as any)
-          .from('agent_allocation_return_requests')
-          .select('id', head)
-          .eq('status', 'pending'),
-        supabase.from('agent_unfunding_requests').select('id', head).eq('status', 'pending'),
-        supabase.from('float_requests').select('id', head).eq('status', 'pending'),
-        supabase
-          .from('pending_wallet_operations')
-          .select('id', head)
-          .eq('category', 'agent_requisition')
-          .eq('status', 'pending'),
-        supabase
-          .from('pending_wallet_operations')
-          .select('id', head)
-          .eq('operation_type', 'portfolio_topup')
-          .eq('status', 'pending'),
-        supabase.from('director_requisitions').select('id', head).eq('status', 'pending'),
-        supabase.from('employee_requisitions').select('id', head).eq('status', 'pending'),
-        supabase.from('withdrawal_requests').select('id', head).eq('status', 'pending'),
-      ]);
-      if (roi.error) throw roi.error;
-      if (rent.error) throw rent.error;
-      return {
-        roi: roi.count ?? 0,
-        rent: rent.count ?? 0,
-        agentAdvances: countOf(agentAdvances),
-        businessAdvances: countOf(businessAdvances),
-        creditDraws: countOf(creditDraws),
-        allocationReturns: countOf(allocationReturns),
-        unfunding: countOf(unfunding),
-        merchantFloat: countOf(merchantFloat),
-        agentRequisitions: countOf(agentRequisitions),
-        partnerTopups: countOf(partnerTopups),
-        directorRequisitions: countOf(directorRequisitions),
-        employeeRequisitions: countOf(employeeRequisitions),
-        withdrawals: countOf(withdrawals),
-      };
-    },
-  });
+  // One independent query per approval queue — a failure in one queue can
+  // never blank out the others.
+  const results = useQueries({
+    queries: DEFINITIONS.map((def) => ({
+      queryKey: ['cfo-approval-notifications', def.key],
+      staleTime: 30_000,
+      refetchInterval: 60_000,
+      retry: 1,
+      queryFn: async () => {
+        const res = await def.fetchCount();
+        if (res.error) throw res.error;
+        return res.count ?? 0;
+      },
+    })),
+  }) as UseQueryResult<number>[];
 
   useEffect(() => {
     const invalidate = () => {
       queryClient.invalidateQueries({ queryKey: ['cfo-approval-notifications'] });
     };
-    const tables = [
-      'pending_wallet_operations',
-      'rent_requests',
-      'agent_advance_requests',
-      'business_advances',
-      'credit_access_draws',
-      'agent_allocation_return_requests',
-      'agent_unfunding_requests',
-      'float_requests',
-      'director_requisitions',
-      'employee_requisitions',
-      'withdrawal_requests',
-    ];
+    const tables = Array.from(new Set(DEFINITIONS.map((d) => d.table)));
     let channel = supabase.channel('cfo-approval-notifications');
     tables.forEach((table) => {
       channel = channel.on(
@@ -158,48 +221,34 @@ export function useCfoApprovalNotifications() {
     };
   }, [queryClient]);
 
-  const counts = {
-    roi: query.data?.roi ?? 0,
-    rent: query.data?.rent ?? 0,
-    agentAdvances: query.data?.agentAdvances ?? 0,
-    businessAdvances: query.data?.businessAdvances ?? 0,
-    creditDraws: query.data?.creditDraws ?? 0,
-    allocationReturns: query.data?.allocationReturns ?? 0,
-    unfunding: query.data?.unfunding ?? 0,
-    merchantFloat: query.data?.merchantFloat ?? 0,
-    agentRequisitions: query.data?.agentRequisitions ?? 0,
-    partnerTopups: query.data?.partnerTopups ?? 0,
-    directorRequisitions: query.data?.directorRequisitions ?? 0,
-    employeeRequisitions: query.data?.employeeRequisitions ?? 0,
-    withdrawals: query.data?.withdrawals ?? 0,
-  } satisfies Record<CfoApprovalNotificationKey, number>;
+  const counts = {} as Record<CfoApprovalNotificationKey, number>;
+  DEFINITIONS.forEach((def, i) => {
+    const r = results[i];
+    // Failed categories contribute 0 to the badge but are surfaced separately
+    // via `failed` — never silently treated as "no items".
+    counts[def.key] = r?.data ?? 0;
+  });
 
-  const definitions: { key: CfoApprovalNotificationKey; title: string; tabId: string }[] = [
-    { key: 'roi', title: 'ROI Requests Awaiting Approval', tabId: 'roi-requests' },
-    { key: 'rent', title: 'Rent Disbursements Awaiting Approval', tabId: 'landlord-payout-float' },
-    { key: 'agentAdvances', title: 'Agent Advance Requests Awaiting Approval', tabId: 'advances' },
-    { key: 'businessAdvances', title: 'Business Advances Awaiting Disbursement', tabId: 'advances' },
-    { key: 'creditDraws', title: 'Credit Access Draws Awaiting Approval', tabId: 'wallet-payout' },
-    { key: 'allocationReturns', title: 'Allocation Returns Awaiting Approval', tabId: 'unfunding-approvals' },
-    { key: 'unfunding', title: 'Unfunding Requests Awaiting Approval', tabId: 'unfunding-approvals' },
-    { key: 'merchantFloat', title: 'Merchant Float Requests Awaiting Approval', tabId: 'merchant-float' },
-    { key: 'agentRequisitions', title: 'Agent Requisitions Awaiting Approval', tabId: 'agent-requisitions' },
-    { key: 'partnerTopups', title: 'Partner Top-ups Awaiting Verification', tabId: 'partner-topups' },
-    { key: 'directorRequisitions', title: 'Director Requisitions Awaiting Approval', tabId: 'requisitions' },
-    { key: 'employeeRequisitions', title: 'Employee Requisitions Awaiting Approval', tabId: 'employee-requisitions' },
-    { key: 'withdrawals', title: 'Wallet Withdrawals Awaiting Approval', tabId: 'withdrawals' },
-  ];
+  const failed: CfoApprovalNotification[] = DEFINITIONS.filter(
+    (_, i) => results[i]?.isError,
+  ).map((d) => ({ key: d.key, title: d.title, tabId: d.tabId, count: 0 }));
 
-  const notifications: CfoApprovalNotification[] = definitions
-    .map((d) => ({ ...d, count: counts[d.key] }))
-    .filter((n) => n.count > 0);
+  const isLoading = results.some((r) => r.isLoading);
+
+  const notifications: CfoApprovalNotification[] = DEFINITIONS.map((d, i) => ({
+    key: d.key,
+    title: d.title,
+    tabId: d.tabId,
+    count: results[i]?.isError ? 0 : (results[i]?.data ?? 0),
+  })).filter((n) => n.count > 0);
 
   return {
-    isLoading: query.isLoading,
+    isLoading,
     roiCount: counts.roi,
     rentCount: counts.rent,
     counts,
     total: notifications.reduce((sum, n) => sum + n.count, 0),
     notifications,
+    failed,
   };
 }
