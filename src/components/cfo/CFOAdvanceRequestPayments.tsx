@@ -41,6 +41,8 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
   // opens it on any request to see the agent's 360° evaluation AND edit + approve
   // the advance in a single popup — no separate expander.
   const [evalReq, setEvalReq] = useState<any | null>(null);
+  // Row-level details sheet (centered) — opens before the evaluation dialog.
+  const [detailReq, setDetailReq] = useState<any | null>(null);
   const [stageFilter, setStageFilter] = useState<'all' | 'pending' | 'ready' | 'cfo_approved' | 'cfo_rejected'>('all');
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [rejectingReq, setRejectingReq] = useState<any | null>(null);
