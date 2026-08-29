@@ -27,6 +27,8 @@ export default function HROverview({ onNavigate }: HROverviewProps) {
       navigate('/hr/people');
     } else if (id === 'user-management') {
       navigate('/platform-users');
+    } else if (id === 'payroll') {
+      navigate('/hr/pay/runs');
     } else {
       onNavigate?.(id);
     }
