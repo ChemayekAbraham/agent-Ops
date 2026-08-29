@@ -573,20 +573,6 @@ function ReviewSheet({
   );
 }
 
-function Field({
-  label, children, icon,
-}: { label: string; children: React.ReactNode; icon?: React.ReactNode }) {
-  return (
-    <div className="space-y-1">
-      <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-        {icon}
-        {label}
-      </p>
-      <div className="text-sm text-foreground">{children}</div>
-    </div>
-  );
-}
-
 function Kpi({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-border p-3">
