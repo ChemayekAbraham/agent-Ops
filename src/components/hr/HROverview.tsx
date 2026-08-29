@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Users, CalendarDays, Banknote, AlertTriangle, UserCog, ClipboardList,
-  FileText, TrendingUp, Activity, ChevronRight, Shield
+  FileText, TrendingUp, Activity, ChevronRight
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -59,29 +59,6 @@ export default function HROverview({ onNavigate }: HROverviewProps) {
       void supabase.removeChannel(channel);
     };
   }, [queryClient]);
-
-  const { data: totalUsers = 0 } = useQuery({
-    queryKey: ['hr-total-users'],
-    queryFn: async () => {
-      const { count } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true });
-      return count || 0;
-    },
-  });
-
-  const [selectedWindow, setSelectedWindow] = useState<1 | 7 | 30 | 90>(7);
-
-  const { data: signupWindows = [], isLoading: signupWindowsLoading } = useQuery({
-    queryKey: ['hr-user-signup-windows'],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_user_signup_windows');
-      if (error) throw new Error(error.message);
-      return (data || []) as { window_days: number; current_count: number; previous_count: number }[];
-    },
-    refetchInterval: 60000,
-    refetchOnWindowFocus: true,
-  });
 
   const { data: pendingLeave = 0 } = useQuery({
     queryKey: ['hr-pending-leave'],
@@ -147,7 +124,6 @@ export default function HROverview({ onNavigate }: HROverviewProps) {
 
   const kpis = [
     { label: 'Staff Members', value: staffCount, icon: Users, color: 'bg-primary/10 text-primary' },
-    { label: 'All Users', value: totalUsers, icon: Shield, color: 'bg-accent/50 text-accent-foreground' },
     { label: 'Pending Leave', value: pendingLeave, icon: CalendarDays, color: 'bg-warning/10 text-warning', alert: pendingLeave > 0 },
     { label: 'Active Cases', value: activeDisciplinary, icon: AlertTriangle, color: 'bg-destructive/10 text-destructive', alert: activeDisciplinary > 0 },
   ];
@@ -192,85 +168,20 @@ export default function HROverview({ onNavigate }: HROverviewProps) {
           <motion.div key={kpi.label} variants={item}>
             <Card className="border-border/40 overflow-hidden">
               <CardContent className="p-3.5">
-                {kpi.label === 'All Users' ? (
-                  <div className="flex items-stretch gap-2">
-                    <div className="flex flex-col gap-0.5 justify-start">
-                      {[1, 7, 30, 90].map((w) => (
-                        <button
-                          key={w}
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedWindow(w as 1 | 7 | 30 | 90);
-                          }}
-                          className={`text-[9px] leading-none px-1.5 py-0.5 rounded border transition-colors ${
-                            selectedWindow === w
-                              ? 'bg-primary text-primary-foreground border-primary'
-                              : 'bg-card text-muted-foreground border-border hover:bg-muted/50'
-                          }`}
-                        >
-                          {w}d
-                        </button>
-                      ))}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{kpi.label}</p>
-                      <div className="flex items-baseline gap-1.5">
-                        <p className="text-2xl font-bold text-foreground">{kpi.value}</p>
-                      </div>
-                      {(() => {
-                        if (signupWindowsLoading) {
-                          return (
-                            <div className="mt-1 space-y-0.5">
-                              <p className="text-[10px] text-muted-foreground">-</p>
-                              <p className="text-[10px] text-muted-foreground">-</p>
-                            </div>
-                          );
-                        }
-                        const row = signupWindows.find((r) => r.window_days === selectedWindow);
-                        if (!row) {
-                          return (
-                            <div className="mt-1 space-y-0.5">
-                              <p className="text-[10px] text-muted-foreground">-</p>
-                              <p className="text-[10px] text-muted-foreground">-</p>
-                            </div>
-                          );
-                        }
-                        const current = Number(row.current_count || 0);
-                        const previous = Number(row.previous_count || 0);
-                        const sign = current >= 0 ? '+' : '-';
-                        const pct = previous === 0 ? null : ((current - previous) / previous) * 100;
-                        return (
-                          <div className="mt-1 space-y-0.5">
-                            <p className="text-[10px] font-medium text-foreground">
-                              {sign}{Math.abs(current).toLocaleString()} signups
-                            </p>
-                            <p className="text-[10px] text-muted-foreground">
-                              {pct === null
-                                ? 'no comparison available'
-                                : `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% vs previous ${selectedWindow}d`}
-                            </p>
-                          </div>
-                        );
-                      })()}
+                <div className="flex items-center gap-2.5">
+                  <div className={`p-2 rounded-lg ${kpi.color}`}>
+                    <kpi.icon className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{kpi.label}</p>
+                    <div className="flex items-baseline gap-1.5">
+                      <p className="text-2xl font-bold text-foreground">{kpi.value}</p>
+                      {kpi.alert && (
+                        <span className="inline-block w-2 h-2 rounded-full bg-destructive animate-pulse" />
+                      )}
                     </div>
                   </div>
-                ) : (
-                  <div className="flex items-center gap-2.5">
-                    <div className={`p-2 rounded-lg ${kpi.color}`}>
-                      <kpi.icon className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{kpi.label}</p>
-                      <div className="flex items-baseline gap-1.5">
-                        <p className="text-2xl font-bold text-foreground">{kpi.value}</p>
-                        {kpi.alert && (
-                          <span className="inline-block w-2 h-2 rounded-full bg-destructive animate-pulse" />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
+                </div>
               </CardContent>
             </Card>
           </motion.div>
