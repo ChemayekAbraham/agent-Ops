@@ -633,15 +633,6 @@ function DisbursementDetailDrawer({ advance, onClose, onCancel, onReverse }: { a
               )}
             </div>
 
-            {(advance.status === 'active' || advance.status === 'overdue') && (
-              <Button
-                variant="outline"
-                className="w-full gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
-                onClick={() => onCancel(advance)}
-              >
-                <Ban className="h-4 w-4" /> Cancel this advance
-              </Button>
-            )}
             {!(advance as any).reversed_at && (
               <Button
                 variant="destructive"
