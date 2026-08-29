@@ -121,6 +121,68 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
           ? cfoRejected
           : allRequests.filter((r: any) => r.status !== 'cfo_rejected');
 
+  const departmentOptions = useMemo(() => {
+    const set = new Set<string>();
+    (requests as any[]).forEach((req) => {
+      const profile = req.profiles;
+      set.add(profile?.district || profile?.region || profile?.city || '—');
+    });
+    return Array.from(set).sort();
+  }, [requests]);
+
+  const filteredRequests = useMemo(() => {
+    return (requests as any[]).filter((req) => {
+      const profile = req.profiles;
+      const department = profile?.district || profile?.region || profile?.city || '—';
+
+      if (statusFilter !== 'all' && req.status !== statusFilter) return false;
+      if (departmentFilter !== 'all' && department !== departmentFilter) return false;
+      if (requesterFilter.trim()) {
+        const term = requesterFilter.toLowerCase();
+        const name = (profile?.full_name || '').toLowerCase();
+        const phone = (profile?.phone || '').toLowerCase();
+        if (!name.includes(term) && !phone.includes(term)) return false;
+      }
+
+      const created = new Date(req.created_at);
+      if (requiredFrom) {
+        const from = new Date(requiredFrom);
+        from.setHours(0, 0, 0, 0);
+        if (created < from) return false;
+      }
+      if (requiredTo) {
+        const to = new Date(requiredTo);
+        to.setHours(23, 59, 59, 999);
+        if (created > to) return false;
+      }
+
+      const principal = Number(req.principal);
+      if (amountMin && !Number.isNaN(Number(amountMin)) && principal < Number(amountMin)) return false;
+      if (amountMax && !Number.isNaN(Number(amountMax)) && principal > Number(amountMax)) return false;
+
+      return true;
+    });
+  }, [requests, statusFilter, departmentFilter, requesterFilter, requiredFrom, requiredTo, amountMin, amountMax]);
+
+  const hasActiveFilters =
+    statusFilter !== 'all' ||
+    departmentFilter !== 'all' ||
+    requesterFilter !== '' ||
+    requiredFrom !== '' ||
+    requiredTo !== '' ||
+    amountMin !== '' ||
+    amountMax !== '';
+
+  const clearFilters = () => {
+    setStatusFilter('all');
+    setDepartmentFilter('all');
+    setRequesterFilter('');
+    setRequiredFrom('');
+    setRequiredTo('');
+    setAmountMin('');
+    setAmountMax('');
+  };
+
   const advanceAgentIds = (allRequests as any[]).map((r) => r.agent_id).filter(Boolean);
   const { data: cfoDuplicateMap = {} } = useAgentDuplicateMap(advanceAgentIds);
   const { data: cfoDuplicateFlagMap = {} } = useAgentDuplicateFlags(advanceAgentIds);
