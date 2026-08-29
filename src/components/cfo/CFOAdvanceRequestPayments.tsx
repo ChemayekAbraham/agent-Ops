@@ -59,10 +59,8 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'agent_ops_approved' | 'cfo_approved' | 'cfo_rejected'>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   const [requesterFilter, setRequesterFilter] = useState('');
-  const [requiredFrom, setRequiredFrom] = useState('');
-  const [requiredTo, setRequiredTo] = useState('');
-  const [amountMin, setAmountMin] = useState('');
-  const [amountMax, setAmountMax] = useState('');
+  const [submittedFrom, setSubmittedFrom] = useState('');
+  const [submittedTo, setSubmittedTo] = useState('');
   // Post-disbursement success dialog payload — shows the CFO what was sent and
   // a shortcut to the full list of disbursed advances.
   const [disbursed, setDisbursed] = useState<null | {
@@ -145,42 +143,34 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
       }
 
       const created = new Date(req.created_at);
-      if (requiredFrom) {
-        const from = new Date(requiredFrom);
+      if (submittedFrom) {
+        const from = new Date(submittedFrom);
         from.setHours(0, 0, 0, 0);
         if (created < from) return false;
       }
-      if (requiredTo) {
-        const to = new Date(requiredTo);
+      if (submittedTo) {
+        const to = new Date(submittedTo);
         to.setHours(23, 59, 59, 999);
         if (created > to) return false;
       }
 
-      const principal = Number(req.principal);
-      if (amountMin && !Number.isNaN(Number(amountMin)) && principal < Number(amountMin)) return false;
-      if (amountMax && !Number.isNaN(Number(amountMax)) && principal > Number(amountMax)) return false;
-
       return true;
     });
-  }, [requests, statusFilter, departmentFilter, requesterFilter, requiredFrom, requiredTo, amountMin, amountMax]);
+  }, [requests, statusFilter, departmentFilter, requesterFilter, submittedFrom, submittedTo]);
 
   const hasActiveFilters =
     statusFilter !== 'all' ||
     departmentFilter !== 'all' ||
     requesterFilter !== '' ||
-    requiredFrom !== '' ||
-    requiredTo !== '' ||
-    amountMin !== '' ||
-    amountMax !== '';
+    submittedFrom !== '' ||
+    submittedTo !== '';
 
   const clearFilters = () => {
     setStatusFilter('all');
     setDepartmentFilter('all');
     setRequesterFilter('');
-    setRequiredFrom('');
-    setRequiredTo('');
-    setAmountMin('');
-    setAmountMax('');
+    setSubmittedFrom('');
+    setSubmittedTo('');
   };
 
   const advanceAgentIds = (allRequests as any[]).map((r) => r.agent_id).filter(Boolean);
@@ -701,7 +691,7 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
           {/* Filter bar */}
           <Card className="border-muted">
             <CardContent className="p-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3 items-end">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
                 <div className="space-y-1">
                   <Label htmlFor="adv-status" className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Status</Label>
                   <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
@@ -746,40 +736,19 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Required Date</Label>
+                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Submitted Date Range</Label>
                   <div className="flex items-center gap-2">
                     <Input
                       type="date"
-                      value={requiredFrom}
-                      onChange={(e) => setRequiredFrom(e.target.value)}
+                      value={submittedFrom}
+                      onChange={(e) => setSubmittedFrom(e.target.value)}
                       className="h-8 text-xs"
                     />
                     <span className="text-muted-foreground">-</span>
                     <Input
                       type="date"
-                      value={requiredTo}
-                      onChange={(e) => setRequiredTo(e.target.value)}
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Amount (UGX)</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      placeholder="Min"
-                      value={amountMin}
-                      onChange={(e) => setAmountMin(e.target.value)}
-                      className="h-8 text-xs"
-                    />
-                    <span className="text-muted-foreground">-</span>
-                    <Input
-                      type="number"
-                      placeholder="Max"
-                      value={amountMax}
-                      onChange={(e) => setAmountMax(e.target.value)}
+                      value={submittedTo}
+                      onChange={(e) => setSubmittedTo(e.target.value)}
                       className="h-8 text-xs"
                     />
                   </div>
