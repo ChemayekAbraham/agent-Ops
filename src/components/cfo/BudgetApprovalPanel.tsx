@@ -83,7 +83,15 @@ export default function BudgetApprovalPanel() {
         </div>
       )}
 
-      {view === 'queue' && <BudgetReviewQueue cycleId={selectedCycleId} stage="cfo" />}
+      {view === 'queue' && (
+        <BudgetReviewQueue
+          cycleId={selectedCycleId}
+          stage="cfo"
+          onlyOpen
+          intro="Every department budget awaiting your approval. Select a request to open the full budget details, then approve or reject."
+          emptyLabel="No budgets are awaiting your approval right now."
+        />
+      )}
 
       {view === 'consolidation' && (
         <div className="space-y-3">
