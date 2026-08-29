@@ -507,7 +507,7 @@ export default function DepartmentProductivity() {
                             return (
                               <TableCell
                                 key={def.id}
-                                className={`text-sm ${cellClass(value, def, thresholds[def.id])}`}
+                                className={`text-sm ${cellClass(value, def)}`}
                               >
                                 {formatValue(value, def.unit)}
                               </TableCell>
