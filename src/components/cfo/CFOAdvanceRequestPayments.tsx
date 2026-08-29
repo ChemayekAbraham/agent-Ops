@@ -691,7 +691,7 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
           {/* Filter bar */}
           <Card className="border-muted">
             <CardContent className="p-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3 items-end">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
                 <div className="space-y-1">
                   <Label htmlFor="adv-status" className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Status</Label>
                   <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
