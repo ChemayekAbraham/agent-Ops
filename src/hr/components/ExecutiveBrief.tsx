@@ -406,10 +406,10 @@ export default function ExecutiveBrief({ embedded = false }: ExecutiveBriefProps
       name: staffById[staffId]?.full_name ?? 'Unknown',
       values: activeDefs.map((def) => {
         const snap = snaps.find((s) => s.metric_definition_id === def.id);
-        return { def, value: snap ? snap.value : null, threshold: thresholds[def.id] };
+        return { def, value: snap ? snap.value : null };
       }),
     }));
-  }, [definitions, snapshots, staffById, thresholds]);
+  }, [definitions, snapshots, staffById]);
 
   const saveComment = async () => {
     if (!commentTask) return;
@@ -648,10 +648,10 @@ export default function ExecutiveBrief({ embedded = false }: ExecutiveBriefProps
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-                {person.values.map(({ def, value, threshold }) => (
+                {person.values.map(({ def, value }) => (
                   <div key={def.id} className="rounded-xl border border-border p-3">
                     <div className="flex items-center gap-1.5">
-                      <span className={`h-2 w-2 rounded-full ${dotClass(value, def, threshold)}`} />
+                      <span className={`h-2 w-2 rounded-full ${dotClass(value, def)}`} />
                       <p className="text-[11px] text-muted-foreground truncate" title={def.name}>
                         {def.name}
                       </p>
