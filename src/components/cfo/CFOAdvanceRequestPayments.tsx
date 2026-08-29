@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { format, addDays, differenceInCalendarDays, max as dateMax, min as dateMin, isAfter, startOfMonth, endOfMonth } from 'date-fns';
-import { CheckCircle2, Loader2, Pencil, User, Banknote, X, TrendingUp, Percent, Wallet, Users, FileText, AlertTriangle, ShieldX } from 'lucide-react';
+import { CheckCircle2, Loader2, Pencil, User, Banknote, X, FileText, AlertTriangle, ShieldX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sparkles } from 'lucide-react';
 import { AgentAdvanceEvaluationDialog } from '@/components/agent/AgentAdvanceEvaluationDialog';
@@ -530,44 +530,6 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
         </div>
       </div>
 
-      {/* Portfolio-level "how we make money" panel — based on COO-approved (payable) pool */}
-      {readyToPay.length > 0 && (
-        <div className="rounded-lg border-2 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 p-3 space-y-2">
-          <p className="text-xs font-bold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
-            <TrendingUp className="h-3.5 w-3.5" />
-            How we make money on agent advances
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-            <div>
-              <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
-                <Wallet className="h-2.5 w-2.5" /> Principal Out
-              </p>
-              <p className="font-bold text-sm text-orange-600">{formatUGX(revenueTotals.principal)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
-                <Percent className="h-2.5 w-2.5" /> Access Fees
-              </p>
-              <p className="font-bold text-sm text-emerald-600">+{formatUGX(revenueTotals.accessFee)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
-                <Users className="h-2.5 w-2.5" /> Registration Fees
-              </p>
-              <p className="font-bold text-sm text-emerald-600">+{formatUGX(revenueTotals.regFee)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-1">
-                <TrendingUp className="h-2.5 w-2.5" /> Gross Revenue
-              </p>
-              <p className="font-bold text-sm text-primary">{formatUGX(revenueTotals.gross)}</p>
-            </div>
-          </div>
-          <p className="text-[10px] text-muted-foreground italic">
-            Revenue model: 28–33% monthly compounding access fee on principal · flat registration fee (10K ≤ 200K · 20K &gt; 200K).
-          </p>
-        </div>
-      )}
 
 
       {/* Global Fee Config */}
