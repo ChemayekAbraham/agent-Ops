@@ -170,11 +170,6 @@ const PRIORITY_DOT: Record<string, string> = {
   urgent: 'bg-destructive',
 };
 
-/** Thresholds live on hr_metric_definitions but are not part of the shared contract type. */
-interface MetricThreshold {
-  amber_at: number | null;
-  red_at: number | null;
-}
 
 /** A flagged comment on one of my tasks that I have not yet acknowledged. */
 interface AttentionItem {

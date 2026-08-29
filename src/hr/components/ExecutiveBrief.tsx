@@ -116,10 +116,6 @@ function fillFor(status: string) {
   return STATUS_FILL[status] ?? 'hsl(var(--muted-foreground))';
 }
 
-interface MetricThreshold {
-  amber_at: number | null;
-  red_at: number | null;
-}
 
 function humanize(value: string) {
   return (value || '').replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
@@ -153,13 +149,12 @@ function formatValue(value: number | null, unit: string) {
 function dotClass(
   value: number | null,
   def: MetricDefinition,
-  threshold: MetricThreshold | undefined,
 ): string {
   if (value === null || def.target_value === null || def.target_value === undefined) {
     return 'bg-muted-foreground/40';
   }
-  const red = threshold?.red_at ?? null;
-  const amber = threshold?.amber_at ?? null;
+  const red = def.red_at ?? null;
+  const amber = def.amber_at ?? null;
   const higherBetter = String(def.direction).startsWith('higher');
 
   if (higherBetter) {
@@ -219,7 +214,6 @@ export default function ExecutiveBrief({ embedded = false }: ExecutiveBriefProps
   const [events, setEvents] = useState<EventRow[]>([]);
   const [definitions, setDefinitions] = useState<MetricDefinition[]>([]);
   const [snapshots, setSnapshots] = useState<MetricSnapshot[]>([]);
-  const [thresholds, setThresholds] = useState<Record<string, MetricThreshold>>({});
 
   const [commentTask, setCommentTask] = useState<Task | null>(null);
   const [commentText, setCommentText] = useState('');
@@ -233,7 +227,7 @@ export default function ExecutiveBrief({ embedded = false }: ExecutiveBriefProps
     else setRefreshing(true);
     try {
       const { start, end } = monthBounds(new Date());
-      const [people, allTasks, defs, snaps, eventRows, thresholdRows, depts] = await Promise.all([
+      const [people, allTasks, defs, snaps, eventRows, depts] = await Promise.all([
         getStaffDirectory(),
         getTasks(),
         getMetricDefinitions(),
@@ -243,7 +237,6 @@ export default function ExecutiveBrief({ embedded = false }: ExecutiveBriefProps
           .select('task_id, event_type, occurred_at')
           .order('occurred_at', { ascending: false })
           .limit(5000),
-        supabase.from('hr_metric_definitions').select('id, amber_at, red_at'),
         getDepartments(),
       ]);
 
@@ -253,16 +246,6 @@ export default function ExecutiveBrief({ embedded = false }: ExecutiveBriefProps
       setDefinitions(defs);
       setSnapshots(snaps);
       setEvents((eventRows.data ?? []) as EventRow[]);
-
-      const map: Record<string, MetricThreshold> = {};
-      for (const row of (thresholdRows.data ?? []) as {
-        id: string;
-        amber_at: number | null;
-        red_at: number | null;
-      }[]) {
-        map[row.id] = { amber_at: row.amber_at, red_at: row.red_at };
-      }
-      setThresholds(map);
       setUpdatedAt(new Date());
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not load the brief');
