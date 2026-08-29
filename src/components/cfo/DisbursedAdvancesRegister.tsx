@@ -99,7 +99,9 @@ export function DisbursedAdvancesRegister() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [selected, setSelected] = useState<AdvanceRow | null>(null);
-  
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   const [reverseAdvance, setReverseAdvance] = useState<AdvanceRow | null>(null);
   const [bulkIds, setBulkIds] = useState<string[] | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
