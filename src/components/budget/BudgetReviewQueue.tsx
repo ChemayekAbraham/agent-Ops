@@ -1,18 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet';
 import {
-  AlertTriangle, ArrowRightCircle, Building2, Calendar, CheckCircle2,
-  ChevronRight, Clock, FileText, Hash, Loader2, RefreshCw, RotateCcw,
+  AlertTriangle, ArrowRightCircle, Building2, CheckCircle2,
+  ChevronRight, FileText, Loader2, RefreshCw, RotateCcw,
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -22,6 +23,7 @@ import {
   BUDGET_ROUTE_LABEL, fetchBudgetReviewQueue, fetchLines, getBudgetDocumentUrl,
   type BudgetLine, type BudgetQueueRow, type BudgetReviewStage,
 } from '@/hooks/useDepartmentBudgets';
+
 
 interface Props {
   /** Budget cycle to scope the queue to; null shows every cycle. */
@@ -298,149 +300,80 @@ export default function BudgetReviewQueue({ cycleId, stage, onlyOpen, intro, emp
         </div>
       )}
 
-      <div className="space-y-3">
-        {visibleRows.map(s => {
-          const open = OPEN_STATUSES[stage].includes(s.status);
-          const submissionLines = linesBySubmission[s.id] ?? [];
-          const documents = submissionLines.filter(l => l.document_path);
-          return (
-            <Card key={s.id} className="overflow-hidden transition-shadow hover:shadow-sm">
-              <div className="p-4 sm:p-5">
-                {/* Top row: department + amount */}
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                      <Building2 className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{s.department_name}</p>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <span className="inline-flex items-center gap-1 font-mono">
-                          <Hash className="h-3 w-3" /> {s.reference}
-                        </span>
-                        <span>·</span>
-                        <span>v{s.version}</span>
-                        {s.cycle_title && (
-                          <>
-                            <span>·</span>
-                            <span>{s.cycle_title}</span>
-                          </>
-                        )}
+      {!loading && visibleRows.length > 0 && (
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50">
+                <TableHead className="text-[11px] uppercase tracking-wider">Department</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider">Budget Item</TableHead>
+                <TableHead className="text-right text-[11px] uppercase tracking-wider">Amount (UGX)</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider">Required Period</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider">Priority</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider">Submitted</TableHead>
+                <TableHead className="text-[11px] uppercase tracking-wider">Status</TableHead>
+                <TableHead className="w-8" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visibleRows.map(s => (
+                <TableRow
+                  key={s.id}
+                  role="button"
+                  tabIndex={0}
+                  className="cursor-pointer"
+                  onClick={() => openReview(s)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openReview(s); }
+                  }}
+                >
+                  <TableCell className="py-3">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">{s.department_name}</p>
+                        <p className="truncate font-mono text-[11px] text-muted-foreground">
+                          {s.reference} · v{s.version}
+                        </p>
                       </div>
                     </div>
-                  </div>
-                  <div className="text-left sm:text-right">
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                      Requested Amount
-                    </p>
-                    <p className="font-mono text-lg font-semibold tracking-tight text-foreground sm:text-xl">
-                      {formatUGX(s.total_amount)}
-                    </p>
-                  </div>
-                </div>
-
-                <Separator className="my-4" />
-
-                {/* Middle metadata grid */}
-                <div className="grid grid-cols-1 gap-y-3 sm:grid-cols-2 sm:gap-x-6 lg:grid-cols-4">
-                  <Field icon={<ChevronRight className="h-3.5 w-3.5" />} label="Budget Item(s)">
-                    {s.line_count} line item{s.line_count === 1 ? '' : 's'}
-                    {submissionLines.length > 0 && (
-                      <span className="block truncate text-muted-foreground">
-                        {submissionLines.slice(0, 2).map(l => l.description).join(', ')}
-                        {submissionLines.length > 2 && ` +${submissionLines.length - 2} more`}
-                      </span>
-                    )}
-                  </Field>
-                  <Field icon={<Calendar className="h-3.5 w-3.5" />} label="Required Period">
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                    {s.title || `${s.line_count} line item${s.line_count === 1 ? '' : 's'}`}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-right font-mono text-sm font-semibold text-foreground">
+                    {formatUGX(s.total_amount)}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                     {s.cycle_title ?? 'Not specified'}
-                  </Field>
-                  <Field icon={<AlertTriangle className="h-3.5 w-3.5" />} label="Urgency">
+                  </TableCell>
+                  <TableCell>
                     {s.is_late ? (
-                      <span className="inline-flex items-center gap-1 text-destructive">
-                        <AlertTriangle className="h-3 w-3" /> Late submission
-                      </span>
+                      <Badge variant="destructive" className="gap-1 text-[10px]">
+                        <AlertTriangle className="h-3 w-3" /> Urgent
+                      </Badge>
                     ) : (
-                      <span className="text-muted-foreground">Standard</span>
+                      <span className="text-xs text-muted-foreground">Standard</span>
                     )}
-                  </Field>
-                  <Field icon={<Clock className="h-3.5 w-3.5" />} label="Submission Date">
-                    {s.submitted_at
-                      ? format(new Date(s.submitted_at), 'dd MMM yyyy')
-                      : 'Not submitted'}
-                  </Field>
-                </div>
-
-                {/* Justification & documents */}
-                {(s.purpose || documents.length > 0) && (
-                  <div className="mt-4 rounded-md bg-muted/40 p-3">
-                    {s.purpose && (
-                      <p className="text-xs leading-relaxed text-muted-foreground">
-                        <span className="font-medium text-foreground">Justification:</span>{' '}
-                        {s.purpose}
-                      </p>
-                    )}
-                    {documents.length > 0 && (
-                      <div className={`flex flex-wrap gap-2 ${s.purpose ? 'mt-2' : ''}`}>
-                        {documents.map(l => (
-                          <Button
-                            key={l.id}
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 gap-1.5 px-2 text-[11px] text-primary"
-                            onClick={async () => {
-                              try { window.open(await getBudgetDocumentUrl(l.document_path!), '_blank'); }
-                              catch { toast.error('Could not open supporting document'); }
-                            }}
-                          >
-                            <FileText className="h-3.5 w-3.5" />
-                            {l.description || 'Supporting document'}
-                          </Button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Footer: status + actions */}
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline" className="text-[11px] font-normal">
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                    {s.submitted_at ? format(new Date(s.submitted_at), 'dd MMM yyyy') : '—'}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-[10px] font-normal">
                       {STATUS_LABEL[s.status] ?? s.status.replace(/_/g, ' ')}
                     </Badge>
-                    <Badge variant="secondary" className="text-[11px] font-normal">
-                      {BUDGET_ROUTE_LABEL[s.route]}
-                    </Badge>
-                    {s.is_late && (
-                      <Badge variant="destructive" className="gap-1 text-[11px]">
-                        <AlertTriangle className="h-3 w-3" /> Late
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs"
-                      onClick={() => openReview(s)}>
-                      Review
-                    </Button>
-                    {open && (
-                      <>
-                        <Button size="sm" className="h-8 gap-1.5 text-xs" disabled={busy === s.id}
-                          onClick={() => openReview(s)}>
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Approve
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs text-destructive"
-                          disabled={busy === s.id} onClick={() => openReview(s)}>
-                          <XCircle className="h-3.5 w-3.5" /> Reject
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
 
       <Sheet open={!!reviewing} onOpenChange={open => !open && closeReview()}>
         <SheetContent side="center" className="flex max-h-[90vh] w-[95vw] flex-col sm:max-w-3xl">
@@ -493,7 +426,7 @@ function ReviewSheet({
   return (
     <>
       <SheetHeader>
-        <SheetTitle className="pr-6 text-base">Review Budget Submission</SheetTitle>
+        <SheetTitle className="pr-6 text-base">Budget Details</SheetTitle>
         <SheetDescription>
           {s.department_name} · {s.reference} · {formatUGX(s.total_amount)}
         </SheetDescription>
@@ -505,7 +438,29 @@ function ReviewSheet({
           <Kpi label="Reference" value={s.reference} />
           <Kpi label="Version" value={`v${s.version}`} />
           <Kpi label="Status" value={STATUS_LABEL[s.status] ?? s.status.replace(/_/g, ' ')} />
+          <Kpi label="Amount (UGX)" value={formatUGX(s.total_amount)} />
+          <Kpi label="Required period" value={s.cycle_title ?? 'Not specified'} />
+          <Kpi label="Priority" value={s.is_late ? 'Urgent (late)' : 'Standard'} />
+          <Kpi
+            label="Submitted"
+            value={s.submitted_at ? format(new Date(s.submitted_at), 'dd MMM yyyy') : '—'}
+          />
+          <Kpi label="Approval route" value={BUDGET_ROUTE_LABEL[s.route]} />
+          <Kpi label="Line items" value={String(s.line_count)} />
+          <Kpi
+            label={isCoo ? 'COO approved' : 'CFO approved'}
+            value={formatUGX(isCoo ? s.coo_approved_total : s.cfo_approved_total)}
+          />
+          <Kpi label="Undecided lines" value={String(s.pending_lines)} />
         </div>
+
+        {(s.coo_comment || s.cfo_comment) && (
+          <div className="space-y-1 rounded-lg border border-border p-3 text-xs text-muted-foreground">
+            {s.coo_comment && <p><span className="font-medium text-foreground">COO comment:</span> {s.coo_comment}</p>}
+            {s.cfo_comment && <p><span className="font-medium text-foreground">CFO comment:</span> {s.cfo_comment}</p>}
+          </div>
+        )}
+
 
         {(s.title || s.purpose) && (
           <div className="rounded-lg border border-border p-3">
@@ -615,20 +570,6 @@ function ReviewSheet({
         <Button size="sm" variant="outline" onClick={onClose}>Close review</Button>
       </div>
     </>
-  );
-}
-
-function Field({
-  label, children, icon,
-}: { label: string; children: React.ReactNode; icon?: React.ReactNode }) {
-  return (
-    <div className="space-y-1">
-      <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-        {icon}
-        {label}
-      </p>
-      <div className="text-sm text-foreground">{children}</div>
-    </div>
   );
 }
 
