@@ -43139,10 +43139,12 @@ export type Database = {
           ledger_float_held: number
           offledger_adjustments: number
           owed_to_agent: number
+          own_cash_under_review: number
           paid_out_total: number
           payouts_without_float_evidence: number
           reimbursed_total: number
           stale_since: string
+          unattested_count: number
         }[]
       }
       get_merchant_float_positions_signed: {
