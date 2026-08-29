@@ -17,7 +17,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Loader2, CheckCircle2, Banknote, Home, TrendingUp, Users, Wallet, AlertTriangle, XCircle, Search, MapPin, Filter } from 'lucide-react';
+import { Loader2, CheckCircle2, Banknote, Home, TrendingUp, Users, Wallet, AlertTriangle, XCircle, Search, MapPin, Filter, Eye } from 'lucide-react';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   fetchPartnerReservedStages,
   PARTNER_RESERVED_HINT,
@@ -138,6 +139,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
   const [batchRef, setBatchRef] = useState('');
   const [rejectTarget, setRejectTarget] = useState<ApprovedRentItem | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [reviewTarget, setReviewTarget] = useState<ApprovedRentItem | null>(null);
   const [drilldownAgentId, setDrilldownAgentId] = useState<string | null>(null);
   const step2Ref = useRef<HTMLDivElement | null>(null);
   const qc = useQueryClient();
@@ -400,16 +402,6 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
     const next = new Set(selected);
     if (allSelected) selectableItems.forEach(i => next.delete(i.id));
     else selectableItems.forEach(i => next.add(i.id));
-    setSelected(next);
-  };
-
-  const toggleAgentGroup = (rows: ApprovedRentItem[]) => {
-    const ids = rows.filter(r => !r.partner_reserved_stage).map(r => r.id);
-    if (!ids.length) return;
-    const allOn = ids.every(id => selected.has(id));
-    const next = new Set(selected);
-    if (allOn) ids.forEach(id => next.delete(id));
-    else ids.forEach(id => next.add(id));
     setSelected(next);
   };
 
