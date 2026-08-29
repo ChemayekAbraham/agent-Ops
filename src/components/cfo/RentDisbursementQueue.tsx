@@ -902,209 +902,156 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                 </PopoverContent>
               </Popover>
             </div>
-            <div className="space-y-3 max-h-[560px] overflow-y-auto pr-0.5">
-              {visibleGroups.length === 0 && (
-                <div className="text-center py-6 text-xs text-muted-foreground">
-                  No tenants match the current filters.{' '}
-                  <button
-                    type="button"
-                    className="text-primary hover:underline"
-                    onClick={() => { setAgentFilter('all'); setDateFilter('all'); clearLocation(); }}
-                  >
-                    Clear all filters
-                  </button>
-                </div>
-              )}
-              {visibleGroups.map(group => {
-                const groupIds = group.rows.map(r => r.id);
-                const groupSelectedCount = groupIds.filter(id => selected.has(id)).length;
-                const allGroupOn = groupSelectedCount === groupIds.length;
-                const someGroupOn = groupSelectedCount > 0 && !allGroupOn;
-                const groupTotal = group.rows.reduce((s, r) => s + r.rent_amount, 0);
-                const isNew = Date.now() - group.latest < 24 * 60 * 60 * 1000;
-                const isRealAgent = group.agent_id && group.agent_id !== 'unassigned';
-                return (
-                  <div key={group.agent_id} className="rounded-xl border border-border/70 overflow-hidden bg-card">
-                    <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 bg-muted/40 border-b border-border/70">
-                      <div className="flex items-center gap-2 text-sm min-w-0 flex-1">
-                        <Checkbox
-                          checked={allGroupOn ? true : someGroupOn ? 'indeterminate' : false}
-                          onCheckedChange={() => toggleAgentGroup(group.rows)}
-                        />
-                        <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        {isRealAgent ? (
+            <div className="rounded-xl border border-border/70 overflow-hidden bg-card">
+              <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
+                <table className="w-full text-sm min-w-[64rem]">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="border-b border-border/70 bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
+                      <th className="w-9 px-2 py-2" aria-hidden />
+                      <th className="px-2 py-2 text-left font-semibold">Tenant</th>
+                      <th className="px-2 py-2 text-left font-semibold">Landlord</th>
+                      <th className="px-2 py-2 text-left font-semibold">Agent</th>
+                      <th className="px-2 py-2 text-left font-semibold">Location</th>
+                      <th className="px-2 py-2 text-left font-semibold">Payout to</th>
+                      <th className="px-2 py-2 text-left font-semibold">Approved</th>
+                      <th className="px-2 py-2 text-right font-semibold">Rent out</th>
+                      <th className="px-2 py-2 text-right font-semibold">Fees</th>
+                      <th className="px-2 py-2 text-right font-semibold">Repayment</th>
+                      <th className="px-2 py-2 text-right font-semibold">Review</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleItems.length === 0 && (
+                      <tr>
+                        <td colSpan={11} className="text-center py-6 text-xs text-muted-foreground">
+                          No tenants match the current filters.{' '}
                           <button
                             type="button"
-                            onClick={() => setDrilldownAgentId(group.agent_id)}
-                            className="font-semibold truncate text-left hover:text-primary hover:underline focus:outline-none focus-visible:underline"
-                            title="Open agent profile"
+                            className="text-primary hover:underline"
+                            onClick={() => { setAgentFilter('all'); setDateFilter('all'); clearLocation(); }}
                           >
-                            {group.agent_name}
+                            Clear all filters
                           </button>
-                        ) : (
-                          <span className="font-semibold truncate">{group.agent_name}</span>
-                        )}
-                        {isNew && (
-                          <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-emerald-500 text-white border-0 animate-pulse">
-                            NEW
-                          </Badge>
-                        )}
-                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 shrink-0">
-                          {groupSelectedCount}/{group.rows.length}
-                        </Badge>
-                      </div>
-                      <span className="text-xs font-bold text-orange-600 shrink-0">{fmt(groupTotal)}</span>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm min-w-[52rem]">
-                        <thead>
-                          <tr className="border-b border-border/70 bg-muted/20 text-[10px] uppercase tracking-wider text-muted-foreground">
-                            <th className="w-9 px-2 py-2" aria-hidden />
-                            <th className="px-2 py-2 text-left font-semibold">Tenant</th>
-                            <th className="px-2 py-2 text-left font-semibold">Landlord</th>
-                            <th className="px-2 py-2 text-left font-semibold">Location</th>
-                            <th className="px-2 py-2 text-left font-semibold">Payout to</th>
-                            <th className="px-2 py-2 text-left font-semibold">Approved</th>
-                            <th className="px-2 py-2 text-right font-semibold">Rent out</th>
-                            <th className="px-2 py-2 text-right font-semibold">Fees</th>
-                            <th className="px-2 py-2 text-right font-semibold">Repayment</th>
-                            <th className="px-2 py-2 text-right font-semibold">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                      {group.rows.map(item => {
-                        const isSel = selected.has(item.id);
-                        const reserved = item.partner_reserved_stage;
-                        const locationLabel = [item.request_city, item.request_country].filter(Boolean).join(', ');
-                        return (
+                        </td>
+                      </tr>
+                    )}
+                    {visibleItems.map(item => {
+                      const isSel = selected.has(item.id);
+                      const reserved = item.partner_reserved_stage;
+                      const locationLabel = [item.request_city, item.request_country].filter(Boolean).join(', ');
+                      const isNew = Date.now() - new Date(item.created_at).getTime() < 24 * 60 * 60 * 1000;
+                      return (
                         <Fragment key={item.id}>
-                        <tr
-                          onClick={() => toggle(item.id)}
-                          className={cn(
-                            'border-b border-border/70 last:border-0 cursor-pointer transition-colors',
-                            reserved
-                              ? 'bg-muted/30 cursor-not-allowed opacity-80'
-                              : isSel
-                              ? 'bg-primary/[0.07] shadow-[inset_3px_0_0_0_hsl(var(--primary))]'
-                              : 'hover:bg-muted/40'
-                          )}
-                          title={reserved ? PARTNER_RESERVED_HINT[reserved] : undefined}
-                        >
-                          <td className="px-2 py-2.5 align-middle" onClick={e => e.stopPropagation()}>
-                            <Checkbox
-                              checked={!reserved && selected.has(item.id)}
-                              disabled={!!reserved}
-                              onCheckedChange={() => toggle(item.id)}
-                            />
-                          </td>
-                          <td className="px-2 py-2.5 align-middle">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span className={cn('truncate', isSel ? 'font-bold' : 'font-semibold')}>{item.tenant_name}</span>
-                              {reserved && (
-                                <Badge className="text-[9px] px-1.5 py-0 shrink-0 rounded-full bg-violet-100 text-violet-700 border-violet-200">
-                                  {PARTNER_RESERVED_LABEL[reserved]}
-                                </Badge>
-                              )}
-                              {!reserved && isSel && (
-                                <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-primary text-primary-foreground border-0">
-                                  SELECTED
-                                </Badge>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-2 py-2.5 align-middle font-semibold text-primary truncate max-w-[10rem]">
-                            {item.landlord_name}
-                          </td>
-                          <td className="px-2 py-2.5 align-middle text-[11px] text-muted-foreground whitespace-nowrap">
-                            {locationLabel || '—'}
-                          </td>
-                          <td className="px-2 py-2.5 align-middle whitespace-nowrap">
-                            {item.payout_target === 'landlord_wallet' ? (
-                              <Badge className="text-[9px] px-2 py-0 rounded-full bg-emerald-100 text-emerald-700 border-emerald-200">
-                                <Wallet className="h-2.5 w-2.5 mr-0.5" />
-                                Landlord Wallet
-                              </Badge>
-                            ) : (
-                              <Badge className="text-[9px] px-2 py-0 rounded-full bg-amber-100 text-amber-700 border-amber-200">
-                                <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
-                                Agent Float
-                              </Badge>
+                          <tr
+                            onClick={() => setReviewTarget(item)}
+                            className={cn(
+                              'border-b border-border/70 last:border-0 cursor-pointer transition-colors',
+                              isSel
+                                ? 'bg-primary/[0.07] shadow-[inset_3px_0_0_0_hsl(var(--primary))]'
+                                : 'hover:bg-muted/40'
                             )}
-                          </td>
-                          <td className="px-2 py-2.5 align-middle text-[11px] text-muted-foreground whitespace-nowrap">
-                            {format(new Date(item.created_at), 'dd MMM yyyy')}
-                          </td>
-                          <td className="px-2 py-2.5 align-middle text-right font-bold text-orange-600 whitespace-nowrap">
-                            {fmt(item.rent_amount)}
-                          </td>
-                          <td className="px-2 py-2.5 align-middle text-right font-semibold text-emerald-600 whitespace-nowrap">
-                            {fmt(item.access_fee + item.request_fee)}
-                          </td>
-                          <td className="px-2 py-2.5 align-middle text-right font-semibold whitespace-nowrap">
-                            {fmt(item.total_repayment)}
-                          </td>
-                          <td className="px-2 py-2.5 align-middle text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
-                            <div className="flex items-center justify-end gap-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="shrink-0 text-xs h-8 rounded-lg"
-                            onClick={() => singleDisburse.mutate(item.id)}
-                            disabled={singleDisburse.isPending}
-                            title={`Fund only this tenant on ${item.agent_name}'s float`}
                           >
-                            {singleDisburse.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Banknote className="h-3 w-3 mr-1" />}
-                            Fund 1
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="shrink-0 text-xs h-8 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => { setRejectTarget(item); setRejectReason(''); }}
-                            title="Reject and return to agent with a comment"
-                          >
-                            <XCircle className="h-3 w-3 mr-1" />
-                            Reject
-                          </Button>
-                            </div>
-                          </td>
-                        </tr>
-                        {/* Step 2 renders inline, directly under the selected tenant */}
-                        {item.id === firstSelectedId && (
-                          <tr key={`${item.id}-step2`}>
-                          <td colSpan={10} className="p-0">
-                          <div
-                            ref={step2Ref}
-                            className="scroll-mt-4 border-t-2 border-primary/30 bg-primary/[0.05] px-3.5 py-3 space-y-2"
-                          >
-                            <div className="flex items-center justify-between gap-2 flex-wrap">
-                              <p className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2">
-                                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/15">
-                                  <Banknote className="h-3.5 w-3.5" />
-                                </span>
-                                Step 2 · Fund the selected float payouts
-                              </p>
-                              <Badge variant="outline" className="text-[11px] rounded-full px-2.5 bg-primary/10 text-primary border-primary/30">
-                                {selected.size} ticked · {fmt(totalRent)}
-                              </Badge>
-                            </div>
-                            <p className="text-[11px] text-muted-foreground leading-relaxed">
-                              Enter a batch reference below and use the funding button to run the unchanged
-                              Fund Agent Landlord Payout Float process on every ticked tenant.
-                            </p>
-                          </div>
-                          </td>
+                            <td className="px-2 py-2.5 align-middle" onClick={e => e.stopPropagation()}>
+                              <Checkbox
+                                checked={!reserved && selected.has(item.id)}
+                                disabled={!!reserved}
+                                onCheckedChange={() => toggle(item.id)}
+                              />
+                            </td>
+                            <td className="px-2 py-2.5 align-middle">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className={cn('truncate', isSel ? 'font-bold' : 'font-semibold')}>{item.tenant_name}</span>
+                                {isNew && (
+                                  <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-emerald-500 text-white border-0">
+                                    NEW
+                                  </Badge>
+                                )}
+                                {reserved && (
+                                  <Badge className="text-[9px] px-1.5 py-0 shrink-0 rounded-full bg-violet-100 text-violet-700 border-violet-200">
+                                    {PARTNER_RESERVED_LABEL[reserved]}
+                                  </Badge>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-2 py-2.5 align-middle font-semibold text-primary truncate max-w-[10rem]">
+                              {item.landlord_name}
+                            </td>
+                            <td className="px-2 py-2.5 align-middle truncate max-w-[10rem]">
+                              {item.agent_name}
+                            </td>
+                            <td className="px-2 py-2.5 align-middle text-[11px] text-muted-foreground whitespace-nowrap">
+                              {locationLabel || '—'}
+                            </td>
+                            <td className="px-2 py-2.5 align-middle whitespace-nowrap">
+                              {item.payout_target === 'landlord_wallet' ? (
+                                <Badge className="text-[9px] px-2 py-0 rounded-full bg-emerald-100 text-emerald-700 border-emerald-200">
+                                  <Wallet className="h-2.5 w-2.5 mr-0.5" />
+                                  Landlord Wallet
+                                </Badge>
+                              ) : (
+                                <Badge className="text-[9px] px-2 py-0 rounded-full bg-amber-100 text-amber-700 border-amber-200">
+                                  <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
+                                  Agent Float
+                                </Badge>
+                              )}
+                            </td>
+                            <td className="px-2 py-2.5 align-middle text-[11px] text-muted-foreground whitespace-nowrap">
+                              {format(new Date(item.created_at), 'dd MMM yyyy')}
+                            </td>
+                            <td className="px-2 py-2.5 align-middle text-right font-bold text-orange-600 whitespace-nowrap">
+                              {fmt(item.rent_amount)}
+                            </td>
+                            <td className="px-2 py-2.5 align-middle text-right font-semibold text-emerald-600 whitespace-nowrap">
+                              {fmt(item.access_fee + item.request_fee)}
+                            </td>
+                            <td className="px-2 py-2.5 align-middle text-right font-semibold whitespace-nowrap">
+                              {fmt(item.total_repayment)}
+                            </td>
+                            <td className="px-2 py-2.5 align-middle text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="shrink-0 text-xs h-8 rounded-lg"
+                                onClick={() => setReviewTarget(item)}
+                              >
+                                <Eye className="h-3 w-3 mr-1" />
+                                Review
+                              </Button>
+                            </td>
                           </tr>
-                        )}
+                          {/* Step 2 renders inline, directly under the selected tenant */}
+                          {item.id === firstSelectedId && (
+                            <tr key={`${item.id}-step2`}>
+                              <td colSpan={11} className="p-0">
+                                <div
+                                  ref={step2Ref}
+                                  className="scroll-mt-4 border-t-2 border-primary/30 bg-primary/[0.05] px-3.5 py-3 space-y-2"
+                                >
+                                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <p className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2">
+                                      <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/15">
+                                        <Banknote className="h-3.5 w-3.5" />
+                                      </span>
+                                      Step 2 · Fund the selected float payouts
+                                    </p>
+                                    <Badge variant="outline" className="text-[11px] rounded-full px-2.5 bg-primary/10 text-primary border-primary/30">
+                                      {selected.size} ticked · {fmt(totalRent)}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                    Enter a batch reference below and use the funding button to run the unchanged
+                                    Fund Agent Landlord Payout Float process on every ticked tenant.
+                                  </p>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
                         </Fragment>
-                        );
-                      })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                );
-              })}
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* Batch actions */}
