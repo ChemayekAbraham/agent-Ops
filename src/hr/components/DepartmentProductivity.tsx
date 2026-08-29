@@ -43,7 +43,7 @@ import {
   getSnapshots,
   getTasks,
 } from '@/hr/api';
-import { supabase } from '@/hr/api/client';
+
 import type {
   Department,
   Employee,
@@ -52,11 +52,6 @@ import type {
   Task,
 } from '@/hr/types';
 
-/** Thresholds live on hr_metric_definitions but are not part of the shared contract type. */
-interface MetricThreshold {
-  amber_at: number | null;
-  red_at: number | null;
-}
 
 type PeriodChoice = 'this_month' | 'last_month' | 'last_3_months';
 
@@ -141,13 +136,12 @@ function formatValue(value: number | null, unit: string) {
 function cellClass(
   value: number | null,
   def: MetricDefinition,
-  threshold: MetricThreshold | undefined,
 ): string {
   if (value === null || def.target_value === null || def.target_value === undefined) {
     return 'text-muted-foreground';
   }
-  const red = threshold?.red_at ?? null;
-  const amber = threshold?.amber_at ?? null;
+  const red = def.red_at ?? null;
+  const amber = def.amber_at ?? null;
   const higherBetter = String(def.direction).startsWith('higher');
 
   if (higherBetter) {
