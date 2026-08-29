@@ -174,7 +174,7 @@ export default function DepartmentProductivity() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [definitions, setDefinitions] = useState<MetricDefinition[]>([]);
   const [snapshots, setSnapshots] = useState<MetricSnapshot[]>([]);
-  const [thresholds, setThresholds] = useState<Record<string, MetricThreshold>>({});
+  
 
   const [recomputing, setRecomputing] = useState(false);
   const [lastRun, setLastRun] = useState<{ rows: number; at: Date } | null>(null);
@@ -197,28 +197,17 @@ export default function DepartmentProductivity() {
     if (!departmentId) return;
     setLoading(true);
     try {
-      const [staff, deptTasks, defs, snaps, thresholdRows] = await Promise.all([
+      const [staff, deptTasks, defs, snaps] = await Promise.all([
         getEmployees(),
         getTasks({ departmentId }),
         getMetricDefinitions(departmentId),
         getSnapshots({ departmentId, periodStart: bounds.start, periodEnd: bounds.end }),
-        supabase.from('hr_metric_definitions').select('id, amber_at, red_at'),
       ]);
 
       setPeople(staff.filter((p) => p.current_assignment?.department_id === departmentId));
       setTasks(deptTasks);
       setDefinitions(defs);
       setSnapshots(snaps);
-
-      const map: Record<string, MetricThreshold> = {};
-      for (const row of (thresholdRows.data ?? []) as {
-        id: string;
-        amber_at: number | null;
-        red_at: number | null;
-      }[]) {
-        map[row.id] = { amber_at: row.amber_at, red_at: row.red_at };
-      }
-      setThresholds(map);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not load the department view');
     } finally {
