@@ -367,16 +367,6 @@ export function DisbursedAdvancesRegister() {
                       <TableCell>{statusBadge(a.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {(a.status === 'active' || a.status === 'overdue') && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-[11px] gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
-                              onClick={(e) => { e.stopPropagation(); setCancelAdvance(a); }}
-                            >
-                              <Ban className="h-3 w-3" /> Cancel
-                            </Button>
-                          )}
                           {!(a as any).reversed_at && (
                             <Button
                               size="sm"
