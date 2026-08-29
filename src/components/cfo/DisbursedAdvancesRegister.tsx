@@ -43,6 +43,7 @@ import {
   FileClock,
   Ban,
   Undo2,
+  Eye,
 } from 'lucide-react';
 import { formatUGX, getRiskLevel } from '@/lib/agentAdvanceCalculations';
 import { differenceInDays, format } from 'date-fns';
@@ -79,13 +80,15 @@ interface AdvanceRow {
 function statusBadge(status: string) {
   switch (status) {
     case 'active':
-      return <Badge>Active</Badge>;
+      return <Badge className="bg-green-500/10 text-green-600 border-green-500/20 hover:bg-green-500/10">Active</Badge>;
     case 'completed':
-      return <Badge variant="secondary">Completed</Badge>;
+      return <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20 hover:bg-blue-500/10">Completed</Badge>;
     case 'overdue':
-      return <Badge variant="destructive">Overdue</Badge>;
+      return <Badge className="bg-red-500/10 text-red-600 border-red-500/20 hover:bg-red-500/10">Overdue</Badge>;
+    case 'cancelled':
+      return <Badge className="bg-muted text-muted-foreground border-border hover:bg-muted">Cancelled</Badge>;
     default:
-      return <Badge variant="outline">{status}</Badge>;
+      return <Badge variant="outline" className="capitalize">{status}</Badge>;
   }
 }
 
@@ -305,11 +308,11 @@ export function DisbursedAdvancesRegister() {
         ) : filtered.length === 0 ? (
           <div className="text-center py-10 text-muted-foreground text-sm">No disbursed advances match your filters.</div>
         ) : (
-          <div className="rounded-md border overflow-x-auto">
+          <div className="rounded-xl border border-border/50 shadow-sm overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8">
+                <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableHead className="w-10">
                     <Checkbox
                       aria-label="Select all reversible advances"
                       checked={
@@ -321,13 +324,13 @@ export function DisbursedAdvancesRegister() {
                       }
                     />
                   </TableHead>
-                  <TableHead>Agent</TableHead>
-                  <TableHead className="text-right">Principal</TableHead>
-                  <TableHead className="text-right hidden sm:table-cell">Outstanding</TableHead>
-                  <TableHead className="hidden md:table-cell">Disbursed</TableHead>
-                  <TableHead className="hidden lg:table-cell">Days Left</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Details</TableHead>
+                  <TableHead className="text-xs font-semibold uppercase tracking-wider">Agent</TableHead>
+                  <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Principal</TableHead>
+                  <TableHead className="text-right hidden sm:table-cell text-xs font-semibold uppercase tracking-wider">Outstanding</TableHead>
+                  <TableHead className="hidden md:table-cell text-xs font-semibold uppercase tracking-wider">Disbursed</TableHead>
+                  <TableHead className="hidden lg:table-cell text-xs font-semibold uppercase tracking-wider">Days Left</TableHead>
+                  <TableHead className="text-xs font-semibold uppercase tracking-wider">Status</TableHead>
+                  <TableHead className="text-right text-xs font-semibold uppercase tracking-wider">Review</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -335,7 +338,11 @@ export function DisbursedAdvancesRegister() {
                   const daysLeft = Math.max(0, differenceInDays(new Date(a.expires_at), new Date()));
                   const risk = getRiskLevel(a);
                   return (
-                    <TableRow key={a.id} className="cursor-pointer" onClick={() => setSelected(a)}>
+                    <TableRow
+                      key={a.id}
+                      className="cursor-pointer hover:bg-muted/30 transition-colors"
+                      onClick={() => setSelected(a)}
+                    >
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Checkbox
                           aria-label="Select advance for reversal"
@@ -344,20 +351,19 @@ export function DisbursedAdvancesRegister() {
                           onCheckedChange={() => toggleChecked(a.id)}
                         />
                       </TableCell>
-                      <TableCell className="font-medium">
-
+                      <TableCell>
                         <div className="flex items-center gap-2">
                           <span className={cn('h-2 w-2 rounded-full shrink-0', risk === 'green' ? 'bg-green-500' : risk === 'yellow' ? 'bg-amber-500' : 'bg-red-500')} />
                           <div className="min-w-0">
-                            <p className="truncate">{a.profiles?.full_name || 'Unknown'}</p>
-                            <p className="text-[10px] text-muted-foreground truncate">{a.profiles?.phone || '—'}</p>
+                            <p className="font-medium truncate">{a.profiles?.full_name || 'Unknown'}</p>
+                            <p className="text-[11px] text-muted-foreground truncate">{a.profiles?.phone || '—'}</p>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right font-mono">{formatUGX(a.principal)}</TableCell>
-                      <TableCell className="text-right font-mono hidden sm:table-cell text-amber-600">{formatUGX(a.outstanding_balance)}</TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground text-xs">{format(new Date(a.issued_at), 'dd MMM yyyy')}</TableCell>
-                      <TableCell className="hidden lg:table-cell">{daysLeft}d</TableCell>
+                      <TableCell className="text-right tabular-nums font-semibold">{formatUGX(a.principal)}</TableCell>
+                      <TableCell className="text-right tabular-nums hidden sm:table-cell text-amber-600 font-semibold">{formatUGX(a.outstanding_balance)}</TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground text-sm whitespace-nowrap">{format(new Date(a.issued_at), 'dd MMM yyyy')}</TableCell>
+                      <TableCell className="hidden lg:table-cell text-sm tabular-nums text-muted-foreground">{daysLeft}d</TableCell>
                       <TableCell>{statusBadge(a.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -381,7 +387,14 @@ export function DisbursedAdvancesRegister() {
                               <Undo2 className="h-3 w-3" /> Reverse
                             </Button>
                           )}
-                          <Button size="sm" variant="ghost" className="h-7 text-[11px]">View</Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs gap-1"
+                            onClick={(e) => { e.stopPropagation(); setSelected(a); }}
+                          >
+                            <Eye className="h-3.5 w-3.5" /> Review
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
