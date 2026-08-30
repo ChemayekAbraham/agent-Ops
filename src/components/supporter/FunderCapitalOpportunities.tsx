@@ -687,11 +687,21 @@ export function FunderCapitalOpportunities() {
                           <p className="text-xs font-black text-success">{formatAmountCompact(monthly * 12)}</p>
                         </div>
                       </div>
-                      <p className="text-[9px] text-muted-foreground font-medium">
-                        Estimate uses the average rent of {formatAmountCompact(avg)} per empty house. Exact figures are shown per house in the picker.
-                      </p>
-                    </div>
-                  )}
+                       <p className="text-[9px] text-muted-foreground font-medium">
+                         Estimate uses the average rent of {formatAmountCompact(avg)} per empty house. Exact figures are shown per house in the picker.
+                       </p>
+                       <Button
+                         variant="outline"
+                         className="h-9 w-full gap-2 rounded-xl text-xs font-bold"
+                         onClick={() => { hapticTap(); setHousePickerOpen(true); }}
+                       >
+                         <Home className="h-3.5 w-3.5" />
+                         {calc.usingAmount
+                           ? `See houses up to ${formatAmountCompact(calc.typed)}`
+                           : `Pick ${calc.houses.toLocaleString()} ${calc.houses === 1 ? 'house' : 'houses'}`}
+                       </Button>
+                     </div>
+                   )}
                 </div>
               );
             })()}
