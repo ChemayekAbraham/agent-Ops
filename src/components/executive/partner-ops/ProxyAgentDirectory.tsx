@@ -17,6 +17,7 @@ import {
   Loader2,
   RefreshCw,
   Search,
+  SlidersHorizontal,
   ShieldOff,
   Trash2,
   TrendingUp,
