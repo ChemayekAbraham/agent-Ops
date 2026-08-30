@@ -16,30 +16,8 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
+import { EmptyHouseDetailSheet, type HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 
-interface HouseOpportunity {
-  house_id: string;
-  title: string | null;
-  house_category: string | null;
-  monthly_rent: number;
-  district: string | null;
-  sub_county: string | null;
-  village: string | null;
-  region: string | null;
-  number_of_rooms: number | null;
-  verified: boolean;
-  listing_agent_id: string | null;
-  listing_agent_name: string | null;
-  image_url?: string | null;
-  image_urls?: string[] | null;
-  latitude?: number | null;
-  longitude?: number | null;
-  landlord_id?: string | null;
-  landlord_name?: string | null;
-  landlord_phone?: string | null;
-  partner_monthly_return: number;
-  partner_annual_return: number;
-}
 
 const PAGE_SIZE = 20;
 
