@@ -101,6 +101,8 @@ export default function ProxyAgentCommandCenter() {
   const [noteOpen, setNoteOpen] = useState(false);
   const [supportModeOpen, setSupportModeOpen] = useState(false);
   const [supportMode, setSupportMode] = useState<SupportMode>('self');
+  const [houseOppsOpen, setHouseOppsOpen] = useState(false);
+
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [inviting, setInviting] = useState(false);
