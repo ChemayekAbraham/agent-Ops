@@ -85,7 +85,6 @@ export default function Advances() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPreparer, setIsPreparer] = useState(false);
-  const [isApprover, setIsApprover] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   // Request dialog
@@ -119,7 +118,6 @@ export default function Advances() {
       const [advances, authority] = await Promise.all([listAdvances(), myPayrollAuthority()]);
       setRows(advances);
       setIsPreparer(authority.preparer);
-      setIsApprover(authority.approver);
       setError(null);
     } catch (err) {
       setError((err as Error).message);
@@ -179,11 +177,16 @@ export default function Advances() {
     }
   }
 
+  // Cancel dialog
+  const [cancelRow, setCancelRow] = useState<AdvanceRow | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelError, setCancelError] = useState('');
+
   async function approve(row: AdvanceRow) {
     setBusyId(row.id);
     try {
       await decideAdvance(row.id, true, '');
-      toast.success('Advance approved.');
+      toast.success(`${ACTION_LABEL[row.status] ?? 'Approve'} recorded.`);
       await load();
     } catch (err) {
       toast.error((err as Error).message);
