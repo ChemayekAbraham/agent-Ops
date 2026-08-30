@@ -842,7 +842,7 @@ export function FunderCapitalOpportunities() {
           projection={{ houses: calc.houses, funding: calc.funding, monthly: calc.monthly }}
         />
       </DetailShell>
-    );
+    </TooltipProvider> );
   }
 
   // ─── ANGEL POOL ───
