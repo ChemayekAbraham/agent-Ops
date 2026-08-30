@@ -667,13 +667,23 @@ export default function ProxyAgentCommandCenter() {
       <SupportModeChooserDialog
         open={supportModeOpen}
         onOpenChange={setSupportModeOpen}
-        onSelect={(mode) => { setSupportMode(mode); setSupportModeOpen(false); setNoteOpen(true); }}
+        onSelect={(mode) => {
+          setSupportMode(mode);
+          setSupportModeOpen(false);
+          if (mode === 'self') setHouseOppsOpen(true);
+          else setNoteOpen(true);
+        }}
+      />
+      <EmptyHouseOpportunitiesSheet
+        open={houseOppsOpen}
+        onOpenChange={(o) => { setHouseOppsOpen(o); if (!o) refreshAll(); }}
       />
       <PromissoryNoteDialog
         supportMode={supportMode}
         open={noteOpen}
         onOpenChange={(o) => { setNoteOpen(o); if (!o) refreshAll(); }}
       />
+
       <WithdrawRequestDialog
         open={withdrawOpen}
         onOpenChange={setWithdrawOpen}
