@@ -384,28 +384,44 @@ export function EmptyHouseOpportunitiesSheet({
               </p>
             </div>
             <div className="space-y-2">
-              {createdNotes.map((n) => (
-                <div key={n.id} className="rounded-xl border p-3 flex items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold truncate">{n.label}</p>
-                    <p className="text-[11px] text-muted-foreground">{formatUGX(n.amount)} · one month of rent</p>
+              {createdNotes.map((n) => {
+                const m = Math.round(Number(n.amount || 0) * 0.15);
+                return (
+                <div key={n.id} className="rounded-xl border p-3 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold truncate">{n.label}</p>
+                      <p className="text-[11px] text-muted-foreground">{formatUGX(n.amount)} · one month of rent</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 shrink-0"
+                      disabled={!n.activation_token}
+                      onClick={async () => {
+                        if (!n.activation_token) return;
+                        await navigator.clipboard.writeText(`${getPublicOrigin()}/activate?token=${n.activation_token}`);
+                        toast.success('Activation link copied');
+                      }}
+                    >
+                      <Share2 className="h-3.5 w-3.5" /> Link
+                    </Button>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5 shrink-0"
-                    disabled={!n.activation_token}
-                    onClick={async () => {
-                      if (!n.activation_token) return;
-                      await navigator.clipboard.writeText(`${getPublicOrigin()}/activate?token=${n.activation_token}`);
-                      toast.success('Activation link copied');
-                    }}
-                  >
-                    <Share2 className="h-3.5 w-3.5" /> Link
-                  </Button>
+                  <div className="grid grid-cols-2 gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-[10px]">
+                    <div>
+                      <p className="text-muted-foreground">15% monthly</p>
+                      <p className="font-semibold text-emerald-600">{formatUGX(m)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">12-month total</p>
+                      <p className="font-semibold text-emerald-600">{formatUGX(m * 12)}</p>
+                    </div>
+                  </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
+
             <Button variant="ghost" className="w-full text-xs" onClick={() => { reset(); onOpenChange(false); }}>
               Done
             </Button>
@@ -424,6 +440,34 @@ export function EmptyHouseOpportunitiesSheet({
                 ({formatUGX(annualReturn)} over 12 months)
               </p>
             </div>
+            {picked.length > 0 && (
+              <div className="rounded-2xl border p-3 space-y-2">
+                <p className="text-xs font-bold">Earnings breakdown per house</p>
+                {picked.map((h) => {
+                  const rent = Number(h.monthly_rent || 0);
+                  const m = Math.round(rent * 0.15);
+                  return (
+                    <div key={h.house_id} className="rounded-xl bg-muted/40 px-3 py-2">
+                      <p className="text-[11px] font-semibold truncate">{h.title || housePlace(h)}</p>
+                      <div className="mt-1 grid grid-cols-3 gap-2 text-[10px]">
+                        <div>
+                          <p className="text-muted-foreground">Rent (1 month)</p>
+                          <p className="font-semibold">{formatUGX(rent)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">15% monthly</p>
+                          <p className="font-semibold text-emerald-600">{formatUGX(m)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">12-month total</p>
+                          <p className="font-semibold text-emerald-600">{formatUGX(m * 12)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <Button variant="outline" className="w-full gap-2" onClick={handleShare}>
               <Share2 className="h-4 w-4" /> {isPartner ? 'Copy activation link' : 'Share activation link'}
             </Button>
@@ -755,6 +799,43 @@ export function EmptyHouseOpportunitiesSheet({
               </div>
             )}
 
+            {picked.length > 0 && (
+              <div className="rounded-2xl border p-3 space-y-2">
+                <p className="text-xs font-bold">Earnings breakdown per house</p>
+                <div className="space-y-1.5">
+                  {picked.map((h) => {
+                    const rent = Number(h.monthly_rent || 0);
+                    const m = Math.round(rent * 0.15);
+                    return (
+                      <div key={h.house_id} className="rounded-xl bg-muted/40 px-3 py-2">
+                        <p className="text-[11px] font-semibold truncate">{h.title || housePlace(h)}</p>
+                        <div className="mt-1 grid grid-cols-3 gap-2 text-[10px]">
+                          <div>
+                            <p className="text-muted-foreground">Rent (1 month)</p>
+                            <p className="font-semibold">{formatUGX(rent)}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">15% monthly</p>
+                            <p className="font-semibold text-emerald-600">{formatUGX(m)}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground">12-month total</p>
+                            <p className="font-semibold text-emerald-600">{formatUGX(m * 12)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center justify-between border-t pt-2 text-[11px]">
+                  <span className="text-muted-foreground">All houses</span>
+                  <span className="font-bold">
+                    {formatUGX(monthlyReturn)}/month · {formatUGX(annualReturn)} over 12 months
+                  </span>
+                </div>
+              </div>
+            )}
+
             {errorMsg && (
               <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 p-2.5 text-[11px] text-destructive">
                 {errorMsg}
@@ -764,7 +845,7 @@ export function EmptyHouseOpportunitiesSheet({
         )}
 
         {/* Sticky summary */}
-        {!createdNote && (
+        {!createdNote && createdNotes.length === 0 && (
           <div className="sticky bottom-0 z-20 border-t bg-background/95 backdrop-blur px-4 py-3 space-y-2">
             <div className="flex items-center justify-between text-[11px]">
               <span className="text-muted-foreground">
@@ -785,6 +866,7 @@ export function EmptyHouseOpportunitiesSheet({
             </Button>
           </div>
         )}
+
       </SheetContent>
     </Sheet>
 
