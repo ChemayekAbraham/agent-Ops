@@ -67,6 +67,8 @@ import { ProxyAgentDetailPanel } from './ProxyAgentDetailPanel';
 import { OnboardProxyAgentDialog } from './OnboardProxyAgentDialog';
 import { ProxyOnboardingAuditPanel } from './ProxyOnboardingAuditPanel';
 import { ProxyAgentTargetPanel } from './ProxyAgentTargetPanel';
+import { ProxyAgentQuickView } from './ProxyAgentQuickView';
+
 
 const STATUS_TABS: { key: string; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -117,6 +119,8 @@ export function ProxyAgentDirectory() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(PROXY_DIR_PAGE_SIZE);
   const [selected, setSelected] = useState<ProxyDirRow | null>(null);
+  const [quickView, setQuickView] = useState<ProxyDirRow | null>(null);
+
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [reason, setReason] = useState('');
@@ -608,7 +612,8 @@ export function ProxyAgentDirectory() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setSelected(r)}
+                      onClick={() => setQuickView(r)}
+
                       className="grid w-full grid-cols-1 gap-2 text-left md:col-span-11 md:grid-cols-11 md:items-center"
                     >
                       <div className="flex items-center gap-2 md:col-span-3">
@@ -724,7 +729,30 @@ export function ProxyAgentDirectory() {
         </CardContent>
       </Card>
 
-      <ProxyOnboardingAuditPanel />
+      <ProxyAgentQuickView
+        agent={quickView}
+        open={!!quickView}
+        onOpenChange={(o) => {
+          if (!o) setQuickView(null);
+        }}
+        onOpenFullProfile={(a) => {
+          setQuickView(null);
+          setSelected(a);
+        }}
+        onOpenAudit={() => {
+          setQuickView(null);
+          setTimeout(() => {
+            document
+              .getElementById('proxy-onboarding-audit')
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 120);
+        }}
+      />
+
+      <div id="proxy-onboarding-audit" className="scroll-mt-24">
+        <ProxyOnboardingAuditPanel />
+      </div>
+
 
       {/* Bulk delete confirmation */}
       <Dialog
