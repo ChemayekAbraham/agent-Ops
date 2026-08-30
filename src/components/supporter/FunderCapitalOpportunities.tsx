@@ -529,7 +529,7 @@ export function FunderCapitalOpportunities() {
 
   // ─── DIRECT (pay landlord directly) ───
   if (view === 'direct') {
-    return (
+    return ( <TooltipProvider delayDuration={150}>
       <DetailShell
         title="Support Tenants Directly"
         subtitle="Fund approved tenant rent plans from your balance"
