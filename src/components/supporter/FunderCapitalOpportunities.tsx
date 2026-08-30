@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
@@ -321,6 +321,22 @@ export function FunderCapitalOpportunities() {
   const [calcOpen, setCalcOpen] = useState(false);
   const [breakdownSort, setBreakdownSort] = useState<'rent' | 'houses'>('rent');
   const [breakdownTopN, setBreakdownTopN] = useState<6 | 12 | 0>(6); // 0 = all
+
+  // Shared calculator derivation — used by the calculator UI and to pre-fill the picker
+  const calc = useMemo(() => {
+    const s = emptyHouseSummary;
+    const avg = Math.max(1, s?.avg_monthly_rent ?? 0);
+    const maxHouses = Math.max(1, Math.min(s?.house_count ?? 1, 100));
+    const typed = parseInt(calcAmountInput.replace(/[^0-9]/g, ''), 10);
+    const usingAmount = !isNaN(typed) && typed > 0;
+    const houses = usingAmount
+      ? Math.max(1, Math.min(Math.round(typed / avg), s?.house_count ?? 1))
+      : Math.min(calcHouses, maxHouses);
+    const funding = usingAmount ? typed : houses * avg;
+    const monthly = Math.round(funding * 0.15);
+    return { avg, maxHouses, typed, usingAmount, houses, funding, monthly };
+  }, [emptyHouseSummary, calcAmountInput, calcHouses]);
+
 
   const handleAngelAmountChange = (val: string) => {
     const num = parseInt(val.replace(/[^0-9]/g, ''), 10);
