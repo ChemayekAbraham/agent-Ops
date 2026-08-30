@@ -46146,6 +46146,9 @@ export type Database = {
       }
       partner_ops_proxy_agent_directory: {
         Args: {
+          p_activated_from?: string
+          p_activated_to?: string
+          p_contact?: string
           p_limit?: number
           p_offset?: number
           p_search?: string

@@ -17,6 +17,7 @@ import {
   Loader2,
   RefreshCw,
   Search,
+  SlidersHorizontal,
   ShieldOff,
   Trash2,
   TrendingUp,
@@ -56,7 +57,9 @@ import {
   fetchProxyDirectory,
   proxyInitials,
   proxyStatusTone,
+  PROXY_CONTACT_FILTERS,
   PROXY_DIR_PAGE_SIZE,
+  type ProxyContactFilter,
   type ProxyDirRow,
 } from './proxyAgentDirectory';
 import { ProxyAgentDetailPanel } from './ProxyAgentDetailPanel';
@@ -106,6 +109,10 @@ export function ProxyAgentDirectory() {
   const [search, setSearch] = useState('');
   const [onboardOpen, setOnboardOpen] = useState(false);
   const [status, setStatus] = useState('all');
+  const [activatedFrom, setActivatedFrom] = useState('');
+  const [activatedTo, setActivatedTo] = useState('');
+  const [contact, setContact] = useState<ProxyContactFilter>('all');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(PROXY_DIR_PAGE_SIZE);
   const [selected, setSelected] = useState<ProxyDirRow | null>(null);
@@ -115,14 +122,35 @@ export function ProxyAgentDirectory() {
 
   const query = useDebouncedValue(search, 350);
 
+  const activeFilterCount =
+    (activatedFrom ? 1 : 0) + (activatedTo ? 1 : 0) + (contact !== 'all' ? 1 : 0);
+
+  const resetPaging = () => {
+    setPage(0);
+    setChecked({});
+  };
+
+  const clearAdvanced = () => {
+    setActivatedFrom('');
+    setActivatedTo('');
+    setContact('all');
+    resetPaging();
+  };
+
   // Exactly ONE page of rows per request — never accumulates, so the screen
   // costs the same with 1,000 or 1,000,000 proxy agents.
   const pageQueries = useQuery({
-    queryKey: ['proxy-agent-directory', query, status, page, pageSize],
-    queryFn: () => fetchProxyDirectory(query, status, page * pageSize, pageSize),
+    queryKey: ['proxy-agent-directory', query, status, activatedFrom, activatedTo, contact, page, pageSize],
+    queryFn: () =>
+      fetchProxyDirectory(
+        { search: query, status, activatedFrom, activatedTo, contact },
+        page * pageSize,
+        pageSize,
+      ),
     staleTime: 30_000,
     placeholderData: (prev) => prev,
   });
+
 
   const rows = pageQueries.data?.rows ?? [];
   const kpis = pageQueries.data?.kpis;
@@ -300,7 +328,98 @@ export function ProxyAgentDirectory() {
             </button>
           ))}
         </div>
+        <Button
+          size="sm"
+          variant={activeFilterCount > 0 ? 'default' : 'outline'}
+          className="h-9 text-xs"
+          onClick={() => setAdvancedOpen((o) => !o)}
+        >
+          <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />
+          More filters
+          {activeFilterCount > 0 && (
+            <Badge variant="secondary" className="ml-1.5 h-4 px-1.5 text-[10px]">
+              {activeFilterCount}
+            </Badge>
+          )}
+        </Button>
       </div>
+
+      {/* Advanced filters */}
+      {advancedOpen && (
+        <Card>
+          <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                Approved from
+              </p>
+              <Input
+                type="date"
+                value={activatedFrom}
+                max={activatedTo || undefined}
+                onChange={(e) => {
+                  setActivatedFrom(e.target.value);
+                  resetPaging();
+                }}
+                className="h-9 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                Approved to
+              </p>
+              <Input
+                type="date"
+                value={activatedTo}
+                min={activatedFrom || undefined}
+                onChange={(e) => {
+                  setActivatedTo(e.target.value);
+                  resetPaging();
+                }}
+                className="h-9 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                Contact details
+              </p>
+              <Select
+                value={contact}
+                onValueChange={(v) => {
+                  setContact(v as ProxyContactFilter);
+                  resetPaging();
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROXY_CONTACT_FILTERS.map((f) => (
+                    <SelectItem key={f.key} value={f.key} className="text-xs">
+                      {f.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 w-full text-xs"
+                disabled={activeFilterCount === 0}
+                onClick={clearAdvanced}
+              >
+                Clear these filters
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground sm:col-span-2 lg:col-span-4">
+              The date range uses the day the agent was approved as a proxy agent. Agents still
+              waiting for approval have no approval date, so they are hidden while a date is set.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
 
       {/* Bulk action bar */}
       {selectedIds.length > 0 && (
