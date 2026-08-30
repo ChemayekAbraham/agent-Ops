@@ -568,19 +568,12 @@ export function FunderCapitalOpportunities() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3">
               <div className="rounded-xl bg-card/80 border border-border/60 p-3">
                 <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest">Total rent needed</p>
                 <p className="text-lg font-black text-foreground tracking-tight mt-0.5">
                   {formatAmountCompact(emptyHouseSummary?.total_rent_needed ?? 0)}
                 </p>
-              </div>
-              <div className="rounded-xl bg-card/80 border border-border/60 p-3">
-                <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest">You earn / month</p>
-                <p className="text-lg font-black text-success tracking-tight mt-0.5">
-                  {formatAmountCompact(emptyHouseSummary?.monthly_return_if_all_funded ?? 0)}
-                </p>
-                <p className="text-[9px] text-muted-foreground font-medium mt-0.5">if you fund all of them</p>
               </div>
             </div>
 
