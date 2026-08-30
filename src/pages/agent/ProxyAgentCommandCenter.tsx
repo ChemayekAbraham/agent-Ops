@@ -78,6 +78,8 @@ export default function ProxyAgentCommandCenter() {
   const agentId = user?.id ?? null;
 
   const [tab, setTab] = useState<'partners' | 'notes'>('partners');
+  const [mainTab, setMainTab] = useState<'share' | 'notes' | 'more'>('share');
+
 
   // Partner list controls
   const [pSearch, setPSearch] = useState('');
