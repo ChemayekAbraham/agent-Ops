@@ -483,7 +483,7 @@ export function EmptyHouseOpportunitiesSheet({
               <span className="font-bold">{formatUGX(rentTotal)}</span>
             </div>
             <div className="flex items-center justify-between rounded-xl bg-emerald-500/10 px-3 py-2">
-              <span className="text-[11px] font-semibold text-emerald-700">Partner earns 15% per month</span>
+              <span className="text-[11px] font-semibold text-emerald-700">{isPartner ? 'You earn' : 'Partner earns'} 15% per month</span>
               <span className="text-sm font-bold text-emerald-600">{formatUGX(monthlyReturn)}</span>
             </div>
             <p className="text-[10px] text-muted-foreground text-center">
