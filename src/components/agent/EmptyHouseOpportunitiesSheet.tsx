@@ -234,10 +234,21 @@ export function EmptyHouseOpportunitiesSheet({
               <Home className="h-4 w-4 text-primary" /> Empty house opportunities
             </SheetTitle>
             <SheetDescription className="text-[11px] leading-snug">
-              Pick the empty houses this partner will fund. They pay one month of rent, the agent who
-              listed the house moves a tenant in once the note is fulfilled, and the partner earns
-              <span className="font-semibold text-emerald-600"> 15% of that rent every month for 12 months</span>.
+              {isPartner ? (
+                <>
+                  Pick the empty houses you want to fund. You pay one month of rent, the agent who listed
+                  the house moves a tenant in once your note is fulfilled, and you earn
+                  <span className="font-semibold text-emerald-600"> 15% of that rent every month for 12 months</span>.
+                </>
+              ) : (
+                <>
+                  Pick the empty houses this partner will fund. They pay one month of rent, the agent who
+                  listed the house moves a tenant in once the note is fulfilled, and the partner earns
+                  <span className="font-semibold text-emerald-600"> 15% of that rent every month for 12 months</span>.
+                </>
+              )}
             </SheetDescription>
+
           </SheetHeader>
         </div>
 
