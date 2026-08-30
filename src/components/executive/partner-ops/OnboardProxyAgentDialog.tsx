@@ -28,6 +28,8 @@ interface AgentMatch {
   agent_user_id: string;
   full_name: string | null;
   phone: string | null;
+  email: string | null;
+  is_agent: boolean | null;
   proxy_status: string | null;
 }
 
@@ -63,9 +65,9 @@ export function OnboardProxyAgentDialog({
   };
 
   const search = async () => {
-    const term = phone.replace(/\D/g, '');
+    const term = phone.trim();
     if (term.length < 3) {
-      toast({ title: 'Enter at least 3 digits of the phone number', variant: 'destructive' });
+      toast({ title: 'Enter at least 3 characters — name, email or phone', variant: 'destructive' });
       return;
     }
     setSearching(true);
@@ -88,6 +90,28 @@ export function OnboardProxyAgentDialog({
         p_notes: notes.trim() || null,
       });
       if (error) throw new Error(error.message);
+      const result = (data ?? {}) as { email?: string | null; full_name?: string | null };
+      const recipientEmail = (result.email ?? selected.email ?? '').trim();
+      if (recipientEmail) {
+        // Best-effort role/benefits notification — never block onboarding on it.
+        void supabase.functions
+          .invoke('send-transactional-email', {
+            body: {
+              templateName: 'proxy-agent-onboarded',
+              recipientEmail,
+              idempotencyKey: `proxy-agent-onboarded-${selected.agent_user_id}-${new Date().toISOString().slice(0, 10)}`,
+              templateData: {
+                recipient_name: result.full_name ?? selected.full_name ?? 'there',
+                onboarded_on: new Date().toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric',
+                }),
+              },
+            },
+          })
+          .catch((err) => console.error('Failed to send proxy agent onboarding email:', err));
+      }
       return data;
     },
     onSuccess: () => {
@@ -117,20 +141,21 @@ export function OnboardProxyAgentDialog({
             Onboard Proxy Agent
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Directly approve an existing agent as a proxy agent — no self-application needed.
+            Search any user by name, email or phone and approve them as a proxy agent — no
+            self-application needed. They get an email explaining the role and its benefits.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label htmlFor="proxy-phone" className="text-xs">Agent phone number</Label>
+            <Label htmlFor="proxy-phone" className="text-xs">Search by name, email or phone</Label>
             <div className="flex gap-2">
               <Input
                 id="proxy-phone"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && search()}
-                placeholder="e.g. 0748 762 871"
+                placeholder="e.g. Timothy, name@email.com or 0748 762 871"
                 className="h-9 text-sm"
               />
               <Button size="sm" className="h-9" onClick={search} disabled={searching}>
@@ -144,7 +169,7 @@ export function OnboardProxyAgentDialog({
             <div className="space-y-1.5">
               {matches.length === 0 ? (
                 <p className="rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
-                  No agent found with that phone number. The person must already have an agent account.
+                  No user found. Try a different name, email or phone number.
                 </p>
               ) : (
                 matches.map((m) => {
@@ -163,8 +188,15 @@ export function OnboardProxyAgentDialog({
                       )}
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{m.full_name || 'Unnamed agent'}</p>
-                        <p className="truncate text-xs text-muted-foreground">{m.phone || '—'}</p>
+                        <p className="truncate text-sm font-medium">{m.full_name || 'Unnamed user'}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {[m.phone, m.email].filter(Boolean).join(' · ') || '—'}
+                        </p>
+                        {!m.is_agent && !m.proxy_status && (
+                          <p className="truncate text-[10px] text-muted-foreground">
+                            Will also be given the agent role
+                          </p>
+                        )}
                       </div>
                       {m.proxy_status ? (
                         <Badge variant="outline" className={cn('shrink-0 text-[10px]', statusTone[m.proxy_status] ?? '')}>

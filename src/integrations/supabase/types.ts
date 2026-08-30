@@ -46042,7 +46042,9 @@ export type Database = {
         Args: { p_phone: string }
         Returns: {
           agent_user_id: string
+          email: string
           full_name: string
+          is_agent: boolean
           phone: string
           proxy_status: string
         }[]
