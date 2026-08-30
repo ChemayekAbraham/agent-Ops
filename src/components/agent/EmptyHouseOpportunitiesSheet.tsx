@@ -94,7 +94,7 @@ export function EmptyHouseOpportunitiesSheet({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [createdNote, setCreatedNote] = useState<{ id: string; activation_token?: string } | null>(null);
 
-  const partnerName = joinPersonName(nameParts);
+  const partnerName = isPartner ? (selfName || '').trim() : joinPersonName(nameParts);
 
   useEffect(() => {
     const t = setTimeout(() => { setDebounced(search); setPage(0); }, 350);
