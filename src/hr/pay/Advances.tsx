@@ -28,7 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { listAdvances, requestAdvance, decideAdvance, updateAdvance, type AdvanceRow } from '@/hr/pay/api/advances';
+import { listAdvances, requestAdvance, decideAdvance, cancelAdvance, updateAdvance, type AdvanceRow } from '@/hr/pay/api/advances';
 import { listStaffForPayroll, type PayrollStaffOption } from '@/hr/pay/api/compensation';
 import { myPayrollAuthority } from '@/hr/pay/api/workflow';
 
@@ -51,10 +51,33 @@ function firstOfNextMonth(): string {
 
 const STATUS_CLASS: Record<string, string> = {
   requested: 'bg-amber-100 text-amber-800',
+  hr_approved: 'bg-amber-100 text-amber-800',
+  ceo_approved: 'bg-amber-100 text-amber-800',
   approved: 'bg-green-100 text-green-800',
   rejected: 'bg-muted text-muted-foreground',
   settled: 'bg-blue-100 text-blue-800',
+  cancelled: 'bg-muted text-muted-foreground',
 };
+
+const STAGE_LABEL: Record<string, string> = {
+  requested: 'Awaiting HR',
+  hr_approved: 'Awaiting CEO',
+  ceo_approved: 'Awaiting CFO',
+  approved: 'Disbursed, recovering',
+  settled: 'Settled',
+  rejected: 'Rejected',
+  cancelled: 'Cancelled',
+};
+
+const ACTION_LABEL: Record<string, string> = {
+  requested: 'HR approve',
+  hr_approved: 'CEO approve',
+  ceo_approved: 'Disburse',
+};
+
+function isActionable(status: string): boolean {
+  return status === 'requested' || status === 'hr_approved' || status === 'ceo_approved';
+}
 
 export default function Advances() {
   const [rows, setRows] = useState<AdvanceRow[]>([]);
@@ -62,7 +85,6 @@ export default function Advances() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPreparer, setIsPreparer] = useState(false);
-  const [isApprover, setIsApprover] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   // Request dialog
@@ -96,7 +118,6 @@ export default function Advances() {
       const [advances, authority] = await Promise.all([listAdvances(), myPayrollAuthority()]);
       setRows(advances);
       setIsPreparer(authority.preparer);
-      setIsApprover(authority.approver);
       setError(null);
     } catch (err) {
       setError((err as Error).message);
@@ -141,10 +162,14 @@ export default function Advances() {
     if (!Number.isFinite(value) || value <= 0) return setFormError('Enter a recovery value above zero.');
     if (mode === 'percent_of_gross' && value > 100) return setFormError('A percentage cannot exceed 100.');
     if (!firstOn) return setFormError('Choose the first recovery date.');
+    const recoveryMonths = Math.ceil(amount / value);
+    if (!Number.isInteger(recoveryMonths) || recoveryMonths < 1 || recoveryMonths > 3) {
+      return setFormError('The principal and recovery value must spread over 1, 2 or 3 months.');
+    }
     setFormError('');
     setSaving(true);
     try {
-      await requestAdvance(staffId, amount, purpose.trim(), mode, value, firstOn);
+      await requestAdvance(staffId, amount, purpose.trim(), mode, value, firstOn, recoveryMonths);
       toast.success('Advance requested.');
       setOpen(false);
       resetForm();
@@ -156,11 +181,16 @@ export default function Advances() {
     }
   }
 
+  // Cancel dialog
+  const [cancelRow, setCancelRow] = useState<AdvanceRow | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelError, setCancelError] = useState('');
+
   async function approve(row: AdvanceRow) {
     setBusyId(row.id);
     try {
       await decideAdvance(row.id, true, '');
-      toast.success('Advance approved.');
+      toast.success(`${ACTION_LABEL[row.status] ?? 'Approve'} recorded.`);
       await load();
     } catch (err) {
       toast.error((err as Error).message);
@@ -223,6 +253,27 @@ export default function Advances() {
     }
   }
 
+  async function cancel() {
+    if (!cancelRow) return;
+    if (cancelReason.trim().length < 10) {
+      setCancelError('A reason of at least 10 characters is required.');
+      return;
+    }
+    setCancelError('');
+    setBusyId(cancelRow.id);
+    try {
+      await cancelAdvance(cancelRow.id, cancelReason.trim());
+      toast.success('Advance cancelled.');
+      setCancelRow(null);
+      setCancelReason('');
+      await load();
+    } catch (err) {
+      setCancelError((err as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <HRPlaceholderPage
       heading="Salary advances"
@@ -259,14 +310,17 @@ export default function Advances() {
               <TableHead className="text-right">Recovered so far</TableHead>
               <TableHead className="text-right">Outstanding</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>HR approved</TableHead>
+              <TableHead>Approved</TableHead>
+              <TableHead>Disbursed</TableHead>
               {isPreparer && <TableHead />}
-              {isApprover && <TableHead />}
+              <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={(isApprover ? 10 : 9) + (isPreparer ? 1 : 0)} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={13 + (isPreparer ? 1 : 0)} className="py-8 text-center text-sm text-muted-foreground">
                   No salary advances recorded.
                 </TableCell>
               </TableRow>
@@ -287,13 +341,16 @@ export default function Advances() {
                 <TableCell className="text-right font-medium">{formatAmount(row.outstanding)}</TableCell>
                 <TableCell>
                   <span
-                    className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                    className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                       STATUS_CLASS[row.status] ?? 'bg-muted text-muted-foreground'
                     }`}
                   >
-                    {row.status}
+                    {STAGE_LABEL[row.status] ?? row.status}
                   </span>
                 </TableCell>
+                <TableCell className="text-xs">{formatDate(row.hr_approved_at)}</TableCell>
+                <TableCell className="text-xs">{formatDate(row.approved_at)}</TableCell>
+                <TableCell className="text-xs">{formatDate(row.disbursed_at)}</TableCell>
                 {isPreparer && (
                   <TableCell className="whitespace-nowrap text-right">
                     {row.status === 'requested' && (
@@ -315,33 +372,43 @@ export default function Advances() {
                     )}
                   </TableCell>
                 )}
-                {isApprover && (
-                  <TableCell className="whitespace-nowrap text-right">
-                    {row.status === 'requested' && (
-                      <span className="inline-flex gap-2">
-                        <Button
-                          size="sm"
-                          disabled={busyId === row.id}
-                          onClick={() => void approve(row)}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={busyId === row.id}
-                          onClick={() => {
-                            setRejectRow(row);
-                            setRejectNote('');
-                            setRejectError('');
-                          }}
-                        >
-                          Reject
-                        </Button>
-                      </span>
-                    )}
-                  </TableCell>
-                )}
+                <TableCell className="whitespace-nowrap text-right">
+                  {isActionable(row.status) && (
+                    <span className="inline-flex gap-2">
+                      <Button
+                        size="sm"
+                        disabled={busyId === row.id}
+                        onClick={() => void approve(row)}
+                      >
+                        {ACTION_LABEL[row.status]}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busyId === row.id}
+                        onClick={() => {
+                          setRejectRow(row);
+                          setRejectNote('');
+                          setRejectError('');
+                        }}
+                      >
+                        Reject
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busyId === row.id}
+                        onClick={() => {
+                          setCancelRow(row);
+                          setCancelReason('');
+                          setCancelError('');
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </span>
+                  )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -456,6 +523,39 @@ export default function Advances() {
               onClick={() => void reject()}
             >
               Reject
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(cancelRow)} onOpenChange={(next) => !next && setCancelRow(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel this advance</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Reason</Label>
+            <Textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="At least 10 characters"
+            />
+            {cancelError && (
+              <p role="alert" className="text-sm font-medium text-destructive">
+                {cancelError}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelRow(null)}>
+              Keep
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={busyId === cancelRow?.id}
+              onClick={() => void cancel()}
+            >
+              Cancel advance
             </Button>
           </DialogFooter>
         </DialogContent>
