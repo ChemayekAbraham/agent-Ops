@@ -511,17 +511,29 @@ export function ProxyAgentDirectory() {
 
       {/* Bulk action bar */}
       {selectedIds.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-muted/40 px-3 py-2">
           <p className="text-xs font-semibold">
             {selectedIds.length} selected
             <span className="ml-1 font-normal text-muted-foreground">
-              · {selectedTotals.notes} note(s) worth {formatUGX(selectedTotals.amount)} will be deleted
+              · {selectedTotals.notes} note(s) worth {formatUGX(selectedTotals.amount)}
             </span>
           </p>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setChecked({})}>
               Clear
             </Button>
+            <Button
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => {
+                setApproveResults([]);
+                setApproveOpen(true);
+              }}
+            >
+              <BadgeCheck className="mr-1.5 h-3.5 w-3.5" />
+              Approve &amp; email selected
+            </Button>
+
             <Button
               size="sm"
               variant="destructive"
