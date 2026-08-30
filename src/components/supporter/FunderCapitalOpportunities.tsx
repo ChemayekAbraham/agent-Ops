@@ -813,19 +813,30 @@ export function FunderCapitalOpportunities() {
                     <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest">
                       Biggest opportunities
                     </p>
-                    <div className="flex rounded-lg border border-border/60 overflow-hidden">
-                      {(['district', 'landlord'] as const).map(k => (
-                        <button
-                          key={k}
-                          type="button"
-                          onClick={() => { hapticTap(); setBreakdownBy(k); }}
-                          className={`px-2 py-1 text-[9px] font-bold capitalize ${breakdownBy === k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
-                        >
-                          {k}
-                        </button>
-                      ))}
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex rounded-lg border border-border/60 overflow-hidden">
+                        {(['district', 'landlord'] as const).map(k => (
+                          <button
+                            key={k}
+                            type="button"
+                            onClick={() => { hapticTap(); setBreakdownBy(k); }}
+                            className={`px-2 py-1 text-[9px] font-bold capitalize ${breakdownBy === k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+                          >
+                            {k}
+                          </button>
+                        ))}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 gap-1 rounded-lg px-2 text-[9px] font-bold"
+                        onClick={() => { hapticTap(); exportRankingPdf(top); }}
+                      >
+                        <Download className="h-3 w-3" /> PDF
+                      </Button>
                     </div>
                   </div>
+
 
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-1.5">
