@@ -67,6 +67,8 @@ import { ProxyAgentDetailPanel } from './ProxyAgentDetailPanel';
 import { OnboardProxyAgentDialog } from './OnboardProxyAgentDialog';
 import { ProxyOnboardingAuditPanel } from './ProxyOnboardingAuditPanel';
 import { ProxyAgentTargetPanel } from './ProxyAgentTargetPanel';
+import { ProxyAgentQuickView } from './ProxyAgentQuickView';
+
 
 const STATUS_TABS: { key: string; label: string }[] = [
   { key: 'all', label: 'All' },
