@@ -354,7 +354,7 @@ export function ProxyAgentDirectory() {
                       }
                       setChecked(next);
                     }}
-                    aria-label="Select all loaded proxy agents"
+                    aria-label="Select every agent on this page"
                   />
                 </div>
                 <span className="col-span-3">Agent</span>
