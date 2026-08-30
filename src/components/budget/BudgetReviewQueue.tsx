@@ -417,6 +417,28 @@ interface ReviewSheetProps {
   onClose: () => void;
 }
 
+function StatusBadge({ status }: { status: string }) {
+  const label = STATUS_LABEL[status] ?? status.replace(/_/g, ' ');
+  const variant: 'default' | 'secondary' | 'destructive' | 'outline' =
+    ['approved', 'released', 'paid'].includes(status)
+      ? 'default'
+      : ['rejected', 'cancelled'].includes(status)
+        ? 'destructive'
+        : ['draft', 'superseded'].includes(status)
+          ? 'outline'
+          : 'secondary';
+  return <Badge variant={variant} className="text-[10px] font-normal capitalize">{label}</Badge>;
+}
+
+function InfoItem({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+      <div className="mt-0.5 text-sm font-medium text-foreground">{children}</div>
+    </div>
+  );
+}
+
 function ReviewSheet({
   submission: s, lines, isCoo, busy, comment, setComment, lineEdits, setLineEdits,
   onDecideLine, onForward, onFinalize, onSendBack, onClose,
@@ -434,137 +456,179 @@ function ReviewSheet({
       </SheetHeader>
 
       <div className="mt-2 flex-1 space-y-5 overflow-y-auto pr-1">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Kpi label="Department" value={s.department_name} />
-          <Kpi label="Reference" value={s.reference} />
-          <Kpi label="Version" value={`v${s.version}`} />
-          <Kpi label="Status" value={STATUS_LABEL[s.status] ?? s.status.replace(/_/g, ' ')} />
-          <Kpi label="Amount (UGX)" value={formatUGX(s.total_amount)} />
-          <Kpi label="Required period" value={s.cycle_title ?? 'Not specified'} />
-          <Kpi label="Priority" value={s.is_late ? 'Urgent (late)' : 'Standard'} />
-          <Kpi
-            label="Submitted"
-            value={s.submitted_at ? format(new Date(s.submitted_at), 'dd MMM yyyy') : '—'}
-          />
-          <Kpi label="Approval route" value={BUDGET_ROUTE_LABEL[s.route]} />
-          <Kpi label="Line items" value={String(s.line_count)} />
-          <Kpi
-            label={isCoo ? 'COO approved' : 'CFO approved'}
-            value={formatUGX(isCoo ? s.coo_approved_total : s.cfo_approved_total)}
-          />
-          <Kpi label="Undecided lines" value={String(s.pending_lines)} />
-        </div>
-
-        {(s.coo_comment || s.cfo_comment) && (
-          <div className="space-y-1 rounded-lg border border-border p-3 text-xs text-muted-foreground">
-            {s.coo_comment && <p><span className="font-medium text-foreground">COO comment:</span> {s.coo_comment}</p>}
-            {s.cfo_comment && <p><span className="font-medium text-foreground">CFO comment:</span> {s.cfo_comment}</p>}
-          </div>
-        )}
-
-
-        {(s.title || s.purpose) && (
-          <div className="rounded-lg border border-border p-3">
-            {s.title && <p className="text-sm font-medium text-foreground">{s.title}</p>}
-            {s.purpose && (
-              <p className={`text-sm leading-relaxed text-muted-foreground ${s.title ? 'mt-1' : ''}`}>
-                {s.purpose}
-              </p>
-            )}
-          </div>
-        )}
-
-        <div>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Budget Items
-          </h3>
-          <div className="space-y-2">
-            {lines.length === 0 && (
-              <p className="text-sm text-muted-foreground">Loading line items…</p>
-            )}
-            {lines.map(l => (
-              <div key={l.id} className="rounded-lg border border-border p-3 text-sm">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="flex-1">
-                    <p className="font-medium text-foreground">{l.description}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Qty {Number(l.quantity)} × {formatUGX(Number(l.unit_amount))} ={' '}
-                      <span className="font-mono font-medium text-foreground">{formatUGX(Number(l.line_total ?? 0))}</span>
-                      {l.period_month && ` · ${format(new Date(l.period_month), 'MMM yyyy')}`}
-                    </p>
-                    {l.justification && (
-                      <p className="mt-1 text-xs text-muted-foreground">{l.justification}</p>
-                    )}
-                    {l.document_path && (
-                      <Button size="sm" variant="ghost" className="mt-1 h-7 gap-1 px-2 text-[11px] text-primary"
-                        onClick={async () => {
-                          try { window.open(await getBudgetDocumentUrl(l.document_path!), '_blank'); }
-                          catch { toast.error('Could not open supporting document'); }
-                        }}>
-                        <FileText className="h-3.5 w-3.5" /> View supporting document
-                      </Button>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap items-end gap-2">
-                    <div>
-                      <Label className="text-[11px]">Approved (UGX)</Label>
-                      <Input className="h-8 w-32 text-xs" type="number" min="0" disabled={!open}
-                        value={lineEdits[l.id] ?? ''}
-                        onChange={e => setLineEdits(p => ({ ...p, [l.id]: e.target.value }))} />
-                    </div>
-                    <Button size="sm" className="h-8 gap-1 text-xs" disabled={busy === l.id || !open}
-                      onClick={() => onDecideLine(l, 'approved')}>
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Approve
-                    </Button>
-                    <Button size="sm" variant="outline" className="h-8 gap-1 text-xs text-destructive"
-                      disabled={busy === l.id || !open} onClick={() => onDecideLine(l, 'rejected')}>
-                      <XCircle className="h-3.5 w-3.5" /> Reject
-                    </Button>
-                    <Badge variant="secondary" className="text-[10px]">
-                      {lineDecision(l).replace(/_/g, ' ')}
-                    </Badge>
-                  </div>
+        <Card className="rounded-2xl border border-border bg-card shadow-sm">
+          <CardContent className="space-y-6 p-4 sm:p-5">
+            {/* Header */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="text-sm font-semibold text-foreground">{s.department_name}</span>
+                  <Badge variant="outline" className="text-[10px]">v{s.version}</Badge>
+                </div>
+                <p className="mt-1 truncate font-mono text-xs text-muted-foreground">{s.reference}</p>
+              </div>
+              <div className="text-left sm:text-right">
+                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Amount requested</p>
+                <p className="mt-0.5 font-mono text-2xl font-semibold tracking-tight text-foreground">
+                  {formatUGX(s.total_amount)}
+                </p>
+                <div className="mt-1.5">
+                  <StatusBadge status={s.status} />
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
 
-        {open && (
-          <div className="space-y-3">
+            <div className="h-px bg-border" />
+
+            {/* Key details */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-4">
+              <InfoItem label="Required period">{s.cycle_title ?? '—'}</InfoItem>
+              <InfoItem label="Priority">
+                {s.is_late ? (
+                  <Badge variant="destructive" className="gap-1 text-[10px]">
+                    <AlertTriangle className="h-3 w-3" /> Urgent
+                  </Badge>
+                ) : (
+                  <span className="text-sm text-muted-foreground">Standard</span>
+                )}
+              </InfoItem>
+              <InfoItem label="Submitted">
+                {s.submitted_at ? format(new Date(s.submitted_at), 'dd MMM yyyy') : '—'}
+              </InfoItem>
+              <InfoItem label="Approval route">{BUDGET_ROUTE_LABEL[s.route]}</InfoItem>
+              <InfoItem label="Line items">{s.line_count}</InfoItem>
+              <InfoItem label={isCoo ? 'COO approved' : 'CFO approved'}>
+                <span className="font-mono">{formatUGX(isCoo ? s.coo_approved_total : s.cfo_approved_total)}</span>
+              </InfoItem>
+              <InfoItem label="Undecided lines">{s.pending_lines}</InfoItem>
+            </div>
+
+            {/* Purpose */}
+            {(s.title || s.purpose) && (
+              <div className="rounded-xl bg-muted/40 p-3">
+                {s.title && <p className="text-sm font-semibold text-foreground">{s.title}</p>}
+                {s.purpose && (
+                  <p className={`text-sm leading-relaxed text-muted-foreground ${s.title ? 'mt-1' : ''}`}>
+                    {s.purpose}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Reviewer comments */}
+            {(s.coo_comment || s.cfo_comment) && (
+              <div className="space-y-2 rounded-xl bg-muted/40 p-3">
+                {s.coo_comment && (
+                  <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-2">
+                    <span className="shrink-0 text-xs font-semibold text-foreground">COO comment</span>
+                    <span className="text-xs text-muted-foreground">{s.coo_comment}</span>
+                  </div>
+                )}
+                {s.cfo_comment && (
+                  <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-2">
+                    <span className="shrink-0 text-xs font-semibold text-foreground">CFO comment</span>
+                    <span className="text-xs text-muted-foreground">{s.cfo_comment}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Budget items */}
             <div>
-              <Label className="text-xs">{isCoo ? 'COO comment' : 'CFO comment'}</Label>
-              <Textarea rows={2} value={comment} onChange={e => setComment(e.target.value)}
-                placeholder="Guidance for the department (at least 10 characters to reject or request a revision)" />
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Budget Items
+              </h3>
+              <div className="space-y-2">
+                {lines.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Loading line items…</p>
+                )}
+                {lines.map(l => (
+                  <div key={l.id} className="rounded-xl border border-border p-3 text-sm">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground">{l.description}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Qty {Number(l.quantity)} × {formatUGX(Number(l.unit_amount))} ={' '}
+                          <span className="font-mono font-medium text-foreground">{formatUGX(Number(l.line_total ?? 0))}</span>
+                          {l.period_month && ` · ${format(new Date(l.period_month), 'MMM yyyy')}`}
+                        </p>
+                        {l.justification && (
+                          <p className="mt-1 text-xs text-muted-foreground">{l.justification}</p>
+                        )}
+                        {l.document_path && (
+                          <Button size="sm" variant="ghost" className="mt-1 h-7 gap-1 px-2 text-[11px] text-primary"
+                            onClick={async () => {
+                              try { window.open(await getBudgetDocumentUrl(l.document_path!), '_blank'); }
+                              catch { toast.error('Could not open supporting document'); }
+                            }}>
+                            <FileText className="h-3.5 w-3.5" /> View supporting document
+                          </Button>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <div>
+                          <Label className="text-[11px]">Approved (UGX)</Label>
+                          <Input className="h-8 w-32 text-xs" type="number" min="0" disabled={!open}
+                            value={lineEdits[l.id] ?? ''}
+                            onChange={e => setLineEdits(p => ({ ...p, [l.id]: e.target.value }))} />
+                        </div>
+                        <Button size="sm" className="h-8 gap-1 text-xs" disabled={busy === l.id || !open}
+                          onClick={() => onDecideLine(l, 'approved')}>
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-8 gap-1 text-xs text-destructive"
+                          disabled={busy === l.id || !open} onClick={() => onDecideLine(l, 'rejected')}>
+                          <XCircle className="h-3.5 w-3.5" /> Reject
+                        </Button>
+                        <Badge variant="secondary" className="text-[10px]">
+                          {lineDecision(l).replace(/_/g, ' ')}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {isCoo ? (
-                <Button size="sm" className="gap-1.5 text-xs" disabled={busy === s.id}
-                  onClick={() => onForward(s)}>
-                  <ArrowRightCircle className="h-3.5 w-3.5" /> Approve &amp; forward to CFO
-                </Button>
-              ) : (
-                <Button size="sm" className="gap-1.5 text-xs" disabled={busy === s.id}
-                  onClick={() => onFinalize(s, 'approved')}>
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Approve budget
-                </Button>
-              )}
-              <Button size="sm" variant="outline" className="gap-1.5 text-xs" disabled={busy === s.id}
-                onClick={() => onSendBack(s, 'revision_requested')}>
-                <RotateCcw className="h-3.5 w-3.5" /> Request revision
-              </Button>
-              <Button size="sm" variant="outline" className="gap-1.5 text-xs text-destructive"
-                disabled={busy === s.id} onClick={() => onSendBack(s, 'rejected')}>
-                <XCircle className="h-3.5 w-3.5" /> Reject
-              </Button>
-              {s.pending_lines > 0 && (
-                <span className="self-center text-[11px] text-muted-foreground">
-                  {s.pending_lines} line item{s.pending_lines === 1 ? '' : 's'} still undecided
-                </span>
-              )}
-            </div>
-          </div>
-        )}
+
+            {/* Actions */}
+            {open && (
+              <div className="rounded-xl border border-border p-3 space-y-3">
+                <div>
+                  <Label className="text-xs">{isCoo ? 'COO comment' : 'CFO comment'}</Label>
+                  <Textarea rows={2} value={comment} onChange={e => setComment(e.target.value)}
+                    placeholder="Guidance for the department (at least 10 characters to reject or request a revision)" />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {isCoo ? (
+                    <Button size="sm" className="gap-1.5 text-xs" disabled={busy === s.id}
+                      onClick={() => onForward(s)}>
+                      <ArrowRightCircle className="h-3.5 w-3.5" /> Approve &amp; forward to CFO
+                    </Button>
+                  ) : (
+                    <Button size="sm" className="gap-1.5 text-xs" disabled={busy === s.id}
+                      onClick={() => onFinalize(s, 'approved')}>
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Approve budget
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" className="gap-1.5 text-xs" disabled={busy === s.id}
+                    onClick={() => onSendBack(s, 'revision_requested')}>
+                    <RotateCcw className="h-3.5 w-3.5" /> Request revision
+                  </Button>
+                  <Button size="sm" variant="outline" className="gap-1.5 text-xs text-destructive"
+                    disabled={busy === s.id} onClick={() => onSendBack(s, 'rejected')}>
+                    <XCircle className="h-3.5 w-3.5" /> Reject
+                  </Button>
+                  {s.pending_lines > 0 && (
+                    <span className="text-[11px] text-muted-foreground">
+                      {s.pending_lines} line item{s.pending_lines === 1 ? '' : 's'} still undecided
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <div className="mt-4 flex justify-end border-t border-border pt-4">
