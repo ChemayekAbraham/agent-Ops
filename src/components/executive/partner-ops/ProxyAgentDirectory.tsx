@@ -459,6 +459,8 @@ export function ProxyAgentDirectory() {
         </CardContent>
       </Card>
 
+      <ProxyOnboardingAuditPanel />
+
       {/* Bulk delete confirmation */}
       <Dialog
         open={confirmOpen}
