@@ -46153,6 +46153,10 @@ export type Database = {
         }
         Returns: Json
       }
+      partner_ops_proxy_agent_target_overview: {
+        Args: { p_month?: string }
+        Returns: Json
+      }
       partner_ops_proxy_onboarding_audit: {
         Args: { p_limit?: number }
         Returns: {
@@ -46214,6 +46218,15 @@ export type Database = {
           total_returns: number
           user_id: string
         }[]
+      }
+      partner_ops_set_proxy_agent_target: {
+        Args: {
+          p_metric_key: string
+          p_month: string
+          p_note?: string
+          p_target: number
+        }
+        Returns: Json
       }
       partner_ops_transfer_proxy_book: {
         Args: {
