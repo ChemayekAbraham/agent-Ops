@@ -483,6 +483,16 @@ export function EmptyHouseOpportunitiesSheet({
           </div>
         )}
       </SheetContent>
+
+      <EmptyHouseDetailSheet
+        house={detailHouse}
+        open={Boolean(detailHouse)}
+        onOpenChange={(v) => { if (!v) setDetailHouse(null); }}
+        isPicked={detailHouse ? Boolean(selected[detailHouse.house_id]) : false}
+        onTogglePick={(h) => toggle(h)}
+        isPartner={isPartner}
+      />
     </Sheet>
   );
 }
+
