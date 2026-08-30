@@ -65,6 +65,9 @@ const StatusPill = ({
 
 export function SupportedHouseReturnsSection() {
   const queryClient = useQueryClient();
+  const { profile } = useProfile();
+  const [pickerOpen, setPickerOpen] = useState(false);
+
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['partner-supported-house-returns'],
