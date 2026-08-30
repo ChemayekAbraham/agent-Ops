@@ -529,15 +529,45 @@ export function FunderCapitalOpportunities() {
               Empty houses you can support
             </h4>
           </div>
-          <div className="rounded-2xl border border-dashed border-border p-4 space-y-3">
-            <p className="text-sm font-bold text-foreground">Fund an empty house</p>
+
+          {/* Major deal: aggregate opportunity summary */}
+          <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 p-4 space-y-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] text-primary/80 font-semibold uppercase tracking-widest">Major opportunity</p>
+                <p className="text-sm font-black text-foreground mt-0.5 leading-tight">
+                  {emptyHouseSummary ? `${emptyHouseSummary.house_count.toLocaleString()} empty houses need funding` : 'Empty houses need funding'}
+                </p>
+              </div>
+              <div className="shrink-0 rounded-xl bg-primary/15 p-2.5 text-primary">
+                <Home className="h-5 w-5" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-card/80 border border-border/60 p-3">
+                <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest">Total rent needed</p>
+                <p className="text-lg font-black text-foreground tracking-tight mt-0.5">
+                  {formatAmountCompact(emptyHouseSummary?.total_rent_needed ?? 0)}
+                </p>
+              </div>
+              <div className="rounded-xl bg-card/80 border border-border/60 p-3">
+                <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest">You earn / month</p>
+                <p className="text-lg font-black text-success tracking-tight mt-0.5">
+                  {formatAmountCompact(emptyHouseSummary?.monthly_return_if_all_funded ?? 0)}
+                </p>
+                <p className="text-[9px] text-muted-foreground font-medium mt-0.5">if you fund all of them</p>
+              </div>
+            </div>
+
             <p className="text-[11px] leading-snug text-muted-foreground">
-              Browse empty houses with photos, the landlord's name and contact, and the GPS
-              location. Pick the ones you want and your promissory note is created instantly —
-              you earn 15% of that rent every month for 12 months.
+              Browse empty houses with photos, landlord contact, and GPS location. Pick the ones
+              you want and your promissory note is created instantly — you earn{' '}
+              <span className="font-bold text-success">15% of the rent every month for 12 months</span>.
             </p>
+
             <Button
-              className="h-10 w-full gap-2 font-semibold"
+              className="h-11 w-full gap-2 font-bold rounded-xl"
               onClick={() => { hapticTap(); setHousePickerOpen(true); }}
             >
               <Plus className="h-4 w-4" /> Browse empty houses
