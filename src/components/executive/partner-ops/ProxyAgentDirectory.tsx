@@ -608,7 +608,8 @@ export function ProxyAgentDirectory() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setSelected(r)}
+                      onClick={() => setQuickView(r)}
+
                       className="grid w-full grid-cols-1 gap-2 text-left md:col-span-11 md:grid-cols-11 md:items-center"
                     >
                       <div className="flex items-center gap-2 md:col-span-3">
