@@ -320,27 +320,32 @@ export function FunderCapitalOpportunities() {
   // Empty-house funding calculator + breakdown UI state (display only)
   const [calcHouses, setCalcHouses] = useState(5);
   const [calcAmountInput, setCalcAmountInput] = useState('');
+  const [calcHouses2, setCalcHouses2] = useState(10);
+  const [calcAmountInput2, setCalcAmountInput2] = useState('');
   const [breakdownBy, setBreakdownBy] = useState<'district' | 'landlord'>('district');
   const [calcOpen, setCalcOpen] = useState(false);
   const [breakdownSort, setBreakdownSort] = useState<'rent' | 'houses'>('rent');
   const [breakdownTopN, setBreakdownTopN] = useState<6 | 12 | 0>(6); // 0 = all
 
   // Shared calculator derivation — used by the calculator UI and to pre-fill the picker
-  const calc = useMemo(() => {
+  const computeScenario = useCallback((amountInput: string, houseCount: number) => {
     const s = emptyHouseSummary;
     const avg = Math.max(1, s?.avg_monthly_rent ?? 0);
     const maxHouses = Math.max(1, Math.min(s?.house_count ?? 1, 100));
-    const typed = parseInt(calcAmountInput.replace(/[^0-9]/g, ''), 10);
+    const typed = parseInt(amountInput.replace(/[^0-9]/g, ''), 10);
     const usingAmount = !isNaN(typed) && typed > 0;
     const houses = usingAmount
       ? Math.max(1, Math.min(Math.round(typed / avg), s?.house_count ?? 1))
-      : Math.min(calcHouses, maxHouses);
+      : Math.min(houseCount, maxHouses);
     const funding = usingAmount ? typed : houses * avg;
     const monthly = Math.round(funding * 0.15);
     const serviceFee = Math.round(funding * EMPTY_HOUSE_SERVICE_FEE_RATE);
     const netMonthly = monthly - serviceFee;
     return { avg, maxHouses, typed, usingAmount, houses, funding, monthly, serviceFee, netMonthly };
-  }, [emptyHouseSummary, calcAmountInput, calcHouses]);
+  }, [emptyHouseSummary]);
+
+  const calc = useMemo(() => computeScenario(calcAmountInput, calcHouses), [computeScenario, calcAmountInput, calcHouses]);
+  const calc2 = useMemo(() => computeScenario(calcAmountInput2, calcHouses2), [computeScenario, calcAmountInput2, calcHouses2]);
 
 
   const handleAngelAmountChange = (val: string) => {
@@ -645,59 +650,129 @@ export function FunderCapitalOpportunities() {
 
                   {calcOpen && (
                     <div id="empty-house-earn-calc" className="space-y-3">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <p className="text-[11px] font-semibold text-foreground">
-                            Houses I want to fund
-                          </p>
-                          <span className="text-sm font-black text-foreground">{houses.toLocaleString()}</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* Scenario A */}
+                        <div className="rounded-lg bg-muted/40 border border-border/50 p-3 space-y-3">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Scenario A</p>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[11px] font-semibold text-foreground">Houses</p>
+                              <span className="text-sm font-black text-foreground">{calc.houses.toLocaleString()}</span>
+                            </div>
+                            <Slider
+                              value={[Math.min(calcHouses, calc.maxHouses)]}
+                              min={1}
+                              max={calc.maxHouses}
+                              step={1}
+                              onValueChange={(v) => { setCalcAmountInput(''); setCalcHouses(v[0]); }}
+                            />
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-muted-foreground font-medium shrink-0">or amount (UGX)</span>
+                              <Input
+                                inputMode="numeric"
+                                placeholder={String(calc.avg)}
+                                value={calcAmountInput}
+                                onChange={(e) => setCalcAmountInput(e.target.value.replace(/[^0-9]/g, ''))}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <p className="text-[9px] text-muted-foreground font-medium">Funding total</p>
+                              <p className="text-xs font-black text-foreground">{formatAmountCompact(calc.funding)}</p>
+                            </div>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="cursor-help">
+                                  <p className="text-[9px] text-muted-foreground font-medium flex items-center gap-1">
+                                    Fees <Info className="h-3 w-3 text-muted-foreground/70" />
+                                  </p>
+                                  <p className={`text-xs font-black ${calc.serviceFee > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
+                                    {formatAmountCompact(calc.serviceFee)}
+                                  </p>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-[16rem] text-xs leading-relaxed">
+                                Service/access fee = Funding total × service fee rate.
+                                Current rate is {(EMPTY_HOUSE_SERVICE_FEE_RATE * 100).toFixed(0)}%,
+                                so the fee is {formatAmountCompact(calc.serviceFee)}.
+                              </TooltipContent>
+                            </Tooltip>
+                            <div>
+                              <p className="text-[9px] text-muted-foreground font-medium">Net monthly</p>
+                              <p className="text-xs font-black text-success">{formatAmountCompact(calc.netMonthly)}</p>
+                            </div>
+                          </div>
                         </div>
-                        <Slider
-                          value={[Math.min(calcHouses, maxHouses)]}
-                          min={1}
-                          max={maxHouses}
-                          step={1}
-                          onValueChange={(v) => { setCalcAmountInput(''); setCalcHouses(v[0]); }}
-                        />
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-muted-foreground font-medium shrink-0">or amount (UGX)</span>
-                          <Input
-                            inputMode="numeric"
-                            placeholder={String(avg)}
-                            value={calcAmountInput}
-                            onChange={(e) => setCalcAmountInput(e.target.value.replace(/[^0-9]/g, ''))}
-                            className="h-8 text-xs"
-                          />
+
+                        {/* Scenario B */}
+                        <div className="rounded-lg bg-muted/40 border border-border/50 p-3 space-y-3">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Scenario B</p>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[11px] font-semibold text-foreground">Houses</p>
+                              <span className="text-sm font-black text-foreground">{calc2.houses.toLocaleString()}</span>
+                            </div>
+                            <Slider
+                              value={[Math.min(calcHouses2, calc2.maxHouses)]}
+                              min={1}
+                              max={calc2.maxHouses}
+                              step={1}
+                              onValueChange={(v) => { setCalcAmountInput2(''); setCalcHouses2(v[0]); }}
+                            />
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-muted-foreground font-medium shrink-0">or amount (UGX)</span>
+                              <Input
+                                inputMode="numeric"
+                                placeholder={String(calc2.avg)}
+                                value={calcAmountInput2}
+                                onChange={(e) => setCalcAmountInput2(e.target.value.replace(/[^0-9]/g, ''))}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <p className="text-[9px] text-muted-foreground font-medium">Funding total</p>
+                              <p className="text-xs font-black text-foreground">{formatAmountCompact(calc2.funding)}</p>
+                            </div>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="cursor-help">
+                                  <p className="text-[9px] text-muted-foreground font-medium flex items-center gap-1">
+                                    Fees <Info className="h-3 w-3 text-muted-foreground/70" />
+                                  </p>
+                                  <p className={`text-xs font-black ${calc2.serviceFee > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
+                                    {formatAmountCompact(calc2.serviceFee)}
+                                  </p>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-[16rem] text-xs leading-relaxed">
+                                Service/access fee = Funding total × service fee rate.
+                                Current rate is {(EMPTY_HOUSE_SERVICE_FEE_RATE * 100).toFixed(0)}%,
+                                so the fee is {formatAmountCompact(calc2.serviceFee)}.
+                              </TooltipContent>
+                            </Tooltip>
+                            <div>
+                              <p className="text-[9px] text-muted-foreground font-medium">Net monthly</p>
+                              <p className="text-xs font-black text-success">{formatAmountCompact(calc2.netMonthly)}</p>
+                            </div>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2">
-                        <div>
-                          <p className="text-[9px] text-muted-foreground font-medium">Funding total</p>
-                          <p className="text-xs font-black text-foreground">{formatAmountCompact(calc.funding)}</p>
-                        </div>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="cursor-help">
-                              <p className="text-[9px] text-muted-foreground font-medium flex items-center gap-1">
-                                Service/access fees <Info className="h-3 w-3 text-muted-foreground/70" />
-                              </p>
-                              <p className={`text-xs font-black ${calc.serviceFee > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
-                                {formatAmountCompact(calc.serviceFee)}
-                              </p>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-[16rem] text-xs leading-relaxed">
-                            Service/access fee = Funding total × service fee rate.
-                            Current rate is {(EMPTY_HOUSE_SERVICE_FEE_RATE * 100).toFixed(0)}%,
-                            so the fee is {formatAmountCompact(calc.serviceFee)}.
-                          </TooltipContent>
-                        </Tooltip>
-                        <div>
-                          <p className="text-[9px] text-muted-foreground font-medium">Net monthly return</p>
-                          <p className="text-xs font-black text-success">{formatAmountCompact(calc.netMonthly)}</p>
-                        </div>
+                      <div className="rounded-lg border border-border/60 bg-primary/5 p-2.5 flex items-center justify-between">
+                        <p className="text-xs font-semibold text-foreground">
+                          {calc.netMonthly === calc2.netMonthly
+                            ? 'Both scenarios have the same net monthly return'
+                            : `${calc.netMonthly > calc2.netMonthly ? 'Scenario A' : 'Scenario B'} has the higher net monthly return`}
+                        </p>
+                        <p className="text-sm font-black text-success">
+                          {formatAmountCompact(Math.abs(calc.netMonthly - calc2.netMonthly))}
+                        </p>
                       </div>
+
                       <p className="text-[9px] text-muted-foreground font-medium">
                         Estimate uses the average rent of {formatAmountCompact(calc.avg)} per empty house. Exact figures are shown per house in the picker.
                         {EMPTY_HOUSE_SERVICE_FEE_RATE <= 0 && ' No service/access fee is currently configured.'}
