@@ -1,11 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatUGX } from '@/lib/rentCalculations';
-import { Home, TrendingUp, CheckCircle2, Clock, UserCheck, Banknote } from 'lucide-react';
+import { useProfile } from '@/hooks/useProfile';
+import { EmptyHouseOpportunitiesSheet } from '@/components/agent/EmptyHouseOpportunitiesSheet';
+import { Home, TrendingUp, CheckCircle2, Clock, UserCheck, Banknote, Plus } from 'lucide-react';
+
 
 interface SupportedHouseRow {
   intent_id: string;
