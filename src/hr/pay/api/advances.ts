@@ -40,10 +40,16 @@ export async function listAdvances(): Promise<AdvanceRow[]> {
     const recoveries = (unwrap(
       await supabase
         .from('hr_pay_advance_recoveries')
-        .select('advance_id, amount')
+        .select('advance_id, amount, hr_pay_runs!hr_pay_advance_recoveries_run_id_fkey(status)')
         .in('advance_id', ids),
-    ) ?? []) as Array<{ advance_id: string; amount: number | string }>;
+    ) ?? []) as Array<{
+      advance_id: string;
+      amount: number | string;
+      hr_pay_runs: { status: string } | null;
+    }>;
     for (const r of recoveries) {
+      const runStatus = r.hr_pay_runs?.status;
+      if (runStatus !== 'approved' && runStatus !== 'paid') continue;
       recoveredById.set(
         r.advance_id,
         (recoveredById.get(r.advance_id) ?? 0) + Number(r.amount ?? 0),
