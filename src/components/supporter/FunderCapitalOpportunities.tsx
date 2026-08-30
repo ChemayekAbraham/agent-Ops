@@ -303,7 +303,7 @@ export function FunderCapitalOpportunities() {
   const { formatAmountCompact, currency, convertFromUGX, convertToUGX } = useCurrency();
   const { wallet } = useWallet();
   const walletBalance = wallet?.balance ?? 0;
-  const { opportunitySummary, loading } = useCapitalOpportunities();
+  const { opportunitySummary, emptyHouseSummary, loading } = useCapitalOpportunities();
   const { user } = useAuth();
   const { profile } = useProfile();
   const { isApproved, status: approvalStatus } = useFunderApprovalStatus(user?.id);
