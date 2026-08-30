@@ -105,5 +105,5 @@ export function useCapitalOpportunities() {
   const totalInvested = portfolios.reduce((s, p) => s + Number(p.investment_amount), 0);
   const portfolioCount = portfolios.length;
 
-  return { portfolios, totalInvested, portfolioCount, opportunitySummary, loading, refetch: fetchAll };
+  return { portfolios, totalInvested, portfolioCount, opportunitySummary, emptyHouseSummary, loading, refetch: fetchAll };
 }
