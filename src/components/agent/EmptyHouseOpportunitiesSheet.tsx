@@ -127,19 +127,56 @@ export function EmptyHouseOpportunitiesSheet({
   };
 
   const { data, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['empty-house-opportunities', debounced, page],
+    queryKey: ['empty-house-opportunities', debounced, page, district, verifiedOnly, mapPinOnly, minRent, maxRent, nearMe],
     enabled: open,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
         p_search: debounced || null,
         p_limit: PAGE_SIZE,
         p_offset: page * PAGE_SIZE,
+        p_district: district === 'all' ? null : district,
+        p_verified_only: verifiedOnly,
+        p_gps_only: mapPinOnly || Boolean(nearMe),
+        p_min_rent: minRent ? Number(minRent) : null,
+        p_max_rent: maxRent ? Number(maxRent) : null,
+        p_near_lat: nearMe?.lat ?? null,
+        p_near_lng: nearMe?.lng ?? null,
+        p_radius_km: nearMe?.radiusKm ?? null,
       });
       if (error) throw error;
-      const payload = (data ?? {}) as { total?: number; houses?: HouseOpportunity[] };
-      return { total: Number(payload.total || 0), houses: payload.houses ?? [] };
+      const payload = (data ?? {}) as { total?: number; houses?: HouseOpportunity[]; districts?: string[] };
+      return {
+        total: Number(payload.total || 0),
+        houses: payload.houses ?? [],
+        districts: payload.districts ?? [],
+      };
     },
   });
+
+  const districtOptions = data?.districts ?? [];
+  const activeFilterCount =
+    (district !== 'all' ? 1 : 0) + (verifiedOnly ? 1 : 0) + (mapPinOnly ? 1 : 0) +
+    (minRent ? 1 : 0) + (maxRent ? 1 : 0) + (nearMe ? 1 : 0);
+
+  const clearFilters = () => {
+    setDistrict('all'); setVerifiedOnly(false); setMapPinOnly(false);
+    setMinRent(''); setMaxRent(''); setNearMe(null); setPage(0);
+  };
+
+  const useMyLocation = () => {
+    if (!navigator.geolocation) { toast.error('Location is not available on this device'); return; }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setNearMe({ lat: pos.coords.latitude, lng: pos.coords.longitude, radiusKm: 10 });
+        setPage(0);
+        setLocating(false);
+      },
+      () => { setLocating(false); toast.error('Could not get your location'); },
+      { enableHighAccuracy: true, timeout: 10_000 },
+    );
+  };
+
 
   const queryClient = useQueryClient();
 
