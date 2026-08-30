@@ -39672,7 +39672,19 @@ export type Database = {
         Returns: number
       }
       agent_list_empty_house_opportunities: {
-        Args: { p_limit?: number; p_offset?: number; p_search?: string }
+        Args: {
+          p_district?: string
+          p_gps_only?: boolean
+          p_limit?: number
+          p_max_rent?: number
+          p_min_rent?: number
+          p_near_lat?: number
+          p_near_lng?: number
+          p_offset?: number
+          p_radius_km?: number
+          p_search?: string
+          p_verified_only?: boolean
+        }
         Returns: Json
       }
       agent_list_promissory_fundable_plans: {

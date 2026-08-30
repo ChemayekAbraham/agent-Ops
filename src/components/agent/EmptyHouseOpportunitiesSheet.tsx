@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Home, Loader2, Search, Check, Share2, ShieldCheck, MapPin, Users, Phone, Navigation, ImageIcon, Eye, Clock, CheckCircle2, UserCheck, Wallet } from 'lucide-react';
+import { Home, Loader2, Search, SlidersHorizontal, Check, Share2, ShieldCheck, MapPin, Users, Phone, Navigation, ImageIcon, Eye, Clock, CheckCircle2, UserCheck, Wallet } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -94,6 +94,15 @@ export function EmptyHouseOpportunitiesSheet({
   const [debounced, setDebounced] = useState('');
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Record<string, HouseOpportunity>>({});
+  const [showFilters, setShowFilters] = useState(false);
+  const [district, setDistrict] = useState('all');
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [mapPinOnly, setMapPinOnly] = useState(false);
+  const [minRent, setMinRent] = useState('');
+  const [maxRent, setMaxRent] = useState('');
+  const [nearMe, setNearMe] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+
 
   const [nameParts, setNameParts] = useState<PersonNameParts>({ firstName: '', otherNames: '', lastName: '' });
   const [whatsappNumber, setWhatsappNumber] = useState('');
@@ -124,22 +133,62 @@ export function EmptyHouseOpportunitiesSheet({
     setWhatsappNumber(''); setPhoneNumber(''); setEmail('');
     setContributionType('compounding'); setDeductionDay('1');
     setErrorMsg(null); setCreatedNote(null); setCreatedNotes([]); setSplitPerHouse(true);
+    setShowFilters(false); setDistrict('all'); setVerifiedOnly(false); setMapPinOnly(false);
+    setMinRent(''); setMaxRent(''); setNearMe(null);
+
   };
 
   const { data, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['empty-house-opportunities', debounced, page],
+    queryKey: ['empty-house-opportunities', debounced, page, district, verifiedOnly, mapPinOnly, minRent, maxRent, nearMe],
     enabled: open,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
         p_search: debounced || null,
         p_limit: PAGE_SIZE,
         p_offset: page * PAGE_SIZE,
+        p_district: district === 'all' ? null : district,
+        p_verified_only: verifiedOnly,
+        p_gps_only: mapPinOnly || Boolean(nearMe),
+        p_min_rent: minRent ? Number(minRent) : null,
+        p_max_rent: maxRent ? Number(maxRent) : null,
+        p_near_lat: nearMe?.lat ?? null,
+        p_near_lng: nearMe?.lng ?? null,
+        p_radius_km: nearMe?.radiusKm ?? null,
       });
       if (error) throw error;
-      const payload = (data ?? {}) as { total?: number; houses?: HouseOpportunity[] };
-      return { total: Number(payload.total || 0), houses: payload.houses ?? [] };
+      const payload = (data ?? {}) as { total?: number; houses?: HouseOpportunity[]; districts?: string[] };
+      return {
+        total: Number(payload.total || 0),
+        houses: payload.houses ?? [],
+        districts: payload.districts ?? [],
+      };
     },
   });
+
+  const districtOptions = data?.districts ?? [];
+  const activeFilterCount =
+    (district !== 'all' ? 1 : 0) + (verifiedOnly ? 1 : 0) + (mapPinOnly ? 1 : 0) +
+    (minRent ? 1 : 0) + (maxRent ? 1 : 0) + (nearMe ? 1 : 0);
+
+  const clearFilters = () => {
+    setDistrict('all'); setVerifiedOnly(false); setMapPinOnly(false);
+    setMinRent(''); setMaxRent(''); setNearMe(null); setPage(0);
+  };
+
+  const useMyLocation = () => {
+    if (!navigator.geolocation) { toast.error('Location is not available on this device'); return; }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setNearMe({ lat: pos.coords.latitude, lng: pos.coords.longitude, radiusKm: 10 });
+        setPage(0);
+        setLocating(false);
+      },
+      () => { setLocating(false); toast.error('Could not get your location'); },
+      { enableHighAccuracy: true, timeout: 10_000 },
+    );
+  };
+
 
   const queryClient = useQueryClient();
 
@@ -462,16 +511,120 @@ export function EmptyHouseOpportunitiesSheet({
 
 
 
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by district, village or house name"
-                className="pl-9 h-10"
-              />
+            {/* Search + filters */}
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search by landlord, district, village or house name"
+                    className="pl-9 h-10"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant={activeFilterCount > 0 ? 'default' : 'outline'}
+                  className="h-10 shrink-0 gap-1.5"
+                  onClick={() => setShowFilters((v) => !v)}
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+                </Button>
+              </div>
+
+              {showFilters && (
+                <div className="rounded-2xl border bg-muted/30 p-3 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">District</Label>
+                      <Select value={district} onValueChange={(v) => { setDistrict(v); setPage(0); }}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="All districts" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-64">
+                          <SelectItem value="all">All districts</SelectItem>
+                          {districtOptions.map((d) => (
+                            <SelectItem key={d} value={d}>{d}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">Monthly rent (UGX)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          inputMode="numeric"
+                          value={minRent}
+                          onChange={(e) => { setMinRent(e.target.value.replace(/\D/g, '')); setPage(0); }}
+                          placeholder="Min"
+                          className="h-9"
+                        />
+                        <Input
+                          inputMode="numeric"
+                          value={maxRent}
+                          onChange={(e) => { setMaxRent(e.target.value.replace(/\D/g, '')); setPage(0); }}
+                          placeholder="Max"
+                          className="h-9"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={mapPinOnly ? 'default' : 'outline'}
+                      className="h-8 gap-1.5"
+                      onClick={() => { setMapPinOnly((v) => !v); setPage(0); }}
+                    >
+                      <MapPin className="h-3.5 w-3.5" /> On the map only
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={verifiedOnly ? 'default' : 'outline'}
+                      className="h-8 gap-1.5"
+                      onClick={() => { setVerifiedOnly((v) => !v); setPage(0); }}
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5" /> Verified only
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={nearMe ? 'default' : 'outline'}
+                      className="h-8 gap-1.5"
+                      disabled={locating}
+                      onClick={() => (nearMe ? (setNearMe(null), setPage(0)) : useMyLocation())}
+                    >
+                      {locating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />}
+                      {nearMe ? `Within ${nearMe.radiusKm} km` : 'Near me'}
+                    </Button>
+                    {nearMe && (
+                      <Select
+                        value={String(nearMe.radiusKm)}
+                        onValueChange={(v) => { setNearMe({ ...nearMe, radiusKm: Number(v) }); setPage(0); }}
+                      >
+                        <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {[2, 5, 10, 25, 50].map((r) => (
+                            <SelectItem key={r} value={String(r)}>{r} km</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {activeFilterCount > 0 && (
+                      <Button type="button" size="sm" variant="ghost" className="h-8" onClick={clearFilters}>
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
+
 
             {/* Houses */}
             {isLoading ? (
