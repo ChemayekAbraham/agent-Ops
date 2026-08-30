@@ -705,6 +705,33 @@ export function EmptyHouseOpportunitiesSheet({
               )}
             </div>
 
+            {filterChips.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">Active filters</span>
+                {filterChips.map((chip) => (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    onClick={chip.onRemove}
+                    aria-label={`Remove filter ${chip.label}`}
+                    className="inline-flex items-center gap-1 rounded-full border bg-muted/60 px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                  >
+                    {chip.label}
+                    <X className="h-3 w-3 text-muted-foreground" />
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => { setSearch(''); clearFilters(); }}
+                  className="ml-1 text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
+
+
+
 
             {/* Houses */}
             {isLoading ? (
