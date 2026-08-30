@@ -29,6 +29,39 @@ const hasGps = (h: HouseOpportunity) =>
 
 const mapsUrl = (h: HouseOpportunity) => `https://www.google.com/maps/search/?api=1&query=${h.latitude},${h.longitude}`;
 
+type HouseProgress = {
+  house_id: string;
+  is_funded: boolean;
+  tenant_activated: boolean;
+  monthly_paid_this_month: boolean;
+};
+
+/** Live progress badges: funded → tenant activated → paid this month. */
+function HouseProgressBadges({ progress }: { progress?: HouseProgress }) {
+  const items = [
+    { active: Boolean(progress?.is_funded), on: 'Funded', off: 'Awaiting funding', Icon: progress?.is_funded ? CheckCircle2 : Clock },
+    { active: Boolean(progress?.tenant_activated), on: 'Tenant activated', off: 'Tenant pending', Icon: UserCheck },
+    { active: Boolean(progress?.monthly_paid_this_month), on: 'Paid this month', off: 'Monthly payment pending', Icon: Wallet },
+  ];
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {items.map(({ active, on, off, Icon }) => (
+        <Badge
+          key={on}
+          variant="outline"
+          className={`h-5 gap-1 text-[10px] ${
+            active
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600'
+              : 'border-muted-foreground/20 bg-muted text-muted-foreground'
+          }`}
+        >
+          <Icon className="h-3 w-3" /> {active ? on : off}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
 /**
  * Self support: specific EMPTY houses are matched to a partner.
  *
