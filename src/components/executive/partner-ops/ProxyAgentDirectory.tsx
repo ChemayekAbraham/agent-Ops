@@ -106,6 +106,10 @@ export function ProxyAgentDirectory() {
   const [search, setSearch] = useState('');
   const [onboardOpen, setOnboardOpen] = useState(false);
   const [status, setStatus] = useState('all');
+  const [activatedFrom, setActivatedFrom] = useState('');
+  const [activatedTo, setActivatedTo] = useState('');
+  const [contact, setContact] = useState<ProxyContactFilter>('all');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(PROXY_DIR_PAGE_SIZE);
   const [selected, setSelected] = useState<ProxyDirRow | null>(null);
@@ -115,14 +119,35 @@ export function ProxyAgentDirectory() {
 
   const query = useDebouncedValue(search, 350);
 
+  const activeFilterCount =
+    (activatedFrom ? 1 : 0) + (activatedTo ? 1 : 0) + (contact !== 'all' ? 1 : 0);
+
+  const resetPaging = () => {
+    setPage(0);
+    setChecked({});
+  };
+
+  const clearAdvanced = () => {
+    setActivatedFrom('');
+    setActivatedTo('');
+    setContact('all');
+    resetPaging();
+  };
+
   // Exactly ONE page of rows per request — never accumulates, so the screen
   // costs the same with 1,000 or 1,000,000 proxy agents.
   const pageQueries = useQuery({
-    queryKey: ['proxy-agent-directory', query, status, page, pageSize],
-    queryFn: () => fetchProxyDirectory(query, status, page * pageSize, pageSize),
+    queryKey: ['proxy-agent-directory', query, status, activatedFrom, activatedTo, contact, page, pageSize],
+    queryFn: () =>
+      fetchProxyDirectory(
+        { search: query, status, activatedFrom, activatedTo, contact },
+        page * pageSize,
+        pageSize,
+      ),
     staleTime: 30_000,
     placeholderData: (prev) => prev,
   });
+
 
   const rows = pageQueries.data?.rows ?? [];
   const kpis = pageQueries.data?.kpis;
