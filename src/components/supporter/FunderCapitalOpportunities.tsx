@@ -631,41 +631,32 @@ export function FunderCapitalOpportunities() {
               <div className="rounded-xl bg-card/80 border border-border/60 p-3">
                 <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest">Total rent needed</p>
                 <p className="text-lg font-black text-foreground tracking-tight mt-0.5">
-                  {formatAmountCompact(emptyHouseSummary?.total_rent_needed ?? 0)}
+                  UGX {(emptyHouseSummary?.total_rent_needed ?? 0).toLocaleString()}
                 </p>
               </div>
             </div>
 
-            {/* Progress: funded vs remaining */}
+            {/* Progress: remaining only */}
             {(() => {
               const s = emptyHouseSummary;
-              const listed = s?.total_listed ?? 0;
-              const funded = s?.funded_count ?? 0;
               const remaining = s?.house_count ?? 0;
-              const pct = listed > 0 ? Math.min(100, Math.round((funded / listed) * 100)) : 0;
               return (
                 <div className="rounded-xl bg-card/80 border border-border/60 p-3 space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest">Funding progress</p>
-                    <span className="text-[10px] font-black text-foreground">{pct}% funded</span>
+                    <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest">Still open</p>
+                    <span className="text-[10px] font-black text-foreground">{remaining.toLocaleString()} houses</span>
                   </div>
                   <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                    <div className="h-full rounded-full bg-success transition-all" style={{ width: `${pct}%` }} />
+                    <div className="h-full rounded-full bg-success transition-all" style={{ width: '0%' }} />
                   </div>
-                  <div className="grid grid-cols-3 gap-2 pt-0.5">
-                    <div>
-                      <p className="text-[9px] text-muted-foreground font-medium">Already funded</p>
-                      <p className="text-xs font-black text-success flex items-center gap-1">
-                        <CheckCircle2 className="h-3 w-3" />{funded.toLocaleString()}
-                      </p>
-                    </div>
+                  <div className="grid grid-cols-2 gap-2 pt-0.5">
                     <div>
                       <p className="text-[9px] text-muted-foreground font-medium">Still open</p>
                       <p className="text-xs font-black text-foreground">{remaining.toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-[9px] text-muted-foreground font-medium">Rent still needed</p>
-                      <p className="text-xs font-black text-foreground">{formatAmountCompact(s?.total_rent_needed ?? 0)}</p>
+                      <p className="text-xs font-black text-foreground">UGX {(s?.total_rent_needed ?? 0).toLocaleString()}</p>
                     </div>
                   </div>
                 </div>
