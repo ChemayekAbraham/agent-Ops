@@ -26,6 +26,8 @@ import { createShortLink } from '@/lib/createShortLink';
 
 import { PromissoryNoteDialog } from '@/components/agent/PromissoryNoteDialog';
 import { SupportModeChooserDialog, type SupportMode } from '@/components/agent/SupportModeChooserDialog';
+import { EmptyHouseOpportunitiesSheet } from '@/components/agent/EmptyHouseOpportunitiesSheet';
+
 import { WithdrawRequestDialog } from '@/components/wallet/WithdrawRequestDialog';
 import {
   useProxyCommandCenterSummary,
