@@ -226,6 +226,7 @@ const moreActions: MoreAction[] = [
   { kind: 'tool', id: 'merchant_float_requisition', label: 'Merchant Float Requisition', desc: 'Raise a merchant float funding requisition and send it to the CFO for approval', icon: HandCoins },
   { kind: 'tool', id: 'merchant_float_allocation', label: 'Float Allocation Report', desc: 'Rank merchant agents by measured withdrawal reliability & float efficiency — who to give more float, who to cut back', icon: TrendingUp },
   { kind: 'tool', id: 'user_statements', label: 'User Wallet Statements', desc: 'Search a user — see withdrawable, float, landlord float & advance statements + full profile', icon: ReceiptText },
+  { kind: 'tool', id: 'wallet_buckets', label: 'Wallet Buckets', desc: 'Withdrawable, float & advance bucket balances per wallet — spot drift and open the bucket ledger', icon: Wallet },
   { kind: 'tool', id: 'email_tx', label: 'Email Transactions', desc: 'Live transactions extracted from connected Gmail', icon: Mail },
   { kind: 'tool', id: 'auto_credit_review', label: 'Auto-Credit Review', desc: 'Confirm or reverse best-guess auto-credited deposits', icon: AlertTriangle },
   { kind: 'view', id: 'offline_collections', label: 'Offline Collections', desc: 'Drafts agents submitted with proof', icon: WifiOff },
