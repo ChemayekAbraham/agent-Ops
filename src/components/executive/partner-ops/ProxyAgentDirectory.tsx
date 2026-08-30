@@ -213,6 +213,90 @@ export function ProxyAgentDirectory() {
       toast({ title: 'Delete failed', description: e.message, variant: 'destructive' }),
   });
 
+  /**
+   * Bulk approve + notify. Each agent goes through the SAME single-agent RPC
+   * used by the onboarding dialog (so approval, role grant and audit snapshots
+   * stay identical), then gets the proxy role/benefits email. Runs 4 at a time
+   * so a large selection never floods the backend.
+   */
+  const bulkApprove = useMutation({
+    mutationFn: async () => {
+      const targets = selectedRows.length ? selectedRows : [];
+      const note = approveNote.trim() || null;
+      const today = new Date().toISOString().slice(0, 10);
+      const summary = { approved: 0, emailed: 0, skipped: 0, failed: [] as string[] };
+      setApproveProgress({ done: 0, total: targets.length });
+
+      const queue = [...targets];
+      const worker = async () => {
+        for (;;) {
+          const r = queue.shift();
+          if (!r) return;
+          try {
+            const { data, error } = await supabase.rpc('partner_ops_onboard_proxy_agent', {
+              p_agent_user_id: r.agent_user_id,
+              p_nin: null,
+              p_notes: note,
+            });
+            if (error) throw new Error(error.message);
+            summary.approved += 1;
+            const res = (data ?? {}) as { email?: string | null; full_name?: string | null };
+            const recipientEmail = (res.email ?? r.email ?? '').trim();
+            if (recipientEmail) {
+              const { error: mailError } = await supabase.functions.invoke('send-transactional-email', {
+                body: {
+                  templateName: 'proxy-agent-onboarded',
+                  recipientEmail,
+                  idempotencyKey: `proxy-agent-onboarded-${r.agent_user_id}-${today}`,
+                  templateData: {
+                    recipient_name: res.full_name ?? r.name ?? 'there',
+                    onboarded_on: new Date().toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: 'long',
+                      year: 'numeric',
+                    }),
+                  },
+                },
+              });
+              if (mailError) summary.skipped += 1;
+              else summary.emailed += 1;
+            } else {
+              summary.skipped += 1;
+            }
+          } catch (err) {
+            summary.failed.push(`${r.name}: ${err instanceof Error ? err.message : 'failed'}`);
+          } finally {
+            setApproveProgress((p) => ({ done: p.done + 1, total: p.total }));
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(4, targets.length) }, worker));
+      return summary;
+    },
+    onSuccess: (res) => {
+      toast({
+        title: res.failed.length ? 'Finished with some problems' : 'Proxy agents approved',
+        description: `${res.approved} approved · ${res.emailed} emailed · ${res.skipped} without a reachable email${
+          res.failed.length ? ` · ${res.failed.length} failed` : ''
+        }`,
+        variant: res.failed.length ? 'destructive' : undefined,
+      });
+      setApproveResults(res.failed);
+      if (!res.failed.length) {
+        setApproveOpen(false);
+        setApproveNote('');
+        setChecked({});
+      }
+      void qc.invalidateQueries({ queryKey: ['proxy-agent-directory'] });
+      void qc.invalidateQueries({ queryKey: ['proxy-agent-detail'] });
+      void qc.invalidateQueries({ queryKey: ['proxy-onboarding-audit'] });
+    },
+    onError: (e: any) =>
+      toast({ title: 'Bulk approval failed', description: e.message, variant: 'destructive' }),
+  });
+
+
+
   const goToPage = (p: number) => {
     setPage(Math.min(Math.max(0, p), totalPages - 1));
     setChecked({});
