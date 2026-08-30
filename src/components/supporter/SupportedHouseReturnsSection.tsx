@@ -174,13 +174,13 @@ export function SupportedHouseReturnsSection() {
             <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
               Your 15% each month
             </p>
-            <p className="text-xl font-black text-primary">{formatUGX(data.total_monthly_return)}</p>
+            <p className="text-xl font-black text-primary">{formatUGX(data?.total_monthly_return ?? 0)}</p>
           </div>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
               Over 12 months
             </p>
-            <p className="text-xl font-black text-foreground">{formatUGX(data.total_annual_return)}</p>
+            <p className="text-xl font-black text-foreground">{formatUGX(data?.total_annual_return ?? 0)}</p>
           </div>
         </div>
         <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-snug text-muted-foreground">
