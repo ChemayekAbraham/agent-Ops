@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
@@ -322,6 +322,22 @@ export function FunderCapitalOpportunities() {
   const [breakdownSort, setBreakdownSort] = useState<'rent' | 'houses'>('rent');
   const [breakdownTopN, setBreakdownTopN] = useState<6 | 12 | 0>(6); // 0 = all
 
+  // Shared calculator derivation — used by the calculator UI and to pre-fill the picker
+  const calc = useMemo(() => {
+    const s = emptyHouseSummary;
+    const avg = Math.max(1, s?.avg_monthly_rent ?? 0);
+    const maxHouses = Math.max(1, Math.min(s?.house_count ?? 1, 100));
+    const typed = parseInt(calcAmountInput.replace(/[^0-9]/g, ''), 10);
+    const usingAmount = !isNaN(typed) && typed > 0;
+    const houses = usingAmount
+      ? Math.max(1, Math.min(Math.round(typed / avg), s?.house_count ?? 1))
+      : Math.min(calcHouses, maxHouses);
+    const funding = usingAmount ? typed : houses * avg;
+    const monthly = Math.round(funding * 0.15);
+    return { avg, maxHouses, typed, usingAmount, houses, funding, monthly };
+  }, [emptyHouseSummary, calcAmountInput, calcHouses]);
+
+
   const handleAngelAmountChange = (val: string) => {
     const num = parseInt(val.replace(/[^0-9]/g, ''), 10);
     if (isNaN(num)) { setAngelAmount(0); return; }
@@ -606,16 +622,7 @@ export function FunderCapitalOpportunities() {
 
             {/* Calculator: pick how many houses (or an amount) and see the return */}
             {(() => {
-              const s = emptyHouseSummary;
-              const avg = Math.max(1, s?.avg_monthly_rent ?? 0);
-              const maxHouses = Math.max(1, Math.min(s?.house_count ?? 1, 100));
-              const typed = parseInt(calcAmountInput.replace(/[^0-9]/g, ''), 10);
-              const usingAmount = !isNaN(typed) && typed > 0;
-              const houses = usingAmount
-                ? Math.max(1, Math.min(Math.round(typed / avg), s?.house_count ?? 1))
-                : Math.min(calcHouses, maxHouses);
-              const funding = usingAmount ? typed : houses * avg;
-              const monthly = Math.round(funding * 0.15);
+              const { avg, maxHouses, houses, funding, monthly } = calc;
               return (
                 <div className="rounded-xl bg-card/80 border border-border/60 p-3 space-y-3">
                   <button
@@ -680,11 +687,21 @@ export function FunderCapitalOpportunities() {
                           <p className="text-xs font-black text-success">{formatAmountCompact(monthly * 12)}</p>
                         </div>
                       </div>
-                      <p className="text-[9px] text-muted-foreground font-medium">
-                        Estimate uses the average rent of {formatAmountCompact(avg)} per empty house. Exact figures are shown per house in the picker.
-                      </p>
-                    </div>
-                  )}
+                       <p className="text-[9px] text-muted-foreground font-medium">
+                         Estimate uses the average rent of {formatAmountCompact(avg)} per empty house. Exact figures are shown per house in the picker.
+                       </p>
+                       <Button
+                         variant="outline"
+                         className="h-9 w-full gap-2 rounded-xl text-xs font-bold"
+                         onClick={() => { hapticTap(); setHousePickerOpen(true); }}
+                       >
+                         <Home className="h-3.5 w-3.5" />
+                         {calc.usingAmount
+                           ? `See houses up to ${formatAmountCompact(calc.typed)}`
+                           : `Pick ${calc.houses.toLocaleString()} ${calc.houses === 1 ? 'house' : 'houses'}`}
+                       </Button>
+                     </div>
+                   )}
                 </div>
               );
             })()}
@@ -820,6 +837,8 @@ export function FunderCapitalOpportunities() {
           selfName={profile?.full_name ?? null}
           selfPhone={(profile as { phone?: string } | null)?.phone ?? null}
           selfEmail={(profile as { email?: string } | null)?.email ?? null}
+          initialMaxRent={calc.usingAmount ? calc.typed : null}
+          projection={{ houses: calc.houses, funding: calc.funding, monthly: calc.monthly }}
         />
       </DetailShell>
     );
