@@ -111,18 +111,30 @@ function KpiCard({
   );
 }
 
+/** Read one shareable-view parameter out of the current address bar. */
+function linkParam(key: string): string {
+  if (typeof window === 'undefined') return '';
+  return new URLSearchParams(window.location.search).get(key) ?? '';
+}
+
 export function ProxyAgentDirectory() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => linkParam('pd_q'));
   const [onboardOpen, setOnboardOpen] = useState(false);
-  const [status, setStatus] = useState('all');
-  const [activatedFrom, setActivatedFrom] = useState('');
-  const [activatedTo, setActivatedTo] = useState('');
-  const [contact, setContact] = useState<ProxyContactFilter>('all');
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(PROXY_DIR_PAGE_SIZE);
+  const [status, setStatus] = useState(() => linkParam('pd_status') || 'all');
+  const [activatedFrom, setActivatedFrom] = useState(() => linkParam('pd_from'));
+  const [activatedTo, setActivatedTo] = useState(() => linkParam('pd_to'));
+  const [contact, setContact] = useState<ProxyContactFilter>(
+    () => (linkParam('pd_contact') || 'all') as ProxyContactFilter,
+  );
+  const [advancedOpen, setAdvancedOpen] = useState(
+    () => !!(linkParam('pd_from') || linkParam('pd_to') || linkParam('pd_contact')),
+  );
+  const [page, setPage] = useState(() => Math.max(0, Number(linkParam('pd_page') || 1) - 1));
+  const [pageSize, setPageSize] = useState(
+    () => Number(linkParam('pd_size')) || PROXY_DIR_PAGE_SIZE,
+  );
   const [selected, setSelected] = useState<ProxyDirRow | null>(null);
   const [quickView, setQuickView] = useState<ProxyDirRow | null>(null);
 
@@ -134,6 +146,7 @@ export function ProxyAgentDirectory() {
   const [approveProgress, setApproveProgress] = useState({ done: 0, total: 0 });
   const [approveResults, setApproveResults] = useState<string[]>([]);
   const [exporting, setExporting] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
 
 
