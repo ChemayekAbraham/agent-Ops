@@ -600,14 +600,22 @@ export function ProxyAgentDirectory() {
                 <span className="col-span-2 text-right">Partners in</span>
                 <span className="col-span-2 text-right">Joined / Referred by</span>
               </div>
-              <ul className="divide-y">
-                {rows.map((r) => (
+              <div ref={listRef} className={cn(virtualize && 'max-h-[70vh] overflow-y-auto')}>
+              <ul
+                className={cn('divide-y', virtualize && 'relative divide-y-0')}
+                style={virtualize ? { height: virtualizer.getTotalSize() } : undefined}
+              >
+                {renderList.map(({ r, v }) => (
                   <li
                     key={r.agent_user_id}
+                    data-index={v?.index}
+                    ref={v ? virtualizer.measureElement : undefined}
                     className={cn(
-                      'grid grid-cols-1 items-center gap-2 px-4 py-3 transition-colors hover:bg-muted/50 md:grid-cols-12',
+                      'grid grid-cols-1 items-center gap-2 border-b px-4 py-3 transition-colors hover:bg-muted/50 md:grid-cols-12',
                       checked[r.agent_user_id] && 'bg-primary/5',
+                      v && 'absolute left-0 top-0 w-full',
                     )}
+                    style={v ? { transform: `translateY(${v.start}px)` } : undefined}
                   >
                     <div className="hidden md:col-span-1 md:flex md:items-center">
                       <Checkbox
