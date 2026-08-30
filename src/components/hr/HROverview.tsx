@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Users, CalendarDays, Banknote, AlertTriangle, UserCog, ClipboardList,
-  FileText, TrendingUp, Activity, ChevronRight
+  FileText, TrendingUp, Activity, ChevronRight, Building2
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -82,6 +82,33 @@ export default function HROverview({ onNavigate }: HROverviewProps) {
     },
   });
 
+  const { data: deptsStaffed = 0 } = useQuery({
+    queryKey: ['hr-departments-staffed'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('hr_metric_snapshots')
+        .select('inputs_snapshot')
+        .eq('subject_kind', 'org')
+        .eq('metric_key', 'headcount')
+        .order('period_start', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      const snap = data?.inputs_snapshot as { departments_staffed?: number } | null;
+      return Number(snap?.departments_staffed ?? 0);
+    },
+  });
+
+  const { data: deptTotal = 0 } = useQuery({
+    queryKey: ['hr-departments-total'],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from('hr_departments')
+        .select('*', { count: 'exact', head: true });
+      return count || 0;
+    },
+  });
+
   const { data: openPayRuns = 0 } = useQuery({
     queryKey: ['hr-open-pay-runs'],
     queryFn: async () => {
@@ -126,6 +153,7 @@ export default function HROverview({ onNavigate }: HROverviewProps) {
     { label: 'Staff Members', value: staffCount, icon: Users, color: 'bg-primary/10 text-primary' },
     { label: 'Pending Leave', value: pendingLeave, icon: CalendarDays, color: 'bg-warning/10 text-warning', alert: pendingLeave > 0 },
     { label: 'Active Cases', value: activeDisciplinary, icon: AlertTriangle, color: 'bg-destructive/10 text-destructive', alert: activeDisciplinary > 0 },
+    { label: 'Departments Staffed', value: deptTotal > 0 ? `${deptsStaffed} of ${deptTotal}` : deptsStaffed, icon: Building2, color: 'bg-accent/50 text-accent-foreground' },
   ];
 
   const quickNavItems = [
