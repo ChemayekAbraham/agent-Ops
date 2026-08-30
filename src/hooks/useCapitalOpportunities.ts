@@ -3,6 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import type { OpportunitySummary } from '@/hooks/useOpportunitySummary';
 
+export interface EmptyHouseOpportunitySummary {
+  house_count: number;
+  total_rent_needed: number;
+  monthly_return_if_all_funded: number;
+}
+
 export interface PortfolioRecord {
   id: string;
   investment_amount: number;
