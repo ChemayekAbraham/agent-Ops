@@ -209,15 +209,22 @@ export function EmptyHouseDetailSheet({
           </div>
 
           {/* Landlord */}
-          <div className="rounded-2xl border p-4 space-y-2">
-            <p className="text-xs font-bold">Landlord</p>
-            <p className="text-sm font-semibold">{house.landlord_name || 'Name not on file'}</p>
+          <div className="rounded-2xl border border-primary/15 bg-primary/5 p-4 space-y-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-primary/80">Landlord</p>
+            <p className="text-base font-bold leading-tight">{house.landlord_name || 'Name not on file'}</p>
             {house.landlord_phone ? (
-              <Button asChild variant="outline" size="sm" className="h-9 w-full gap-1.5 text-[12px]">
-                <a href={`tel:${house.landlord_phone}`}>
-                  <Phone className="h-3.5 w-3.5" /> {house.landlord_phone}
-                </a>
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button asChild variant="outline" size="sm" className="h-10 gap-1.5 text-[12px]">
+                  <a href={`tel:${house.landlord_phone}`}>
+                    <Phone className="h-3.5 w-3.5" /> Call
+                  </a>
+                </Button>
+                <Button asChild variant="secondary" size="sm" className="h-10 gap-1.5 text-[12px]">
+                  <a href={`sms:${house.landlord_phone}`}>
+                    <MessageSquare className="h-3.5 w-3.5" /> Message
+                  </a>
+                </Button>
+              </div>
             ) : (
               <p className="text-[11px] text-muted-foreground">No contact on file.</p>
             )}
@@ -226,9 +233,20 @@ export function EmptyHouseDetailSheet({
           {/* Map */}
           <div className="rounded-2xl border p-4 space-y-2">
             <p className="text-xs font-bold">GPS location</p>
+            {(house.landlord_name || house.landlord_phone) && (
+              <div className="rounded-xl border border-primary/15 bg-primary/5 p-3 space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-primary/80">Landlord on this map</p>
+                <p className="text-sm font-bold">{house.landlord_name || 'Name not on file'}</p>
+                {house.landlord_phone && (
+                  <p className="flex items-center gap-1.5 text-sm font-bold text-primary">
+                    <Phone className="h-3.5 w-3.5 shrink-0" /> {house.landlord_phone}
+                  </p>
+                )}
+              </div>
+            )}
             {gps ? (
               <>
-                <div className="overflow-hidden rounded-xl border">
+                <div className="relative overflow-hidden rounded-xl border">
                   <iframe
                     title={`Map for ${house.title || 'empty house'}`}
                     src={`https://www.google.com/maps?q=${house.latitude},${house.longitude}&z=15&output=embed`}
@@ -236,6 +254,16 @@ export function EmptyHouseDetailSheet({
                     referrerPolicy="no-referrer-when-downgrade"
                     className="h-48 w-full border-0"
                   />
+                  {(house.landlord_name || house.landlord_phone) && (
+                    <div className="absolute left-2 top-2 max-w-[calc(100%-1rem)] rounded-lg border border-primary/15 bg-background/95 px-2.5 py-1.5 shadow-sm">
+                      <p className="text-[10px] font-bold truncate">{house.landlord_name || 'Landlord'}</p>
+                      {house.landlord_phone && (
+                        <p className="flex items-center gap-1 text-[10px] font-semibold text-primary">
+                          <Phone className="h-3 w-3" /> {house.landlord_phone}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[10px] text-muted-foreground">
