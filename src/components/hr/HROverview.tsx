@@ -82,20 +82,23 @@ export default function HROverview({ onNavigate }: HROverviewProps) {
     },
   });
 
-  const { data: deptsStaffed = 0 } = useQuery({
+  const { data: deptsStaffed = { count: 0, asOf: null as string | null } } = useQuery({
     queryKey: ['hr-departments-staffed'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('hr_metric_snapshots')
-        .select('inputs_snapshot')
+        .select('inputs_snapshot, period_end')
         .eq('subject_kind', 'org')
         .eq('metric_key', 'headcount')
         .order('period_start', { ascending: false })
         .limit(1)
         .maybeSingle();
       if (error) throw new Error(error.message);
-      const snap = data?.inputs_snapshot as { departments_staffed?: number } | null;
-      return Number(snap?.departments_staffed ?? 0);
+      const snap = data?.inputs_snapshot as { departments_staffed?: number; as_of?: string } | null;
+      return {
+        count: Number(snap?.departments_staffed ?? 0),
+        asOf: (snap?.as_of ?? data?.period_end ?? null) as string | null,
+      };
     },
   });
 
