@@ -46349,6 +46349,7 @@ export type Database = {
         Args: { p_commitment_id: string }
         Returns: Json
       }
+      partner_supported_house_returns: { Args: never; Returns: Json }
       pause_agent_advance: {
         Args: { p_advance_id: string; p_reason: string }
         Returns: Json
