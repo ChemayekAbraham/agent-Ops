@@ -119,6 +119,10 @@ export function ProxyAgentDirectory() {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [reason, setReason] = useState('');
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [approveNote, setApproveNote] = useState('');
+  const [approveProgress, setApproveProgress] = useState({ done: 0, total: 0 });
+  const [approveResults, setApproveResults] = useState<string[]>([]);
 
   const query = useDebouncedValue(search, 350);
 
