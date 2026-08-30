@@ -56,7 +56,9 @@ import {
   fetchProxyDirectory,
   proxyInitials,
   proxyStatusTone,
+  PROXY_CONTACT_FILTERS,
   PROXY_DIR_PAGE_SIZE,
+  type ProxyContactFilter,
   type ProxyDirRow,
 } from './proxyAgentDirectory';
 import { ProxyAgentDetailPanel } from './ProxyAgentDetailPanel';
