@@ -93,6 +93,7 @@ export function ProxyAgentDirectory() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [search, setSearch] = useState('');
+  const [onboardOpen, setOnboardOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [pages, setPages] = useState(1);
@@ -203,16 +204,24 @@ export function ProxyAgentDirectory() {
             Bio data, promissory notes, linked partners and earnings for every proxy agent.
           </p>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-8 text-xs"
-          onClick={() => qc.invalidateQueries({ queryKey: ['proxy-agent-directory'] })}
-        >
-          <RefreshCw className={cn('mr-1.5 h-3.5 w-3.5', pageQueries.isFetching && 'animate-spin')} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" className="h-8 text-xs" onClick={() => setOnboardOpen(true)}>
+            <UserPlus className="mr-1.5 h-3.5 w-3.5" />
+            Onboard Proxy Agent
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={() => qc.invalidateQueries({ queryKey: ['proxy-agent-directory'] })}
+          >
+            <RefreshCw className={cn('mr-1.5 h-3.5 w-3.5', pageQueries.isFetching && 'animate-spin')} />
+            Refresh
+          </Button>
+        </div>
       </div>
+
+      <OnboardProxyAgentDialog open={onboardOpen} onOpenChange={setOnboardOpen} />
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
