@@ -33,6 +33,9 @@ import { useProfile } from '@/hooks/useProfile';
 type OptionKey = 'managed' | 'direct' | 'angel';
 type ViewState = 'menu' | OptionKey;
 
+// Configurable service/access fee on empty-house funding (rate on one-month funding).
+const EMPTY_HOUSE_SERVICE_FEE_RATE = 0;
+
 // Steps shown in the collapsible "How it works" explainer on Support Tenants Directly.
 const MANAGED_FUNDING_STEPS: HowItWorksStep[] = [
   {
@@ -334,7 +337,9 @@ export function FunderCapitalOpportunities() {
       : Math.min(calcHouses, maxHouses);
     const funding = usingAmount ? typed : houses * avg;
     const monthly = Math.round(funding * 0.15);
-    return { avg, maxHouses, typed, usingAmount, houses, funding, monthly };
+    const serviceFee = Math.round(funding * EMPTY_HOUSE_SERVICE_FEE_RATE);
+    const netMonthly = monthly - serviceFee;
+    return { avg, maxHouses, typed, usingAmount, houses, funding, monthly, serviceFee, netMonthly };
   }, [emptyHouseSummary, calcAmountInput, calcHouses]);
 
 
@@ -668,21 +673,24 @@ export function FunderCapitalOpportunities() {
 
                       <div className="grid grid-cols-3 gap-2">
                         <div>
-                          <p className="text-[9px] text-muted-foreground font-medium">You fund (1 month)</p>
-                          <p className="text-xs font-black text-foreground">{formatAmountCompact(funding)}</p>
+                          <p className="text-[9px] text-muted-foreground font-medium">Funding total</p>
+                          <p className="text-xs font-black text-foreground">{formatAmountCompact(calc.funding)}</p>
                         </div>
                         <div>
-                          <p className="text-[9px] text-muted-foreground font-medium">You earn / month</p>
-                          <p className="text-xs font-black text-success">{formatAmountCompact(monthly)}</p>
+                          <p className="text-[9px] text-muted-foreground font-medium">Service/access fees</p>
+                          <p className={`text-xs font-black ${calc.serviceFee > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
+                            {formatAmountCompact(calc.serviceFee)}
+                          </p>
                         </div>
                         <div>
-                          <p className="text-[9px] text-muted-foreground font-medium">Over 12 months</p>
-                          <p className="text-xs font-black text-success">{formatAmountCompact(monthly * 12)}</p>
+                          <p className="text-[9px] text-muted-foreground font-medium">Net monthly return</p>
+                          <p className="text-xs font-black text-success">{formatAmountCompact(calc.netMonthly)}</p>
                         </div>
                       </div>
-                       <p className="text-[9px] text-muted-foreground font-medium">
-                         Estimate uses the average rent of {formatAmountCompact(avg)} per empty house. Exact figures are shown per house in the picker.
-                       </p>
+                      <p className="text-[9px] text-muted-foreground font-medium">
+                        Estimate uses the average rent of {formatAmountCompact(calc.avg)} per empty house. Exact figures are shown per house in the picker.
+                        {EMPTY_HOUSE_SERVICE_FEE_RATE <= 0 && ' No service/access fee is currently configured.'}
+                      </p>
                        <Button
                          variant="outline"
                          className="h-9 w-full gap-2 rounded-xl text-xs font-bold"
