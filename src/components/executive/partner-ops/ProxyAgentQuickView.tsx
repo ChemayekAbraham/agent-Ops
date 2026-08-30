@@ -51,6 +51,8 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   onOpenFullProfile: (agent: ProxyDirRow) => void;
   onOpenAudit: (agent: ProxyDirRow) => void;
+  /** Copy a shareable link that reopens this list with the agent preselected. */
+  onCopyLink?: (agent: ProxyDirRow) => void;
 }
 
 export function ProxyAgentQuickView({
@@ -59,6 +61,7 @@ export function ProxyAgentQuickView({
   onOpenChange,
   onOpenFullProfile,
   onOpenAudit,
+  onCopyLink,
 }: Props) {
   const month = thisMonth();
   const overview = useQuery({
