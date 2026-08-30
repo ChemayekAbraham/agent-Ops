@@ -655,6 +655,25 @@ export function FunderCapitalOpportunities() {
                   <Share2 className="h-3.5 w-3.5" />
                   Share
                 </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 gap-1.5 text-[11px] font-bold px-2"
+                  onClick={async () => {
+                    hapticTap();
+                    const url = `${window.location.origin}/dashboard/funder`;
+                    try {
+                      await navigator.clipboard.writeText(url);
+                      toast.success('Link copied — paste it anywhere to share');
+                    } catch {
+                      toast.error('Could not copy link. Please try again.');
+                    }
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  Copy link
+                </Button>
                 <div className="rounded-xl bg-primary/15 p-2.5 text-primary">
                   <Home className="h-5 w-5" />
                 </div>
