@@ -780,7 +780,11 @@ export function FunderCapitalOpportunities() {
                         <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
                           <div
                             className="h-full rounded-full bg-primary"
-                            style={{ width: `${Math.max(4, Math.round((r.total_rent_needed / maxRent) * 100))}%` }}
+                            style={{
+                              width: `${Math.max(4, Math.round(((breakdownSort === 'rent'
+                                ? r.total_rent_needed / maxRent
+                                : r.house_count / maxHouses) * 100)))}%`,
+                            }}
                           />
                         </div>
                         <div className="flex items-center justify-between text-[9px] font-medium">
