@@ -453,11 +453,37 @@ export default function ProxyAgentCommandCenter() {
             )}
 
             <Pager page={pPage} pages={partnerPages} total={partnerTotal} onChange={setPPage} />
+              </div>
+            </details>
           </TabsContent>
 
-          {/* Promissory notes */}
-          <TabsContent value="notes" className="space-y-2 pt-2">
+          {/* ---------------- REGISTER PROMISSORY NOTES ---------------- */}
+          <TabsContent value="notes" className="space-y-2 pt-3">
+            <Card className="border-primary/30">
+              <CardContent className="p-4 space-y-3">
+                <div>
+                  <p className="text-sm font-semibold">Register a promissory note</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Record a partner commitment and earn your note reward once it is activated.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    className="flex-1 h-11 gap-2 font-semibold"
+                    onClick={() => { hapticTap(); setSupportModeOpen(true); }}
+                  >
+                    <FileText className="h-4 w-4" /> New promissory note
+                  </Button>
+                  <Button variant="outline" onClick={openInviteSheet} className="h-11 gap-2">
+                    {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+                    <span className="hidden sm:inline">Share link</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
             <div className="flex gap-2">
+
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
