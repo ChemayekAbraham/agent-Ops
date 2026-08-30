@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Home, Loader2, Search, Check, Share2, ShieldCheck, MapPin, Users, Phone, Navigation, ImageIcon, Eye } from 'lucide-react';
+import { Home, Loader2, Search, Check, Share2, ShieldCheck, MapPin, Users, Phone, Navigation, ImageIcon, Eye, Clock, CheckCircle2, UserCheck, Wallet } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -28,6 +28,39 @@ const hasGps = (h: HouseOpportunity) =>
   typeof h.latitude === 'number' && typeof h.longitude === 'number' && (h.latitude !== 0 || h.longitude !== 0);
 
 const mapsUrl = (h: HouseOpportunity) => `https://www.google.com/maps/search/?api=1&query=${h.latitude},${h.longitude}`;
+
+type HouseProgress = {
+  house_id: string;
+  is_funded: boolean;
+  tenant_activated: boolean;
+  monthly_paid_this_month: boolean;
+};
+
+/** Live progress badges: funded → tenant activated → paid this month. */
+function HouseProgressBadges({ progress }: { progress?: HouseProgress }) {
+  const items = [
+    { active: Boolean(progress?.is_funded), on: 'Funded', off: 'Awaiting funding', Icon: progress?.is_funded ? CheckCircle2 : Clock },
+    { active: Boolean(progress?.tenant_activated), on: 'Tenant activated', off: 'Tenant pending', Icon: UserCheck },
+    { active: Boolean(progress?.monthly_paid_this_month), on: 'Paid this month', off: 'Monthly payment pending', Icon: Wallet },
+  ];
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {items.map(({ active, on, off, Icon }) => (
+        <Badge
+          key={on}
+          variant="outline"
+          className={`h-5 gap-1 text-[10px] ${
+            active
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600'
+              : 'border-muted-foreground/20 bg-muted text-muted-foreground'
+          }`}
+        >
+          <Icon className="h-3 w-3" /> {active ? on : off}
+        </Badge>
+      ))}
+    </div>
+  );
+}
 
 /**
  * Self support: specific EMPTY houses are matched to a partner.
@@ -107,6 +140,39 @@ export function EmptyHouseOpportunitiesSheet({
       return { total: Number(payload.total || 0), houses: payload.houses ?? [] };
     },
   });
+
+  const queryClient = useQueryClient();
+
+  // Live funding / tenant / payout progress for houses this user already supports.
+  const { data: progressRows } = useQuery({
+    queryKey: ['empty-house-progress'],
+    enabled: open,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('partner_supported_house_returns');
+      if (error) throw error;
+      const payload = (data ?? {}) as { houses?: HouseProgress[] };
+      return payload.houses ?? [];
+    },
+    staleTime: 30_000,
+  });
+
+  const progressByHouse = useMemo(() => {
+    const map: Record<string, HouseProgress> = {};
+    for (const row of progressRows ?? []) if (row?.house_id) map[row.house_id] = row;
+    return map;
+  }, [progressRows]);
+
+  useEffect(() => {
+    if (!open) return;
+    const invalidate = () => { queryClient.invalidateQueries({ queryKey: ['empty-house-progress'] }); };
+    const channel = supabase
+      .channel('empty-house-progress')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'promissory_note_house_intents' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'promissory_notes' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_landlord_payouts' }, invalidate)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [open, queryClient]);
 
   const houses = data?.houses ?? [];
   const total = data?.total ?? 0;
@@ -481,6 +547,9 @@ export function EmptyHouseOpportunitiesSheet({
                                 <Users className="h-3 w-3" /> {h.listing_agent_name} places the tenant once funded
                               </p>
                             )}
+                            <div className="pt-0.5">
+                              <HouseProgressBadges progress={progressByHouse[h.house_id]} />
+                            </div>
                           </div>
                         </div>
                       </button>
