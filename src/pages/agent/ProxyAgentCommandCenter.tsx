@@ -78,6 +78,8 @@ export default function ProxyAgentCommandCenter() {
   const agentId = user?.id ?? null;
 
   const [tab, setTab] = useState<'partners' | 'notes'>('partners');
+  const [mainTab, setMainTab] = useState<'share' | 'notes' | 'more'>('share');
+
 
   // Partner list controls
   const [pSearch, setPSearch] = useState('');
@@ -276,149 +278,87 @@ export default function ProxyAgentCommandCenter() {
       </header>
 
       <main className="px-3 pt-3 space-y-3">
-        {/* Headline figures */}
-        {summaryQ.isLoading ? (
-          <div className="grid grid-cols-2 gap-2">
-            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}
-          </div>
-        ) : summaryQ.error ? (
-          <Card><CardContent className="p-4 text-sm text-destructive">
-            {(summaryQ.error as Error).message}
-          </CardContent></Card>
-        ) : s ? (
-          <>
-            {/* PRIORITY — target set by Partner Ops + one-tap partner onboarding link */}
-            <Card className="sticky top-[57px] z-20 border-primary/30 shadow-sm bg-card">
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 text-primary">
-                      <Target className="h-3.5 w-3.5" />
-                      <span className="text-[10px] font-semibold uppercase tracking-wider">
-                        Your monthly target
-                      </span>
-                    </div>
-                    <p className="mt-1 text-2xl font-semibold leading-none">
-                      {s.partners.this_month}
-                      <span className="text-base font-normal text-muted-foreground">
-                        {' '}/ {s.targets.monthly_partner_target} partners
-                      </span>
-                    </p>
-                    <p className="mt-1 text-[11px] text-muted-foreground">Set by Partner Ops</p>
-                  </div>
-                  <Badge variant="outline" className="shrink-0 border-primary/30 text-primary text-[10px]">
-                    {s.targets.month_progress_pct}%
-                  </Badge>
-                </div>
-
-                <Progress value={s.targets.month_progress_pct} className="h-1.5" />
-
-                <div className="grid grid-cols-3 divide-x divide-border rounded-lg border border-border">
-                  {[
-                    { label: 'Today', value: s.partners.today },
-                    { label: 'This week', value: s.partners.this_week },
-                    { label: 'This month', value: s.partners.this_month },
-                  ].map((c) => (
-                    <div key={c.label} className="px-2 py-2 text-center">
-                      <div className="text-base font-semibold leading-none">{c.value}</div>
-                      <div className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">{c.label}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex gap-2">
-                  <Button onClick={openInviteSheet} className="flex-1 h-11 gap-2 font-semibold">
-                    {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
-                    Share partner link
-                  </Button>
-                  <Button variant="outline" onClick={handleCopyInvite} className="h-11 gap-2">
-                    <Copy className="h-4 w-4" />
-                    {inviteCopied ? 'Copied' : 'Copy'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Headline figures — one calm grid, no competing colours */}
-            <Card>
-              <CardContent className="p-0 grid grid-cols-2 divide-x divide-y divide-border sm:grid-cols-4">
-                <Metric icon={Users} label="Partners" value={String(s.partners.onboarded)}
-                  hint={`${s.invites.shared} invites shared`} />
-                <Metric icon={UserCheck} label="Came in" value={String(s.partners.came_in)}
-                  hint={money(s.partners.total_funded)} />
-                <Metric icon={Repeat} label="Returning" value={String(s.partners.returning)}
-                  hint="2+ portfolios" />
-                <Metric icon={FileText} label="Promissory" value={String(s.notes.total)}
-                  hint={`${s.notes.pending} pending · ${money(s.notes.total_amount)}`} />
-                <Metric icon={HandCoins} label="Pending" value={money(s.pending_commission.amount)}
-                  hint={`${s.pending_commission.pending_notes} × ${money(s.pending_commission.rate_per_note)}`} />
-                <Metric icon={BarChart3} label="Earnings" value={money(s.earnings.total)}
-                  hint={`${money(s.commission.this_month)} this month`} />
-                <Metric icon={Wallet} label="Withdrawable" value={money(s.earnings.withdrawable)}
-                  hint="Earned commission" />
-                <Metric icon={Target} label="Target" value={`${s.partners.this_month}/${s.targets.monthly_partner_target}`}
-                  hint="This month" />
-              </CardContent>
-            </Card>
-
-            {/* Actions */}
-            <div className="grid grid-cols-4 gap-2">
-              {quickActions.map((a) => (
-                <button
-                  key={a.key}
-                  onClick={a.onClick}
-                  className="flex flex-col items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 py-2.5 text-[10px] font-medium text-foreground hover:bg-muted/60 active:scale-[0.98] transition"
-                >
-                  {a.key === 'invite' && inviting
-                    ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                    : <a.icon className="h-4 w-4 text-muted-foreground" />}
-                  {a.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Commission breakdown */}
-            <Card>
-              <CardContent className="p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Commission breakdown
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">Lifetime</span>
-                </div>
-                <div className="space-y-1">
-                  {[
-                    { label: `Funding (${s.rates.investment_commission_pct}%)`, value: s.commission.two_percent },
-                    { label: `Partner deposit (${s.rates.partner_deposit_commission_pct}%)`, value: s.commission.one_percent },
-                    { label: `Promissory notes (${money(s.rates.note_reward)} each)`, value: s.commission.note_rewards },
-                  ].map((row) => (
-                    <div key={row.label} className="flex items-start justify-between gap-3 border-b border-border/60 py-1.5 last:border-0">
-                      <span className="text-xs text-muted-foreground leading-snug">{row.label}</span>
-                      <span className="text-xs font-semibold text-right break-words">{money(row.value)}</span>
-                    </div>
-                  ))}
-                  <div className="flex items-center justify-between pt-1.5">
-                    <span className="text-xs font-semibold">Total commission</span>
-                    <span className="text-sm font-semibold text-primary">{money(s.commission.total)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </>
-        ) : null}
-
-
-
-        {/* Lists */}
-        <Tabs value={tab} onValueChange={(v) => setTab(v as 'partners' | 'notes')}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="partners">Partners ({partnerTotal})</TabsTrigger>
+        <Tabs
+          value={tab === 'notes' ? 'notes' : mainTab}
+          onValueChange={(v) => {
+            setMainTab(v as 'share' | 'notes' | 'more');
+            setTab(v === 'notes' ? 'notes' : 'partners');
+          }}
+        >
+          <TabsList className="sticky top-[57px] z-20 grid w-full grid-cols-3">
+            <TabsTrigger value="share">Share link</TabsTrigger>
             <TabsTrigger value="notes">Promissory ({noteTotal})</TabsTrigger>
+            <TabsTrigger value="more">More</TabsTrigger>
           </TabsList>
 
-          {/* Partners */}
-          <TabsContent value="partners" className="space-y-2 pt-2">
+          {/* ---------------- SHARE LINK TO ONBOARD ---------------- */}
+          <TabsContent value="share" className="space-y-3 pt-3">
+            {summaryQ.isLoading ? (
+              <Skeleton className="h-56 rounded-2xl" />
+            ) : summaryQ.error ? (
+              <Card><CardContent className="p-4 text-sm text-destructive">
+                {(summaryQ.error as Error).message}
+              </CardContent></Card>
+            ) : s ? (
+              <Card className="border-primary/30 shadow-sm bg-card">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 text-primary">
+                        <Target className="h-3.5 w-3.5" />
+                        <span className="text-[10px] font-semibold uppercase tracking-wider">
+                          Your monthly target
+                        </span>
+                      </div>
+                      <p className="mt-1 text-2xl font-semibold leading-none">
+                        {s.partners.this_month}
+                        <span className="text-base font-normal text-muted-foreground">
+                          {' '}/ {s.targets.monthly_partner_target} partners
+                        </span>
+                      </p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">Set by Partner Ops</p>
+                    </div>
+                    <Badge variant="outline" className="shrink-0 border-primary/30 text-primary text-[10px]">
+                      {s.targets.month_progress_pct}%
+                    </Badge>
+                  </div>
+
+                  <Progress value={s.targets.month_progress_pct} className="h-1.5" />
+
+                  <div className="grid grid-cols-3 divide-x divide-border rounded-lg border border-border">
+                    {[
+                      { label: 'Today', value: s.partners.today },
+                      { label: 'This week', value: s.partners.this_week },
+                      { label: 'This month', value: s.partners.this_month },
+                    ].map((c) => (
+                      <div key={c.label} className="px-2 py-2 text-center">
+                        <div className="text-base font-semibold leading-none">{c.value}</div>
+                        <div className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">{c.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button onClick={openInviteSheet} className="flex-1 h-11 gap-2 font-semibold">
+                      {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+                      Share partner link
+                    </Button>
+                    <Button variant="outline" onClick={handleCopyInvite} className="h-11 gap-2">
+                      <Copy className="h-4 w-4" />
+                      {inviteCopied ? 'Copied' : 'Copy'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null}
+
+            <details className="rounded-lg border border-border bg-card">
+              <summary className="cursor-pointer px-4 py-3 text-xs font-semibold">
+                My partners ({partnerTotal})
+              </summary>
+              <div className="space-y-2 border-t border-border p-3">
             <div className="flex gap-2">
+
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -515,11 +455,37 @@ export default function ProxyAgentCommandCenter() {
             )}
 
             <Pager page={pPage} pages={partnerPages} total={partnerTotal} onChange={setPPage} />
+              </div>
+            </details>
           </TabsContent>
 
-          {/* Promissory notes */}
-          <TabsContent value="notes" className="space-y-2 pt-2">
+          {/* ---------------- REGISTER PROMISSORY NOTES ---------------- */}
+          <TabsContent value="notes" className="space-y-2 pt-3">
+            <Card className="border-primary/30">
+              <CardContent className="p-4 space-y-3">
+                <div>
+                  <p className="text-sm font-semibold">Register a promissory note</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Record a partner commitment and earn your note reward once it is activated.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    className="flex-1 h-11 gap-2 font-semibold"
+                    onClick={() => { hapticTap(); setSupportModeOpen(true); }}
+                  >
+                    <FileText className="h-4 w-4" /> New promissory note
+                  </Button>
+                  <Button variant="outline" onClick={openInviteSheet} className="h-11 gap-2">
+                    {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+                    <span className="hidden sm:inline">Share link</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
             <div className="flex gap-2">
+
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -615,7 +581,86 @@ export default function ProxyAgentCommandCenter() {
 
             <Pager page={nPage} pages={notePages} total={noteTotal} onChange={setNPage} />
           </TabsContent>
+
+          {/* ---------------- MORE (drill deeper) ---------------- */}
+          <TabsContent value="more" className="space-y-3 pt-3">
+            {summaryQ.isLoading ? (
+              <div className="grid grid-cols-2 gap-2">
+                {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}
+              </div>
+            ) : summaryQ.error ? (
+              <Card><CardContent className="p-4 text-sm text-destructive">
+                {(summaryQ.error as Error).message}
+              </CardContent></Card>
+            ) : s ? (
+              <>
+                <div className="grid grid-cols-4 gap-2">
+                  {quickActions.map((a) => (
+                    <button
+                      key={a.key}
+                      onClick={a.onClick}
+                      className="flex flex-col items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 py-2.5 text-[10px] font-medium text-foreground hover:bg-muted/60 active:scale-[0.98] transition"
+                    >
+                      {a.key === 'invite' && inviting
+                        ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        : <a.icon className="h-4 w-4 text-muted-foreground" />}
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+
+                <Card>
+                  <CardContent className="p-0 grid grid-cols-2 divide-x divide-y divide-border sm:grid-cols-4">
+                    <Metric icon={Users} label="Partners" value={String(s.partners.onboarded)}
+                      hint={`${s.invites.shared} invites shared`} />
+                    <Metric icon={UserCheck} label="Came in" value={String(s.partners.came_in)}
+                      hint={money(s.partners.total_funded)} />
+                    <Metric icon={Repeat} label="Returning" value={String(s.partners.returning)}
+                      hint="2+ portfolios" />
+                    <Metric icon={FileText} label="Promissory" value={String(s.notes.total)}
+                      hint={`${s.notes.pending} pending · ${money(s.notes.total_amount)}`} />
+                    <Metric icon={HandCoins} label="Pending" value={money(s.pending_commission.amount)}
+                      hint={`${s.pending_commission.pending_notes} × ${money(s.pending_commission.rate_per_note)}`} />
+                    <Metric icon={BarChart3} label="Earnings" value={money(s.earnings.total)}
+                      hint={`${money(s.commission.this_month)} this month`} />
+                    <Metric icon={Wallet} label="Withdrawable" value={money(s.earnings.withdrawable)}
+                      hint="Earned commission" />
+                    <Metric icon={Target} label="Target" value={`${s.partners.this_month}/${s.targets.monthly_partner_target}`}
+                      hint="This month" />
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Commission breakdown
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">Lifetime</span>
+                    </div>
+                    <div className="space-y-1">
+                      {[
+                        { label: `Funding (${s.rates.investment_commission_pct}%)`, value: s.commission.two_percent },
+                        { label: `Partner deposit (${s.rates.partner_deposit_commission_pct}%)`, value: s.commission.one_percent },
+                        { label: `Promissory notes (${money(s.rates.note_reward)} each)`, value: s.commission.note_rewards },
+                      ].map((row) => (
+                        <div key={row.label} className="flex items-start justify-between gap-3 border-b border-border/60 py-1.5 last:border-0">
+                          <span className="text-xs text-muted-foreground leading-snug">{row.label}</span>
+                          <span className="text-xs font-semibold text-right break-words">{money(row.value)}</span>
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between pt-1.5">
+                        <span className="text-xs font-semibold">Total commission</span>
+                        <span className="text-sm font-semibold text-primary">{money(s.commission.total)}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : null}
+          </TabsContent>
         </Tabs>
+
       </main>
 
       {/* Dialogs */}
