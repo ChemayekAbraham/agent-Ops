@@ -3,6 +3,7 @@ import {
   Home,
   MapPin,
   Phone,
+  MessageSquare,
   Navigation,
   ShieldCheck,
   Users,
