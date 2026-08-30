@@ -9,7 +9,7 @@ import {
   TrendingUp, Shield, Rocket, Home, Wallet, ChevronLeft, ChevronRight,
   Coins, Lock, Clock, HandCoins, Handshake,
   BadgeCheck, Plus, Calculator, MapPin, CheckCircle2, User,
-  ChevronDown, ChevronUp, Info,
+  ChevronDown, ChevronUp, Info, Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -326,6 +326,55 @@ export function FunderCapitalOpportunities() {
   const [calcOpen, setCalcOpen] = useState(false);
   const [breakdownSort, setBreakdownSort] = useState<'rent' | 'houses'>('rent');
   const [breakdownTopN, setBreakdownTopN] = useState<6 | 12 | 0>(6); // 0 = all
+  const [feeRatePct, setFeeRatePct] = useState(EMPTY_HOUSE_SERVICE_FEE_RATE * 100);
+
+  // Export the currently ranked district/landlord breakdown as a PDF (display only)
+  const exportRankingPdf = useCallback(async (
+    rows: Array<{ label: string; house_count: number; total_rent_needed: number; monthly_return: number }>,
+  ) => {
+    try {
+      const [{ default: JsPDF }, { default: autoTable }] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable'),
+      ]);
+      const doc = new JsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+      const title = breakdownBy === 'district'
+        ? 'Empty house opportunities by district'
+        : 'Empty house opportunities by landlord';
+      doc.setFontSize(14);
+      doc.text(title, 40, 44);
+      doc.setFontSize(9);
+      doc.text(
+        `Ranked by ${breakdownSort === 'rent' ? 'rent needed' : 'house count'} · ${new Date().toLocaleString('en-GB')}`,
+        40, 60,
+      );
+      autoTable(doc, {
+        startY: 76,
+        head: [['#', breakdownBy === 'district' ? 'District' : 'Landlord', 'Houses', 'Rent needed (UGX)', 'Return / month (UGX)']],
+        body: rows.map((r, i) => [
+          String(i + 1),
+          r.label,
+          r.house_count.toLocaleString(),
+          Math.round(r.total_rent_needed).toLocaleString(),
+          Math.round(r.monthly_return).toLocaleString(),
+        ]),
+        foot: [[
+          '',
+          'Total',
+          rows.reduce((a, r) => a + r.house_count, 0).toLocaleString(),
+          Math.round(rows.reduce((a, r) => a + r.total_rent_needed, 0)).toLocaleString(),
+          Math.round(rows.reduce((a, r) => a + r.monthly_return, 0)).toLocaleString(),
+        ]],
+        styles: { fontSize: 8, cellPadding: 4 },
+        headStyles: { fillColor: [30, 30, 30] },
+        footStyles: { fillColor: [240, 240, 240], textColor: 20, fontStyle: 'bold' },
+      });
+      doc.save(`empty-house-opportunities-by-${breakdownBy}.pdf`);
+      toast.success('PDF downloaded');
+    } catch {
+      toast.error('Could not generate the PDF. Please try again.');
+    }
+  }, [breakdownBy, breakdownSort]);
 
   // Shared calculator derivation — used by the calculator UI and to pre-fill the picker
   const computeScenario = useCallback((amountInput: string, houseCount: number) => {
@@ -339,10 +388,10 @@ export function FunderCapitalOpportunities() {
       : Math.min(houseCount, maxHouses);
     const funding = usingAmount ? typed : houses * avg;
     const monthly = Math.round(funding * 0.15);
-    const serviceFee = Math.round(funding * EMPTY_HOUSE_SERVICE_FEE_RATE);
+    const serviceFee = Math.round(funding * (feeRatePct / 100));
     const netMonthly = monthly - serviceFee;
     return { avg, maxHouses, typed, usingAmount, houses, funding, monthly, serviceFee, netMonthly };
-  }, [emptyHouseSummary]);
+  }, [emptyHouseSummary, feeRatePct]);
 
   const calc = useMemo(() => computeScenario(calcAmountInput, calcHouses), [computeScenario, calcAmountInput, calcHouses]);
   const calc2 = useMemo(() => computeScenario(calcAmountInput2, calcHouses2), [computeScenario, calcAmountInput2, calcHouses2]);
@@ -695,7 +744,7 @@ export function FunderCapitalOpportunities() {
                               </TooltipTrigger>
                               <TooltipContent side="top" className="max-w-[16rem] text-xs leading-relaxed">
                                 Service/access fee = Funding total × service fee rate.
-                                Current rate is {(EMPTY_HOUSE_SERVICE_FEE_RATE * 100).toFixed(0)}%,
+                                Current rate is {feeRatePct.toFixed(1)}%,
                                 so the fee is {formatAmountCompact(calc.serviceFee)}.
                               </TooltipContent>
                             </Tooltip>
@@ -750,7 +799,7 @@ export function FunderCapitalOpportunities() {
                               </TooltipTrigger>
                               <TooltipContent side="top" className="max-w-[16rem] text-xs leading-relaxed">
                                 Service/access fee = Funding total × service fee rate.
-                                Current rate is {(EMPTY_HOUSE_SERVICE_FEE_RATE * 100).toFixed(0)}%,
+                                Current rate is {feeRatePct.toFixed(1)}%,
                                 so the fee is {formatAmountCompact(calc2.serviceFee)}.
                               </TooltipContent>
                             </Tooltip>
