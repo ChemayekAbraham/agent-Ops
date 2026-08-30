@@ -20,6 +20,7 @@ import {
   Trash2,
   TrendingUp,
   UserCog,
+  UserPlus,
   Users,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -50,6 +51,7 @@ import {
   type ProxyDirRow,
 } from './proxyAgentDirectory';
 import { ProxyAgentDetailPanel } from './ProxyAgentDetailPanel';
+import { OnboardProxyAgentDialog } from './OnboardProxyAgentDialog';
 
 const STATUS_TABS: { key: string; label: string }[] = [
   { key: 'all', label: 'All' },
