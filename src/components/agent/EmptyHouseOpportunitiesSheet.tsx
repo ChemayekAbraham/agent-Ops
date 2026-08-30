@@ -744,6 +744,11 @@ export function EmptyHouseOpportunitiesSheet({
                                   <ShieldCheck className="h-3 w-3" /> Verified
                                 </Badge>
                               )}
+                              {nearMe && h.distance_km != null && (
+                                <Badge variant="outline" className="h-5 gap-1 text-[10px]">
+                                  <Navigation className="h-3 w-3" /> {h.distance_km < 1 ? `${Math.round(h.distance_km * 1000)} m` : `${h.distance_km.toFixed(1)} km`}
+                                </Badge>
+                              )}
                             </div>
                             <p className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
                               <MapPin className="h-3 w-3 shrink-0" /> {placeOf(h)}
