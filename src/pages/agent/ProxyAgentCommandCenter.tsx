@@ -54,29 +54,23 @@ const noteStatusTone: Record<string, string> = {
   activated: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
 };
 
-function StatTile({
-  icon: Icon, label, value, hint, tone = 'default',
+function Metric({
+  icon: Icon, label, value, hint,
 }: {
   icon: typeof Users; label: string; value: string; hint?: string;
-  tone?: 'default' | 'primary' | 'success' | 'warning';
 }) {
-  const tones: Record<string, string> = {
-    default: 'bg-card border-border',
-    primary: 'bg-primary/5 border-primary/20',
-    success: 'bg-emerald-500/5 border-emerald-500/20',
-    warning: 'bg-amber-500/5 border-amber-500/20',
-  };
   return (
-    <div className={cn('rounded-2xl border p-3 flex flex-col gap-1 min-w-0', tones[tone])}>
+    <div className="flex flex-col gap-0.5 min-w-0 px-3 py-2.5">
       <div className="flex items-center gap-1.5 text-muted-foreground">
-        <Icon className="h-3.5 w-3.5 shrink-0" />
-        <span className="text-[11px] font-semibold uppercase tracking-wide truncate">{label}</span>
+        <Icon className="h-3 w-3 shrink-0" />
+        <span className="text-[10px] font-medium uppercase tracking-wider truncate">{label}</span>
       </div>
-      <span className="text-base font-black leading-tight break-words">{value}</span>
-      {hint && <span className="text-[11px] text-muted-foreground leading-tight">{hint}</span>}
+      <span className="text-sm font-semibold leading-tight break-words">{value}</span>
+      {hint && <span className="text-[10px] text-muted-foreground leading-tight truncate">{hint}</span>}
     </div>
   );
 }
+
 
 export default function ProxyAgentCommandCenter() {
   const navigate = useNavigate();
@@ -293,34 +287,91 @@ export default function ProxyAgentCommandCenter() {
           </CardContent></Card>
         ) : s ? (
           <>
-            <div className="grid grid-cols-2 gap-2">
-              <StatTile icon={Users} label="Partners" value={String(s.partners.onboarded)}
-                hint={`${s.invites.shared} invites shared`} tone="primary" />
-              <StatTile icon={UserCheck} label="Came in" value={String(s.partners.came_in)}
-                hint={money(s.partners.total_funded)} tone="success" />
-              <StatTile icon={Repeat} label="Returning" value={String(s.partners.returning)}
-                hint="2+ portfolios" />
-              <StatTile icon={FileText} label="Promissory" value={String(s.notes.total)}
-                hint={`${s.notes.pending} pending · ${money(s.notes.total_amount)}`} />
-              <StatTile icon={HandCoins} label="Pending" value={money(s.pending_commission.amount)}
-                hint={`${s.pending_commission.pending_notes} notes × ${money(s.pending_commission.rate_per_note)}`} tone="warning" />
-              <StatTile icon={BarChart3} label="Earnings" value={money(s.earnings.total)}
-                hint={`${money(s.commission.this_month)} this month`} />
-              <StatTile icon={Wallet} label="Withdrawable" value={money(s.earnings.withdrawable)}
-                hint="Earned commission" tone="success" />
-            </div>
+            {/* PRIORITY — target set by Partner Ops + one-tap partner onboarding link */}
+            <Card className="border-primary/30">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 text-primary">
+                      <Target className="h-3.5 w-3.5" />
+                      <span className="text-[10px] font-semibold uppercase tracking-wider">
+                        Your monthly target
+                      </span>
+                    </div>
+                    <p className="mt-1 text-2xl font-semibold leading-none">
+                      {s.partners.this_month}
+                      <span className="text-base font-normal text-muted-foreground">
+                        {' '}/ {s.targets.monthly_partner_target} partners
+                      </span>
+                    </p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">Set by Partner Ops</p>
+                  </div>
+                  <Badge variant="outline" className="shrink-0 border-primary/30 text-primary text-[10px]">
+                    {s.targets.month_progress_pct}%
+                  </Badge>
+                </div>
 
-            {/* Quick actions */}
-            <div className="grid grid-cols-3 gap-2">
+                <Progress value={s.targets.month_progress_pct} className="h-1.5" />
+
+                <div className="grid grid-cols-3 divide-x divide-border rounded-lg border border-border">
+                  {[
+                    { label: 'Today', value: s.partners.today },
+                    { label: 'This week', value: s.partners.this_week },
+                    { label: 'This month', value: s.partners.this_month },
+                  ].map((c) => (
+                    <div key={c.label} className="px-2 py-2 text-center">
+                      <div className="text-base font-semibold leading-none">{c.value}</div>
+                      <div className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">{c.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button onClick={openInviteSheet} className="flex-1 h-11 gap-2 font-semibold">
+                    {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+                    Share partner link
+                  </Button>
+                  <Button variant="outline" onClick={handleCopyInvite} className="h-11 gap-2">
+                    <Copy className="h-4 w-4" />
+                    {inviteCopied ? 'Copied' : 'Copy'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Headline figures — one calm grid, no competing colours */}
+            <Card>
+              <CardContent className="p-0 grid grid-cols-2 divide-x divide-y divide-border sm:grid-cols-4">
+                <Metric icon={Users} label="Partners" value={String(s.partners.onboarded)}
+                  hint={`${s.invites.shared} invites shared`} />
+                <Metric icon={UserCheck} label="Came in" value={String(s.partners.came_in)}
+                  hint={money(s.partners.total_funded)} />
+                <Metric icon={Repeat} label="Returning" value={String(s.partners.returning)}
+                  hint="2+ portfolios" />
+                <Metric icon={FileText} label="Promissory" value={String(s.notes.total)}
+                  hint={`${s.notes.pending} pending · ${money(s.notes.total_amount)}`} />
+                <Metric icon={HandCoins} label="Pending" value={money(s.pending_commission.amount)}
+                  hint={`${s.pending_commission.pending_notes} × ${money(s.pending_commission.rate_per_note)}`} />
+                <Metric icon={BarChart3} label="Earnings" value={money(s.earnings.total)}
+                  hint={`${money(s.commission.this_month)} this month`} />
+                <Metric icon={Wallet} label="Withdrawable" value={money(s.earnings.withdrawable)}
+                  hint="Earned commission" />
+                <Metric icon={Target} label="Target" value={`${s.partners.this_month}/${s.targets.monthly_partner_target}`}
+                  hint="This month" />
+              </CardContent>
+            </Card>
+
+            {/* Actions */}
+            <div className="grid grid-cols-4 gap-2">
               {quickActions.map((a) => (
                 <button
                   key={a.key}
                   onClick={a.onClick}
-                  className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-primary/25 bg-primary/10 px-2 py-3 text-[11px] font-bold text-primary active:scale-95 transition"
+                  className="flex flex-col items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 py-2.5 text-[10px] font-medium text-foreground hover:bg-muted/60 active:scale-[0.98] transition"
                 >
                   {a.key === 'invite' && inviting
-                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                    : <a.icon className="h-4 w-4" />}
+                    ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    : <a.icon className="h-4 w-4 text-muted-foreground" />}
                   {a.label}
                 </button>
               ))}
@@ -328,62 +379,35 @@ export default function ProxyAgentCommandCenter() {
 
             {/* Commission breakdown */}
             <Card>
-              <CardContent className="p-3 space-y-2">
+              <CardContent className="p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase tracking-wide">Commission breakdown</span>
-                  <span className="text-[11px] text-muted-foreground">Lifetime</span>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Commission breakdown
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">Lifetime</span>
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   {[
                     { label: `Funding (${s.rates.investment_commission_pct}%)`, value: s.commission.two_percent },
                     { label: `Partner deposit (${s.rates.partner_deposit_commission_pct}%)`, value: s.commission.one_percent },
                     { label: `Promissory notes (${money(s.rates.note_reward)} each)`, value: s.commission.note_rewards },
                   ].map((row) => (
-                    <div key={row.label} className="flex items-start justify-between gap-3 rounded-xl bg-muted/40 px-3 py-2">
+                    <div key={row.label} className="flex items-start justify-between gap-3 border-b border-border/60 py-1.5 last:border-0">
                       <span className="text-xs text-muted-foreground leading-snug">{row.label}</span>
-                      <span className="text-xs font-black text-right break-words">{money(row.value)}</span>
+                      <span className="text-xs font-semibold text-right break-words">{money(row.value)}</span>
                     </div>
                   ))}
-                  <div className="flex items-center justify-between px-3 pt-1">
-                    <span className="text-xs font-black">Total commission</span>
-                    <span className="text-sm font-black text-primary">{money(s.commission.total)}</span>
+                  <div className="flex items-center justify-between pt-1.5">
+                    <span className="text-xs font-semibold">Total commission</span>
+                    <span className="text-sm font-semibold text-primary">{money(s.commission.total)}</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
-
-            {/* Clients vs target */}
-            <Card>
-              <CardContent className="p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase tracking-wide flex items-center gap-1.5">
-                    <Target className="h-3.5 w-3.5 text-primary" /> Clients
-                  </span>
-                  <span className="text-[11px] text-muted-foreground">
-                    Target {s.targets.monthly_partner_target} / month
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: 'Today', value: s.partners.today },
-                    { label: 'This week', value: s.partners.this_week },
-                    { label: 'This month', value: s.partners.this_month },
-                  ].map((c) => (
-                    <div key={c.label} className="rounded-xl bg-muted/40 px-2 py-2 text-center">
-                      <div className="text-lg font-black leading-none">{c.value}</div>
-                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground mt-1">{c.label}</div>
-                    </div>
-                  ))}
-                </div>
-                <Progress value={s.targets.month_progress_pct} className="h-2" />
-                <p className="text-[11px] text-muted-foreground">
-                  {s.partners.this_month} of {s.targets.monthly_partner_target} monthly target
-                  {' '}({s.targets.month_progress_pct}%)
-                </p>
-              </CardContent>
-            </Card>
           </>
         ) : null}
+
+
 
         {/* Lists */}
         <Tabs value={tab} onValueChange={(v) => setTab(v as 'partners' | 'notes')}>
