@@ -162,10 +162,14 @@ export default function Advances() {
     if (!Number.isFinite(value) || value <= 0) return setFormError('Enter a recovery value above zero.');
     if (mode === 'percent_of_gross' && value > 100) return setFormError('A percentage cannot exceed 100.');
     if (!firstOn) return setFormError('Choose the first recovery date.');
+    const recoveryMonths = Math.ceil(amount / value);
+    if (!Number.isInteger(recoveryMonths) || recoveryMonths < 1 || recoveryMonths > 3) {
+      return setFormError('The principal and recovery value must spread over 1, 2 or 3 months.');
+    }
     setFormError('');
     setSaving(true);
     try {
-      await requestAdvance(staffId, amount, purpose.trim(), mode, value, firstOn);
+      await requestAdvance(staffId, amount, purpose.trim(), mode, value, firstOn, recoveryMonths);
       toast.success('Advance requested.');
       setOpen(false);
       resetForm();
