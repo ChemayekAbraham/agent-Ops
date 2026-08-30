@@ -30,13 +30,14 @@ export function useCapitalOpportunities() {
   const { user } = useAuth();
   const [portfolios, setPortfolios] = useState<PortfolioRecord[]>([]);
   const [opportunitySummary, setOpportunitySummary] = useState<OpportunitySummary | null>(null);
+  const [emptyHouseSummary, setEmptyHouseSummary] = useState<EmptyHouseOpportunitySummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
     if (!user?.id) { setLoading(false); return; }
 
     try {
-      const [byInvestor, byAgent, summaryRes] = await Promise.all([
+      const [byInvestor, byAgent, summaryRes, emptyHousesRes] = await Promise.all([
         supabase
           .from('investor_portfolios')
           .select('id, investment_amount, total_roi_earned, roi_percentage, status, portfolio_code, account_name, maturity_date, duration_months, auto_reinvest, roi_mode, next_roi_date, created_at')
@@ -56,6 +57,7 @@ export function useCapitalOpportunities() {
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle(),
+        supabase.rpc('empty_house_opportunity_summary'),
       ]);
 
       // Deduplicate portfolios by id
@@ -74,6 +76,15 @@ export function useCapitalOpportunities() {
 
       if (!summaryRes.error && summaryRes.data) {
         setOpportunitySummary(summaryRes.data as OpportunitySummary);
+      }
+
+      if (!emptyHousesRes.error && emptyHousesRes.data) {
+        const raw = emptyHousesRes.data as Record<string, unknown>;
+        setEmptyHouseSummary({
+          house_count: Number(raw.house_count ?? 0),
+          total_rent_needed: Number(raw.total_rent_needed ?? 0),
+          monthly_return_if_all_funded: Number(raw.monthly_return_if_all_funded ?? 0),
+        });
       }
     } catch (err) {
       console.error('[useCapitalOpportunities] fetch error:', err);
