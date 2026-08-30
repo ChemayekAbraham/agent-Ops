@@ -156,7 +156,7 @@ export default function MyAdvanceCard({ staffId }: { staffId: string }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Status</TableHead>
+                <TableHead>Stage</TableHead>
                 <TableHead className="text-right">Principal</TableHead>
                 <TableHead className="text-right">Monthly deduction</TableHead>
                 <TableHead>First recovery</TableHead>
@@ -166,7 +166,7 @@ export default function MyAdvanceCard({ staffId }: { staffId: string }) {
               {rows.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell className="text-xs">
-                    {STAGE_LABEL[row.status] ?? row.status}
+                    {STAGE_LABEL[row.status] ?? '—'}
                   </TableCell>
                   <TableCell className="text-right">{formatAmount(row.principal)}</TableCell>
                   <TableCell className="text-right">{formatAmount(row.recovery_value)}</TableCell>
