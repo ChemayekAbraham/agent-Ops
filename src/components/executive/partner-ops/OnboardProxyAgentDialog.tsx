@@ -94,6 +94,7 @@ export function OnboardProxyAgentDialog({
       toast({ title: 'Proxy agent onboarded', description: `${selected?.full_name ?? 'Agent'} is now an approved proxy agent.` });
       void qc.invalidateQueries({ queryKey: ['proxy-agent-directory'] });
       void qc.invalidateQueries({ queryKey: ['proxy-agent-applications'] });
+      void qc.invalidateQueries({ queryKey: ['proxy-onboarding-audit'] });
       onOpenChange(false);
       reset();
     },
