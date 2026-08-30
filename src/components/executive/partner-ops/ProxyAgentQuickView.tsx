@@ -187,6 +187,16 @@ export function ProxyAgentQuickView({
                 <History className="mr-2 h-4 w-4" />
                 View onboarding audit trail
               </Button>
+              {onCopyLink && (
+                <Button
+                  className="w-full justify-start text-xs"
+                  variant="outline"
+                  onClick={() => onCopyLink(agent)}
+                >
+                  <Link2 className="mr-2 h-4 w-4" />
+                  Copy link to this agent
+                </Button>
+              )}
               <Button className="w-full justify-start text-xs" onClick={() => onOpenFullProfile(agent)}>
                 <ExternalLink className="mr-2 h-4 w-4" />
                 Open full profile
