@@ -6,8 +6,9 @@
  *
  * One RPC serves KPIs + page rows; the detail view uses one RPC per agent.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { format } from 'date-fns';
 import {
   BadgeCheck,
@@ -196,6 +197,22 @@ export function ProxyAgentDirectory() {
   );
 
   const allOnPage = rows.length > 0 && rows.every((r) => checked[r.agent_user_id]);
+
+  // Virtualized rendering: only the rows actually on screen are mounted, so a
+  // 200-row page (or any future larger page) paints as fast as a 30-row one.
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const virtualize = rows.length > 40;
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => listRef.current,
+    estimateSize: () => 66,
+    overscan: 8,
+  });
+  const virtualItems = virtualizer.getVirtualItems();
+  const renderList = virtualize
+    ? virtualItems.map((v) => ({ r: rows[v.index], v }))
+    : rows.map((r) => ({ r, v: null as (typeof virtualItems)[number] | null }));
+
 
   const bulkDelete = useMutation({
     mutationFn: async () => {
@@ -587,14 +604,22 @@ export function ProxyAgentDirectory() {
                 <span className="col-span-2 text-right">Partners in</span>
                 <span className="col-span-2 text-right">Joined / Referred by</span>
               </div>
-              <ul className="divide-y">
-                {rows.map((r) => (
+              <div ref={listRef} className={cn(virtualize && 'max-h-[70vh] overflow-y-auto')}>
+              <ul
+                className={cn('divide-y', virtualize && 'relative divide-y-0')}
+                style={virtualize ? { height: virtualizer.getTotalSize() } : undefined}
+              >
+                {renderList.map(({ r, v }) => (
                   <li
                     key={r.agent_user_id}
+                    data-index={v?.index}
+                    ref={v ? virtualizer.measureElement : undefined}
                     className={cn(
-                      'grid grid-cols-1 items-center gap-2 px-4 py-3 transition-colors hover:bg-muted/50 md:grid-cols-12',
+                      'grid grid-cols-1 items-center gap-2 border-b px-4 py-3 transition-colors hover:bg-muted/50 md:grid-cols-12',
                       checked[r.agent_user_id] && 'bg-primary/5',
+                      v && 'absolute left-0 top-0 w-full',
                     )}
+                    style={v ? { transform: `translateY(${v.start}px)` } : undefined}
                   >
                     <div className="hidden md:col-span-1 md:flex md:items-center">
                       <Checkbox
@@ -670,6 +695,7 @@ export function ProxyAgentDirectory() {
                   </li>
                 ))}
               </ul>
+              </div>
               <div className="flex flex-wrap items-center justify-between gap-2 border-t px-4 py-3">
                 <p className="text-[11px] text-muted-foreground">
                   Showing {firstShown.toLocaleString()}–{lastShown.toLocaleString()} of{' '}
