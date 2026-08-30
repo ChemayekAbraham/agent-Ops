@@ -725,7 +725,30 @@ export function ProxyAgentDirectory() {
         </CardContent>
       </Card>
 
-      <ProxyOnboardingAuditPanel />
+      <ProxyAgentQuickView
+        agent={quickView}
+        open={!!quickView}
+        onOpenChange={(o) => {
+          if (!o) setQuickView(null);
+        }}
+        onOpenFullProfile={(a) => {
+          setQuickView(null);
+          setSelected(a);
+        }}
+        onOpenAudit={() => {
+          setQuickView(null);
+          setTimeout(() => {
+            document
+              .getElementById('proxy-onboarding-audit')
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 120);
+        }}
+      />
+
+      <div id="proxy-onboarding-audit" className="scroll-mt-24">
+        <ProxyOnboardingAuditPanel />
+      </div>
+
 
       {/* Bulk delete confirmation */}
       <Dialog
