@@ -3,10 +3,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import type { OpportunitySummary } from '@/hooks/useOpportunitySummary';
 
+export interface EmptyHouseGroupStat {
+  label: string;
+  house_count: number;
+  total_rent_needed: number;
+  monthly_return: number;
+}
+
 export interface EmptyHouseOpportunitySummary {
   house_count: number;
   total_rent_needed: number;
   monthly_return_if_all_funded: number;
+  avg_monthly_rent: number;
+  funded_count: number;
+  funded_rent: number;
+  total_listed: number;
+  districts: EmptyHouseGroupStat[];
+  landlords: EmptyHouseGroupStat[];
 }
 
 export interface PortfolioRecord {
@@ -80,10 +93,28 @@ export function useCapitalOpportunities() {
 
       if (!emptyHousesRes.error && emptyHousesRes.data) {
         const raw = emptyHousesRes.data as Record<string, unknown>;
+        const group = (rows: unknown, key: string): EmptyHouseGroupStat[] =>
+          Array.isArray(rows)
+            ? rows.map((r) => {
+                const row = (r ?? {}) as Record<string, unknown>;
+                return {
+                  label: String(row[key] ?? '—'),
+                  house_count: Number(row.house_count ?? 0),
+                  total_rent_needed: Number(row.total_rent_needed ?? 0),
+                  monthly_return: Number(row.monthly_return ?? 0),
+                };
+              })
+            : [];
         setEmptyHouseSummary({
           house_count: Number(raw.house_count ?? 0),
           total_rent_needed: Number(raw.total_rent_needed ?? 0),
           monthly_return_if_all_funded: Number(raw.monthly_return_if_all_funded ?? 0),
+          avg_monthly_rent: Number(raw.avg_monthly_rent ?? 0),
+          funded_count: Number(raw.funded_count ?? 0),
+          funded_rent: Number(raw.funded_rent ?? 0),
+          total_listed: Number(raw.total_listed ?? 0),
+          districts: group(raw.districts, 'district'),
+          landlords: group(raw.landlords, 'landlord_name'),
         });
       }
     } catch (err) {
