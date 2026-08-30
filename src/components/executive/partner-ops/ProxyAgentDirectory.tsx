@@ -117,6 +117,8 @@ export function ProxyAgentDirectory() {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(PROXY_DIR_PAGE_SIZE);
   const [selected, setSelected] = useState<ProxyDirRow | null>(null);
+  const [quickView, setQuickView] = useState<ProxyDirRow | null>(null);
+
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [reason, setReason] = useState('');
