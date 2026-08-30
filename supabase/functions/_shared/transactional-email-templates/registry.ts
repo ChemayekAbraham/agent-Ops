@@ -48,6 +48,7 @@ import { template as portfolioRenewalApologyTemplate } from './portfolio-renewal
 import { template as partnerPortfolioInviteTemplate } from './partner-portfolio-invite.tsx'
 import { template as performanceAssessmentReportTemplate } from './performance-assessment-report.tsx'
 import { template as boardTechnologyMemoTemplate } from './board-technology-memo.tsx'
+import { template as proxyAgentOnboardedTemplate } from './proxy-agent-onboarded.tsx'
 import type { TemplateEntry } from './types.ts'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
@@ -100,4 +101,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'partner-portfolio-invite': partnerPortfolioInviteTemplate,
   'performance-assessment-report': performanceAssessmentReportTemplate,
   'board-technology-memo': boardTechnologyMemoTemplate,
+  'proxy-agent-onboarded': proxyAgentOnboardedTemplate,
 }
