@@ -95,35 +95,32 @@ export function ProxyAgentDirectory() {
   const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [onboardOpen, setOnboardOpen] = useState(false);
-  const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
-  const [pages, setPages] = useState(1);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(PROXY_DIR_PAGE_SIZE);
   const [selected, setSelected] = useState<ProxyDirRow | null>(null);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [reason, setReason] = useState('');
 
-  // Single RPC per page slice — rows accumulate client-side for "Load more".
+  const query = useDebouncedValue(search, 350);
+
+  // Exactly ONE page of rows per request — never accumulates, so the screen
+  // costs the same with 1,000 or 1,000,000 proxy agents.
   const pageQueries = useQuery({
-    queryKey: ['proxy-agent-directory', query, status, pages],
-    queryFn: async () => {
-      const slices = await Promise.all(
-        Array.from({ length: pages }, (_, i) =>
-          fetchProxyDirectory(query, status, i * PROXY_DIR_PAGE_SIZE),
-        ),
-      );
-      return {
-        kpis: slices[0].kpis,
-        total: slices[0].total,
-        rows: slices.flatMap((s) => s.rows),
-      };
-    },
+    queryKey: ['proxy-agent-directory', query, status, page, pageSize],
+    queryFn: () => fetchProxyDirectory(query, status, page * pageSize, pageSize),
     staleTime: 30_000,
+    placeholderData: (prev) => prev,
   });
 
   const rows = pageQueries.data?.rows ?? [];
   const kpis = pageQueries.data?.kpis;
   const total = pageQueries.data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const firstShown = total === 0 ? 0 : page * pageSize + 1;
+  const lastShown = page * pageSize + rows.length;
+
 
   const conversion = useMemo(() => {
     if (!kpis || !kpis.partners_linked) return 0;
