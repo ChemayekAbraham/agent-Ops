@@ -384,28 +384,44 @@ export function EmptyHouseOpportunitiesSheet({
               </p>
             </div>
             <div className="space-y-2">
-              {createdNotes.map((n) => (
-                <div key={n.id} className="rounded-xl border p-3 flex items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold truncate">{n.label}</p>
-                    <p className="text-[11px] text-muted-foreground">{formatUGX(n.amount)} · one month of rent</p>
+              {createdNotes.map((n) => {
+                const m = Math.round(Number(n.amount || 0) * 0.15);
+                return (
+                <div key={n.id} className="rounded-xl border p-3 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold truncate">{n.label}</p>
+                      <p className="text-[11px] text-muted-foreground">{formatUGX(n.amount)} · one month of rent</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 shrink-0"
+                      disabled={!n.activation_token}
+                      onClick={async () => {
+                        if (!n.activation_token) return;
+                        await navigator.clipboard.writeText(`${getPublicOrigin()}/activate?token=${n.activation_token}`);
+                        toast.success('Activation link copied');
+                      }}
+                    >
+                      <Share2 className="h-3.5 w-3.5" /> Link
+                    </Button>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="gap-1.5 shrink-0"
-                    disabled={!n.activation_token}
-                    onClick={async () => {
-                      if (!n.activation_token) return;
-                      await navigator.clipboard.writeText(`${getPublicOrigin()}/activate?token=${n.activation_token}`);
-                      toast.success('Activation link copied');
-                    }}
-                  >
-                    <Share2 className="h-3.5 w-3.5" /> Link
-                  </Button>
+                  <div className="grid grid-cols-2 gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-[10px]">
+                    <div>
+                      <p className="text-muted-foreground">15% monthly</p>
+                      <p className="font-semibold text-emerald-600">{formatUGX(m)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">12-month total</p>
+                      <p className="font-semibold text-emerald-600">{formatUGX(m * 12)}</p>
+                    </div>
+                  </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
+
             <Button variant="ghost" className="w-full text-xs" onClick={() => { reset(); onOpenChange(false); }}>
               Done
             </Button>
