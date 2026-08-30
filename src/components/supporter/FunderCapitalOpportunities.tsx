@@ -676,12 +676,23 @@ export function FunderCapitalOpportunities() {
                           <p className="text-[9px] text-muted-foreground font-medium">Funding total</p>
                           <p className="text-xs font-black text-foreground">{formatAmountCompact(calc.funding)}</p>
                         </div>
-                        <div>
-                          <p className="text-[9px] text-muted-foreground font-medium">Service/access fees</p>
-                          <p className={`text-xs font-black ${calc.serviceFee > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
-                            {formatAmountCompact(calc.serviceFee)}
-                          </p>
-                        </div>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="cursor-help">
+                              <p className="text-[9px] text-muted-foreground font-medium flex items-center gap-1">
+                                Service/access fees <Info className="h-3 w-3 text-muted-foreground/70" />
+                              </p>
+                              <p className={`text-xs font-black ${calc.serviceFee > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
+                                {formatAmountCompact(calc.serviceFee)}
+                              </p>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[16rem] text-xs leading-relaxed">
+                            Service/access fee = Funding total × service fee rate.
+                            Current rate is {(EMPTY_HOUSE_SERVICE_FEE_RATE * 100).toFixed(0)}%,
+                            so the fee is {formatAmountCompact(calc.serviceFee)}.
+                          </TooltipContent>
+                        </Tooltip>
                         <div>
                           <p className="text-[9px] text-muted-foreground font-medium">Net monthly return</p>
                           <p className="text-xs font-black text-success">{formatAmountCompact(calc.netMonthly)}</p>
