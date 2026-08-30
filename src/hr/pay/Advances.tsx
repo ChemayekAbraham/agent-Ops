@@ -524,6 +524,39 @@ export default function Advances() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={Boolean(cancelRow)} onOpenChange={(next) => !next && setCancelRow(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel this advance</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Reason</Label>
+            <Textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="At least 10 characters"
+            />
+            {cancelError && (
+              <p role="alert" className="text-sm font-medium text-destructive">
+                {cancelError}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelRow(null)}>
+              Keep
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={busyId === cancelRow?.id}
+              onClick={() => void cancel()}
+            >
+              Cancel advance
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={Boolean(editRow)} onOpenChange={(next) => !next && setEditRow(null)}>
         <DialogContent>
           <DialogHeader>
