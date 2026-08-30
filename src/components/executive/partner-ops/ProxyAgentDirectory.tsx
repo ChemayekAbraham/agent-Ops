@@ -198,6 +198,18 @@ export function ProxyAgentDirectory() {
 
   const allOnPage = rows.length > 0 && rows.every((r) => checked[r.agent_user_id]);
 
+  // Virtualized rendering: only the rows actually on screen are mounted, so a
+  // 200-row page (or any future larger page) paints as fast as a 30-row one.
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const virtualize = rows.length > 40;
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => listRef.current,
+    estimateSize: () => 66,
+    overscan: 8,
+  });
+
+
   const bulkDelete = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.rpc('partner_ops_bulk_delete_proxy_agents', {
