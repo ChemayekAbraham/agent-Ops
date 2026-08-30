@@ -255,16 +255,19 @@ export function EmptyHouseOpportunitiesSheet({
         {createdNote ? (
           <div className="p-4 space-y-4">
             <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-center space-y-1.5">
-              <p className="text-sm font-semibold">Note created for {partnerName}</p>
+              <p className="text-sm font-semibold">
+                {isPartner ? 'Your note is created' : `Note created for ${partnerName}`}
+              </p>
               <p className="text-lg font-bold text-primary">{formatUGX(rentTotal)}</p>
               <p className="text-[11px] text-muted-foreground">
-                {picked.length} empty house{picked.length === 1 ? '' : 's'} tagged · partner earns{' '}
+                {picked.length} empty house{picked.length === 1 ? '' : 's'} tagged ·{' '}
+                {isPartner ? 'you earn' : 'partner earns'}{' '}
                 <span className="font-semibold text-emerald-600">{formatUGX(monthlyReturn)}</span> per month
                 ({formatUGX(annualReturn)} over 12 months)
               </p>
             </div>
             <Button variant="outline" className="w-full gap-2" onClick={handleShare}>
-              <Share2 className="h-4 w-4" /> Share activation link
+              <Share2 className="h-4 w-4" /> {isPartner ? 'Copy activation link' : 'Share activation link'}
             </Button>
             <Button variant="ghost" className="w-full text-xs" onClick={() => { reset(); onOpenChange(false); }}>
               Done
@@ -274,27 +277,36 @@ export function EmptyHouseOpportunitiesSheet({
           <div className="p-4 space-y-4 pb-40">
             {/* Partner tag */}
             <div className="rounded-2xl border p-3 space-y-2.5">
-              <p className="text-xs font-bold">Tag the partner</p>
-              <div>
-                <Label className="text-xs">Partner name *</Label>
-                <div className="mt-0.5">
-                  <PersonNameFields idPrefix="house-opportunity-partner" value={nameParts} onChange={setNameParts} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs">WhatsApp *</Label>
-                  <Input value={whatsappNumber} onChange={(e) => setWhatsappNumber(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="0780000000" inputMode="numeric" className="mt-0.5 h-9" />
-                </div>
-                <div>
-                  <Label className="text-xs">Phone</Label>
-                  <Input value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="0780000000" inputMode="numeric" className="mt-0.5 h-9" />
-                </div>
-              </div>
-              <div>
-                <Label className="text-xs">Email</Label>
-                <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="partner@email.com" type="email" className="mt-0.5 h-9" />
-              </div>
+              <p className="text-xs font-bold">{isPartner ? 'How you will contribute' : 'Tag the partner'}</p>
+              {!isPartner && (
+                <>
+                  <div>
+                    <Label className="text-xs">Partner name *</Label>
+                    <div className="mt-0.5">
+                      <PersonNameFields idPrefix="house-opportunity-partner" value={nameParts} onChange={setNameParts} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">WhatsApp *</Label>
+                      <Input value={whatsappNumber} onChange={(e) => setWhatsappNumber(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="0780000000" inputMode="numeric" className="mt-0.5 h-9" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Phone</Label>
+                      <Input value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="0780000000" inputMode="numeric" className="mt-0.5 h-9" />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Email</Label>
+                    <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="partner@email.com" type="email" className="mt-0.5 h-9" />
+                  </div>
+                </>
+              )}
+              {isPartner && (
+                <p className="text-[11px] text-muted-foreground">
+                  This note is created in your name{selfName ? ` (${selfName})` : ''} using the contacts on your profile.
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">Contribution</Label>
@@ -321,6 +333,7 @@ export function EmptyHouseOpportunitiesSheet({
                 )}
               </div>
             </div>
+
 
             {/* Search */}
             <div className="relative">
