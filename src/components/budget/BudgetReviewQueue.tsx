@@ -11,6 +11,7 @@ import {
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   AlertTriangle, ArrowRightCircle, Building2, CheckCircle2,
   ChevronRight, FileText, Loader2, RefreshCw, RotateCcw,
