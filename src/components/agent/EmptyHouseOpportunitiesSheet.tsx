@@ -16,7 +16,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
-import { EmptyHouseDetailSheet, type HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
+import { EmptyHouseDetailSheet, housePlace, type HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 
 
 const PAGE_SIZE = 20;
@@ -71,6 +71,10 @@ export function EmptyHouseOpportunitiesSheet({
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [createdNote, setCreatedNote] = useState<{ id: string; activation_token?: string } | null>(null);
+  const [createdNotes, setCreatedNotes] = useState<
+    { id: string; activation_token?: string; label: string; amount: number }[]
+  >([]);
+  const [splitPerHouse, setSplitPerHouse] = useState(true);
   const [detailHouse, setDetailHouse] = useState<HouseOpportunity | null>(null);
 
 
@@ -86,7 +90,7 @@ export function EmptyHouseOpportunitiesSheet({
     setNameParts({ firstName: '', otherNames: '', lastName: '' });
     setWhatsappNumber(''); setPhoneNumber(''); setEmail('');
     setContributionType('compounding'); setDeductionDay('1');
-    setErrorMsg(null); setCreatedNote(null);
+    setErrorMsg(null); setCreatedNote(null); setCreatedNotes([]); setSplitPerHouse(true);
   };
 
   const { data, isLoading, isFetching, refetch } = useQuery({
@@ -151,35 +155,53 @@ export function EmptyHouseOpportunitiesSheet({
 
     setSubmitting(true);
     try {
-      const payload: Record<string, string | number | null> = {
-        partner_name: (isPartner ? (selfName || '') : partnerName).trim(),
-        whatsapp_number: (isPartner ? (selfPhone || '') : whatsappNumber).trim(),
-        phone_number: (isPartner ? (selfPhone || '') : phoneNumber).trim() || null,
-        email: (isPartner ? (selfEmail || '') : email).trim() || null,
-        amount: rentTotal,
-        contribution_type: contributionType === 'monthly' ? 'monthly' : 'once_off',
+      const buildPayload = (amount: number): Record<string, string | number | null> => {
+        const payload: Record<string, string | number | null> = {
+          partner_name: (isPartner ? (selfName || '') : partnerName).trim(),
+          whatsapp_number: (isPartner ? (selfPhone || '') : whatsappNumber).trim(),
+          phone_number: (isPartner ? (selfPhone || '') : phoneNumber).trim() || null,
+          email: (isPartner ? (selfEmail || '') : email).trim() || null,
+          amount,
+          contribution_type: contributionType === 'monthly' ? 'monthly' : 'once_off',
+        };
+        if (contributionType === 'monthly') {
+          payload.deduction_day = String(Number(deductionDay));
+          const now = new Date();
+          const next = new Date(now.getFullYear(), now.getMonth(), Number(deductionDay));
+          if (next <= now) next.setMonth(next.getMonth() + 1);
+          payload.next_deduction_date = next.toISOString().split('T')[0];
+        }
+        return payload;
       };
 
-      if (contributionType === 'monthly') {
-        payload.deduction_day = String(Number(deductionDay));
-        const now = new Date();
-        const next = new Date(now.getFullYear(), now.getMonth(), Number(deductionDay));
-        if (next <= now) next.setMonth(next.getMonth() + 1);
-        payload.next_deduction_date = next.toISOString().split('T')[0];
-      }
+      const createFor = async (houseIds: string[], amount: number) => {
+        const { data, error } = await supabase.rpc('agent_create_promissory_note_for_houses', {
+          p_payload: buildPayload(amount),
+          p_house_ids: houseIds,
+        });
+        if (error) throw error;
+        const result = (data ?? {}) as { note?: { id: string; activation_token?: string } };
+        if (!result.note) throw new Error('Note was not created');
+        void supabase.functions
+          .invoke('notify-promissory-note-pledge', { body: { note_id: result.note.id } })
+          .catch(() => {});
+        return result.note;
+      };
 
-      const { data, error } = await supabase.rpc('agent_create_promissory_note_for_houses', {
-        p_payload: payload,
-        p_house_ids: picked.map((h) => h.house_id),
-      });
-      if (error) throw error;
-      const result = (data ?? {}) as { note?: { id: string; activation_token?: string } };
-      if (!result.note) throw new Error('Note was not created');
-      setCreatedNote(result.note);
-      void supabase.functions
-        .invoke('notify-promissory-note-pledge', { body: { note_id: result.note.id } })
-        .catch(() => {});
-      toast.success(`Note created for ${picked.length} empty house${picked.length === 1 ? '' : 's'}`);
+      if (splitPerHouse && picked.length > 1) {
+        const made: { id: string; activation_token?: string; label: string; amount: number }[] = [];
+        for (const h of picked) {
+          const amount = Number(h.monthly_rent || 0);
+          const note = await createFor([h.house_id], amount);
+          made.push({ ...note, label: h.title || housePlace(h), amount });
+          setCreatedNotes([...made]);
+        }
+        toast.success(`${made.length} promissory notes created — one per house`);
+      } else {
+        const note = await createFor(picked.map((h) => h.house_id), rentTotal);
+        setCreatedNote(note);
+        toast.success(`Note created for ${picked.length} empty house${picked.length === 1 ? '' : 's'}`);
+      }
     } catch (err: unknown) {
       const raw = String((err as { message?: string })?.message || 'Failed to create note');
       const msg = raw.includes('HOUSES_UNAVAILABLE')
@@ -233,7 +255,47 @@ export function EmptyHouseOpportunitiesSheet({
           </SheetHeader>
         </div>
 
-        {createdNote ? (
+        {createdNotes.length > 0 ? (
+          <div className="p-4 space-y-4">
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-center space-y-1">
+              <p className="text-sm font-semibold">
+                {createdNotes.length} promissory notes created — one per house
+              </p>
+              <p className="text-lg font-bold text-primary">{formatUGX(rentTotal)}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {isPartner ? 'You earn' : 'Partner earns'}{' '}
+                <span className="font-semibold text-emerald-600">{formatUGX(monthlyReturn)}</span> per month
+                ({formatUGX(annualReturn)} over 12 months)
+              </p>
+            </div>
+            <div className="space-y-2">
+              {createdNotes.map((n) => (
+                <div key={n.id} className="rounded-xl border p-3 flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold truncate">{n.label}</p>
+                    <p className="text-[11px] text-muted-foreground">{formatUGX(n.amount)} · one month of rent</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 shrink-0"
+                    disabled={!n.activation_token}
+                    onClick={async () => {
+                      if (!n.activation_token) return;
+                      await navigator.clipboard.writeText(`${getPublicOrigin()}/activate?token=${n.activation_token}`);
+                      toast.success('Activation link copied');
+                    }}
+                  >
+                    <Share2 className="h-3.5 w-3.5" /> Link
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <Button variant="ghost" className="w-full text-xs" onClick={() => { reset(); onOpenChange(false); }}>
+              Done
+            </Button>
+          </div>
+        ) : createdNote ? (
           <div className="p-4 space-y-4">
             <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-center space-y-1.5">
               <p className="text-sm font-semibold">
@@ -313,7 +375,25 @@ export function EmptyHouseOpportunitiesSheet({
                   </div>
                 )}
               </div>
+              {picked.length > 1 && (
+                <div>
+                  <Label className="text-xs">Notes to generate</Label>
+                  <Select value={splitPerHouse ? 'per_house' : 'single'} onValueChange={(v) => setSplitPerHouse(v === 'per_house')}>
+                    <SelectTrigger className="mt-0.5 h-9 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="per_house">One note per house ({picked.length})</SelectItem>
+                      <SelectItem value="single">One note for all houses</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {splitPerHouse
+                      ? 'Each house gets its own note and its own activation link, funded with that house\u2019s one month of rent.'
+                      : 'All selected houses are tagged on a single note.'}
+                  </p>
+                </div>
+              )}
             </div>
+
 
 
             {/* Search */}
