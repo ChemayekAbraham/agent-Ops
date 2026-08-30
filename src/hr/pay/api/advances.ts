@@ -228,11 +228,48 @@ export async function decideAdvance(
   if (!approve && trimmed.length < 10) {
     throw new Error('A note of at least 10 characters is required to reject an advance.');
   }
+  let nextStatus = 'rejected';
+  if (approve) {
+    const current = unwrap(
+      await supabase.from('hr_pay_advances').select('id, status').eq('id', advanceId),
+    ) as Array<{ id: string; status: string }> | null;
+    if (!current || current.length === 0) {
+      throw new Error('The advance was not updated. You may not hold the authority to decide it.');
+    }
+    const status = current[0].status;
+    if (status === 'requested') nextStatus = 'hr_approved';
+    else if (status === 'hr_approved') nextStatus = 'ceo_approved';
+    else if (status === 'ceo_approved') nextStatus = 'approved';
+    else {
+      throw new Error(
+        `This advance cannot be approved from its current status '${status}'.`,
+      );
+    }
+  }
   const res = await supabase
     .from('hr_pay_advances')
     .update({
-      status: approve ? 'approved' : 'rejected',
+      status: nextStatus,
       decision_note: trimmed ? trimmed : null,
+    })
+    .eq('id', advanceId)
+    .select('id');
+  const rows = unwrap(res) as Array<{ id: string }> | null;
+  if (!rows || rows.length === 0) {
+    throw new Error('The advance was not updated. You may not hold the authority to decide it.');
+  }
+}
+
+export async function cancelAdvance(advanceId: string, reason: string): Promise<void> {
+  const trimmed = (reason ?? '').trim();
+  if (trimmed.length < 10) {
+    throw new Error('A reason of at least 10 characters is required to cancel an advance.');
+  }
+  const res = await supabase
+    .from('hr_pay_advances')
+    .update({
+      status: 'cancelled',
+      decision_note: trimmed,
     })
     .eq('id', advanceId)
     .select('id');
