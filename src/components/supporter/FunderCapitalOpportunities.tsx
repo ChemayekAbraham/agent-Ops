@@ -313,6 +313,10 @@ export function FunderCapitalOpportunities() {
   const [showFundDialog, setShowFundDialog] = useState(false);
   const [angelAmount, setAngelAmount] = useState(0);
   const [investLoading, setInvestLoading] = useState(false);
+  // Empty-house funding calculator + breakdown UI state (display only)
+  const [calcHouses, setCalcHouses] = useState(5);
+  const [calcAmountInput, setCalcAmountInput] = useState('');
+  const [breakdownBy, setBreakdownBy] = useState<'district' | 'landlord'>('district');
 
   const handleAngelAmountChange = (val: string) => {
     const num = parseInt(val.replace(/[^0-9]/g, ''), 10);
