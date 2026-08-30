@@ -407,12 +407,7 @@ export default function ProxyAgentCommandCenter() {
           </>
         ) : null}
 
-                  {' '}({s.targets.month_progress_pct}%)
-                </p>
-              </CardContent>
-            </Card>
-          </>
-        ) : null}
+
 
         {/* Lists */}
         <Tabs value={tab} onValueChange={(v) => setTab(v as 'partners' | 'notes')}>
