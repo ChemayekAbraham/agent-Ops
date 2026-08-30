@@ -465,7 +465,7 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
             {lines.map((l, idx) => (
               <div key={idx} className="space-y-2 rounded-lg border border-border p-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium">Line {idx + 1}</span>
+                  <span className="text-xs font-medium">Item {idx + 1}</span>
                   {!readOnly && lines.length > 1 && (
                     <Button size="sm" variant="ghost" className="h-7 px-2 text-destructive"
                       onClick={() => setLines(prev => prev.filter((_, i) => i !== idx))}>
