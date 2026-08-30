@@ -141,6 +141,39 @@ export function EmptyHouseOpportunitiesSheet({
     },
   });
 
+  const queryClient = useQueryClient();
+
+  // Live funding / tenant / payout progress for houses this user already supports.
+  const { data: progressRows } = useQuery({
+    queryKey: ['empty-house-progress'],
+    enabled: open,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('partner_supported_house_returns');
+      if (error) throw error;
+      const payload = (data ?? {}) as { houses?: HouseProgress[] };
+      return payload.houses ?? [];
+    },
+    staleTime: 30_000,
+  });
+
+  const progressByHouse = useMemo(() => {
+    const map: Record<string, HouseProgress> = {};
+    for (const row of progressRows ?? []) if (row?.house_id) map[row.house_id] = row;
+    return map;
+  }, [progressRows]);
+
+  useEffect(() => {
+    if (!open) return;
+    const invalidate = () => { queryClient.invalidateQueries({ queryKey: ['empty-house-progress'] }); };
+    const channel = supabase
+      .channel('empty-house-progress')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'promissory_note_house_intents' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'promissory_notes' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_landlord_payouts' }, invalidate)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [open, queryClient]);
+
   const houses = data?.houses ?? [];
   const total = data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
