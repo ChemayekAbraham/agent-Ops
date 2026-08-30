@@ -582,6 +582,29 @@ export function EmptyHouseOpportunitiesSheet({
 
               {showFilters && (
                 <div className="rounded-2xl border bg-muted/30 p-3 space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Sort by</Label>
+                    <Select
+                      value={sort}
+                      onValueChange={(v) => {
+                        const next = v as typeof sort;
+                        setSort(next);
+                        setPage(0);
+                        if (next === 'nearest' && !nearMe) useMyLocation();
+                      }}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="recommended">Recommended</SelectItem>
+                        <SelectItem value="nearest">Nearest to me</SelectItem>
+                        <SelectItem value="newest">Newest listings</SelectItem>
+                        <SelectItem value="rent_high">Highest funding need</SelectItem>
+                        <SelectItem value="rent_low">Lowest funding need</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <Label className="text-[11px] text-muted-foreground">District</Label>
