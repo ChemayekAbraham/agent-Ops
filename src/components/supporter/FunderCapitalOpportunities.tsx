@@ -8,7 +8,7 @@ import investingBroIllustration from '@/assets/investing-bro.svg.asset.json';
 import {
   TrendingUp, Shield, Rocket, Home, Wallet, ChevronLeft, ChevronRight,
   Coins, Lock, Clock, HandCoins, Handshake,
-  BadgeCheck, Plus,
+  BadgeCheck, Plus, Calculator, MapPin, CheckCircle2, User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
