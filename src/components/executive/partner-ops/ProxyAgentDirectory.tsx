@@ -57,10 +57,12 @@ import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
   fetchProxyDirectory,
+  fetchProxyTargetOverview,
   proxyInitials,
   proxyStatusTone,
   PROXY_CONTACT_FILTERS,
   PROXY_DIR_PAGE_SIZE,
+  PROXY_TARGET_METRICS,
   type ProxyContactFilter,
   type ProxyDirRow,
 } from './proxyAgentDirectory';
