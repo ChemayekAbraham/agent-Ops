@@ -28,7 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { listAdvances, requestAdvance, decideAdvance, updateAdvance, type AdvanceRow } from '@/hr/pay/api/advances';
+import { listAdvances, requestAdvance, decideAdvance, cancelAdvance, updateAdvance, type AdvanceRow } from '@/hr/pay/api/advances';
 import { listStaffForPayroll, type PayrollStaffOption } from '@/hr/pay/api/compensation';
 import { myPayrollAuthority } from '@/hr/pay/api/workflow';
 
@@ -51,10 +51,33 @@ function firstOfNextMonth(): string {
 
 const STATUS_CLASS: Record<string, string> = {
   requested: 'bg-amber-100 text-amber-800',
+  hr_approved: 'bg-amber-100 text-amber-800',
+  ceo_approved: 'bg-amber-100 text-amber-800',
   approved: 'bg-green-100 text-green-800',
   rejected: 'bg-muted text-muted-foreground',
   settled: 'bg-blue-100 text-blue-800',
+  cancelled: 'bg-muted text-muted-foreground',
 };
+
+const STAGE_LABEL: Record<string, string> = {
+  requested: 'Awaiting HR',
+  hr_approved: 'Awaiting CEO',
+  ceo_approved: 'Awaiting CFO',
+  approved: 'Disbursed, recovering',
+  settled: 'Settled',
+  rejected: 'Rejected',
+  cancelled: 'Cancelled',
+};
+
+const ACTION_LABEL: Record<string, string> = {
+  requested: 'HR approve',
+  hr_approved: 'CEO approve',
+  ceo_approved: 'Disburse',
+};
+
+function isActionable(status: string): boolean {
+  return status === 'requested' || status === 'hr_approved' || status === 'ceo_approved';
+}
 
 export default function Advances() {
   const [rows, setRows] = useState<AdvanceRow[]>([]);
