@@ -16,7 +16,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
-import { EmptyHouseDetailSheet, type HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
+import { EmptyHouseDetailSheet, housePlace, type HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 
 
 const PAGE_SIZE = 20;
