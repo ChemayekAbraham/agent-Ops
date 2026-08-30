@@ -21,7 +21,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
 import {
-  BUDGET_ROUTE_LABEL, fetchBudgetReviewQueue, fetchLines, getBudgetDocumentUrl,
+  fetchBudgetReviewQueue, fetchLines, getBudgetDocumentUrl,
   type BudgetLine, type BudgetQueueRow, type BudgetReviewStage,
 } from '@/hooks/useDepartmentBudgets';
 
@@ -496,7 +496,7 @@ function ReviewSheet({
               <InfoItem label="Submitted">
                 {s.submitted_at ? format(new Date(s.submitted_at), 'dd MMM yyyy') : '—'}
               </InfoItem>
-              <InfoItem label="Approval route">{BUDGET_ROUTE_LABEL[s.route]}</InfoItem>
+              
               <InfoItem label="Line items">{s.line_count}</InfoItem>
               <InfoItem label={isCoo ? 'COO approved' : 'CFO approved'}>
                 <span className="font-mono">{formatUGX(isCoo ? s.coo_approved_total : s.cfo_approved_total)}</span>
