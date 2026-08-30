@@ -1,0 +1,280 @@
+import { useEffect, useState } from 'react';
+import {
+  Home,
+  MapPin,
+  Phone,
+  Navigation,
+  ShieldCheck,
+  Users,
+  ImageIcon,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+} from 'lucide-react';
+
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { formatUGX } from '@/lib/rentCalculations';
+
+export interface HouseOpportunity {
+  house_id: string;
+  title: string | null;
+  house_category: string | null;
+  monthly_rent: number;
+  district: string | null;
+  sub_county: string | null;
+  village: string | null;
+  region: string | null;
+  number_of_rooms: number | null;
+  verified: boolean;
+  listing_agent_id: string | null;
+  listing_agent_name: string | null;
+  image_url?: string | null;
+  image_urls?: string[] | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  landlord_id?: string | null;
+  landlord_name?: string | null;
+  landlord_phone?: string | null;
+  partner_monthly_return: number;
+  partner_annual_return: number;
+}
+
+export const houseHasGps = (h: HouseOpportunity) =>
+  typeof h.latitude === 'number' && typeof h.longitude === 'number' && (h.latitude !== 0 || h.longitude !== 0);
+
+export const houseMapsUrl = (h: HouseOpportunity) =>
+  `https://www.google.com/maps/search/?api=1&query=${h.latitude},${h.longitude}`;
+
+export const housePlace = (h: HouseOpportunity) =>
+  [h.village, h.sub_county, h.district].filter(Boolean).join(', ') || h.region || 'Location on file';
+
+const photosOf = (h: HouseOpportunity) =>
+  h.image_urls && h.image_urls.length ? h.image_urls : h.image_url ? [h.image_url] : [];
+
+/**
+ * Full detail view for one empty house: photo gallery, landlord name and
+ * contact, GPS map preview and the 15% monthly return the partner earns.
+ */
+export function EmptyHouseDetailSheet({
+  house,
+  open,
+  onOpenChange,
+  isPicked,
+  onTogglePick,
+  isPartner = false,
+}: {
+  house: HouseOpportunity | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  isPicked?: boolean;
+  onTogglePick?: (house: HouseOpportunity) => void;
+  isPartner?: boolean;
+}) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [house?.house_id]);
+
+  if (!house) return null;
+
+  const photos = photosOf(house);
+  const gps = houseHasGps(house);
+  const active = photos[Math.min(index, Math.max(photos.length - 1, 0))];
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto p-0">
+        <SheetHeader className="border-b p-4 text-left">
+          <SheetTitle className="flex items-center gap-2 text-base">
+            <Home className="h-4 w-4 text-primary" />
+            {house.title || house.house_category || 'Empty house'}
+          </SheetTitle>
+          <SheetDescription className="flex items-center gap-1 text-[11px]">
+            <MapPin className="h-3 w-3 shrink-0" /> {housePlace(house)}
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="space-y-4 p-4 pb-28">
+          {/* Gallery */}
+          {photos.length > 0 ? (
+            <div className="space-y-2">
+              <div className="relative overflow-hidden rounded-2xl bg-muted">
+                <img
+                  src={active}
+                  alt={`${house.title || 'Empty house'} photo ${index + 1}`}
+                  loading="lazy"
+                  className="h-56 w-full object-cover"
+                />
+                {photos.length > 1 && (
+                  <>
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      className="absolute left-2 top-1/2 h-8 w-8 -translate-y-1/2 rounded-full opacity-90"
+                      onClick={() => setIndex((i) => (i - 1 + photos.length) % photos.length)}
+                      aria-label="Previous photo"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      className="absolute right-2 top-1/2 h-8 w-8 -translate-y-1/2 rounded-full opacity-90"
+                      onClick={() => setIndex((i) => (i + 1) % photos.length)}
+                      aria-label="Next photo"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <span className="absolute bottom-2 right-2 rounded-full bg-background/85 px-2 py-0.5 text-[10px] font-semibold">
+                      {index + 1} / {photos.length}
+                    </span>
+                  </>
+                )}
+              </div>
+              {photos.length > 1 && (
+                <div className="flex gap-1.5 overflow-x-auto">
+                  {photos.map((src, i) => (
+                    <button
+                      key={`${house.house_id}-thumb-${i}`}
+                      type="button"
+                      onClick={() => setIndex(i)}
+                      className={`h-14 w-20 shrink-0 overflow-hidden rounded-lg border-2 ${
+                        i === index ? 'border-primary' : 'border-transparent'
+                      }`}
+                    >
+                      <img src={src} alt={`Thumbnail ${i + 1}`} loading="lazy" className="h-full w-full object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex h-40 items-center justify-center gap-2 rounded-2xl bg-muted text-xs text-muted-foreground">
+              <ImageIcon className="h-4 w-4" /> No photo on file
+            </div>
+          )}
+
+          {/* Money */}
+          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Monthly rent</p>
+                <p className="text-base font-black">{formatUGX(house.monthly_rent)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                  {isPartner ? 'You earn' : 'Partner earns'}
+                </p>
+                <p className="text-base font-black text-emerald-600">
+                  {formatUGX(house.partner_monthly_return)}/mo
+                </p>
+              </div>
+            </div>
+            <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+              15% of the rent every month for 12 months —{' '}
+              <span className="font-semibold text-foreground">{formatUGX(house.partner_annual_return)}</span> in total.
+            </p>
+          </div>
+
+          {/* House facts */}
+          <div className="rounded-2xl border p-4 space-y-2 text-[12px]">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Type</span>
+              <span className="font-semibold">{house.house_category || 'Not stated'}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Rooms</span>
+              <span className="font-semibold">{house.number_of_rooms ?? 'Not stated'}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Status</span>
+              {house.verified ? (
+                <Badge variant="outline" className="h-5 gap-1 border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-600">
+                  <ShieldCheck className="h-3 w-3" /> Verified
+                </Badge>
+              ) : (
+                <span className="font-semibold">Pending verification</span>
+              )}
+            </div>
+            {house.listing_agent_name && (
+              <p className="flex items-start gap-1.5 pt-1 text-[11px] text-muted-foreground">
+                <Users className="mt-0.5 h-3 w-3 shrink-0" />
+                {house.listing_agent_name} places the tenant once this note is fulfilled.
+              </p>
+            )}
+          </div>
+
+          {/* Landlord */}
+          <div className="rounded-2xl border p-4 space-y-2">
+            <p className="text-xs font-bold">Landlord</p>
+            <p className="text-sm font-semibold">{house.landlord_name || 'Name not on file'}</p>
+            {house.landlord_phone ? (
+              <Button asChild variant="outline" size="sm" className="h-9 w-full gap-1.5 text-[12px]">
+                <a href={`tel:${house.landlord_phone}`}>
+                  <Phone className="h-3.5 w-3.5" /> {house.landlord_phone}
+                </a>
+              </Button>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">No contact on file.</p>
+            )}
+          </div>
+
+          {/* Map */}
+          <div className="rounded-2xl border p-4 space-y-2">
+            <p className="text-xs font-bold">GPS location</p>
+            {gps ? (
+              <>
+                <div className="overflow-hidden rounded-xl border">
+                  <iframe
+                    title={`Map for ${house.title || 'empty house'}`}
+                    src={`https://www.google.com/maps?q=${house.latitude},${house.longitude}&z=15&output=embed`}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    className="h-48 w-full border-0"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-muted-foreground">
+                    {Number(house.latitude).toFixed(5)}, {Number(house.longitude).toFixed(5)}
+                  </span>
+                  <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-[11px]">
+                    <a href={houseMapsUrl(house)} target="_blank" rel="noopener noreferrer">
+                      <Navigation className="h-3 w-3" /> Open in Maps
+                    </a>
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                No GPS captured for this house yet. Use the location details above.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {onTogglePick && (
+          <div className="sticky bottom-0 border-t bg-background p-4">
+            <Button
+              className="h-11 w-full gap-2 font-semibold"
+              variant={isPicked ? 'outline' : 'default'}
+              onClick={() => onTogglePick(house)}
+            >
+              {isPicked ? (
+                <>
+                  <Check className="h-4 w-4" /> Selected — tap to remove
+                </>
+              ) : (
+                'Select this house'
+              )}
+            </Button>
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+export default EmptyHouseDetailSheet;

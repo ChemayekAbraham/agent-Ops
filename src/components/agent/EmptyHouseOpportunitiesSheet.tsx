@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Home, Loader2, Search, Check, Share2, ShieldCheck, MapPin, Users, Phone, Navigation, ImageIcon } from 'lucide-react';
+import { Home, Loader2, Search, Check, Share2, ShieldCheck, MapPin, Users, Phone, Navigation, ImageIcon, Eye } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -16,30 +16,8 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
+import { EmptyHouseDetailSheet, type HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 
-interface HouseOpportunity {
-  house_id: string;
-  title: string | null;
-  house_category: string | null;
-  monthly_rent: number;
-  district: string | null;
-  sub_county: string | null;
-  village: string | null;
-  region: string | null;
-  number_of_rooms: number | null;
-  verified: boolean;
-  listing_agent_id: string | null;
-  listing_agent_name: string | null;
-  image_url?: string | null;
-  image_urls?: string[] | null;
-  latitude?: number | null;
-  longitude?: number | null;
-  landlord_id?: string | null;
-  landlord_name?: string | null;
-  landlord_phone?: string | null;
-  partner_monthly_return: number;
-  partner_annual_return: number;
-}
 
 const PAGE_SIZE = 20;
 
@@ -93,6 +71,8 @@ export function EmptyHouseOpportunitiesSheet({
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [createdNote, setCreatedNote] = useState<{ id: string; activation_token?: string } | null>(null);
+  const [detailHouse, setDetailHouse] = useState<HouseOpportunity | null>(null);
+
 
   const partnerName = isPartner ? (selfName || '').trim() : joinPersonName(nameParts);
 
@@ -226,6 +206,7 @@ export function EmptyHouseOpportunitiesSheet({
   };
 
   return (
+    <>
     <Sheet open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
       <SheetContent side="bottom" className="h-[96vh] overflow-y-auto p-0">
         <div className="sticky top-0 z-20 bg-background border-b px-4 py-3">
@@ -423,29 +404,36 @@ export function EmptyHouseOpportunitiesSheet({
                           </div>
                         </div>
                       </button>
-                      {(h.landlord_phone || hasGps(h)) && (
-                        <div className="flex flex-wrap items-center gap-2 border-t px-3 py-2">
-                          {h.landlord_phone && (
-                            <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-[11px]">
-                              <a href={`tel:${h.landlord_phone}`} onClick={(e) => e.stopPropagation()}>
-                                <Phone className="h-3 w-3" /> {h.landlord_phone}
-                              </a>
-                            </Button>
-                          )}
-                          {hasGps(h) && (
-                            <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-[11px]">
-                              <a href={mapsUrl(h)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                                <Navigation className="h-3 w-3" /> GPS location
-                              </a>
-                            </Button>
-                          )}
-                          {hasGps(h) && (
-                            <span className="text-[10px] text-muted-foreground">
-                              {Number(h.latitude).toFixed(5)}, {Number(h.longitude).toFixed(5)}
-                            </span>
-                          )}
-                        </div>
-                      )}
+                      <div className="flex flex-wrap items-center gap-2 border-t px-3 py-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-8 gap-1 text-[11px]"
+                          onClick={(e) => { e.stopPropagation(); setDetailHouse(h); }}
+                        >
+                          <Eye className="h-3 w-3" /> View details
+                        </Button>
+                        {h.landlord_phone && (
+                          <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-[11px]">
+                            <a href={`tel:${h.landlord_phone}`} onClick={(e) => e.stopPropagation()}>
+                              <Phone className="h-3 w-3" /> {h.landlord_phone}
+                            </a>
+                          </Button>
+                        )}
+                        {hasGps(h) && (
+                          <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-[11px]">
+                            <a href={mapsUrl(h)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                              <Navigation className="h-3 w-3" /> GPS location
+                            </a>
+                          </Button>
+                        )}
+                        {hasGps(h) && (
+                          <span className="text-[10px] text-muted-foreground">
+                            {Number(h.latitude).toFixed(5)}, {Number(h.longitude).toFixed(5)}
+                          </span>
+                        )}
+                      </div>
+
                     </div>
                   );
                 })}
@@ -497,5 +485,16 @@ export function EmptyHouseOpportunitiesSheet({
         )}
       </SheetContent>
     </Sheet>
+
+      <EmptyHouseDetailSheet
+        house={detailHouse}
+        open={Boolean(detailHouse)}
+        onOpenChange={(v) => { if (!v) setDetailHouse(null); }}
+        isPicked={detailHouse ? Boolean(selected[detailHouse.house_id]) : false}
+        onTogglePick={(h) => toggle(h)}
+        isPartner={isPartner}
+      />
+    </>
   );
 }
+
