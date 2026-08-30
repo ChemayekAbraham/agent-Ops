@@ -249,6 +249,27 @@ export default function Advances() {
     }
   }
 
+  async function cancel() {
+    if (!cancelRow) return;
+    if (cancelReason.trim().length < 10) {
+      setCancelError('A reason of at least 10 characters is required.');
+      return;
+    }
+    setCancelError('');
+    setBusyId(cancelRow.id);
+    try {
+      await cancelAdvance(cancelRow.id, cancelReason.trim());
+      toast.success('Advance cancelled.');
+      setCancelRow(null);
+      setCancelReason('');
+      await load();
+    } catch (err) {
+      setCancelError((err as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <HRPlaceholderPage
       heading="Salary advances"
@@ -285,14 +306,17 @@ export default function Advances() {
               <TableHead className="text-right">Recovered so far</TableHead>
               <TableHead className="text-right">Outstanding</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>HR approved</TableHead>
+              <TableHead>Approved</TableHead>
+              <TableHead>Disbursed</TableHead>
               {isPreparer && <TableHead />}
-              {isApprover && <TableHead />}
+              <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={(isApprover ? 10 : 9) + (isPreparer ? 1 : 0)} className="py-8 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={13 + (isPreparer ? 1 : 0)} className="py-8 text-center text-sm text-muted-foreground">
                   No salary advances recorded.
                 </TableCell>
               </TableRow>
