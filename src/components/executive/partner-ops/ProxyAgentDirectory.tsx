@@ -551,6 +551,16 @@ export function ProxyAgentDirectory() {
             size="sm"
             variant="outline"
             className="h-8 text-xs"
+            onClick={() => void copyViewLink()}
+            title="Copy a link that reopens this exact list"
+          >
+            <Link2 className="mr-1.5 h-3.5 w-3.5" />
+            {linkCopied ? 'Link copied' : 'Copy link to this view'}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
             onClick={handleExportCsv}
             disabled={exporting}
           >
