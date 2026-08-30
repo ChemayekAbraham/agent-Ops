@@ -134,6 +134,15 @@ export function EmptyHouseOpportunitiesSheet({
     return () => clearTimeout(t);
   }, [search]);
 
+  // Pre-fill the max-rent filter from the funder calculator when the sheet opens.
+  useEffect(() => {
+    if (open && initialMaxRent && initialMaxRent > 0) {
+      setMaxRent(String(Math.round(initialMaxRent)));
+      setPage(0);
+      setShowFilters(true);
+    }
+  }, [open, initialMaxRent]);
+
   const reset = () => {
     setSearch(''); setDebounced(''); setPage(0); setSelected({});
     setNameParts({ firstName: '', otherNames: '', lastName: '' });
@@ -387,6 +396,21 @@ export function EmptyHouseOpportunitiesSheet({
             </SheetDescription>
 
           </SheetHeader>
+
+          {projection && createdNotes.length === 0 && !createdNote && (
+            <div className="mt-2 rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3 py-2">
+              <p className="text-[11px] leading-snug">
+                <span className="font-semibold">Your plan:</span> fund{' '}
+                <span className="font-semibold">{projection.houses.toLocaleString()} {projection.houses === 1 ? 'house' : 'houses'}</span>
+                {' '}(≈ {formatUGX(projection.funding)}) → earn{' '}
+                <span className="font-semibold text-emerald-600">≈ {formatUGX(projection.monthly)}/month</span>
+                {' '}({formatUGX(projection.monthly * 12)} over 12 months)
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Exact figures are shown on each house below as you pick.
+              </p>
+            </div>
+          )}
         </div>
 
         {createdNotes.length > 0 ? (
