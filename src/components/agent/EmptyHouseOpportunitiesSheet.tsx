@@ -255,7 +255,47 @@ export function EmptyHouseOpportunitiesSheet({
           </SheetHeader>
         </div>
 
-        {createdNote ? (
+        {createdNotes.length > 0 ? (
+          <div className="p-4 space-y-4">
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-center space-y-1">
+              <p className="text-sm font-semibold">
+                {createdNotes.length} promissory notes created — one per house
+              </p>
+              <p className="text-lg font-bold text-primary">{formatUGX(rentTotal)}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {isPartner ? 'You earn' : 'Partner earns'}{' '}
+                <span className="font-semibold text-emerald-600">{formatUGX(monthlyReturn)}</span> per month
+                ({formatUGX(annualReturn)} over 12 months)
+              </p>
+            </div>
+            <div className="space-y-2">
+              {createdNotes.map((n) => (
+                <div key={n.id} className="rounded-xl border p-3 flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold truncate">{n.label}</p>
+                    <p className="text-[11px] text-muted-foreground">{formatUGX(n.amount)} · one month of rent</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 shrink-0"
+                    disabled={!n.activation_token}
+                    onClick={async () => {
+                      if (!n.activation_token) return;
+                      await navigator.clipboard.writeText(`${getPublicOrigin()}/activate?token=${n.activation_token}`);
+                      toast.success('Activation link copied');
+                    }}
+                  >
+                    <Share2 className="h-3.5 w-3.5" /> Link
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <Button variant="ghost" className="w-full text-xs" onClick={() => { reset(); onOpenChange(false); }}>
+              Done
+            </Button>
+          </div>
+        ) : createdNote ? (
           <div className="p-4 space-y-4">
             <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-center space-y-1.5">
               <p className="text-sm font-semibold">
