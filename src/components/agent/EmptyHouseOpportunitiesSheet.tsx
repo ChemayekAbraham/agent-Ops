@@ -206,6 +206,7 @@ export function EmptyHouseOpportunitiesSheet({
   };
 
   return (
+    <>
     <Sheet open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
       <SheetContent side="bottom" className="h-[96vh] overflow-y-auto p-0">
         <div className="sticky top-0 z-20 bg-background border-b px-4 py-3">
@@ -483,6 +484,7 @@ export function EmptyHouseOpportunitiesSheet({
           </div>
         )}
       </SheetContent>
+    </Sheet>
 
       <EmptyHouseDetailSheet
         house={detailHouse}
@@ -492,7 +494,7 @@ export function EmptyHouseOpportunitiesSheet({
         onTogglePick={(h) => toggle(h)}
         isPartner={isPartner}
       />
-    </Sheet>
+    </>
   );
 }
 
