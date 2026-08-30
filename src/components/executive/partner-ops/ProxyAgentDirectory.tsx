@@ -10,6 +10,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
+  ChevronLeft,
   ChevronRight,
   FileText,
   Handshake,
@@ -41,6 +42,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
@@ -53,6 +62,7 @@ import {
 import { ProxyAgentDetailPanel } from './ProxyAgentDetailPanel';
 import { OnboardProxyAgentDialog } from './OnboardProxyAgentDialog';
 import { ProxyOnboardingAuditPanel } from './ProxyOnboardingAuditPanel';
+import { ProxyAgentTargetPanel } from './ProxyAgentTargetPanel';
 
 const STATUS_TABS: { key: string; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -95,35 +105,32 @@ export function ProxyAgentDirectory() {
   const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [onboardOpen, setOnboardOpen] = useState(false);
-  const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
-  const [pages, setPages] = useState(1);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(PROXY_DIR_PAGE_SIZE);
   const [selected, setSelected] = useState<ProxyDirRow | null>(null);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [reason, setReason] = useState('');
 
-  // Single RPC per page slice — rows accumulate client-side for "Load more".
+  const query = useDebouncedValue(search, 350);
+
+  // Exactly ONE page of rows per request — never accumulates, so the screen
+  // costs the same with 1,000 or 1,000,000 proxy agents.
   const pageQueries = useQuery({
-    queryKey: ['proxy-agent-directory', query, status, pages],
-    queryFn: async () => {
-      const slices = await Promise.all(
-        Array.from({ length: pages }, (_, i) =>
-          fetchProxyDirectory(query, status, i * PROXY_DIR_PAGE_SIZE),
-        ),
-      );
-      return {
-        kpis: slices[0].kpis,
-        total: slices[0].total,
-        rows: slices.flatMap((s) => s.rows),
-      };
-    },
+    queryKey: ['proxy-agent-directory', query, status, page, pageSize],
+    queryFn: () => fetchProxyDirectory(query, status, page * pageSize, pageSize),
     staleTime: 30_000,
+    placeholderData: (prev) => prev,
   });
 
   const rows = pageQueries.data?.rows ?? [];
   const kpis = pageQueries.data?.kpis;
   const total = pageQueries.data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const firstShown = total === 0 ? 0 : page * pageSize + 1;
+  const lastShown = page * pageSize + rows.length;
+
 
   const conversion = useMemo(() => {
     if (!kpis || !kpis.partners_linked) return 0;
@@ -178,10 +185,11 @@ export function ProxyAgentDirectory() {
       toast({ title: 'Delete failed', description: e.message, variant: 'destructive' }),
   });
 
-  const applySearch = () => {
-    setPages(1);
-    setQuery(search);
+  const goToPage = (p: number) => {
+    setPage(Math.min(Math.max(0, p), totalPages - 1));
+    setChecked({});
   };
+
 
   if (selected) {
     return (
@@ -224,6 +232,8 @@ export function ProxyAgentDirectory() {
 
       <OnboardProxyAgentDialog open={onboardOpen} onOpenChange={setOnboardOpen} />
 
+      <ProxyAgentTargetPanel />
+
       {/* KPI cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {!kpis ? (
@@ -265,9 +275,7 @@ export function ProxyAgentDirectory() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && applySearch()}
-            onBlur={applySearch}
-            placeholder="Search name, phone, email or invite code"
+            placeholder="Type a name, phone, email or invite code to find an agent"
             className="h-9 pl-8 text-xs"
           />
         </div>
@@ -283,7 +291,7 @@ export function ProxyAgentDirectory() {
                   : 'text-muted-foreground hover:text-foreground',
               )}
               onClick={() => {
-                setPages(1);
+                setPage(0);
                 setStatus(t.key);
                 setChecked({});
               }}
@@ -346,7 +354,7 @@ export function ProxyAgentDirectory() {
                       }
                       setChecked(next);
                     }}
-                    aria-label="Select all loaded proxy agents"
+                    aria-label="Select every agent on this page"
                   />
                 </div>
                 <span className="col-span-3">Agent</span>
@@ -437,23 +445,60 @@ export function ProxyAgentDirectory() {
                   </li>
                 ))}
               </ul>
-              <div className="flex items-center justify-between gap-2 border-t px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t px-4 py-3">
                 <p className="text-[11px] text-muted-foreground">
-                  Showing {rows.length} of {total}
+                  Showing {firstShown.toLocaleString()}–{lastShown.toLocaleString()} of{' '}
+                  {total.toLocaleString()} agents
+                  {pageQueries.isFetching && (
+                    <Loader2 className="ml-1.5 inline h-3 w-3 animate-spin align-[-2px]" />
+                  )}
                 </p>
-                {rows.length < total && (
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={String(pageSize)}
+                    onValueChange={(v) => {
+                      setPageSize(Number(v));
+                      setPage(0);
+                      setChecked({});
+                    }}
+                  >
+                    <SelectTrigger className="h-8 w-[120px] text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[30, 60, 100, 200].map((n) => (
+                        <SelectItem key={n} value={String(n)} className="text-xs">
+                          {n} per page
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button
                     size="sm"
                     variant="outline"
                     className="h-8 text-xs"
-                    disabled={pageQueries.isFetching}
-                    onClick={() => setPages((p) => p + 1)}
+                    disabled={page === 0}
+                    onClick={() => goToPage(page - 1)}
                   >
-                    {pageQueries.isFetching && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                    Load more
+                    <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+                    Back
                   </Button>
-                )}
+                  <span className="text-[11px] font-semibold tabular-nums">
+                    Page {(page + 1).toLocaleString()} of {totalPages.toLocaleString()}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs"
+                    disabled={page + 1 >= totalPages}
+                    onClick={() => goToPage(page + 1)}
+                  >
+                    Next
+                    <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
+
             </>
           )}
         </CardContent>
