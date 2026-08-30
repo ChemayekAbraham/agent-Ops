@@ -71,6 +71,8 @@ export function EmptyHouseOpportunitiesSheet({
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [createdNote, setCreatedNote] = useState<{ id: string; activation_token?: string } | null>(null);
+  const [detailHouse, setDetailHouse] = useState<HouseOpportunity | null>(null);
+
 
   const partnerName = isPartner ? (selfName || '').trim() : joinPersonName(nameParts);
 
