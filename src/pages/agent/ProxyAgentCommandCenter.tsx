@@ -54,29 +54,23 @@ const noteStatusTone: Record<string, string> = {
   activated: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30',
 };
 
-function StatTile({
-  icon: Icon, label, value, hint, tone = 'default',
+function Metric({
+  icon: Icon, label, value, hint,
 }: {
   icon: typeof Users; label: string; value: string; hint?: string;
-  tone?: 'default' | 'primary' | 'success' | 'warning';
 }) {
-  const tones: Record<string, string> = {
-    default: 'bg-card border-border',
-    primary: 'bg-primary/5 border-primary/20',
-    success: 'bg-emerald-500/5 border-emerald-500/20',
-    warning: 'bg-amber-500/5 border-amber-500/20',
-  };
   return (
-    <div className={cn('rounded-2xl border p-3 flex flex-col gap-1 min-w-0', tones[tone])}>
+    <div className="flex flex-col gap-0.5 min-w-0 px-3 py-2.5">
       <div className="flex items-center gap-1.5 text-muted-foreground">
-        <Icon className="h-3.5 w-3.5 shrink-0" />
-        <span className="text-[11px] font-semibold uppercase tracking-wide truncate">{label}</span>
+        <Icon className="h-3 w-3 shrink-0" />
+        <span className="text-[10px] font-medium uppercase tracking-wider truncate">{label}</span>
       </div>
-      <span className="text-base font-black leading-tight break-words">{value}</span>
-      {hint && <span className="text-[11px] text-muted-foreground leading-tight">{hint}</span>}
+      <span className="text-sm font-semibold leading-tight break-words">{value}</span>
+      {hint && <span className="text-[10px] text-muted-foreground leading-tight truncate">{hint}</span>}
     </div>
   );
 }
+
 
 export default function ProxyAgentCommandCenter() {
   const navigate = useNavigate();
