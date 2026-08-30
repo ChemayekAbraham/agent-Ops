@@ -80,6 +80,8 @@ export function EmptyHouseOpportunitiesSheet({
   selfName,
   selfPhone,
   selfEmail,
+  initialMaxRent,
+  projection,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -87,6 +89,10 @@ export function EmptyHouseOpportunitiesSheet({
   selfName?: string | null;
   selfPhone?: string | null;
   selfEmail?: string | null;
+  /** Pre-fills the max-rent filter when the sheet opens (e.g. from the funder calculator). */
+  initialMaxRent?: number | null;
+  /** Projected return from the funder calculator, shown on the first picker screen. */
+  projection?: { houses: number; funding: number; monthly: number } | null;
 }) {
   const isPartner = mode === 'partner';
 
