@@ -10,6 +10,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
+  BadgeCheck,
   ChevronLeft,
   ChevronRight,
   FileText,
@@ -119,6 +120,10 @@ export function ProxyAgentDirectory() {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [reason, setReason] = useState('');
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [approveNote, setApproveNote] = useState('');
+  const [approveProgress, setApproveProgress] = useState({ done: 0, total: 0 });
+  const [approveResults, setApproveResults] = useState<string[]>([]);
 
   const query = useDebouncedValue(search, 350);
 
@@ -212,6 +217,90 @@ export function ProxyAgentDirectory() {
     onError: (e: any) =>
       toast({ title: 'Delete failed', description: e.message, variant: 'destructive' }),
   });
+
+  /**
+   * Bulk approve + notify. Each agent goes through the SAME single-agent RPC
+   * used by the onboarding dialog (so approval, role grant and audit snapshots
+   * stay identical), then gets the proxy role/benefits email. Runs 4 at a time
+   * so a large selection never floods the backend.
+   */
+  const bulkApprove = useMutation({
+    mutationFn: async () => {
+      const targets = selectedRows.length ? selectedRows : [];
+      const note = approveNote.trim() || null;
+      const today = new Date().toISOString().slice(0, 10);
+      const summary = { approved: 0, emailed: 0, skipped: 0, failed: [] as string[] };
+      setApproveProgress({ done: 0, total: targets.length });
+
+      const queue = [...targets];
+      const worker = async () => {
+        for (;;) {
+          const r = queue.shift();
+          if (!r) return;
+          try {
+            const { data, error } = await supabase.rpc('partner_ops_onboard_proxy_agent', {
+              p_agent_user_id: r.agent_user_id,
+              p_nin: null,
+              p_notes: note,
+            });
+            if (error) throw new Error(error.message);
+            summary.approved += 1;
+            const res = (data ?? {}) as { email?: string | null; full_name?: string | null };
+            const recipientEmail = (res.email ?? r.email ?? '').trim();
+            if (recipientEmail) {
+              const { error: mailError } = await supabase.functions.invoke('send-transactional-email', {
+                body: {
+                  templateName: 'proxy-agent-onboarded',
+                  recipientEmail,
+                  idempotencyKey: `proxy-agent-onboarded-${r.agent_user_id}-${today}`,
+                  templateData: {
+                    recipient_name: res.full_name ?? r.name ?? 'there',
+                    onboarded_on: new Date().toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: 'long',
+                      year: 'numeric',
+                    }),
+                  },
+                },
+              });
+              if (mailError) summary.skipped += 1;
+              else summary.emailed += 1;
+            } else {
+              summary.skipped += 1;
+            }
+          } catch (err) {
+            summary.failed.push(`${r.name}: ${err instanceof Error ? err.message : 'failed'}`);
+          } finally {
+            setApproveProgress((p) => ({ done: p.done + 1, total: p.total }));
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(4, targets.length) }, worker));
+      return summary;
+    },
+    onSuccess: (res) => {
+      toast({
+        title: res.failed.length ? 'Finished with some problems' : 'Proxy agents approved',
+        description: `${res.approved} approved · ${res.emailed} emailed · ${res.skipped} without a reachable email${
+          res.failed.length ? ` · ${res.failed.length} failed` : ''
+        }`,
+        variant: res.failed.length ? 'destructive' : undefined,
+      });
+      setApproveResults(res.failed);
+      if (!res.failed.length) {
+        setApproveOpen(false);
+        setApproveNote('');
+        setChecked({});
+      }
+      void qc.invalidateQueries({ queryKey: ['proxy-agent-directory'] });
+      void qc.invalidateQueries({ queryKey: ['proxy-agent-detail'] });
+      void qc.invalidateQueries({ queryKey: ['proxy-onboarding-audit'] });
+    },
+    onError: (e: any) =>
+      toast({ title: 'Bulk approval failed', description: e.message, variant: 'destructive' }),
+  });
+
+
 
   const goToPage = (p: number) => {
     setPage(Math.min(Math.max(0, p), totalPages - 1));
@@ -423,17 +512,29 @@ export function ProxyAgentDirectory() {
 
       {/* Bulk action bar */}
       {selectedIds.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-muted/40 px-3 py-2">
           <p className="text-xs font-semibold">
             {selectedIds.length} selected
             <span className="ml-1 font-normal text-muted-foreground">
-              · {selectedTotals.notes} note(s) worth {formatUGX(selectedTotals.amount)} will be deleted
+              · {selectedTotals.notes} note(s) worth {formatUGX(selectedTotals.amount)}
             </span>
           </p>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setChecked({})}>
               Clear
             </Button>
+            <Button
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => {
+                setApproveResults([]);
+                setApproveOpen(true);
+              }}
+            >
+              <BadgeCheck className="mr-1.5 h-3.5 w-3.5" />
+              Approve &amp; email selected
+            </Button>
+
             <Button
               size="sm"
               variant="destructive"
@@ -708,6 +809,96 @@ export function ProxyAgentDirectory() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk approve + email confirmation */}
+      <Dialog
+        open={approveOpen}
+        onOpenChange={(v) => {
+          if (bulkApprove.isPending) return;
+          setApproveOpen(v);
+          if (!v) setApproveResults([]);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <BadgeCheck className="h-4 w-4 text-primary" />
+              Approve {selectedRows.length} proxy agent(s) and send their email
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Each person is approved as a proxy agent and receives the email explaining their new
+              role and its benefits. Anyone already approved simply has their record refreshed.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border p-2">
+              {selectedRows.map((r) => (
+                <div key={r.agent_user_id} className="flex items-center gap-2">
+                  <Avatar className="h-6 w-6 border">
+                    <AvatarImage src={r.avatar_url ?? undefined} alt={r.name} />
+                    <AvatarFallback className="text-[9px]">{proxyInitials(r.name)}</AvatarFallback>
+                  </Avatar>
+                  <p className="truncate text-[11px] font-medium">{r.name}</p>
+                  <p className="ml-auto shrink-0 text-[11px] text-muted-foreground">
+                    {r.email || 'No email on file'}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <Textarea
+              value={approveNote}
+              onChange={(e) => setApproveNote(e.target.value)}
+              placeholder="Optional note for the audit trail (e.g. why they were approved)"
+              className="min-h-[64px] text-xs"
+            />
+
+            {bulkApprove.isPending && (
+              <p className="text-[11px] text-muted-foreground">
+                Working… {approveProgress.done} of {approveProgress.total} done.
+              </p>
+            )}
+
+            {approveResults.length > 0 && (
+              <div className="space-y-1 rounded-lg border border-destructive/30 bg-destructive/5 p-2">
+                <p className="text-[11px] font-semibold text-destructive">
+                  These could not be completed:
+                </p>
+                {approveResults.map((f) => (
+                  <p key={f} className="truncate text-[11px] text-muted-foreground">{f}</p>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-9 text-xs"
+              disabled={bulkApprove.isPending}
+              onClick={() => setApproveOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="h-9 text-xs"
+              disabled={bulkApprove.isPending || selectedRows.length === 0}
+              onClick={() => bulkApprove.mutate()}
+            >
+              {bulkApprove.isPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <BadgeCheck className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Approve &amp; send email
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
