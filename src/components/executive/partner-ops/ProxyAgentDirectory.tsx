@@ -691,6 +691,7 @@ export function ProxyAgentDirectory() {
                   </li>
                 ))}
               </ul>
+              </div>
               <div className="flex flex-wrap items-center justify-between gap-2 border-t px-4 py-3">
                 <p className="text-[11px] text-muted-foreground">
                   Showing {firstShown.toLocaleString()}–{lastShown.toLocaleString()} of{' '}
