@@ -153,6 +153,121 @@ export function ProxyAgentDirectory() {
     resetPaging();
   };
 
+  // Download the current search results (all pages, not just the one on screen)
+  // together with this month's targets, as a spreadsheet-friendly CSV.
+  const handleExportCsv = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const month = format(new Date(), 'yyyy-MM');
+      const filters = { search: query, status, activatedFrom, activatedTo, contact };
+      const CHUNK = 500;
+      const MAX_ROWS = 100_000;
+
+      const [overview, firstChunk] = await Promise.all([
+        fetchProxyTargetOverview(month).catch(() => null),
+        fetchProxyDirectory(filters, 0, CHUNK),
+      ]);
+
+      const allRows: ProxyDirRow[] = [...firstChunk.rows];
+      const grandTotal = Math.min(firstChunk.total ?? allRows.length, MAX_ROWS);
+      while (allRows.length < grandTotal) {
+        const next = await fetchProxyDirectory(filters, allRows.length, CHUNK);
+        if (!next.rows.length) break;
+        allRows.push(...next.rows);
+      }
+
+      const targetCols = PROXY_TARGET_METRICS.map((m) => ({
+        label: `Monthly target — ${m.label}`,
+        value: overview?.targets?.[m.key]?.target_value ?? null,
+      }));
+
+      const headers = [
+        'Name',
+        'Status',
+        'Phone',
+        'Email',
+        'District',
+        'Invite code',
+        'Joined',
+        'Activated',
+        'Referred by',
+        'Notes total',
+        'Notes pending',
+        'Notes activated',
+        'Notes amount (UGX)',
+        'Notes collected (UGX)',
+        'Partners linked',
+        'Partners who put in money',
+        'Partner funded (UGX)',
+        'Earned (UGX)',
+        'Target month',
+        ...targetCols.map((c) => c.label),
+      ];
+
+      const esc = (v: unknown) => {
+        const s = v === null || v === undefined ? '' : String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const day = (v: string | null) => (v ? format(new Date(v), 'yyyy-MM-dd') : '');
+
+      const lines = [
+        headers.join(','),
+        ...allRows.map((r) =>
+          [
+            r.name,
+            r.status,
+            r.phone,
+            r.email,
+            r.district,
+            r.invite_code,
+            day(r.joined_at),
+            day(r.approved_at),
+            r.referrer_name,
+            r.notes_count,
+            r.notes_pending,
+            r.notes_activated,
+            r.notes_amount,
+            r.notes_collected,
+            r.partners_linked,
+            r.partners_came_in,
+            r.partner_funded,
+            r.earned,
+            month,
+            ...targetCols.map((c) => c.value ?? ''),
+          ]
+            .map(esc)
+            .join(','),
+        ),
+      ];
+
+      const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `proxy-agent-directory-${month}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: 'Download ready',
+        description: `${allRows.length.toLocaleString()} proxy agent${allRows.length === 1 ? '' : 's'} exported with this month's targets.`,
+      });
+    } catch (e) {
+      toast({
+        title: 'Could not download the list',
+        description: e instanceof Error ? e.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+
+
   // Exactly ONE page of rows per request — never accumulates, so the screen
   // costs the same with 1,000 or 1,000,000 proxy agents.
   const pageQueries = useQuery({
