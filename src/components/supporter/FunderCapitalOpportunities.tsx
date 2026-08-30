@@ -337,7 +337,9 @@ export function FunderCapitalOpportunities() {
       : Math.min(calcHouses, maxHouses);
     const funding = usingAmount ? typed : houses * avg;
     const monthly = Math.round(funding * 0.15);
-    return { avg, maxHouses, typed, usingAmount, houses, funding, monthly };
+    const serviceFee = Math.round(funding * EMPTY_HOUSE_SERVICE_FEE_RATE);
+    const netMonthly = monthly - serviceFee;
+    return { avg, maxHouses, typed, usingAmount, houses, funding, monthly, serviceFee, netMonthly };
   }, [emptyHouseSummary, calcAmountInput, calcHouses]);
 
 
