@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Home, Loader2, Search, Check, Share2, ShieldCheck, MapPin, Users, Phone, Navigation, ImageIcon, Eye } from 'lucide-react';
+import { Home, Loader2, Search, Check, Share2, ShieldCheck, MapPin, Users, Phone, Navigation, ImageIcon, Eye, Clock, CheckCircle2, UserCheck, Wallet } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
