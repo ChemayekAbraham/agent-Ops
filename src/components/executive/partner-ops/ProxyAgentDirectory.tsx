@@ -808,6 +808,96 @@ export function ProxyAgentDirectory() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk approve + email confirmation */}
+      <Dialog
+        open={approveOpen}
+        onOpenChange={(v) => {
+          if (bulkApprove.isPending) return;
+          setApproveOpen(v);
+          if (!v) setApproveResults([]);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <BadgeCheck className="h-4 w-4 text-primary" />
+              Approve {selectedRows.length} proxy agent(s) and send their email
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Each person is approved as a proxy agent and receives the email explaining their new
+              role and its benefits. Anyone already approved simply has their record refreshed.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="max-h-40 space-y-1 overflow-y-auto rounded-lg border p-2">
+              {selectedRows.map((r) => (
+                <div key={r.agent_user_id} className="flex items-center gap-2">
+                  <Avatar className="h-6 w-6 border">
+                    <AvatarImage src={r.avatar_url ?? undefined} alt={r.name} />
+                    <AvatarFallback className="text-[9px]">{proxyInitials(r.name)}</AvatarFallback>
+                  </Avatar>
+                  <p className="truncate text-[11px] font-medium">{r.name}</p>
+                  <p className="ml-auto shrink-0 text-[11px] text-muted-foreground">
+                    {r.email || 'No email on file'}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <Textarea
+              value={approveNote}
+              onChange={(e) => setApproveNote(e.target.value)}
+              placeholder="Optional note for the audit trail (e.g. why they were approved)"
+              className="min-h-[64px] text-xs"
+            />
+
+            {bulkApprove.isPending && (
+              <p className="text-[11px] text-muted-foreground">
+                Working… {approveProgress.done} of {approveProgress.total} done.
+              </p>
+            )}
+
+            {approveResults.length > 0 && (
+              <div className="space-y-1 rounded-lg border border-destructive/30 bg-destructive/5 p-2">
+                <p className="text-[11px] font-semibold text-destructive">
+                  These could not be completed:
+                </p>
+                {approveResults.map((f) => (
+                  <p key={f} className="truncate text-[11px] text-muted-foreground">{f}</p>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-9 text-xs"
+              disabled={bulkApprove.isPending}
+              onClick={() => setApproveOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="h-9 text-xs"
+              disabled={bulkApprove.isPending || selectedRows.length === 0}
+              onClick={() => bulkApprove.mutate()}
+            >
+              {bulkApprove.isPending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <BadgeCheck className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Approve &amp; send email
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
