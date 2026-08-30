@@ -132,6 +132,9 @@ export function ProxyAgentDirectory() {
   const [approveNote, setApproveNote] = useState('');
   const [approveProgress, setApproveProgress] = useState({ done: 0, total: 0 });
   const [approveResults, setApproveResults] = useState<string[]>([]);
+  const [exporting, setExporting] = useState(false);
+
+
 
   const query = useDebouncedValue(search, 350);
 
