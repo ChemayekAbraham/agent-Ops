@@ -341,6 +341,19 @@ export function ProxyAgentDirectory() {
 
 
   const rows = pageQueries.data?.rows ?? [];
+
+  // A shared link can name an agent — open their quick view once the list
+  // that contains them has loaded (only ever the first time).
+  const deepLinkAgentId = useRef(linkParam('pd_agent'));
+  useEffect(() => {
+    const id = deepLinkAgentId.current;
+    if (!id || !rows.length) return;
+    const match = rows.find((r) => r.agent_user_id === id);
+    if (!match) return;
+    deepLinkAgentId.current = '';
+    setQuickView(match);
+  }, [rows]);
+
   const kpis = pageQueries.data?.kpis;
   const total = pageQueries.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
