@@ -112,6 +112,10 @@ export default function HROverview({ onNavigate }: HROverviewProps) {
     },
   });
 
+  const deptsStale = deptsStaffed.asOf
+    ? deptsStaffed.asOf.slice(0, 7) !== new Date().toISOString().slice(0, 7)
+    : false;
+
   const { data: openPayRuns = 0 } = useQuery({
     queryKey: ['hr-open-pay-runs'],
     queryFn: async () => {
