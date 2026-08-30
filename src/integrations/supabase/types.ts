@@ -46151,6 +46151,24 @@ export type Database = {
         }
         Returns: Json
       }
+      partner_ops_proxy_onboarding_audit: {
+        Args: { p_limit?: number }
+        Returns: {
+          action_type: string
+          actor_id: string
+          actor_name: string
+          actor_phone: string
+          created_at: string
+          id: string
+          metadata: Json
+          new_values: Json
+          old_values: Json
+          reason: string
+          record_id: string
+          subject_name: string
+          subject_phone: string
+        }[]
+      }
       partner_ops_reject_self_topup: {
         Args: { p_reason: string; p_topup_id: string }
         Returns: Json

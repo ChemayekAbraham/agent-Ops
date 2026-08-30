@@ -52,6 +52,7 @@ import {
 } from './proxyAgentDirectory';
 import { ProxyAgentDetailPanel } from './ProxyAgentDetailPanel';
 import { OnboardProxyAgentDialog } from './OnboardProxyAgentDialog';
+import { ProxyOnboardingAuditPanel } from './ProxyOnboardingAuditPanel';
 
 const STATUS_TABS: { key: string; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -457,6 +458,8 @@ export function ProxyAgentDirectory() {
           )}
         </CardContent>
       </Card>
+
+      <ProxyOnboardingAuditPanel />
 
       {/* Bulk delete confirmation */}
       <Dialog
