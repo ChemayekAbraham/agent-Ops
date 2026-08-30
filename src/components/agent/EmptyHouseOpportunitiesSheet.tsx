@@ -177,6 +177,17 @@ export function EmptyHouseOpportunitiesSheet({
     setMinRent(''); setMaxRent(''); setNearMe(null); setPage(0);
   };
 
+  const filterChips: { key: string; label: string; onRemove: () => void }[] = [
+    ...(search.trim() ? [{ key: 'search', label: `Search: "${search.trim()}"`, onRemove: () => { setSearch(''); setPage(0); } }] : []),
+    ...(district !== 'all' ? [{ key: 'district', label: `District: ${district}`, onRemove: () => { setDistrict('all'); setPage(0); } }] : []),
+    ...(verifiedOnly ? [{ key: 'verified', label: 'Verified only', onRemove: () => { setVerifiedOnly(false); setPage(0); } }] : []),
+    ...(mapPinOnly ? [{ key: 'pin', label: 'Has map pin', onRemove: () => { setMapPinOnly(false); setPage(0); } }] : []),
+    ...(minRent ? [{ key: 'minRent', label: `Min rent: ${minRent}`, onRemove: () => { setMinRent(''); setPage(0); } }] : []),
+    ...(maxRent ? [{ key: 'maxRent', label: `Max rent: ${maxRent}`, onRemove: () => { setMaxRent(''); setPage(0); } }] : []),
+    ...(nearMe ? [{ key: 'nearMe', label: `Within ${nearMe.radiusKm} km`, onRemove: () => { setNearMe(null); setPage(0); } }] : []),
+  ];
+
+
   const useMyLocation = () => {
     if (!navigator.geolocation) { toast.error('Location is not available on this device'); return; }
     setLocating(true);
