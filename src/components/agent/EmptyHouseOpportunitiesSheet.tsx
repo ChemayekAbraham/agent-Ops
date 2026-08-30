@@ -172,13 +172,14 @@ export function EmptyHouseOpportunitiesSheet({
     setSubmitting(true);
     try {
       const payload: Record<string, string | number | null> = {
-        partner_name: partnerName.trim(),
-        whatsapp_number: whatsappNumber.trim(),
-        phone_number: phoneNumber.trim() || null,
-        email: email.trim() || null,
+        partner_name: (isPartner ? (selfName || '') : partnerName).trim(),
+        whatsapp_number: (isPartner ? (selfPhone || '') : whatsappNumber).trim(),
+        phone_number: (isPartner ? (selfPhone || '') : phoneNumber).trim() || null,
+        email: (isPartner ? (selfEmail || '') : email).trim() || null,
         amount: rentTotal,
         contribution_type: contributionType === 'monthly' ? 'monthly' : 'once_off',
       };
+
       if (contributionType === 'monthly') {
         payload.deduction_day = String(Number(deductionDay));
         const now = new Date();
