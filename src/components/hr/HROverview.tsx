@@ -160,7 +160,7 @@ export default function HROverview({ onNavigate }: HROverviewProps) {
     { label: 'Staff Members', value: staffCount, icon: Users, color: 'bg-primary/10 text-primary' },
     { label: 'Pending Leave', value: pendingLeave, icon: CalendarDays, color: 'bg-warning/10 text-warning', alert: pendingLeave > 0 },
     { label: 'Active Cases', value: activeDisciplinary, icon: AlertTriangle, color: 'bg-destructive/10 text-destructive', alert: activeDisciplinary > 0 },
-    { label: 'Departments Staffed', value: deptTotal > 0 ? `${deptsStaffed} of ${deptTotal}` : deptsStaffed, icon: Building2, color: 'bg-accent/50 text-accent-foreground' },
+    { label: 'Departments Staffed', value: deptTotal > 0 ? `${deptsStaffed.count} of ${deptTotal}` : deptsStaffed.count, icon: Building2, color: 'bg-accent/50 text-accent-foreground', alert: deptsStale },
   ];
 
   const quickNavItems = [
