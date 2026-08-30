@@ -28,8 +28,9 @@ export function SupportModeChooserDialog({
     {
       mode: 'self',
       title: 'Self support tenant',
-      sub: 'Partner supports the tenants directly',
-      body: 'Pick the tenants from the ready-to-fund queue yourself, so the partner knows exactly which homes their money keeps.',
+      sub: 'Partner funds a specific empty house',
+      body: 'Opens the empty house opportunities list. Pick the houses, tag the partner, and show them the 15% of rent they earn every month for 12 months.',
+
       icon: HandHeart,
       tone: 'border-primary/30 bg-primary/5',
     },

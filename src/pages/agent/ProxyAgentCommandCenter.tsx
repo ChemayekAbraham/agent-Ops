@@ -26,6 +26,8 @@ import { createShortLink } from '@/lib/createShortLink';
 
 import { PromissoryNoteDialog } from '@/components/agent/PromissoryNoteDialog';
 import { SupportModeChooserDialog, type SupportMode } from '@/components/agent/SupportModeChooserDialog';
+import { EmptyHouseOpportunitiesSheet } from '@/components/agent/EmptyHouseOpportunitiesSheet';
+
 import { WithdrawRequestDialog } from '@/components/wallet/WithdrawRequestDialog';
 import {
   useProxyCommandCenterSummary,
@@ -99,6 +101,8 @@ export default function ProxyAgentCommandCenter() {
   const [noteOpen, setNoteOpen] = useState(false);
   const [supportModeOpen, setSupportModeOpen] = useState(false);
   const [supportMode, setSupportMode] = useState<SupportMode>('self');
+  const [houseOppsOpen, setHouseOppsOpen] = useState(false);
+
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [inviting, setInviting] = useState(false);
@@ -667,13 +671,23 @@ export default function ProxyAgentCommandCenter() {
       <SupportModeChooserDialog
         open={supportModeOpen}
         onOpenChange={setSupportModeOpen}
-        onSelect={(mode) => { setSupportMode(mode); setSupportModeOpen(false); setNoteOpen(true); }}
+        onSelect={(mode) => {
+          setSupportMode(mode);
+          setSupportModeOpen(false);
+          if (mode === 'self') setHouseOppsOpen(true);
+          else setNoteOpen(true);
+        }}
+      />
+      <EmptyHouseOpportunitiesSheet
+        open={houseOppsOpen}
+        onOpenChange={(o) => { setHouseOppsOpen(o); if (!o) refreshAll(); }}
       />
       <PromissoryNoteDialog
         supportMode={supportMode}
         open={noteOpen}
         onOpenChange={(o) => { setNoteOpen(o); if (!o) refreshAll(); }}
       />
+
       <WithdrawRequestDialog
         open={withdrawOpen}
         onOpenChange={setWithdrawOpen}
