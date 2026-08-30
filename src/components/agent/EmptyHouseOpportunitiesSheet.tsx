@@ -359,49 +359,97 @@ export function EmptyHouseOpportunitiesSheet({
               <div className="space-y-2">
                 {houses.map((h) => {
                   const isPicked = Boolean(selected[h.house_id]);
+                  const photos = (h.image_urls && h.image_urls.length ? h.image_urls : h.image_url ? [h.image_url] : []).slice(0, 4);
                   return (
-                    <button
+                    <div
                       key={h.house_id}
-                      type="button"
-                      onClick={() => toggle(h)}
-                      className={`w-full text-left rounded-2xl border p-3 transition ${isPicked ? 'border-primary bg-primary/5' : 'border-border'}`}
+                      className={`w-full rounded-2xl border transition ${isPicked ? 'border-primary bg-primary/5' : 'border-border'}`}
                     >
-                      <div className="flex items-start gap-3">
-                        <Checkbox checked={isPicked} className="mt-1 pointer-events-none" />
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold truncate">
-                              {h.title || h.house_category || 'Empty house'}
-                            </span>
-                            {h.verified && (
-                              <Badge variant="outline" className="h-5 gap-1 border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-600">
-                                <ShieldCheck className="h-3 w-3" /> Verified
-                              </Badge>
+                      <button type="button" onClick={() => toggle(h)} className="w-full text-left p-3">
+                        {photos.length > 0 ? (
+                          <div className="mb-2.5 flex gap-1.5 overflow-x-auto">
+                            {photos.map((src, i) => (
+                              <img
+                                key={`${h.house_id}-${i}`}
+                                src={src}
+                                alt={`${h.title || 'Empty house'} photo ${i + 1}`}
+                                loading="lazy"
+                                className="h-24 w-32 shrink-0 rounded-xl object-cover bg-muted"
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="mb-2.5 flex h-24 items-center justify-center gap-2 rounded-xl bg-muted text-[11px] text-muted-foreground">
+                            <ImageIcon className="h-4 w-4" /> No photo on file
+                          </div>
+                        )}
+                        <div className="flex items-start gap-3">
+                          <Checkbox checked={isPicked} className="mt-1 pointer-events-none" />
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold truncate">
+                                {h.title || h.house_category || 'Empty house'}
+                              </span>
+                              {h.verified && (
+                                <Badge variant="outline" className="h-5 gap-1 border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-600">
+                                  <ShieldCheck className="h-3 w-3" /> Verified
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
+                              <MapPin className="h-3 w-3 shrink-0" /> {placeOf(h)}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]">
+                              <span className="text-muted-foreground">Rent</span>
+                              <span className="font-semibold">{formatUGX(h.monthly_rent)}/mo</span>
+                              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 font-bold text-emerald-600">
+                                {isPartner ? 'You earn' : 'Partner earns'} {formatUGX(h.partner_monthly_return)}/month
+                              </span>
+                              <span className="text-muted-foreground">
+                                {formatUGX(h.partner_annual_return)} over 12 months
+                              </span>
+                            </div>
+                            {h.landlord_name && (
+                              <p className="text-[11px]">
+                                <span className="text-muted-foreground">Landlord</span>{' '}
+                                <span className="font-medium">{h.landlord_name}</span>
+                              </p>
+                            )}
+                            {h.listing_agent_name && (
+                              <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                                <Users className="h-3 w-3" /> {h.listing_agent_name} places the tenant once funded
+                              </p>
                             )}
                           </div>
-                          <p className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
-                            <MapPin className="h-3 w-3 shrink-0" /> {placeOf(h)}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]">
-                            <span className="text-muted-foreground">Rent</span>
-                            <span className="font-semibold">{formatUGX(h.monthly_rent)}/mo</span>
-                            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 font-bold text-emerald-600">
-                              Partner earns {formatUGX(h.partner_monthly_return)}/month
+                        </div>
+                      </button>
+                      {(h.landlord_phone || hasGps(h)) && (
+                        <div className="flex flex-wrap items-center gap-2 border-t px-3 py-2">
+                          {h.landlord_phone && (
+                            <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-[11px]">
+                              <a href={`tel:${h.landlord_phone}`} onClick={(e) => e.stopPropagation()}>
+                                <Phone className="h-3 w-3" /> {h.landlord_phone}
+                              </a>
+                            </Button>
+                          )}
+                          {hasGps(h) && (
+                            <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-[11px]">
+                              <a href={mapsUrl(h)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                                <Navigation className="h-3 w-3" /> GPS location
+                              </a>
+                            </Button>
+                          )}
+                          {hasGps(h) && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {Number(h.latitude).toFixed(5)}, {Number(h.longitude).toFixed(5)}
                             </span>
-                            <span className="text-muted-foreground">
-                              {formatUGX(h.partner_annual_return)} over 12 months
-                            </span>
-                          </div>
-                          {h.listing_agent_name && (
-                            <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                              <Users className="h-3 w-3" /> {h.listing_agent_name} places the tenant once funded
-                            </p>
                           )}
                         </div>
-                      </div>
-                    </button>
+                      )}
+                    </div>
                   );
                 })}
+
               </div>
             )}
 
