@@ -6,7 +6,7 @@
  *
  * One RPC serves KPIs + page rows; the detail view uses one RPC per agent.
  */
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { format } from 'date-fns';
@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Download,
   FileText,
+  Link2,
   Handshake,
   Loader2,
   RefreshCw,
@@ -110,18 +111,30 @@ function KpiCard({
   );
 }
 
+/** Read one shareable-view parameter out of the current address bar. */
+function linkParam(key: string): string {
+  if (typeof window === 'undefined') return '';
+  return new URLSearchParams(window.location.search).get(key) ?? '';
+}
+
 export function ProxyAgentDirectory() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(() => linkParam('pd_q'));
   const [onboardOpen, setOnboardOpen] = useState(false);
-  const [status, setStatus] = useState('all');
-  const [activatedFrom, setActivatedFrom] = useState('');
-  const [activatedTo, setActivatedTo] = useState('');
-  const [contact, setContact] = useState<ProxyContactFilter>('all');
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(PROXY_DIR_PAGE_SIZE);
+  const [status, setStatus] = useState(() => linkParam('pd_status') || 'all');
+  const [activatedFrom, setActivatedFrom] = useState(() => linkParam('pd_from'));
+  const [activatedTo, setActivatedTo] = useState(() => linkParam('pd_to'));
+  const [contact, setContact] = useState<ProxyContactFilter>(
+    () => (linkParam('pd_contact') || 'all') as ProxyContactFilter,
+  );
+  const [advancedOpen, setAdvancedOpen] = useState(
+    () => !!(linkParam('pd_from') || linkParam('pd_to') || linkParam('pd_contact')),
+  );
+  const [page, setPage] = useState(() => Math.max(0, Number(linkParam('pd_page') || 1) - 1));
+  const [pageSize, setPageSize] = useState(
+    () => Number(linkParam('pd_size')) || PROXY_DIR_PAGE_SIZE,
+  );
   const [selected, setSelected] = useState<ProxyDirRow | null>(null);
   const [quickView, setQuickView] = useState<ProxyDirRow | null>(null);
 
@@ -133,6 +146,7 @@ export function ProxyAgentDirectory() {
   const [approveProgress, setApproveProgress] = useState({ done: 0, total: 0 });
   const [approveResults, setApproveResults] = useState<string[]>([]);
   const [exporting, setExporting] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
 
 
@@ -140,6 +154,49 @@ export function ProxyAgentDirectory() {
 
   const activeFilterCount =
     (activatedFrom ? 1 : 0) + (activatedTo ? 1 : 0) + (contact !== 'all' ? 1 : 0);
+
+  /**
+   * Build a shareable address for exactly what is on screen: the search text,
+   * the status tab, the advanced filters, the page and — when one is open or
+   * given — the agent to preselect.
+   */
+  const buildViewLink = (agent?: ProxyDirRow | null) => {
+    const url = new URL(window.location.href);
+    const put = (key: string, value: string) => {
+      if (value) url.searchParams.set(key, value);
+      else url.searchParams.delete(key);
+    };
+    put('pd_q', search.trim());
+    put('pd_status', status !== 'all' ? status : '');
+    put('pd_from', activatedFrom);
+    put('pd_to', activatedTo);
+    put('pd_contact', contact !== 'all' ? contact : '');
+    put('pd_size', pageSize !== PROXY_DIR_PAGE_SIZE ? String(pageSize) : '');
+    put('pd_page', page > 0 ? String(page + 1) : '');
+    const target = agent ?? quickView ?? selected;
+    put('pd_agent', target?.agent_user_id ?? '');
+    return url.toString();
+  };
+
+  const copyViewLink = async (agent?: ProxyDirRow | null) => {
+    const link = buildViewLink(agent);
+    try {
+      await navigator.clipboard.writeText(link);
+      window.history.replaceState(null, '', link);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+      toast({
+        title: 'Link copied',
+        description: 'Anyone on Partner Ops who opens it sees this exact list.',
+      });
+    } catch {
+      toast({
+        title: 'Could not copy the link',
+        description: link,
+        variant: 'destructive',
+      });
+    }
+  };
 
   const resetPaging = () => {
     setPage(0);
@@ -284,6 +341,19 @@ export function ProxyAgentDirectory() {
 
 
   const rows = pageQueries.data?.rows ?? [];
+
+  // A shared link can name an agent — open their quick view once the list
+  // that contains them has loaded (only ever the first time).
+  const deepLinkAgentId = useRef(linkParam('pd_agent'));
+  useEffect(() => {
+    const id = deepLinkAgentId.current;
+    if (!id || !rows.length) return;
+    const match = rows.find((r) => r.agent_user_id === id);
+    if (!match) return;
+    deepLinkAgentId.current = '';
+    setQuickView(match);
+  }, [rows]);
+
   const kpis = pageQueries.data?.kpis;
   const total = pageQueries.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -476,6 +546,16 @@ export function ProxyAgentDirectory() {
           <Button size="sm" className="h-8 text-xs" onClick={() => setOnboardOpen(true)}>
             <UserPlus className="mr-1.5 h-3.5 w-3.5" />
             Onboard Proxy Agent
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={() => void copyViewLink()}
+            title="Copy a link that reopens this exact list"
+          >
+            <Link2 className="mr-1.5 h-3.5 w-3.5" />
+            {linkCopied ? 'Link copied' : 'Copy link to this view'}
           </Button>
           <Button
             size="sm"
@@ -908,6 +988,7 @@ export function ProxyAgentDirectory() {
               ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }, 120);
         }}
+        onCopyLink={(a) => void copyViewLink(a)}
       />
 
       <div id="proxy-onboarding-audit" className="scroll-mt-24">

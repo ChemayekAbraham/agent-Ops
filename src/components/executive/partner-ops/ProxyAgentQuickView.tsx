@@ -9,7 +9,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { ExternalLink, History, ShieldCheck, Target } from 'lucide-react';
+import { ExternalLink, History, Link2, ShieldCheck, Target } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -51,6 +51,8 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   onOpenFullProfile: (agent: ProxyDirRow) => void;
   onOpenAudit: (agent: ProxyDirRow) => void;
+  /** Copy a shareable link that reopens this list with the agent preselected. */
+  onCopyLink?: (agent: ProxyDirRow) => void;
 }
 
 export function ProxyAgentQuickView({
@@ -59,6 +61,7 @@ export function ProxyAgentQuickView({
   onOpenChange,
   onOpenFullProfile,
   onOpenAudit,
+  onCopyLink,
 }: Props) {
   const month = thisMonth();
   const overview = useQuery({
@@ -184,6 +187,16 @@ export function ProxyAgentQuickView({
                 <History className="mr-2 h-4 w-4" />
                 View onboarding audit trail
               </Button>
+              {onCopyLink && (
+                <Button
+                  className="w-full justify-start text-xs"
+                  variant="outline"
+                  onClick={() => onCopyLink(agent)}
+                >
+                  <Link2 className="mr-2 h-4 w-4" />
+                  Copy link to this agent
+                </Button>
+              )}
               <Button className="w-full justify-start text-xs" onClick={() => onOpenFullProfile(agent)}>
                 <ExternalLink className="mr-2 h-4 w-4" />
                 Open full profile
