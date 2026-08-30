@@ -288,7 +288,7 @@ export default function ProxyAgentCommandCenter() {
         ) : s ? (
           <>
             {/* PRIORITY — target set by Partner Ops + one-tap partner onboarding link */}
-            <Card className="border-primary/30">
+            <Card className="sticky top-[57px] z-20 border-primary/30 shadow-sm bg-card">
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
