@@ -101,6 +101,7 @@ export function EmptyHouseOpportunitiesSheet({
   const [minRent, setMinRent] = useState('');
   const [maxRent, setMaxRent] = useState('');
   const [nearMe, setNearMe] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
+  const [sort, setSort] = useState<'recommended' | 'nearest' | 'newest' | 'rent_high' | 'rent_low'>('recommended');
   const [locating, setLocating] = useState(false);
 
 
@@ -133,13 +134,13 @@ export function EmptyHouseOpportunitiesSheet({
     setWhatsappNumber(''); setPhoneNumber(''); setEmail('');
     setContributionType('compounding'); setDeductionDay('1');
     setErrorMsg(null); setCreatedNote(null); setCreatedNotes([]); setSplitPerHouse(true);
-    setShowFilters(false); setDistrict('all'); setVerifiedOnly(false); setMapPinOnly(false);
-    setMinRent(''); setMaxRent(''); setNearMe(null);
+    setShowFilters(true); setDistrict('all'); setVerifiedOnly(false); setMapPinOnly(false);
+    setMinRent(''); setMaxRent(''); setNearMe(null); setSort('recommended');
 
   };
 
   const { data, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['empty-house-opportunities', debounced, page, district, verifiedOnly, mapPinOnly, minRent, maxRent, nearMe],
+    queryKey: ['empty-house-opportunities', debounced, page, district, verifiedOnly, mapPinOnly, minRent, maxRent, nearMe, sort],
     enabled: open,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
@@ -154,6 +155,7 @@ export function EmptyHouseOpportunitiesSheet({
         p_near_lat: nearMe?.lat ?? null,
         p_near_lng: nearMe?.lng ?? null,
         p_radius_km: nearMe?.radiusKm ?? null,
+        p_sort: sort,
       });
       if (error) throw error;
       const payload = (data ?? {}) as { total?: number; houses?: HouseOpportunity[]; districts?: string[] };
@@ -580,6 +582,29 @@ export function EmptyHouseOpportunitiesSheet({
 
               {showFilters && (
                 <div className="rounded-2xl border bg-muted/30 p-3 space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Sort by</Label>
+                    <Select
+                      value={sort}
+                      onValueChange={(v) => {
+                        const next = v as typeof sort;
+                        setSort(next);
+                        setPage(0);
+                        if (next === 'nearest' && !nearMe) useMyLocation();
+                      }}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="recommended">Recommended</SelectItem>
+                        <SelectItem value="nearest">Nearest to me</SelectItem>
+                        <SelectItem value="newest">Newest listings</SelectItem>
+                        <SelectItem value="rent_high">Highest funding need</SelectItem>
+                        <SelectItem value="rent_low">Lowest funding need</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <Label className="text-[11px] text-muted-foreground">District</Label>
@@ -717,6 +742,11 @@ export function EmptyHouseOpportunitiesSheet({
                               {h.verified && (
                                 <Badge variant="outline" className="h-5 gap-1 border-emerald-500/30 bg-emerald-500/10 text-[10px] text-emerald-600">
                                   <ShieldCheck className="h-3 w-3" /> Verified
+                                </Badge>
+                              )}
+                              {nearMe && h.distance_km != null && (
+                                <Badge variant="outline" className="h-5 gap-1 text-[10px]">
+                                  <Navigation className="h-3 w-3" /> {h.distance_km < 1 ? `${Math.round(h.distance_km * 1000)} m` : `${h.distance_km.toFixed(1)} km`}
                                 </Badge>
                               )}
                             </div>
