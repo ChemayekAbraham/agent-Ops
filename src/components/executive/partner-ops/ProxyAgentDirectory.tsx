@@ -208,6 +208,10 @@ export function ProxyAgentDirectory() {
     estimateSize: () => 66,
     overscan: 8,
   });
+  const virtualItems = virtualizer.getVirtualItems();
+  const renderList = virtualize
+    ? virtualItems.map((v) => ({ r: rows[v.index], v }))
+    : rows.map((r) => ({ r, v: null as (typeof virtualItems)[number] | null }));
 
 
   const bulkDelete = useMutation({
