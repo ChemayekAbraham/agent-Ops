@@ -837,6 +837,8 @@ export function FunderCapitalOpportunities() {
           selfName={profile?.full_name ?? null}
           selfPhone={(profile as { phone?: string } | null)?.phone ?? null}
           selfEmail={(profile as { email?: string } | null)?.email ?? null}
+          initialMaxRent={calc.usingAmount ? calc.typed : null}
+          projection={{ houses: calc.houses, funding: calc.funding, monthly: calc.monthly }}
         />
       </DetailShell>
     );
