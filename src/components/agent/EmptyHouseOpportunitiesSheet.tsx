@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Home, Loader2, Search, Check, Share2, ShieldCheck, MapPin, Users } from 'lucide-react';
+import { Home, Loader2, Search, Check, Share2, ShieldCheck, MapPin, Users, Phone, Navigation, ImageIcon } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -30,6 +30,13 @@ interface HouseOpportunity {
   verified: boolean;
   listing_agent_id: string | null;
   listing_agent_name: string | null;
+  image_url?: string | null;
+  image_urls?: string[] | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  landlord_id?: string | null;
+  landlord_name?: string | null;
+  landlord_phone?: string | null;
   partner_monthly_return: number;
   partner_annual_return: number;
 }
@@ -39,21 +46,39 @@ const PAGE_SIZE = 20;
 const placeOf = (h: HouseOpportunity) =>
   [h.village, h.sub_county, h.district].filter(Boolean).join(', ') || h.region || 'Location on file';
 
+const hasGps = (h: HouseOpportunity) =>
+  typeof h.latitude === 'number' && typeof h.longitude === 'number' && (h.latitude !== 0 || h.longitude !== 0);
+
+const mapsUrl = (h: HouseOpportunity) => `https://www.google.com/maps/search/?api=1&query=${h.latitude},${h.longitude}`;
+
 /**
- * Self support: the agent sells specific EMPTY houses to a partner.
+ * Self support: specific EMPTY houses are matched to a partner.
  *
  * The partner funds one month of rent for each house they pick. The agent who
  * listed the house places a tenant as soon as the note is fulfilled, and the
  * partner earns 15% of that rent every month for the next 12 months, paid from
  * what the tenant repays.
+ *
+ * mode="agent"   — an agent tags a partner (default).
+ * mode="partner" — a funder picks houses for themselves on their own dashboard.
  */
 export function EmptyHouseOpportunitiesSheet({
   open,
   onOpenChange,
+  mode = 'agent',
+  selfName,
+  selfPhone,
+  selfEmail,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  mode?: 'agent' | 'partner';
+  selfName?: string | null;
+  selfPhone?: string | null;
+  selfEmail?: string | null;
 }) {
+  const isPartner = mode === 'partner';
+
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const [page, setPage] = useState(0);
