@@ -16,10 +16,14 @@ export interface AdvanceRow {
   purpose: string;
   recovery_mode: string;
   recovery_value: number;
+  recovery_months: number | null;
   first_recovery_on: string;
   status: string;
   decision_note: string | null;
   requested_at: string;
+  hr_approved_at: string | null;
+  approved_at: string | null;
+  disbursed_at: string | null;
   recovered: number;
   outstanding: number;
 }
@@ -29,7 +33,7 @@ export async function listAdvances(): Promise<AdvanceRow[]> {
     await supabase
       .from('hr_pay_advances')
       .select(
-        'id, staff_id, principal, currency, purpose, recovery_mode, recovery_value, first_recovery_on, status, decision_note, requested_at, hr_staff(staff_ref, user_id)',
+        'id, staff_id, principal, currency, purpose, recovery_mode, recovery_value, recovery_months, first_recovery_on, status, decision_note, requested_at, hr_approved_at, approved_at, disbursed_at, hr_staff(staff_ref, user_id)',
       )
       .order('requested_at', { ascending: false }),
   ) ?? []) as Array<Record<string, any>>;
