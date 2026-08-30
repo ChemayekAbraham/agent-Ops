@@ -616,56 +616,73 @@ export function FunderCapitalOpportunities() {
               const monthly = Math.round(funding * 0.15);
               return (
                 <div className="rounded-xl bg-card/80 border border-border/60 p-3 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Calculator className="h-3.5 w-3.5 text-primary" />
-                    <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest">
-                      What will I earn?
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[11px] font-semibold text-foreground">
-                        Houses I want to fund
-                      </p>
-                      <span className="text-sm font-black text-foreground">{houses.toLocaleString()}</span>
-                    </div>
-                    <Slider
-                      value={[Math.min(calcHouses, maxHouses)]}
-                      min={1}
-                      max={maxHouses}
-                      step={1}
-                      onValueChange={(v) => { setCalcAmountInput(''); setCalcHouses(v[0]); }}
-                    />
+                  <button
+                    type="button"
+                    onClick={() => { hapticTap(); setCalcOpen(v => !v); }}
+                    className="w-full flex items-center justify-between gap-2 text-left"
+                    aria-expanded={calcOpen}
+                    aria-controls="empty-house-earn-calc"
+                  >
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-muted-foreground font-medium shrink-0">or amount (UGX)</span>
-                      <Input
-                        inputMode="numeric"
-                        placeholder={String(avg)}
-                        value={calcAmountInput}
-                        onChange={(e) => setCalcAmountInput(e.target.value.replace(/[^0-9]/g, ''))}
-                        className="h-8 text-xs"
-                      />
+                      <Calculator className="h-3.5 w-3.5 text-primary" />
+                      <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest">
+                        What will I earn?
+                      </p>
                     </div>
-                  </div>
+                    {calcOpen ? (
+                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </button>
 
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <p className="text-[9px] text-muted-foreground font-medium">You fund (1 month)</p>
-                      <p className="text-xs font-black text-foreground">{formatAmountCompact(funding)}</p>
+                  {calcOpen && (
+                    <div id="empty-house-earn-calc" className="space-y-3">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[11px] font-semibold text-foreground">
+                            Houses I want to fund
+                          </p>
+                          <span className="text-sm font-black text-foreground">{houses.toLocaleString()}</span>
+                        </div>
+                        <Slider
+                          value={[Math.min(calcHouses, maxHouses)]}
+                          min={1}
+                          max={maxHouses}
+                          step={1}
+                          onValueChange={(v) => { setCalcAmountInput(''); setCalcHouses(v[0]); }}
+                        />
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground font-medium shrink-0">or amount (UGX)</span>
+                          <Input
+                            inputMode="numeric"
+                            placeholder={String(avg)}
+                            value={calcAmountInput}
+                            onChange={(e) => setCalcAmountInput(e.target.value.replace(/[^0-9]/g, ''))}
+                            className="h-8 text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <p className="text-[9px] text-muted-foreground font-medium">You fund (1 month)</p>
+                          <p className="text-xs font-black text-foreground">{formatAmountCompact(funding)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-muted-foreground font-medium">You earn / month</p>
+                          <p className="text-xs font-black text-success">{formatAmountCompact(monthly)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-muted-foreground font-medium">Over 12 months</p>
+                          <p className="text-xs font-black text-success">{formatAmountCompact(monthly * 12)}</p>
+                        </div>
+                      </div>
+                      <p className="text-[9px] text-muted-foreground font-medium">
+                        Estimate uses the average rent of {formatAmountCompact(avg)} per empty house. Exact figures are shown per house in the picker.
+                      </p>
                     </div>
-                    <div>
-                      <p className="text-[9px] text-muted-foreground font-medium">You earn / month</p>
-                      <p className="text-xs font-black text-success">{formatAmountCompact(monthly)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-muted-foreground font-medium">Over 12 months</p>
-                      <p className="text-xs font-black text-success">{formatAmountCompact(monthly * 12)}</p>
-                    </div>
-                  </div>
-                  <p className="text-[9px] text-muted-foreground font-medium">
-                    Estimate uses the average rent of {formatAmountCompact(avg)} per empty house. Exact figures are shown per house in the picker.
-                  </p>
+                  )}
                 </div>
               );
             })()}
