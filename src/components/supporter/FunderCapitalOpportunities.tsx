@@ -762,6 +762,37 @@ export function FunderCapitalOpportunities() {
                         </div>
                       </div>
 
+                      <div className="rounded-lg border border-border/60 bg-muted/30 p-2.5 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Service/access fee rate
+                          </p>
+                          <span className="text-xs font-black text-foreground">{feeRatePct.toFixed(1)}%</span>
+                        </div>
+                        <Slider
+                          value={[feeRatePct]}
+                          min={0}
+                          max={15}
+                          step={0.5}
+                          onValueChange={(v) => setFeeRatePct(v[0])}
+                        />
+                        <div className="flex items-center gap-1.5">
+                          {[0, 2, 5, 10].map(p => (
+                            <button
+                              key={p}
+                              type="button"
+                              onClick={() => { hapticTap(); setFeeRatePct(p); }}
+                              className={`px-2 py-0.5 rounded-md border border-border/60 text-[9px] font-bold ${feeRatePct === p ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+                            >
+                              {p}%
+                            </button>
+                          ))}
+                          <span className="text-[9px] text-muted-foreground font-medium ml-auto">
+                            Adjust to test how fees change each scenario
+                          </span>
+                        </div>
+                      </div>
+
                       <div className="rounded-lg border border-border/60 bg-primary/5 p-2.5 flex items-center justify-between">
                         <p className="text-xs font-semibold text-foreground">
                           {calc.netMonthly === calc2.netMonthly
@@ -775,8 +806,9 @@ export function FunderCapitalOpportunities() {
 
                       <p className="text-[9px] text-muted-foreground font-medium">
                         Estimate uses the average rent of {formatAmountCompact(calc.avg)} per empty house. Exact figures are shown per house in the picker.
-                        {EMPTY_HOUSE_SERVICE_FEE_RATE <= 0 && ' No service/access fee is currently configured.'}
+                        {feeRatePct <= 0 && ' No service/access fee is currently applied.'}
                       </p>
+
                        <Button
                          variant="outline"
                          className="h-9 w-full gap-2 rounded-xl text-xs font-bold"
