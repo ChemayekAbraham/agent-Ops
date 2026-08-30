@@ -10,6 +10,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import {
+  ChevronLeft,
   ChevronRight,
   FileText,
   Handshake,
@@ -41,6 +42,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
@@ -53,6 +62,7 @@ import {
 import { ProxyAgentDetailPanel } from './ProxyAgentDetailPanel';
 import { OnboardProxyAgentDialog } from './OnboardProxyAgentDialog';
 import { ProxyOnboardingAuditPanel } from './ProxyOnboardingAuditPanel';
+import { ProxyAgentTargetPanel } from './ProxyAgentTargetPanel';
 
 const STATUS_TABS: { key: string; label: string }[] = [
   { key: 'all', label: 'All' },
@@ -222,6 +232,8 @@ export function ProxyAgentDirectory() {
 
       <OnboardProxyAgentDialog open={onboardOpen} onOpenChange={setOnboardOpen} />
 
+      <ProxyAgentTargetPanel />
+
       {/* KPI cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {!kpis ? (
@@ -263,9 +275,7 @@ export function ProxyAgentDirectory() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && applySearch()}
-            onBlur={applySearch}
-            placeholder="Search name, phone, email or invite code"
+            placeholder="Type a name, phone, email or invite code to find an agent"
             className="h-9 pl-8 text-xs"
           />
         </div>
@@ -281,7 +291,7 @@ export function ProxyAgentDirectory() {
                   : 'text-muted-foreground hover:text-foreground',
               )}
               onClick={() => {
-                setPages(1);
+                setPage(0);
                 setStatus(t.key);
                 setChecked({});
               }}
