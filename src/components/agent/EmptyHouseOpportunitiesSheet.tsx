@@ -94,7 +94,7 @@ export function EmptyHouseOpportunitiesSheet({
   const [debounced, setDebounced] = useState('');
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Record<string, HouseOpportunity>>({});
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const [district, setDistrict] = useState('all');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [mapPinOnly, setMapPinOnly] = useState(false);
@@ -563,7 +563,7 @@ export function EmptyHouseOpportunitiesSheet({
                   <Input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search by landlord, district, village or house name"
+                    placeholder="Search by landlord name or phone, village, district or house"
                     className="pl-9 h-10"
                   />
                 </div>
