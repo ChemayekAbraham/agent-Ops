@@ -13363,11 +13363,18 @@ export type Database = {
           created_at: string
           currency: string
           decision_note: string | null
+          disbursed_at: string | null
+          disbursed_by: string | null
+          disbursed_position_id: string | null
           first_recovery_on: string
+          hr_approved_at: string | null
+          hr_approved_by: string | null
+          hr_approved_position_id: string | null
           id: string
           principal: number
           purpose: string
           recovery_mode: string
+          recovery_months: number | null
           recovery_value: number
           requested_at: string
           requested_by: string | null
@@ -13381,11 +13388,18 @@ export type Database = {
           created_at?: string
           currency?: string
           decision_note?: string | null
+          disbursed_at?: string | null
+          disbursed_by?: string | null
+          disbursed_position_id?: string | null
           first_recovery_on: string
+          hr_approved_at?: string | null
+          hr_approved_by?: string | null
+          hr_approved_position_id?: string | null
           id?: string
           principal: number
           purpose: string
           recovery_mode?: string
+          recovery_months?: number | null
           recovery_value: number
           requested_at?: string
           requested_by?: string | null
@@ -13399,11 +13413,18 @@ export type Database = {
           created_at?: string
           currency?: string
           decision_note?: string | null
+          disbursed_at?: string | null
+          disbursed_by?: string | null
+          disbursed_position_id?: string | null
           first_recovery_on?: string
+          hr_approved_at?: string | null
+          hr_approved_by?: string | null
+          hr_approved_position_id?: string | null
           id?: string
           principal?: number
           purpose?: string
           recovery_mode?: string
+          recovery_months?: number | null
           recovery_value?: number
           requested_at?: string
           requested_by?: string | null
@@ -13414,6 +13435,20 @@ export type Database = {
           {
             foreignKeyName: "hr_pay_advances_approved_position_id_fkey"
             columns: ["approved_position_id"]
+            isOneToOne: false
+            referencedRelation: "hr_positions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_advances_disbursed_position_id_fkey"
+            columns: ["disbursed_position_id"]
+            isOneToOne: false
+            referencedRelation: "hr_positions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_advances_hr_approved_position_id_fkey"
+            columns: ["hr_approved_position_id"]
             isOneToOne: false
             referencedRelation: "hr_positions"
             referencedColumns: ["id"]
