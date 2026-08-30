@@ -520,6 +520,39 @@ export function FunderCapitalOpportunities() {
             ? <SelfPortfolioFundingCard partnerId={user.id} />
             : <p className="text-[11px] text-muted-foreground">Sign in to view tenant plans.</p>}
         </div>
+
+        {/* Empty houses you can support — browse, pick, and create your promissory note */}
+        <div className="pt-2 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-5 rounded-full bg-primary" />
+            <h4 className="text-xs font-black text-foreground tracking-tight">
+              Empty houses you can support
+            </h4>
+          </div>
+          <div className="rounded-2xl border border-dashed border-border p-4 space-y-3">
+            <p className="text-sm font-bold text-foreground">Fund an empty house</p>
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              Browse empty houses with photos, the landlord's name and contact, and the GPS
+              location. Pick the ones you want and your promissory note is created instantly —
+              you earn 15% of that rent every month for 12 months.
+            </p>
+            <Button
+              className="h-10 w-full gap-2 font-semibold"
+              onClick={() => { hapticTap(); setHousePickerOpen(true); }}
+            >
+              <Plus className="h-4 w-4" /> Browse empty houses
+            </Button>
+          </div>
+        </div>
+
+        <EmptyHouseOpportunitiesSheet
+          open={housePickerOpen}
+          onOpenChange={setHousePickerOpen}
+          mode="partner"
+          selfName={profile?.full_name ?? null}
+          selfPhone={(profile as { phone?: string } | null)?.phone ?? null}
+          selfEmail={(profile as { email?: string } | null)?.email ?? null}
+        />
       </DetailShell>
     );
   }
