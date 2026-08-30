@@ -375,7 +375,25 @@ export function EmptyHouseOpportunitiesSheet({
                   </div>
                 )}
               </div>
+              {picked.length > 1 && (
+                <div>
+                  <Label className="text-xs">Notes to generate</Label>
+                  <Select value={splitPerHouse ? 'per_house' : 'single'} onValueChange={(v) => setSplitPerHouse(v === 'per_house')}>
+                    <SelectTrigger className="mt-0.5 h-9 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="per_house">One note per house ({picked.length})</SelectItem>
+                      <SelectItem value="single">One note for all houses</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {splitPerHouse
+                      ? 'Each house gets its own note and its own activation link, funded with that house\u2019s one month of rent.'
+                      : 'All selected houses are tagged on a single note.'}
+                  </p>
+                </div>
+              )}
             </div>
+
 
 
             {/* Search */}
