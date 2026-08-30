@@ -126,7 +126,19 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     () => selectableDepartments.find(d => d.id === departmentId) ?? null,
     [selectableDepartments, departmentId],
   );
-  const readOnly = active ? !EDITABLE_STATUSES.includes(active.status) : false;
+  /**
+   * A submission that has left 'draft' and not been rejected is still in the
+   * approval pipeline. While one exists for this cycle/department the form is
+   * locked, so the same budget can never be submitted twice — the user works
+   * on the existing record (or a revision) instead of filing a duplicate.
+   */
+  const pendingSubmission = useMemo(
+    () => submissions.find(s => s.status !== 'draft' && s.status !== 'rejected') ?? null,
+    [submissions],
+  );
+  const readOnly = active
+    ? !EDITABLE_STATUSES.includes(active.status)
+    : !!pendingSubmission;
 
 
   useEffect(() => {
