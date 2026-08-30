@@ -403,29 +403,36 @@ export function EmptyHouseOpportunitiesSheet({
                           </div>
                         </div>
                       </button>
-                      {(h.landlord_phone || hasGps(h)) && (
-                        <div className="flex flex-wrap items-center gap-2 border-t px-3 py-2">
-                          {h.landlord_phone && (
-                            <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-[11px]">
-                              <a href={`tel:${h.landlord_phone}`} onClick={(e) => e.stopPropagation()}>
-                                <Phone className="h-3 w-3" /> {h.landlord_phone}
-                              </a>
-                            </Button>
-                          )}
-                          {hasGps(h) && (
-                            <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-[11px]">
-                              <a href={mapsUrl(h)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                                <Navigation className="h-3 w-3" /> GPS location
-                              </a>
-                            </Button>
-                          )}
-                          {hasGps(h) && (
-                            <span className="text-[10px] text-muted-foreground">
-                              {Number(h.latitude).toFixed(5)}, {Number(h.longitude).toFixed(5)}
-                            </span>
-                          )}
-                        </div>
-                      )}
+                      <div className="flex flex-wrap items-center gap-2 border-t px-3 py-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="h-8 gap-1 text-[11px]"
+                          onClick={(e) => { e.stopPropagation(); setDetailHouse(h); }}
+                        >
+                          <Eye className="h-3 w-3" /> View details
+                        </Button>
+                        {h.landlord_phone && (
+                          <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-[11px]">
+                            <a href={`tel:${h.landlord_phone}`} onClick={(e) => e.stopPropagation()}>
+                              <Phone className="h-3 w-3" /> {h.landlord_phone}
+                            </a>
+                          </Button>
+                        )}
+                        {hasGps(h) && (
+                          <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-[11px]">
+                            <a href={mapsUrl(h)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                              <Navigation className="h-3 w-3" /> GPS location
+                            </a>
+                          </Button>
+                        )}
+                        {hasGps(h) && (
+                          <span className="text-[10px] text-muted-foreground">
+                            {Number(h.latitude).toFixed(5)}, {Number(h.longitude).toFixed(5)}
+                          </span>
+                        )}
+                      </div>
+
                     </div>
                   );
                 })}
