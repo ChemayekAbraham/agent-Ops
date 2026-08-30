@@ -733,11 +733,22 @@ export function EmptyHouseOpportunitiesSheet({
                                 {formatUGX(h.partner_annual_return)} over 12 months
                               </span>
                             </div>
-                            {h.landlord_name && (
-                              <p className="text-[11px]">
-                                <span className="text-muted-foreground">Landlord</span>{' '}
-                                <span className="font-medium">{h.landlord_name}</span>
-                              </p>
+                            {(h.landlord_name || h.landlord_phone) && (
+                              <div className="rounded-xl border bg-muted/40 p-2.5 space-y-1">
+                                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                                  Landlord
+                                </p>
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                                  <p className="text-sm font-semibold truncate">
+                                    {h.landlord_name || 'Name not on file'}
+                                  </p>
+                                  {h.landlord_phone && (
+                                    <p className="flex items-center gap-1.5 text-[11px] font-semibold text-primary shrink-0">
+                                      <Phone className="h-3.5 w-3.5" /> {h.landlord_phone}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
                             )}
                             {h.listing_agent_name && (
                               <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
