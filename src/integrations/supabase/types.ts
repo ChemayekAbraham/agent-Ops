@@ -46038,6 +46038,15 @@ export type Database = {
         Args: { p_agent_user_id: string; p_decision: string; p_notes?: string }
         Returns: Json
       }
+      partner_ops_find_agent_for_proxy: {
+        Args: { p_phone: string }
+        Returns: {
+          agent_user_id: string
+          full_name: string
+          phone: string
+          proxy_status: string
+        }[]
+      }
       partner_ops_list_proxy_agent_applications: {
         Args: { p_status?: string }
         Returns: {
@@ -46067,6 +46076,10 @@ export type Database = {
       }
       partner_ops_list_self_topup_reviews: {
         Args: { p_limit?: number; p_status?: string }
+        Returns: Json
+      }
+      partner_ops_onboard_proxy_agent: {
+        Args: { p_agent_user_id: string; p_nin?: string; p_notes?: string }
         Returns: Json
       }
       partner_ops_pending_portfolio_lines: {
