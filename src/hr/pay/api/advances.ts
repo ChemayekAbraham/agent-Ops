@@ -90,10 +90,20 @@ export async function listAdvances(): Promise<AdvanceRow[]> {
       status: r.status as string,
       decision_note: (r.decision_note as string | null) ?? null,
       requested_at: r.requested_at as string,
+      recovery_months: (r.recovery_months as number | null) ?? null,
+      hr_approved_at: (r.hr_approved_at as string | null) ?? null,
+      approved_at: (r.approved_at as string | null) ?? null,
+      disbursed_at: (r.disbursed_at as string | null) ?? null,
       recovered,
       outstanding: Math.max(0, principal - recovered),
     };
   });
+}
+
+function assertRecoveryMonths(recoveryMonths: number): void {
+  if (!Number.isInteger(recoveryMonths) || recoveryMonths < 1 || recoveryMonths > 3) {
+    throw new Error('Recovery months must be a whole number of 1, 2 or 3.');
+  }
 }
 
 export async function requestAdvance(
@@ -103,7 +113,15 @@ export async function requestAdvance(
   recoveryMode: string,
   recoveryValue: number,
   firstRecoveryOn: string,
+  recoveryMonths: number,
 ): Promise<void> {
+  assertRecoveryMonths(recoveryMonths);
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData?.user?.id;
+  if (!userId) {
+    throw new Error('You must be signed in to request an advance.');
+  }
+  const instalment = Math.ceil(principal / recoveryMonths);
   const res = await supabase
     .from('hr_pay_advances')
     .insert({
@@ -111,8 +129,52 @@ export async function requestAdvance(
       principal,
       purpose,
       recovery_mode: recoveryMode,
-      recovery_value: recoveryValue,
+      recovery_value: instalment,
+      recovery_months: recoveryMonths,
       first_recovery_on: firstRecoveryOn,
+      requested_by: userId,
+    })
+    .select('id')
+    .single();
+  unwrap(res);
+}
+
+export async function requestOwnAdvance(
+  principal: number,
+  purpose: string,
+  recoveryMonths: number,
+  firstRecoveryOn: string,
+): Promise<void> {
+  assertRecoveryMonths(recoveryMonths);
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData?.user?.id;
+  if (!userId) {
+    throw new Error('You must be signed in to request an advance.');
+  }
+  const staffRows = unwrap(
+    await supabase
+      .from('hr_staff')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('active', true)
+      .limit(1),
+  ) as Array<{ id: string }> | null;
+  if (!staffRows || staffRows.length === 0) {
+    throw new Error('No active staff record is linked to your account.');
+  }
+  const instalment = Math.ceil(principal / recoveryMonths);
+  const res = await supabase
+    .from('hr_pay_advances')
+    .insert({
+      staff_id: staffRows[0].id,
+      principal,
+      purpose,
+      recovery_mode: 'fixed',
+      recovery_value: instalment,
+      recovery_months: recoveryMonths,
+      first_recovery_on: firstRecoveryOn,
+      status: 'requested',
+      requested_by: userId,
     })
     .select('id')
     .single();
