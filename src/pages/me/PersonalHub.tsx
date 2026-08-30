@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import PersonalLayout from '@/components/layout/PersonalLayout';
 import NameCompletionReminder from '@/components/notifications/NameCompletionReminder';
 import GrowthCommissionCard from '@/components/me/GrowthCommissionCard';
+import MyAdvanceCard from '@/hr/pay/MyAdvanceCard';
 import { getMyStaff } from '@/hr/api';
 import { supabase } from '@/hr/api/client';
 import type { Employee } from '@/hr/types';
@@ -264,6 +265,7 @@ const PersonalHub = () => {
       <div className="space-y-4">
         <NameCompletionReminder />
         <GrowthCommissionCard />
+        {staffRecord && <MyAdvanceCard staffId={staffRecord.id} />}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {CARDS.map((card, index) => (
             <HubCard
