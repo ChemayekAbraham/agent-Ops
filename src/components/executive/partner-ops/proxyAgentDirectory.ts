@@ -134,16 +134,80 @@ export async function fetchProxyDirectory(
   search: string,
   status: string,
   offset: number,
+  limit: number = PROXY_DIR_PAGE_SIZE,
 ): Promise<ProxyDirPage> {
   const { data, error } = await supabase.rpc('partner_ops_proxy_agent_directory', {
     p_search: search.trim() || null,
     p_status: status,
-    p_limit: PROXY_DIR_PAGE_SIZE,
+    p_limit: limit,
     p_offset: offset,
   });
   if (error) throw error;
   return data as unknown as ProxyDirPage;
 }
+
+/* ---------------------------------------------------------------------------
+ * Monthly target for every proxy agent (one target, applied to all agents).
+ * ------------------------------------------------------------------------ */
+
+export type ProxyTargetMetric = 'partners_came_in' | 'notes_activated' | 'capital_raised';
+
+export const PROXY_TARGET_METRICS: {
+  key: ProxyTargetMetric;
+  label: string;
+  helper: string;
+  money: boolean;
+}[] = [
+  {
+    key: 'partners_came_in',
+    label: 'Partners who put in money',
+    helper: 'How many new partners each proxy agent should bring in this month.',
+    money: false,
+  },
+  {
+    key: 'notes_activated',
+    label: 'Promissory notes activated',
+    helper: 'How many signed notes each proxy agent should get activated this month.',
+    money: false,
+  },
+  {
+    key: 'capital_raised',
+    label: 'Capital raised',
+    helper: 'How much money each proxy agent should raise this month.',
+    money: true,
+  },
+];
+
+export interface ProxyTargetOverview {
+  period_month: string;
+  agents_total: number;
+  targets: Partial<Record<ProxyTargetMetric, { target_value: number; note: string | null; set_at: string }>>;
+  metrics: Record<ProxyTargetMetric, { achieved_total: number; started: number; hit: number }>;
+}
+
+export async function fetchProxyTargetOverview(month: string): Promise<ProxyTargetOverview> {
+  const { data, error } = await supabase.rpc('partner_ops_proxy_agent_target_overview', {
+    p_month: `${month}-01`,
+  });
+  if (error) throw error;
+  return data as unknown as ProxyTargetOverview;
+}
+
+export async function setProxyTarget(args: {
+  metric: ProxyTargetMetric;
+  month: string;
+  target: number;
+  note?: string;
+}) {
+  const { error } = await supabase.rpc('partner_ops_set_proxy_agent_target', {
+    p_metric_key: args.metric,
+    p_month: `${args.month}-01`,
+    p_target: args.target,
+    p_note: args.note?.trim() || null,
+  });
+  if (error) throw error;
+}
+
 
 export async function fetchProxyDetail(agentUserId: string): Promise<ProxyDetail> {
   const { data, error } = await supabase.rpc('partner_ops_proxy_agent_detail', {
