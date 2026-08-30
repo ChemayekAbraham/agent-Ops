@@ -8,7 +8,7 @@ import investingBroIllustration from '@/assets/investing-bro.svg.asset.json';
 import {
   TrendingUp, Shield, Rocket, Home, Wallet, ChevronLeft, ChevronRight,
   Coins, Lock, Clock, HandCoins, Handshake,
-  BadgeCheck,
+  BadgeCheck, Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useFunderApprovalStatus } from '@/hooks/useFunderApprovalStatus';
 import { SelfPortfolioFundingCard } from '@/components/partner/SelfPortfolioFundingCard';
 import { HowItWorksSteps, type HowItWorksStep } from './HowItWorksSteps';
+import { EmptyHouseOpportunitiesSheet } from '@/components/agent/EmptyHouseOpportunitiesSheet';
+import { useProfile } from '@/hooks/useProfile';
 
 type OptionKey = 'managed' | 'direct' | 'angel';
 type ViewState = 'menu' | OptionKey;
@@ -303,9 +305,11 @@ export function FunderCapitalOpportunities() {
   const walletBalance = wallet?.balance ?? 0;
   const { opportunitySummary, loading } = useCapitalOpportunities();
   const { user } = useAuth();
+  const { profile } = useProfile();
   const { isApproved, status: approvalStatus } = useFunderApprovalStatus(user?.id);
 
   const [view, setView] = useState<ViewState>('menu');
+  const [housePickerOpen, setHousePickerOpen] = useState(false);
   const [showFundDialog, setShowFundDialog] = useState(false);
   const [angelAmount, setAngelAmount] = useState(0);
   const [investLoading, setInvestLoading] = useState(false);
