@@ -139,6 +139,7 @@ export function EmptyHouseOpportunitiesSheet({
   const missing = (): string[] => {
     const out: string[] = [];
     if (picked.length === 0) out.push('At least one empty house');
+    if (isPartner) return out;
     const nameCheck = validatePersonNameParts(nameParts);
     if (!nameCheck.valid) out.push(nameCheck.error || 'Partner name');
     if (!isValidPhone(whatsappNumber)) out.push('WhatsApp number (10 digits)');
@@ -146,6 +147,7 @@ export function EmptyHouseOpportunitiesSheet({
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) out.push('Valid email');
     return out;
   };
+
 
   const toggle = (h: HouseOpportunity) => {
     setSelected((prev) => {
