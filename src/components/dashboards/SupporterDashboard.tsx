@@ -517,6 +517,12 @@ export default function SupporterDashboard({
             />
           </WidgetErrorBoundary>
 
+          <WidgetErrorBoundary label="Houses you support">
+            <SupportedHouseReturnsSection />
+          </WidgetErrorBoundary>
+
+
+
 
           {/* ═══ SECTION: OPPORTUNITIES ═══ */}
           <div id="opportunities" className="relative scroll-mt-4 space-y-4">
