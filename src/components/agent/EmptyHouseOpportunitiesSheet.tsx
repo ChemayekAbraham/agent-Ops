@@ -155,35 +155,53 @@ export function EmptyHouseOpportunitiesSheet({
 
     setSubmitting(true);
     try {
-      const payload: Record<string, string | number | null> = {
-        partner_name: (isPartner ? (selfName || '') : partnerName).trim(),
-        whatsapp_number: (isPartner ? (selfPhone || '') : whatsappNumber).trim(),
-        phone_number: (isPartner ? (selfPhone || '') : phoneNumber).trim() || null,
-        email: (isPartner ? (selfEmail || '') : email).trim() || null,
-        amount: rentTotal,
-        contribution_type: contributionType === 'monthly' ? 'monthly' : 'once_off',
+      const buildPayload = (amount: number): Record<string, string | number | null> => {
+        const payload: Record<string, string | number | null> = {
+          partner_name: (isPartner ? (selfName || '') : partnerName).trim(),
+          whatsapp_number: (isPartner ? (selfPhone || '') : whatsappNumber).trim(),
+          phone_number: (isPartner ? (selfPhone || '') : phoneNumber).trim() || null,
+          email: (isPartner ? (selfEmail || '') : email).trim() || null,
+          amount,
+          contribution_type: contributionType === 'monthly' ? 'monthly' : 'once_off',
+        };
+        if (contributionType === 'monthly') {
+          payload.deduction_day = String(Number(deductionDay));
+          const now = new Date();
+          const next = new Date(now.getFullYear(), now.getMonth(), Number(deductionDay));
+          if (next <= now) next.setMonth(next.getMonth() + 1);
+          payload.next_deduction_date = next.toISOString().split('T')[0];
+        }
+        return payload;
       };
 
-      if (contributionType === 'monthly') {
-        payload.deduction_day = String(Number(deductionDay));
-        const now = new Date();
-        const next = new Date(now.getFullYear(), now.getMonth(), Number(deductionDay));
-        if (next <= now) next.setMonth(next.getMonth() + 1);
-        payload.next_deduction_date = next.toISOString().split('T')[0];
-      }
+      const createFor = async (houseIds: string[], amount: number) => {
+        const { data, error } = await supabase.rpc('agent_create_promissory_note_for_houses', {
+          p_payload: buildPayload(amount),
+          p_house_ids: houseIds,
+        });
+        if (error) throw error;
+        const result = (data ?? {}) as { note?: { id: string; activation_token?: string } };
+        if (!result.note) throw new Error('Note was not created');
+        void supabase.functions
+          .invoke('notify-promissory-note-pledge', { body: { note_id: result.note.id } })
+          .catch(() => {});
+        return result.note;
+      };
 
-      const { data, error } = await supabase.rpc('agent_create_promissory_note_for_houses', {
-        p_payload: payload,
-        p_house_ids: picked.map((h) => h.house_id),
-      });
-      if (error) throw error;
-      const result = (data ?? {}) as { note?: { id: string; activation_token?: string } };
-      if (!result.note) throw new Error('Note was not created');
-      setCreatedNote(result.note);
-      void supabase.functions
-        .invoke('notify-promissory-note-pledge', { body: { note_id: result.note.id } })
-        .catch(() => {});
-      toast.success(`Note created for ${picked.length} empty house${picked.length === 1 ? '' : 's'}`);
+      if (splitPerHouse && picked.length > 1) {
+        const made: { id: string; activation_token?: string; label: string; amount: number }[] = [];
+        for (const h of picked) {
+          const amount = Number(h.monthly_rent || 0);
+          const note = await createFor([h.house_id], amount);
+          made.push({ ...note, label: h.title || housePlace(h), amount });
+          setCreatedNotes([...made]);
+        }
+        toast.success(`${made.length} promissory notes created — one per house`);
+      } else {
+        const note = await createFor(picked.map((h) => h.house_id), rentTotal);
+        setCreatedNote(note);
+        toast.success(`Note created for ${picked.length} empty house${picked.length === 1 ? '' : 's'}`);
+      }
     } catch (err: unknown) {
       const raw = String((err as { message?: string })?.message || 'Failed to create note');
       const msg = raw.includes('HOUSES_UNAVAILABLE')
