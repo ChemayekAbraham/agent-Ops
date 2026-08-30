@@ -622,16 +622,7 @@ export function FunderCapitalOpportunities() {
 
             {/* Calculator: pick how many houses (or an amount) and see the return */}
             {(() => {
-              const s = emptyHouseSummary;
-              const avg = Math.max(1, s?.avg_monthly_rent ?? 0);
-              const maxHouses = Math.max(1, Math.min(s?.house_count ?? 1, 100));
-              const typed = parseInt(calcAmountInput.replace(/[^0-9]/g, ''), 10);
-              const usingAmount = !isNaN(typed) && typed > 0;
-              const houses = usingAmount
-                ? Math.max(1, Math.min(Math.round(typed / avg), s?.house_count ?? 1))
-                : Math.min(calcHouses, maxHouses);
-              const funding = usingAmount ? typed : houses * avg;
-              const monthly = Math.round(funding * 0.15);
+              const { avg, maxHouses, houses, funding, monthly } = calc;
               return (
                 <div className="rounded-xl bg-card/80 border border-border/60 p-3 space-y-3">
                   <button
