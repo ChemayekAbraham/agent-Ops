@@ -92,8 +92,7 @@ export default function Advances() {
   const [staffId, setStaffId] = useState('');
   const [principal, setPrincipal] = useState('');
   const [purpose, setPurpose] = useState('');
-  const [mode, setMode] = useState('fixed');
-  const [recoveryValue, setRecoveryValue] = useState('');
+  const [months, setMonths] = useState('');
   const [firstOn, setFirstOn] = useState(firstOfNextMonth());
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -106,8 +105,7 @@ export default function Advances() {
   // Edit dialog
   const [editRow, setEditRow] = useState<AdvanceRow | null>(null);
   const [editPurpose, setEditPurpose] = useState('');
-  const [editMode, setEditMode] = useState('fixed');
-  const [editRecoveryValue, setEditRecoveryValue] = useState('');
+  const [editMonths, setEditMonths] = useState('1');
   const [editFirstOn, setEditFirstOn] = useState('');
   const [editError, setEditError] = useState('');
   const [editSaving, setEditSaving] = useState(false);
@@ -147,29 +145,32 @@ export default function Advances() {
     setStaffId('');
     setPrincipal('');
     setPurpose('');
-    setMode('fixed');
-    setRecoveryValue('');
+    setMonths('');
     setFirstOn(firstOfNextMonth());
     setFormError('');
   }
 
+  const requestMonthly = useMemo(() => {
+    const amount = Number(principal);
+    const m = Number(months);
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isInteger(m) || m < 1 || m > 3) {
+      return null;
+    }
+    return Math.ceil(amount / m);
+  }, [principal, months]);
+
   async function submitRequest() {
     const amount = Number(principal);
-    const value = Number(recoveryValue);
+    const m = Number(months);
     if (!staffId) return setFormError('Choose the staff member.');
     if (!Number.isFinite(amount) || amount <= 0) return setFormError('Enter a principal above zero.');
     if (purpose.trim().length < 10) return setFormError('The purpose must be at least 10 characters.');
-    if (!Number.isFinite(value) || value <= 0) return setFormError('Enter a recovery value above zero.');
-    if (mode === 'percent_of_gross' && value > 100) return setFormError('A percentage cannot exceed 100.');
+    if (!Number.isInteger(m) || m < 1 || m > 3) return setFormError('Choose the recovery period.');
     if (!firstOn) return setFormError('Choose the first recovery date.');
-    const recoveryMonths = Math.ceil(amount / value);
-    if (!Number.isInteger(recoveryMonths) || recoveryMonths < 1 || recoveryMonths > 3) {
-      return setFormError('The principal and recovery value must spread over 1, 2 or 3 months.');
-    }
     setFormError('');
     setSaving(true);
     try {
-      await requestAdvance(staffId, amount, purpose.trim(), mode, value, firstOn, recoveryMonths);
+      await requestAdvance(staffId, amount, purpose.trim(), 'fixed', Math.ceil(amount / m), firstOn, m);
       toast.success('Advance requested.');
       setOpen(false);
       resetForm();
@@ -199,27 +200,24 @@ export default function Advances() {
     }
   }
 
-  const editInstallmentInfo = useMemo(() => {
-    if (!editRow || editMode !== 'fixed') return null;
-    const value = Number(editRecoveryValue);
-    if (!Number.isFinite(value) || value <= 0) return null;
-    const installments = Math.ceil(editRow.principal / value);
-    const final = editRow.principal - value * (installments - 1);
-    return { installments, final };
-  }, [editRow, editMode, editRecoveryValue]);
+  const editMonthly = useMemo(() => {
+    if (!editRow) return null;
+    const m = Number(editMonths);
+    if (!Number.isInteger(m) || m < 1 || m > 3) return null;
+    return Math.ceil(editRow.principal / m);
+  }, [editRow, editMonths]);
 
   async function submitEdit() {
     if (!editRow) return;
-    const value = Number(editRecoveryValue);
-    if (!Number.isFinite(value) || value <= 0) return;
+    const m = Number(editMonths);
+    if (!Number.isInteger(m) || m < 1 || m > 3) return setEditError('Choose the recovery period.');
     if (editPurpose.trim().length === 0) return;
     setEditError('');
     setEditSaving(true);
     try {
       await updateAdvance(editRow.id, {
         purpose: editPurpose.trim(),
-        recovery_mode: editMode,
-        recovery_value: value,
+        recovery_months: m,
         first_recovery_on: editFirstOn,
       });
       toast.success('Advance updated.');
@@ -277,7 +275,7 @@ export default function Advances() {
   return (
     <HRPlaceholderPage
       heading="Salary advances"
-      subtitle="Raised by HR, approved by the position holding approve authority, recovered automatically from payroll."
+      subtitle="Requested by staff or raised by HR, approved by HR then the CEO, disbursed by the CFO, recovered automatically from payroll."
     >
       {isPreparer && (
         <div>
@@ -332,9 +330,8 @@ export default function Advances() {
                 <TableCell className="text-right">{formatAmount(row.principal)}</TableCell>
                 <TableCell className="max-w-[220px] text-xs">{row.purpose}</TableCell>
                 <TableCell className="text-xs">
-                  {row.recovery_mode === 'fixed'
-                    ? `${formatAmount(row.recovery_value)} per month`
-                    : `${row.recovery_value}% of gross`}
+                  {formatAmount(row.recovery_value)} per month
+                  {row.recovery_months ? ` (${row.recovery_months} months)` : ''}
                 </TableCell>
                 <TableCell className="text-xs">{formatDate(row.first_recovery_on)}</TableCell>
                 <TableCell className="text-right">{formatAmount(row.recovered)}</TableCell>
@@ -361,8 +358,7 @@ export default function Advances() {
                         onClick={() => {
                           setEditRow(row);
                           setEditPurpose(row.purpose);
-                          setEditMode(row.recovery_mode);
-                          setEditRecoveryValue(String(row.recovery_value));
+                          setEditMonths(String(row.recovery_months ?? 1));
                           setEditFirstOn(row.first_recovery_on);
                           setEditError('');
                         }}
@@ -454,25 +450,23 @@ export default function Advances() {
               />
             </div>
             <div className="space-y-1">
-              <Label>Recovery mode</Label>
-              <Select value={mode} onValueChange={setMode}>
+              <Label>Recovery period</Label>
+              <Select value={months} onValueChange={setMonths}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Choose period" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="fixed">Fixed monthly amount</SelectItem>
-                  <SelectItem value="percent_of_gross">Percent of gross</SelectItem>
+                  <SelectItem value="1">1 month</SelectItem>
+                  <SelectItem value="2">2 months</SelectItem>
+                  <SelectItem value="3">3 months</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label>{mode === 'fixed' ? 'Amount per month (UGX)' : 'Percent of gross'}</Label>
-              <Input
-                inputMode="numeric"
-                value={recoveryValue}
-                onChange={(e) => setRecoveryValue(e.target.value)}
-              />
-            </div>
+            {requestMonthly !== null && (
+              <p className="text-xs text-muted-foreground">
+                Monthly deduction: {formatAmount(requestMonthly)} UGX
+              </p>
+            )}
             <div className="space-y-1">
               <Label>First recovery</Label>
               <Input type="date" value={firstOn} onChange={(e) => setFirstOn(e.target.value)} />
@@ -587,29 +581,21 @@ export default function Advances() {
               />
             </div>
             <div className="space-y-1">
-              <Label>Recovery mode</Label>
-              <Select value={editMode} onValueChange={setEditMode}>
+              <Label>Recovery period</Label>
+              <Select value={editMonths} onValueChange={setEditMonths}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="fixed">Fixed monthly amount</SelectItem>
-                  <SelectItem value="percent_of_gross">Percent of gross</SelectItem>
+                  <SelectItem value="1">1 month</SelectItem>
+                  <SelectItem value="2">2 months</SelectItem>
+                  <SelectItem value="3">3 months</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label>{editMode === 'fixed' ? 'Amount per month (UGX)' : 'Percent of gross'}</Label>
-              <Input
-                inputMode="numeric"
-                value={editRecoveryValue}
-                onChange={(e) => setEditRecoveryValue(e.target.value)}
-              />
-            </div>
-            {editInstallmentInfo && (
+            {editMonthly !== null && (
               <p className="text-xs text-muted-foreground">
-                {editInstallmentInfo.installments} installments; final installment{' '}
-                {formatAmount(editInstallmentInfo.final)} UGX
+                Monthly deduction: {formatAmount(editMonthly)} UGX
               </p>
             )}
             <div className="space-y-1">
@@ -627,12 +613,7 @@ export default function Advances() {
               Cancel
             </Button>
             <Button
-              disabled={
-                !editRow ||
-                Number(editRecoveryValue) <= 0 ||
-                editPurpose.trim().length === 0 ||
-                editSaving
-              }
+              disabled={!editRow || editPurpose.trim().length === 0 || editSaving}
               onClick={() => void submitEdit()}
             >
               {editSaving && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
