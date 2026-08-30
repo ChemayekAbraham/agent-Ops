@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Home, Loader2, Search, SlidersHorizontal, Check, Share2, ShieldCheck, MapPin, Users, Phone, MessageSquare, Navigation, ImageIcon, Eye, Clock, CheckCircle2, UserCheck, Wallet } from 'lucide-react';
+import { Home, Loader2, Search, SlidersHorizontal, Check, Share2, ShieldCheck, MapPin, Users, Phone, MessageSquare, Navigation, ImageIcon, Eye, Clock, CheckCircle2, UserCheck, Wallet, X } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -176,6 +176,17 @@ export function EmptyHouseOpportunitiesSheet({
     setDistrict('all'); setVerifiedOnly(false); setMapPinOnly(false);
     setMinRent(''); setMaxRent(''); setNearMe(null); setPage(0);
   };
+
+  const filterChips: { key: string; label: string; onRemove: () => void }[] = [
+    ...(search.trim() ? [{ key: 'search', label: `Search: "${search.trim()}"`, onRemove: () => { setSearch(''); setPage(0); } }] : []),
+    ...(district !== 'all' ? [{ key: 'district', label: `District: ${district}`, onRemove: () => { setDistrict('all'); setPage(0); } }] : []),
+    ...(verifiedOnly ? [{ key: 'verified', label: 'Verified only', onRemove: () => { setVerifiedOnly(false); setPage(0); } }] : []),
+    ...(mapPinOnly ? [{ key: 'pin', label: 'Has map pin', onRemove: () => { setMapPinOnly(false); setPage(0); } }] : []),
+    ...(minRent ? [{ key: 'minRent', label: `Min rent: ${minRent}`, onRemove: () => { setMinRent(''); setPage(0); } }] : []),
+    ...(maxRent ? [{ key: 'maxRent', label: `Max rent: ${maxRent}`, onRemove: () => { setMaxRent(''); setPage(0); } }] : []),
+    ...(nearMe ? [{ key: 'nearMe', label: `Within ${nearMe.radiusKm} km`, onRemove: () => { setNearMe(null); setPage(0); } }] : []),
+  ];
+
 
   const useMyLocation = () => {
     if (!navigator.geolocation) { toast.error('Location is not available on this device'); return; }
@@ -693,6 +704,33 @@ export function EmptyHouseOpportunitiesSheet({
                 </div>
               )}
             </div>
+
+            {filterChips.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-xs text-muted-foreground">Active filters</span>
+                {filterChips.map((chip) => (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    onClick={chip.onRemove}
+                    aria-label={`Remove filter ${chip.label}`}
+                    className="inline-flex items-center gap-1 rounded-full border bg-muted/60 px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                  >
+                    {chip.label}
+                    <X className="h-3 w-3 text-muted-foreground" />
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => { setSearch(''); clearFilters(); }}
+                  className="ml-1 text-xs font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
+
+
 
 
             {/* Houses */}
