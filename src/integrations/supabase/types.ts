@@ -25889,6 +25889,68 @@ export type Database = {
         }
         Relationships: []
       }
+      promissory_note_house_intents: {
+        Row: {
+          agent_id: string
+          created_at: string
+          house_id: string
+          id: string
+          listing_agent_id: string | null
+          monthly_rent: number
+          note_id: string
+          status: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          house_id: string
+          id?: string
+          listing_agent_id?: string | null
+          monthly_rent?: number
+          note_id: string
+          status?: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          house_id?: string
+          id?: string
+          listing_agent_id?: string | null
+          monthly_rent?: number
+          note_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promissory_note_house_intents_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "house_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promissory_note_house_intents_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_property_base"
+            referencedColumns: ["listing_id"]
+          },
+          {
+            foreignKeyName: "promissory_note_house_intents_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "promissory_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promissory_note_house_intents_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["note_id"]
+          },
+        ]
+      }
       promissory_note_plan_intents: {
         Row: {
           agent_id: string
@@ -39584,6 +39646,10 @@ export type Database = {
         Args: { p_payload: Json; p_rent_request_ids?: string[] }
         Returns: Json
       }
+      agent_create_promissory_note_for_houses: {
+        Args: { p_house_ids?: string[]; p_payload: Json }
+        Returns: Json
+      }
       agent_daily_collections_overview: {
         Args: { p_forecast?: boolean; p_from: string; p_to: string }
         Returns: Json
@@ -39604,6 +39670,10 @@ export type Database = {
       agent_expected_collection: {
         Args: { p_rent_request_id: string }
         Returns: number
+      }
+      agent_list_empty_house_opportunities: {
+        Args: { p_limit?: number; p_offset?: number; p_search?: string }
+        Returns: Json
       }
       agent_list_promissory_fundable_plans: {
         Args: {
