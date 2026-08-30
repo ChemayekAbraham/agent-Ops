@@ -9,7 +9,7 @@ import {
   TrendingUp, Shield, Rocket, Home, Wallet, ChevronLeft, ChevronRight,
   Coins, Lock, Clock, HandCoins, Handshake,
   BadgeCheck, Plus, Calculator, MapPin, CheckCircle2, User,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, Info,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
