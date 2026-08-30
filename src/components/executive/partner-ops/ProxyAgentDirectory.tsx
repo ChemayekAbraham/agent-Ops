@@ -14,6 +14,7 @@ import {
   BadgeCheck,
   ChevronLeft,
   ChevronRight,
+  Download,
   FileText,
   Handshake,
   Loader2,
