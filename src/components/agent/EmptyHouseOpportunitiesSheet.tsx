@@ -94,6 +94,15 @@ export function EmptyHouseOpportunitiesSheet({
   const [debounced, setDebounced] = useState('');
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Record<string, HouseOpportunity>>({});
+  const [showFilters, setShowFilters] = useState(false);
+  const [district, setDistrict] = useState('all');
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [mapPinOnly, setMapPinOnly] = useState(false);
+  const [minRent, setMinRent] = useState('');
+  const [maxRent, setMaxRent] = useState('');
+  const [nearMe, setNearMe] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+
 
   const [nameParts, setNameParts] = useState<PersonNameParts>({ firstName: '', otherNames: '', lastName: '' });
   const [whatsappNumber, setWhatsappNumber] = useState('');
