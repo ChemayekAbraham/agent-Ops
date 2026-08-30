@@ -109,9 +109,48 @@ export function SupportedHouseReturnsSection() {
     );
   }
 
-  if (error || !data || data.house_count === 0) return null;
+  if (error) return null;
 
-  const houses = data.houses ?? [];
+  const houses = data?.houses ?? [];
+  const houseCount = data?.house_count ?? 0;
+
+  const picker = (
+    <EmptyHouseOpportunitiesSheet
+      open={pickerOpen}
+      onOpenChange={setPickerOpen}
+      mode="partner"
+      selfName={profile?.full_name ?? null}
+      selfPhone={(profile as { phone?: string } | null)?.phone ?? null}
+      selfEmail={(profile as { email?: string } | null)?.email ?? null}
+    />
+  );
+
+  const ctaCard = (
+    <Card className="rounded-2xl border-dashed p-4">
+      <p className="text-sm font-bold text-foreground">Fund an empty house yourself</p>
+      <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+        Browse empty houses with photos, the landlord's name and contact, and the GPS location. Pick the
+        ones you want, and your promissory note is created instantly — you earn 15% of that rent every
+        month for 12 months.
+      </p>
+      <Button className="mt-3 h-10 w-full gap-2 font-semibold" onClick={() => setPickerOpen(true)}>
+        <Plus className="h-4 w-4" /> Browse empty houses
+      </Button>
+    </Card>
+  );
+
+  if (houseCount === 0) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 px-1">
+          <div className="w-1 h-5 rounded-full bg-primary" />
+          <h2 className="text-sm font-black tracking-tight text-foreground">Houses You Support</h2>
+        </div>
+        {ctaCard}
+        {picker}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -119,11 +158,17 @@ export function SupportedHouseReturnsSection() {
         <div className="w-1 h-5 rounded-full bg-primary" />
         <h2 className="text-sm font-black tracking-tight text-foreground">Houses You Support</h2>
         <Badge variant="secondary" className="text-[10px] font-bold">
-          {data.house_count}
+          {houseCount}
         </Badge>
+        <Button size="sm" variant="outline" className="ml-auto h-8 gap-1 text-[11px]" onClick={() => setPickerOpen(true)}>
+          <Plus className="h-3 w-3" /> Fund another house
+        </Button>
       </div>
 
+      {picker}
+
       <Card className="rounded-2xl border-primary/20 bg-primary/5 p-4">
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
