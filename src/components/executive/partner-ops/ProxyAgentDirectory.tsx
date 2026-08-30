@@ -327,7 +327,98 @@ export function ProxyAgentDirectory() {
             </button>
           ))}
         </div>
+        <Button
+          size="sm"
+          variant={activeFilterCount > 0 ? 'default' : 'outline'}
+          className="h-9 text-xs"
+          onClick={() => setAdvancedOpen((o) => !o)}
+        >
+          <SlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />
+          More filters
+          {activeFilterCount > 0 && (
+            <Badge variant="secondary" className="ml-1.5 h-4 px-1.5 text-[10px]">
+              {activeFilterCount}
+            </Badge>
+          )}
+        </Button>
       </div>
+
+      {/* Advanced filters */}
+      {advancedOpen && (
+        <Card>
+          <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                Approved from
+              </p>
+              <Input
+                type="date"
+                value={activatedFrom}
+                max={activatedTo || undefined}
+                onChange={(e) => {
+                  setActivatedFrom(e.target.value);
+                  resetPaging();
+                }}
+                className="h-9 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                Approved to
+              </p>
+              <Input
+                type="date"
+                value={activatedTo}
+                min={activatedFrom || undefined}
+                onChange={(e) => {
+                  setActivatedTo(e.target.value);
+                  resetPaging();
+                }}
+                className="h-9 text-xs"
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                Contact details
+              </p>
+              <Select
+                value={contact}
+                onValueChange={(v) => {
+                  setContact(v as ProxyContactFilter);
+                  resetPaging();
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROXY_CONTACT_FILTERS.map((f) => (
+                    <SelectItem key={f.key} value={f.key} className="text-xs">
+                      {f.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 w-full text-xs"
+                disabled={activeFilterCount === 0}
+                onClick={clearAdvanced}
+              >
+                Clear these filters
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground sm:col-span-2 lg:col-span-4">
+              The date range uses the day the agent was approved as a proxy agent. Agents still
+              waiting for approval have no approval date, so they are hidden while a date is set.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
 
       {/* Bulk action bar */}
       {selectedIds.length > 0 && (
