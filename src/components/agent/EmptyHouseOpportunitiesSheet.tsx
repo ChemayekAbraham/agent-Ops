@@ -547,6 +547,9 @@ export function EmptyHouseOpportunitiesSheet({
                                 <Users className="h-3 w-3" /> {h.listing_agent_name} places the tenant once funded
                               </p>
                             )}
+                            <div className="pt-0.5">
+                              <HouseProgressBadges progress={progressByHouse[h.house_id]} />
+                            </div>
                           </div>
                         </div>
                       </button>
