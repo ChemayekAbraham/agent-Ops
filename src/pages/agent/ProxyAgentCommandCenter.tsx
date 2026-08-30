@@ -519,15 +519,22 @@ export default function ProxyAgentCommandCenter() {
 
           {/* Promissory notes */}
           <TabsContent value="notes" className="space-y-2 pt-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={nSearch}
-                onChange={(e) => { setNSearch(e.target.value); setNPage(0); }}
-                placeholder="Search note partner or phone"
-                className="pl-9 h-10"
-              />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={nSearch}
+                  onChange={(e) => { setNSearch(e.target.value); setNPage(0); }}
+                  placeholder="Search note partner or phone"
+                  className="pl-9 h-10"
+                />
+              </div>
+              <Button variant="outline" onClick={openInviteSheet} className="h-10 gap-2 shrink-0">
+                {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+                <span className="hidden sm:inline">Share link</span>
+              </Button>
             </div>
+
             <div className="flex gap-2 overflow-x-auto no-scrollbar">
               {([
                 { key: 'all', label: 'All' },
