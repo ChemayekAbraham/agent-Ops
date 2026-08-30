@@ -694,8 +694,14 @@ export function FunderCapitalOpportunities() {
               const rows = breakdownBy === 'district'
                 ? (emptyHouseSummary?.districts ?? [])
                 : (emptyHouseSummary?.landlords ?? []);
-              const top = rows.slice(0, 6);
+              const sorted = [...rows].sort((a, b) =>
+                breakdownSort === 'rent'
+                  ? b.total_rent_needed - a.total_rent_needed
+                  : b.house_count - a.house_count,
+              );
+              const top = breakdownTopN === 0 ? sorted : sorted.slice(0, breakdownTopN);
               const maxRent = Math.max(1, ...top.map(r => r.total_rent_needed));
+              const maxHouses = Math.max(1, ...top.map(r => r.house_count));
               if (top.length === 0) return null;
               return (
                 <div className="rounded-xl bg-card/80 border border-border/60 p-3 space-y-2.5">
@@ -716,6 +722,47 @@ export function FunderCapitalOpportunities() {
                       ))}
                     </div>
                   </div>
+
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] text-muted-foreground font-medium">Rank by</span>
+                      <div className="flex rounded-lg border border-border/60 overflow-hidden">
+                        {([
+                          { k: 'rent' as const, label: 'Rent needed' },
+                          { k: 'houses' as const, label: 'Houses' },
+                        ]).map(o => (
+                          <button
+                            key={o.k}
+                            type="button"
+                            onClick={() => { hapticTap(); setBreakdownSort(o.k); }}
+                            className={`px-2 py-1 text-[9px] font-bold ${breakdownSort === o.k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+                          >
+                            {o.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] text-muted-foreground font-medium">Show</span>
+                      <div className="flex rounded-lg border border-border/60 overflow-hidden">
+                        {([
+                          { k: 6 as const, label: 'Top 6' },
+                          { k: 12 as const, label: 'Top 12' },
+                          { k: 0 as const, label: 'All' },
+                        ]).map(o => (
+                          <button
+                            key={o.label}
+                            type="button"
+                            onClick={() => { hapticTap(); setBreakdownTopN(o.k); }}
+                            className={`px-2 py-1 text-[9px] font-bold ${breakdownTopN === o.k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+                          >
+                            {o.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     {top.map(r => (
                       <div key={r.label} className="space-y-1">
