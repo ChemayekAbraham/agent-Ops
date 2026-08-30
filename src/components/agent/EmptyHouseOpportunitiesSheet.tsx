@@ -733,23 +733,6 @@ export function EmptyHouseOpportunitiesSheet({
                                 {formatUGX(h.partner_annual_return)} over 12 months
                               </span>
                             </div>
-                            {(h.landlord_name || h.landlord_phone) && (
-                              <div className="rounded-xl border bg-muted/40 p-2.5 space-y-1">
-                                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                                  Landlord
-                                </p>
-                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                                  <p className="text-sm font-semibold truncate">
-                                    {h.landlord_name || 'Name not on file'}
-                                  </p>
-                                  {h.landlord_phone && (
-                                    <p className="flex items-center gap-1.5 text-[11px] font-semibold text-primary shrink-0">
-                                      <Phone className="h-3.5 w-3.5" /> {h.landlord_phone}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            )}
                             {h.listing_agent_name && (
                               <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
                                 <Users className="h-3 w-3" /> {h.listing_agent_name} places the tenant once funded
@@ -761,6 +744,37 @@ export function EmptyHouseOpportunitiesSheet({
                           </div>
                         </div>
                       </button>
+                      {(h.landlord_name || h.landlord_phone) && (
+                        <div className="mx-3 mb-3 rounded-2xl border border-primary/15 bg-primary/5 p-3 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-primary/80">Landlord</p>
+                              <p className="text-base font-bold leading-tight truncate">
+                                {h.landlord_name || 'Name not on file'}
+                              </p>
+                              {h.landlord_phone && (
+                                <p className="flex items-center gap-1.5 text-sm font-bold text-primary">
+                                  <Phone className="h-3.5 w-3.5 shrink-0" /> {h.landlord_phone}
+                                </p>
+                              )}
+                            </div>
+                            {h.landlord_phone && (
+                              <div className="flex shrink-0 gap-1.5">
+                                <Button asChild variant="outline" size="sm" className="h-9 gap-1.5 text-[11px]">
+                                  <a href={`tel:${h.landlord_phone}`}>
+                                    <Phone className="h-3.5 w-3.5" /> Call
+                                  </a>
+                                </Button>
+                                <Button asChild variant="secondary" size="sm" className="h-9 gap-1.5 text-[11px]">
+                                  <a href={`sms:${h.landlord_phone}`}>
+                                    <MessageSquare className="h-3.5 w-3.5" /> Message
+                                  </a>
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       <div className="flex flex-wrap items-center gap-2 border-t px-3 py-2">
                         <Button
                           variant="secondary"
@@ -770,13 +784,6 @@ export function EmptyHouseOpportunitiesSheet({
                         >
                           <Eye className="h-3 w-3" /> View details
                         </Button>
-                        {h.landlord_phone && (
-                          <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-[11px]">
-                            <a href={`tel:${h.landlord_phone}`} onClick={(e) => e.stopPropagation()}>
-                              <Phone className="h-3 w-3" /> {h.landlord_phone}
-                            </a>
-                          </Button>
-                        )}
                         {hasGps(h) && (
                           <Button asChild variant="outline" size="sm" className="h-8 gap-1 text-[11px]">
                             <a href={mapsUrl(h)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
