@@ -511,16 +511,120 @@ export function EmptyHouseOpportunitiesSheet({
 
 
 
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by district, village or house name"
-                className="pl-9 h-10"
-              />
+            {/* Search + filters */}
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search by landlord, district, village or house name"
+                    className="pl-9 h-10"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant={activeFilterCount > 0 ? 'default' : 'outline'}
+                  className="h-10 shrink-0 gap-1.5"
+                  onClick={() => setShowFilters((v) => !v)}
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+                </Button>
+              </div>
+
+              {showFilters && (
+                <div className="rounded-2xl border bg-muted/30 p-3 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">District</Label>
+                      <Select value={district} onValueChange={(v) => { setDistrict(v); setPage(0); }}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="All districts" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-64">
+                          <SelectItem value="all">All districts</SelectItem>
+                          {districtOptions.map((d) => (
+                            <SelectItem key={d} value={d}>{d}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">Monthly rent (UGX)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          inputMode="numeric"
+                          value={minRent}
+                          onChange={(e) => { setMinRent(e.target.value.replace(/\D/g, '')); setPage(0); }}
+                          placeholder="Min"
+                          className="h-9"
+                        />
+                        <Input
+                          inputMode="numeric"
+                          value={maxRent}
+                          onChange={(e) => { setMaxRent(e.target.value.replace(/\D/g, '')); setPage(0); }}
+                          placeholder="Max"
+                          className="h-9"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={mapPinOnly ? 'default' : 'outline'}
+                      className="h-8 gap-1.5"
+                      onClick={() => { setMapPinOnly((v) => !v); setPage(0); }}
+                    >
+                      <MapPin className="h-3.5 w-3.5" /> On the map only
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={verifiedOnly ? 'default' : 'outline'}
+                      className="h-8 gap-1.5"
+                      onClick={() => { setVerifiedOnly((v) => !v); setPage(0); }}
+                    >
+                      <ShieldCheck className="h-3.5 w-3.5" /> Verified only
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={nearMe ? 'default' : 'outline'}
+                      className="h-8 gap-1.5"
+                      disabled={locating}
+                      onClick={() => (nearMe ? (setNearMe(null), setPage(0)) : useMyLocation())}
+                    >
+                      {locating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />}
+                      {nearMe ? `Within ${nearMe.radiusKm} km` : 'Near me'}
+                    </Button>
+                    {nearMe && (
+                      <Select
+                        value={String(nearMe.radiusKm)}
+                        onValueChange={(v) => { setNearMe({ ...nearMe, radiusKm: Number(v) }); setPage(0); }}
+                      >
+                        <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {[2, 5, 10, 25, 50].map((r) => (
+                            <SelectItem key={r} value={String(r)}>{r} km</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {activeFilterCount > 0 && (
+                      <Button type="button" size="sm" variant="ghost" className="h-8" onClick={clearFilters}>
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
+
 
             {/* Houses */}
             {isLoading ? (
