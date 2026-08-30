@@ -175,10 +175,11 @@ export function ProxyAgentDirectory() {
       toast({ title: 'Delete failed', description: e.message, variant: 'destructive' }),
   });
 
-  const applySearch = () => {
-    setPages(1);
-    setQuery(search);
+  const goToPage = (p: number) => {
+    setPage(Math.min(Math.max(0, p), totalPages - 1));
+    setChecked({});
   };
+
 
   if (selected) {
     return (
