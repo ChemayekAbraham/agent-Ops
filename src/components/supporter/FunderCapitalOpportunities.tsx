@@ -622,10 +622,45 @@ export function FunderCapitalOpportunities() {
                   {emptyHouseSummary ? `${emptyHouseSummary.house_count.toLocaleString()} empty houses need funding` : 'Empty houses need funding'}
                 </p>
               </div>
-              <div className="shrink-0 rounded-xl bg-primary/15 p-2.5 text-primary">
-                <Home className="h-5 w-5" />
+              <div className="shrink-0 flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 text-[11px] font-bold"
+                  onClick={async () => {
+                    hapticTap();
+                    const houses = emptyHouseSummary?.house_count ?? 0;
+                    const rent = emptyHouseSummary?.total_rent_needed ?? 0;
+                    const url = `${window.location.origin}/dashboard/funder`;
+                    const text = `Welile: ${houses.toLocaleString()} empty houses need funding — UGX ${rent.toLocaleString()} total rent needed. Support a tenant and earn 15% of the rent every month for 12 months.\n\n${url}`;
+                    try {
+                      if (navigator.share) {
+                        await navigator.share({ title: 'Empty houses that need funding', text, url });
+                        return;
+                      }
+                      await navigator.clipboard.writeText(text);
+                      toast.success('Opportunity copied — paste it anywhere to share');
+                    } catch (e) {
+                      if ((e as Error)?.name === 'AbortError') return;
+                      try {
+                        await navigator.clipboard.writeText(text);
+                        toast.success('Opportunity copied — paste it anywhere to share');
+                      } catch {
+                        toast.error('Could not share. Please try again.');
+                      }
+                    }
+                  }}
+                >
+                  <Share2 className="h-3.5 w-3.5" />
+                  Share
+                </Button>
+                <div className="rounded-xl bg-primary/15 p-2.5 text-primary">
+                  <Home className="h-5 w-5" />
+                </div>
               </div>
             </div>
+
 
             <div className="grid grid-cols-1 gap-3">
               <div className="rounded-xl bg-card/80 border border-border/60 p-3">
