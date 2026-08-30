@@ -320,27 +320,32 @@ export function FunderCapitalOpportunities() {
   // Empty-house funding calculator + breakdown UI state (display only)
   const [calcHouses, setCalcHouses] = useState(5);
   const [calcAmountInput, setCalcAmountInput] = useState('');
+  const [calcHouses2, setCalcHouses2] = useState(10);
+  const [calcAmountInput2, setCalcAmountInput2] = useState('');
   const [breakdownBy, setBreakdownBy] = useState<'district' | 'landlord'>('district');
   const [calcOpen, setCalcOpen] = useState(false);
   const [breakdownSort, setBreakdownSort] = useState<'rent' | 'houses'>('rent');
   const [breakdownTopN, setBreakdownTopN] = useState<6 | 12 | 0>(6); // 0 = all
 
   // Shared calculator derivation — used by the calculator UI and to pre-fill the picker
-  const calc = useMemo(() => {
+  const computeScenario = useCallback((amountInput: string, houseCount: number) => {
     const s = emptyHouseSummary;
     const avg = Math.max(1, s?.avg_monthly_rent ?? 0);
     const maxHouses = Math.max(1, Math.min(s?.house_count ?? 1, 100));
-    const typed = parseInt(calcAmountInput.replace(/[^0-9]/g, ''), 10);
+    const typed = parseInt(amountInput.replace(/[^0-9]/g, ''), 10);
     const usingAmount = !isNaN(typed) && typed > 0;
     const houses = usingAmount
       ? Math.max(1, Math.min(Math.round(typed / avg), s?.house_count ?? 1))
-      : Math.min(calcHouses, maxHouses);
+      : Math.min(houseCount, maxHouses);
     const funding = usingAmount ? typed : houses * avg;
     const monthly = Math.round(funding * 0.15);
     const serviceFee = Math.round(funding * EMPTY_HOUSE_SERVICE_FEE_RATE);
     const netMonthly = monthly - serviceFee;
     return { avg, maxHouses, typed, usingAmount, houses, funding, monthly, serviceFee, netMonthly };
-  }, [emptyHouseSummary, calcAmountInput, calcHouses]);
+  }, [emptyHouseSummary]);
+
+  const calc = useMemo(() => computeScenario(calcAmountInput, calcHouses), [computeScenario, calcAmountInput, calcHouses]);
+  const calc2 = useMemo(() => computeScenario(calcAmountInput2, calcHouses2), [computeScenario, calcAmountInput2, calcHouses2]);
 
 
   const handleAngelAmountChange = (val: string) => {
