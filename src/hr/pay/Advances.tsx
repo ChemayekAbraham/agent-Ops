@@ -368,33 +368,43 @@ export default function Advances() {
                     )}
                   </TableCell>
                 )}
-                {isApprover && (
-                  <TableCell className="whitespace-nowrap text-right">
-                    {row.status === 'requested' && (
-                      <span className="inline-flex gap-2">
-                        <Button
-                          size="sm"
-                          disabled={busyId === row.id}
-                          onClick={() => void approve(row)}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={busyId === row.id}
-                          onClick={() => {
-                            setRejectRow(row);
-                            setRejectNote('');
-                            setRejectError('');
-                          }}
-                        >
-                          Reject
-                        </Button>
-                      </span>
-                    )}
-                  </TableCell>
-                )}
+                <TableCell className="whitespace-nowrap text-right">
+                  {isActionable(row.status) && (
+                    <span className="inline-flex gap-2">
+                      <Button
+                        size="sm"
+                        disabled={busyId === row.id}
+                        onClick={() => void approve(row)}
+                      >
+                        {ACTION_LABEL[row.status]}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busyId === row.id}
+                        onClick={() => {
+                          setRejectRow(row);
+                          setRejectNote('');
+                          setRejectError('');
+                        }}
+                      >
+                        Reject
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busyId === row.id}
+                        onClick={() => {
+                          setCancelRow(row);
+                          setCancelReason('');
+                          setCancelError('');
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </span>
+                  )}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
