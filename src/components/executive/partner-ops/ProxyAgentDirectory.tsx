@@ -155,6 +155,49 @@ export function ProxyAgentDirectory() {
   const activeFilterCount =
     (activatedFrom ? 1 : 0) + (activatedTo ? 1 : 0) + (contact !== 'all' ? 1 : 0);
 
+  /**
+   * Build a shareable address for exactly what is on screen: the search text,
+   * the status tab, the advanced filters, the page and — when one is open or
+   * given — the agent to preselect.
+   */
+  const buildViewLink = (agent?: ProxyDirRow | null) => {
+    const url = new URL(window.location.href);
+    const put = (key: string, value: string) => {
+      if (value) url.searchParams.set(key, value);
+      else url.searchParams.delete(key);
+    };
+    put('pd_q', search.trim());
+    put('pd_status', status !== 'all' ? status : '');
+    put('pd_from', activatedFrom);
+    put('pd_to', activatedTo);
+    put('pd_contact', contact !== 'all' ? contact : '');
+    put('pd_size', pageSize !== PROXY_DIR_PAGE_SIZE ? String(pageSize) : '');
+    put('pd_page', page > 0 ? String(page + 1) : '');
+    const target = agent ?? quickView ?? selected;
+    put('pd_agent', target?.agent_user_id ?? '');
+    return url.toString();
+  };
+
+  const copyViewLink = async (agent?: ProxyDirRow | null) => {
+    const link = buildViewLink(agent);
+    try {
+      await navigator.clipboard.writeText(link);
+      window.history.replaceState(null, '', link);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+      toast({
+        title: 'Link copied',
+        description: 'Anyone on Partner Ops who opens it sees this exact list.',
+      });
+    } catch {
+      toast({
+        title: 'Could not copy the link',
+        description: link,
+        variant: 'destructive',
+      });
+    }
+  };
+
   const resetPaging = () => {
     setPage(0);
     setChecked({});
