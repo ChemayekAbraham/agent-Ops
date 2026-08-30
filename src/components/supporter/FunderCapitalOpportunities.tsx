@@ -564,6 +564,168 @@ export function FunderCapitalOpportunities() {
               </div>
             </div>
 
+            {/* Progress: funded vs remaining */}
+            {(() => {
+              const s = emptyHouseSummary;
+              const listed = s?.total_listed ?? 0;
+              const funded = s?.funded_count ?? 0;
+              const remaining = s?.house_count ?? 0;
+              const pct = listed > 0 ? Math.min(100, Math.round((funded / listed) * 100)) : 0;
+              return (
+                <div className="rounded-xl bg-card/80 border border-border/60 p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest">Funding progress</p>
+                    <span className="text-[10px] font-black text-foreground">{pct}% funded</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full bg-success transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 pt-0.5">
+                    <div>
+                      <p className="text-[9px] text-muted-foreground font-medium">Already funded</p>
+                      <p className="text-xs font-black text-success flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" />{funded.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-muted-foreground font-medium">Still open</p>
+                      <p className="text-xs font-black text-foreground">{remaining.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-muted-foreground font-medium">Rent still needed</p>
+                      <p className="text-xs font-black text-foreground">{formatAmountCompact(s?.total_rent_needed ?? 0)}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Calculator: pick how many houses (or an amount) and see the return */}
+            {(() => {
+              const s = emptyHouseSummary;
+              const avg = Math.max(1, s?.avg_monthly_rent ?? 0);
+              const maxHouses = Math.max(1, Math.min(s?.house_count ?? 1, 100));
+              const typed = parseInt(calcAmountInput.replace(/[^0-9]/g, ''), 10);
+              const usingAmount = !isNaN(typed) && typed > 0;
+              const houses = usingAmount
+                ? Math.max(1, Math.min(Math.round(typed / avg), s?.house_count ?? 1))
+                : Math.min(calcHouses, maxHouses);
+              const funding = usingAmount ? typed : houses * avg;
+              const monthly = Math.round(funding * 0.15);
+              return (
+                <div className="rounded-xl bg-card/80 border border-border/60 p-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Calculator className="h-3.5 w-3.5 text-primary" />
+                    <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest">
+                      What will I earn?
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-semibold text-foreground">
+                        Houses I want to fund
+                      </p>
+                      <span className="text-sm font-black text-foreground">{houses.toLocaleString()}</span>
+                    </div>
+                    <Slider
+                      value={[Math.min(calcHouses, maxHouses)]}
+                      min={1}
+                      max={maxHouses}
+                      step={1}
+                      onValueChange={(v) => { setCalcAmountInput(''); setCalcHouses(v[0]); }}
+                    />
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground font-medium shrink-0">or amount (UGX)</span>
+                      <Input
+                        inputMode="numeric"
+                        placeholder={String(avg)}
+                        value={calcAmountInput}
+                        onChange={(e) => setCalcAmountInput(e.target.value.replace(/[^0-9]/g, ''))}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <p className="text-[9px] text-muted-foreground font-medium">You fund (1 month)</p>
+                      <p className="text-xs font-black text-foreground">{formatAmountCompact(funding)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-muted-foreground font-medium">You earn / month</p>
+                      <p className="text-xs font-black text-success">{formatAmountCompact(monthly)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-muted-foreground font-medium">Over 12 months</p>
+                      <p className="text-xs font-black text-success">{formatAmountCompact(monthly * 12)}</p>
+                    </div>
+                  </div>
+                  <p className="text-[9px] text-muted-foreground font-medium">
+                    Estimate uses the average rent of {formatAmountCompact(avg)} per empty house. Exact figures are shown per house in the picker.
+                  </p>
+                </div>
+              );
+            })()}
+
+            {/* Mini breakdown: where the biggest opportunities are */}
+            {(() => {
+              const rows = breakdownBy === 'district'
+                ? (emptyHouseSummary?.districts ?? [])
+                : (emptyHouseSummary?.landlords ?? []);
+              const top = rows.slice(0, 6);
+              const maxRent = Math.max(1, ...top.map(r => r.total_rent_needed));
+              if (top.length === 0) return null;
+              return (
+                <div className="rounded-xl bg-card/80 border border-border/60 p-3 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest">
+                      Biggest opportunities
+                    </p>
+                    <div className="flex rounded-lg border border-border/60 overflow-hidden">
+                      {(['district', 'landlord'] as const).map(k => (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => { hapticTap(); setBreakdownBy(k); }}
+                          className={`px-2 py-1 text-[9px] font-bold capitalize ${breakdownBy === k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+                        >
+                          {k}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {top.map(r => (
+                      <div key={r.label} className="space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[11px] font-bold text-foreground flex items-center gap-1 truncate">
+                            {breakdownBy === 'district'
+                              ? <MapPin className="h-3 w-3 text-primary shrink-0" />
+                              : <User className="h-3 w-3 text-primary shrink-0" />}
+                            <span className="truncate">{r.label}</span>
+                          </p>
+                          <span className="text-[10px] font-semibold text-muted-foreground shrink-0">
+                            {r.house_count.toLocaleString()} houses
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-primary"
+                            style={{ width: `${Math.max(4, Math.round((r.total_rent_needed / maxRent) * 100))}%` }}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between text-[9px] font-medium">
+                          <span className="text-muted-foreground">{formatAmountCompact(r.total_rent_needed)} rent needed</span>
+                          <span className="text-success font-bold">{formatAmountCompact(r.monthly_return)} / month</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
             <p className="text-[11px] leading-snug text-muted-foreground">
               Browse empty houses with photos, landlord contact, and GPS location. Pick the ones
               you want and your promissory note is created instantly — you earn{' '}
