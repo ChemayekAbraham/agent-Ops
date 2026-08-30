@@ -101,6 +101,7 @@ export function EmptyHouseOpportunitiesSheet({
   const [minRent, setMinRent] = useState('');
   const [maxRent, setMaxRent] = useState('');
   const [nearMe, setNearMe] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
+  const [sort, setSort] = useState<'recommended' | 'nearest' | 'newest' | 'rent_high' | 'rent_low'>('recommended');
   const [locating, setLocating] = useState(false);
 
 
@@ -133,13 +134,13 @@ export function EmptyHouseOpportunitiesSheet({
     setWhatsappNumber(''); setPhoneNumber(''); setEmail('');
     setContributionType('compounding'); setDeductionDay('1');
     setErrorMsg(null); setCreatedNote(null); setCreatedNotes([]); setSplitPerHouse(true);
-    setShowFilters(false); setDistrict('all'); setVerifiedOnly(false); setMapPinOnly(false);
-    setMinRent(''); setMaxRent(''); setNearMe(null);
+    setShowFilters(true); setDistrict('all'); setVerifiedOnly(false); setMapPinOnly(false);
+    setMinRent(''); setMaxRent(''); setNearMe(null); setSort('recommended');
 
   };
 
   const { data, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['empty-house-opportunities', debounced, page, district, verifiedOnly, mapPinOnly, minRent, maxRent, nearMe],
+    queryKey: ['empty-house-opportunities', debounced, page, district, verifiedOnly, mapPinOnly, minRent, maxRent, nearMe, sort],
     enabled: open,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
@@ -154,6 +155,7 @@ export function EmptyHouseOpportunitiesSheet({
         p_near_lat: nearMe?.lat ?? null,
         p_near_lng: nearMe?.lng ?? null,
         p_radius_km: nearMe?.radiusKm ?? null,
+        p_sort: sort,
       });
       if (error) throw error;
       const payload = (data ?? {}) as { total?: number; houses?: HouseOpportunity[]; districts?: string[] };
