@@ -988,6 +988,7 @@ export function ProxyAgentDirectory() {
               ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }, 120);
         }}
+        onCopyLink={(a) => void copyViewLink(a)}
       />
 
       <div id="proxy-onboarding-audit" className="scroll-mt-24">

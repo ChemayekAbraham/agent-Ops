@@ -9,7 +9,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { ExternalLink, History, ShieldCheck, Target } from 'lucide-react';
+import { ExternalLink, History, Link2, ShieldCheck, Target } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
