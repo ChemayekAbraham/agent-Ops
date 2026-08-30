@@ -445,23 +445,60 @@ export function ProxyAgentDirectory() {
                   </li>
                 ))}
               </ul>
-              <div className="flex items-center justify-between gap-2 border-t px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t px-4 py-3">
                 <p className="text-[11px] text-muted-foreground">
-                  Showing {rows.length} of {total}
+                  Showing {firstShown.toLocaleString()}–{lastShown.toLocaleString()} of{' '}
+                  {total.toLocaleString()} agents
+                  {pageQueries.isFetching && (
+                    <Loader2 className="ml-1.5 inline h-3 w-3 animate-spin align-[-2px]" />
+                  )}
                 </p>
-                {rows.length < total && (
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={String(pageSize)}
+                    onValueChange={(v) => {
+                      setPageSize(Number(v));
+                      setPage(0);
+                      setChecked({});
+                    }}
+                  >
+                    <SelectTrigger className="h-8 w-[120px] text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[30, 60, 100, 200].map((n) => (
+                        <SelectItem key={n} value={String(n)} className="text-xs">
+                          {n} per page
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button
                     size="sm"
                     variant="outline"
                     className="h-8 text-xs"
-                    disabled={pageQueries.isFetching}
-                    onClick={() => setPages((p) => p + 1)}
+                    disabled={page === 0}
+                    onClick={() => goToPage(page - 1)}
                   >
-                    {pageQueries.isFetching && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                    Load more
+                    <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+                    Back
                   </Button>
-                )}
+                  <span className="text-[11px] font-semibold tabular-nums">
+                    Page {(page + 1).toLocaleString()} of {totalPages.toLocaleString()}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs"
+                    disabled={page + 1 >= totalPages}
+                    onClick={() => goToPage(page + 1)}
+                  >
+                    Next
+                    <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
+
             </>
           )}
         </CardContent>
