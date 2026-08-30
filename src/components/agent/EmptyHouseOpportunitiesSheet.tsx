@@ -90,7 +90,7 @@ export function EmptyHouseOpportunitiesSheet({
     setNameParts({ firstName: '', otherNames: '', lastName: '' });
     setWhatsappNumber(''); setPhoneNumber(''); setEmail('');
     setContributionType('compounding'); setDeductionDay('1');
-    setErrorMsg(null); setCreatedNote(null);
+    setErrorMsg(null); setCreatedNote(null); setCreatedNotes([]); setSplitPerHouse(true);
   };
 
   const { data, isLoading, isFetching, refetch } = useQuery({
