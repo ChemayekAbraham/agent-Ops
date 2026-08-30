@@ -9,7 +9,7 @@ import {
   TrendingUp, Shield, Rocket, Home, Wallet, ChevronLeft, ChevronRight,
   Coins, Lock, Clock, HandCoins, Handshake,
   BadgeCheck, Plus, Calculator, MapPin, CheckCircle2, User,
-  ChevronDown, ChevronUp, Info,
+  ChevronDown, ChevronUp, Info, Download,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -326,6 +326,55 @@ export function FunderCapitalOpportunities() {
   const [calcOpen, setCalcOpen] = useState(false);
   const [breakdownSort, setBreakdownSort] = useState<'rent' | 'houses'>('rent');
   const [breakdownTopN, setBreakdownTopN] = useState<6 | 12 | 0>(6); // 0 = all
+  const [feeRatePct, setFeeRatePct] = useState(EMPTY_HOUSE_SERVICE_FEE_RATE * 100);
+
+  // Export the currently ranked district/landlord breakdown as a PDF (display only)
+  const exportRankingPdf = useCallback(async (
+    rows: Array<{ label: string; house_count: number; total_rent_needed: number; monthly_return: number }>,
+  ) => {
+    try {
+      const [{ default: JsPDF }, { default: autoTable }] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable'),
+      ]);
+      const doc = new JsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+      const title = breakdownBy === 'district'
+        ? 'Empty house opportunities by district'
+        : 'Empty house opportunities by landlord';
+      doc.setFontSize(14);
+      doc.text(title, 40, 44);
+      doc.setFontSize(9);
+      doc.text(
+        `Ranked by ${breakdownSort === 'rent' ? 'rent needed' : 'house count'} · ${new Date().toLocaleString('en-GB')}`,
+        40, 60,
+      );
+      autoTable(doc, {
+        startY: 76,
+        head: [['#', breakdownBy === 'district' ? 'District' : 'Landlord', 'Houses', 'Rent needed (UGX)', 'Return / month (UGX)']],
+        body: rows.map((r, i) => [
+          String(i + 1),
+          r.label,
+          r.house_count.toLocaleString(),
+          Math.round(r.total_rent_needed).toLocaleString(),
+          Math.round(r.monthly_return).toLocaleString(),
+        ]),
+        foot: [[
+          '',
+          'Total',
+          rows.reduce((a, r) => a + r.house_count, 0).toLocaleString(),
+          Math.round(rows.reduce((a, r) => a + r.total_rent_needed, 0)).toLocaleString(),
+          Math.round(rows.reduce((a, r) => a + r.monthly_return, 0)).toLocaleString(),
+        ]],
+        styles: { fontSize: 8, cellPadding: 4 },
+        headStyles: { fillColor: [30, 30, 30] },
+        footStyles: { fillColor: [240, 240, 240], textColor: 20, fontStyle: 'bold' },
+      });
+      doc.save(`empty-house-opportunities-by-${breakdownBy}.pdf`);
+      toast.success('PDF downloaded');
+    } catch {
+      toast.error('Could not generate the PDF. Please try again.');
+    }
+  }, [breakdownBy, breakdownSort]);
 
   // Shared calculator derivation — used by the calculator UI and to pre-fill the picker
   const computeScenario = useCallback((amountInput: string, houseCount: number) => {
@@ -339,10 +388,10 @@ export function FunderCapitalOpportunities() {
       : Math.min(houseCount, maxHouses);
     const funding = usingAmount ? typed : houses * avg;
     const monthly = Math.round(funding * 0.15);
-    const serviceFee = Math.round(funding * EMPTY_HOUSE_SERVICE_FEE_RATE);
+    const serviceFee = Math.round(funding * (feeRatePct / 100));
     const netMonthly = monthly - serviceFee;
     return { avg, maxHouses, typed, usingAmount, houses, funding, monthly, serviceFee, netMonthly };
-  }, [emptyHouseSummary]);
+  }, [emptyHouseSummary, feeRatePct]);
 
   const calc = useMemo(() => computeScenario(calcAmountInput, calcHouses), [computeScenario, calcAmountInput, calcHouses]);
   const calc2 = useMemo(() => computeScenario(calcAmountInput2, calcHouses2), [computeScenario, calcAmountInput2, calcHouses2]);
@@ -695,7 +744,7 @@ export function FunderCapitalOpportunities() {
                               </TooltipTrigger>
                               <TooltipContent side="top" className="max-w-[16rem] text-xs leading-relaxed">
                                 Service/access fee = Funding total × service fee rate.
-                                Current rate is {(EMPTY_HOUSE_SERVICE_FEE_RATE * 100).toFixed(0)}%,
+                                Current rate is {feeRatePct.toFixed(1)}%,
                                 so the fee is {formatAmountCompact(calc.serviceFee)}.
                               </TooltipContent>
                             </Tooltip>
@@ -750,7 +799,7 @@ export function FunderCapitalOpportunities() {
                               </TooltipTrigger>
                               <TooltipContent side="top" className="max-w-[16rem] text-xs leading-relaxed">
                                 Service/access fee = Funding total × service fee rate.
-                                Current rate is {(EMPTY_HOUSE_SERVICE_FEE_RATE * 100).toFixed(0)}%,
+                                Current rate is {feeRatePct.toFixed(1)}%,
                                 so the fee is {formatAmountCompact(calc2.serviceFee)}.
                               </TooltipContent>
                             </Tooltip>
@@ -759,6 +808,37 @@ export function FunderCapitalOpportunities() {
                               <p className="text-xs font-black text-success">{formatAmountCompact(calc2.netMonthly)}</p>
                             </div>
                           </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-border/60 bg-muted/30 p-2.5 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Service/access fee rate
+                          </p>
+                          <span className="text-xs font-black text-foreground">{feeRatePct.toFixed(1)}%</span>
+                        </div>
+                        <Slider
+                          value={[feeRatePct]}
+                          min={0}
+                          max={15}
+                          step={0.5}
+                          onValueChange={(v) => setFeeRatePct(v[0])}
+                        />
+                        <div className="flex items-center gap-1.5">
+                          {[0, 2, 5, 10].map(p => (
+                            <button
+                              key={p}
+                              type="button"
+                              onClick={() => { hapticTap(); setFeeRatePct(p); }}
+                              className={`px-2 py-0.5 rounded-md border border-border/60 text-[9px] font-bold ${feeRatePct === p ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+                            >
+                              {p}%
+                            </button>
+                          ))}
+                          <span className="text-[9px] text-muted-foreground font-medium ml-auto">
+                            Adjust to test how fees change each scenario
+                          </span>
                         </div>
                       </div>
 
@@ -775,8 +855,9 @@ export function FunderCapitalOpportunities() {
 
                       <p className="text-[9px] text-muted-foreground font-medium">
                         Estimate uses the average rent of {formatAmountCompact(calc.avg)} per empty house. Exact figures are shown per house in the picker.
-                        {EMPTY_HOUSE_SERVICE_FEE_RATE <= 0 && ' No service/access fee is currently configured.'}
+                        {feeRatePct <= 0 && ' No service/access fee is currently applied.'}
                       </p>
+
                        <Button
                          variant="outline"
                          className="h-9 w-full gap-2 rounded-xl text-xs font-bold"
@@ -813,19 +894,30 @@ export function FunderCapitalOpportunities() {
                     <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest">
                       Biggest opportunities
                     </p>
-                    <div className="flex rounded-lg border border-border/60 overflow-hidden">
-                      {(['district', 'landlord'] as const).map(k => (
-                        <button
-                          key={k}
-                          type="button"
-                          onClick={() => { hapticTap(); setBreakdownBy(k); }}
-                          className={`px-2 py-1 text-[9px] font-bold capitalize ${breakdownBy === k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
-                        >
-                          {k}
-                        </button>
-                      ))}
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex rounded-lg border border-border/60 overflow-hidden">
+                        {(['district', 'landlord'] as const).map(k => (
+                          <button
+                            key={k}
+                            type="button"
+                            onClick={() => { hapticTap(); setBreakdownBy(k); }}
+                            className={`px-2 py-1 text-[9px] font-bold capitalize ${breakdownBy === k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+                          >
+                            {k}
+                          </button>
+                        ))}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 gap-1 rounded-lg px-2 text-[9px] font-bold"
+                        onClick={() => { hapticTap(); exportRankingPdf(top); }}
+                      >
+                        <Download className="h-3 w-3" /> PDF
+                      </Button>
                     </div>
                   </div>
+
 
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-1.5">
