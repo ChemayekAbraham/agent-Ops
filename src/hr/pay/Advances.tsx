@@ -337,13 +337,16 @@ export default function Advances() {
                 <TableCell className="text-right font-medium">{formatAmount(row.outstanding)}</TableCell>
                 <TableCell>
                   <span
-                    className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                    className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                       STATUS_CLASS[row.status] ?? 'bg-muted text-muted-foreground'
                     }`}
                   >
-                    {row.status}
+                    {STAGE_LABEL[row.status] ?? row.status}
                   </span>
                 </TableCell>
+                <TableCell className="text-xs">{formatDate(row.hr_approved_at)}</TableCell>
+                <TableCell className="text-xs">{formatDate(row.approved_at)}</TableCell>
+                <TableCell className="text-xs">{formatDate(row.disbursed_at)}</TableCell>
                 {isPreparer && (
                   <TableCell className="whitespace-nowrap text-right">
                     {row.status === 'requested' && (
