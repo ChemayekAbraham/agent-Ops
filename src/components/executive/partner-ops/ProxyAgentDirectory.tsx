@@ -481,6 +481,20 @@ export function ProxyAgentDirectory() {
             size="sm"
             variant="outline"
             className="h-8 text-xs"
+            onClick={handleExportCsv}
+            disabled={exporting}
+          >
+            {exporting ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            {exporting ? 'Preparing…' : 'Download CSV'}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
             onClick={() => qc.invalidateQueries({ queryKey: ['proxy-agent-directory'] })}
           >
             <RefreshCw className={cn('mr-1.5 h-3.5 w-3.5', pageQueries.isFetching && 'animate-spin')} />
