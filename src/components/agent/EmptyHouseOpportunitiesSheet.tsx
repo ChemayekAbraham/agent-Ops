@@ -440,6 +440,34 @@ export function EmptyHouseOpportunitiesSheet({
                 ({formatUGX(annualReturn)} over 12 months)
               </p>
             </div>
+            {picked.length > 0 && (
+              <div className="rounded-2xl border p-3 space-y-2">
+                <p className="text-xs font-bold">Earnings breakdown per house</p>
+                {picked.map((h) => {
+                  const rent = Number(h.monthly_rent || 0);
+                  const m = Math.round(rent * 0.15);
+                  return (
+                    <div key={h.house_id} className="rounded-xl bg-muted/40 px-3 py-2">
+                      <p className="text-[11px] font-semibold truncate">{h.title || housePlace(h)}</p>
+                      <div className="mt-1 grid grid-cols-3 gap-2 text-[10px]">
+                        <div>
+                          <p className="text-muted-foreground">Rent (1 month)</p>
+                          <p className="font-semibold">{formatUGX(rent)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">15% monthly</p>
+                          <p className="font-semibold text-emerald-600">{formatUGX(m)}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">12-month total</p>
+                          <p className="font-semibold text-emerald-600">{formatUGX(m * 12)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
             <Button variant="outline" className="w-full gap-2" onClick={handleShare}>
               <Share2 className="h-4 w-4" /> {isPartner ? 'Copy activation link' : 'Share activation link'}
             </Button>
