@@ -319,6 +319,8 @@ export function FunderCapitalOpportunities() {
   const [calcAmountInput, setCalcAmountInput] = useState('');
   const [breakdownBy, setBreakdownBy] = useState<'district' | 'landlord'>('district');
   const [calcOpen, setCalcOpen] = useState(false);
+  const [breakdownSort, setBreakdownSort] = useState<'rent' | 'houses'>('rent');
+  const [breakdownTopN, setBreakdownTopN] = useState<6 | 12 | 0>(6); // 0 = all
 
   const handleAngelAmountChange = (val: string) => {
     const num = parseInt(val.replace(/[^0-9]/g, ''), 10);
