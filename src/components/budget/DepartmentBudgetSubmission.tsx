@@ -126,7 +126,19 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
     () => selectableDepartments.find(d => d.id === departmentId) ?? null,
     [selectableDepartments, departmentId],
   );
-  const readOnly = active ? !EDITABLE_STATUSES.includes(active.status) : false;
+  /**
+   * A submission that has left 'draft' and not been rejected is still in the
+   * approval pipeline. While one exists for this cycle/department the form is
+   * locked, so the same budget can never be submitted twice — the user works
+   * on the existing record (or a revision) instead of filing a duplicate.
+   */
+  const pendingSubmission = useMemo(
+    () => submissions.find(s => s.status !== 'draft' && s.status !== 'rejected') ?? null,
+    [submissions],
+  );
+  const readOnly = active
+    ? !EDITABLE_STATUSES.includes(active.status)
+    : !!pendingSubmission;
 
 
   useEffect(() => {
@@ -595,7 +607,8 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save draft
               </Button>
             )}
-            <Button size="sm" className="gap-1.5 bg-purple-600 text-xs text-white hover:bg-purple-700" onClick={startNew}>
+            <Button size="sm" className="gap-1.5 bg-purple-600 text-xs text-white hover:bg-purple-700"
+              onClick={startNew} disabled={!!pendingSubmission}>
               <Plus className="h-3.5 w-3.5" /> New budget
             </Button>
             {!readOnly && (
@@ -606,7 +619,9 @@ export default function DepartmentBudgetSubmission({ dashboard, departmentKeys }
           </div>
           {readOnly && (
             <p className="text-xs text-muted-foreground">
-              This submission is locked. If the CFO requests a revision, a new version is created for you to edit.
+              {pendingSubmission && activeId !== pendingSubmission.id
+                ? `Budget ${pendingSubmission.reference} is already submitted and awaiting review, so this form is locked. Open it from "My submissions" to view it — if a revision is requested, a new version is created for you to edit.`
+                : 'This submission is locked. If the CFO requests a revision, a new version is created for you to edit.'}
             </p>
           )}
         </CardContent>
