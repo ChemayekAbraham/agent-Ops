@@ -185,30 +185,32 @@ export async function updateAdvance(
   advanceId: string,
   updates: {
     purpose: string;
-    recovery_mode: string;
-    recovery_value: number;
+    recovery_months: number;
     first_recovery_on: string;
   },
 ): Promise<void> {
-  const { purpose, recovery_mode, recovery_value, first_recovery_on } = updates;
-  if (typeof recovery_value !== 'number' || recovery_value <= 0) {
-    throw new Error('Recovery value must be a number greater than zero.');
-  }
-  if (recovery_mode !== 'fixed' && recovery_mode !== 'percent_of_gross') {
-    throw new Error("Recovery mode must be 'fixed' or 'percent_of_gross'.");
-  }
+  const { purpose, recovery_months, first_recovery_on } = updates;
+  assertRecoveryMonths(recovery_months);
   if (!first_recovery_on || Number.isNaN(new Date(first_recovery_on).getTime())) {
     throw new Error('First recovery date must be a valid date.');
   }
   if (!purpose || purpose.trim().length === 0) {
     throw new Error('Purpose cannot be empty.');
   }
+  const existing = unwrap(
+    await supabase.from('hr_pay_advances').select('principal').eq('id', advanceId),
+  ) as Array<{ principal: number }> | null;
+  if (!existing || existing.length === 0) {
+    throw new Error('The advance could not be found.');
+  }
+  const principal = Number(existing[0].principal ?? 0);
   const res = await supabase
     .from('hr_pay_advances')
     .update({
       purpose: purpose.trim(),
-      recovery_mode,
-      recovery_value,
+      recovery_mode: 'fixed',
+      recovery_value: Math.ceil(principal / recovery_months),
+      recovery_months,
       first_recovery_on,
     })
     .eq('id', advanceId)
