@@ -33,6 +33,9 @@ import { useProfile } from '@/hooks/useProfile';
 type OptionKey = 'managed' | 'direct' | 'angel';
 type ViewState = 'menu' | OptionKey;
 
+// Configurable service/access fee on empty-house funding (rate on one-month funding).
+const EMPTY_HOUSE_SERVICE_FEE_RATE = 0;
+
 // Steps shown in the collapsible "How it works" explainer on Support Tenants Directly.
 const MANAGED_FUNDING_STEPS: HowItWorksStep[] = [
   {
