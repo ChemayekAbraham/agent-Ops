@@ -6,7 +6,7 @@
  *
  * One RPC serves KPIs + page rows; the detail view uses one RPC per agent.
  */
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { format } from 'date-fns';
