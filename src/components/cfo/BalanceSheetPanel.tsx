@@ -126,6 +126,127 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
+function SubHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mt-3 mb-1">{children}</p>
+  );
+}
+
+/**
+ * Presentation-layer regrouping of the liability side of the statement.
+ * Nothing is recalculated: every line keeps the exact value the ledger-driven
+ * RPC returned. Lines are only bucketed into business categories, keyed on the
+ * reporting account code embedded in `source`
+ * ("general_ledger trial balance — account L4").
+ *
+ * Any liability account not explicitly named falls through to "Other Payables"
+ * so no balance can silently disappear from the statement.
+ */
+const LIABILITY_GROUP_LABELS = [
+  'Landlord Float — Company Managed',
+  'Landlord Float — Self Managed',
+  'Partner Buffer Liability',
+  'Operational Float Liability',
+  'Wallet Bucket Liability',
+  'Merchant Agent Liability',
+  'Other Payables',
+] as const;
+type LiabilityGroupLabel = typeof LIABILITY_GROUP_LABELS[number];
+
+const MARKETPLACE_LIABILITY_LABELS: LiabilityGroupLabel[] = [
+  'Landlord Float — Company Managed',
+  'Landlord Float — Self Managed',
+  'Partner Buffer Liability',
+];
+const OPERATIONAL_LIABILITY_LABELS: LiabilityGroupLabel[] = [
+  'Operational Float Liability',
+  'Wallet Bucket Liability',
+  'Merchant Agent Liability',
+  'Other Payables',
+];
+
+// Reporting account code -> presented liability line.
+const LIABILITY_ACCOUNT_GROUPS: Record<string, LiabilityGroupLabel> = {
+  L4: 'Landlord Float — Company Managed',
+  L7: 'Landlord Float — Self Managed',
+  L2: 'Partner Buffer Liability',
+  L6: 'Partner Buffer Liability',
+  L8: 'Operational Float Liability',
+  L1: 'Wallet Bucket Liability',
+  L10: 'Merchant Agent Liability',
+  // L3 (partner returns/rewards), L5 (agent commissions), L9 (suspense) and any
+  // account not listed here fall through to Other Payables.
+};
+
+function accountCodeOf(line: PositionLine): string | null {
+  const m = /account\s+([A-Z]\d+)\s*$/.exec(line.source ?? '');
+  return m ? m[1] : null;
+}
+
+export interface LiabilityGroup {
+  label: LiabilityGroupLabel;
+  value: number;
+  lines: PositionLine[];
+}
+
+export function groupLiabilities(lines: PositionLine[]) {
+  const byLabel = new Map<LiabilityGroupLabel, LiabilityGroup>(
+    LIABILITY_GROUP_LABELS.map(label => [label, { label, value: 0, lines: [] }]),
+  );
+  for (const line of lines) {
+    const code = accountCodeOf(line);
+    const label = (code && LIABILITY_ACCOUNT_GROUPS[code]) || 'Other Payables';
+    const group = byLabel.get(label)!;
+    group.value += line.value;
+    group.lines.push(line);
+  }
+  const pick = (labels: LiabilityGroupLabel[]) => labels.map(l => byLabel.get(l)!);
+  const marketplace = pick(MARKETPLACE_LIABILITY_LABELS);
+  const operational = pick(OPERATIONAL_LIABILITY_LABELS);
+  const sum = (gs: LiabilityGroup[]) => gs.reduce((t, g) => t + g.value, 0);
+  return {
+    marketplace,
+    operational,
+    marketplaceTotal: sum(marketplace),
+    operationalTotal: sum(operational),
+  };
+}
+
+function GroupRow({ group, showSources }: { group: LiabilityGroup; showSources: boolean }) {
+  const [open, setOpen] = useState(false);
+  const expandable = showSources && group.lines.length > 0;
+  return (
+    <div className="border-b border-border/40 last:border-0">
+      <button
+        type="button"
+        onClick={() => expandable && setOpen(o => !o)}
+        className="w-full flex items-start justify-between gap-3 py-1.5 text-left"
+      >
+        <span className="flex items-start gap-1 min-w-0 text-xs text-muted-foreground">
+          {expandable
+            ? (open ? <ChevronDown className="h-3 w-3 mt-0.5 shrink-0" /> : <ChevronRight className="h-3 w-3 mt-0.5 shrink-0" />)
+            : null}
+          <span className="truncate">{group.label}</span>
+        </span>
+        <span className={cn('font-mono text-xs shrink-0 text-right', group.value < 0 ? 'text-destructive' : 'text-foreground')}>
+          {group.value < 0 ? `(${formatUGX(Math.abs(group.value))})` : formatUGX(group.value)}
+        </span>
+      </button>
+      {expandable && open && (
+        <div className="pb-2 pl-4 space-y-0.5">
+          {group.lines.map(l => (
+            <p key={l.label} className="text-[10px] text-muted-foreground flex justify-between gap-3">
+              <span className="truncate">{l.label}</span>
+              <span className="font-mono shrink-0">{formatUGX(l.value)}</span>
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function BalanceSheetPanel() {
   const [asAt, setAsAt] = useState<Date>(new Date());
   const [data, setData] = useState<StatementOfFinancialPosition | null>(null);
@@ -151,6 +272,12 @@ export default function BalanceSheetPanel() {
   useEffect(() => { load(asAt); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const title = `WELILE — BALANCE SHEET — As at ${format(asAt, 'dd MMMM yyyy')}`;
+  const liabilityGroups = data
+    ? groupLiabilities([...data.liabilities.current, ...data.liabilities.non_current])
+    : null;
+  const liabilityGroupDrift = data && liabilityGroups
+    ? Math.round(liabilityGroups.marketplaceTotal + liabilityGroups.operationalTotal - data.liabilities.total)
+    : 0;
 
   const exportCSV = () => {
     if (!data) return;
@@ -165,12 +292,12 @@ export default function BalanceSheetPanel() {
     rows.push(['TOTAL ASSETS', data.assets.total]);
     rows.push([]);
     rows.push(['LIABILITIES', '']);
-    rows.push(['Current Liabilities', '']);
-    data.liabilities.current.forEach(l => rows.push([l.label, l.value]));
-    rows.push(['Total Current Liabilities', data.liabilities.total_current]);
-    rows.push(['Non-Current Liabilities', '']);
-    data.liabilities.non_current.forEach(l => rows.push([l.label, l.value]));
-    rows.push(['Total Non-Current Liabilities', data.liabilities.total_non_current]);
+    rows.push(['Marketplace Liabilities', '']);
+    (liabilityGroups?.marketplace ?? []).forEach(g => rows.push([g.label, g.value]));
+    rows.push(['Subtotal — Marketplace Liabilities', liabilityGroups?.marketplaceTotal ?? 0]);
+    rows.push(['Operational & Other Liabilities', '']);
+    (liabilityGroups?.operational ?? []).forEach(g => rows.push([g.label, g.value]));
+    rows.push(['Subtotal — Operational & Other Liabilities', liabilityGroups?.operationalTotal ?? 0]);
     rows.push(['TOTAL LIABILITIES', data.liabilities.total]);
     rows.push([]);
     rows.push(['EQUITY', '']);
@@ -273,12 +400,12 @@ export default function BalanceSheetPanel() {
       row('Total Non-Current Assets', data.assets.total_non_current, true);
       row('TOTAL ASSETS', data.assets.total, true);
 
-      heading('Liabilities — Current');
-      data.liabilities.current.forEach(l => row(l.label, l.value));
-      row('Total Current Liabilities', data.liabilities.total_current, true);
-      heading('Liabilities — Non-Current');
-      data.liabilities.non_current.forEach(l => row(l.label, l.value));
-      row('Total Non-Current Liabilities', data.liabilities.total_non_current, true);
+      heading('Marketplace Liabilities');
+      (liabilityGroups?.marketplace ?? []).forEach(g => row(g.label, g.value));
+      row('Subtotal — Marketplace Liabilities', liabilityGroups?.marketplaceTotal ?? 0, true);
+      heading('Operational & Other Liabilities');
+      (liabilityGroups?.operational ?? []).forEach(g => row(g.label, g.value));
+      row('Subtotal — Operational & Other Liabilities', liabilityGroups?.operationalTotal ?? 0, true);
       row('TOTAL LIABILITIES', data.liabilities.total, true);
 
       heading('Equity');
@@ -429,13 +556,20 @@ export default function BalanceSheetPanel() {
 
             <div>
               <Badge variant="outline" className="text-[10px]">Liabilities & Equity</Badge>
-              <SectionHeading>Current Liabilities</SectionHeading>
-              <div>{data.liabilities.current.map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}</div>
-              <TotalRow label="Total Current Liabilities" value={data.liabilities.total_current} />
-              <SectionHeading>Non-Current Liabilities</SectionHeading>
-              <div>{data.liabilities.non_current.map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}</div>
-              <TotalRow label="Total Non-Current Liabilities" value={data.liabilities.total_non_current} />
+              <SectionHeading>Liabilities</SectionHeading>
+              <SubHeading>Marketplace Liabilities</SubHeading>
+              <div>{liabilityGroups?.marketplace.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
+              <TotalRow label="Subtotal — Marketplace Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0} />
+              <SubHeading>Operational &amp; Other Liabilities</SubHeading>
+              <div>{liabilityGroups?.operational.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
+              <TotalRow label={'Subtotal — Operational & Other Liabilities'} value={liabilityGroups?.operationalTotal ?? 0} />
               <TotalRow label="Total Liabilities" value={data.liabilities.total} />
+              {liabilityGroupDrift !== 0 && (
+                <p className="mt-1 flex items-start gap-1 text-[10px] text-destructive">
+                  <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                  Category subtotals differ from Total Liabilities by {formatUGX(Math.abs(liabilityGroupDrift))}.
+                </p>
+              )}
               <SectionHeading>Equity</SectionHeading>
               <div>{data.equity.lines.map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}</div>
               <TotalRow label="Total Equity" value={data.equity.total} />
