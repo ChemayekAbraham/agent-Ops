@@ -48,9 +48,8 @@ interface Props {
 
 /**
  * Agent-facing Spiro electric bike lease application: model selection,
- * bike valuation and lease terms. The application is submitted for the COO
- * to approve the valuation, then the CFO releases the bike and activates
- * the lease. The detailed recovery projection lives on the Agent Ops
+ * bike valuation and lease terms. The application is submitted for internal
+ * review and bike release. The detailed recovery projection lives on the Agent Ops
  * Motor Bikes page.
  */
 export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Props) {
@@ -92,7 +91,7 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
       toast.error(error.message || 'Could not submit your Spiro bike application');
       return;
     }
-    toast.success('Application submitted. The COO reviews the valuation next.');
+    toast.success('Application submitted. It will be reviewed internally.');
     onOpenChange(false);
     queryClient.invalidateQueries({ queryKey: ['my-bike-lease-orders', userId] });
     queryClient.invalidateQueries({ queryKey: ['my-merchandise-plans', userId] });
@@ -107,8 +106,8 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
             <Bike className="h-4 w-4 text-primary" /> Apply for a Spiro electric bike
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Choose a model and lease term. The COO confirms the final valuation, then the CFO
-            releases the bike and activates your lease.
+            Choose a model and lease term. Marketing confirms the final price, then the bike
+            is released and your lease is activated.
           </DialogDescription>
         </DialogHeader>
 

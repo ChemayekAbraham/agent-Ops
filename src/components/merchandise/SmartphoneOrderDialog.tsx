@@ -231,7 +231,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
             )}
 
             <p className="text-[11px] text-muted-foreground">
-              Your application goes to Agent Ops, then the COO, then the CFO — who pays the supplier directly.
+              Your application is reviewed internally, then the supplier is paid directly.
               Nothing is deducted from your wallet before your phone is released. Your national ID and a
               workplace photo are captured on the day you collect the phone, not now.
             </p>
