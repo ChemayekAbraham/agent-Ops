@@ -35,6 +35,7 @@ import {
 } from '@/components/agent/service-center/SubAgentActionDialogs';
 import { useRestoreBodyPointerEvents } from '@/hooks/useRestoreBodyPointerEvents';
 import { SubAgentInviteLinkDialog } from '@/components/agent/SubAgentInviteLinkDialog';
+import { TenantRentIntakeQueue } from '@/components/agent/TenantRentIntakeQueue';
 
 export default function AgentServiceCenter() {
   const navigate = useNavigate();
