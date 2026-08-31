@@ -272,6 +272,12 @@ export default function BalanceSheetPanel() {
   useEffect(() => { load(asAt); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const title = `WELILE — BALANCE SHEET — As at ${format(asAt, 'dd MMMM yyyy')}`;
+  const liabilityGroups = data
+    ? groupLiabilities([...data.liabilities.current, ...data.liabilities.non_current])
+    : null;
+  const liabilityGroupDrift = data && liabilityGroups
+    ? Math.round(liabilityGroups.marketplaceTotal + liabilityGroups.operationalTotal - data.liabilities.total)
+    : 0;
 
   const exportCSV = () => {
     if (!data) return;
