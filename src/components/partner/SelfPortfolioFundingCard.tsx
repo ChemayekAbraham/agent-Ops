@@ -258,6 +258,10 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
       setSelected((prev) => prev.filter((x) => x !== id));
       return;
     }
+    if (houseSelected.length > 0) {
+      toast.error('You can fund either rent plans or houses in one submission — not both. Clear your selected houses first.');
+      return;
+    }
     const plan = plans.find((p) => p.rent_request_id === id);
     const cost = Number(plan?.funding_amount || 0);
     if (cost > remaining) {
@@ -274,6 +278,10 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
       setHouseSelected((prev) => prev.filter((x) => x !== id));
       return;
     }
+    if (selected.length > 0) {
+      toast.error('You can fund either rent plans or houses in one submission — not both. Clear your selected rent plans first.');
+      return;
+    }
     const house = houses.find((h) => h.house_id === id);
     const cost = Number(house?.monthly_rent || 0);
     if (cost > remaining) {
@@ -284,6 +292,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
     }
     setHouseSelected((prev) => [...prev, id]);
   };
+
 
 
   const openDeploy = () => {
