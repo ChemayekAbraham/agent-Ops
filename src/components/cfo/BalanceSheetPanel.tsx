@@ -196,6 +196,22 @@ const EQUITY_LABEL_RENAMES: Record<string, string> = {
 
 const equityLabel = (label: string) => EQUITY_LABEL_RENAMES[label] ?? label;
 
+/**
+ * Drops the A9 suspense line from the asset list when it carries nothing.
+ *
+ * A9 "Suspense - Unresolved Postings (debit balance)" is the debit counterpart
+ * of one-sided historic postings. With a zero balance it is noise on the face
+ * of the statement, so it is hidden.
+ *
+ * It is NOT hidden when it holds a balance: the RPC's Total Current Assets and
+ * Total Assets include A9, so suppressing a non-zero line would leave the
+ * printed lines no longer footing to their own subtotal while the balance check
+ * still reported "balanced" - a statement that looks right and does not add up.
+ * A real suspense balance is a ledger problem to fix, not to hide.
+ */
+const assetLinesForDisplay = (lines: PositionLine[]): PositionLine[] =>
+  lines.filter(l => !(accountCodeOf(l) === 'A9' && Math.round(l.value) === 0));
+
 /** Equity lines with display labels applied; order and values unchanged. */
 const equityLinesForDisplay = (lines: PositionLine[]): PositionLine[] =>
   lines.map(l => ({ ...l, label: equityLabel(l.label) }));
@@ -306,7 +322,7 @@ export default function BalanceSheetPanel() {
     const rows: (string | number)[][] = [[title], []];
     rows.push(['ASSETS', '']);
     rows.push(['Current Assets', '']);
-    data.assets.current.forEach(l => rows.push([l.label, l.value]));
+    assetLinesForDisplay(data.assets.current).forEach(l => rows.push([l.label, l.value]));
     rows.push(['Total Current Assets', data.assets.total_current]);
     rows.push(['Non-Current Assets', '']);
     data.assets.non_current.forEach(l => rows.push([l.label, l.value]));
@@ -415,7 +431,7 @@ export default function BalanceSheetPanel() {
       };
 
       heading('Assets — Current');
-      data.assets.current.forEach(l => row(l.label, l.value));
+      assetLinesForDisplay(data.assets.current).forEach(l => row(l.label, l.value));
       row('Total Current Assets', data.assets.total_current, true);
       heading('Assets — Non-Current');
       data.assets.non_current.forEach(l => row(l.label, l.value));
@@ -568,7 +584,7 @@ export default function BalanceSheetPanel() {
             <div>
               <Badge variant="outline" className="text-[10px]">Assets</Badge>
               <SectionHeading>Current Assets</SectionHeading>
-              <div>{data.assets.current.map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}</div>
+              <div>{assetLinesForDisplay(data.assets.current).map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}</div>
               <TotalRow label="Total Current Assets" value={data.assets.total_current} />
               <SectionHeading>Non-Current Assets</SectionHeading>
               <div>{data.assets.non_current.map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}</div>
