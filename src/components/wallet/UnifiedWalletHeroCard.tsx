@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Wallet, ChevronRight, ChevronDown, Shield, Home, TrendingUp, Rocket, PiggyBank, Coins, Sparkles, Clock, Users } from 'lucide-react';
+import { Wallet, ChevronRight, ChevronDown, Shield, Home, TrendingUp, Rocket, PiggyBank, Coins, Sparkles, Clock, Users, Eye, EyeOff } from 'lucide-react';
 import { hapticTap } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -144,6 +144,11 @@ export function UnifiedWalletHeroCard({
   // Always start collapsed when a dashboard loads, regardless of previous session state.
   const [collapsed, setCollapsed] = useState<boolean>(collapsible ? defaultCollapsed : false);
   const [reduceMotion, setReduceMotion] = useState(false);
+  // Amount visibility — same logic as the funder wallet card: hidden by default,
+  // EyeOff shown while hidden, Eye shown while revealed, masked as 'UGX ••••••'.
+  const [showAmount, setShowAmount] = useState(false);
+  const maskAmt = (v: number) => (showAmount ? formatAmount(v) : 'UGX ••••••');
+  const maskStr = (s: string) => (showAmount ? s : 'UGX ••••••');
 
   useEffect(() => { setReduceMotion(prefersReducedMotion()); }, []);
 
