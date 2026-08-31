@@ -171,6 +171,15 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
               onChange={(name, sel) => { setVillage(name); setDistrict(sel?.district ?? null); }}
             />
 
+            <Button type="button" variant="outline" className="w-full" onClick={captureLocation} disabled={locating}>
+              {locating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
+              {coords ? 'Location captured — tap to refresh' : 'Share my house location'}
+            </Button>
+            <p className="text-[11px] text-muted-foreground flex items-start gap-1.5">
+              <ShieldCheck className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              Sharing your location helps us route you to the closest Service Centre and speeds up house verification.
+            </p>
+
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label htmlFor="tri-ll-name">Landlord name</Label>
@@ -186,15 +195,6 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
               <Label htmlFor="tri-note">Anything the agent should know (optional)</Label>
               <Textarea id="tri-note" rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
             </div>
-
-            <Button type="button" variant="outline" className="w-full" onClick={captureLocation} disabled={locating}>
-              {locating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
-              {coords ? 'Location captured — tap to refresh' : 'Share my house location'}
-            </Button>
-            <p className="text-[11px] text-muted-foreground flex items-start gap-1.5">
-              <ShieldCheck className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-              Sharing your location helps us route you to the closest Service Centre and speeds up house verification.
-            </p>
           </div>
 
           <DialogFooter>
