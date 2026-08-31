@@ -11,6 +11,11 @@ const corsHeaders = {
 
 const DEFAULT_MONTHLY_RATE = 0.33;
 
+// Statuses that mean "this advance was already fully resolved for today by
+// an earlier run" -- grace day / not-due / ahead-of-schedule / prepaid never
+// get retried later the same day, even now that the cron runs every 6 hours.
+const TERMINAL_TODAY_STATUSES = new Set(['not_due', 'ahead', 'prepaid']);
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -106,39 +111,53 @@ Deno.serve(async (req) => {
         skipped.push(advance.id);
         continue;
       }
+
+      // Fetch every ledger row already written for this advance TODAY. With
+      // the cron now running every 6 hours, more than one row per day is
+      // expected — the retry logic below decides what (if anything) is left
+      // to do based on all of them, instead of the old "any row → skip".
+      const { data: todayRowsRaw } = await supabase
+        .from('agent_advance_ledger')
+        .select('deduction_status, amount_deducted')
+        .eq('advance_id', advance.id)
+        .eq('date', today);
+      const todayRows = todayRowsRaw || [];
+      const hasTodayRow = todayRows.length > 0;
+      const hasTerminalToday = todayRows.some((r) => TERMINAL_TODAY_STATUSES.has(String(r.deduction_status)));
+
       const issuedAtEAT = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Africa/Kampala',
         year: 'numeric', month: '2-digit', day: '2-digit',
       }).format(new Date(advance.issued_at));
       if (issuedAtEAT === todayEAT) {
-        // Grace-day skip. Also log a "prepaid"-style ledger row so the daily
-        // job's idempotency guard treats today as already handled.
-        await supabase.from('agent_advance_ledger').insert({
-          advance_id: advance.id,
-          date: today,
-          opening_balance: Number(advance.outstanding_balance),
-          interest_accrued: 0,
-          amount_deducted: 0,
-          closing_balance: Number(advance.outstanding_balance),
-          deduction_status: 'none',
-        });
+        // Grace-day skip, for the whole day regardless of how many times the
+        // cron runs. Only write the marker once.
+        if (!hasTodayRow) {
+          await supabase.from('agent_advance_ledger').insert({
+            advance_id: advance.id,
+            date: today,
+            opening_balance: Number(advance.outstanding_balance),
+            interest_accrued: 0,
+            amount_deducted: 0,
+            closing_balance: Number(advance.outstanding_balance),
+            deduction_status: 'none',
+          });
+        }
         skipped.push(advance.id);
         continue;
       }
-      const { data: existingEntry } = await supabase
-        .from('agent_advance_ledger')
-        .select('id')
-        .eq('advance_id', advance.id)
-        .eq('date', today)
-        .maybeSingle();
 
-      if (existingEntry) {
+      // An earlier run today already determined this advance is not_due /
+      // ahead / prepaid for the whole day — nothing changes by re-checking.
+      if (hasTerminalToday) {
         skipped.push(advance.id);
         continue;
       }
 
       // Voluntary prepayment: if the agent has paid ahead, mark today prepaid
-      // (skip cron deduction) and decrement the remaining counter.
+      // (skip cron deduction) and decrement the remaining counter. Only the
+      // first run of the day does this — hasTerminalToday above already
+      // covers every later run once the marker exists.
       if (Number(advance.prepaid_installments_remaining || 0) > 0) {
         await supabase.from('agent_advance_ledger').insert({
           advance_id: advance.id,
@@ -173,34 +192,45 @@ Deno.serve(async (req) => {
       const todayMs = new Date(todayEAT + 'T00:00:00Z').getTime();
       const daysSinceIssue = Math.max(1, Math.floor((todayMs - issuedMs) / 86400000));
 
-      let daysSinceAnchor = daysSinceIssue;
-      if (advPeriodDays > 1) {
-        const { data: lastPaid } = await supabase
-          .from('agent_advance_ledger')
-          .select('date')
-          .eq('advance_id', advance.id)
-          .gt('amount_deducted', 0)
-          .order('date', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (lastPaid?.date) {
-          const lastMs = new Date(String(lastPaid.date) + 'T00:00:00Z').getTime();
-          daysSinceAnchor = Math.max(0, Math.floor((todayMs - lastMs) / 86400000));
+      // Only evaluate the due-day gate on the FIRST attempt of the day. On a
+      // same-day retry, `hasTodayRow` is already true and — since the
+      // terminal-status check above didn't fire — the only way that's
+      // possible is that an earlier run TODAY already found this advance due
+      // and started collecting (a 'partial'/'none'/'full' row). Re-running
+      // this gate on retry would be wrong: the anchor query below matches on
+      // "last row with amount_deducted > 0", which would now match TODAY's
+      // own partial collection and misread a same-day top-up attempt as
+      // "not due for another full period".
+      if (!hasTodayRow) {
+        let daysSinceAnchor = daysSinceIssue;
+        if (advPeriodDays > 1) {
+          const { data: lastPaid } = await supabase
+            .from('agent_advance_ledger')
+            .select('date')
+            .eq('advance_id', advance.id)
+            .gt('amount_deducted', 0)
+            .order('date', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (lastPaid?.date) {
+            const lastMs = new Date(String(lastPaid.date) + 'T00:00:00Z').getTime();
+            daysSinceAnchor = Math.max(0, Math.floor((todayMs - lastMs) / 86400000));
+          }
         }
-      }
 
-      if (advPeriodDays > 1 && daysSinceAnchor < advPeriodDays) {
-        await supabase.from('agent_advance_ledger').insert({
-          advance_id: advance.id,
-          date: today,
-          opening_balance: Number(advance.outstanding_balance),
-          interest_accrued: 0,
-          amount_deducted: 0,
-          closing_balance: Number(advance.outstanding_balance),
-          deduction_status: 'not_due',
-        });
-        skipped.push(advance.id);
-        continue;
+        if (advPeriodDays > 1 && daysSinceAnchor < advPeriodDays) {
+          await supabase.from('agent_advance_ledger').insert({
+            advance_id: advance.id,
+            date: today,
+            opening_balance: Number(advance.outstanding_balance),
+            interest_accrued: 0,
+            amount_deducted: 0,
+            closing_balance: Number(advance.outstanding_balance),
+            deduction_status: 'not_due',
+          });
+          skipped.push(advance.id);
+          continue;
+        }
       }
       // Amount due per repayment period.
       const periodsInCycle = Math.max(
@@ -234,23 +264,61 @@ Deno.serve(async (req) => {
           totalPayableAhead - Number(advance.outstanding_balance || 0),
         );
         if (paidToDate >= expectedToDate && Number(advance.outstanding_balance || 0) > 0) {
-          await supabase.from('agent_advance_ledger').insert({
-            advance_id: advance.id,
-            date: today,
-            opening_balance: Number(advance.outstanding_balance),
-            interest_accrued: 0,
-            amount_deducted: 0,
-            closing_balance: Number(advance.outstanding_balance),
-            deduction_status: 'ahead',
-          });
-          await notifyAgent(
-            advance.agent_id,
-            `WELILE: You are ahead on your ${advFreqLabel} advance repayment — no deduction today. Outstanding ${fmtUGX(advance.outstanding_balance)}.`,
-            'advance_ahead_skip',
-          );
+          if (!hasTodayRow) {
+            await supabase.from('agent_advance_ledger').insert({
+              advance_id: advance.id,
+              date: today,
+              opening_balance: Number(advance.outstanding_balance),
+              interest_accrued: 0,
+              amount_deducted: 0,
+              closing_balance: Number(advance.outstanding_balance),
+              deduction_status: 'ahead',
+            });
+            await notifyAgent(
+              advance.agent_id,
+              `WELILE: You are ahead on your ${advFreqLabel} advance repayment — no deduction today. Outstanding ${fmtUGX(advance.outstanding_balance)}.`,
+              'advance_ahead_skip',
+            );
+          }
           skipped.push(advance.id);
           continue;
         }
+      }
+
+      // ── Retry-aware collection ─────────────────────────────────────────
+      // "Room" is what's left of today's cap (scheduled installment +
+      // arrears) after whatever earlier runs today already collected. A
+      // fresh day has alreadyToday = 0, so this reduces to the original
+      // single-run behaviour; a same-day retry (agent topped up between
+      // cron runs) only ever takes the remainder.
+      const alreadyToday = todayRows.reduce((sum, r) => sum + Number(r.amount_deducted || 0), 0);
+      const arrearsBefore = Math.max(0, Number(advance.arrears_balance || 0));
+      // NOTE: this must be "was there an earlier real attempt today", not
+      // "did an earlier attempt collect money" — a $0 (insufficient-balance)
+      // attempt still counts as an attempt. Using `alreadyToday <= 0` here
+      // would stay true across every retry of a day where nothing gets
+      // collected, re-adding the day's arrears shortfall on each 6-hourly
+      // retry instead of once. `hasTodayRow` reflects the pre-this-run state
+      // and — since the terminal/grace/prepaid checks above already
+      // `continue`d for their own cases — is only true here because an
+      // earlier run today made a real (partial/none/full) collection attempt.
+      const isFirstAttemptToday = !hasTodayRow;
+      // `advance.arrears_balance` (arrearsBefore) already has any earlier
+      // run TODAY's provisional adjustment baked in (see the arrears update
+      // below). Using it directly as the cap's arrears term would let each
+      // retry inflate the cap by today's own not-yet-final shortfall. Back
+      // out that adjustment first so the cap only ever reflects arrears
+      // carried in from PRIOR days — reversing the exact delta the update
+      // formula applied on the prior run(s): (scheduledInstallment - alreadyToday).
+      const arrearsBaseline = isFirstAttemptToday
+        ? arrearsBefore
+        : Math.max(0, arrearsBefore - scheduledInstallment + alreadyToday);
+      const cap = scheduledInstallment + arrearsBaseline;
+      const room = Math.max(0, cap - alreadyToday);
+      if (room <= 0) {
+        // Already fully collected for today's cap by an earlier run today.
+        skipped.push(advance.id);
+        continue;
       }
 
       const advanceMonthlyRate = Number(advance.monthly_rate) || Number(advance.daily_rate) || DEFAULT_MONTHLY_RATE;
@@ -264,7 +332,10 @@ Deno.serve(async (req) => {
       // outstanding — they are simply carried forward as arrears and recovered later.
       // Only once the scheduled period has fully elapsed and the advance is still
       // not settled does a daily penalty start accruing on the remaining balance.
-      const interestAccrued = isOverdue
+      // Interest only accrues on the FIRST attempt of the day — outstanding_balance
+      // already carries any interest posted by an earlier run today, so recomputing
+      // it on a same-day retry would double-count.
+      const interestAccrued = (isFirstAttemptToday && isOverdue)
         ? Math.round(openingBalance * dailyInterestRate)
         : 0;
       const balanceAfterInterest = openingBalance + interestAccrued;
@@ -289,27 +360,20 @@ Deno.serve(async (req) => {
           user_id: advance.agent_id,
           outstanding_after_interest: balanceAfterInterest,
           withdrawable_snapshot: withdrawableSnapshot,
+          already_collected_today: alreadyToday,
         },
       }).then(() => {}, () => {});
 
-      // Cap each sweep at the scheduled installment for the advance's repayment
-      // frequency, plus any accrued arrears. Never scoop the agent's whole
-      // withdrawable — the schedule is `principal + access_fee` spread over
-      // cycle_days at the selected frequency.
-      const scheduledDailyCap = scheduledInstallment;
-      const arrearsCap = Math.max(0, Number(advance.arrears_balance || 0));
-      const dailyCap = Math.max(0, scheduledDailyCap + arrearsCap);
-
-      const maxDeduction = Math.min(
-        withdrawableSnapshot,
-        balanceAfterInterest,
-        dailyCap > 0 ? dailyCap : balanceAfterInterest,
-      );
+      // Cap this attempt at whatever room remains of today's cap. Never scoop
+      // the agent's whole withdrawable — the schedule is `principal +
+      // access_fee` spread over cycle_days at the selected frequency.
+      const maxDeduction = Math.min(withdrawableSnapshot, balanceAfterInterest, room);
       const amountDeducted = Math.max(0, maxDeduction);
       const closingBalance = balanceAfterInterest - amountDeducted;
+      const totalTodayAfter = alreadyToday + amountDeducted;
 
       let deductionStatus: string;
-      if (amountDeducted >= balanceAfterInterest) deductionStatus = 'full';
+      if (totalTodayAfter >= cap || closingBalance <= 0) deductionStatus = 'full';
       else if (amountDeducted > 0) deductionStatus = 'partial';
       else deductionStatus = 'none';
 
@@ -356,19 +420,20 @@ Deno.serve(async (req) => {
       const newFeeCollected = Math.round(advAccessFee * feeCollectionRatio);
       const feeStatus = newFeeCollected >= advAccessFee ? 'settled' : newFeeCollected > 0 ? 'partial' : 'unpaid';
 
-      // Arrears accrual: track missed scheduled daily repayments so the credit-time
+      // Arrears accrual: track missed scheduled repayments so the credit-time
       // recovery trigger can claw them back from the agent's NEXT earning before it
-      // becomes withdrawable. Meeting/exceeding today's installment pays arrears down;
-      // missing it grows arrears. Arrears can never exceed what is still owed.
-      const scheduledDaily = scheduledInstallment;
-      const currentArrears = Number(advance.arrears_balance || 0);
-      let newArrears: number;
-      if (amountDeducted >= scheduledDaily) {
-        newArrears = Math.max(0, currentArrears - (amountDeducted - scheduledDaily));
-      } else {
-        newArrears = currentArrears + (scheduledDaily - amountDeducted);
-      }
-      newArrears = Math.min(newArrears, Math.max(0, closingBalance));
+      // becomes withdrawable.
+      //
+      // Reverse-and-reapply so a same-day retry never double counts: on the
+      // first attempt of the day this is exactly the original single-run
+      // formula (arrears_before + (installment - deducted)); a later retry
+      // only nets its OWN amountDeducted off of what the first attempt
+      // already added, because that first attempt's effect is already baked
+      // into `advance.arrears_balance` as read at the top of this loop.
+      const currentArrears = arrearsBefore;
+      const arrearsAdjustmentTarget = isFirstAttemptToday ? scheduledInstallment : 0;
+      let newArrears = currentArrears + (arrearsAdjustmentTarget - amountDeducted);
+      newArrears = Math.max(0, Math.min(newArrears, Math.max(0, closingBalance)));
 
       await supabase.from('agent_advances').update({
         outstanding_balance: Math.max(0, closingBalance),
@@ -393,7 +458,8 @@ Deno.serve(async (req) => {
       //   platform leg → cash_out `interest_expense` (the receivable/earned
       //                  penalty side) so it lands in CFO reporting.
       // Idempotent per advance per day; a failure is recorded but never blocks
-      // the sweep.
+      // the sweep. Only ever computed on the first attempt of the day (above),
+      // so this block only runs once per advance per day regardless of cadence.
       if (interestAccrued > 0) {
         const penaltyMeta = {
           source: 'cron_advance_penalty_accrual',
@@ -482,13 +548,16 @@ Deno.serve(async (req) => {
             outstanding_after_interest: balanceAfterInterest,
           },
         }).then(() => {}, () => {});
-        // Notify the agent that today's installment could not be collected and
-        // will be recovered automatically from their next earnings.
-        await notifyAgent(
-          advance.agent_id,
-          `WELILE: Your ${advFreqLabel} advance repayment could not be collected today (low wallet balance). Outstanding ${fmtUGX(closingBalance)}. It will be auto-recovered from your next earnings. Top up to avoid arrears.`,
-          'advance_deduction_missed',
-        );
+        // Only notify once per day — with the cron now running every 6 hours,
+        // repeating this on every retry would spam the agent with the same
+        // "still can't collect" message up to 4 times a day.
+        if (isFirstAttemptToday) {
+          await notifyAgent(
+            advance.agent_id,
+            `WELILE: Your ${advFreqLabel} advance repayment could not be collected today (low wallet balance). Outstanding ${fmtUGX(closingBalance)}. We'll try again later today, then auto-recover from your next earnings. Top up to avoid arrears.`,
+            'advance_deduction_missed',
+          );
+        }
       } else {
         // Deduct from wallet via balanced RPC with EXPLICIT Wallet Routing v2 tags.
         // wallet leg → recipient_type='user' forces withdrawable bucket;
