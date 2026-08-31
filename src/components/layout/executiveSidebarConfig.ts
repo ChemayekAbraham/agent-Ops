@@ -5,7 +5,7 @@ import {
   Crown, LayoutDashboard, Globe, DollarSign, UserCog, Truck, Layers, MinusCircle, Receipt,
   ShieldCheck, GraduationCap, Mail, FolderOpen, CalendarCheck, Landmark, KeyRound, SlidersHorizontal, HandCoins, Snowflake, ShoppingBag, MonitorSmartphone
   , Gauge, Download, ShieldAlert,
-  Eye, Trash2,
+  Eye, Trash2, PhoneCall, History,
 } from 'lucide-react';
 import type { AppRole } from '@/hooks/auth/types';
 
@@ -32,6 +32,16 @@ export interface SidebarItem {
   route?: string;
   /** Optional gate describing who can reach this item's route. */
   access?: SidebarItemAccess;
+  /**
+   * Optional second-level items, rendered indented under a parent that expands
+   * on click instead of switching the view itself. One level only — a child
+   * with its own `children` is not rendered as a third level.
+   *
+   * A parent with children is a disclosure, not a destination: give the landing
+   * view its own child entry (e.g. Call Center → Overview) rather than relying
+   * on the parent id.
+   */
+  children?: SidebarItem[];
 }
 
 export interface SidebarSection {
@@ -254,6 +264,16 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Customer Relations',
       items: [
         { label: 'Overview', icon: LayoutDashboard, id: 'overview' },
+        {
+          label: 'Call Center',
+          icon: PhoneCall,
+          id: 'call-centre',
+          children: [
+            { label: 'Overview', icon: Gauge, id: 'call-centre-overview' },
+            { label: 'History', icon: History, id: 'call-centre-history' },
+            { label: 'People / Calls', icon: Users, id: 'call-centre-people' },
+          ],
+        },
         { label: 'Customer Issues', icon: MessageSquare, id: 'customer-issues' },
         { label: 'Tenant Support', icon: Handshake, id: 'tenant-support' },
         { label: 'Communications', icon: MessageSquare, id: 'communications' },

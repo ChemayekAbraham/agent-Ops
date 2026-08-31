@@ -112,10 +112,26 @@ export default function ExecutiveDashboardLayout({
     return true;
   };
 
-  // Groups whose items are all hidden drop their heading too.
+  // Groups whose items are all hidden drop their heading too. Children run
+  // through the same gate, and a parent whose every child is hidden is dropped
+  // with them — an expander that opens onto nothing is worse than no expander.
   const sections: SidebarSection[] = allSections
-    .map((s) => ({ ...s, items: s.items.filter(canSeeItem) }))
+    .map((s) => ({
+      ...s,
+      items: s.items.filter(canSeeItem).map((item) =>
+        item.children
+          ? { ...item, children: item.children.filter(canSeeItem) }
+          : item,
+      ).filter((item) => !item.children || item.children.length > 0),
+    }))
     .filter((s) => s.items.length > 0);
+
+  /** True when the item's own label, or any child's, matches the nav filter. */
+  const matchesQuery = (item: SidebarItem, q: string): boolean => {
+    if (!q) return true;
+    if (item.label.toLowerCase().includes(q)) return true;
+    return (item.children ?? []).some((c) => c.label.toLowerCase().includes(q));
+  };
 
   const displayRole = roleLabels[role as AppRole] || role.toUpperCase();
 
@@ -131,6 +147,13 @@ export default function ExecutiveDashboardLayout({
     });
     return init;
   });
+
+  /**
+   * Expansion state for parents that have children (e.g. CRM → Call Center).
+   * Separate from `openGroups`, which tracks whole sections.
+   */
+  const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
+
 
   // When the URL changes, force-open the group containing the active route.
   useEffect(() => {
@@ -194,6 +217,23 @@ export default function ExecutiveDashboardLayout({
     return activeTab === item.id;
   };
 
+  // Keep the parent of the active child open, so the current view is never
+  // hidden inside a collapsed expander after a refresh or a deep link.
+  useEffect(() => {
+    const activeParents = sections.flatMap((s) =>
+      s.items.filter((it) => (it.children ?? []).some((c) => isItemActive(c))).map((it) => it.id),
+    );
+    if (activeParents.length === 0) return;
+    setOpenItems((prev) => {
+      const missing = activeParents.filter((id) => !prev[id]);
+      if (missing.length === 0) return prev;
+      const next = { ...prev };
+      missing.forEach((id) => { next[id] = true; });
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, activeTab, role]);
+
   /**
    * Clear the persisted sidebar tab for THIS role+route combo and reset the
    * dashboard back to the default overview view. Mirrors the storage key
@@ -223,6 +263,113 @@ export default function ExecutiveDashboardLayout({
 
   const handleExit = () => {
     navigate(roleToSlug(role as AppRole));
+  };
+
+  /**
+   * One sidebar row. `depth` only indents — the markup is otherwise identical at
+   * both levels, so parents and children stay visually consistent and every
+   * existing (childless) dashboard renders exactly as it did before.
+   */
+  const renderNavLeaf = (item: SidebarItem, depth: number, onItemClick?: () => void) => (
+    <button
+      key={item.id}
+      type="button"
+      onClick={() => {
+        handleItemClick(item);
+        setNavQuery('');
+        onItemClick?.();
+      }}
+      className={cn(
+        'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all select-none relative',
+        'active:scale-[0.98]',
+        depth > 0 && 'pl-9 text-[13px]',
+        isItemActive(item)
+          ? 'bg-primary/10 text-primary font-semibold'
+          : 'text-muted-foreground hover:bg-primary/5 hover:text-primary'
+      )}
+      style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+    >
+      {hasPartnerOpsAlert(item.id) && (
+        <span
+          aria-hidden="true"
+          className="-ml-2 mr-0 w-1 self-stretch shrink-0 rounded-full bg-destructive"
+        />
+      )}
+      <item.icon className="h-4 w-4 shrink-0" />
+      <span className="truncate">{item.label}</span>
+      {hasPartnerOpsAlert(item.id) && (
+        <span
+          title={`${partnerOpsRedCount} lead${partnerOpsRedCount === 1 ? '' : 's'} off track`}
+          className="ml-auto shrink-0 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none"
+        >
+          {partnerOpsRedCount > 99 ? '99+' : partnerOpsRedCount}
+        </span>
+      )}
+      {badges && badges[item.id] > 0 && (
+        <span
+          className={cn(
+            'ml-auto shrink-0 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold leading-none',
+            pulseBadgeIds?.includes(item.id) &&
+              'animate-pulse ring-2 ring-rose-500/40 shadow-[0_0_10px_2px_hsl(var(--destructive)/0.6)]',
+          )}
+        >
+          {badges[item.id] > 99 ? '99+' : badges[item.id]}
+        </span>
+      )}
+    </button>
+  );
+
+  /**
+   * A leaf, or a parent that expands to reveal its children. A parent with
+   * children is a disclosure, not a destination: clicking it toggles and never
+   * changes the view, so its landing page lives in a child entry (Call Center →
+   * Overview) rather than being hidden behind the parent id.
+   */
+  const renderNavItem = (item: SidebarItem, q: string, onItemClick?: () => void) => {
+    const children = item.children ?? [];
+    if (children.length === 0) return renderNavLeaf(item, 0, onItemClick);
+
+    // While filtering, show only the children that matched — unless the parent
+    // label itself matched, in which case the whole group is the result.
+    const parentMatched = !q || item.label.toLowerCase().includes(q);
+    const shownChildren = q && !parentMatched
+      ? children.filter((c) => c.label.toLowerCase().includes(q))
+      : children;
+
+    // Forced open while filtering, so a match is never hidden behind a chevron.
+    const expanded = q ? true : !!openItems[item.id];
+    const childActive = children.some((c) => isItemActive(c));
+
+    return (
+      <div key={item.id}>
+        <button
+          type="button"
+          onClick={() => setOpenItems((prev) => ({ ...prev, [item.id]: !prev[item.id] }))}
+          aria-expanded={expanded}
+          className={cn(
+            'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all select-none',
+            'active:scale-[0.98]',
+            childActive
+              ? 'text-primary font-semibold'
+              : 'text-muted-foreground hover:bg-primary/5 hover:text-primary',
+          )}
+          style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+        >
+          <item.icon className="h-4 w-4 shrink-0" />
+          <span className="truncate">{item.label}</span>
+          {expanded ? (
+            <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0" />
+          ) : (
+            <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0" />
+          )}
+        </button>
+        {expanded && (
+          <div className="mt-1 space-y-1">
+            {shownChildren.map((child) => renderNavLeaf(child, 1, onItemClick))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
@@ -257,7 +404,7 @@ export default function ExecutiveDashboardLayout({
         const SectionIcon = section.icon;
         const q = navQuery.trim().toLowerCase();
         const visibleItems = q
-          ? section.items.filter((it) => it.label.toLowerCase().includes(q))
+          ? section.items.filter((it) => matchesQuery(it, q))
           : section.items;
         if (q && visibleItems.length === 0) return null;
         // While searching, force every matching group open.
@@ -293,53 +440,7 @@ export default function ExecutiveDashboardLayout({
             )}
             {sectionOpen && (
               <div className="space-y-1 px-2">
-                {visibleItems.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      handleItemClick(item);
-                      setNavQuery('');
-                      onItemClick?.();
-                    }}
-                    className={cn(
-                      'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all select-none relative',
-                      'active:scale-[0.98]',
-                      isItemActive(item)
-                        ? 'bg-primary/10 text-primary font-semibold'
-                        : 'text-muted-foreground hover:bg-primary/5 hover:text-primary'
-                    )}
-                    style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
-                  >
-                    {hasPartnerOpsAlert(item.id) && (
-                      <span
-                        aria-hidden="true"
-                        className="-ml-2 mr-0 w-1 self-stretch shrink-0 rounded-full bg-destructive"
-                      />
-                    )}
-                    <item.icon className="h-4 w-4 shrink-0" />
-                    <span className="truncate">{item.label}</span>
-                    {hasPartnerOpsAlert(item.id) && (
-                      <span
-                        title={`${partnerOpsRedCount} lead${partnerOpsRedCount === 1 ? '' : 's'} off track`}
-                        className="ml-auto shrink-0 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none"
-                      >
-                        {partnerOpsRedCount > 99 ? '99+' : partnerOpsRedCount}
-                      </span>
-                    )}
-                    {badges && badges[item.id] > 0 && (
-                      <span
-                        className={cn(
-                          'ml-auto shrink-0 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold leading-none',
-                          pulseBadgeIds?.includes(item.id) &&
-                            'animate-pulse ring-2 ring-rose-500/40 shadow-[0_0_10px_2px_hsl(var(--destructive)/0.6)]',
-                        )}
-                      >
-                        {badges[item.id] > 99 ? '99+' : badges[item.id]}
-                      </span>
-                    )}
-                  </button>
-                ))}
+                {visibleItems.map((item) => renderNavItem(item, q, onItemClick))}
               </div>
             )}
           </div>
@@ -349,9 +450,8 @@ export default function ExecutiveDashboardLayout({
       {navQuery.trim() &&
         sections.every(
           (s) =>
-            s.items.filter((it) =>
-              it.label.toLowerCase().includes(navQuery.trim().toLowerCase()),
-            ).length === 0,
+            s.items.filter((it) => matchesQuery(it, navQuery.trim().toLowerCase()))
+              .length === 0,
         ) && (
           <p className="px-4 text-sm text-muted-foreground">No menu items match “{navQuery}”.</p>
         )}
