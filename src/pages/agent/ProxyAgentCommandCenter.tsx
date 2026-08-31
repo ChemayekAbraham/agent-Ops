@@ -879,7 +879,15 @@ export default function ProxyAgentCommandCenter() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <PartnerContactChatSheet
+        open={chatOpen}
+        onOpenChange={setChatOpen}
+        contact={chatContact}
+        agentId={agentId}
+      />
     </div>
+
   );
 }
 
