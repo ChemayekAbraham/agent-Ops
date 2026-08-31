@@ -13,6 +13,7 @@ import { SelfPortfolioDeployDialog } from './SelfPortfolioDeployDialog';
 import { SelfPortfolioPlanDetailSheet } from './SelfPortfolioPlanDetailSheet';
 import { PlanShareButton } from './PlanShareButton';
 import { SlotAmount } from './SlotAmount';
+import { SelfSupportHousesSection } from './SelfSupportHousesSection';
 
 const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
@@ -535,6 +536,8 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
           )}
         </Card>
       )}
+
+      <SelfSupportHousesSection available={remaining} />
 
       <SelfPortfolioDeployDialog
         open={deployOpen}
