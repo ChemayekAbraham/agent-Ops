@@ -376,17 +376,17 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
           </div>
 
           {/* Available houses — surfaced near the top of home so tenants find them first */}
-          <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
             <WidgetErrorBoundary label="Find a house">
               <FindAHouseCTA onClick={() => { hapticTap(); openHousesSheet(); }} />
             </WidgetErrorBoundary>
             <WidgetErrorBoundary label="Request rent as tenant">
               <TenantRentRequestCard userId={user.id} />
             </WidgetErrorBoundary>
-            <WidgetErrorBoundary label="Suggested houses">
-              <SuggestedHousesCard userId={user.id} onViewAll={goToAllHouses} />
-            </WidgetErrorBoundary>
           </div>
+          <WidgetErrorBoundary label="Suggested houses">
+            <SuggestedHousesCard userId={user.id} onViewAll={goToAllHouses} />
+          </WidgetErrorBoundary>
 
           {/* Apply your Rent Fees discount to rent — horizontally scrollable rentals */}
           <div ref={rentCarouselRef} id="rent-discount-carousel">
