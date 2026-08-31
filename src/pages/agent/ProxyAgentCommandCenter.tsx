@@ -109,6 +109,17 @@ export default function ProxyAgentCommandCenter() {
   const [supportMode, setSupportMode] = useState<SupportMode>('self');
   const [houseOppsOpen, setHouseOppsOpen] = useState(false);
 
+  // WhatsApp-style partner conversation
+  const [chatContact, setChatContact] = useState<PartnerContact | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const openChat = useCallback((c: PartnerContact) => {
+    hapticTap();
+    setChatContact(c);
+    setChatOpen(true);
+  }, []);
+
+
+
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [inviting, setInviting] = useState(false);
