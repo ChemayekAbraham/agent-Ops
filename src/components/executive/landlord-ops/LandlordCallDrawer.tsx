@@ -8,7 +8,10 @@ import { ContactActions } from '@/components/ops/ContactActions';
 import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { CheckCircle2, Loader2, MapPin, PhoneCall, PhoneMissed, User } from 'lucide-react';
+import {
+  CheckCircle2, Loader2, MapPin, PhoneCall, PhoneMissed, User,
+  IdCard, Home, Banknote, Users, History, CreditCard,
+} from 'lucide-react';
 import {
   LANDLORD_CALL_STATUS_LABEL,
   landlordCallStatusBadgeClass,
@@ -17,6 +20,16 @@ import {
   type LandlordCallStatus,
 } from '@/hooks/useLandlordCallReports';
 import type { LandlordCallingRow } from '@/hooks/useLandlordCallingList';
+import { useLandlordTenants } from '@/hooks/useLandlordTenants';
+import {
+  ContactCard,
+  DetailField,
+  DetailGrid,
+  DrawerSection,
+  PersonHeader,
+  StatGrid,
+  StatTile,
+} from '@/components/ops/calling/CallDrawerUi';
 
 const STATUS_OPTIONS: { value: LandlordCallStatus; icon: typeof PhoneCall; active: string; hint: string }[] = [
   { value: 'pending', icon: PhoneCall, active: 'border-amber-500/50 bg-amber-500/10 text-amber-600', hint: 'Follow-up still needed' },
@@ -24,14 +37,6 @@ const STATUS_OPTIONS: { value: LandlordCallStatus; icon: typeof PhoneCall; activ
   { value: 'missed', icon: PhoneMissed, active: 'border-destructive/50 bg-destructive/10 text-destructive', hint: 'Landlord not reached' },
 ];
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
-  return (
-    <div className="min-w-0 rounded-lg border border-border/60 bg-muted/40 p-2">
-      <p className="text-[10px] leading-tight text-muted-foreground break-words">{label}</p>
-      <p className={cn('mt-0.5 text-sm font-semibold leading-tight tabular-nums break-normal', tone)}>{value}</p>
-    </div>
-  );
-}
 
 /** Compact, read-only caller briefing for one landlord + the call log form. */
 export function LandlordCallDrawer({
