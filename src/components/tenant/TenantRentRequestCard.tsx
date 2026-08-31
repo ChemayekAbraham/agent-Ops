@@ -117,16 +117,16 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
         type="button"
         onClick={() => (openRequest ? undefined : setOpen(true))}
         disabled={!!openRequest}
-        className="w-full aspect-square rounded-[28px] border bg-success/10 border-success/20 p-3 text-left flex flex-col shadow-sm active:scale-[0.99] transition-transform touch-manipulation disabled:opacity-60 disabled:active:scale-100"
+        className="w-full aspect-square rounded-[28px] border bg-success/10 border-success/20 p-2.5 text-left flex flex-col shadow-sm active:scale-[0.99] transition-transform touch-manipulation disabled:opacity-60 disabled:active:scale-100"
       >
         <div className="flex flex-col justify-between h-full w-full">
           <div>
-            <div className="p-2 rounded-2xl bg-success/20 w-fit mb-2">
-              <HandCoins className="h-5 w-5 text-success" />
+            <div className="p-1.5 rounded-xl bg-success/20 w-fit mb-1.5">
+              <HandCoins className="h-[18px] w-[18px] text-success" />
             </div>
-            <p className="font-bold text-base leading-tight text-foreground">Request rent as tenant</p>
+            <p className="font-bold text-sm leading-tight text-foreground">Request rent as tenant</p>
             {openRequest && (
-              <div className="mt-1 flex flex-wrap items-center gap-1">
+              <div className="mt-0.5 flex flex-wrap items-center gap-1">
                 <Badge variant="secondary" className="text-[9px]">{status?.label}</Badge>
                 <span className="text-[10px] text-foreground/70">{formatUGX(Number(openRequest.rent_amount))}</span>
               </div>
@@ -135,9 +135,9 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
 
           <div>
             {openRequest ? (
-              <p className="text-[11px] text-foreground/70 leading-snug line-clamp-1">{status?.note}</p>
+              <p className="text-[10px] text-foreground/70 leading-snug line-clamp-1">{status?.note}</p>
             ) : (
-              <p className="text-[11px] text-foreground/70 leading-snug truncate">
+              <p className="text-[10px] text-foreground/70 leading-snug truncate">
                 Request rent · agent verifies your house
               </p>
             )}
@@ -149,6 +149,7 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
           </div>
         </div>
       </button>
+
 
 
       <Dialog open={open} onOpenChange={setOpen}>
