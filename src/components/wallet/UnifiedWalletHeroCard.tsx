@@ -231,15 +231,27 @@ export function UnifiedWalletHeroCard({
                 <span className="text-[10px] font-semibold text-white/70 uppercase tracking-[0.12em] truncate">
                   {ROLE_LABELS[role]}
                 </span>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); hapticTap(); setShowAmount((s) => !s); }}
-                  aria-label={showAmount ? 'Hide amount' : 'Show amount'}
-                  aria-pressed={showAmount}
-                  className="p-1 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 transition-all text-white/70 hover:text-white shrink-0 cursor-pointer"
-                >
-                  {showAmount ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                </button>
+                {showAmount ? (
+                  <Eye
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); hapticTap(); setShowAmount((s) => !s); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setShowAmount((s) => !s); } }}
+                    aria-label="Hide amount"
+                    aria-pressed={true}
+                    className="h-4 w-4 p-1 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 transition-all text-white/70 hover:text-white shrink-0 cursor-pointer"
+                  />
+                ) : (
+                  <EyeOff
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); hapticTap(); setShowAmount((s) => !s); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setShowAmount((s) => !s); } }}
+                    aria-label="Show amount"
+                    aria-pressed={false}
+                    className="h-4 w-4 p-1 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 transition-all text-white/70 hover:text-white shrink-0 cursor-pointer"
+                  />
+                )}
               </span>
               <span className="block text-lg font-black leading-tight text-white truncate">
                 {maskAmt(collapsedHeadline)}
