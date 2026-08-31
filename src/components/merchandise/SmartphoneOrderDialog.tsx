@@ -129,8 +129,6 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const blockers: string[] = [];
   if (eligibility) {
     if (eligibility.has_open_application) blockers.push('You already have an application in progress.');
-    if (!eligibility.has_national_id) blockers.push('Add your national ID to your profile.');
-    if (!eligibility.has_workplace_verification) blockers.push('A verified workplace visit is required.');
     if (cap <= 0) blockers.push('This programme is open to the top 50 agents on the operational leaderboard.');
   }
 
