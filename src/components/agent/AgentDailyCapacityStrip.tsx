@@ -36,12 +36,14 @@ export function AgentDailyCapacityStrip() {
   }
   if (!cap) return null;
 
-  const todayPct = cap.expected_daily > 0
-    ? Math.min(100, Math.round((cap.paid_today / cap.expected_daily) * 100))
-    : 0;
-  const barTone = todayPct >= 50 ? 'bg-emerald-500' : todayPct >= 20 ? 'bg-amber-500' : 'bg-destructive';
+  // Agent performance = share of due tenants reached today (not the UGX target).
+  const todayPct = Math.min(100, Math.round((cap.performance_pct || 0) * 100));
+  const barTone = todayPct >= 50 ? 'bg-emerald-500' : todayPct >= 15 ? 'bg-amber-500' : 'bg-destructive';
   const canPost = cap.can_post_rent_today;
-  const remaining = Math.max(0, cap.expected_daily - cap.paid_today);
+  const tenantsToGo = Math.max(
+    0,
+    Math.ceil(cap.tenants_due * 0.5) - cap.tenants_paid_today,
+  );
 
   return (
     <div className="rounded-2xl border-2 border-border/60 bg-card p-4 space-y-3">
@@ -62,22 +64,22 @@ export function AgentDailyCapacityStrip() {
 
       <div>
         <div className="flex items-center justify-between text-sm font-bold tabular-nums mb-1.5">
-          <span className="text-foreground">{formatUGX(cap.paid_today)}</span>
-          <span className="text-muted-foreground">of {formatUGX(cap.expected_daily)}</span>
+          <span className="text-foreground">{cap.tenants_paid_today} tenants paid</span>
+          <span className="text-muted-foreground">of {cap.tenants_due} due</span>
         </div>
         <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
           <div className={`h-full ${barTone} transition-all`} style={{ width: `${todayPct}%` }} />
         </div>
         <div className="flex items-center justify-between gap-2 mt-1.5">
           <p className="text-xs text-muted-foreground">
-            {todayPct}% of today&apos;s target
-            {remaining > 0 && <> · <strong className="text-foreground">{formatUGX(remaining)}</strong> to go</>}
+            {todayPct}% of your tenants reached · <strong className="text-foreground">{formatUGX(cap.paid_today)}</strong> collected
           </p>
           <p className="text-xs font-semibold text-muted-foreground shrink-0 tabular-nums">
             {new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
           </p>
         </div>
       </div>
+
 
       <div
         className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold ${
@@ -95,7 +97,7 @@ export function AgentDailyCapacityStrip() {
           <>
             <Lock className="h-4 w-4 shrink-0" />
             <span>
-              Collect <strong>{formatUGX(Math.max(0, Math.round(cap.expected_daily * 0.2) - cap.paid_today))}</strong> more today to unlock new rents
+              Collect from <strong>{Math.max(1, tenantsToGo)}</strong> more tenant{Math.max(1, tenantsToGo) === 1 ? '' : 's'} today to unlock new rents
             </span>
           </>
         )}

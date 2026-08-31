@@ -41,11 +41,12 @@ export function AgentRatingCard({ agentId }: Props) {
 
   const dailyLabel =
     cap.daily_rating === 'Starter' ? 'New today' : `Today: ${cap.daily_rating}`;
-  // Coverage-safe today % — the SAME figure the badge is graded on. The raw
-  // amount ratio (paid_today / expected_daily) overstates performance because
-  // one tenant over-paying cannot cover tenants who paid nothing.
-  const todayPct = Math.round((cap.today_response_pct || 0) * 100);
-  const rawTodayPct = cap.expected_daily > 1
+  // Agent-performance % — the SAME figure the badge is graded on: the share of
+  // due tenants the agent got to pay. It is NOT the UGX percentage of the
+  // expected daily book, so tenants paying less than their daily amount can no
+  // longer drag the agent's rating down.
+  const todayPct = Math.round((cap.performance_pct || 0) * 100);
+  const cashPct = cap.expected_daily > 1
     ? Math.min(100, Math.round((cap.paid_today / cap.expected_daily) * 100))
     : 0;
 
@@ -69,7 +70,7 @@ export function AgentRatingCard({ agentId }: Props) {
         <div className="flex items-center gap-1.5">
           <span
             className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${dailyRatingTone[cap.daily_rating]}`}
-            title={`Today's coverage-safe collection — ${todayPct}% (${cap.tenants_paid_today} of ${cap.tenants_due} due tenants paid; ${formatUGX(cap.paid_today)} of ${formatUGX(cap.expected_daily)})`}
+            title={`Your performance today — ${todayPct}% of due tenants paid (${cap.tenants_paid_today} of ${cap.tenants_due}). Amounts collected: ${formatUGX(cap.paid_today)}.`}
           >
             {dailyLabel}
           </span>
@@ -89,21 +90,21 @@ export function AgentRatingCard({ agentId }: Props) {
         <div className="rounded-xl bg-muted/50 p-2.5 space-y-1.5">
           <div className="flex items-center justify-between text-[10px] font-semibold text-muted-foreground">
             <span className="flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" /> Today
+              <TrendingUp className="h-3 w-3" /> Tenants reached today
             </span>
-            <span className={todayPct >= 20 ? 'text-emerald-700' : 'text-destructive'}>
+            <span className={todayPct >= 50 ? 'text-emerald-700' : todayPct >= 15 ? 'text-amber-700' : 'text-destructive'}>
               {todayPct}%
             </span>
           </div>
           <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
             <div
-              className={`h-full transition-all ${todayPct >= 20 ? 'bg-emerald-500' : 'bg-destructive'}`}
+              className={`h-full transition-all ${todayPct >= 50 ? 'bg-emerald-500' : todayPct >= 15 ? 'bg-amber-500' : 'bg-destructive'}`}
               style={{ width: `${Math.min(100, todayPct)}%` }}
             />
           </div>
           <p className="text-[10px] text-muted-foreground tabular-nums">
-            {cap.tenants_paid_today}/{cap.tenants_due} tenants · {formatUGX(cap.paid_today)} / {formatUGX(cap.expected_daily)}
-            {rawTodayPct > todayPct ? ` (cash ${rawTodayPct}%)` : ''}
+            {cap.tenants_paid_today}/{cap.tenants_due} tenants paid · {formatUGX(cap.paid_today)} collected
+            {cashPct > 0 ? ` (${cashPct}% of target)` : ''}
           </p>
 
         </div>
@@ -135,7 +136,8 @@ export function AgentRatingCard({ agentId }: Props) {
         <div className="flex items-center gap-2 text-[11px] text-destructive bg-destructive/10 rounded-lg px-3 py-2">
           <AlertCircle className="h-3.5 w-3.5 shrink-0" />
           <span>
-            You need to collect at least <strong>{formatUGX(Math.round(cap.expected_daily * 0.2))}</strong> today to post new rent requests.
+            Collect from <strong>{Math.max(1, Math.ceil(cap.tenants_due * 0.5) - cap.tenants_paid_today)}</strong> more
+            tenant{Math.max(1, Math.ceil(cap.tenants_due * 0.5) - cap.tenants_paid_today) === 1 ? '' : 's'} today to post new rent requests.
           </span>
         </div>
       )}

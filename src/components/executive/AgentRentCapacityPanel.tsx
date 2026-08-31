@@ -635,6 +635,10 @@ function CapacityRow({
         today_response_pct: row.expected_daily > 1 ? row.paid_today / row.expected_daily : 0,
         effective_daily_pct: row.expected_daily > 1 ? row.paid_today / row.expected_daily : 0,
         daily_status: row.daily_status,
+        performance_pct: Math.max(
+          (row as any).coverage_today ?? 0,
+          (row as any).coverage_yesterday ?? 0,
+        ),
         daily_rating: row.daily_rating,
         tenants_due: (row as any).tenants_due ?? 0,
         tenants_paid_today: (row as any).tenants_paid_today ?? 0,
