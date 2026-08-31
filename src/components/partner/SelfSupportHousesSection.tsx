@@ -55,6 +55,11 @@ export function useVerifiedEmptyHouses() {
           p_near_lat: null,
           p_near_lng: null,
           p_radius_km: null,
+          // The backend currently has both the legacy 11-argument RPC and the
+          // sortable 12-argument RPC. Passing p_sort makes this call resolve to
+          // the current overload instead of failing as ambiguous and returning
+          // an empty house list to the combined feed.
+          p_sort: 'newest',
         });
         if (error) throw error;
         const payload = (data ?? {}) as { houses?: SupportableHouse[]; total?: number };
