@@ -564,9 +564,12 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
             </div>
           </Card>
         );
+            })()}
+          </div>
+        );
       })}
 
-      {plans.length > PLANS_PER_PAGE && (
+      {feed.length > PLANS_PER_PAGE && (
         <div className="flex items-center justify-between gap-2 px-1 pt-1">
           <Button
             variant="outline"
@@ -579,13 +582,13 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
             <span className="ml-1">Previous</span>
           </Button>
           <p className="text-[11px] font-semibold text-muted-foreground">
-            Page {page + 1} of {Math.ceil(plans.length / PLANS_PER_PAGE)}
+            Page {page + 1} of {pageCount}
           </p>
           <Button
             variant="outline"
             size="sm"
             className="h-8 text-[11px]"
-            disabled={page >= Math.ceil(plans.length / PLANS_PER_PAGE) - 1}
+            disabled={page >= pageCount - 1}
             onClick={() => setPage((p) => p + 1)}
           >
             <span className="mr-1">Next</span>
@@ -593,6 +596,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
           </Button>
         </div>
       )}
+
 
       {selected.length > 0 && (
         <Card className="mt-3 rounded-2xl border-primary/25 bg-background/95 p-3 sm:p-4 shadow-xl backdrop-blur-md">
