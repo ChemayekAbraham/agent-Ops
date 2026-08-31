@@ -371,6 +371,9 @@ export function SmartphoneCatalogDialog() {
           default_amount: total,
           specifications: editSpecifications.trim() || null,
           more_specifications: editMoreSpecifications.trim() || null,
+          supplier_id: editSupplier?.id ?? null,
+          supplier_name: editSupplier?.name ?? null,
+          supplier_phone: editSupplier?.phone ?? null,
         })
         .eq('id', id);
       if (error) throw error;
