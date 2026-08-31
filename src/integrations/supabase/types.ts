@@ -27081,6 +27081,42 @@ export type Database = {
         }
         Relationships: []
       }
+      proxy_partner_contact_logs: {
+        Row: {
+          agent_id: string
+          body: string
+          channel: string
+          created_at: string
+          id: string
+          note_id: string | null
+          partner_name: string | null
+          partner_phone: string | null
+          partner_user_id: string | null
+        }
+        Insert: {
+          agent_id: string
+          body: string
+          channel?: string
+          created_at?: string
+          id?: string
+          note_id?: string | null
+          partner_name?: string | null
+          partner_phone?: string | null
+          partner_user_id?: string | null
+        }
+        Update: {
+          agent_id?: string
+          body?: string
+          channel?: string
+          created_at?: string
+          id?: string
+          note_id?: string | null
+          partner_name?: string | null
+          partner_phone?: string | null
+          partner_user_id?: string | null
+        }
+        Relationships: []
+      }
       proxy_partner_invites: {
         Row: {
           channel: string
