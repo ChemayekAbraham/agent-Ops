@@ -481,6 +481,30 @@ Deno.serve(async (req) => {
           )
         }
 
+        // 401 means the Mailgun API key is disabled/invalid. The message is
+        // fine — the transport is down. Leave it in the queue (visibility
+        // timeout returns it), park sending on a cooldown and stop the batch.
+        if (isAuthFailure(error)) {
+          await supabase.from('email_send_log').insert({
+            message_id: payload.message_id,
+            template_name: payload.label || queue,
+            recipient_email: payload.to,
+            status: 'failed',
+            error_message: `Mailgun credential failure (not resent, still queued): ${errorMsg.slice(0, 900)}`,
+          })
+          await supabase
+            .from('email_send_state')
+            .update({
+              retry_after_until: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', 1)
+          return new Response(
+            JSON.stringify({ processed: totalProcessed, stopped: 'mailgun_auth_failure' }),
+            { headers: { 'Content-Type': 'application/json' } }
+          )
+        }
+
         // 403 means emails are disabled for this project — retrying won't help.
         // Move straight to DLQ and stop processing the rest of the batch.
         if (isForbidden(error)) {
@@ -490,6 +514,8 @@ Deno.serve(async (req) => {
             { headers: { 'Content-Type': 'application/json' } }
           )
         }
+
+
 
         // Log non-429 failures to track real retry attempts.
         await supabase.from('email_send_log').insert({
