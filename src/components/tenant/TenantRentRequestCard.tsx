@@ -161,34 +161,33 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
         type="button"
         onClick={() => (openRequest ? undefined : setOpen(true))}
         disabled={!!openRequest}
-        className="w-full aspect-square rounded-[28px] border bg-success/10 border-success/20 p-2.5 text-left flex flex-col shadow-sm active:scale-[0.99] transition-transform touch-manipulation disabled:opacity-60 disabled:active:scale-100"
+        className="w-full aspect-square rounded-[28px] border bg-success/10 border-success/20 p-2.5 lg:p-5 text-left flex flex-col shadow-sm active:scale-[0.99] transition-transform touch-manipulation disabled:opacity-60 disabled:active:scale-100"
       >
-        <div className="flex flex-col justify-between h-full w-full">
-          <div>
-            <div className="p-1.5 rounded-xl bg-success/20 w-fit mb-1.5">
-              <HandCoins className="h-[18px] w-[18px] text-success" />
+        <div className="flex flex-col justify-between h-full w-full gap-2 lg:gap-4">
+          <div className="space-y-2 lg:space-y-3">
+            <div className="p-1.5 lg:p-2.5 rounded-xl bg-success/20 w-fit">
+              <HandCoins className="h-[18px] w-[18px] lg:h-7 lg:w-7 text-success" />
             </div>
-            <p className="font-bold text-sm leading-tight text-foreground">Request rent as tenant</p>
+            <p className="font-bold text-sm lg:text-lg leading-tight text-foreground">Request rent as tenant</p>
           </div>
 
-          <div className="mt-auto">
+          <div className="space-y-1.5 lg:space-y-2">
             {openRequest ? (
-              <p className="text-[10px] text-foreground/70 leading-tight line-clamp-3 break-words">{status?.note}</p>
+              <p className="text-[10px] lg:text-sm text-foreground/70 leading-tight lg:leading-relaxed line-clamp-3 lg:line-clamp-4 break-words">{status?.note}</p>
             ) : (
-              <p className="text-xs text-foreground/70 leading-snug line-clamp-2 break-words">
+              <p className="text-xs lg:text-sm text-foreground/70 leading-snug lg:leading-relaxed line-clamp-2 lg:line-clamp-3 break-words">
                 Request rent · agent verifies your house
               </p>
             )}
             {latest?.status === 'declined' && !openRequest && latest.decline_reason && (
-
-
-              <p className="mt-1 text-[10px] text-destructive leading-snug truncate">
+              <p className="text-[10px] lg:text-xs text-destructive leading-snug line-clamp-1">
                 Last request not approved: {latest.decline_reason}
               </p>
             )}
           </div>
         </div>
       </button>
+
 
 
 
