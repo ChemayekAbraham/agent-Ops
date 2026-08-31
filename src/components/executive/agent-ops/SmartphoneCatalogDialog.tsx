@@ -133,6 +133,95 @@ async function exportCatalogPdf(rows: SmartphoneCatalogEntry[], from: string, to
 
 const NEW_BRAND = '__new__';
 
+interface SupplierChoice {
+  id: string;
+  name: string;
+  phone: string | null;
+}
+
+/** Searchable picker over registered platform users acting as phone suppliers. */
+function SupplierPicker({
+  value,
+  onChange,
+}: {
+  value: SupplierChoice | null;
+  onChange: (s: SupplierChoice | null) => void;
+}) {
+  const [term, setTerm] = useState('');
+  const q = term.trim();
+
+  const { data: results = [], isFetching } = useQuery({
+    queryKey: ['smartphone-supplier-search', q],
+    enabled: q.length >= 2 && !value,
+    queryFn: async (): Promise<SupplierChoice[]> => {
+      const { data, error } = await db
+        .from('profiles')
+        .select('id, full_name, phone')
+        .or(`full_name.ilike.%${q}%,phone.ilike.%${q}%`)
+        .limit(15);
+      if (error) throw error;
+      return (data || []).map((p: any) => ({
+        id: p.id,
+        name: p.full_name || 'Unnamed user',
+        phone: p.phone || null,
+      }));
+    },
+  });
+
+  if (value) {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/40 px-2.5 py-1.5">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium">{value.name}</p>
+          <p className="truncate text-[11px] text-muted-foreground">{value.phone || 'No phone on file'}</p>
+        </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 px-2"
+          onClick={() => {
+            onChange(null);
+            setTerm('');
+          }}
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      <Input
+        value={term}
+        onChange={(e) => setTerm(e.target.value)}
+        placeholder="Search supplier by name or phone"
+      />
+      {q.length >= 2 && (
+        <div className="max-h-36 space-y-1 overflow-y-auto rounded-md border p-1">
+          {isFetching ? (
+            <p className="px-1.5 py-1 text-xs text-muted-foreground">Searching…</p>
+          ) : results.length === 0 ? (
+            <p className="px-1.5 py-1 text-xs text-muted-foreground">No registered user matches that search.</p>
+          ) : (
+            results.map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                onClick={() => onChange(r)}
+                className="flex w-full items-center justify-between gap-2 rounded px-1.5 py-1 text-left text-xs hover:bg-muted"
+              >
+                <span className="truncate font-medium">{r.name}</span>
+                <span className="shrink-0 text-muted-foreground">{r.phone || '—'}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface ModelRow {
   key: string;
   modelName: string;
