@@ -9,13 +9,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronLeft, ChevronRight, PhoneCall } from 'lucide-react';
 import { toast } from 'sonner';
-import { useCcCallingHub, type CcRow, type CcSubjectType } from '@/hooks/useCcCallingHub';
+import { useCcCallingHub, type CcFilterSelection, type CcRow, type CcSubjectType } from '@/hooks/useCcCallingHub';
 import { CALLING_TABS, type CallingTabKey } from './callingHubColumns';
 import { CallingHubTable } from './CallingHubTable';
+import { CallingFilterBar } from './CallingFilterBar';
 import { OpenAttemptQueue } from './OpenAttemptQueue';
 import { RecordOutcomeDialog } from './RecordOutcomeDialog';
 import { CycleControls } from './CycleControls';
 import { FollowupsDuePanel } from './FollowupsDuePanel';
+
 
 const TITLE: Record<CcSubjectType, string> = {
   tenant: 'Tenant Calling Hub',
