@@ -382,41 +382,8 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
       )}
 
 
-      {(plans.length > 1 || selected.length > 0) && (
-        <div className="flex justify-end px-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-[11px]"
-            disabled={busy}
-            onClick={() => {
-              if (selected.length > 0) {
-                setSelected([]);
-                return;
-              }
-              let budget = available;
-              const picked: string[] = [];
-              let skipped = 0;
-              for (const p of plans) {
-                if (fundedIds.includes(p.rent_request_id)) continue;
-                if (p.held_by && p.held_by !== partnerId) continue;
-                const cost = Number(p.funding_amount || 0);
-                if (cost > budget) { skipped += 1; continue; }
-                budget -= cost;
-                picked.push(p.rent_request_id);
-              }
-              setSelected(picked);
-              if (skipped > 0) {
-                toast.info(
-                  `Selected what your withdrawable balance of ${formatDynamic(available)} covers. ${skipped} plan${skipped > 1 ? 's' : ''} skipped — add funds to include ${skipped > 1 ? 'them' : 'it'}.`,
-                );
-              }
-            }}
-          >
-            {selected.length > 0 ? 'Clear selection' : 'Select what I can afford'}
-          </Button>
-        </div>
-      )}
+
+
 
       {pageItems.map((item, i) => {
         const globalIndex = pageStart + i;
