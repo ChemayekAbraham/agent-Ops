@@ -9,13 +9,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronLeft, ChevronRight, PhoneCall } from 'lucide-react';
 import { toast } from 'sonner';
-import { useCcCallingHub, type CcRow, type CcSubjectType } from '@/hooks/useCcCallingHub';
+import { useCcCallingHub, type CcFilterSelection, type CcRow, type CcSubjectType } from '@/hooks/useCcCallingHub';
 import { CALLING_TABS, type CallingTabKey } from './callingHubColumns';
 import { CallingHubTable } from './CallingHubTable';
+import { CallingFilterBar } from './CallingFilterBar';
 import { OpenAttemptQueue } from './OpenAttemptQueue';
 import { RecordOutcomeDialog } from './RecordOutcomeDialog';
 import { CycleControls } from './CycleControls';
 import { FollowupsDuePanel } from './FollowupsDuePanel';
+
 
 const TITLE: Record<CcSubjectType, string> = {
   tenant: 'Tenant Calling Hub',
@@ -33,15 +35,30 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  /** Filters persist across tab switches — they are orthogonal to row state. */
+  const [filters, setFilters] = useState<CcFilterSelection>({});
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => setPage(0), [tab, debouncedSearch, sortKey, subjectType]);
+  const filtersKey = useMemo(
+    () =>
+      Object.entries(filters)
+        .filter(([, v]) => v)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => `${k}=${v}`)
+        .join('&'),
+    [filters],
+  );
 
-  const hub = useCcCallingHub(subjectType, { state: tab, sortKey, search: debouncedSearch, page });
+  useEffect(() => setPage(0), [tab, debouncedSearch, sortKey, subjectType, filtersKey]);
+
+  useEffect(() => setFilters({}), [subjectType]);
+
+  const hub = useCcCallingHub(subjectType, { state: tab, sortKey, search: debouncedSearch, page, filters });
+
 
   const [revealed, setRevealed] = useState<Record<string, string | null>>({});
   const [formAttempt, setFormAttempt] = useState<{ id: string; cycle_row_id: string; name: string } | null>(null);
@@ -94,7 +111,25 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
         </div>
       </div>
 
+      <CallingFilterBar
+        options={hub.filterOptions}
+        loading={hub.filterOptionsLoading}
+        error={hub.filterOptionsError}
+        selection={filters}
+        filteredTotal={hub.total}
+        onChange={(key, value) =>
+          setFilters((prev) => {
+            const next = { ...prev };
+            if (value) next[key] = value;
+            else delete next[key];
+            return next;
+          })
+        }
+        onClearAll={() => setFilters({})}
+      />
+
       <CycleControls hub={hub} />
+
 
       <div className="grid gap-3 lg:grid-cols-3">
         <div className="lg:col-span-1 space-y-3">
