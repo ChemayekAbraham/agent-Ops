@@ -136,7 +136,8 @@ export function AgentRatingCard({ agentId }: Props) {
         <div className="flex items-center gap-2 text-[11px] text-destructive bg-destructive/10 rounded-lg px-3 py-2">
           <AlertCircle className="h-3.5 w-3.5 shrink-0" />
           <span>
-            You need to collect at least <strong>{formatUGX(Math.round(cap.expected_daily * 0.2))}</strong> today to post new rent requests.
+            Collect from <strong>{Math.max(1, Math.ceil(cap.tenants_due * 0.5) - cap.tenants_paid_today)}</strong> more
+            tenant{Math.max(1, Math.ceil(cap.tenants_due * 0.5) - cap.tenants_paid_today) === 1 ? '' : 's'} today to post new rent requests.
           </span>
         </div>
       )}
