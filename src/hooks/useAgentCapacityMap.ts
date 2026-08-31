@@ -545,17 +545,6 @@ export function useAgentCapacityMap(agentIds: string[]) {
         const today_response_pct  = elig?.today_pct      ?? 0;
         const yesterday_response_pct = elig?.yesterday_pct ?? 0;
         const effective_daily_pct = elig?.effective_pct  ?? 0;
-        const daily_blocked =
-          exp.count > 0 && effective_daily_pct < DAILY_ELIGIBILITY_THRESHOLD;
-        let daily_status: AgentCapacity['daily_status'];
-        if (exp.count <= 0) daily_status = 'starter';
-        else if (daily_blocked) daily_status = 'blocked';
-        else daily_status = 'good';
-        // Daily performance regulation only kicks in once the agent has
-        // graduated (reached the tenant threshold). New agents are governed
-        // solely by the per-tenant cap above.
-        const can_post_rent_today =
-          unlimited_posting || is_new_agent ? true : !daily_blocked;
         const tenants_due            = elig?.tenants_due            ?? 0;
         const tenants_paid_today     = elig?.tenants_paid_today     ?? 0;
         const tenants_paid_yesterday = elig?.tenants_paid_yesterday ?? 0;
@@ -566,11 +555,31 @@ export function useAgentCapacityMap(agentIds: string[]) {
         const effective_coverage = tenants_due > 0
           ? (elig?.effective_coverage ?? Math.max(coverage_today, coverage_yesterday))
           : 1;
-        const daily_rating = classifyDailyRating(
-          exp.count,
-          effective_daily_pct,
-          effective_coverage,
-        );
+        /**
+         * AGENT-PERFORMANCE RATING (2026-08-31 correction)
+         * ------------------------------------------------
+         * The rating now measures what the AGENT actually delivered —
+         * how many of their due tenants they got to pay today (best of
+         * today / yesterday) — and NOT the UGX percentage of the expected
+         * daily book. Tenants deciding to pay less than their daily amount
+         * no longer drags the agent's rating down: an agent who reached
+         * every tenant is rated on that work, whatever the amounts were.
+         */
+        const performance_pct = tenants_due > 0
+          ? Math.max(coverage_today, coverage_yesterday)
+          : (exp.count > 0 ? Math.max(effective_daily_pct, 0) : 0);
+        const daily_blocked =
+          exp.count > 0 && performance_pct < DAILY_ELIGIBILITY_THRESHOLD;
+        let daily_status: AgentCapacity['daily_status'];
+        if (exp.count <= 0) daily_status = 'starter';
+        else if (daily_blocked) daily_status = 'blocked';
+        else daily_status = 'good';
+        // Daily performance regulation only kicks in once the agent has
+        // graduated (reached the tenant threshold). New agents are governed
+        // solely by the per-tenant cap above.
+        const can_post_rent_today =
+          unlimited_posting || is_new_agent ? true : !daily_blocked;
+        const daily_rating = classifyDailyRating(exp.count, performance_pct, 1);
         out.set(id, {
           used: exp.used,
           active_count: exp.count,
