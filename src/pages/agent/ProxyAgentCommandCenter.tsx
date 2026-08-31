@@ -417,46 +417,79 @@ export default function ProxyAgentCommandCenter() {
             ) : (partnersQ.data?.rows.length ?? 0) === 0 ? (
               <Card><CardContent className="p-6 text-center text-sm text-muted-foreground">No partners match this view yet.</CardContent></Card>
             ) : (
-              partnersQ.data!.rows.map((p: ProxyPartnerRow) => (
-                <Card key={p.partner_user_id}>
-                  <CardContent className="p-3 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-black truncate">{p.partner_name}</p>
-                        <p className="text-[11px] text-muted-foreground">{p.partner_phone}</p>
+              <Card className="overflow-hidden divide-y">
+                {partnersQ.data!.rows.map((p: ProxyPartnerRow) => {
+                  const dialable = hasDialablePhone(p.partner_phone);
+                  const intl = toIntlDigits(p.partner_phone);
+                  return (
+                    <button
+                      key={p.partner_user_id}
+                      onClick={() => openChat({
+                        partnerUserId: p.partner_user_id,
+                        name: p.partner_name,
+                        phone: p.partner_phone,
+                        subtitle: `${money(p.total_funded)} funded · ${p.notes_count} notes`,
+                      })}
+                      className="w-full flex items-center gap-3 px-3 py-3 text-left hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="h-11 w-11 shrink-0 rounded-full bg-primary/15 text-primary grid place-items-center text-sm font-black">
+                        {initialsOf(p.partner_name)}
                       </div>
-                      <Badge variant="outline" className={cn(
-                        'shrink-0 text-[10px]',
-                        p.is_returning ? 'border-emerald-500/40 text-emerald-600'
-                          : p.came_in ? 'border-primary/40 text-primary' : 'border-border text-muted-foreground',
-                      )}>
-                        {p.is_returning ? 'Returning' : p.came_in ? 'Came in' : 'Not yet funded'}
-                      </Badge>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-[11px]">
-                      <div className="rounded-lg bg-muted/40 px-2 py-1.5">
-                        <div className="text-muted-foreground">Total funded</div>
-                        <div className="font-black break-words">{money(p.total_funded)}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold truncate">{p.partner_name}</p>
+                          <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                            {format(new Date(p.linked_at), 'dd MMM')}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {p.partner_phone || 'No phone on file'}
+                        </p>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <span className={cn(
+                            'rounded-full px-2 py-0.5 text-[10px] font-bold',
+                            p.is_returning ? 'bg-emerald-500/15 text-emerald-600'
+                              : p.came_in ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
+                          )}>
+                            {p.is_returning ? 'Returning' : p.came_in ? 'Came in' : 'Not yet funded'}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground truncate">
+                            {money(p.total_funded)} · {p.portfolios} portfolios · {p.notes_count} notes
+                          </span>
+                        </div>
                       </div>
-                      <div className="rounded-lg bg-muted/40 px-2 py-1.5">
-                        <div className="text-muted-foreground">Portfolios · notes</div>
-                        <div className="font-black">{p.portfolios} · {p.notes_count}</div>
+                      <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <a
+                          href={dialable ? `tel:+${intl}` : undefined}
+                          aria-disabled={!dialable}
+                          aria-label={`Call ${p.partner_name}`}
+                          className={cn(
+                            'grid place-items-center h-9 w-9 rounded-full border border-border bg-background',
+                            !dialable && 'opacity-40 pointer-events-none',
+                          )}
+                        >
+                          <Phone className="h-4 w-4 text-primary" />
+                        </a>
+                        <a
+                          href={dialable ? `https://wa.me/${intl}` : undefined}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-disabled={!dialable}
+                          aria-label={`WhatsApp ${p.partner_name}`}
+                          className={cn(
+                            'grid place-items-center h-9 w-9 rounded-full bg-[hsl(142,70%,45%)] text-white',
+                            !dialable && 'opacity-40 pointer-events-none',
+                          )}
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                        </a>
                       </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-1">
-                      {(p.sources ?? []).map((src) => (
-                        <span key={src} className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-bold">
-                          {sourceLabels[src] ?? src}
-                        </span>
-                      ))}
-                      <span className="ml-auto text-[10px] text-muted-foreground">
-                        Linked {format(new Date(p.linked_at), 'dd MMM yyyy')}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+                    </button>
+                  );
+                })}
+              </Card>
             )}
+
 
             <Pager page={pPage} pages={partnerPages} total={partnerTotal} onChange={setPPage} />
               </div>
