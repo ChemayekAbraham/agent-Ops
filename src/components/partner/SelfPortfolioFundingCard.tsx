@@ -671,7 +671,31 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
         </Card>
       )}
 
-      <SelfSupportHousesSection available={remaining} />
+      {houseSelected.length > 0 && (
+        <HouseSupportBar
+          selectedCount={houseSelected.length}
+          total={houseTotal}
+          available={Math.max(0, available - total)}
+          busy={busy}
+          setBusy={setBusy}
+          selectedIds={houseSelected}
+          onSubmitted={async (outcome) => {
+            setHouseSelected([]);
+            await housesQuery.refetch();
+            if (outcome === 'submitted') await loadFunded();
+          }}
+        />
+      )}
+
+      <EmptyHouseDetailSheet
+        house={detailHouse}
+        open={!!detailHouse}
+        onOpenChange={(v) => !v && setDetailHouse(null)}
+        isPartner
+        isPicked={!!detailHouse && houseSelected.includes(detailHouse.house_id)}
+        onTogglePick={(h) => toggleHouse(h.house_id)}
+      />
+
 
       <SelfPortfolioDeployDialog
         open={deployOpen}
