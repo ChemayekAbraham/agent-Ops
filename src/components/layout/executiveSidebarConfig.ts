@@ -5,7 +5,7 @@ import {
   Crown, LayoutDashboard, Globe, DollarSign, UserCog, Truck, Layers, MinusCircle, Receipt,
   ShieldCheck, GraduationCap, Mail, FolderOpen, CalendarCheck, Landmark, KeyRound, SlidersHorizontal, HandCoins, Snowflake, ShoppingBag, MonitorSmartphone
   , Gauge, Download, ShieldAlert,
-  Eye, Trash2,
+  Eye, Trash2, PhoneCall,
 } from 'lucide-react';
 import type { AppRole } from '@/hooks/auth/types';
 
@@ -254,6 +254,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Customer Relations',
       items: [
         { label: 'Overview', icon: LayoutDashboard, id: 'overview' },
+        { label: 'Call Centre', icon: PhoneCall, id: 'call-centre' },
         { label: 'All Tenants', icon: Home, id: 'all-tenants' },
         { label: 'All Agents', icon: UserCog, id: 'all-agents' },
         { label: 'All Landlords', icon: Building2, id: 'all-landlords' },

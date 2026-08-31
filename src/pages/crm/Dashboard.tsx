@@ -4,6 +4,7 @@ import { CRMDashboard } from '@/components/executive/CRMDashboard';
 import { CRMDirectoryPanel } from '@/components/executive/CRMDirectoryPanel';
 import { CRMLandlordsPanel } from '@/components/executive/CRMLandlordsPanel';
 import { CRMSupportLogPanel } from '@/components/executive/CRMSupportLogPanel';
+import { CallCentrePanel } from '@/components/executive/crm/CallCentrePanel';
 import { CTOCommunicationOverview } from '@/components/executive/CTOCommunicationOverview';
 import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWorkspace';
 
@@ -14,6 +15,8 @@ export default function CRMDashboardPage() {
     switch (activeTab) {
       case 'requisitions':
         return <RequisitionsWorkspace />;
+      case 'call-centre':
+        return <CallCentrePanel />;
       case 'all-tenants':
         return (
           <CRMDirectoryPanel

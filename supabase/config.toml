@@ -191,3 +191,11 @@ verify_jwt = false
 
 [functions.staff-requisition-decide]
 verify_jwt = false
+
+# Africa's Talking posts the voice callback with no JWT. The function itself
+# only acts on a sessionId that already exists in crm_call_sessions, and never
+# dials a number taken from the request body.
+# `crm-place-call` is deliberately NOT listed here — it keeps the default
+# verify_jwt = true and role-gates the caller itself.
+[functions.crm-voice-callback]
+verify_jwt = false
