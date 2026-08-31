@@ -7349,6 +7349,7 @@ export type Database = {
           created_at: string
           cycle_row_id: string
           id: string
+          legacy_note: string | null
           outcome: Database["public"]["Enums"]["cc_attempt_outcome"] | null
           recorded_at: string | null
           revealed_at: string
@@ -7362,6 +7363,7 @@ export type Database = {
           created_at?: string
           cycle_row_id: string
           id?: string
+          legacy_note?: string | null
           outcome?: Database["public"]["Enums"]["cc_attempt_outcome"] | null
           recorded_at?: string | null
           revealed_at?: string
@@ -7375,6 +7377,7 @@ export type Database = {
           created_at?: string
           cycle_row_id?: string
           id?: string
+          legacy_note?: string | null
           outcome?: Database["public"]["Enums"]["cc_attempt_outcome"] | null
           recorded_at?: string | null
           revealed_at?: string
@@ -7604,6 +7607,110 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      cc_followups: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          completion_note: string | null
+          created_at: string
+          cycle_row_id: string | null
+          due_at: string
+          id: string
+          owed_by_staff_id: string | null
+          reason: string
+          subject_id: string
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+          ticket_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_note?: string | null
+          created_at?: string
+          cycle_row_id?: string | null
+          due_at: string
+          id?: string
+          owed_by_staff_id?: string | null
+          reason: string
+          subject_id: string
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+          ticket_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_note?: string | null
+          created_at?: string
+          cycle_row_id?: string | null
+          due_at?: string
+          id?: string
+          owed_by_staff_id?: string | null
+          reason?: string
+          subject_id?: string
+          subject_type?: Database["public"]["Enums"]["cc_subject_type"]
+          ticket_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cc_followups_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cc_followups_cycle_row_id_fkey"
+            columns: ["cycle_row_id"]
+            isOneToOne: false
+            referencedRelation: "cc_cycle_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cc_followups_owed_by_staff_id_fkey"
+            columns: ["owed_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cc_followups_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "hr_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cc_legacy_outcome_map: {
+        Row: {
+          id: string
+          note: string | null
+          source_table: string
+          source_value: string
+          target_outcome:
+            | Database["public"]["Enums"]["cc_attempt_outcome"]
+            | null
+        }
+        Insert: {
+          id?: string
+          note?: string | null
+          source_table: string
+          source_value: string
+          target_outcome?:
+            | Database["public"]["Enums"]["cc_attempt_outcome"]
+            | null
+        }
+        Update: {
+          id?: string
+          note?: string | null
+          source_table?: string
+          source_value?: string
+          target_outcome?:
+            | Database["public"]["Enums"]["cc_attempt_outcome"]
+            | null
+        }
+        Relationships: []
       }
       cfo_debit_obligations: {
         Row: {
@@ -41315,12 +41422,20 @@ export type Database = {
         Returns: boolean
       }
       cc_close_cycle: { Args: { p_cycle_id: string }; Returns: undefined }
+      cc_complete_followup: {
+        Args: { p_followup_id: string; p_note: string }
+        Returns: undefined
+      }
       cc_expected_owner_staff: {
         Args: { p_role: Database["public"]["Enums"]["app_role"] }
         Returns: string
       }
       cc_raise_from_feedback: {
         Args: { p_feedback_id: string }
+        Returns: string
+      }
+      cc_raise_park_ticket: {
+        Args: { p_cycle_row_id: string }
         Returns: string
       }
       cc_task_department: {
@@ -41548,6 +41663,10 @@ export type Database = {
       cleanup_expired_otps: { Args: never; Returns: undefined }
       cleanup_mcp_public_rate_limits: { Args: never; Returns: undefined }
       cleanup_old_system_events: { Args: never; Returns: undefined }
+      collect_due_agent_advance_installment: {
+        Args: { p_agent_id: string }
+        Returns: number
+      }
       commission_withdrawal_available: {
         Args: { p_user_id: string }
         Returns: number
