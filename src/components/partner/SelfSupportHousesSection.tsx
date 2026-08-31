@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { formatDynamic } from '@/lib/currencyFormat';
+import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
 import { Check, Home, Loader2, MapPin, Plus, ShieldCheck, TrendingUp, UserCheck } from 'lucide-react';
 import type { HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
