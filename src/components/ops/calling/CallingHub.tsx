@@ -35,15 +35,30 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  /** Filters persist across tab switches — they are orthogonal to row state. */
+  const [filters, setFilters] = useState<CcFilterSelection>({});
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => setPage(0), [tab, debouncedSearch, sortKey, subjectType]);
+  const filtersKey = useMemo(
+    () =>
+      Object.entries(filters)
+        .filter(([, v]) => v)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => `${k}=${v}`)
+        .join('&'),
+    [filters],
+  );
 
-  const hub = useCcCallingHub(subjectType, { state: tab, sortKey, search: debouncedSearch, page });
+  useEffect(() => setPage(0), [tab, debouncedSearch, sortKey, subjectType, filtersKey]);
+
+  useEffect(() => setFilters({}), [subjectType]);
+
+  const hub = useCcCallingHub(subjectType, { state: tab, sortKey, search: debouncedSearch, page, filters });
+
 
   const [revealed, setRevealed] = useState<Record<string, string | null>>({});
   const [formAttempt, setFormAttempt] = useState<{ id: string; cycle_row_id: string; name: string } | null>(null);
