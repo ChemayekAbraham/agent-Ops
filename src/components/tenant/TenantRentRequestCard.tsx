@@ -169,12 +169,6 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
               <HandCoins className="h-[18px] w-[18px] text-success" />
             </div>
             <p className="font-bold text-sm leading-tight text-foreground">Request rent as tenant</p>
-            {openRequest && (
-              <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                <Badge variant="secondary" className="text-[9px]">{status?.label}</Badge>
-                <span className="text-[10px] text-foreground/70">{formatUGX(Number(openRequest.rent_amount))}</span>
-              </div>
-            )}
           </div>
 
           <div>
