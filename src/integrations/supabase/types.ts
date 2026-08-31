@@ -7341,6 +7341,242 @@ export type Database = {
           },
         ]
       }
+      cc_call_attempts: {
+        Row: {
+          attempt_no: number
+          caller_id: string
+          channel: Database["public"]["Enums"]["hr_reporter_channel"] | null
+          created_at: string
+          cycle_row_id: string
+          id: string
+          outcome: Database["public"]["Enums"]["cc_attempt_outcome"] | null
+          recorded_at: string | null
+          revealed_at: string
+          source: string
+          telephony_ref: string | null
+        }
+        Insert: {
+          attempt_no: number
+          caller_id: string
+          channel?: Database["public"]["Enums"]["hr_reporter_channel"] | null
+          created_at?: string
+          cycle_row_id: string
+          id?: string
+          outcome?: Database["public"]["Enums"]["cc_attempt_outcome"] | null
+          recorded_at?: string | null
+          revealed_at?: string
+          source?: string
+          telephony_ref?: string | null
+        }
+        Update: {
+          attempt_no?: number
+          caller_id?: string
+          channel?: Database["public"]["Enums"]["hr_reporter_channel"] | null
+          created_at?: string
+          cycle_row_id?: string
+          id?: string
+          outcome?: Database["public"]["Enums"]["cc_attempt_outcome"] | null
+          recorded_at?: string | null
+          revealed_at?: string
+          source?: string
+          telephony_ref?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cc_call_attempts_cycle_row_id_fkey"
+            columns: ["cycle_row_id"]
+            isOneToOne: false
+            referencedRelation: "cc_cycle_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cc_call_cycles: {
+        Row: {
+          attempt_cap: number
+          closed_at: string | null
+          cycle_no: number
+          id: string
+          opened_at: string
+          opened_by: string
+          retry_after_days: number
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+        }
+        Insert: {
+          attempt_cap?: number
+          closed_at?: string | null
+          cycle_no: number
+          id?: string
+          opened_at?: string
+          opened_by: string
+          retry_after_days?: number
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+        }
+        Update: {
+          attempt_cap?: number
+          closed_at?: string | null
+          cycle_no?: number
+          id?: string
+          opened_at?: string
+          opened_by?: string
+          retry_after_days?: number
+          subject_type?: Database["public"]["Enums"]["cc_subject_type"]
+        }
+        Relationships: []
+      }
+      cc_cycle_rows: {
+        Row: {
+          attempts_made: number
+          callback_due_at: string | null
+          closed_at: string | null
+          created_at: string
+          cycle_id: string
+          id: string
+          last_attempt_at: string | null
+          next_retry_at: string | null
+          park_reason: string | null
+          parked_at: string | null
+          priority_value: number | null
+          state: Database["public"]["Enums"]["cc_row_state"]
+          subject_id: string
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+        }
+        Insert: {
+          attempts_made?: number
+          callback_due_at?: string | null
+          closed_at?: string | null
+          created_at?: string
+          cycle_id: string
+          id?: string
+          last_attempt_at?: string | null
+          next_retry_at?: string | null
+          park_reason?: string | null
+          parked_at?: string | null
+          priority_value?: number | null
+          state?: Database["public"]["Enums"]["cc_row_state"]
+          subject_id: string
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+        }
+        Update: {
+          attempts_made?: number
+          callback_due_at?: string | null
+          closed_at?: string | null
+          created_at?: string
+          cycle_id?: string
+          id?: string
+          last_attempt_at?: string | null
+          next_retry_at?: string | null
+          park_reason?: string | null
+          parked_at?: string | null
+          priority_value?: number | null
+          state?: Database["public"]["Enums"]["cc_row_state"]
+          subject_id?: string
+          subject_type?: Database["public"]["Enums"]["cc_subject_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cc_cycle_rows_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "cc_call_cycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cc_feedback: {
+        Row: {
+          attempt_id: string
+          category_id: string
+          consent_to_contact: boolean | null
+          created_at: string
+          id: string
+          note: string
+          routed_to_actual: string | null
+          routed_to_expected: string | null
+          severity: Database["public"]["Enums"]["hr_ticket_severity"]
+          ticket_id: string | null
+        }
+        Insert: {
+          attempt_id: string
+          category_id: string
+          consent_to_contact?: boolean | null
+          created_at?: string
+          id?: string
+          note: string
+          routed_to_actual?: string | null
+          routed_to_expected?: string | null
+          severity?: Database["public"]["Enums"]["hr_ticket_severity"]
+          ticket_id?: string | null
+        }
+        Update: {
+          attempt_id?: string
+          category_id?: string
+          consent_to_contact?: boolean | null
+          created_at?: string
+          id?: string
+          note?: string
+          routed_to_actual?: string | null
+          routed_to_expected?: string | null
+          severity?: Database["public"]["Enums"]["hr_ticket_severity"]
+          ticket_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cc_feedback_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: true
+            referencedRelation: "cc_call_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cc_feedback_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "cc_feedback_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cc_feedback_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "hr_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cc_feedback_categories: {
+        Row: {
+          active: boolean
+          applies_to: Database["public"]["Enums"]["cc_subject_type"][]
+          code: string
+          created_at: string
+          default_owner_role: Database["public"]["Enums"]["app_role"] | null
+          id: string
+          label: string
+          locked: boolean
+        }
+        Insert: {
+          active?: boolean
+          applies_to: Database["public"]["Enums"]["cc_subject_type"][]
+          code: string
+          created_at?: string
+          default_owner_role?: Database["public"]["Enums"]["app_role"] | null
+          id?: string
+          label: string
+          locked?: boolean
+        }
+        Update: {
+          active?: boolean
+          applies_to?: Database["public"]["Enums"]["cc_subject_type"][]
+          code?: string
+          created_at?: string
+          default_owner_role?: Database["public"]["Enums"]["app_role"] | null
+          id?: string
+          label?: string
+          locked?: boolean
+        }
+        Relationships: []
+      }
       cfo_debit_obligations: {
         Row: {
           amount: number
@@ -20092,9 +20328,12 @@ export type Database = {
           id: string
           item_name: string
           last_recovery_at: string | null
+          last_surcharge_on: string | null
           original_amount: number
           outstanding_balance: number
+          overdue_surcharge_total: number
           sale_id: string | null
+          starts_on: string | null
           status: string
           updated_at: string
         }
@@ -20111,9 +20350,12 @@ export type Database = {
           id?: string
           item_name: string
           last_recovery_at?: string | null
+          last_surcharge_on?: string | null
           original_amount?: number
           outstanding_balance?: number
+          overdue_surcharge_total?: number
           sale_id?: string | null
+          starts_on?: string | null
           status?: string
           updated_at?: string
         }
@@ -20130,9 +20372,12 @@ export type Database = {
           id?: string
           item_name?: string
           last_recovery_at?: string | null
+          last_surcharge_on?: string | null
           original_amount?: number
           outstanding_balance?: number
+          overdue_surcharge_total?: number
           sale_id?: string | null
+          starts_on?: string | null
           status?: string
           updated_at?: string
         }
@@ -20151,8 +20396,11 @@ export type Database = {
           access_accepted_at: string | null
           access_daily_amount: number | null
           access_repayment_days: number | null
+          advance_markup_pct: number | null
+          advance_period_months: number | null
           amount_outstanding: number
           amount_paid: number
+          applicant_rank: number | null
           brand: string | null
           cfo_disbursed_at: string | null
           cfo_disbursed_by: string | null
@@ -20165,6 +20413,7 @@ export type Database = {
           customer_id: string | null
           disbursed_amount: number | null
           disbursement_group_id: string | null
+          grace_days: number | null
           id: string
           issued_channel: string | null
           item_name: string
@@ -20173,18 +20422,26 @@ export type Database = {
           lease_term_months: number | null
           model_type: string | null
           notes: string | null
+          ops_approved_at: string | null
+          ops_approved_by: string | null
           order_status: string
+          overdue_surcharge_total: number | null
           payment_plan: string
           payment_projection: number
           payment_status: string
           quantity: number
+          rank_cap: number | null
           rejected_at: string | null
           rejected_by: string | null
           rejection_reason: string | null
+          repayment_starts_on: string | null
           sale_date: string
           selected_size: string | null
           service_centre_id: string | null
+          smartphone_catalog_id: string | null
+          supplier_id: string | null
           total_amount: number
+          total_repayable: number | null
           total_revenue: number
           tracking_reference: string | null
           unit_cost: number
@@ -20196,8 +20453,11 @@ export type Database = {
           access_accepted_at?: string | null
           access_daily_amount?: number | null
           access_repayment_days?: number | null
+          advance_markup_pct?: number | null
+          advance_period_months?: number | null
           amount_outstanding?: number
           amount_paid?: number
+          applicant_rank?: number | null
           brand?: string | null
           cfo_disbursed_at?: string | null
           cfo_disbursed_by?: string | null
@@ -20210,6 +20470,7 @@ export type Database = {
           customer_id?: string | null
           disbursed_amount?: number | null
           disbursement_group_id?: string | null
+          grace_days?: number | null
           id?: string
           issued_channel?: string | null
           item_name: string
@@ -20218,18 +20479,26 @@ export type Database = {
           lease_term_months?: number | null
           model_type?: string | null
           notes?: string | null
+          ops_approved_at?: string | null
+          ops_approved_by?: string | null
           order_status?: string
+          overdue_surcharge_total?: number | null
           payment_plan?: string
           payment_projection?: number
           payment_status?: string
           quantity: number
+          rank_cap?: number | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
+          repayment_starts_on?: string | null
           sale_date?: string
           selected_size?: string | null
           service_centre_id?: string | null
+          smartphone_catalog_id?: string | null
+          supplier_id?: string | null
           total_amount?: number
+          total_repayable?: number | null
           total_revenue: number
           tracking_reference?: string | null
           unit_cost?: number
@@ -20241,8 +20510,11 @@ export type Database = {
           access_accepted_at?: string | null
           access_daily_amount?: number | null
           access_repayment_days?: number | null
+          advance_markup_pct?: number | null
+          advance_period_months?: number | null
           amount_outstanding?: number
           amount_paid?: number
+          applicant_rank?: number | null
           brand?: string | null
           cfo_disbursed_at?: string | null
           cfo_disbursed_by?: string | null
@@ -20255,6 +20527,7 @@ export type Database = {
           customer_id?: string | null
           disbursed_amount?: number | null
           disbursement_group_id?: string | null
+          grace_days?: number | null
           id?: string
           issued_channel?: string | null
           item_name?: string
@@ -20263,18 +20536,26 @@ export type Database = {
           lease_term_months?: number | null
           model_type?: string | null
           notes?: string | null
+          ops_approved_at?: string | null
+          ops_approved_by?: string | null
           order_status?: string
+          overdue_surcharge_total?: number | null
           payment_plan?: string
           payment_projection?: number
           payment_status?: string
           quantity?: number
+          rank_cap?: number | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
+          repayment_starts_on?: string | null
           sale_date?: string
           selected_size?: string | null
           service_centre_id?: string | null
+          smartphone_catalog_id?: string | null
+          supplier_id?: string | null
           total_amount?: number
+          total_repayable?: number | null
           total_revenue?: number
           tracking_reference?: string | null
           unit_cost?: number
@@ -31273,6 +31554,9 @@ export type Database = {
           model_name: string | null
           more_specifications: string | null
           specifications: string | null
+          supplier_id: string | null
+          supplier_name: string | null
+          supplier_phone: string | null
           updated_at: string
         }
         Insert: {
@@ -31285,6 +31569,9 @@ export type Database = {
           model_name?: string | null
           more_specifications?: string | null
           specifications?: string | null
+          supplier_id?: string | null
+          supplier_name?: string | null
+          supplier_phone?: string | null
           updated_at?: string
         }
         Update: {
@@ -31297,6 +31584,9 @@ export type Database = {
           model_name?: string | null
           more_specifications?: string | null
           specifications?: string | null
+          supplier_id?: string | null
+          supplier_name?: string | null
+          supplier_phone?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -39694,13 +39984,6 @@ export type Database = {
       }
       _geo_coverage_caller_allowed: { Args: never; Returns: boolean }
       _geo_norm: { Args: { p: string }; Returns: string }
-      _tamper_test: {
-        Args: never
-        Returns: {
-          outcome: string
-          scenario: string
-        }[]
-      }
       _test_proxy_capability_sync: {
         Args: never
         Returns: {
@@ -39942,6 +40225,10 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: Json
       }
+      agent_ops_approve_smartphone_order: {
+        Args: { p_note?: string; p_sale_id: string }
+        Returns: Json
+      }
       agent_ops_can_view_rent_behaviour: {
         Args: { _user_id: string }
         Returns: boolean
@@ -40036,7 +40323,7 @@ export type Database = {
         Returns: Json
       }
       agent_order_smartphone: {
-        Args: { p_brand: string; p_model_type: string; p_total_amount: number }
+        Args: { p_catalog_id: string; p_period_months: number }
         Returns: Json
       }
       agent_order_spiro_bike: { Args: { p_amount: number }; Returns: Json }
@@ -40325,6 +40612,7 @@ export type Database = {
         }
         Returns: Json
       }
+      apply_smartphone_overdue_surcharges: { Args: never; Returns: Json }
       apply_tier_capabilities: {
         Args: {
           _actor: string
@@ -40371,10 +40659,16 @@ export type Database = {
         Args: { _reason: string; _target_user: string }
         Returns: undefined
       }
-      approve_smartphone_order: {
-        Args: { p_note?: string; p_sale_id: string; p_total_amount?: number }
-        Returns: Json
-      }
+      approve_smartphone_order:
+        | { Args: { p_note?: string; p_sale_id: string }; Returns: Json }
+        | {
+            Args: {
+              p_note?: string
+              p_sale_id: string
+              p_total_amount?: number
+            }
+            Returns: Json
+          }
       archive_dead_letter_batch: {
         Args: { _dead_letter_id: number }
         Returns: undefined
@@ -40874,6 +41168,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      can_ops_approve_smartphone_orders: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       can_pause_agent_advance: { Args: { _user_id: string }; Returns: boolean }
       can_process_cashout: { Args: { _agent_id: string }; Returns: boolean }
       can_read_landlord_payout_receipts: {
@@ -40930,6 +41228,15 @@ export type Database = {
         }
         Returns: Json
       }
+      cc_can_read_subject: {
+        Args: { p_subject: Database["public"]["Enums"]["cc_subject_type"] }
+        Returns: boolean
+      }
+      cc_can_write_subject: {
+        Args: { p_subject: Database["public"]["Enums"]["cc_subject_type"] }
+        Returns: boolean
+      }
+      cc_close_cycle: { Args: { p_cycle_id: string }; Returns: undefined }
       ceo_angel_pool_shareholder_action: {
         Args: {
           p_action: string
@@ -40993,7 +41300,7 @@ export type Database = {
         Returns: Json
       }
       cfo_disburse_smartphone_order: {
-        Args: { p_amount?: number; p_note?: string; p_sale_id: string }
+        Args: { p_note?: string; p_sale_id: string }
         Returns: Json
       }
       cfo_promissory_bookings_report: {
@@ -41255,13 +41562,7 @@ export type Database = {
         Returns: Json
       }
       coo_approve_smartphone_order: {
-        Args: {
-          p_daily_deduction?: number
-          p_note?: string
-          p_repayment_days?: number
-          p_sale_id: string
-          p_total_amount?: number
-        }
+        Args: { p_note?: string; p_sale_id: string }
         Returns: Json
       }
       country_to_continent: { Args: { p_country: string }; Returns: string }
@@ -42553,6 +42854,10 @@ export type Database = {
         }[]
       }
       get_agent_service_center: { Args: never; Returns: Json }
+      get_agent_smartphone_eligibility: {
+        Args: { p_user_id?: string }
+        Returns: Json
+      }
       get_agent_split_balances: {
         Args: { p_agent_id: string }
         Returns: {
@@ -45217,8 +45522,11 @@ export type Database = {
         Returns: {
           access_daily_amount: number
           access_repayment_days: number
+          advance_markup_pct: number
+          advance_period_months: number
           amount_outstanding: number
           amount_paid: number
+          applicant_rank: number
           brand: string
           cfo_disbursed_at: string
           client_name: string
@@ -45229,10 +45537,17 @@ export type Database = {
           disbursed_amount: number
           id: string
           model_type: string
+          ops_approved_at: string
           order_status: string
+          overdue_surcharge_total: number
           payment_projection: number
+          rank_cap: number
           rejection_reason: string
+          repayment_starts_on: string
+          supplier_id: string
+          supplier_name: string
           total_amount: number
+          total_repayable: number
         }[]
       }
       lock_campaign_attribution: { Args: { p_token: string }; Returns: Json }
@@ -47751,6 +48066,17 @@ export type Database = {
         }[]
       }
       slugify_district: { Args: { p_input: string }; Returns: string }
+      smartphone_leaderboard_ranks: {
+        Args: never
+        Returns: {
+          agent_id: string
+          collected: number
+          rank: number
+        }[]
+      }
+      smartphone_period_days: { Args: { p_months: number }; Returns: number }
+      smartphone_period_markup: { Args: { p_months: number }; Returns: number }
+      smartphone_rank_cap: { Args: { p_rank: number }; Returns: number }
       smoke_promissory_commissions: {
         Args: { p_agent_id: string; p_partner_id: string }
         Returns: Json
@@ -48516,6 +48842,21 @@ export type Database = {
         | "invalidated"
         | "duplicate"
         | "existing_user"
+      cc_attempt_outcome:
+        | "engaged"
+        | "no_answer"
+        | "phone_off"
+        | "wrong_number"
+        | "refused"
+        | "callback_booked"
+      cc_row_state:
+        | "to_call"
+        | "engaged"
+        | "unreachable"
+        | "callback"
+        | "parked"
+        | "closed"
+      cc_subject_type: "tenant" | "landlord" | "agent"
       collection_payment_method: "mobile_money" | "cash" | "in_app_wallet"
       deposit_purpose:
         | "operational_float"
@@ -48868,6 +49209,23 @@ export const Constants = {
         "duplicate",
         "existing_user",
       ],
+      cc_attempt_outcome: [
+        "engaged",
+        "no_answer",
+        "phone_off",
+        "wrong_number",
+        "refused",
+        "callback_booked",
+      ],
+      cc_row_state: [
+        "to_call",
+        "engaged",
+        "unreachable",
+        "callback",
+        "parked",
+        "closed",
+      ],
+      cc_subject_type: ["tenant", "landlord", "agent"],
       collection_payment_method: ["mobile_money", "cash", "in_app_wallet"],
       deposit_purpose: [
         "operational_float",
