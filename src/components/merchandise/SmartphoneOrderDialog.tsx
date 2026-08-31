@@ -121,7 +121,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const blockers: string[] = [];
   if (eligibility) {
     if (eligibility.has_open_application) blockers.push('You already have an application in progress.');
-    if (cap <= 0) blockers.push('This programme is open to the top 50 agents on the operational leaderboard.');
+    if (cap <= 0) blockers.push('Eligibility: Open to all active operational agents on the Welile network.');
   }
 
   return (
