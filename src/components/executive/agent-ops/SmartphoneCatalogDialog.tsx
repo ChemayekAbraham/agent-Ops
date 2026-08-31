@@ -258,6 +258,8 @@ export function SmartphoneCatalogDialog() {
   const [editSpecifications, setEditSpecifications] = useState('');
   const [editMoreSpecifications, setEditMoreSpecifications] = useState('');
   const [pendingDelete, setPendingDelete] = useState<SmartphoneCatalogEntry | null>(null);
+  const [supplier, setSupplier] = useState<SupplierChoice | null>(null);
+  const [editSupplier, setEditSupplier] = useState<SupplierChoice | null>(null);
 
   const queryClient = useQueryClient();
 
