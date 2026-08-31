@@ -10,6 +10,9 @@ const DASH = '—';
 const fmt = (v: string | null) => (v ? new Date(v).toLocaleString() : DASH);
 const shortDate = (v: string | null) => (v ? new Date(v).toLocaleDateString() : 'Never');
 
+/** Columns rendered as full-width action controls at the foot of a card. */
+const ACTION_COLUMNS: CallingColumnKey[] = ['reveal', 'whatsapp'];
+
 /** Formatted by metric_format. A null value is an em dash, never a zero. */
 function metricCell(row: CcRow) {
   switch (row.metric_format) {
@@ -53,7 +56,43 @@ export function CallingHubTable({
 
   const header = (c: CallingColumnKey) => (c === 'metric' ? metricLabel : CALLING_COLUMN_LABEL[c]);
 
-  const cell = (row: CcRow, col: CallingColumnKey) => {
+  const revealButton = (row: CcRow, full: boolean) => {
+    const phone = revealed[row.id];
+    return (
+      <Button
+        size="sm"
+        variant={phone ? 'secondary' : 'default'}
+        className={full ? 'h-9 w-full text-xs' : 'h-7 px-2 text-[11px]'}
+        disabled={wipBlocked || revealing || !!phone}
+        title={wipBlocked ? 'Record the outcome of your open calls before revealing another number.' : undefined}
+        onClick={() => onReveal(row)}
+      >
+        <Eye className="mr-1 h-3 w-3" />
+        {phone ? 'Number revealed' : 'Reveal number'}
+      </Button>
+    );
+  };
+
+  const whatsappLink = (row: CcRow, full: boolean) => {
+    const phone = revealed[row.id];
+    if (!phone) return <span className="text-muted-foreground">{DASH}</span>;
+    return (
+      <a
+        href={`https://wa.me/${phone.replace(/\D/g, '')}`}
+        target="_blank"
+        rel="noreferrer"
+        className={
+          full
+            ? 'inline-flex h-9 w-full items-center justify-center gap-1 rounded-md border border-border bg-background text-xs font-semibold text-primary'
+            : 'inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline'
+        }
+      >
+        <MessageCircle className="h-3 w-3" /> WhatsApp
+      </a>
+    );
+  };
+
+  const cell = (row: CcRow, col: CallingColumnKey, full = false) => {
     const phone = revealed[row.id];
     switch (col) {
       case 'name':
@@ -72,32 +111,9 @@ export function CallingHubTable({
       case 'metric':
         return metricCell(row);
       case 'reveal':
-        return (
-          <Button
-            size="sm"
-            variant={phone ? 'secondary' : 'default'}
-            className="h-7 px-2 text-[11px]"
-            disabled={wipBlocked || revealing || !!phone}
-            title={wipBlocked ? 'Record the outcome of your open calls before revealing another number.' : undefined}
-            onClick={() => onReveal(row)}
-          >
-            <Eye className="mr-1 h-3 w-3" />
-            {phone ? 'Number revealed' : 'Reveal number'}
-          </Button>
-        );
+        return revealButton(row, full);
       case 'whatsapp':
-        return phone ? (
-          <a
-            href={`https://wa.me/${phone.replace(/\D/g, '')}`}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-          >
-            <MessageCircle className="h-3 w-3" /> WhatsApp
-          </a>
-        ) : (
-          <span className="text-muted-foreground">{DASH}</span>
-        );
+        return whatsappLink(row, full);
       case 'feedback_category':
         return row.feedback_category ?? DASH;
       case 'severity':
@@ -140,30 +156,80 @@ export function CallingHubTable({
     }
   };
 
+  /**
+   * The per-tab column set in callingHubColumns.ts is the single contract for
+   * both renderings — the cards read the same `columns` prop as the table, so a
+   * tab can never silently lose a column on a narrow screen.
+   */
+  const detailColumns = columns.filter((c) => c !== 'name' && !ACTION_COLUMNS.includes(c));
+  const actionColumns = columns.filter((c) => ACTION_COLUMNS.includes(c));
+
+  const lastIndex = columns.length - 1;
+  const stickyRight = ACTION_COLUMNS.includes(columns[lastIndex]);
+
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {columns.map((c) => (
-              <TableHead key={c} className="whitespace-nowrap text-[11px] uppercase tracking-wide">
-                {header(c)}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => (
-            <TableRow key={row.id}>
-              {columns.map((c) => (
-                <TableCell key={c} className="whitespace-nowrap text-xs">
-                  {cell(row, c)}
-                </TableCell>
+    <>
+      {/* Stacked cards below lg */}
+      <div className="space-y-2 lg:hidden">
+        {rows.map((row) => (
+          <div key={row.id} className="rounded-xl border border-border/60 bg-card p-3">
+            <p className="text-sm font-semibold leading-tight">{row.name}</p>
+            <dl className="mt-2 grid grid-cols-1 gap-x-3 gap-y-1.5 sm:grid-cols-2">
+              {detailColumns.map((c) => (
+                <div key={c} className="min-w-0">
+                  <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{header(c)}</dt>
+                  <dd className="break-words text-xs">{cell(row, c)}</dd>
+                </div>
+              ))}
+            </dl>
+            {actionColumns.length > 0 && (
+              <div className="mt-3 flex flex-col gap-2">
+                {actionColumns.map((c) => (
+                  <div key={c} className="w-full">
+                    {cell(row, c, true)}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Table at lg and above */}
+      <div className="hidden overflow-x-auto lg:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {columns.map((c, i) => (
+                <TableHead
+                  key={c}
+                  className={`whitespace-nowrap text-[11px] uppercase tracking-wide ${
+                    c === 'name' ? 'sticky left-0 z-20 bg-card' : ''
+                  } ${stickyRight && i === lastIndex ? 'sticky right-0 z-20 bg-card' : ''}`}
+                >
+                  {header(c)}
+                </TableHead>
               ))}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={row.id}>
+                {columns.map((c, i) => (
+                  <TableCell
+                    key={c}
+                    className={`whitespace-nowrap text-xs ${c === 'name' ? 'sticky left-0 z-10 bg-card' : ''} ${
+                      stickyRight && i === lastIndex ? 'sticky right-0 z-10 bg-card' : ''
+                    }`}
+                  >
+                    {cell(row, c)}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </>
   );
 }
