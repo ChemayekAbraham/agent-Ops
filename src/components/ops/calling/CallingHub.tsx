@@ -186,13 +186,14 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
                       wipBlocked={hub.wipBlocked}
                       onReveal={handleReveal}
                     />
-                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1">
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1 pb-2">
                       <p className="text-[11px] text-muted-foreground">
                         {hub.total === 0
                           ? 'Showing 0 of 0'
                           : `Showing ${hub.pageFrom} to ${hub.pageTo} of ${hub.total.toLocaleString()}`}
                       </p>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+
                         <Button
                           size="sm"
                           variant="outline"
