@@ -51,9 +51,13 @@ export interface SmartphoneCatalogEntry {
   created_at?: string | null;
 }
 
-/** A model only reaches the agent application dropdown with all three in place. */
+/**
+ * A model reaches the agent application dropdown when it is active and priced.
+ * The supplier is optional here — Agent Ops assigns it to the order after the
+ * agent submits the application.
+ */
 export function catalogVisibleToAgents(e: SmartphoneCatalogEntry): boolean {
-  return e.is_active && !!e.supplier_id && Number(e.default_amount || 0) > 0;
+  return e.is_active && Number(e.default_amount || 0) > 0;
 }
 
 export const SMARTPHONE_CATALOG_QUERY_KEY = ['smartphone-catalog'];
