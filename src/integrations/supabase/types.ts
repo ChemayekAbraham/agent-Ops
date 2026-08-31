@@ -40982,6 +40982,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      assign_smartphone_order_supplier: {
+        Args: { p_sale_id: string; p_supplier_id?: string }
+        Returns: Json
+      }
       attach_campaign_registration: {
         Args: { p_short_code: string; p_visitor_id?: string }
         Returns: Json
