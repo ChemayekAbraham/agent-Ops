@@ -416,9 +416,42 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
         </div>
       )}
 
-      {plans
-        .slice(page * PLANS_PER_PAGE, page * PLANS_PER_PAGE + PLANS_PER_PAGE)
-        .map((plan) => {
+      {pageItems.map((item, i) => {
+        const globalIndex = pageStart + i;
+        const prevKind = globalIndex > 0 ? feed[globalIndex - 1].kind : null;
+        const groupHeader =
+          prevKind !== item.kind ? (
+            <div key={`hr-${item.kind}`} className="flex items-center gap-2 px-1 pt-2">
+              <span className="h-px flex-1 bg-border" />
+              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                {item.kind === 'house' ? 'Houses' : 'Rent requests'}
+              </span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          ) : null;
+
+        if (item.kind === 'house') {
+          return (
+            <div key={`house-${item.id}`} className="space-y-3">
+              {groupHeader}
+              <HouseSupportCard
+                house={item.house}
+                isSelected={houseSelected.includes(item.id)}
+                remaining={remaining}
+                busy={busy}
+                onToggle={toggleHouse}
+                onOpenDetail={setDetailHouse}
+              />
+            </div>
+          );
+        }
+
+        return (
+          <div key={`plan-${item.id}`} className="space-y-3">
+            {groupHeader}
+            {(() => {
+        const plan = item.plan;
+
         const isFunded = fundedIds.includes(plan.rent_request_id);
         const heldByOther = !!plan.held_by && plan.held_by !== partnerId;
         const isSelected = selected.includes(plan.rent_request_id);
