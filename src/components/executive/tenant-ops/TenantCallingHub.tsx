@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { KPICard } from '../KPICard';
 import { ContactActions } from '@/components/ops/ContactActions';
 import { TenantCallDrawer } from './TenantCallDrawer';
@@ -13,7 +14,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import {
-  CheckCircle2, ChevronRight, PhoneCall, PhoneMissed, RefreshCw, Search, Users,
+  CheckCircle2, ChevronRight, PhoneCall, PhoneMissed, RefreshCw, Search, Users, X,
 } from 'lucide-react';
 import { useTenantCallingList, type CallingListRow } from '@/hooks/useTenantCallingList';
 import { TENANT_CALL_STATUS_LABEL, type TenantCallStatus } from '@/hooks/useTenantCallReports';
@@ -24,11 +25,25 @@ type SortBy = 'owed' | 'missed_days' | 'name';
 
 const RECALL_OPTIONS = [3, 7, 14] as const;
 
+const ALL = '__all__';
+
+/** Missed-days / payment health buckets, derived from existing figures only. */
+const PAYMENT_FILTERS = [
+  { key: 'up_to_date', label: 'Up to date (0 missed days)' },
+  { key: 'missed_1_3', label: '1-3 missed days' },
+  { key: 'missed_4_7', label: '4-7 missed days' },
+  { key: 'missed_8_plus', label: '8+ missed days' },
+  { key: 'owing', label: 'Has outstanding balance' },
+  { key: 'cleared', label: 'Nothing outstanding' },
+] as const;
+type PaymentFilter = (typeof PAYMENT_FILTERS)[number]['key'];
+
 const statusOf = (r: CallingListRow): TenantCallStatus | null =>
   (r.call?.last_status || (r.call?.last_outcome === 'missed' ? 'missed' : r.call ? 'pending' : null)) as TenantCallStatus | null;
 
 const daysSince = (iso?: string | null) =>
   iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : Infinity;
+
 
 /**
  * Tenant Calling Hub — one complete calling list over the authoritative active
