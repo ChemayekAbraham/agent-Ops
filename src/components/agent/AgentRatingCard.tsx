@@ -41,9 +41,14 @@ export function AgentRatingCard({ agentId }: Props) {
 
   const dailyLabel =
     cap.daily_rating === 'Starter' ? 'New today' : `Today: ${cap.daily_rating}`;
-  const todayPct = cap.expected_daily > 1
+  // Coverage-safe today % — the SAME figure the badge is graded on. The raw
+  // amount ratio (paid_today / expected_daily) overstates performance because
+  // one tenant over-paying cannot cover tenants who paid nothing.
+  const todayPct = Math.round((cap.today_response_pct || 0) * 100);
+  const rawTodayPct = cap.expected_daily > 1
     ? Math.min(100, Math.round((cap.paid_today / cap.expected_daily) * 100))
-    : 1;
+    : 0;
+
 
   const canPost = cap.can_post_rent_today;
 
@@ -64,13 +69,17 @@ export function AgentRatingCard({ agentId }: Props) {
         <div className="flex items-center gap-1.5">
           <span
             className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${dailyRatingTone[cap.daily_rating]}`}
-            title={`Today's collection — ${formatUGX(cap.paid_today)} of ${formatUGX(cap.expected_daily)} (${todayPct}%)`}
+            title={`Today's coverage-safe collection — ${todayPct}% (${cap.tenants_paid_today} of ${cap.tenants_due} due tenants paid; ${formatUGX(cap.paid_today)} of ${formatUGX(cap.expected_daily)})`}
           >
             {dailyLabel}
           </span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${tierTone[cap.tier]}`}>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${tierTone[cap.tier]}`}
+            title={`7-day response rate — ${Math.round(cap.response_rate * 100)}% (${cap.responding_tenant_days} of ${cap.expected_tenant_days} tenant-days)`}
+          >
             7d: {cap.tier}
           </span>
+
           <Improve7DayRatingPopover capacity={cap} agentId={agentId} />
         </div>
       </div>
@@ -93,8 +102,10 @@ export function AgentRatingCard({ agentId }: Props) {
             />
           </div>
           <p className="text-[10px] text-muted-foreground tabular-nums">
-            {formatUGX(cap.paid_today)} / {formatUGX(cap.expected_daily)}
+            {cap.tenants_paid_today}/{cap.tenants_due} tenants · {formatUGX(cap.paid_today)} / {formatUGX(cap.expected_daily)}
+            {rawTodayPct > todayPct ? ` (cash ${rawTodayPct}%)` : ''}
           </p>
+
         </div>
 
         <div className="rounded-xl bg-muted/50 p-2.5 space-y-1.5">
