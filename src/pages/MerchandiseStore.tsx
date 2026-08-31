@@ -450,7 +450,7 @@ export default function MerchandiseStore() {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold leading-tight">Apply for a Spiro electric bike</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                Pick a model and lease term. The COO approves the valuation, then the CFO releases the bike and activates your lease.
+                Pick a model and lease term. Marketing confirms the price, then the bike is released and your lease is activated.
               </p>
             </div>
             <Button size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => setBikeOpen(true)}>

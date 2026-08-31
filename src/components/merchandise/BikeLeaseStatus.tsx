@@ -35,7 +35,7 @@ interface BikeLeaseRow {
   tracking_reference: string | null;
 }
 
-const STAGES = ['Submitted', 'COO Approved', 'Bike Disbursed & Active Lease'] as const;
+const STAGES = ['Submitted', 'Approved', 'Bike Disbursed & Active Lease'] as const;
 
 const stageIndex = (status: string) => {
   if (status === 'approved' || status === 'completed' || status === 'processing') return 2;
@@ -50,7 +50,7 @@ interface Props {
 
 /**
  * Agent-facing realtime tracker for the Spiro electric bike lease:
- * Submitted → COO Approved → Bike Disbursed & Active Lease.
+ * Submitted → Approved → Bike Disbursed & Active Lease.
  */
 export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
   const queryClient = useQueryClient();
@@ -74,7 +74,7 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
     },
   });
 
-  /** Realtime: COO approval and CFO release both update this agent's row. */
+  /** Realtime: internal approval and bike release both update this agent's row. */
   useEffect(() => {
     if (!userId) return;
     const channel = supabase
