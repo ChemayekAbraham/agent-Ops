@@ -1,9 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   Target, TrendingDown, CheckCircle2, Bike, Smartphone, Home, UtensilsCrossed,
-  Loader2, Info, CalendarClock,
+  Loader2, Info, CalendarClock, ChevronDown, Gift,
 } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -30,6 +30,8 @@ export interface ProxyTargetModeState {
   days_in_month: number;
   day_of_month: number;
   daily_target: number;
+  daily_min: number;
+  stretch_daily: number;
   notes_month: number;
   expected_to_date: number;
   missed_notes: number;
