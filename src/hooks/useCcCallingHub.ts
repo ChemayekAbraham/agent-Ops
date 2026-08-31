@@ -345,10 +345,14 @@ export function useCcCallingHub(
 
   /* ---------------------------------------------------------- state counts */
   const countsQ = useQuery({
-    queryKey: ['cc-state-counts', subjectType],
+    queryKey: ['cc-state-counts', subjectType, filtersKey],
     queryFn: async (): Promise<Record<string, number>> => {
-      const { data, error } = await rpc('cc_state_counts', { p_subject_type: subjectType });
+      const { data, error } = await rpc('cc_state_counts', {
+        p_subject_type: subjectType,
+        p_filters: filtersArg,
+      });
       if (error) throw new Error(err(error));
+
       const out: Record<string, number> = {};
       for (const r of (data ?? []) as Record<string, unknown>[]) {
         out[String(r.state)] = Number(r.row_count ?? 0);
