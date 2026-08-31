@@ -315,14 +315,12 @@ export function UnifiedWalletHeroCard({
                     <p className="text-[9px] uppercase tracking-[0.15em] font-semibold text-white/50">Wallet Float</p>
                   </div>
                   <p className="text-lg font-black tracking-tight leading-none text-white whitespace-nowrap">
-                    {formatAmount(
-                      Math.max(0, (floatBalance ?? 0) - Math.max(0, floatReserved ?? 0)),
-                    )}
+                    {maskAmt(Math.max(0, (floatBalance ?? 0) - Math.max(0, floatReserved ?? 0)))}
                   </p>
                   <p className="text-[9px] text-white/40 mt-1 font-medium">
                     {floatCaption ?? 'Tenant collections · Pay Rent'}
                   </p>
-                  {!!floatReserved && floatReserved > 0 && (
+                  {!!floatReserved && floatReserved > 0 && showAmount && (
                     <p className="text-[9px] text-amber-200/80 mt-0.5 font-medium">
                       {formatAmount(floatReserved)} held by payouts you claimed
                     </p>
@@ -339,7 +337,7 @@ export function UnifiedWalletHeroCard({
                   <p className="text-[9px] uppercase tracking-[0.15em] font-semibold text-emerald-300/70">Withdrawable</p>
                 </div>
                 <p className="text-lg font-black tracking-tight leading-none text-white whitespace-nowrap">
-                  {formatAmount(withdrawableBalance ?? 0)}
+                  {maskAmt(withdrawableBalance ?? 0)}
                 </p>
                 <p className="text-[9px] text-emerald-300/50 mt-1 font-medium">
                   Available to withdraw
@@ -350,7 +348,7 @@ export function UnifiedWalletHeroCard({
             {/* Total balance row */}
             <div className="flex items-center justify-between mt-3 px-1">
               <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-white/40">Total Balance</span>
-              <span className="text-sm font-black text-white">{formatAmount(balance)}</span>
+              <span className="text-sm font-black text-white">{maskAmt(balance)}</span>
             </div>
             {!disableTap && (
               <p className="mt-2 px-1 text-[10px] text-white font-medium">
