@@ -171,9 +171,9 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
             <p className="font-bold text-sm leading-tight text-foreground">Request rent as tenant</p>
           </div>
 
-          <div>
+          <div className="mt-auto">
             {openRequest ? (
-              <p className="text-xs text-foreground/70 leading-snug line-clamp-2 break-words">{status?.note}</p>
+              <p className="text-[10px] text-foreground/70 leading-tight line-clamp-3 break-words">{status?.note}</p>
             ) : (
               <p className="text-xs text-foreground/70 leading-snug line-clamp-2 break-words">
                 Request rent · agent verifies your house
