@@ -26,6 +26,8 @@ import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import { createShortLink } from '@/lib/createShortLink';
 
 import { PromissoryNoteDialog } from '@/components/agent/PromissoryNoteDialog';
+import { ProxyTargetModeCard } from '@/components/agent/ProxyTargetModeCard';
+
 import { SupportModeChooserDialog, type SupportMode } from '@/components/agent/SupportModeChooserDialog';
 import { EmptyHouseOpportunitiesSheet } from '@/components/agent/EmptyHouseOpportunitiesSheet';
 import {
