@@ -12,7 +12,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Lc1VillagePicker } from '@/components/location/Lc1VillagePicker';
-import { formatUGX } from '@/lib/currency';
+import { formatUGX } from '@/lib/rentCalculations';
 
 const OPEN_STATUSES = ['submitted', 'claimed', 'visit_verified', 'approved'];
 
