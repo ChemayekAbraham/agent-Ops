@@ -33,6 +33,13 @@ export interface ProxyTargetModeState {
   daily_min: number;
   stretch_daily: number;
   notes_month: number;
+  notes_today: number;
+  daily_min_hit_today: boolean;
+  behind_today: boolean;
+  today_shortfall: number;
+  zero_note_days: number;
+  benefits_active: boolean;
+  guaranteed_min_income: number;
   expected_to_date: number;
   missed_notes: number;
   earned_now: number;
@@ -41,6 +48,7 @@ export interface ProxyTargetModeState {
   target_hit: boolean;
   on_track: boolean;
   month_start: string;
+
 }
 
 export function useProxyTargetMode(agentId?: string | null) {
