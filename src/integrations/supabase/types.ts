@@ -20092,9 +20092,12 @@ export type Database = {
           id: string
           item_name: string
           last_recovery_at: string | null
+          last_surcharge_on: string | null
           original_amount: number
           outstanding_balance: number
+          overdue_surcharge_total: number
           sale_id: string | null
+          starts_on: string | null
           status: string
           updated_at: string
         }
@@ -20111,9 +20114,12 @@ export type Database = {
           id?: string
           item_name: string
           last_recovery_at?: string | null
+          last_surcharge_on?: string | null
           original_amount?: number
           outstanding_balance?: number
+          overdue_surcharge_total?: number
           sale_id?: string | null
+          starts_on?: string | null
           status?: string
           updated_at?: string
         }
@@ -20130,9 +20136,12 @@ export type Database = {
           id?: string
           item_name?: string
           last_recovery_at?: string | null
+          last_surcharge_on?: string | null
           original_amount?: number
           outstanding_balance?: number
+          overdue_surcharge_total?: number
           sale_id?: string | null
+          starts_on?: string | null
           status?: string
           updated_at?: string
         }
@@ -20151,8 +20160,11 @@ export type Database = {
           access_accepted_at: string | null
           access_daily_amount: number | null
           access_repayment_days: number | null
+          advance_markup_pct: number | null
+          advance_period_months: number | null
           amount_outstanding: number
           amount_paid: number
+          applicant_rank: number | null
           brand: string | null
           cfo_disbursed_at: string | null
           cfo_disbursed_by: string | null
@@ -20165,6 +20177,7 @@ export type Database = {
           customer_id: string | null
           disbursed_amount: number | null
           disbursement_group_id: string | null
+          grace_days: number | null
           id: string
           issued_channel: string | null
           item_name: string
@@ -20173,18 +20186,26 @@ export type Database = {
           lease_term_months: number | null
           model_type: string | null
           notes: string | null
+          ops_approved_at: string | null
+          ops_approved_by: string | null
           order_status: string
+          overdue_surcharge_total: number | null
           payment_plan: string
           payment_projection: number
           payment_status: string
           quantity: number
+          rank_cap: number | null
           rejected_at: string | null
           rejected_by: string | null
           rejection_reason: string | null
+          repayment_starts_on: string | null
           sale_date: string
           selected_size: string | null
           service_centre_id: string | null
+          smartphone_catalog_id: string | null
+          supplier_id: string | null
           total_amount: number
+          total_repayable: number | null
           total_revenue: number
           tracking_reference: string | null
           unit_cost: number
@@ -20196,8 +20217,11 @@ export type Database = {
           access_accepted_at?: string | null
           access_daily_amount?: number | null
           access_repayment_days?: number | null
+          advance_markup_pct?: number | null
+          advance_period_months?: number | null
           amount_outstanding?: number
           amount_paid?: number
+          applicant_rank?: number | null
           brand?: string | null
           cfo_disbursed_at?: string | null
           cfo_disbursed_by?: string | null
@@ -20210,6 +20234,7 @@ export type Database = {
           customer_id?: string | null
           disbursed_amount?: number | null
           disbursement_group_id?: string | null
+          grace_days?: number | null
           id?: string
           issued_channel?: string | null
           item_name: string
@@ -20218,18 +20243,26 @@ export type Database = {
           lease_term_months?: number | null
           model_type?: string | null
           notes?: string | null
+          ops_approved_at?: string | null
+          ops_approved_by?: string | null
           order_status?: string
+          overdue_surcharge_total?: number | null
           payment_plan?: string
           payment_projection?: number
           payment_status?: string
           quantity: number
+          rank_cap?: number | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
+          repayment_starts_on?: string | null
           sale_date?: string
           selected_size?: string | null
           service_centre_id?: string | null
+          smartphone_catalog_id?: string | null
+          supplier_id?: string | null
           total_amount?: number
+          total_repayable?: number | null
           total_revenue: number
           tracking_reference?: string | null
           unit_cost?: number
@@ -20241,8 +20274,11 @@ export type Database = {
           access_accepted_at?: string | null
           access_daily_amount?: number | null
           access_repayment_days?: number | null
+          advance_markup_pct?: number | null
+          advance_period_months?: number | null
           amount_outstanding?: number
           amount_paid?: number
+          applicant_rank?: number | null
           brand?: string | null
           cfo_disbursed_at?: string | null
           cfo_disbursed_by?: string | null
@@ -20255,6 +20291,7 @@ export type Database = {
           customer_id?: string | null
           disbursed_amount?: number | null
           disbursement_group_id?: string | null
+          grace_days?: number | null
           id?: string
           issued_channel?: string | null
           item_name?: string
@@ -20263,18 +20300,26 @@ export type Database = {
           lease_term_months?: number | null
           model_type?: string | null
           notes?: string | null
+          ops_approved_at?: string | null
+          ops_approved_by?: string | null
           order_status?: string
+          overdue_surcharge_total?: number | null
           payment_plan?: string
           payment_projection?: number
           payment_status?: string
           quantity?: number
+          rank_cap?: number | null
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
+          repayment_starts_on?: string | null
           sale_date?: string
           selected_size?: string | null
           service_centre_id?: string | null
+          smartphone_catalog_id?: string | null
+          supplier_id?: string | null
           total_amount?: number
+          total_repayable?: number | null
           total_revenue?: number
           tracking_reference?: string | null
           unit_cost?: number
@@ -31273,6 +31318,9 @@ export type Database = {
           model_name: string | null
           more_specifications: string | null
           specifications: string | null
+          supplier_id: string | null
+          supplier_name: string | null
+          supplier_phone: string | null
           updated_at: string
         }
         Insert: {
@@ -31285,6 +31333,9 @@ export type Database = {
           model_name?: string | null
           more_specifications?: string | null
           specifications?: string | null
+          supplier_id?: string | null
+          supplier_name?: string | null
+          supplier_phone?: string | null
           updated_at?: string
         }
         Update: {
@@ -31297,6 +31348,9 @@ export type Database = {
           model_name?: string | null
           more_specifications?: string | null
           specifications?: string | null
+          supplier_id?: string | null
+          supplier_name?: string | null
+          supplier_phone?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -39935,6 +39989,10 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: Json
       }
+      agent_ops_approve_smartphone_order: {
+        Args: { p_note?: string; p_sale_id: string }
+        Returns: Json
+      }
       agent_ops_can_view_rent_behaviour: {
         Args: { _user_id: string }
         Returns: boolean
@@ -40029,7 +40087,7 @@ export type Database = {
         Returns: Json
       }
       agent_order_smartphone: {
-        Args: { p_brand: string; p_model_type: string; p_total_amount: number }
+        Args: { p_catalog_id: string; p_period_months: number }
         Returns: Json
       }
       agent_order_spiro_bike: { Args: { p_amount: number }; Returns: Json }
@@ -40318,6 +40376,7 @@ export type Database = {
         }
         Returns: Json
       }
+      apply_smartphone_overdue_surcharges: { Args: never; Returns: Json }
       apply_tier_capabilities: {
         Args: {
           _actor: string
@@ -40364,10 +40423,16 @@ export type Database = {
         Args: { _reason: string; _target_user: string }
         Returns: undefined
       }
-      approve_smartphone_order: {
-        Args: { p_note?: string; p_sale_id: string; p_total_amount?: number }
-        Returns: Json
-      }
+      approve_smartphone_order:
+        | { Args: { p_note?: string; p_sale_id: string }; Returns: Json }
+        | {
+            Args: {
+              p_note?: string
+              p_sale_id: string
+              p_total_amount?: number
+            }
+            Returns: Json
+          }
       archive_dead_letter_batch: {
         Args: { _dead_letter_id: number }
         Returns: undefined
@@ -40867,6 +40932,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      can_ops_approve_smartphone_orders: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       can_pause_agent_advance: { Args: { _user_id: string }; Returns: boolean }
       can_process_cashout: { Args: { _agent_id: string }; Returns: boolean }
       can_read_landlord_payout_receipts: {
@@ -40986,7 +41055,7 @@ export type Database = {
         Returns: Json
       }
       cfo_disburse_smartphone_order: {
-        Args: { p_amount?: number; p_note?: string; p_sale_id: string }
+        Args: { p_note?: string; p_sale_id: string }
         Returns: Json
       }
       cfo_promissory_bookings_report: {
@@ -41248,13 +41317,7 @@ export type Database = {
         Returns: Json
       }
       coo_approve_smartphone_order: {
-        Args: {
-          p_daily_deduction?: number
-          p_note?: string
-          p_repayment_days?: number
-          p_sale_id: string
-          p_total_amount?: number
-        }
+        Args: { p_note?: string; p_sale_id: string }
         Returns: Json
       }
       country_to_continent: { Args: { p_country: string }; Returns: string }
@@ -42546,6 +42609,10 @@ export type Database = {
         }[]
       }
       get_agent_service_center: { Args: never; Returns: Json }
+      get_agent_smartphone_eligibility: {
+        Args: { p_user_id?: string }
+        Returns: Json
+      }
       get_agent_split_balances: {
         Args: { p_agent_id: string }
         Returns: {
@@ -45210,8 +45277,11 @@ export type Database = {
         Returns: {
           access_daily_amount: number
           access_repayment_days: number
+          advance_markup_pct: number
+          advance_period_months: number
           amount_outstanding: number
           amount_paid: number
+          applicant_rank: number
           brand: string
           cfo_disbursed_at: string
           client_name: string
@@ -45222,10 +45292,17 @@ export type Database = {
           disbursed_amount: number
           id: string
           model_type: string
+          ops_approved_at: string
           order_status: string
+          overdue_surcharge_total: number
           payment_projection: number
+          rank_cap: number
           rejection_reason: string
+          repayment_starts_on: string
+          supplier_id: string
+          supplier_name: string
           total_amount: number
+          total_repayable: number
         }[]
       }
       lock_campaign_attribution: { Args: { p_token: string }; Returns: Json }
@@ -47744,6 +47821,17 @@ export type Database = {
         }[]
       }
       slugify_district: { Args: { p_input: string }; Returns: string }
+      smartphone_leaderboard_ranks: {
+        Args: never
+        Returns: {
+          agent_id: string
+          collected: number
+          rank: number
+        }[]
+      }
+      smartphone_period_days: { Args: { p_months: number }; Returns: number }
+      smartphone_period_markup: { Args: { p_months: number }; Returns: number }
+      smartphone_rank_cap: { Args: { p_rank: number }; Returns: number }
       smoke_promissory_commissions: {
         Args: { p_agent_id: string; p_partner_id: string }
         Returns: Json
