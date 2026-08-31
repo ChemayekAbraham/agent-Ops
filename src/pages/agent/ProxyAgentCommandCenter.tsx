@@ -314,7 +314,9 @@ export default function ProxyAgentCommandCenter() {
 
           {/* ---------------- SHARE LINK TO ONBOARD ---------------- */}
           <TabsContent value="share" className="space-y-3 pt-3">
+            <ProxyTargetModeCard agentId={agentId} />
             {summaryQ.isLoading ? (
+
               <Skeleton className="h-56 rounded-2xl" />
             ) : summaryQ.error ? (
               <Card><CardContent className="p-4 text-sm text-destructive">
