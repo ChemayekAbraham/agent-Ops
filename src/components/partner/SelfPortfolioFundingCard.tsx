@@ -26,7 +26,7 @@ const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
 const PLANS_PER_PAGE = 4;
 
-type FeedFilter = 'all' | 'rent' | 'houses';
+type FeedOrder = 'rent' | 'houses';
 
 
 interface EarningsSummary {
@@ -77,8 +77,8 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
   const [deployOpen, setDeployOpen] = useState(false);
   const [detailPlan, setDetailPlan] = useState<FundablePlan | null>(null);
   const [page, setPage] = useState(0);
-  // The default feed is continuous: every rent request, then every house.
-  const [filter, setFilter] = useState<FeedFilter>('all');
+  // Both datasets always remain in one feed; this only chooses which group leads.
+  const [feedOrder, setFeedOrder] = useState<FeedOrder>('rent');
   const [houseSelected, setHouseSelected] = useState<string[]>([]);
   const [detailHouse, setDetailHouse] = useState<SupportableHouse | null>(null);
   // Short code arriving from a branded /s/<code> share link (?share=<code>).
@@ -217,7 +217,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
     if (!sharedPlanId || plans.length === 0) return;
     const index = plans.findIndex((p) => p.rent_request_id === sharedPlanId);
     if (index < 0) return;
-    setFilter('all');
+    setFeedOrder('rent');
     setPage(Math.floor(index / PLANS_PER_PAGE));
 
     setDetailPlan(plans[index]);
@@ -249,8 +249,8 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
   const remaining = Math.max(0, available - total - houseTotal);
   const overBudget = total + houseTotal > available;
 
-  // One continuous feed by default: all rent requests, then all houses.
-  // A filter narrows the feed instead of forcing users to toggle while browsing.
+  // One continuous feed: all rent requests then all houses by default. The
+  // order control can bring houses first, but never removes either dataset.
   type FeedItem =
     | { kind: 'plan'; id: string; plan: FundablePlan }
     | { kind: 'house'; id: string; house: SupportableHouse };
@@ -266,10 +266,8 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
       id: house.house_id,
       house,
     }));
-    if (filter === 'rent') return planItems;
-    if (filter === 'houses') return houseItems;
-    return [...planItems, ...houseItems];
-  }, [plans, houses, filter]);
+    return feedOrder === 'houses' ? [...houseItems, ...planItems] : [...planItems, ...houseItems];
+  }, [plans, houses, feedOrder]);
 
   const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
   const pageStart = page * PLANS_PER_PAGE;
@@ -401,22 +399,20 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
         <ToggleGroup
           type="single"
           size="sm"
-          value={filter}
+          value={feedOrder}
           onValueChange={(v) => {
             if (!v) return;
-            setFilter(v as FeedFilter);
+            setFeedOrder(v as FeedOrder);
             setPage(0);
           }}
           className="shrink-0"
+          aria-label="Choose which opportunities appear first"
         >
-          <ToggleGroupItem value="all" className="h-7 px-2.5 text-[11px]">
-            All
-          </ToggleGroupItem>
           <ToggleGroupItem value="rent" className="h-7 px-2.5 text-[11px]">
-            Rent
+            Rent first
           </ToggleGroupItem>
           <ToggleGroupItem value="houses" className="h-7 px-2.5 text-[11px]">
-            Houses
+            Houses first
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
@@ -432,11 +428,8 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
       )}
 
 
-      {plans.length > 1 && (
-        <div className="flex items-center justify-between gap-2 px-1">
-          <p className="text-[11px] font-semibold text-muted-foreground">
-            {plans.length} tenant plan{plans.length > 1 ? 's' : ''} available
-          </p>
+      {(plans.length > 1 || selected.length > 0) && (
+        <div className="flex justify-end px-1">
           <Button
             variant="ghost"
             size="sm"
@@ -475,7 +468,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
         const globalIndex = pageStart + i;
         const prevKind = globalIndex > 0 ? feed[globalIndex - 1].kind : null;
         const groupHeader =
-          prevKind !== item.kind ? (
+          globalIndex > 0 && prevKind !== item.kind ? (
             <div key={`hr-${item.kind}`} className="flex items-center gap-2 px-1 pt-2">
               <span className="h-px flex-1 bg-border" />
               <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
