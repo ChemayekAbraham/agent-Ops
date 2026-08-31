@@ -46,9 +46,15 @@ export interface SmartphoneCatalogEntry {
   more_specifications: string | null;
   is_active: boolean;
   supplier_id?: string | null;
+  supplier_name?: string | null;
+  supplier_phone?: string | null;
   created_at?: string | null;
 }
 
+/** A model only reaches the agent application dropdown with all three in place. */
+export function catalogVisibleToAgents(e: SmartphoneCatalogEntry): boolean {
+  return e.is_active && !!e.supplier_id && Number(e.default_amount || 0) > 0;
+}
 
 export const SMARTPHONE_CATALOG_QUERY_KEY = ['smartphone-catalog'];
 
@@ -58,7 +64,7 @@ export function useSmartphoneCatalog() {
     queryFn: async (): Promise<SmartphoneCatalogEntry[]> => {
       const { data, error } = await db
         .from('smartphone_catalog')
-        .select('id, brand, model_name, default_amount, specifications, more_specifications, is_active, supplier_id, created_at')
+        .select('id, brand, model_name, default_amount, specifications, more_specifications, is_active, supplier_id, supplier_name, supplier_phone, created_at')
         .order('brand', { ascending: true })
         .order('model_name', { ascending: true });
 
