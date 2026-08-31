@@ -135,13 +135,14 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
 
           <div>
             {openRequest ? (
-              <p className="text-[10px] text-foreground/70 leading-snug line-clamp-2 break-words">{status?.note}</p>
+              <p className="text-xs text-foreground/70 leading-snug line-clamp-2 break-words">{status?.note}</p>
             ) : (
-              <p className="text-[10px] text-foreground/70 leading-snug line-clamp-2 break-words">
+              <p className="text-xs text-foreground/70 leading-snug line-clamp-2 break-words">
                 Request rent · agent verifies your house
               </p>
             )}
             {latest?.status === 'declined' && !openRequest && latest.decline_reason && (
+
 
               <p className="mt-1 text-[10px] text-destructive leading-snug truncate">
                 Last request not approved: {latest.decline_reason}
