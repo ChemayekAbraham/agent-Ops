@@ -69,13 +69,17 @@ export function AgentRatingCard({ agentId }: Props) {
         <div className="flex items-center gap-1.5">
           <span
             className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${dailyRatingTone[cap.daily_rating]}`}
-            title={`Today's collection — ${formatUGX(cap.paid_today)} of ${formatUGX(cap.expected_daily)} (${todayPct}%)`}
+            title={`Today's coverage-safe collection — ${todayPct}% (${cap.tenants_paid_today} of ${cap.tenants_due} due tenants paid; ${formatUGX(cap.paid_today)} of ${formatUGX(cap.expected_daily)})`}
           >
             {dailyLabel}
           </span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${tierTone[cap.tier]}`}>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${tierTone[cap.tier]}`}
+            title={`7-day response rate — ${Math.round(cap.response_rate * 100)}% (${cap.responding_tenant_days} of ${cap.expected_tenant_days} tenant-days)`}
+          >
             7d: {cap.tier}
           </span>
+
           <Improve7DayRatingPopover capacity={cap} agentId={agentId} />
         </div>
       </div>
