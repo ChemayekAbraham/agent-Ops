@@ -10,10 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import {
-  CALLEE_ROLES, CALLEE_ROLE_LABEL, deriveOutcome, formatCallStamp, OUTCOME_LABEL,
-  type CalleeRole, type CallOutcome, type CallRecord,
+  CALLEE_ROLES, CALLEE_ROLE_LABEL, formatCallStamp, OUTCOME_LABEL,
+  type CalleeRole, type CallOutcome,
 } from '@/lib/callCentre';
-import { useCallRecords } from '@/hooks/useCrmCallCentre';
+import { useCallRoster, type RosterPerson } from '@/hooks/useCrmCallCentre';
 import { useRestoreBodyPointerEvents } from '@/hooks/useRestoreBodyPointerEvents';
 import { CallDrawer } from './CallDrawer';
 import { useCallDialer, type DialTarget } from './useCallDialer';
@@ -30,100 +30,47 @@ const OUTCOME_TONE: Record<CallOutcome, string> = {
 };
 
 /**
- * One row per person, folded from their call history.
+ * One row per real person on the call-centre roster.
  *
  * `calledAt` is the FIRST call and `recalledAt` the most recent one — a person
- * called once has no recall, which is why `recalledAt` is nullable rather than
- * duplicating `calledAt`.
+ * called once has no recall. Both are null for somebody never yet dialled, who
+ * still belongs in this list because the roster is the audience, not the log.
  */
-interface PersonRow {
-  calleeId: string;
-  name: string;
-  phone: string;
-  avatarUrl: string | null;
-  role: CalleeRole;
-  location: string | null;
-  status: CallOutcome;
-  calledAt: string;
-  recalledAt: string | null;
-  totalCalls: number;
-  summaries: number;
-  /** The call id the newest summary belongs to, for the history sheet. */
-  lastCallId: string;
-}
+type PersonRow = RosterPerson;
 
-function foldPeople(records: CallRecord[]): PersonRow[] {
-  const byPerson = new Map<string, CallRecord[]>();
-  for (const record of records) {
-    const list = byPerson.get(record.calleeId);
-    if (list) list.push(record);
-    else byPerson.set(record.calleeId, [record]);
-  }
-
-  const rows: PersonRow[] = [];
-  for (const [calleeId, calls] of byPerson) {
-    const chronological = [...calls].sort(
-      (a, b) => new Date(a.calledAt).getTime() - new Date(b.calledAt).getTime(),
-    );
-    const first = chronological[0];
-    const latest = chronological[chronological.length - 1];
-
-    rows.push({
-      calleeId,
-      name: latest.calleeName,
-      phone: latest.calleePhone,
-      avatarUrl: latest.calleeAvatarUrl,
-      role: latest.calleeRole,
-      location: latest.location,
-      // Status reflects the newest attempt — that is what a follow-up acts on.
-      status: deriveOutcome(latest),
-      calledAt: first.calledAt,
-      recalledAt: chronological.length > 1 ? latest.calledAt : null,
-      totalCalls: chronological.length,
-      summaries: chronological.filter((c) => !!c.summary?.trim()).length,
-      lastCallId: latest.id,
-    });
-  }
-
-  return rows.sort(
-    (a, b) =>
-      new Date(b.recalledAt ?? b.calledAt).getTime() - new Date(a.recalledAt ?? a.calledAt).getTime() ||
-      a.name.localeCompare(b.name),
-  );
-}
-
-const STATUS_FILTERS: { value: CallOutcome | 'all'; label: string }[] = [
+const STATUS_FILTERS: { value: CallOutcome | 'all' | 'never'; label: string }[] = [
   { value: 'all', label: 'All' },
+  { value: 'never', label: 'Not called' },
   { value: 'answered', label: 'Answered' },
   { value: 'rejected', label: 'Rejected' },
   { value: 'not_reachable', label: 'Not reachable' },
 ];
+
 
 export function CallCentrePeople() {
   // This panel stacks two sheets (dialer over summary history), which is the
   // exact case where Radix leaves <body> pointer-events:none and swallows the
   // next click.
   useRestoreBodyPointerEvents();
-  const { data: records = [], isLoading, error } = useCallRecords();
+  const { rows: people, isLoading, error } = useCallRoster();
   const { target, dial, close } = useCallDialer();
 
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState<CallOutcome | 'all'>('all');
+  const [status, setStatus] = useState<CallOutcome | 'all' | 'never'>('all');
   const [role, setRole] = useState<CalleeRole | 'all'>('all');
   const [historyFor, setHistoryFor] = useState<PersonRow | null>(null);
   const [visible, setVisible] = useState(25);
 
-  const people = useMemo(() => foldPeople(records), [records]);
-
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return people.filter((p) => {
-      if (status !== 'all' && p.status !== status) return false;
+      if (status === 'never' ? p.status !== null : status !== 'all' && p.status !== status) return false;
       if (role !== 'all' && p.role !== role) return false;
       if (!q) return true;
       return [p.name, p.phone, p.location ?? ''].some((v) => v.toLowerCase().includes(q));
     });
   }, [people, query, status, role]);
+
 
   if (isLoading) {
     return (
@@ -149,7 +96,7 @@ export function CallCentrePeople() {
       <div>
         <h2 className="text-base font-bold text-foreground">People / Calls</h2>
         <p className="text-xs text-muted-foreground">
-          Everyone the call centre has dialled. Tap a name to read their call summaries.
+          Everyone the call centre can reach. Tap a name to read their call summaries.
         </p>
       </div>
 
@@ -168,7 +115,7 @@ export function CallCentrePeople() {
         <ToggleGroup
           type="single"
           value={status}
-          onValueChange={(v) => v && setStatus(v as CallOutcome | 'all')}
+          onValueChange={(v) => v && setStatus(v as CallOutcome | 'all' | 'never')}
           aria-label="Filter by call status"
         >
           {STATUS_FILTERS.map((f) => (
@@ -196,7 +143,7 @@ export function CallCentrePeople() {
         <CardContent className="p-0">
           {filtered.length === 0 ? (
             <p className="p-8 text-center text-sm text-muted-foreground">
-              {people.length === 0 ? 'No calls recorded yet.' : 'Nobody matches those filters.'}
+              {people.length === 0 ? 'Nobody on the roster yet.' : 'Nobody matches those filters.'}
             </p>
           ) : (
             /* Wide table scrolls inside its own container so the page body
@@ -255,8 +202,11 @@ export function CallCentrePeople() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={cn('text-[10px]', OUTCOME_TONE[person.status])}>
-                          {OUTCOME_LABEL[person.status]}
+                        <Badge
+                          variant="outline"
+                          className={cn('text-[10px]', person.status ? OUTCOME_TONE[person.status] : 'text-muted-foreground')}
+                        >
+                          {person.status ? OUTCOME_LABEL[person.status] : 'Not called'}
                         </Badge>
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">

@@ -8,6 +8,7 @@ import {
   formatCallStamp,
   formatTalkTime,
   labelTemperatures,
+  resolvePrimaryAudience,
   type CalleeRole,
   type CallRecord,
 } from '@/lib/callCentre';
@@ -355,5 +356,80 @@ describe('formatting', () => {
     expect(formatCallStamp(null)).toBe('—');
     expect(formatCallStamp('nonsense')).toBe('—');
     expect(formatCallStamp('2026-08-20T09:00:00Z')).toMatch(/20 Aug/);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Africa's Talking status / hangup-cause mapping
+ * ------------------------------------------------------------------ */
+
+describe("Africa's Talking outcome mapping", () => {
+  const at = (status: string, hangupCause: string | null, durationSeconds = 0) =>
+    deriveOutcome({ status, hangupCause, durationSeconds });
+
+  it('treats a completed call with talk time as answered', () => {
+    expect(at('Completed', 'NORMAL_CLEARING', 96)).toBe('answered');
+  });
+
+  it('never counts a zero-duration NORMAL_CLEARING as answered', () => {
+    // Clearing with no talk time never reached anyone; inflating the answer
+    // rate is the one thing this function must not do.
+    expect(at('completed', 'NORMAL_CLEARING', 0)).toBe('not_reachable');
+  });
+
+  it.each(['USER_BUSY', 'CALL_REJECTED'])('maps %s to rejected', (cause) => {
+    expect(at('completed', cause)).toBe('rejected');
+  });
+
+  it.each([
+    'NO_ANSWER',
+    'NO_USER_RESPONSE',
+    'UNALLOCATED_NUMBER',
+    'SUBSCRIBER_ABSENT',
+    'NETWORK_OUT_OF_ORDER',
+    'RECOVERY_ON_TIMER_EXPIRE',
+    'ORIGINATOR_CANCEL',
+  ])('maps %s to not reachable', (cause) => {
+    expect(at('completed', cause)).toBe('not_reachable');
+  });
+
+  it('degrades an unknown cause to not reachable, never answered', () => {
+    expect(at('completed', 'SOME_NEW_AT_CAUSE')).toBe('not_reachable');
+  });
+
+  it('reads the live bridge states as in progress', () => {
+    expect(at('ringing_staff', null)).toBe('in_progress');
+    expect(at('bridged', null)).toBe('in_progress');
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Audience classification
+ * ------------------------------------------------------------------ */
+
+describe('resolvePrimaryAudience', () => {
+  it('gives each single membership its own bucket', () => {
+    expect(resolvePrimaryAudience({ tenant: true })).toBe('tenant');
+    expect(resolvePrimaryAudience({ agent: true })).toBe('agent');
+    expect(resolvePrimaryAudience({ landlord: true })).toBe('landlord');
+    expect(resolvePrimaryAudience({ partner: true })).toBe('partner');
+    expect(resolvePrimaryAudience({ employee: true })).toBe('employee');
+  });
+
+  it('applies employee > partner > landlord > agent > tenant', () => {
+    expect(resolvePrimaryAudience({ tenant: true, agent: true })).toBe('agent');
+    expect(resolvePrimaryAudience({ tenant: true, agent: true, landlord: true })).toBe('landlord');
+    expect(resolvePrimaryAudience({ landlord: true, partner: true })).toBe('partner');
+    expect(resolvePrimaryAudience({ partner: true, employee: true, tenant: true })).toBe('employee');
+  });
+
+  it('is deterministic for someone in every audience, so the doughnut cannot double-count', () => {
+    expect(
+      resolvePrimaryAudience({ tenant: true, agent: true, landlord: true, partner: true, employee: true }),
+    ).toBe('employee');
+  });
+
+  it('falls back to the broadest bucket when nothing is flagged', () => {
+    expect(resolvePrimaryAudience({})).toBe('tenant');
   });
 });

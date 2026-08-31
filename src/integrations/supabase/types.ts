@@ -8661,6 +8661,75 @@ export type Database = {
           },
         ]
       }
+      crm_call_sessions: {
+        Row: {
+          at_session_id: string | null
+          cost_amount: number | null
+          cost_currency: string | null
+          created_at: string
+          direction: string
+          duration_seconds: number | null
+          failure_reason: string | null
+          hangup_cause: string | null
+          id: string
+          recording_url: string | null
+          staff_id: string
+          staff_phone: string | null
+          status: string
+          summary: string | null
+          target_location: string | null
+          target_name: string
+          target_phone: string
+          target_role: string
+          target_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          at_session_id?: string | null
+          cost_amount?: number | null
+          cost_currency?: string | null
+          created_at?: string
+          direction?: string
+          duration_seconds?: number | null
+          failure_reason?: string | null
+          hangup_cause?: string | null
+          id?: string
+          recording_url?: string | null
+          staff_id: string
+          staff_phone?: string | null
+          status?: string
+          summary?: string | null
+          target_location?: string | null
+          target_name?: string
+          target_phone: string
+          target_role?: string
+          target_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          at_session_id?: string | null
+          cost_amount?: number | null
+          cost_currency?: string | null
+          created_at?: string
+          direction?: string
+          duration_seconds?: number | null
+          failure_reason?: string | null
+          hangup_cause?: string | null
+          id?: string
+          recording_url?: string | null
+          staff_id?: string
+          staff_phone?: string | null
+          status?: string
+          summary?: string | null
+          target_location?: string | null
+          target_name?: string
+          target_phone?: string
+          target_role?: string
+          target_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       crm_customer_issues: {
         Row: {
           contact: string | null
@@ -38834,6 +38903,13 @@ export type Database = {
           },
         ]
       }
+      v_crm_call_audience: {
+        Row: {
+          person_id: string | null
+          primary_role: string | null
+        }
+        Relationships: []
+      }
       v_general_ledger_effective: {
         Row: {
           account: string | null
@@ -42373,6 +42449,63 @@ export type Database = {
             }
             Returns: Json
           }
+      crm_call_centre_authorized: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      crm_call_roster_page: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_role?: string
+          p_search?: string
+        }
+        Returns: {
+          avatar_url: string
+          first_called_at: string
+          has_phone: boolean
+          last_call_id: string
+          last_called_at: string
+          last_duration_seconds: number
+          last_hangup_cause: string
+          last_status: string
+          location: string
+          name: string
+          person_id: string
+          phone_masked: string
+          primary_role: string
+          summaries: number
+          total_calls: number
+          total_rows: number
+        }[]
+      }
+      crm_call_sessions_feed: {
+        Args: { p_days?: number; p_limit?: number; p_target_user_id?: string }
+        Returns: {
+          created_at: string
+          duration_seconds: number
+          hangup_cause: string
+          id: string
+          staff_id: string
+          staff_name: string
+          status: string
+          summary: string
+          target_location: string
+          target_name: string
+          target_phone_masked: string
+          target_role: string
+          target_user_id: string
+        }[]
+      }
+      crm_mask_phone: { Args: { raw: string }; Returns: string }
+      crm_reveal_target_phone: {
+        Args: { p_person_id: string }
+        Returns: string
+      }
+      crm_save_call_summary: {
+        Args: { p_session_id: string; p_summary: string }
+        Returns: undefined
+      }
       cron_jobs_health: {
         Args: never
         Returns: {
