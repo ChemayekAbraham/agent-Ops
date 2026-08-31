@@ -7427,6 +7427,48 @@ export type Database = {
         }
         Relationships: []
       }
+      cc_cycle_populations: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          filter_sql: string | null
+          id: string
+          label: string
+          priority_column: string | null
+          source_view: string
+          subject_id_column: string
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          filter_sql?: string | null
+          id?: string
+          label: string
+          priority_column?: string | null
+          source_view: string
+          subject_id_column: string
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          filter_sql?: string | null
+          id?: string
+          label?: string
+          priority_column?: string | null
+          source_view?: string
+          subject_id_column?: string
+          subject_type?: Database["public"]["Enums"]["cc_subject_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cc_cycle_rows: {
         Row: {
           attempts_made: number
@@ -7483,6 +7525,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cc_call_cycles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cc_cycle_rows_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_cycle_progress"
+            referencedColumns: ["cycle_id"]
           },
         ]
       }
@@ -38526,6 +38575,48 @@ export type Database = {
           },
         ]
       }
+      v_cc_cycle_progress: {
+        Row: {
+          attempted_rows: number | null
+          callback_rows: number | null
+          closed_rows: number | null
+          coverage_pct: number | null
+          cycle_id: string | null
+          cycle_no: number | null
+          engaged_rows: number | null
+          opened_at: string | null
+          parked_rows: number | null
+          reach_pct: number | null
+          subject_type: Database["public"]["Enums"]["cc_subject_type"] | null
+          to_call_rows: number | null
+          total_rows: number | null
+          unreachable_rows: number | null
+        }
+        Relationships: []
+      }
+      v_cc_routed_register: {
+        Row: {
+          category_locked: boolean | null
+          completed_at: string | null
+          days_open: number | null
+          due_at: string | null
+          feedback_category: string | null
+          followup_completed_at: string | null
+          misrouted: boolean | null
+          raised_at: string | null
+          routed_to_actual_name: string | null
+          routed_to_expected_name: string | null
+          subject_type: Database["public"]["Enums"]["cc_subject_type"] | null
+          task_assignee_name: string | null
+          task_ref: string | null
+          task_status: Database["public"]["Enums"]["hr_task_status"] | null
+          ticket_ref: string | null
+          ticket_severity:
+            | Database["public"]["Enums"]["hr_ticket_severity"]
+            | null
+        }
+        Relationships: []
+      }
       v_cfo_promissory_bookings: {
         Row: {
           agent_id: string | null
@@ -40891,6 +40982,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      assign_smartphone_order_supplier: {
+        Args: { p_sale_id: string; p_supplier_id?: string }
+        Returns: Json
+      }
       attach_campaign_registration: {
         Args: { p_short_code: string; p_visitor_id?: string }
         Returns: Json
@@ -41426,8 +41521,30 @@ export type Database = {
         Args: { p_followup_id: string; p_note: string }
         Returns: undefined
       }
+      cc_cycle_outstanding: {
+        Args: { p_cycle_id: string }
+        Returns: {
+          attempts_made: number
+          callback_due_at: string
+          cycle_row_id: string
+          last_attempt_at: string
+          next_retry_at: string
+          priority_value: number
+          state: Database["public"]["Enums"]["cc_row_state"]
+          subject_id: string
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+        }[]
+      }
       cc_expected_owner_staff: {
         Args: { p_role: Database["public"]["Enums"]["app_role"] }
+        Returns: string
+      }
+      cc_open_cycle: {
+        Args: {
+          p_limit?: number
+          p_population_code: string
+          p_subject_type: Database["public"]["Enums"]["cc_subject_type"]
+        }
         Returns: string
       }
       cc_raise_from_feedback: {
@@ -45209,6 +45326,10 @@ export type Database = {
         Returns: string
       }
       hr_claim_ticket: { Args: { p_ticket_id: string }; Returns: string }
+      hr_compute_cc_snapshots: {
+        Args: { _period_end: string; _period_start: string }
+        Returns: number
+      }
       hr_compute_snapshots: {
         Args: { _period_end: string; _period_start: string }
         Returns: number
