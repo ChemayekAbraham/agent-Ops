@@ -170,7 +170,7 @@ export function CallingFilterBar({
               const v = selection[o.key];
               const label = o.choices.find((c) => c.value === v)?.label ?? v;
               return (
-                <Badge key={o.key} variant="outline" className="gap-1 px-1.5 py-0 text-[10px]">
+                <Badge key={o.key} variant="outline" className="max-w-full gap-1 whitespace-normal break-words px-1.5 py-0 text-left text-[10px]">
                   {o.label}: {label}
                   <button type="button" onClick={() => onChange(o.key, '')} aria-label={`Clear ${o.label}`}>
                     <X className="h-2.5 w-2.5" />
@@ -178,9 +178,10 @@ export function CallingFilterBar({
                 </Badge>
               );
             })}
-          <Button size="sm" variant="ghost" className="ml-auto h-6 px-2 text-[11px]" onClick={onClearAll}>
+          <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px] sm:ml-auto" onClick={onClearAll}>
             Clear all
           </Button>
+
         </div>
       )}
     </div>
