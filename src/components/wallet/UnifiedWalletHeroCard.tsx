@@ -239,7 +239,7 @@ export function UnifiedWalletHeroCard({
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setShowAmount((s) => !s); } }}
                     aria-label="Hide amount"
                     aria-pressed={true}
-                    className="h-3 w-3 p-0.5 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 transition-all text-white/70 hover:text-white shrink-0 cursor-pointer"
+                    className="h-1 w-1 p-0.5 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 transition-all text-white/70 hover:text-white shrink-0 cursor-pointer"
                   />
                 ) : (
                   <EyeOff
@@ -249,7 +249,7 @@ export function UnifiedWalletHeroCard({
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setShowAmount((s) => !s); } }}
                     aria-label="Show amount"
                     aria-pressed={false}
-                    className="h-3 w-3 p-0.5 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 transition-all text-white/70 hover:text-white shrink-0 cursor-pointer"
+                    className="h-1 w-1 p-0.5 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 transition-all text-white/70 hover:text-white shrink-0 cursor-pointer"
                   />
                 )}
               </span>
