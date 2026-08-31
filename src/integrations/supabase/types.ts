@@ -39694,6 +39694,13 @@ export type Database = {
       }
       _geo_coverage_caller_allowed: { Args: never; Returns: boolean }
       _geo_norm: { Args: { p: string }; Returns: string }
+      _tamper_test: {
+        Args: never
+        Returns: {
+          outcome: string
+          scenario: string
+        }[]
+      }
       _test_proxy_capability_sync: {
         Args: never
         Returns: {
@@ -39905,40 +39912,23 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: number
       }
-      agent_list_empty_house_opportunities:
-        | {
-            Args: {
-              p_district?: string
-              p_gps_only?: boolean
-              p_limit?: number
-              p_max_rent?: number
-              p_min_rent?: number
-              p_near_lat?: number
-              p_near_lng?: number
-              p_offset?: number
-              p_radius_km?: number
-              p_search?: string
-              p_verified_only?: boolean
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_district?: string
-              p_gps_only?: boolean
-              p_limit?: number
-              p_max_rent?: number
-              p_min_rent?: number
-              p_near_lat?: number
-              p_near_lng?: number
-              p_offset?: number
-              p_radius_km?: number
-              p_search?: string
-              p_sort?: string
-              p_verified_only?: boolean
-            }
-            Returns: Json
-          }
+      agent_list_empty_house_opportunities: {
+        Args: {
+          p_district?: string
+          p_gps_only?: boolean
+          p_limit?: number
+          p_max_rent?: number
+          p_min_rent?: number
+          p_near_lat?: number
+          p_near_lng?: number
+          p_offset?: number
+          p_radius_km?: number
+          p_search?: string
+          p_sort?: string
+          p_verified_only?: boolean
+        }
+        Returns: Json
+      }
       agent_list_promissory_fundable_plans: {
         Args: {
           p_limit?: number

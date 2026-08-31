@@ -1,8 +1,17 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
@@ -227,9 +236,10 @@ export function HouseSupportBar({
   selectedIds: string[];
   onSubmitted: (outcome: 'submitted' | 'stale') => void;
 }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const overBudget = total > available;
 
-  const submit = async () => {
+  const doSubmit = async () => {
     if (total < HOUSE_MIN_FUNDING) {
       toast.error(`Minimum funding is ${formatDynamic(HOUSE_MIN_FUNDING)}.`);
       return;
@@ -249,6 +259,7 @@ export function HouseSupportBar({
         description: `Partner Operations will review your ${formatDynamic(total)} house portfolio. Your money stays in your wallet until it is approved, and your confirmation email is sent once approval goes through.`,
         duration: 9000,
       });
+      setConfirmOpen(false);
       onSubmitted('submitted');
     } catch (e) {
       const raw = e instanceof Error ? e.message : 'Submission failed';
@@ -258,6 +269,7 @@ export function HouseSupportBar({
         });
       } else if (raw.includes('HOUSES_UNAVAILABLE')) {
         toast.error('Some houses are no longer available. Refresh and reselect.');
+        setConfirmOpen(false);
         onSubmitted('stale');
       } else if (raw.includes('PARTNER_FUNDS_SHORT')) {
         toast.error('Your withdrawable balance does not cover this selection.');
@@ -270,46 +282,102 @@ export function HouseSupportBar({
   };
 
   return (
-    <Card className="sticky bottom-3 z-40 mt-3 rounded-2xl border-primary/25 bg-background/95 p-3 sm:p-4 shadow-xl backdrop-blur-md">
+    <>
+      <Card className="sticky bottom-3 z-40 mt-3 rounded-2xl border-primary/25 bg-background/95 p-3 sm:p-4 shadow-xl backdrop-blur-md">
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold text-muted-foreground">
-            {selectedCount} house{selectedCount > 1 ? 's' : ''} selected
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold text-muted-foreground">
+              {selectedCount} house{selectedCount > 1 ? 's' : ''} selected
+            </p>
+            <p className="text-xl sm:text-2xl font-black leading-none text-primary">{formatDynamic(total)}</p>
+          </div>
+          <Button
+            onClick={() => setConfirmOpen(true)}
+            disabled={busy || total < HOUSE_MIN_FUNDING || overBudget}
+            className="shrink-0 w-full sm:w-auto"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+            <span className="ml-2">Fund these houses</span>
+          </Button>
+        </div>
+
+        <div className="mt-3 flex flex-col gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
+            <TrendingUp className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span>Projected returns · {HOUSE_MONTHLY_ROI_RATE}% monthly</span>
+          </div>
+          <p className="text-sm sm:text-base font-black leading-none text-primary">
+            {formatDynamic(Math.round((total * HOUSE_MONTHLY_ROI_RATE) / 100))}
           </p>
-          <p className="text-xl sm:text-2xl font-black leading-none text-primary">{formatDynamic(total)}</p>
         </div>
-        <Button
-          onClick={() => void submit()}
-          disabled={busy || total < HOUSE_MIN_FUNDING || overBudget}
-          className="shrink-0 w-full sm:w-auto"
-        >
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-          <span className="ml-2">Fund these houses</span>
-        </Button>
-      </div>
 
-      <div className="mt-3 flex flex-col gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
-          <TrendingUp className="h-3.5 w-3.5 text-primary shrink-0" />
-          <span>Projected returns · {HOUSE_MONTHLY_ROI_RATE}% monthly</span>
-        </div>
-        <p className="text-sm sm:text-base font-black leading-none text-primary">
-          {formatDynamic(Math.round((total * HOUSE_MONTHLY_ROI_RATE) / 100))}
-        </p>
-      </div>
+        {overBudget ? (
+          <p className="mt-2 text-[10px] font-semibold text-destructive">
+            This selection is {formatDynamic(total - available)} more than your withdrawable balance of{' '}
+            {formatDynamic(available)}. Remove a house or add funds.
+          </p>
+        ) : (
+          <p className="mt-2 text-[10px] text-muted-foreground">
+            Projected amount after 12 months:{' '}
+            <span className="font-black text-primary">
+              {formatDynamic(Math.round((total * HOUSE_MONTHLY_ROI_RATE * 12) / 100))}
+            </span>
+          </p>
+        )}
+      </Card>
 
-      {overBudget ? (
-        <p className="mt-2 text-[10px] font-semibold text-destructive">
-          This selection is {formatDynamic(total - available)} more than your withdrawable balance of{' '}
-          {formatDynamic(available)}. Remove a house or add funds.
-        </p>
-      ) : (
-        <p className="mt-2 text-[10px] text-muted-foreground">
-          Your money stays in your wallet until Partner Operations approve. No landlord or agent payout happens —
-          no tenant is involved yet.
-        </p>
-      )}
-    </Card>
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="w-[95vw] max-w-md sm:max-w-lg p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-4 sm:px-6 py-4 border-b">
+            <DialogTitle className="text-base sm:text-lg flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary" /> Confirm house funding
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
+              You are about to commit{' '}
+              <span className="font-black text-primary">{formatDynamic(total)}</span> from your withdrawable
+              balance to {selectedCount} house{selectedCount > 1 ? 's' : ''}. The portfolio will stay pending
+              until Partner Operations approve it. No landlord or agent payout happens because no tenant is
+              involved yet.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-4 sm:px-6 py-4 space-y-3">
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs space-y-1">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Principal</span>
+                <span className="font-black text-foreground">{formatDynamic(total)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Monthly return ({HOUSE_MONTHLY_ROI_RATE}%)</span>
+                <span className="font-black text-foreground">
+                  {formatDynamic(Math.round((total * HOUSE_MONTHLY_ROI_RATE) / 100))}
+                </span>
+              </div>
+              <div className="flex justify-between border-t border-primary/10 pt-1">
+                <span className="text-muted-foreground">Projected 12-month amount</span>
+                <span className="font-black text-primary">
+                  {formatDynamic(Math.round((total * HOUSE_MONTHLY_ROI_RATE * 12) / 100))}
+                </span>
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Your money stays in your wallet until approval. You can track this portfolio under your
+              Self-Managed Portfolio once it is active.
+            </p>
+          </div>
+
+          <DialogFooter className="px-4 sm:px-6 py-3 border-t bg-muted/30 flex-row justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => setConfirmOpen(false)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={() => void doSubmit()} disabled={busy} className="gap-1.5">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              <span className="ml-2">Yes, fund these houses</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
