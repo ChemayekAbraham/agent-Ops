@@ -7403,6 +7403,7 @@ export type Database = {
       }
       cc_call_cycles: {
         Row: {
+          abandoned_reason: string | null
           attempt_cap: number
           closed_at: string | null
           cycle_no: number
@@ -7413,6 +7414,7 @@ export type Database = {
           subject_type: Database["public"]["Enums"]["cc_subject_type"]
         }
         Insert: {
+          abandoned_reason?: string | null
           attempt_cap?: number
           closed_at?: string | null
           cycle_no: number
@@ -7423,6 +7425,7 @@ export type Database = {
           subject_type: Database["public"]["Enums"]["cc_subject_type"]
         }
         Update: {
+          abandoned_reason?: string | null
           attempt_cap?: number
           closed_at?: string | null
           cycle_no?: number
@@ -7792,6 +7795,7 @@ export type Database = {
           sort_order: number
           subject_type: Database["public"]["Enums"]["cc_subject_type"]
           updated_at: string
+          value_format: string
         }
         Insert: {
           active?: boolean
@@ -7806,6 +7810,7 @@ export type Database = {
           sort_order?: number
           subject_type: Database["public"]["Enums"]["cc_subject_type"]
           updated_at?: string
+          value_format?: string
         }
         Update: {
           active?: boolean
@@ -7820,6 +7825,7 @@ export type Database = {
           sort_order?: number
           subject_type?: Database["public"]["Enums"]["cc_subject_type"]
           updated_at?: string
+          value_format?: string
         }
         Relationships: []
       }
@@ -41632,6 +41638,10 @@ export type Database = {
         }
         Returns: Json
       }
+      cc_abandon_cycle: {
+        Args: { p_cycle_id: string; p_reason: string }
+        Returns: undefined
+      }
       cc_attempt_guard: {
         Args: { p_attempt_id: string }
         Returns: {
@@ -41654,6 +41664,42 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      cc_call_queue_page: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_sort_key?: string
+          p_state: Database["public"]["Enums"]["cc_row_state"]
+          p_subject_type: Database["public"]["Enums"]["cc_subject_type"]
+        }
+        Returns: {
+          attempts_made: number
+          booked_by_name: string
+          callback_due_at: string
+          cycle_row_id: string
+          district: string
+          feedback_category: string
+          fix_ticket_ref: string
+          last_attempt_at: string
+          linked_agent_name: string
+          metric_date: string
+          metric_format: string
+          metric_label: string
+          metric_text: string
+          metric_value: number
+          name: string
+          next_retry_at: string
+          park_reason: string
+          routed_to_name: string
+          severity: Database["public"]["Enums"]["hr_ticket_severity"]
+          state: Database["public"]["Enums"]["cc_row_state"]
+          subject_id: string
+          task_status: string
+          ticket_ref: string
+          total_count: number
+        }[]
       }
       cc_can_read_subject: {
         Args: { p_subject: Database["public"]["Enums"]["cc_subject_type"] }
@@ -41694,6 +41740,10 @@ export type Database = {
         }
         Returns: string
       }
+      cc_queue_access_allowed: {
+        Args: { p_subject_type: Database["public"]["Enums"]["cc_subject_type"] }
+        Returns: boolean
+      }
       cc_raise_from_feedback: {
         Args: { p_feedback_id: string }
         Returns: string
@@ -41725,6 +41775,13 @@ export type Database = {
         Returns: undefined
       }
       cc_reveal_phone: { Args: { p_attempt_id: string }; Returns: string }
+      cc_state_counts: {
+        Args: { p_subject_type: Database["public"]["Enums"]["cc_subject_type"] }
+        Returns: {
+          row_count: number
+          state: Database["public"]["Enums"]["cc_row_state"]
+        }[]
+      }
       cc_task_department: {
         Args: {
           p_role: Database["public"]["Enums"]["app_role"]
