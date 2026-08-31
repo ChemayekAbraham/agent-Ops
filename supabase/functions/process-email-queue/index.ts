@@ -267,7 +267,7 @@ Deno.serve(async (req) => {
     if (messageIds.length > 0) {
       const { data: failedRows, error: failedRowsError } = await supabase
         .from('email_send_log')
-        .select('message_id')
+        .select('message_id, error_message')
         .in('message_id', messageIds)
         .eq('status', 'failed')
 
@@ -280,6 +280,11 @@ Deno.serve(async (req) => {
         for (const row of failedRows ?? []) {
           const messageId = row?.message_id
           if (typeof messageId !== 'string' || !messageId) continue
+          // A credential outage (401) is not the message's fault. Counting it
+          // against the retry budget makes every requeued email die instantly
+          // once the key is fixed, so those rows are excluded.
+          const reason = typeof row?.error_message === 'string' ? row.error_message : ''
+          if (reason.includes('[401]') || reason.includes('Mailgun credential failure')) continue
           failedAttemptsByMessageId.set(
             messageId,
             (failedAttemptsByMessageId.get(messageId) ?? 0) + 1
@@ -287,6 +292,7 @@ Deno.serve(async (req) => {
         }
       }
     }
+
 
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i]
