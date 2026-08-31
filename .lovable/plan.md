@@ -1,55 +1,32 @@
-# Why some users got "random" withdrawal receipt emails
+# Restore the original Calling Hub on Tenant and Landlord dashboards
 
-## What actually happened (verified against the live email log)
+## What went wrong
 
-Two things combined, neither of them a matching bug:
+Earlier today the Tenant Ops and Landlord Ops dashboards were switched from their own Calling Hub screens to a new shared call-centre hub. That replaced the whole page instead of just adding person details, which is what was asked for.
 
-1. **Every completed payout is copied to a wide internal list — by design.**
-   When a payout is confirmed, the withdrawal receipt is emailed to the customer *and* fanned out
-   as an internal "copy" to: every user holding the `operations` role (**25 people**), every user
-   holding the `cfo` role (**3 people**), the merchant agent who processed it, and the fixed archive
-   address `weliletenants@gmail.com`. That is ~29 emails per single payout.
-   The recipient list in today's log matches the `operations` + `cfo` role holders exactly — so these
-   people are not receiving other people's mail by accident, they are receiving oversight copies
-   because they carry an ops role. Most of them are field/ops staff who don't need payout copies.
+The two shell files are the only place that swap happened (a single import + a single line each). The original hubs, their tables, drawers and hooks are all still in the codebase and untouched by that swap.
 
-2. **Today's flood was the replayed outage backlog, not new payouts.**
-   Of the 277 withdrawal receipts sent in the last 12 hours, **229 were for payouts dated 8 July 2026**
-   (plus a few from 13–17 July). Only 17 relate to today. These are the messages that had been stuck
-   from the Mailgun transport outage and got released, so staff phones lit up with receipts for
-   withdrawals that were settled seven weeks ago — which is exactly why they read as "random".
+## The revert
 
-## Options to fix (pick one or more)
+- Tenant Ops dashboard: point the "Calling Hub" view back at the original tenant Calling Hub.
+- Landlord Ops dashboard: point the "Calling Hub" view back at the original landlord Calling Hub.
 
-**A. Narrow the oversight copy list (recommended).**
-Stop broadcasting to all 25 `operations` holders. Send internal copies only to a small, explicit
-finance recipient list (e.g. the CFO holders plus the archive address), or to an opt-in flag on the
-staff record, instead of "everyone with the ops role".
+Nothing else changes: the new shared call-centre hub stays in the codebase (it is still used by the Agent Ops dashboard) but is no longer mounted on these two dashboards. Layout, tabs, counters, exports and calling actions on both pages return exactly to yesterday's behaviour.
 
-**B. Suppress stale receipts on replay.**
-Refuse to send a payout receipt whose payout date is older than a short window (e.g. 72 hours) when it
-is being dispatched from the queue. Backlogged receipts for July payouts get dropped rather than
-delivered weeks late.
+## What stays (already in place, matching the request)
 
-**C. Batch the internal copy into a digest.**
-Replace per-payout internal copies with one daily payout digest listing all settled payouts, so ops
-staff get one email a day instead of one per payout.
+Two earlier changes from today are kept because they are what was actually asked for:
 
-**D. Leave sending as-is and only stop the replay flood.**
-Purge/expire the remaining stale withdrawal receipts in the queue and change nothing about the
-ongoing fan-out.
+- **Person details when opened.** The tenant and landlord call drawers already surface the stored details next to the calling interface — full name, phone, email, national ID, assigned agent, landlord/tenant links, location (district, sub-county, parish, village, landmark), mobile money name/number, occupation, language, status and registration history. All read from existing fields; no new tables, no logic changes.
+- **"To call" population.** The tenant list no longer reads the daily-eligibility view (which only returns money-due / defaulting rows). It reads active rent plans (`funded`, `repaying`) directly, and the "To call" tab now includes every tenant who has never been called or whose call state does not place them in Pending, Closed or Missed. Payment, missed-days and status logic are unchanged.
 
-## Technical notes
+After the revert I will open both dashboards in the preview to confirm the pages look like the originals and that the drawer details still render.
 
-- Fan-out lives in `supabase/functions/approve-withdrawal` using
-  `buildWithdrawalPaidReceiptRequest` (`supabase/functions/_shared/partnership-emails.ts`), which
-  takes `copyFor` (recipient label) + an idempotency suffix per recipient.
-- Role lookup for the copy list is `user_roles.role in ('operations','cfo')`; the archive address is
-  hardcoded.
-- The commission-disclosure policy (`receipt-content-policy.ts`) stays untouched by any of these
-  options — customer/internal copies still carry no commission line.
-- Any staleness cut-off (option B) belongs in the receipt builder or `process-email-queue` dispatch
-  path, and must not affect other templates.
-- No schema change is needed for A, B or D. Option C would need a small digest job.
+## Technical detail
 
-Tell me which option you want and I'll implement it.
+Revert commit `195a2d66` in these two files only:
+
+- `src/components/executive/tenant-ops/TenantOpsClassicShell.tsx` — restore `TenantCallingHub` for `active === 'calling-hub'`.
+- `src/components/executive/landlord-ops/LandlordOpsClassicShell.tsx` — restore `LandlordCallingHub` for `active === 'calling-hub'`.
+
+No database, RPC, RLS or hook changes.
