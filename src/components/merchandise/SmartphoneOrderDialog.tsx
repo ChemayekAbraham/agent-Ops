@@ -57,8 +57,9 @@ interface Props {
 
 /**
  * Agent Smartphone Advance application. Only the top 50 agents on the
- * operational leaderboard can apply, up to the ceiling for their position, and
- * the phone must have a registered supplier. The applicant sees the daily
+ * operational leaderboard can apply, up to the ceiling for their position. Every
+ * active, priced model is offered; Agent Ops assigns the supplier to the order
+ * after submission. The applicant sees the daily
  * amount, the chosen period and the terms — never the internal programme charge.
  */
 export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Props) {
