@@ -367,15 +367,41 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
         </Card>
       )}
 
-      {plans.length === 0 && (
+      <div className="flex items-center justify-between gap-2 px-1">
+        <p className="text-[11px] font-semibold text-muted-foreground">
+          {plans.length} rent request{plans.length === 1 ? '' : 's'} · {houses.length} house
+          {houses.length === 1 ? '' : 's'}
+        </p>
+        <ToggleGroup
+          type="single"
+          size="sm"
+          value={filter}
+          onValueChange={(v) => {
+            if (!v) return;
+            setFilter(v as FeedFilter);
+            setPage(0);
+          }}
+          className="shrink-0"
+        >
+          <ToggleGroupItem value="rent" className="h-7 px-2.5 text-[11px]">
+            Rent
+          </ToggleGroupItem>
+          <ToggleGroupItem value="houses" className="h-7 px-2.5 text-[11px]">
+            Houses
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+
+      {feed.length === 0 && (
         <Card className="p-6 rounded-2xl text-center">
           <Wallet className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
-          <p className="text-sm font-semibold">No approved plans awaiting money right now</p>
+          <p className="text-sm font-semibold">Nothing awaiting money right now</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Plans appear here after approval and disappear once the landlord is paid.
+            Rent requests appear here after approval, and verified empty houses appear as soon as they are listed.
           </p>
         </Card>
       )}
+
 
       {plans.length > 1 && (
         <div className="flex items-center justify-between gap-2 px-1">
