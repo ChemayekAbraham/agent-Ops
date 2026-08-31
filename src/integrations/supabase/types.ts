@@ -40737,6 +40737,10 @@ export type Database = {
         Args: { p_category: string; p_recipient_type: string }
         Returns: undefined
       }
+      assert_smartphone_pickup_verified: {
+        Args: { p_agent_id: string }
+        Returns: undefined
+      }
       assert_wallet_correction_gate: {
         Args: {
           p_actor: string
