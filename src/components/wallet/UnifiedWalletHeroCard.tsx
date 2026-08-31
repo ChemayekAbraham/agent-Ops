@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Wallet, ChevronRight, ChevronDown, Shield, Home, TrendingUp, Rocket, PiggyBank, Coins, Sparkles, Clock, Users } from 'lucide-react';
+import { Wallet, ChevronRight, ChevronDown, Shield, Home, TrendingUp, Rocket, PiggyBank, Coins, Sparkles, Clock, Users, Eye, EyeOff } from 'lucide-react';
 import { hapticTap } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -144,6 +144,11 @@ export function UnifiedWalletHeroCard({
   // Always start collapsed when a dashboard loads, regardless of previous session state.
   const [collapsed, setCollapsed] = useState<boolean>(collapsible ? defaultCollapsed : false);
   const [reduceMotion, setReduceMotion] = useState(false);
+  // Amount visibility — same logic as the funder wallet card: hidden by default,
+  // EyeOff shown while hidden, Eye shown while revealed, masked as 'UGX ••••••'.
+  const [showAmount, setShowAmount] = useState(false);
+  const maskAmt = (v: number) => (showAmount ? formatAmount(v) : 'UGX ••••••');
+  const maskStr = (s: string) => (showAmount ? s : 'UGX ••••••');
 
   useEffect(() => { setReduceMotion(prefersReducedMotion()); }, []);
 
@@ -226,12 +231,23 @@ export function UnifiedWalletHeroCard({
                 {ROLE_LABELS[role]}
               </span>
               <span className="block text-lg font-black leading-tight text-white truncate">
-                {formatAmount(collapsedHeadline)}
+                {maskAmt(collapsedHeadline)}
               </span>
             </span>
             <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-foreground/15 shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-[9px] font-bold text-emerald-300 uppercase tracking-wider">Active</span>
+            </span>
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); hapticTap(); setShowAmount((s) => !s); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setShowAmount((s) => !s); } }}
+              aria-label={showAmount ? 'Hide amount' : 'Show amount'}
+              aria-pressed={showAmount}
+              className="p-1 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 transition-all text-white/70 hover:text-white shrink-0 cursor-pointer"
+            >
+              {showAmount ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
             </span>
             <ChevronDown className="h-4 w-4 text-white/60 shrink-0" />
           </motion.button>
@@ -259,6 +275,15 @@ export function UnifiedWalletHeroCard({
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => { hapticTap(); setShowAmount((s) => !s); }}
+              aria-label={showAmount ? 'Hide amount' : 'Show amount'}
+              aria-pressed={showAmount}
+              className="p-1 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 transition-all text-white/70 hover:text-white"
+            >
+              {showAmount ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+            </button>
             <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-foreground/15 backdrop-blur-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-[9px] font-bold text-emerald-300 uppercase tracking-wider">Active</span>
@@ -301,14 +326,12 @@ export function UnifiedWalletHeroCard({
                     <p className="text-[9px] uppercase tracking-[0.15em] font-semibold text-white/50">Wallet Float</p>
                   </div>
                   <p className="text-lg font-black tracking-tight leading-none text-white whitespace-nowrap">
-                    {formatAmount(
-                      Math.max(0, (floatBalance ?? 0) - Math.max(0, floatReserved ?? 0)),
-                    )}
+                    {maskAmt(Math.max(0, (floatBalance ?? 0) - Math.max(0, floatReserved ?? 0)))}
                   </p>
                   <p className="text-[9px] text-white/40 mt-1 font-medium">
                     {floatCaption ?? 'Tenant collections · Pay Rent'}
                   </p>
-                  {!!floatReserved && floatReserved > 0 && (
+                  {!!floatReserved && floatReserved > 0 && showAmount && (
                     <p className="text-[9px] text-amber-200/80 mt-0.5 font-medium">
                       {formatAmount(floatReserved)} held by payouts you claimed
                     </p>
@@ -325,7 +348,7 @@ export function UnifiedWalletHeroCard({
                   <p className="text-[9px] uppercase tracking-[0.15em] font-semibold text-emerald-300/70">Withdrawable</p>
                 </div>
                 <p className="text-lg font-black tracking-tight leading-none text-white whitespace-nowrap">
-                  {formatAmount(withdrawableBalance ?? 0)}
+                  {maskAmt(withdrawableBalance ?? 0)}
                 </p>
                 <p className="text-[9px] text-emerald-300/50 mt-1 font-medium">
                   Available to withdraw
@@ -336,7 +359,7 @@ export function UnifiedWalletHeroCard({
             {/* Total balance row */}
             <div className="flex items-center justify-between mt-3 px-1">
               <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-white/40">Total Balance</span>
-              <span className="text-sm font-black text-white">{formatAmount(balance)}</span>
+              <span className="text-sm font-black text-white">{maskAmt(balance)}</span>
             </div>
             {!disableTap && (
               <p className="mt-2 px-1 text-[10px] text-white font-medium">
@@ -362,9 +385,9 @@ export function UnifiedWalletHeroCard({
                 Withdrawable Balance
               </p>
               <p className="text-[clamp(1.75rem,6.5vw,2.75rem)] font-black tracking-tight leading-none text-white drop-shadow-sm">
-                {formatAmount(headlineBalance)}
+                {maskAmt(headlineBalance)}
               </p>
-              {pendingHold > 0 && (
+              {pendingHold > 0 && showAmount && (
                 <div className="mt-2.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-300/20">
                   <Clock className="h-3 w-3 text-amber-300" />
                   <span className="text-[10px] font-semibold text-amber-200">
@@ -372,7 +395,7 @@ export function UnifiedWalletHeroCard({
                   </span>
                 </div>
               )}
-              {pendingHold > 0 && (
+              {pendingHold > 0 && showAmount && (
                 <p className="text-[10px] text-white mt-1.5">
                   Wallet total: <span className="font-semibold text-white">{formatAmount(balance)}</span>
                 </p>
@@ -424,7 +447,7 @@ export function UnifiedWalletHeroCard({
         {secondaryLabel && secondaryValue && !showAgentSplit && !hideSecondaryRow && (
           <div className="flex items-center justify-between pt-1 border-t border-primary-foreground/[0.08]">
             <span className="text-[11px] text-white/50 font-medium">{secondaryLabel}</span>
-            <span className="text-[11px] text-white/70 font-bold">{secondaryValue}</span>
+            <span className="text-[11px] text-white/70 font-bold">{maskStr(secondaryValue)}</span>
           </div>
         )}
 
@@ -455,9 +478,9 @@ export function UnifiedWalletHeroCard({
                 Balance growing · {(payrollGrowth.dailyRate * 100).toFixed(1)}% / day
               </p>
               <p className="text-[10px] text-white/70 mt-0.5">
-                <span className="font-bold text-white">{formatAmount(displayedParked)}</span>
+                <span className="font-bold text-white">{maskAmt(displayedParked)}</span>
                 <span className="text-white/50"> parked · </span>
-                <span className="font-semibold text-emerald-300">+{formatAmount(displayedEarned)}</span>
+                <span className="font-semibold text-emerald-300">+{maskAmt(displayedEarned)}</span>
                 <span className="text-white/50"> earned</span>
               </p>
             </div>
