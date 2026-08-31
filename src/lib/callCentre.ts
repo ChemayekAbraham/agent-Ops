@@ -446,3 +446,42 @@ export function formatCallStamp(iso: string | null | undefined): string {
     timeZone: 'Africa/Kampala',
   });
 }
+
+/* ------------------------------------------------------------------ *
+ * Audience classification
+ * ------------------------------------------------------------------ */
+
+/** Which relationships a person holds, as the roster query reports them. */
+export interface AudienceMemberships {
+  /** Has a record in `rent_requests`. */
+  tenant?: boolean;
+  /** Collects rent / records repayments, or holds an agent role. */
+  agent?: boolean;
+  /** Holds one or more portfolios. */
+  partner?: boolean;
+  /** Has ever received a landlord float disbursement. */
+  landlord?: boolean;
+  /** Has a staff/HR record. */
+  employee?: boolean;
+}
+
+/**
+ * Precedence order, narrowest relationship first.
+ *
+ * A person can qualify for several audiences, so the doughnut needs one
+ * deterministic primary bucket or it would count them twice. This mirrors the
+ * `v_crm_call_audience` view exactly: employee > partner > landlord > agent >
+ * tenant. Being a tenant is the broadest, most common relationship, so it loses
+ * every tie; being staff is the narrowest, so it wins every tie.
+ */
+export const AUDIENCE_PRECEDENCE: CalleeRole[] = ['employee', 'partner', 'landlord', 'agent', 'tenant'];
+
+/** Collapse a person's memberships into their single primary audience. */
+export function resolvePrimaryAudience(memberships: AudienceMemberships): CalleeRole {
+  for (const role of AUDIENCE_PRECEDENCE) {
+    if (memberships[role]) return role;
+  }
+  // Everyone on the roster got there through at least one relationship; the
+  // broadest bucket is the only safe default.
+  return 'tenant';
+}
