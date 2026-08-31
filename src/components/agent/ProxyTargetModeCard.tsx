@@ -3,8 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   Target, TrendingDown, CheckCircle2, Bike, Smartphone, Home, UtensilsCrossed,
-  Loader2, Info, CalendarClock, ChevronDown, Gift,
+  Loader2, Info, CalendarClock, ChevronDown, Gift, AlertTriangle,
 } from 'lucide-react';
+
 
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
