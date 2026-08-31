@@ -173,8 +173,12 @@ export function CEODashboard() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Salary advances waiting on the CEO stage */}
+      <CeoSalaryAdvanceApprovals />
+
       {/* Mission scoreboard — Trust Coverage */}
       <TrustCoverageSection />
+
 
       {/* Agent Advances daily report (live mirror of the 18:00 EAT email) */}
       <AgentAdvancesDailyReportCard />
