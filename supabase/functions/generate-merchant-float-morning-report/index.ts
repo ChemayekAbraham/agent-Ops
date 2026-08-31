@@ -72,6 +72,13 @@ interface FloatRow {
   companyCash: number;
   /** "Money we must send back to them" (owed_to_agent). */
   owed: number;
+  /**
+   * Own-money claims filed but not yet confirmed by the merchant
+   * (own_cash_under_review). NOT payable and never added into `owed` -- but a
+   * desk reading 0 owed can be carrying millions here, so the report must show
+   * it or it reports a working day of own-pocket payouts as no debt at all.
+   */
+  underReview: number;
 }
 interface ActivityRow {
   agentId: string;
@@ -152,11 +159,13 @@ Deno.serve(async (req) => {
         floatHeld: Math.max(0, Number(r.evidenced_amount || 0)),
         companyCash: Math.max(0, Number(r.company_cash_with_agent || 0)),
         owed: Number(r.owed_to_agent || 0),
+        underReview: Math.max(0, Number(r.own_cash_under_review || 0)),
       }))
       .sort((a: FloatRow, b: FloatRow) => a.floatHeld - b.floatHeld);
     const floatTotal = floats.reduce((s, r) => s + r.floatHeld, 0);
     const companyCashTotal = floats.reduce((s, r) => s + r.companyCash, 0);
     const owedTotal = floats.reduce((s, r) => s + r.owed, 0);
+    const underReviewTotal = floats.reduce((s, r) => s + r.underReview, 0);
     const agentIds = [...new Set(floats.map((f) => f.agentId))];
     const deskIds = [...new Set(floats.map((f) => f.deskId))];
     const byAgent = new Map(floats.map((f) => [f.agentId, f]));
@@ -288,7 +297,7 @@ Deno.serve(async (req) => {
     };
 
     const generatedAtLabel = eatNowLabel();
-    const pdfBytes = await buildPdf({ dateStr, generatedAtLabel, phone, floats, floatTotal, companyCashTotal, owedTotal, activity, totals });
+    const pdfBytes = await buildPdf({ dateStr, generatedAtLabel, phone, floats, floatTotal, companyCashTotal, owedTotal, underReviewTotal, activity, totals });
 
     const baseName = `welile-merchant-float-morning-${dateStr}`;
     const pdfPath = `${dateStr}/${baseName}.pdf`;
@@ -312,8 +321,8 @@ Deno.serve(async (req) => {
       form.set('from', FROM);
       recipients.forEach((r) => form.append('to', r));
       form.set('subject', `Merchant Float Morning Report – ${dateStr} (EAT)`);
-      form.set('text', renderText({ dateStr, generatedAtLabel, phone, floats, floatTotal, companyCashTotal, owedTotal, activity, totals }));
-      form.set('html', renderHtml({ dateStr, generatedAtLabel, phone, floats, floatTotal, companyCashTotal, owedTotal, activity, totals }));
+      form.set('text', renderText({ dateStr, generatedAtLabel, phone, floats, floatTotal, companyCashTotal, owedTotal, underReviewTotal, activity, totals }));
+      form.set('html', renderHtml({ dateStr, generatedAtLabel, phone, floats, floatTotal, companyCashTotal, owedTotal, underReviewTotal, activity, totals }));
       form.set('o:tag', 'merchant-float-morning');
       form.append('attachment', new Blob([pdfBytes], { type: 'application/pdf' }), `${baseName}.pdf`);
 
@@ -346,6 +355,7 @@ Deno.serve(async (req) => {
         merchant_float_total: floatTotal,
         company_cash_with_agents_total: companyCashTotal,
         owed_to_agents_total: owedTotal,
+        own_cash_under_review_total: underReviewTotal,
         yesterday: totals,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
@@ -383,6 +393,7 @@ interface Payload {
   floatTotal: number;
   companyCashTotal: number;
   owedTotal: number;
+  underReviewTotal: number;
   activity: ActivityRow[];
   totals: { floatReceived: number; floatMovedOn: number; payoutCount: number; payoutAmount: number; commission: number };
 }
@@ -391,7 +402,7 @@ function renderHtml(p: Payload) {
   const td = 'padding:4px 10px;border-bottom:1px solid #eee';
   const tdr = `${td};text-align:right;font-variant-numeric:tabular-nums`;
   const floatRows = p.floats
-    .map((f) => `<tr><td style="${td}">${esc(f.name)}${f.label ? ` <span style="color:#888">(${esc(f.label)})</span>` : ''}</td><td style="${td}">${esc(f.phone)}</td><td style="${tdr}">${fmt(f.floatHeld)}</td><td style="${tdr}">${fmt(f.companyCash)}</td><td style="${tdr}">${fmt(f.owed)}</td></tr>`)
+    .map((f) => `<tr><td style="${td}">${esc(f.name)}${f.label ? ` <span style="color:#888">(${esc(f.label)})</span>` : ''}</td><td style="${td}">${esc(f.phone)}</td><td style="${tdr}">${fmt(f.floatHeld)}</td><td style="${tdr}">${fmt(f.companyCash)}</td><td style="${tdr}">${fmt(f.owed)}</td><td style="${tdr}">${fmt(f.underReview)}</td></tr>`)
     .join('');
   const actRows = p.activity
     .map((a) => `<tr><td style="${td}">${esc(a.name)}</td><td style="${tdr}">${fmt(a.floatReceived)}</td><td style="${tdr}">${fmt(a.floatMovedOn)}</td><td style="${tdr}">${a.payoutCount}</td><td style="${tdr}">${fmt(a.payoutAmount)}</td><td style="${tdr}">${fmt(a.commission)}</td><td style="${tdr}">${fmt(a.floatHeld)}</td></tr>`)
@@ -417,6 +428,7 @@ function renderHtml(p: Payload) {
         <th style="${td};text-align:right">Can spend now</th>
         <th style="${td};text-align:right">Our cash on their phone</th>
         <th style="${td};text-align:right">We owe them</th>
+        <th style="${td};text-align:right">Awaiting their confirmation</th>
       </tr>
       ${floatRows}
       <tr>
@@ -425,9 +437,10 @@ function renderHtml(p: Payload) {
         <td style="${tdr}"><b>${fmt(p.floatTotal)}</b></td>
         <td style="${tdr}"><b>${fmt(p.companyCashTotal)}</b></td>
         <td style="${tdr}"><b>${fmt(p.owedTotal)}</b></td>
+        <td style="${tdr}"><b>${fmt(p.underReviewTotal)}</b></td>
       </tr>
     </table>
-    <p style="color:#666;margin:6px 0 0;font-size:12px">These three totals are the same measures shown on the Financial Ops "Money With Merchant Agents" card, from the same source.</p>
+    <p style="color:#666;margin:6px 0 0;font-size:12px">"Awaiting their confirmation" is own money the merchant has not yet attested to. It is not payable yet and is not included in "We owe them". These totals are the same measures shown on the Financial Ops "Money With Merchant Agents" card, from the same source.</p>
 
     <h3 style="margin:18px 0 6px">3. Yesterday's Agent Activity (${p.dateStr} EAT)</h3>
     <table style="border-collapse:collapse;min-width:640px">
@@ -471,8 +484,8 @@ function renderText(p: Payload) {
     `  TOTAL: ${fmt(p.phone.total)}`,
     '',
     `2. MERCHANT FLOAT — RIGHT NOW (${p.floats.length} active agents, lowest first)`,
-    ...p.floats.map((f) => `  ${f.name}: can spend ${fmt(f.floatHeld)} | our cash on phone ${fmt(f.companyCash)} | we owe ${fmt(f.owed)}`),
-    `  TOTALS: can spend ${fmt(p.floatTotal)} | our cash on phones ${fmt(p.companyCashTotal)} | we owe ${fmt(p.owedTotal)}`,
+    ...p.floats.map((f) => `  ${f.name}: can spend ${fmt(f.floatHeld)} | our cash on phone ${fmt(f.companyCash)} | we owe ${fmt(f.owed)} | awaiting their confirmation ${fmt(f.underReview)}`),
+    `  TOTALS: can spend ${fmt(p.floatTotal)} | our cash on phones ${fmt(p.companyCashTotal)} | we owe ${fmt(p.owedTotal)} | awaiting their confirmation ${fmt(p.underReviewTotal)}`,
     '',
     `3. YESTERDAY'S AGENT ACTIVITY (${p.dateStr} EAT)`,
     ...p.activity.map(
@@ -554,6 +567,7 @@ async function buildPdf(p: Payload): Promise<Uint8Array> {
     { label: 'CAN SPEND NOW', value: fmt(p.floatTotal) },
     { label: 'OUR CASH ON THEIR PHONES', value: fmt(p.companyCashTotal) },
     { label: 'WE OWE THEM', value: fmt(p.owedTotal) },
+    { label: 'AWAITING CONFIRMATION', value: fmt(p.underReviewTotal) },
     { label: `PAID OUT ${p.dateStr.slice(5)}`, value: fmt(p.totals.payoutAmount) },
   ];
   const cardW = (CW - 4 * 8) / 5, cardH = 52;
@@ -628,29 +642,34 @@ async function buildPdf(p: Payload): Promise<Uint8Array> {
   totalRow([{ text: 'Total available now', x: L }, { text: fmt(p.phone.total), right: R }]);
 
   // 2. Merchant float
-  section('2', 'Merchant Float — Right Now', `${p.floats.length} active desks, lowest float first. Same three measures as the Financial Ops board.`);
-  const cSpend = M + 300, cCash = M + 400;
+  section('2', 'Merchant Float — Right Now', `${p.floats.length} active desks, lowest float first. Same measures as the Financial Ops board. "Not confirmed" is own money the merchant has not yet attested to -- not payable, and not inside "We owe them".`);
+  // Six numeric-ish columns now, so the x positions are tighter than the
+  // five-column layout this table used before `underReview` was added.
+  const cSpend = M + 245, cCash = M + 330, cOwed = M + 432;
   headRow([
     { text: 'Agent', x: L },
-    { text: 'Float phone', x: M + 170 },
-    { text: 'Can spend now', right: cSpend },
-    { text: 'Our cash there', right: cCash },
-    { text: 'We owe them', right: R },
+    { text: 'Float phone', x: M + 120 },
+    { text: 'Can spend', right: cSpend },
+    { text: 'Our cash', right: cCash },
+    { text: 'We owe them', right: cOwed },
+    { text: 'Not confirmed', right: R },
   ], 7.6);
   p.floats.forEach((f, i) =>
     bodyRow([
-      { text: clip(f.name || '—', 24), x: L },
-      { text: clip(f.phone || '—', 14), x: M + 170, c: soft },
+      { text: clip(f.name || '—', 16), x: L },
+      { text: clip(f.phone || '—', 13), x: M + 120, c: soft },
       { text: fmt(f.floatHeld), right: cSpend },
       { text: fmt(f.companyCash), right: cCash },
-      { text: fmt(f.owed), right: R },
+      { text: fmt(f.owed), right: cOwed },
+      { text: fmt(f.underReview), right: R },
     ], i % 2 === 1, 8.4),
   );
   totalRow([
     { text: 'Totals', x: L },
     { text: fmt(p.floatTotal), right: cSpend },
     { text: fmt(p.companyCashTotal), right: cCash },
-    { text: fmt(p.owedTotal), right: R },
+    { text: fmt(p.owedTotal), right: cOwed },
+    { text: fmt(p.underReviewTotal), right: R },
   ], 8.4);
 
   // 3. Activity

@@ -68,8 +68,9 @@ export function MerchantFloatAvailableCard() {
         {' '}Of this, <span className="font-semibold text-foreground">{formatUGX(spendable)}</span> is
         company money already sent to your own MTN or Airtel line and still with you.
         {reserved > 0 && ` ${formatUGX(reserved)} is already committed to payouts you claimed but have not settled.`}
-        {' '}If a payout is bigger than the float you hold, you can still pay it — the extra is flagged
-        below, and once you confirm you used your own money, Finance pays it back to you.
+        {' '}If a payout is bigger than the float you hold, you can still pay it — the extra is
+        recorded automatically as money Finance owes you. There is nothing for you to claim or
+        confirm.
       </p>
 
 
@@ -119,7 +120,8 @@ export function MerchantFloatAvailableCard() {
             </div>
             <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
               You can still process pay-outs. Pay from your own MTN or Airtel line and Finance
-              pays you back — every shilling you front is tracked below, never silent debt.
+              pays you back — every shilling you front is recorded for you automatically, never
+              silent debt and never something you have to claim.
             </p>
           </div>
         )
@@ -169,7 +171,7 @@ export function MerchantFloatAvailableCard() {
         <div className="flex items-center gap-2">
           <HandCoins className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
           <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-            Your own money — confirmed (we pay this back)
+            Your own money — recorded (we pay this back)
           </p>
         </div>
         <p className="mt-1 font-mono text-lg font-bold tabular-nums text-emerald-700 dark:text-emerald-400 break-all">
@@ -181,7 +183,7 @@ export function MerchantFloatAvailableCard() {
         </p>
         {!!oopRows?.length && (
           <ul className="mt-2 space-y-1">
-            {oopRows.filter((r) => r.status !== 'needs_review').slice(0, 5).map((r) => (
+            {oopRows.filter((r) => r.status !== 'rejected').slice(0, 5).map((r) => (
               <li key={r.id} className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
                 <span className="truncate">
                   {new Date(r.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} ·{' '}
@@ -227,8 +229,9 @@ export function MerchantFloatAvailableCard() {
           </div>
         </div>
         <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-          What MTN/Airtel charges you to send each payout. Covered by your float when it is available,
-          otherwise flagged for review and paid back once you confirm you covered it.
+          What MTN/Airtel charges you to send each payout. Your float covers this as part of the same
+          debit as the payout itself, so a UGX 5,000 payout with a UGX 500 charge uses UGX 5,500 of
+          float. Anything your float could not cover is recorded as money Finance owes you.
         </p>
       </div>
 

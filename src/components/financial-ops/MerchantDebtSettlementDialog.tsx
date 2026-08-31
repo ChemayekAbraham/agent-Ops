@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, Download, ShieldAlert, Loader2, Wallet, History } from 'lucide-react';
+import { ChevronDown, Download, ShieldAlert, Loader2, Wallet, History, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import {
@@ -22,10 +22,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatUGX } from '@/lib/rentCalculations';
+import { Textarea } from '@/components/ui/textarea';
 import {
   useMerchantSettlementDebts,
   useSettleMerchantOutOfPocket,
   useMerchantOopSettlementHistory,
+  useReviewMerchantOutOfPocket,
 } from '@/hooks/useMerchantFloat';
 import {
   generateMerchantDebtSettlementPdf,
@@ -62,6 +64,85 @@ export function MerchantDebtSettlementDialog({
   const [busy, setBusy] = useState(false);
   const [confirmSettleOpen, setConfirmSettleOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  // Rejection lives ONLY here. `review_merchant_out_of_pocket` is staff-only
+  // for a reject, needs a reason of 10+ characters, and writes a system event —
+  // nothing is deleted, the claim just stops counting as money we owe.
+  const rejectMutation = useReviewMerchantOutOfPocket();
+  const [rejectFor, setRejectFor] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  // Awaiting-confirmation lists are capped for readability, but every claim has
+  // to stay reachable or a desk with dozens of them cannot be fully reviewed.
+  const [allReview, setAllReview] = useState<Record<string, boolean>>({});
+
+  const closeReject = () => {
+    setRejectFor(null);
+    setRejectReason('');
+  };
+
+  const submitReject = async (advanceId: string) => {
+    try {
+      await rejectMutation.mutateAsync({
+        id: advanceId,
+        decision: 'reject',
+        note: rejectReason,
+      });
+      toast.success('Claim rejected', {
+        description: 'It no longer counts as money we owe. The reason is on the record.',
+      });
+      closeReject();
+    } catch (e) {
+      toast.error('Could not reject the claim', {
+        description: e instanceof Error ? e.message : 'Please try again.',
+      });
+    }
+  };
+
+  /** Reject control for one claim line. Same affordance on payable and
+   *  awaiting-confirmation rows, since both are still unreimbursed. */
+  const rejectControl = (advanceId: string) =>
+    rejectFor === advanceId ? (
+      <div className="mt-1">
+        <Textarea
+          value={rejectReason}
+          onChange={(e) => setRejectReason(e.target.value)}
+          placeholder="Why is this not money we owe? (at least 10 characters)"
+          className="text-[11px]"
+          rows={2}
+        />
+        <div className="mt-1 flex gap-2">
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-6 gap-1 px-2 text-[10px]"
+            disabled={rejectReason.trim().length < 10 || rejectMutation.isPending}
+            onClick={() => submitReject(advanceId)}
+          >
+            {rejectMutation.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
+            Reject claim
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 px-2 text-[10px]"
+            onClick={closeReject}
+          >
+            Cancel
+          </Button>
+        </div>
+      </div>
+    ) : (
+      <Button
+        size="sm"
+        variant="ghost"
+        className="mt-1 h-6 gap-1 px-2 text-[10px] text-destructive hover:text-destructive"
+        onClick={() => {
+          setRejectFor(advanceId);
+          setRejectReason('');
+        }}
+      >
+        <X className="h-3 w-3" /> Not owed — reject
+      </Button>
+    );
 
   useEffect(() => {
     if (open && focusAgentId) {
@@ -164,7 +245,7 @@ export function MerchantDebtSettlementDialog({
           <DialogTitle>What we owe each merchant agent</DialogTitle>
           <DialogDescription>
             Only money an agent has confirmed they paid from their own phone, and that we have not
-            refunded, counts here. Amounts still awaiting confirmation are listed but never added.
+            refunded, counts here. Claims the ledger does not support are listed but never added.
           </DialogDescription>
         </DialogHeader>
 
@@ -182,13 +263,13 @@ export function MerchantDebtSettlementDialog({
           </div>
           <div className="rounded-xl border border-warning/30 bg-warning/5 p-3">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Awaiting confirmation
+              Not payable — books disagree
             </p>
             <p className="mt-1 font-mono text-xl font-bold tabular-nums text-warning break-all">
               {isLoading ? '—' : formatUGX(reviewTotal)}
             </p>
             <p className="text-[10px] text-muted-foreground mt-1">
-              Float shortfalls filed for review — not money owed yet
+              Books show float was available, or it is an estimated telecom charge
             </p>
           </div>
           <div className="rounded-xl border border-border bg-muted/30 p-3">
@@ -314,7 +395,7 @@ export function MerchantDebtSettlementDialog({
                     {g.underReview > 0 && (
                       <p className="text-[10px] text-warning">
                         {formatUGX(g.underReview)} across {g.reviewLines.length} claim
-                        {g.reviewLines.length === 1 ? '' : 's'} still awaiting confirmation — excluded
+                        {g.reviewLines.length === 1 ? '' : 's'} the books do not support — excluded
                       </p>
                     )}
                   </button>
@@ -359,6 +440,7 @@ export function MerchantDebtSettlementDialog({
                           {l.note && (
                             <p className="text-[10px] text-muted-foreground">{l.note}</p>
                           )}
+                          {rejectControl(l.id)}
                         </div>
                         <p className="font-mono text-[11px] font-bold tabular-nums text-foreground shrink-0">
                           {formatUGX(l.amount)}
@@ -370,7 +452,7 @@ export function MerchantDebtSettlementDialog({
                         <p className="text-[10px] font-semibold uppercase tracking-wider text-warning">
                           Not payable — the books show float was available
                         </p>
-                        {g.reviewLines.slice(0, 8).map((l) => (
+                        {(allReview[g.agentId] ? g.reviewLines : g.reviewLines.slice(0, 8)).map((l) => (
                           <div key={l.id} className="mt-1">
                             <p className="text-[10px] text-muted-foreground">
                               {format(new Date(l.payoutAt), 'd MMM yyyy · HH:mm')} · {formatUGX(l.amount)}
@@ -384,12 +466,22 @@ export function MerchantDebtSettlementDialog({
                                 ? ' · estimated telecom charge, not yet claimable'
                                 : ` · desk float at that moment ${formatUGX(l.floatPositionAtPayout)}`}
                             </p>
+                            {rejectControl(l.id)}
                           </div>
                         ))}
                         {g.reviewLines.length > 8 && (
-                          <p className="text-[10px] text-muted-foreground">
-                            +{g.reviewLines.length - 8} more
-                          </p>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="mt-1 h-6 w-full px-2 text-[10px]"
+                            onClick={() =>
+                              setAllReview((m) => ({ ...m, [g.agentId]: !m[g.agentId] }))
+                            }
+                          >
+                            {allReview[g.agentId]
+                              ? 'Show fewer'
+                              : `Show all ${g.reviewLines.length} claims`}
+                          </Button>
                         )}
                       </div>
                     )}

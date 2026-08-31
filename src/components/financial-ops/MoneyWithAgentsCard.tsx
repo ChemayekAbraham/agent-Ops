@@ -146,6 +146,13 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
   // doing so made both headline cards show the identical number.
   const heldTotal = rows.reduce((s, r) => s + Math.max(0, r.companyCashWithAgent), 0);
   const owedTotal = rows.reduce((s, r) => s + r.owedToAgent, 0);
+  // Filed but unattested own-money claims. Deliberately NOT folded into
+  // `owedTotal` — that figure feeds settlement and stays confirmed-only. Shown
+  // separately because a desk can read 0 owed while carrying millions: a
+  // merchant who funds a payout entirely from their own pocket sits here until
+  // they attest, which is how a full day of payouts could show as no debt.
+  const underReviewTotal = rows.reduce((s, r) => s + r.ownCashUnderReview, 0);
+  const underReviewDesks = rows.filter((r) => r.ownCashUnderReview > 0).length;
   const floatTotal = rows.reduce((s, r) => s + Math.max(0, r.evidencedAmount), 0);
   const excludedRows = rows.filter((r) => excludedFloat(r) > 0);
   const excludedTotal = excludedRows.reduce((s, r) => s + excludedFloat(r), 0);
@@ -250,6 +257,12 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
           <p className="text-[10px] text-muted-foreground mt-1">
             They used their own phone money to pay our customers. We have not refunded them yet.
           </p>
+          {!isLoading && underReviewTotal > 0 && (
+            <p className="mt-1 text-[10px] font-semibold text-warning">
+              + {formatUGX(underReviewTotal)} filed but not supported by the books across{' '}
+              {underReviewDesks} {underReviewDesks === 1 ? 'desk' : 'desks'} — not payable
+            </p>
+          )}
           <p className="mt-1 text-[10px] font-medium text-primary">
             Tap for the per-agent settlement schedule →
           </p>
@@ -419,7 +432,9 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
           )}
           {rows.map((r) => {
             const holding = r.companyCashWithAgent > 0;
-            const settled = !holding && r.owedToAgent <= 0;
+            // An unattested own-money claim is still outstanding, so a desk
+            // carrying one is never "settled" no matter what the payable says.
+            const settled = !holding && r.owedToAgent <= 0 && r.ownCashUnderReview <= 0;
             const movements = movementsFor(r);
             const latestAt = latestMovementAt(r);
             const booksProveLess = spendableFloat(r) < Math.max(0, r.ledgerFloatHeld);
@@ -567,6 +582,12 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                   {r.clampedShortfall > 0 && (
                     <p className="text-[10px] font-semibold text-destructive">
                       hides a UGX {formatUGX(r.clampedShortfall)} deficit
+                    </p>
+                  )}
+                  {r.ownCashUnderReview > 0 && (
+                    <p className="text-[10px] font-semibold text-warning">
+                      {formatUGX(r.ownCashUnderReview)} of their own money filed but not supported by
+                      the books — not payable
                     </p>
                   )}
                   {canEditFloat ? (

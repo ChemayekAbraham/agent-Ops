@@ -127,7 +127,7 @@ export async function generateMerchantDebtSettlementPdf(input: MerchantDebtPdfIn
     margin + 5, y + 25,
   );
   pdf.text(
-    `Excluded from this total: ${formatUGX(input.underReviewTotal)} still awaiting confirmation`,
+    `Excluded from this total: ${formatUGX(input.underReviewTotal)} the books do not support`,
     margin + 5, y + 29.5,
   );
   y += 40;

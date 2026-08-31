@@ -1,20 +1,24 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Search, Check, X, ChevronDown } from 'lucide-react';
+import { Search, Check, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 
 /**
  * "Own money used" claims awaiting finance review.
  *
  * A company float shortfall on a merchant payout is NOT proof the merchant
  * spent their own money — own cash never passes through the wallet ledger. So
- * shortfalls are filed here first. Finance confirms the ones that are real
- * (turning them into money owed to the agent) or rejects them with a reason.
- * Read-only figures otherwise; nothing here touches wallets or the ledger.
+ * shortfalls are filed here first. Finance CONFIRMS the ones that are real
+ * here, turning them into money owed to the agent.
+ *
+ * Rejection is deliberately NOT available on this panel. It happens in one
+ * place only -- the "What we owe each merchant agent" settlement dialog --
+ * so that declining a claim and paying it are the same decision, taken with
+ * the agent's full position in view. Read-only figures otherwise; nothing
+ * here touches wallets or the ledger.
  */
 interface ReviewRow {
   id: string;
@@ -76,24 +80,24 @@ export function MerchantOwnMoneyReviewPanel() {
   const { data, isLoading, error } = useOwnMoneyReviewQueue();
   const qc = useQueryClient();
   const [expanded, setExpanded] = useState(false);
-  const [rejectFor, setRejectFor] = useState<string | null>(null);
-  const [reason, setReason] = useState('');
 
+  // Confirm only. Rejection is not reachable from this panel by design — see
+  // the file header. The RPC still accepts 'reject', but this surface never
+  // sends it, so there is exactly one place a claim can be declined.
   const decide = useMutation({
-    mutationFn: async (input: { id: string; decision: 'confirm' | 'reject'; note?: string }) => {
+    mutationFn: async (input: { id: string }) => {
       const { error: rpcErr } = await supabase.rpc('review_merchant_out_of_pocket' as any, {
         p_id: input.id,
-        p_decision: input.decision,
-        p_note: input.note?.trim() || null,
+        p_decision: 'confirm',
+        p_note: null,
       });
       if (rpcErr) throw rpcErr;
     },
-    onSuccess: (_d, v) => {
-      toast.success(v.decision === 'confirm' ? 'Confirmed as money we owe the agent.' : 'Rejected.');
-      setRejectFor(null);
-      setReason('');
+    onSuccess: () => {
+      toast.success('Confirmed as money we owe the agent.');
       qc.invalidateQueries({ queryKey: ['merchant-own-money-review'] });
       qc.invalidateQueries({ queryKey: ['merchant-float-positions'] });
+      qc.invalidateQueries({ queryKey: ['merchant-settlement-debts'] });
     },
     onError: (e: any) => toast.error(e?.message ?? 'Could not save. Try again.'),
   });
@@ -164,57 +168,20 @@ export function MerchantOwnMoneyReviewPanel() {
               </p>
             </div>
 
-            {rejectFor === r.id ? (
-              <div className="mt-2">
-                <Textarea
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  placeholder="Why is this not money we owe? (at least 10 characters)"
-                  className="text-[12px]"
-                  rows={2}
-                />
-                <div className="mt-2 flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    disabled={reason.trim().length < 10 || decide.isPending}
-                    onClick={() => decide.mutate({ id: r.id, decision: 'reject', note: reason })}
-                  >
-                    Reject claim
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      setRejectFor(null);
-                      setReason('');
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-2 flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1"
-                  disabled={decide.isPending}
-                  onClick={() => decide.mutate({ id: r.id, decision: 'confirm' })}
-                >
-                  <Check className="h-3.5 w-3.5" /> Confirm we owe this
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="gap-1 text-destructive"
-                  onClick={() => setRejectFor(r.id)}
-                >
-                  <X className="h-3.5 w-3.5" /> Not owed
-                </Button>
-              </div>
-            )}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1"
+                disabled={decide.isPending}
+                onClick={() => decide.mutate({ id: r.id })}
+              >
+                <Check className="h-3.5 w-3.5" /> Confirm we owe this
+              </Button>
+              <span className="text-[10px] text-muted-foreground">
+                Not owed? Reject it from &ldquo;What we owe each merchant agent&rdquo;.
+              </span>
+            </div>
           </li>
         ))}
       </ul>
@@ -234,7 +201,7 @@ export function MerchantOwnMoneyReviewPanel() {
       <p className="mt-3 rounded-xl border border-primary/10 bg-primary/5 p-3 text-[11px] leading-relaxed text-muted-foreground">
         A shortfall on its own does not prove the agent spent their own money — their own cash never
         passes through our books. Confirm only what you have checked with the agent and their payment
-        proof. Rejecting needs a written reason and nothing is ever deleted.
+        proof. To decline a claim, open “What we owe each merchant agent” and reject it there.
       </p>
     </div>
   );

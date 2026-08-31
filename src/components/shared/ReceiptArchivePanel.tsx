@@ -50,10 +50,49 @@ type Row = {
   agent_phone?: string | null;
   resolved_agent_profile_id?: string | null;
   uploaded_by_name?: string | null;
+  /**
+   * Who actually put up the cash for this payout, from
+   * `merchant_out_of_pocket_advances` joined on `withdrawal_id`.
+   *
+   * A receipt says the customer was paid; it does NOT say the company funded
+   * it. When a desk has no float the merchant fronts the payout from their own
+   * phone, and the only trace is an advance row. Without these fields the
+   * archive shows a completed cash-out with no hint that the money was the
+   * merchant's, which is how a full day of self-funded payouts read as
+   * ordinary company payouts.
+   */
+  float_covered?: number;
+  /** Merchant's own cash fronted on the payout leg. */
+  own_cash?: number;
+  /** Merchant's own cash fronted on the telecom sending charge. */
+  own_cash_telecom?: number;
+  /** `needs_review` | `pending_reimbursement` | `rejected` | reimbursed. */
+  own_cash_status?: string | null;
+  own_cash_reimbursed?: boolean;
+};
+
+/** Advance-row shape needed to attribute a receipt's funding source. */
+type OopRow = {
+  withdrawal_id: string | null;
+  kind: string;
+  float_used: number | null;
+  shortfall_amount: number | null;
+  status: string | null;
+  reimbursed_at: string | null;
 };
 
 const PAGE_SIZE = 25;
 const RECEIPT_BASE_URL = 'https://welileapp.com/r/';
+
+/**
+ * Merchant's own cash behind one receipt — payout principal plus the telecom
+ * sending charge they also covered. Excludes anything already refunded, so the
+ * figure reads as "still out of pocket on this receipt".
+ */
+function ownCashTotal(r: Row): number {
+  if (r.own_cash_reimbursed) return 0;
+  return Number(r.own_cash ?? 0) + Number(r.own_cash_telecom ?? 0);
+}
 
 const STATUSES = [
   { v: 'all', label: 'All Statuses' },
@@ -188,6 +227,44 @@ export function ReceiptArchivePanel() {
         );
       }
 
+      // Funding source per receipt. One withdrawal can carry two advance legs
+      // (`payout` for the principal, `telecom` for the sending charge), so they
+      // are folded per withdrawal_id rather than assumed one-to-one.
+      const oopByWithdrawal: Record<
+        string,
+        Pick<Row, 'float_covered' | 'own_cash' | 'own_cash_telecom' | 'own_cash_status' | 'own_cash_reimbursed'>
+      > = {};
+      if (base.length > 0) {
+        const { data: oop } = await supabase
+          .from('merchant_out_of_pocket_advances')
+          .select('withdrawal_id, kind, float_used, shortfall_amount, status, reimbursed_at')
+          .in('withdrawal_id', base.map((r) => r.id));
+        ((oop ?? []) as OopRow[]).forEach((o) => {
+          const wid = o.withdrawal_id;
+          if (!wid) return;
+          const entry = (oopByWithdrawal[wid] ??= {
+            float_covered: 0,
+            own_cash: 0,
+            own_cash_telecom: 0,
+            own_cash_status: null,
+            own_cash_reimbursed: false,
+          });
+          const shortfall = Number(o.shortfall_amount ?? 0);
+          if (o.kind === 'telecom') {
+            entry.own_cash_telecom = (entry.own_cash_telecom ?? 0) + shortfall;
+          } else {
+            entry.own_cash = (entry.own_cash ?? 0) + shortfall;
+            entry.float_covered = (entry.float_covered ?? 0) + Number(o.float_used ?? 0);
+          }
+          // The payout leg carries the status that matters; a telecom-only row
+          // still sets it so a charge-only claim is not left unlabelled.
+          if (o.kind !== 'telecom' || !entry.own_cash_status) {
+            entry.own_cash_status = o.status ?? null;
+          }
+          if (o.reimbursed_at) entry.own_cash_reimbursed = true;
+        });
+      }
+
       // Client-side phone/name search — after primary DB query, so counts stay honest
       let hydrated = base.map((r) => {
         const agentId =
@@ -205,6 +282,7 @@ export function ReceiptArchivePanel() {
           uploaded_by_name: r.payout_proof_uploaded_by
             ? profilesById[r.payout_proof_uploaded_by]?.full_name ?? null
             : null,
+          ...(oopByWithdrawal[r.id] ?? {}),
         };
       });
 
@@ -266,6 +344,23 @@ export function ReceiptArchivePanel() {
   };
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  // Scoped to the visible page only — the archive pages server-side, so a
+  // platform-wide figure would need its own aggregate and must not be implied
+  // here. `unconfirmed` is the part still gated on the merchant attesting.
+  const pageOwnCash = useMemo(() => {
+    let sum = 0;
+    let count = 0;
+    let unconfirmed = 0;
+    rows.forEach((r) => {
+      const own = ownCashTotal(r);
+      if (own <= 0) return;
+      sum += own;
+      count += 1;
+      if (r.own_cash_status === 'needs_review') unconfirmed += own;
+    });
+    return { total: sum, count, unconfirmed };
+  }, [rows]);
 
   const copyLink = async (token: string, id: string) => {
     const url = `${RECEIPT_BASE_URL}${token}`;
@@ -411,6 +506,20 @@ export function ReceiptArchivePanel() {
             No receipts match your filters.
           </div>
         ) : (
+          <>
+          {pageOwnCash.total > 0 && (
+            <div className="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs">
+              <span className="font-semibold text-warning">
+                {formatUGX(pageOwnCash.total)}
+              </span>{' '}
+              on this page was fronted by merchant agents from their own cash, across{' '}
+              {pageOwnCash.count} {pageOwnCash.count === 1 ? 'receipt' : 'receipts'}
+              {pageOwnCash.unconfirmed > 0 && (
+                <> — {formatUGX(pageOwnCash.unconfirmed)} not yet supported by the books</>
+              )}
+              .
+            </div>
+          )}
           <div className="overflow-x-auto -mx-4 sm:mx-0">
             <table className="w-full text-sm min-w-[1000px]">
               <thead className="border-b bg-muted/40">
@@ -420,6 +529,7 @@ export function ReceiptArchivePanel() {
                   <th className="px-3 py-2 font-semibold">User</th>
                   <th className="px-3 py-2 font-semibold">Merchant Agent</th>
                   <th className="px-3 py-2 font-semibold text-right">Amount</th>
+                  <th className="px-3 py-2 font-semibold">Funded by</th>
                   <th className="px-3 py-2 font-semibold">Status</th>
                   <th className="px-3 py-2 font-semibold">Proof</th>
                   <th className="px-3 py-2 font-semibold">Date</th>
@@ -473,6 +583,33 @@ export function ReceiptArchivePanel() {
                       </td>
                       <td className="px-3 py-2 text-right font-bold tabular-nums whitespace-nowrap">
                         {formatUGX(Number(r.amount || 0))}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {ownCashTotal(r) > 0 ? (
+                          <>
+                            <div className="text-[11px] font-semibold text-warning">
+                              Merchant&apos;s own cash
+                            </div>
+                            <div className="font-mono text-[11px] tabular-nums">
+                              {formatUGX(ownCashTotal(r))}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">
+                              {r.own_cash_reimbursed
+                                ? 'refunded'
+                                : r.own_cash_status === 'pending_reimbursement'
+                                  ? 'recorded — we owe them this'
+                                  : r.own_cash_status === 'needs_review'
+                                    ? 'filed — books not yet corroborated'
+                                    : r.own_cash_status === 'rejected'
+                                      ? 'settled outside the system'
+                                      : 'unclassified'}
+                              {Number(r.float_covered ?? 0) > 0 &&
+                                ` · float covered ${formatUGX(Number(r.float_covered))}`}
+                            </div>
+                          </>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground">Company float</span>
+                        )}
                       </td>
                       <td className="px-3 py-2">
                         <Badge variant="outline" className={`text-[10px] font-semibold ${statusTone(r.status)}`}>
@@ -552,6 +689,7 @@ export function ReceiptArchivePanel() {
               </tbody>
             </table>
           </div>
+          </>
         )}
 
         {/* Pagination */}

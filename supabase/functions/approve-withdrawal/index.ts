@@ -3145,16 +3145,42 @@ Deno.serve(async (req) => {
         console.error("[approve-withdrawal] settlement reconciliation insert failed:", e);
       }
     };
+    // ── Merchant float debit: PRINCIPAL + TELECOM, one atomic transaction ──
+    // The merchant's float covers BOTH the payout and its sending fee: a
+    // UGX 5,000 payout carrying a UGX 500 charge debits UGX 5,500 of float.
+    //   Merchant Float Allocated = Customer Payouts + Telecom Charges + Remaining Float
+    //
+    // These were previously two separate `create_ledger_transaction` calls under
+    // two idempotency keys. When the telecom call failed -- or was skipped
+    // because float ran out exactly at the principal -- the books showed the
+    // payout debited and the sending fee not, and `classify_merchant_payout_funding`
+    // then raised a phantom "the merchant fronted the telecom charge"
+    // receivable. Measured 2026-08-29: 1,187 such rows across 15 agents,
+    // UGX 824,800.
+    //
+    // Both legs now post in ONE transaction, so the float debit is
+    // all-or-nothing. The two distinct reference_ids are preserved --
+    // `-merchant-float-consume` and `-merchant-telecom-charge` -- because the
+    // daily reconciliation and the classifier both read them to split payouts
+    // from telecom. Each reference balances on its own (wallet cash_out against
+    // platform cash_in), so the group stays balanced.
+    //
+    // The idempotency key is deliberately still the ORIGINAL principal key. A
+    // fresh key would re-debit every withdrawal already settled under the old
+    // scheme if this function ever replays.
+    let merchantTelecomCharge = 0;
+    const merchantFloatDebitTotal = merchantFloatForPrincipal + merchantFloatForTelecom;
     if (
       actingAsMerchant &&
       !poolFunded &&
       amount > 0 &&
-      merchantFloatForPrincipal > 0
+      merchantFloatDebitTotal > 0
     ) {
       try {
         const txDate = new Date().toISOString();
-        const { error: floatErr } = await admin.rpc("create_ledger_transaction", {
-          entries: [
+        const floatEntries: Record<string, unknown>[] = [];
+        if (merchantFloatForPrincipal > 0) {
+          floatEntries.push(
             {
               user_id: user.id, ledger_scope: "wallet", direction: "cash_out",
               amount: merchantFloatForPrincipal, category: "agent_float_settlement",
@@ -3170,97 +3196,54 @@ Deno.serve(async (req) => {
               description: `Merchant float settled to customer for withdrawal ${withdrawal_id}`,
               currency: "UGX", reference_id: `${withdrawal_id}-merchant-float-consume`, transaction_date: txDate,
             },
-          ],
+          );
+        }
+        if (merchantFloatForTelecom > 0) {
+          floatEntries.push(
+            {
+              user_id: user.id, ledger_scope: "wallet", direction: "cash_out",
+              amount: merchantFloatForTelecom, category: "agent_float_settlement",
+              recipient_type: "operational_wallet", wallet_bucket: "float",
+              source_table: "withdrawal_requests", source_id: withdrawal_id,
+              description: `Telecom sending charge for merchant cash-out ${withdrawal_id}`,
+              currency: "UGX", reference_id: `${withdrawal_id}-merchant-telecom-charge`, transaction_date: txDate,
+            },
+            {
+              user_id: user.id, ledger_scope: "platform", direction: "cash_in",
+              amount: merchantFloatForTelecom, category: "agent_float_settlement",
+              source_table: "withdrawal_requests", source_id: withdrawal_id,
+              description: `Telecom sending charge recovered from merchant float for withdrawal ${withdrawal_id}`,
+              currency: "UGX", reference_id: `${withdrawal_id}-merchant-telecom-charge`, transaction_date: txDate,
+            },
+          );
+        }
+        const { error: floatErr } = await admin.rpc("create_ledger_transaction", {
+          entries: floatEntries,
           idempotency_key: `approve-withdrawal-merchant-float-consume-${withdrawal_id}`,
         });
         if (floatErr) {
-          console.error("[approve-withdrawal] Merchant float consume RPC error:", floatErr);
+          console.error("[approve-withdrawal] Merchant float debit RPC error:", floatErr);
           await logSettlementGap(
             "merchant_float_consume",
-            merchantFloatForPrincipal,
-            `float debit failed: ${String((floatErr as any)?.message ?? floatErr)}`,
+            merchantFloatDebitTotal,
+            `combined float debit failed (principal ${merchantFloatForPrincipal} + telecom ${merchantFloatForTelecom}): ${String((floatErr as any)?.message ?? floatErr)}`,
           );
         } else {
           merchantFloatConsumed = merchantFloatForPrincipal;
+          merchantTelecomCharge = merchantFloatForTelecom;
           try {
             await admin.rpc("refresh_wallet_projection_for", { p_user_id: user.id });
           } catch (refreshErr) {
-            console.error("[approve-withdrawal] refresh_wallet_projection_for failed after merchant float consume:", refreshErr);
+            console.error("[approve-withdrawal] refresh_wallet_projection_for failed after merchant float debit:", refreshErr);
           }
         }
       } catch (e) {
-        console.error("[approve-withdrawal] Merchant float consume exception:", e);
+        console.error("[approve-withdrawal] Merchant float debit exception:", e);
         await logSettlementGap(
           "merchant_float_consume",
-          merchantFloatForPrincipal,
-          `float debit exception: ${String((e as any)?.message ?? e)}`,
+          merchantFloatDebitTotal,
+          `combined float debit exception: ${String((e as any)?.message ?? e)}`,
         );
-      }
-    }
-
-    // ── Merchant-agent TELECOM SENDING CHARGE (Float model, 2026-07) ─────
-    // Every Mobile Money payout the merchant sends from their own MTN/Airtel
-    // line costs a tiered sending fee. Since the merchant's float is intended
-    // to cover BOTH the payout amount and its telecom cost, we deduct the
-    // charge from the merchant's float bucket here so the Welile float ledger
-    // always matches what actually left the merchant's MoMo account.
-    //   Merchant Float Allocated = Customer Payouts + Telecom Charges + Remaining Float
-    // Uses the existing `agent_float_settlement` category with a distinct
-    // reference (`<withdrawal_id>-merchant-telecom-charge`) so the daily
-    // reconciliation report can split payouts vs telecom cleanly.
-    let merchantTelecomCharge = 0;
-    if (
-      actingAsMerchant &&
-      !poolFunded &&
-      amount > 0
-    ) {
-      const telecomCharge = merchantFloatForTelecom;
-      if (telecomCharge > 0) {
-        try {
-          const txDate = new Date().toISOString();
-          const { error: telErr } = await admin.rpc("create_ledger_transaction", {
-            entries: [
-              {
-                user_id: user.id, ledger_scope: "wallet", direction: "cash_out",
-                amount: telecomCharge, category: "agent_float_settlement",
-                recipient_type: "operational_wallet", wallet_bucket: "float",
-                source_table: "withdrawal_requests", source_id: withdrawal_id,
-                description: `Telecom sending charge for merchant cash-out ${withdrawal_id}`,
-                currency: "UGX", reference_id: `${withdrawal_id}-merchant-telecom-charge`, transaction_date: txDate,
-              },
-              {
-                user_id: user.id, ledger_scope: "platform", direction: "cash_in",
-                amount: telecomCharge, category: "agent_float_settlement",
-                source_table: "withdrawal_requests", source_id: withdrawal_id,
-                description: `Telecom sending charge recovered from merchant float for withdrawal ${withdrawal_id}`,
-                currency: "UGX", reference_id: `${withdrawal_id}-merchant-telecom-charge`, transaction_date: txDate,
-              },
-            ],
-            idempotency_key: `approve-withdrawal-merchant-telecom-charge-${withdrawal_id}`,
-          });
-          if (telErr) {
-            console.error("[approve-withdrawal] Merchant telecom charge RPC error:", telErr);
-            await logSettlementGap(
-              "merchant_telecom_charge",
-              telecomCharge,
-              `telecom charge debit failed: ${String((telErr as any)?.message ?? telErr)}`,
-            );
-          } else {
-            merchantTelecomCharge = telecomCharge;
-            try {
-              await admin.rpc("refresh_wallet_projection_for", { p_user_id: user.id });
-            } catch (refreshErr) {
-              console.error("[approve-withdrawal] refresh_wallet_projection_for failed after merchant telecom charge:", refreshErr);
-            }
-          }
-        } catch (e) {
-          console.error("[approve-withdrawal] Merchant telecom charge exception:", e);
-          await logSettlementGap(
-            "merchant_telecom_charge",
-            telecomCharge,
-            `telecom charge exception: ${String((e as any)?.message ?? e)}`,
-          );
-        }
       }
     }
 

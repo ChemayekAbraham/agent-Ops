@@ -92,6 +92,24 @@ export interface MerchantFloatPosition {
    * position is negative by this much.
    */
   clampedShortfall: number;
+  /**
+   * Own-money claims still sitting in the legacy `needs_review` state,
+   * excluding anything already reimbursed. Reported BESIDE `owedToAgent`,
+   * never inside it.
+   *
+   * Fronted money is now recorded as owed the moment the payout is classified,
+   * so this trends to zero: what remains is the tail filed before that change.
+   * A non-zero value means claims the books have not corroborated, NOT claims
+   * waiting on the merchant — nobody attests anything any more.
+   */
+  ownCashUnderReview: number;
+  /**
+   * Unreimbursed claims with no `attested_at`. Attestation is no longer the
+   * gate that decides whether a debt exists, so this is now an audit trail of
+   * who confirmed historically rather than a queue to work through — expect it
+   * to equal essentially every open claim. Do not present it as an action.
+   */
+  unattestedCount: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,6 +195,8 @@ export function useMerchantFloatPositions(enabled = true) {
         assertedOnlyAmount: Number(r.asserted_only_amount ?? 0),
         evidenceStatus: (r.evidence_status ?? 'evidenced') as MerchantFloatPosition['evidenceStatus'],
         clampedShortfall: Number(r.clamped_shortfall_amount ?? 0),
+        ownCashUnderReview: Number(r.own_cash_under_review ?? 0),
+        unattestedCount: Number(r.unattested_count ?? 0),
       }));
     },
   });
@@ -338,6 +358,10 @@ export function useReviewMerchantOutOfPocket() {
       qc.invalidateQueries({ queryKey: ['merchant-out-of-pocket'] });
       qc.invalidateQueries({ queryKey: ['merchant-out-of-pocket-rows'] });
       qc.invalidateQueries({ queryKey: ['merchant-float-positions'] });
+      // Rejection is driven from the settlement dialog, so its list has to
+      // refetch or a rejected claim stays on screen until the next poll.
+      qc.invalidateQueries({ queryKey: ['merchant-settlement-debts'] });
+      qc.invalidateQueries({ queryKey: ['merchant-own-money-review'] });
     },
   });
 }
@@ -1043,7 +1067,16 @@ export function useMerchantSettlementDebts(enabled = true) {
         // Only a ledger-evidenced, confirmed claim is money we owe. Confirmed
         // rows the books do not support are reported alongside `needs_review`
         // instead of being presented as a payable balance.
-        if (line.status === DEBT_STATUS_PAYABLE && line.isEvidenced) {
+        //
+        // `isEstimate` is excluded too: a telecom-kind claim with no provider
+        // reference is a computed guess at the sending fee, and the merchant's
+        // float is supposed to cover that fee as part of the same debit as the
+        // payout. 1,187 such rows exist (UGX 824,800) from the period when the
+        // telecom leg could fail independently of the principal leg — 751 of
+        // them read as evidenced, so without this they would settle as real
+        // debt. The review list already labels them "not yet claimable"; this
+        // makes the payable total agree with that label.
+        if (line.status === DEBT_STATUS_PAYABLE && line.isEvidenced && !line.isEstimate) {
           g.payable += line.evidencedAmount || line.amount;
           g.payableLines.push(line);
           if (!g.oldestAt || line.createdAt < g.oldestAt) g.oldestAt = line.createdAt;
