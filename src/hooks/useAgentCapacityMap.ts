@@ -612,6 +612,7 @@ export function useAgentCapacityMap(agentIds: string[]) {
           today_response_pct,
           effective_daily_pct,
           daily_status,
+          performance_pct,
           daily_rating,
           can_post_rent_today,
           good_days_last_week,
