@@ -63,12 +63,15 @@ export const UNLIMITED_PER_TENANT_MAX = Number.MAX_SAFE_INTEGER;
  *   5%  – <15%   → Bad        (orange,  BLOCKED)
  *   < 5%         → Very Bad   (red,     BLOCKED)
  *
- * TENANT COVERAGE GATE (2026-08-28): the tier above is then demoted by
- * how many DUE tenants actually paid (coverage = tenants_paid / tenants_due):
- *   coverage = 100%  → no demotion
- *   50–99%           → one tier down
- *   < 50%            → two tiers down
- * "Very Good" is therefore unreachable unless every due tenant paid.
+ * TENANT COVERAGE (2026-08-31 correction): `effective_pct` coming from the
+ * server is ALREADY coverage-safe — a tenant who paid nothing contributes
+ * nothing, and a tenant who over-paid is capped at their own daily amount.
+ * The previous client-side "demote one/two tiers by coverage" step therefore
+ * punished the same coverage shortfall a SECOND time and produced absurd
+ * labels (e.g. 50% of the daily book collected shown as "Very Bad").
+ * Coverage now only does one thing: "Very Good" stays unreachable unless
+ * every due tenant paid — the tier is floored at "Good" in that case, never
+ * demoted further.
  */
 export const DAILY_RATING_THRESHOLDS = {
   very_good: 0.75,
@@ -99,11 +102,12 @@ export function classifyDailyRating(
   else if (effective_pct >= DAILY_RATING_THRESHOLDS.bad)    idx = 3;
   else                                                     idx = 4;
   const cov = Number.isFinite(coverage) ? coverage : 1;
-  const demote = cov >= COVERAGE_BANDS.full ? 0
-    : cov >= COVERAGE_BANDS.partial ? 1
-    : 2;
-  return RATING_LADDER[Math.min(RATING_LADDER.length - 1, idx + demote)];
+  // Coverage is already priced into `effective_pct`. It may only block the
+  // top tier — never demote further.
+  if (idx === 0 && cov < COVERAGE_BANDS.full) idx = 1;
+  return RATING_LADDER[Math.min(RATING_LADDER.length - 1, idx)];
 }
+
 
 
 /**
