@@ -2,8 +2,13 @@
  * Shared data layer for the Call Centre hub (tenant / landlord / agent).
  *
  * Rules encoded here:
- *  - Phone numbers are NEVER fetched with the roster. A number is only read
- *    after a cc_call_attempts row exists (reveal-then-show).
+ *  - The queue is assembled ENTIRELY server-side by cc_call_queue_page. There is
+ *    no client-side stitching of names, agents, feedback or tickets, and no
+ *    client-side sorting, searching or paging.
+ *  - Phone numbers are NEVER selected from a table. A number is only produced by
+ *    cc_reveal_phone(attempt_id) after an attempt row exists.
+ *  - Every outcome is written by an RPC. The client performs no direct writes to
+ *    cc_feedback, cc_cycle_rows or cc_call_attempts (beyond opening an attempt).
  *  - No trigger rule is duplicated client-side. The WIP guard, attempt cap and
  *    locked-category rejection all come back from the database as messages
  *    written to be read by staff; we surface them verbatim.
@@ -17,6 +22,7 @@ export type CcSubjectType = 'tenant' | 'landlord' | 'agent';
 export type CcRowState = 'to_call' | 'engaged' | 'unreachable' | 'callback' | 'parked' | 'closed';
 export type CcOutcome = 'engaged' | 'no_answer' | 'phone_off' | 'wrong_number' | 'refused' | 'callback_booked';
 export type CcSeverity = 'normal' | 'high' | 'critical';
+export type CcMetricFormat = 'ugx' | 'days' | 'date' | 'number' | 'text';
 
 export const QUICK_OUTCOMES: { value: Exclude<CcOutcome, 'engaged' | 'callback_booked'>; label: string }[] = [
   { value: 'no_answer', label: 'No answer' },
@@ -26,6 +32,7 @@ export const QUICK_OUTCOMES: { value: Exclude<CcOutcome, 'engaged' | 'callback_b
 ];
 
 export const OPEN_ATTEMPT_LIMIT = 3;
+export const CC_PAGE_SIZE = 50;
 
 export interface CcRow {
   id: string;
@@ -37,7 +44,6 @@ export interface CcRow {
   next_retry_at: string | null;
   callback_due_at: string | null;
   park_reason: string | null;
-  priority_value: number | null;
   name: string;
   linked_agent: string | null;
   district: string | null;
@@ -48,6 +54,12 @@ export interface CcRow {
   ticket_status: string | null;
   fix_ticket_ref: string | null;
   booked_by: string | null;
+  /** Server-selected sort metric for the active sort key. */
+  metric_value: number | null;
+  metric_date: string | null;
+  metric_text: string | null;
+  metric_label: string;
+  metric_format: CcMetricFormat;
 }
 
 export interface CcOpenAttempt {
@@ -55,7 +67,6 @@ export interface CcOpenAttempt {
   cycle_row_id: string;
   attempt_no: number;
   revealed_at: string;
-  subject_id: string;
   subject_type: CcSubjectType;
   name: string;
 }
@@ -68,9 +79,26 @@ export interface CcCategory {
   default_owner_role: string | null;
 }
 
+export interface CcSortOption {
+  key: string;
+  label: string;
+  is_default: boolean;
+  value_format: CcMetricFormat;
+}
+
 const err = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-export function useCcCallingHub(subjectType: CcSubjectType) {
+/** cc_* RPCs are newer than the generated types in some environments. */
+const rpc = (fn: string, args?: Record<string, unknown>) =>
+  (supabase.rpc as unknown as (n: string, a?: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>)(
+    fn,
+    args,
+  );
+
+export function useCcCallingHub(
+  subjectType: CcSubjectType,
+  view: { state: CcRowState; sortKey: string | null; search: string; page: number },
+) {
   const { user, roles } = useAuth();
   const qc = useQueryClient();
   const [outstanding, setOutstanding] = useState<Record<string, unknown>[] | null>(null);
@@ -92,7 +120,7 @@ export function useCcCallingHub(subjectType: CcSubjectType) {
         .order('cycle_no', { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (error) throw error;
+      if (error) throw new Error(err(error));
       return data;
     },
     staleTime: 30_000,
@@ -108,7 +136,7 @@ export function useCcCallingHub(subjectType: CcSubjectType) {
         .select('*')
         .eq('cycle_id', cycleId!)
         .maybeSingle();
-      if (error) throw error;
+      if (error) throw new Error(err(error));
       return data as Record<string, number | string | null> | null;
     },
     staleTime: 15_000,
@@ -123,164 +151,115 @@ export function useCcCallingHub(subjectType: CcSubjectType) {
         .eq('subject_type', subjectType)
         .eq('active', true)
         .order('label');
-      if (error) throw error;
+      if (error) throw new Error(err(error));
       return data ?? [];
     },
     staleTime: 300_000,
   });
 
-  /* ----------------------------------------------------------------- rows */
-  const rowsQ = useQuery({
-    queryKey: ['cc-rows', cycleId],
+  /* ----------------------------------------------------------- sort options */
+  const sortOptionsQ = useQuery({
+    queryKey: ['cc-sort-options', subjectType],
+    queryFn: async (): Promise<CcSortOption[]> => {
+      const { data, error } = await supabase
+        .from('cc_sort_options')
+        .select('key, label, is_default, value_format, sort_order')
+        .eq('subject_type', subjectType)
+        .eq('active', true)
+        .order('sort_order', { ascending: true });
+      if (error) throw new Error(err(error));
+      return (data ?? []).map((o) => ({
+        key: o.key as string,
+        label: o.label as string,
+        is_default: !!o.is_default,
+        value_format: (o.value_format as CcMetricFormat) ?? 'number',
+      }));
+    },
+    staleTime: 300_000,
+  });
+
+  const defaultSortKey = useMemo(
+    () => sortOptionsQ.data?.find((o) => o.is_default)?.key ?? sortOptionsQ.data?.[0]?.key ?? null,
+    [sortOptionsQ.data],
+  );
+  const effectiveSortKey = view.sortKey ?? defaultSortKey;
+
+  /* --------------------------------------------------------- queue (server) */
+  const queueQ = useQuery({
+    queryKey: ['cc-queue', subjectType, view.state, effectiveSortKey, view.search, view.page],
     enabled: !!cycleId,
-    queryFn: async (): Promise<CcRow[]> => {
-      const { data: rows, error } = await supabase
-        .from('cc_cycle_rows')
-        .select(
-          'id, subject_type, subject_id, state, attempts_made, last_attempt_at, next_retry_at, callback_due_at, park_reason, priority_value',
-        )
-        .eq('cycle_id', cycleId!)
-        .neq('state', 'closed')
-        .order('priority_value', { ascending: false, nullsFirst: false })
-        .limit(2000);
-      if (error) throw error;
-      const base = rows ?? [];
-      if (!base.length) return [];
-
-      const rowIds = base.map((r) => r.id);
-      const subjectIds = [...new Set(base.map((r) => r.subject_id))];
-
-      // NOTE: `phone` is intentionally absent from this select.
-      const { data: profs } = await supabase
-        .from('profiles')
-        .select('id, full_name, district, managing_agent_id')
-        .in('id', subjectIds);
-
-      const agentIds = [...new Set((profs ?? []).map((p) => p.managing_agent_id).filter(Boolean))] as string[];
-
-      const [{ data: attempts }, { data: feedback }, { data: followups }] = await Promise.all([
-        supabase
-          .from('cc_call_attempts')
-          .select('id, cycle_row_id, caller_id, outcome, recorded_at')
-          .in('cycle_row_id', rowIds)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('cc_feedback')
-          .select(
-            'id, severity, created_at, routed_to_actual, routed_to_expected, category:cc_feedback_categories(label), ticket:hr_tickets(ref, task:hr_tasks(status)), attempt:cc_call_attempts!inner(cycle_row_id)',
-          )
-          .in('attempt.cycle_row_id', rowIds)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('cc_followups')
-          .select('cycle_row_id, ticket:hr_tickets(ref)')
-          .in('cycle_row_id', rowIds),
-      ]);
-
-      const callerIds = [...new Set((attempts ?? []).map((a) => a.caller_id).filter(Boolean))] as string[];
-      const staffIds = [
-        ...new Set(
-          (feedback ?? []).flatMap((f: any) => [f.routed_to_actual, f.routed_to_expected]).filter(Boolean),
-        ),
-      ] as string[];
-
-      const [{ data: agentProfs }, { data: callerProfs }, { data: staffRows }] = await Promise.all([
-        agentIds.length
-          ? supabase.from('profiles').select('id, full_name').in('id', agentIds)
-          : Promise.resolve({ data: [] as any[] }),
-        callerIds.length
-          ? supabase.from('profiles').select('id, full_name').in('id', callerIds)
-          : Promise.resolve({ data: [] as any[] }),
-        staffIds.length
-          ? supabase.from('hr_staff').select('id, user_id').in('id', staffIds)
-          : Promise.resolve({ data: [] as any[] }),
-      ]);
-
-      const staffUserIds = [...new Set((staffRows ?? []).map((s: any) => s.user_id).filter(Boolean))] as string[];
-      const { data: staffProfs } = staffUserIds.length
-        ? await supabase.from('profiles').select('id, full_name').in('id', staffUserIds)
-        : { data: [] as any[] };
-
-      const nameOf = (list: any[] | null, id: string | null | undefined) =>
-        (id && (list ?? []).find((p) => p.id === id)?.full_name) || null;
-      const staffName = (staffId: string | null) => {
-        const s = (staffRows ?? []).find((x: any) => x.id === staffId);
-        return s ? nameOf(staffProfs as any[], s.user_id) : null;
-      };
-
-      const feedbackByRow = new Map<string, any>();
-      for (const f of (feedback ?? []) as any[]) {
-        const rid = f.attempt?.cycle_row_id;
-        if (rid && !feedbackByRow.has(rid)) feedbackByRow.set(rid, f);
-      }
-      const bookedByRow = new Map<string, string | null>();
-      for (const a of (attempts ?? []) as any[]) {
-        if (a.outcome === 'callback_booked' && !bookedByRow.has(a.cycle_row_id)) {
-          bookedByRow.set(a.cycle_row_id, nameOf(callerProfs as any[], a.caller_id));
-        }
-      }
-      const fixTicketByRow = new Map<string, string | null>();
-      for (const f of (followups ?? []) as any[]) {
-        if (f.cycle_row_id && !fixTicketByRow.has(f.cycle_row_id)) {
-          fixTicketByRow.set(f.cycle_row_id, f.ticket?.ref ?? null);
-        }
-      }
-
-      return base.map((r) => {
-        const prof = (profs ?? []).find((p) => p.id === r.subject_id);
-        const fb = feedbackByRow.get(r.id);
-        return {
-          id: r.id,
-          subject_type: r.subject_type as CcSubjectType,
-          subject_id: r.subject_id,
-          state: r.state as CcRowState,
-          attempts_made: r.attempts_made ?? 0,
-          last_attempt_at: r.last_attempt_at,
-          next_retry_at: r.next_retry_at,
-          callback_due_at: r.callback_due_at,
-          park_reason: r.park_reason,
-          priority_value: r.priority_value === null ? null : Number(r.priority_value),
-          name: prof?.full_name || 'Unnamed',
-          linked_agent: nameOf(agentProfs as any[], prof?.managing_agent_id),
-          district: prof?.district ?? null,
-          feedback_category: fb?.category?.label ?? null,
-          severity: (fb?.severity as CcSeverity) ?? null,
-          routed_to: fb ? staffName(fb.routed_to_actual ?? fb.routed_to_expected) : null,
-          ticket_ref: fb?.ticket?.ref ?? null,
-          ticket_status: fb?.ticket?.task?.status ?? null,
-          fix_ticket_ref: fixTicketByRow.get(r.id) ?? null,
-          booked_by: bookedByRow.get(r.id) ?? null,
-        };
+    queryFn: async (): Promise<{ rows: CcRow[]; total: number }> => {
+      const { data, error } = await rpc('cc_call_queue_page', {
+        p_subject_type: subjectType,
+        p_state: view.state,
+        p_sort_key: effectiveSortKey,
+        p_search: view.search.trim() || null,
+        p_limit: CC_PAGE_SIZE,
+        p_offset: view.page * CC_PAGE_SIZE,
       });
+      if (error) throw new Error(err(error));
+      const list = (data ?? []) as Record<string, unknown>[];
+      const rows: CcRow[] = list.map((r) => ({
+        id: String(r.cycle_row_id),
+        subject_type: subjectType,
+        subject_id: String(r.subject_id),
+        state: r.state as CcRowState,
+        attempts_made: Number(r.attempts_made ?? 0),
+        last_attempt_at: (r.last_attempt_at as string) ?? null,
+        next_retry_at: (r.next_retry_at as string) ?? null,
+        callback_due_at: (r.callback_due_at as string) ?? null,
+        park_reason: (r.park_reason as string) ?? null,
+        name: (r.name as string) || 'Unnamed',
+        linked_agent: (r.linked_agent_name as string) ?? null,
+        district: (r.district as string) ?? null,
+        feedback_category: (r.feedback_category as string) ?? null,
+        severity: (r.severity as CcSeverity) ?? null,
+        routed_to: (r.routed_to_name as string) ?? null,
+        ticket_ref: (r.ticket_ref as string) ?? null,
+        ticket_status: (r.task_status as string) ?? null,
+        fix_ticket_ref: (r.fix_ticket_ref as string) ?? null,
+        booked_by: (r.booked_by_name as string) ?? null,
+        metric_value: r.metric_value === null || r.metric_value === undefined ? null : Number(r.metric_value),
+        metric_date: (r.metric_date as string) ?? null,
+        metric_text: (r.metric_text as string) ?? null,
+        metric_label: (r.metric_label as string) || 'Metric',
+        metric_format: ((r.metric_format as CcMetricFormat) ?? 'number') as CcMetricFormat,
+      }));
+      const total = list.length ? Number(list[0].total_count ?? 0) : 0;
+      return { rows, total };
+    },
+    staleTime: 15_000,
+  });
+
+  /* ---------------------------------------------------------- state counts */
+  const countsQ = useQuery({
+    queryKey: ['cc-state-counts', subjectType],
+    queryFn: async (): Promise<Record<string, number>> => {
+      const { data, error } = await rpc('cc_state_counts', { p_subject_type: subjectType });
+      if (error) throw new Error(err(error));
+      const out: Record<string, number> = {};
+      for (const r of (data ?? []) as Record<string, unknown>[]) {
+        out[String(r.state)] = Number(r.row_count ?? 0);
+      }
+      return out;
     },
     staleTime: 15_000,
   });
 
   /* ------------------------------------------------------- open attempts */
   const openAttemptsQ = useQuery({
-    queryKey: ['cc-open-attempts', user?.id, subjectType],
+    queryKey: ['cc-open-attempts', user?.id],
     enabled: !!user?.id,
     queryFn: async (): Promise<CcOpenAttempt[]> => {
-      const { data, error } = await supabase
-        .from('cc_call_attempts')
-        .select('id, cycle_row_id, attempt_no, revealed_at, row:cc_cycle_rows!inner(subject_id, subject_type)')
-        .eq('caller_id', user!.id)
-        .is('recorded_at', null)
-        .order('revealed_at', { ascending: true });
-      if (error) throw error;
-      const list = (data ?? []) as any[];
-      const ids = [...new Set(list.map((a) => a.row?.subject_id).filter(Boolean))];
-      const { data: profs } = ids.length
-        ? await supabase.from('profiles').select('id, full_name').in('id', ids)
-        : { data: [] as any[] };
-      return list.map((a) => ({
-        id: a.id,
-        cycle_row_id: a.cycle_row_id,
-        attempt_no: a.attempt_no,
-        revealed_at: a.revealed_at,
-        subject_id: a.row?.subject_id,
-        subject_type: a.row?.subject_type,
-        name: (profs ?? []).find((p: any) => p.id === a.row?.subject_id)?.full_name || 'Unnamed',
+      const { data, error } = await rpc('cc_my_open_attempts');
+      if (error) throw new Error(err(error));
+      return ((data ?? []) as Record<string, unknown>[]).map((a) => ({
+        id: String(a.attempt_id),
+        cycle_row_id: String(a.cycle_row_id),
+        attempt_no: Number(a.attempt_no ?? 1),
+        revealed_at: (a.revealed_at as string) ?? new Date().toISOString(),
+        subject_type: a.subject_type as CcSubjectType,
+        name: (a.name as string) || 'Unnamed',
       }));
     },
     staleTime: 5_000,
@@ -299,36 +278,49 @@ export function useCcCallingHub(subjectType: CcSubjectType) {
         .eq('active', true)
         .contains('applies_to', [subjectType])
         .order('label');
-      if (error) throw error;
+      if (error) throw new Error(err(error));
       return (data ?? []) as CcCategory[];
     },
     staleTime: 300_000,
   });
 
+  /**
+   * Routing-target picker only — NOT roster assembly. hr_staff carries no name
+   * column and its user_id points at auth.users, so the display name is read
+   * from profiles.full_name. No phone column is selected, and this list is
+   * never joined onto a queue row.
+   */
   const staffQ = useQuery({
     queryKey: ['cc-staff-options'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('hr_staff').select('id, user_id').eq('active', true).limit(1000);
-      if (error) throw error;
-      const ids = [...new Set((data ?? []).map((s: any) => s.user_id).filter(Boolean))];
-      const { data: profs } = ids.length
-        ? await supabase.from('profiles').select('id, full_name').in('id', ids)
-        : { data: [] as any[] };
-      return (data ?? [])
-        .map((s: any) => ({
+      const { data: staff, error } = await supabase
+        .from('hr_staff')
+        .select('id, user_id')
+        .eq('active', true)
+        .limit(1000);
+      if (error) throw new Error(err(error));
+      const ids = [...new Set((staff ?? []).map((s) => s.user_id).filter(Boolean))] as string[];
+      if (!ids.length) return [];
+      const { data: profs, error: pErr } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+      if (pErr) throw new Error(err(pErr));
+      return (staff ?? [])
+        .map((s) => ({
           id: s.id as string,
-          name: (profs ?? []).find((p: any) => p.id === s.user_id)?.full_name || 'Unnamed staff',
+          name: (profs ?? []).find((p) => p.id === s.user_id)?.full_name || 'Unnamed staff',
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
     },
     staleTime: 300_000,
   });
 
+
+
   const myStaffQ = useQuery({
     queryKey: ['cc-my-staff', user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
-      const { data } = await supabase.from('hr_staff').select('id').eq('user_id', user!.id).maybeSingle();
+      const { data, error } = await supabase.from('hr_staff').select('id').eq('user_id', user!.id).maybeSingle();
+      if (error) throw new Error(err(error));
       return data?.id ?? null;
     },
     staleTime: 300_000,
@@ -344,51 +336,48 @@ export function useCcCallingHub(subjectType: CcSubjectType) {
         .eq('owed_by_staff_id', myStaffQ.data!)
         .is('completed_at', null)
         .order('due_at', { ascending: true });
-      if (error) throw error;
-      return (data ?? []) as any[];
+      if (error) throw new Error(err(error));
+      return (data ?? []) as unknown[];
     },
     staleTime: 15_000,
   });
 
   const invalidate = useCallback(() => {
-    qc.invalidateQueries({ queryKey: ['cc-rows'] });
+    qc.invalidateQueries({ queryKey: ['cc-queue'] });
+    qc.invalidateQueries({ queryKey: ['cc-state-counts'] });
     qc.invalidateQueries({ queryKey: ['cc-open-attempts'] });
     qc.invalidateQueries({ queryKey: ['cc-cycle-progress'] });
     qc.invalidateQueries({ queryKey: ['cc-followups'] });
   }, [qc]);
 
   /* ----------------------------------------------------------- mutations */
-  /** Creates the attempt row FIRST, then reads the number. */
+  /**
+   * Opens the attempt row FIRST, then asks the server for the number.
+   * The number is never read from a table.
+   */
   const reveal = useMutation({
-    mutationFn: async (row: { id: string; subject_id: string }) => {
+    mutationFn: async (row: { id: string }) => {
       const { data: attempt, error } = await supabase
         .from('cc_call_attempts')
         .insert({
           cycle_row_id: row.id,
           caller_id: user!.id,
           revealed_at: new Date().toISOString(),
-          source: 'calling_hub',
+          source: 'self_reported',
         } as never)
         .select('id, attempt_no')
         .single();
       if (error) throw new Error(err(error));
-      const { data: prof, error: pErr } = await supabase
-        .from('profiles')
-        .select('phone')
-        .eq('id', row.subject_id)
-        .maybeSingle();
+      const { data: phone, error: pErr } = await rpc('cc_reveal_phone', { p_attempt_id: attempt.id });
       if (pErr) throw new Error(err(pErr));
-      return { attemptId: attempt.id as string, phone: (prof?.phone as string) ?? null };
+      return { attemptId: attempt.id as string, phone: (phone as string) ?? null };
     },
     onSuccess: invalidate,
   });
 
   const recordQuick = useMutation({
     mutationFn: async (v: { attemptId: string; outcome: CcOutcome }) => {
-      const { error } = await supabase
-        .from('cc_call_attempts')
-        .update({ recorded_at: new Date().toISOString(), outcome: v.outcome, channel: 'phone' })
-        .eq('id', v.attemptId);
+      const { error } = await rpc('cc_record_unreached', { p_attempt_id: v.attemptId, p_outcome: v.outcome });
       if (error) throw new Error(err(error));
     },
     onSuccess: invalidate,
@@ -403,44 +392,30 @@ export function useCcCallingHub(subjectType: CcSubjectType) {
       routedToStaffId: string | null;
       consent: boolean;
     }) => {
-      // Feedback first: an engaged attempt must already carry its feedback row.
-      const { error: fErr } = await supabase.from('cc_feedback').insert({
-        attempt_id: v.attemptId,
-        category_id: v.categoryId,
-        severity: v.severity,
-        note: v.note,
-        routed_to_actual: v.routedToStaffId,
-        consent_to_contact: v.consent,
-      } as never);
-      if (fErr) throw new Error(err(fErr));
-      const { error } = await supabase
-        .from('cc_call_attempts')
-        .update({ recorded_at: new Date().toISOString(), outcome: 'engaged', channel: 'phone' })
-        .eq('id', v.attemptId);
+      const { error } = await rpc('cc_record_engaged', {
+        p_attempt_id: v.attemptId,
+        p_category_id: v.categoryId,
+        p_severity: v.severity,
+        p_note: v.note,
+        p_routed_to_staff_id: v.routedToStaffId,
+        p_consent: v.consent,
+      });
       if (error) throw new Error(err(error));
     },
     onSuccess: invalidate,
   });
 
   const recordCallback = useMutation({
-    mutationFn: async (v: { attemptId: string; cycleRowId: string; dueAt: string }) => {
-      const { error } = await supabase
-        .from('cc_call_attempts')
-        .update({ recorded_at: new Date().toISOString(), outcome: 'callback_booked', channel: 'phone' })
-        .eq('id', v.attemptId);
+    mutationFn: async (v: { attemptId: string; dueAt: string }) => {
+      const { error } = await rpc('cc_record_callback', { p_attempt_id: v.attemptId, p_due_at: v.dueAt });
       if (error) throw new Error(err(error));
-      const { error: rErr } = await supabase
-        .from('cc_cycle_rows')
-        .update({ callback_due_at: v.dueAt })
-        .eq('id', v.cycleRowId);
-      if (rErr) throw new Error(err(rErr));
     },
     onSuccess: invalidate,
   });
 
   const openCycle = useMutation({
     mutationFn: async (v: { populationCode: string; limit: number | null }) => {
-      const { data, error } = await supabase.rpc('cc_open_cycle', {
+      const { data, error } = await rpc('cc_open_cycle', {
         p_subject_type: subjectType,
         p_population_code: v.populationCode,
         p_limit: v.limit,
@@ -457,9 +432,10 @@ export function useCcCallingHub(subjectType: CcSubjectType) {
 
   const closeCycle = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.rpc('cc_close_cycle', { p_cycle_id: id });
+      const { error } = await rpc('cc_close_cycle', { p_cycle_id: id });
       if (error) {
-        const { data } = await supabase.rpc('cc_cycle_outstanding', { p_cycle_id: id });
+        const { data, error: oErr } = await rpc('cc_cycle_outstanding', { p_cycle_id: id });
+        if (oErr) throw new Error(err(error));
         setOutstanding((data as Record<string, unknown>[]) ?? []);
         throw new Error(err(error));
       }
@@ -471,24 +447,41 @@ export function useCcCallingHub(subjectType: CcSubjectType) {
     },
   });
 
+  /** Destructive: ends the cycle without requiring the roster to be worked. */
+  const abandonCycle = useMutation({
+    mutationFn: async (v: { cycleId: string; reason: string }) => {
+      const { error } = await rpc('cc_abandon_cycle', { p_cycle_id: v.cycleId, p_reason: v.reason });
+      if (error) throw new Error(err(error));
+    },
+    onSuccess: () => {
+      setOutstanding(null);
+      qc.invalidateQueries({ queryKey: ['cc-cycle', subjectType] });
+      invalidate();
+    },
+  });
+
   const completeFollowup = useMutation({
     mutationFn: async (v: { id: string; note: string }) => {
-      const { error } = await supabase.rpc('cc_complete_followup', { p_followup_id: v.id, p_note: v.note });
+      const { error } = await rpc('cc_complete_followup', { p_followup_id: v.id, p_note: v.note });
       if (error) throw new Error(err(error));
     },
     onSuccess: invalidate,
   });
 
   const counts = useMemo(() => {
-    const p = progressQ.data;
+    const c = countsQ.data ?? {};
     return {
-      to_call: Number(p?.to_call_rows ?? 0),
-      engaged: Number(p?.engaged_rows ?? 0),
-      unreachable: Number(p?.unreachable_rows ?? 0),
-      parked: Number(p?.parked_rows ?? 0),
-      callback: Number(p?.callback_rows ?? 0),
+      to_call: c.to_call ?? 0,
+      engaged: c.engaged ?? 0,
+      unreachable: c.unreachable ?? 0,
+      parked: c.parked ?? 0,
+      callback: c.callback ?? 0,
     };
-  }, [progressQ.data]);
+  }, [countsQ.data]);
+
+  const total = queueQ.data?.total ?? 0;
+  const pageFrom = total === 0 ? 0 : view.page * CC_PAGE_SIZE + 1;
+  const pageTo = Math.min(total, (view.page + 1) * CC_PAGE_SIZE);
 
   return {
     subjectType,
@@ -496,8 +489,17 @@ export function useCcCallingHub(subjectType: CcSubjectType) {
     progress: progressQ.data ?? null,
     counts,
     populations: populationsQ.data ?? [],
-    rows: rowsQ.data ?? [],
-    isLoading: cycleQ.isLoading || rowsQ.isLoading,
+    sortOptions: sortOptionsQ.data ?? [],
+    defaultSortKey,
+    effectiveSortKey,
+    rows: queueQ.data?.rows ?? [],
+    total,
+    pageFrom,
+    pageTo,
+    pageSize: CC_PAGE_SIZE,
+    isLoading: cycleQ.isLoading || queueQ.isLoading,
+    isFetching: queueQ.isFetching,
+    error: queueQ.error ? err(queueQ.error) : null,
     openAttempts: openAttemptsQ.data ?? [],
     openCount,
     wipBlocked,
@@ -512,6 +514,7 @@ export function useCcCallingHub(subjectType: CcSubjectType) {
     recordCallback,
     openCycle,
     closeCycle,
+    abandonCycle,
     completeFollowup,
     refetch: invalidate,
   };
