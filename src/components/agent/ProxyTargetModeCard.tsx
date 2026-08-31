@@ -241,6 +241,40 @@ export function ProxyTargetModeCard({ agentId }: { agentId?: string | null }) {
           </Badge>
         </div>
 
+        {t.benefits_active === false && (
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2.5">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+            <p className="text-[11px] leading-snug">
+              <span className="font-semibold">Target Mode benefits paused.</span> You went{' '}
+              {t.zero_note_days} {t.zero_note_days === 1 ? 'day' : 'days'} without recording a
+              single promissory note. At least 1 note every day keeps facilitation,
+              accommodation, bike, smartphone and restaurant access active.
+            </p>
+          </div>
+        )}
+
+        {t.daily_min_hit_today ? (
+          <div className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5">
+            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+            <p className="text-[11px] leading-snug">
+              <span className="font-semibold">
+                {money(t.guaranteed_min_income ?? t.min_reward)} secured
+              </span>{' '}
+              — you hit today&apos;s {t.daily_min ?? 10}-note minimum with {t.notes_today} notes.
+              It is paid to your wallet automatically at month end.
+            </p>
+          </div>
+        ) : (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5">
+            <CalendarClock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+            <p className="text-[11px] leading-snug">
+              <span className="font-semibold">You are behind today.</span> {t.notes_today} of{' '}
+              {t.daily_min ?? 10} notes recorded — {t.today_shortfall} more to secure{' '}
+              {money(t.min_reward)}. Record at least 1 note today to keep your benefits.
+            </p>
+          </div>
+        )}
+
         {lost > 0 && (
           <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5">
             <TrendingDown className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
@@ -260,8 +294,9 @@ export function ProxyTargetModeCard({ agentId }: { agentId?: string | null }) {
           <Progress value={progressPct} className="mt-1 h-1.5" />
         </div>
 
-        <div className="grid grid-cols-3 divide-x divide-border rounded-lg border border-border">
+        <div className="grid grid-cols-4 divide-x divide-border rounded-lg border border-border">
           {[
+            { label: 'Notes today', value: `${t.notes_today ?? 0}` },
             { label: 'Daily minimum', value: `${t.daily_min ?? t.daily_target}` },
             { label: 'Expected by today', value: `${t.expected_to_date}` },
             { label: 'Behind by', value: `${t.missed_notes}` },
@@ -274,6 +309,7 @@ export function ProxyTargetModeCard({ agentId }: { agentId?: string | null }) {
             </div>
           ))}
         </div>
+
 
         <button
           type="button"
