@@ -10,6 +10,7 @@ import {
   BadgeCheck,
 } from 'lucide-react';
 import { FindAHouseCTA } from '@/components/tenant/FindAHouseCTA';
+import { TenantRentRequestCard } from '@/components/tenant/TenantRentRequestCard';
 import { WidgetErrorBoundary } from '@/components/shared/WidgetErrorBoundary';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useToast } from '@/hooks/use-toast';
@@ -380,6 +381,9 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
           <div className="space-y-3">
             <WidgetErrorBoundary label="Find a house">
               <FindAHouseCTA onClick={() => { hapticTap(); openHousesSheet(); }} />
+            </WidgetErrorBoundary>
+            <WidgetErrorBoundary label="Request rent as tenant">
+              <TenantRentRequestCard userId={user.id} />
             </WidgetErrorBoundary>
             <WidgetErrorBoundary label="Suggested houses">
               <SuggestedHousesCard userId={user.id} onViewAll={goToAllHouses} />

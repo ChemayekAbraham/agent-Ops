@@ -34454,6 +34454,151 @@ export type Database = {
           },
         ]
       }
+      tenant_rent_intake_events: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          metadata: Json
+          note: string | null
+          request_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          metadata?: Json
+          note?: string | null
+          request_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          metadata?: Json
+          note?: string | null
+          request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_rent_intake_events_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_rent_intake_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_rent_intake_requests: {
+        Row: {
+          assigned_agent_id: string | null
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decline_reason: string | null
+          distance_km: number | null
+          district_name: string | null
+          id: string
+          landlord_name: string
+          landlord_phone: string
+          latitude: number | null
+          location_name: string | null
+          longitude: number | null
+          rent_amount: number
+          rent_request_id: string | null
+          service_centre_id: string | null
+          service_centre_name: string | null
+          status: string
+          tenant_id: string
+          tenant_name: string | null
+          tenant_note: string | null
+          tenant_phone: string | null
+          updated_at: string
+          village_name: string | null
+          visit_latitude: number | null
+          visit_longitude: number | null
+          visit_verified_at: string | null
+          visit_verified_by: string | null
+        }
+        Insert: {
+          assigned_agent_id?: string | null
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decline_reason?: string | null
+          distance_km?: number | null
+          district_name?: string | null
+          id?: string
+          landlord_name: string
+          landlord_phone: string
+          latitude?: number | null
+          location_name?: string | null
+          longitude?: number | null
+          rent_amount: number
+          rent_request_id?: string | null
+          service_centre_id?: string | null
+          service_centre_name?: string | null
+          status?: string
+          tenant_id: string
+          tenant_name?: string | null
+          tenant_note?: string | null
+          tenant_phone?: string | null
+          updated_at?: string
+          village_name?: string | null
+          visit_latitude?: number | null
+          visit_longitude?: number | null
+          visit_verified_at?: string | null
+          visit_verified_by?: string | null
+        }
+        Update: {
+          assigned_agent_id?: string | null
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decline_reason?: string | null
+          distance_km?: number | null
+          district_name?: string | null
+          id?: string
+          landlord_name?: string
+          landlord_phone?: string
+          latitude?: number | null
+          location_name?: string | null
+          longitude?: number | null
+          rent_amount?: number
+          rent_request_id?: string | null
+          service_centre_id?: string | null
+          service_centre_name?: string | null
+          status?: string
+          tenant_id?: string
+          tenant_name?: string | null
+          tenant_note?: string | null
+          tenant_phone?: string | null
+          updated_at?: string
+          village_name?: string | null
+          visit_latitude?: number | null
+          visit_longitude?: number | null
+          visit_verified_at?: string | null
+          visit_verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_rent_intake_requests_service_centre_id_fkey"
+            columns: ["service_centre_id"]
+            isOneToOne: false
+            referencedRelation: "service_centre_setups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_replacements: {
         Row: {
           created_at: string
@@ -48950,6 +49095,20 @@ export type Database = {
         }
         Returns: Json
       }
+      submit_tenant_rent_intake: {
+        Args: {
+          p_district_name?: string
+          p_landlord_name: string
+          p_landlord_phone: string
+          p_latitude?: number
+          p_location_name?: string
+          p_longitude?: number
+          p_note?: string
+          p_rent_amount: number
+          p_village_name?: string
+        }
+        Returns: Json
+      }
       submit_withdrawal_request:
         | {
             Args: {
@@ -49038,6 +49197,17 @@ export type Database = {
           status: string
           total_repayment: number
         }[]
+      }
+      tenant_rent_intake_decide: {
+        Args: {
+          p_action: string
+          p_latitude?: number
+          p_longitude?: number
+          p_reason?: string
+          p_rent_request_id?: string
+          p_request_id: string
+        }
+        Returns: Json
       }
       test_wallet_drift_fix: { Args: never; Returns: Json }
       toggle_house_listing_visibility: {
