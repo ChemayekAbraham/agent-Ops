@@ -197,7 +197,9 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
     if (!sharedPlanId || plans.length === 0) return;
     const index = plans.findIndex((p) => p.rent_request_id === sharedPlanId);
     if (index < 0) return;
+    setFilter('rent');
     setPage(Math.floor(index / PLANS_PER_PAGE));
+
     setDetailPlan(plans[index]);
     setSharedPlanId(null);
     window.setTimeout(() => {
