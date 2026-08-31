@@ -254,9 +254,6 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Customer Relations',
       items: [
         { label: 'Overview', icon: LayoutDashboard, id: 'overview' },
-        { label: 'All Tenants', icon: Home, id: 'all-tenants' },
-        { label: 'All Agents', icon: UserCog, id: 'all-agents' },
-        { label: 'All Landlords', icon: Building2, id: 'all-landlords' },
         { label: 'Customer Issues', icon: MessageSquare, id: 'customer-issues' },
         { label: 'Tenant Support', icon: Handshake, id: 'tenant-support' },
         { label: 'Communications', icon: MessageSquare, id: 'communications' },
