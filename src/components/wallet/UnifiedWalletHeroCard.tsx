@@ -231,7 +231,7 @@ export function UnifiedWalletHeroCard({
                 {ROLE_LABELS[role]}
               </span>
               <span className="block text-lg font-black leading-tight text-white truncate">
-                {formatAmount(collapsedHeadline)}
+                {maskAmt(collapsedHeadline)}
               </span>
             </span>
             <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-foreground/15 shrink-0">
@@ -264,6 +264,15 @@ export function UnifiedWalletHeroCard({
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => { hapticTap(); setShowAmount((s) => !s); }}
+              aria-label={showAmount ? 'Hide amount' : 'Show amount'}
+              aria-pressed={showAmount}
+              className="p-1 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 transition-all text-white/70 hover:text-white"
+            >
+              {showAmount ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+            </button>
             <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-foreground/15 backdrop-blur-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-[9px] font-bold text-emerald-300 uppercase tracking-wider">Active</span>
