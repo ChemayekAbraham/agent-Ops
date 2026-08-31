@@ -34,7 +34,7 @@ export function RecordOutcomeDialog({
 
   const reset = () => {
     setCategoryId('');
-    setSeverity('medium');
+    setSeverity('normal');
     setNote('');
     setRoutedTo('');
     setConsent(false);
