@@ -96,7 +96,7 @@ export function CallCentrePeople() {
       <div>
         <h2 className="text-base font-bold text-foreground">People / Calls</h2>
         <p className="text-xs text-muted-foreground">
-          Everyone the call centre has dialled. Tap a name to read their call summaries.
+          Everyone the call centre can reach. Tap a name to read their call summaries.
         </p>
       </div>
 
@@ -115,7 +115,7 @@ export function CallCentrePeople() {
         <ToggleGroup
           type="single"
           value={status}
-          onValueChange={(v) => v && setStatus(v as CallOutcome | 'all')}
+          onValueChange={(v) => v && setStatus(v as CallOutcome | 'all' | 'never')}
           aria-label="Filter by call status"
         >
           {STATUS_FILTERS.map((f) => (
@@ -143,7 +143,7 @@ export function CallCentrePeople() {
         <CardContent className="p-0">
           {filtered.length === 0 ? (
             <p className="p-8 text-center text-sm text-muted-foreground">
-              {people.length === 0 ? 'No calls recorded yet.' : 'Nobody matches those filters.'}
+              {people.length === 0 ? 'Nobody on the roster yet.' : 'Nobody matches those filters.'}
             </p>
           ) : (
             /* Wide table scrolls inside its own container so the page body
@@ -202,8 +202,11 @@ export function CallCentrePeople() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={cn('text-[10px]', OUTCOME_TONE[person.status])}>
-                          {OUTCOME_LABEL[person.status]}
+                        <Badge
+                          variant="outline"
+                          className={cn('text-[10px]', person.status ? OUTCOME_TONE[person.status] : 'text-muted-foreground')}
+                        >
+                          {person.status ? OUTCOME_LABEL[person.status] : 'Not called'}
                         </Badge>
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
