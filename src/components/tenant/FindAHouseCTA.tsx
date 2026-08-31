@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Search, Sparkles, ChevronRight, Home } from 'lucide-react';
+import { Sparkles, ChevronRight, Home } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { motion, AnimatePresence } from 'framer-motion';
 
 interface FindAHouseCTAProps {
   onClick: () => void;
