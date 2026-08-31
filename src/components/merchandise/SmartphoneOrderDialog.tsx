@@ -84,7 +84,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const options = useMemo(
     () =>
       catalog
-        .filter((c) => c.is_active && !!c.supplier_id && Number(c.default_amount || 0) > 0)
+        .filter((c) => c.is_active && Number(c.default_amount || 0) > 0)
         .filter((c) => cap <= 0 || Number(c.default_amount) <= cap),
     [catalog, cap],
   );
