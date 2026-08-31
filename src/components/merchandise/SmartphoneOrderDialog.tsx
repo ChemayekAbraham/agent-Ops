@@ -46,8 +46,8 @@ interface Props {
 }
 
 /**
- * Agent Smartphone Advance application. Only the top 50 agents on the
- * operational leaderboard can apply, up to the ceiling for their position. Every
+ * Agent Smartphone Advance application. Open to all active operational agents
+ * on the Welile network, up to the programme ceiling. Every
  * active, priced model is offered; Agent Ops assigns the supplier to the order
  * after submission. The applicant sees the daily
  * amount, the chosen period and the terms — never the internal programme charge.
