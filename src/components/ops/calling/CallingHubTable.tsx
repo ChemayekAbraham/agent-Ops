@@ -207,7 +207,7 @@ export function CallingHubTable({
               {columns.map((c, i) => (
                 <TableHead
                   key={c}
-                  className={`whitespace-nowrap text-[11px] uppercase tracking-wide ${
+                  className={`whitespace-nowrap border-b border-border text-[11px] uppercase tracking-wide ${
                     c === 'name' ? 'sticky left-0 z-20 bg-card' : ''
                   } ${stickyRight && i === lastIndex ? 'sticky right-0 z-20 bg-card' : ''}`}
                 >
@@ -222,7 +222,7 @@ export function CallingHubTable({
                 {columns.map((c, i) => (
                   <TableCell
                     key={c}
-                    className={`whitespace-nowrap text-xs ${c === 'name' ? 'sticky left-0 z-10 bg-card' : ''} ${
+                    className={`whitespace-nowrap border-b border-border/60 text-xs ${c === 'name' ? 'sticky left-0 z-10 bg-card' : ''} ${
                       stickyRight && i === lastIndex ? 'sticky right-0 z-10 bg-card' : ''
                     }`}
                   >
