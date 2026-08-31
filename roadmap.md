@@ -22,3 +22,16 @@
 5. WELILE-CC-ROSTER5 — `cc_cycle_populations`, `cc_open_cycle`, `v_cc_cycle_progress` (security_invoker), `cc_cycle_outstanding`.
 6. WELILE-CC-HUB6 — shared Calling Hub UI (tab column sets, reveal-to-create-attempt, WIP guard, outcome recording, cycle controls, follow-ups). No migration.
 7. WELILE-CC-METRICS7 — `v_cc_routed_register` (security_invoker) + new `cc_*` metric keys added to the snapshot definitions without touching `hr_compute_snapshots`.
+
+## Call centre programme (Bwayo) — queued 2026-08-31
+
+- ~~WELILE-CC-FOLLOWUP3~~ applied.
+- WELILE-CC-BACKFILL4 — legacy outcome map, cycle 0, backfill, freeze legacy call tables.
+- WELILE-CC-ROSTER5 — cc_cycle_populations, cc_open_cycle, v_cc_cycle_progress, cc_cycle_outstanding.
+- WELILE-CC-HUB6 — shared Calling Hub UI (no migration).
+- WELILE-CC-METRICS7 — v_cc_routed_register + new cc_* metric definitions (no change to hr_compute_snapshots).
+
+## 2026-08-31 later additions
+
+- ~~Mailgun back online: verified key, test email to pexpert46@gmail.com, requeued today's parked emails.~~
+- ~~Revert Today's capacity strip to the previous UGX-target logic (tenant-count version rejected).~~
