@@ -8,8 +8,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { startRingback, type RingbackHandle } from '@/lib/ringbackTone';
-import { CALLEE_ROLE_LABEL, formatTalkTime, type CallOutcome } from '@/lib/callCentre';
+import { CALLEE_ROLE_LABEL, deriveOutcome, formatTalkTime, type CallOutcome } from '@/lib/callCentre';
 import {
+  useCallSession,
   useEndCall,
   usePlaceCall,
   useSaveCallSummary,
@@ -83,7 +84,11 @@ export function CallDrawer({
         location: target.location,
       })
       .then((res) => {
-        if (!cancelled) setCallId(res.callId);
+        if (cancelled) return;
+        setCallId(res.callId);
+        // Africa's Talking rings the STAFF handset first, so this is emphatically
+        // not "the customer is connected".
+        toast.info(res.message);
       })
       .catch(() => {
         if (!cancelled) toast.error('Could not start the call.');
@@ -114,6 +119,38 @@ export function CallDrawer({
     if (!open) stopRingback();
   }, [open, stopRingback]);
 
+  /* --- The provider is the authority on pick-up. --- */
+  const session = useCallSession(callId, open && phase !== 'ended');
+
+  useEffect(() => {
+    if (!session || phase === 'ended') return;
+
+    // Bridged means Africa's Talking reported the staff leg answered and the
+    // customer leg is being dialled — start the clock from the provider event,
+    // never from a staff member asserting it.
+    if (session.bridged && phase !== 'connected') {
+      connectedAtRef.current = Date.now();
+      stopRingback();
+      setPhase('connected');
+      setElapsed(0);
+      return;
+    }
+
+    if (session.settled) {
+      const seconds = session.durationSeconds ?? 0;
+      stopRingback();
+      setPhase('ended');
+      setElapsed(seconds);
+      setOutcome(
+        deriveOutcome({
+          status: session.status,
+          hangupCause: session.hangupCause,
+          durationSeconds: session.durationSeconds,
+        }) as Exclude<CallOutcome, 'in_progress'>,
+      );
+    }
+  }, [session, phase, stopRingback]);
+
   /* --- Talk-time ticker. --- */
   useEffect(() => {
     if (phase !== 'connected') return;
@@ -142,13 +179,6 @@ export function CallDrawer({
     [callId, endCall, stopRingback],
   );
 
-  const handleAnswered = () => {
-    connectedAtRef.current = Date.now();
-    stopRingback();
-    setPhase('connected');
-    setElapsed(0);
-  };
-
   const handleHangUp = useCallback(() => {
     if (phase === 'connected') settle('answered');
     else settle('not_reachable');
@@ -166,7 +196,7 @@ export function CallDrawer({
   };
 
   const statusLine = useMemo(() => {
-    if (phase === 'ringing') return 'Ringing…';
+    if (phase === 'ringing') return 'Ringing your handset…';
     if (phase === 'connected') return formatTalkTime(elapsed);
     if (outcome === 'answered') return `Call ended · ${formatTalkTime(elapsed)}`;
     if (outcome === 'rejected') return 'Call rejected';
@@ -256,9 +286,11 @@ export function CallDrawer({
                 {statusLine}
               </p>
 
-              {CALL_CENTRE_IS_STUBBED && phase === 'ringing' && (
-                <p className="mx-auto mt-3 max-w-[15rem] text-[11px] leading-snug text-muted-foreground">
-                  Voice API not connected yet — mark how the call went to record it.
+              {phase === 'ringing' && (
+                <p className="mx-auto mt-3 max-w-[16rem] text-[11px] leading-snug text-muted-foreground">
+                  {CALL_CENTRE_IS_STUBBED
+                    ? 'Voice API not connected yet — mark how the call went to record it.'
+                    : 'Answer your own handset first. We connect you to them as soon as you pick up.'}
                 </p>
               )}
             </div>
@@ -313,26 +345,17 @@ export function CallDrawer({
                 </Button>
               </div>
 
-              {/* How the call went. "They answered" starts the talk-time clock and
-                  silences the ringback — until the voice API reports the bridge,
-                  this is the only signal that the far end picked up. */}
+              {/* Pick-up arrives from the provider's own callback, so there is no
+                  "they answered" button to press. Only the two failure outcomes
+                  stay as manual overrides, for when the provider never reports. */}
               {phase === 'ringing' && (
                 /* Divider + caption: without them these three sit directly under
                    the three round controls and read as labels for them. */
                 <div className="mt-4 border-t border-border/60 pt-3">
                   <p className="mb-1 text-center text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Mark the outcome
+                    Pick-up is detected automatically — only override a failure
                   </p>
                   <div className="flex flex-wrap items-center justify-center gap-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs font-semibold text-success hover:text-success"
-                      onClick={handleAnswered}
-                    >
-                      They answered
-                    </Button>
                     <Button type="button" variant="ghost" size="sm" className="text-xs" onClick={() => settle('rejected')}>
                       They rejected
                     </Button>
