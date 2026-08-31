@@ -1,0 +1,11 @@
+REVOKE ALL ON FUNCTION public.cc_attempt_before_insert() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.cc_attempt_after_insert() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.cc_attempt_after_record() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.cc_attempt_requires_feedback() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.cc_feedback_before_insert() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.cc_close_cycle(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.cc_can_read_subject(public.cc_subject_type) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.cc_can_write_subject(public.cc_subject_type) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cc_close_cycle(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.cc_can_read_subject(public.cc_subject_type) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.cc_can_write_subject(public.cc_subject_type) TO authenticated;
