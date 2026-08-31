@@ -381,6 +381,9 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
             <WidgetErrorBoundary label="Find a house">
               <FindAHouseCTA onClick={() => { hapticTap(); openHousesSheet(); }} />
             </WidgetErrorBoundary>
+            <WidgetErrorBoundary label="Request rent as tenant">
+              <TenantRentRequestCard userId={user.id} />
+            </WidgetErrorBoundary>
             <WidgetErrorBoundary label="Suggested houses">
               <SuggestedHousesCard userId={user.id} onViewAll={goToAllHouses} />
             </WidgetErrorBoundary>
