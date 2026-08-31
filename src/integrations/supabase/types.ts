@@ -7670,6 +7670,84 @@ export type Database = {
           },
         ]
       }
+      cc_filter_buckets: {
+        Row: {
+          bucket_key: string
+          created_at: string
+          filter_key: string
+          id: string
+          label: string
+          max_value: number | null
+          min_value: number | null
+          sort_order: number
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+          updated_at: string
+        }
+        Insert: {
+          bucket_key: string
+          created_at?: string
+          filter_key: string
+          id?: string
+          label: string
+          max_value?: number | null
+          min_value?: number | null
+          sort_order?: number
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+          updated_at?: string
+        }
+        Update: {
+          bucket_key?: string
+          created_at?: string
+          filter_key?: string
+          id?: string
+          label?: string
+          max_value?: number | null
+          min_value?: number | null
+          sort_order?: number
+          subject_type?: Database["public"]["Enums"]["cc_subject_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cc_filter_options: {
+        Row: {
+          active: boolean
+          created_at: string
+          filter_column: string
+          id: string
+          key: string
+          kind: string
+          label: string
+          sort_order: number
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          filter_column: string
+          id?: string
+          key: string
+          kind: string
+          label: string
+          sort_order?: number
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          filter_column?: string
+          id?: string
+          key?: string
+          kind?: string
+          label?: string
+          sort_order?: number
+          subject_type?: Database["public"]["Enums"]["cc_subject_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cc_followups: {
         Row: {
           completed_at: string | null
@@ -38726,6 +38804,7 @@ export type Database = {
           cycle_id: string | null
           cycle_row_id: string | null
           daily_repayment: number | null
+          days_behind: number | null
           days_since_funded: number | null
           district: string | null
           empty_houses: number | null
@@ -41745,6 +41824,7 @@ export type Database = {
       }
       cc_call_queue_page: {
         Args: {
+          p_filters?: Json
           p_limit?: number
           p_offset?: number
           p_search?: string
@@ -41810,6 +41890,23 @@ export type Database = {
         Args: { p_role: Database["public"]["Enums"]["app_role"] }
         Returns: string
       }
+      cc_filter_predicate: {
+        Args: {
+          p_filters: Json
+          p_subject_type: Database["public"]["Enums"]["cc_subject_type"]
+        }
+        Returns: string
+      }
+      cc_filter_values: {
+        Args: {
+          p_filter_key: string
+          p_subject_type: Database["public"]["Enums"]["cc_subject_type"]
+        }
+        Returns: {
+          row_count: number
+          value: string
+        }[]
+      }
       cc_my_open_attempts: {
         Args: never
         Returns: {
@@ -41865,7 +41962,10 @@ export type Database = {
       }
       cc_reveal_phone: { Args: { p_attempt_id: string }; Returns: string }
       cc_state_counts: {
-        Args: { p_subject_type: Database["public"]["Enums"]["cc_subject_type"] }
+        Args: {
+          p_filters?: Json
+          p_subject_type: Database["public"]["Enums"]["cc_subject_type"]
+        }
         Returns: {
           row_count: number
           state: Database["public"]["Enums"]["cc_row_state"]
