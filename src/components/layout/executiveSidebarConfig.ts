@@ -273,6 +273,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Financial Health', icon: Shield, id: 'financial' },
         { label: 'Requisitions', icon: ClipboardList, id: 'requisitions' },
         { label: 'Payroll Approvals', icon: Banknote, id: 'ceo-pay-approvals', route: '/approvals' },
+        { label: 'Salary Advances', icon: HandCoins, id: 'ceo-pay-advances', route: '/hr/pay/advances' },
         { label: 'Staff Performance', icon: UserCheck, id: 'staff-performance' },
         { label: 'Angel Pool', icon: Layers, id: 'angel-pool' },
         { label: 'Mission & Goals', icon: Target, id: 'mission-goals' },
