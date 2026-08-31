@@ -164,8 +164,27 @@ export function CallingHubTable({
   const detailColumns = columns.filter((c) => c !== 'name' && !ACTION_COLUMNS.includes(c));
   const actionColumns = columns.filter((c) => ACTION_COLUMNS.includes(c));
 
-  const lastIndex = columns.length - 1;
-  const stickyRight = ACTION_COLUMNS.includes(columns[lastIndex]);
+  /**
+   * Trailing action columns are pinned to the right so a horizontal scroll can
+   * never put the primary action out of reach. Their widths are fixed because a
+   * sticky offset has to be known up front when more than one column is pinned.
+   */
+  const ACTION_WIDTH: Partial<Record<CallingColumnKey, number>> = { reveal: 160, whatsapp: 110 };
+  const trailing: CallingColumnKey[] = [];
+  for (let i = columns.length - 1; i >= 0 && ACTION_COLUMNS.includes(columns[i]); i -= 1) {
+    trailing.unshift(columns[i]);
+  }
+  const stickyRightOffset = (c: CallingColumnKey): number | null => {
+    const idx = trailing.indexOf(c);
+    if (idx === -1) return null;
+    return trailing.slice(idx + 1).reduce((sum, k) => sum + (ACTION_WIDTH[k] ?? 120), 0);
+  };
+  const stickyStyle = (c: CallingColumnKey, _z: number): React.CSSProperties | undefined => {
+    const right = stickyRightOffset(c);
+    if (right === null) return undefined;
+    return { right, width: ACTION_WIDTH[c] ?? 120, minWidth: ACTION_WIDTH[c] ?? 120 };
+  };
+
 
   return (
     <>
