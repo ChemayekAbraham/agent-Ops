@@ -64,22 +64,22 @@ export function AgentDailyCapacityStrip() {
 
       <div>
         <div className="flex items-center justify-between text-sm font-bold tabular-nums mb-1.5">
-          <span className="text-foreground">{formatUGX(cap.paid_today)}</span>
-          <span className="text-muted-foreground">of {formatUGX(cap.expected_daily)}</span>
+          <span className="text-foreground">{cap.tenants_paid_today} tenants paid</span>
+          <span className="text-muted-foreground">of {cap.tenants_due} due</span>
         </div>
         <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
           <div className={`h-full ${barTone} transition-all`} style={{ width: `${todayPct}%` }} />
         </div>
         <div className="flex items-center justify-between gap-2 mt-1.5">
           <p className="text-xs text-muted-foreground">
-            {todayPct}% of today&apos;s target
-            {remaining > 0 && <> · <strong className="text-foreground">{formatUGX(remaining)}</strong> to go</>}
+            {todayPct}% of your tenants reached · <strong className="text-foreground">{formatUGX(cap.paid_today)}</strong> collected
           </p>
           <p className="text-xs font-semibold text-muted-foreground shrink-0 tabular-nums">
             {new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
           </p>
         </div>
       </div>
+
 
       <div
         className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold ${
