@@ -10,10 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import {
-  CALLEE_ROLES, CALLEE_ROLE_LABEL, deriveOutcome, formatCallStamp, OUTCOME_LABEL,
-  type CalleeRole, type CallOutcome, type CallRecord,
+  CALLEE_ROLES, CALLEE_ROLE_LABEL, formatCallStamp, OUTCOME_LABEL,
+  type CalleeRole, type CallOutcome,
 } from '@/lib/callCentre';
-import { useCallRecords } from '@/hooks/useCrmCallCentre';
+import { useCallRoster, type RosterPerson } from '@/hooks/useCrmCallCentre';
 import { useRestoreBodyPointerEvents } from '@/hooks/useRestoreBodyPointerEvents';
 import { CallDrawer } from './CallDrawer';
 import { useCallDialer, type DialTarget } from './useCallDialer';
@@ -30,74 +30,22 @@ const OUTCOME_TONE: Record<CallOutcome, string> = {
 };
 
 /**
- * One row per person, folded from their call history.
+ * One row per real person on the call-centre roster.
  *
  * `calledAt` is the FIRST call and `recalledAt` the most recent one — a person
- * called once has no recall, which is why `recalledAt` is nullable rather than
- * duplicating `calledAt`.
+ * called once has no recall. Both are null for somebody never yet dialled, who
+ * still belongs in this list because the roster is the audience, not the log.
  */
-interface PersonRow {
-  calleeId: string;
-  name: string;
-  phone: string;
-  avatarUrl: string | null;
-  role: CalleeRole;
-  location: string | null;
-  status: CallOutcome;
-  calledAt: string;
-  recalledAt: string | null;
-  totalCalls: number;
-  summaries: number;
-  /** The call id the newest summary belongs to, for the history sheet. */
-  lastCallId: string;
-}
+type PersonRow = RosterPerson;
 
-function foldPeople(records: CallRecord[]): PersonRow[] {
-  const byPerson = new Map<string, CallRecord[]>();
-  for (const record of records) {
-    const list = byPerson.get(record.calleeId);
-    if (list) list.push(record);
-    else byPerson.set(record.calleeId, [record]);
-  }
-
-  const rows: PersonRow[] = [];
-  for (const [calleeId, calls] of byPerson) {
-    const chronological = [...calls].sort(
-      (a, b) => new Date(a.calledAt).getTime() - new Date(b.calledAt).getTime(),
-    );
-    const first = chronological[0];
-    const latest = chronological[chronological.length - 1];
-
-    rows.push({
-      calleeId,
-      name: latest.calleeName,
-      phone: latest.calleePhone,
-      avatarUrl: latest.calleeAvatarUrl,
-      role: latest.calleeRole,
-      location: latest.location,
-      // Status reflects the newest attempt — that is what a follow-up acts on.
-      status: deriveOutcome(latest),
-      calledAt: first.calledAt,
-      recalledAt: chronological.length > 1 ? latest.calledAt : null,
-      totalCalls: chronological.length,
-      summaries: chronological.filter((c) => !!c.summary?.trim()).length,
-      lastCallId: latest.id,
-    });
-  }
-
-  return rows.sort(
-    (a, b) =>
-      new Date(b.recalledAt ?? b.calledAt).getTime() - new Date(a.recalledAt ?? a.calledAt).getTime() ||
-      a.name.localeCompare(b.name),
-  );
-}
-
-const STATUS_FILTERS: { value: CallOutcome | 'all'; label: string }[] = [
+const STATUS_FILTERS: { value: CallOutcome | 'all' | 'never'; label: string }[] = [
   { value: 'all', label: 'All' },
+  { value: 'never', label: 'Not called' },
   { value: 'answered', label: 'Answered' },
   { value: 'rejected', label: 'Rejected' },
   { value: 'not_reachable', label: 'Not reachable' },
 ];
+
 
 export function CallCentrePeople() {
   // This panel stacks two sheets (dialer over summary history), which is the
