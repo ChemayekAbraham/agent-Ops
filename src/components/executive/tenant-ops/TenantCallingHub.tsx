@@ -58,6 +58,12 @@ export function TenantCallingHub() {
   const [sortBy, setSortBy] = useState<SortBy>('owed');
   const [recallDays, setRecallDays] = useState<(typeof RECALL_OPTIONS)[number]>(3);
   const [open, setOpen] = useState<CallingListRow | null>(null);
+  const [district, setDistrict] = useState<string>(ALL);
+  const [agentId, setAgentId] = useState<string>(ALL);
+  const [callStatus, setCallStatus] = useState<string>(ALL);
+  const [payment, setPayment] = useState<string>(ALL);
+  const [hasPhone, setHasPhone] = useState<string>(ALL);
+
 
   /** A tenant belongs in "To call" when they have never been called, or when
    *  their call state does not place them in any other list (Pending / Closed /
