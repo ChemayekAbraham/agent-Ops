@@ -137,14 +137,14 @@ async function exportCatalogPdf(rows: SmartphoneCatalogEntry[], from: string, to
 
 const NEW_BRAND = '__new__';
 
-interface SupplierChoice {
+export interface SupplierChoice {
   id: string;
   name: string;
   phone: string | null;
 }
 
 /** Searchable picker over registered platform users acting as phone suppliers. */
-function SupplierPicker({
+export function SupplierPicker({
   value,
   onChange,
 }: {
