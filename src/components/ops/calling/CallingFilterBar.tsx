@@ -112,15 +112,19 @@ export function CallingFilterBar({
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-end gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-end">
         {options.map((o) => {
           const value = selection[o.key] ?? '';
           const disabled = o.choices.length === 0;
           return (
-            <div key={o.key} className="space-y-1">
+            <div key={o.key} className="min-w-0 space-y-1">
               <Label className="text-[11px] text-muted-foreground">{o.label}</Label>
               {disabled ? (
-                <Button variant="outline" disabled className="h-8 w-[190px] justify-start px-2 text-xs font-normal">
+                <Button
+                  variant="outline"
+                  disabled
+                  className="h-8 w-full justify-start px-2 text-xs font-normal sm:w-[190px]"
+                >
                   No values
                 </Button>
               ) : o.kind === 'value' && o.choices.length > SEARCHABLE_THRESHOLD ? (
@@ -130,7 +134,7 @@ export function CallingFilterBar({
                   value={value || ALL}
                   onValueChange={(v) => onChange(o.key, v === ALL ? '' : v)}
                 >
-                  <SelectTrigger className="h-8 w-[190px] text-xs">
+                  <SelectTrigger className="h-8 w-full text-xs sm:w-[190px]">
                     <SelectValue placeholder="All" />
                   </SelectTrigger>
                   <SelectContent>
@@ -149,6 +153,7 @@ export function CallingFilterBar({
           );
         })}
       </div>
+
 
       {activeCount > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/60 px-2 py-1.5">
