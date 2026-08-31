@@ -265,9 +265,11 @@ export function LandlordCallDrawer({
             </DrawerSection>
 
 
-            <Separator className="my-3" />
+            <Separator className="my-4" />
 
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Record a call</p>
+            <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <PhoneCall className="h-3.5 w-3.5" /> Record a call
+            </p>
             <div className="grid grid-cols-3 gap-2">
               {STATUS_OPTIONS.map(o => (
                 <button
@@ -275,7 +277,7 @@ export function LandlordCallDrawer({
                   onClick={() => setStatus(o.value)}
                   title={o.hint}
                   className={cn(
-                    'flex flex-col items-center justify-center gap-1 rounded-lg border py-2.5 text-[11px] font-medium transition-all',
+                    'flex flex-col items-center justify-center gap-1 rounded-xl border py-3 text-[11px] font-medium transition-all hover:bg-accent/60',
                     status === o.value ? o.active : 'border-border text-muted-foreground',
                   )}
                 >
@@ -295,9 +297,10 @@ export function LandlordCallDrawer({
               {logCall.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save call record'}
             </Button>
 
-            <p className="mb-1.5 mt-4 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Call history {history?.length ? `(${history.length})` : ''}
+            <p className="mb-1.5 mt-5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              <History className="h-3.5 w-3.5" /> Call history {history?.length ? `(${history.length})` : ''}
             </p>
+
             <div className="space-y-1.5 pb-6">
               {histLoading ? (
                 <p className="text-[11px] text-muted-foreground">Loading…</p>
