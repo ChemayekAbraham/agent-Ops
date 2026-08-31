@@ -61,7 +61,36 @@ export function TenantCallDrawer({
     onClose();
   };
 
-  const place = row ? [row.village, row.district || row.city, row.region].filter(Boolean).join(', ') : '';
+  const place = row
+    ? [row.village, row.parish, row.sub_county, row.district || row.city, row.region].filter(Boolean).join(', ')
+    : '';
+
+  const details: { label: string; value: string }[] = row
+    ? [
+        { label: 'Full name', value: row.tenant_name },
+        { label: 'Phone', value: row.phone || '—' },
+        { label: 'Email', value: row.email || '—' },
+        { label: 'National ID', value: row.national_id || '—' },
+        { label: 'Assigned agent', value: row.agent_name + (row.agent_phone ? ` · ${row.agent_phone}` : '') },
+        { label: 'Landlord', value: row.landlord_name + (row.landlord_phone ? ` · ${row.landlord_phone}` : '') },
+        { label: 'Occupation', value: row.occupation || '—' },
+        { label: 'Preferred language', value: row.preferred_language || '—' },
+        {
+          label: 'Mobile money',
+          value: row.mobile_money_number
+            ? `${row.mobile_money_number}${row.mobile_money_name ? ` · ${row.mobile_money_name}` : ''}`
+            : '—',
+        },
+        { label: 'House category', value: row.tenant_house_category?.replace(/_/g, ' ') || '—' },
+        { label: 'Landmark', value: row.landmark || '—' },
+        { label: 'Smartphone', value: row.has_smartphone === null ? '—' : row.has_smartphone ? 'Yes' : 'No' },
+        {
+          label: 'Last active',
+          value: row.last_active_at ? format(new Date(row.last_active_at), 'dd MMM yyyy') : '—',
+        },
+        { label: 'Tenant status', value: row.tenant_status?.replace(/_/g, ' ') || '—' },
+      ].filter(d => d.value && d.value !== '—')
+    : [];
 
   return (
     <Sheet open={open} onOpenChange={o => !o && onClose()}>
