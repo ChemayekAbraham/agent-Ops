@@ -196,7 +196,9 @@ export function CallingHubTable({
       </div>
 
       {/* Table at lg and above */}
-      <div className="hidden overflow-x-auto lg:block">
+      {/* The shadcn Table supplies its own scroll container; keep this wrapper
+          non-scrolling so the sticky columns pin against that scrollport. */}
+      <div className="hidden min-w-0 lg:block">
         <Table>
           <TableHeader>
             <TableRow>
