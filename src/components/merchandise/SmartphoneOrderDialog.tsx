@@ -243,8 +243,8 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               <h4 className="font-semibold">Terms &amp; Conditions</h4>
               <ol className="list-decimal pl-4 space-y-2 text-muted-foreground">
                 <li>
-                  <span className="font-medium text-foreground">Eligibility:</span> top 50 agents on the
-                  operational leaderboard. No ID or workplace visit is needed to apply.
+                  <span className="font-medium text-foreground">Eligibility:</span> Open to all active
+                  operational agents on the Welile network. No ID or workplace visit is needed to apply.
                 </li>
                 <li>
                   <span className="font-medium text-foreground">Collection day:</span> your national ID and a
@@ -252,7 +252,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 </li>
                 <li>
                   <span className="font-medium text-foreground">Limit:</span> the phone price must be within the
-                  ceiling for your leaderboard position.
+                  programme ceiling of UGX 1,000,000.
                 </li>
                 <li>
                   <span className="font-medium text-foreground">Supplier:</span> Welile pays the registered
