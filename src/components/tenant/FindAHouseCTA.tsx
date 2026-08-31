@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Sparkles, ChevronRight, Home } from 'lucide-react';
+import { Sparkles, Home } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface FindAHouseCTAProps {
@@ -74,7 +74,7 @@ export function FindAHouseCTA({ onClick }: FindAHouseCTAProps) {
           </div>
         </div>
 
-        <div className="flex items-end justify-between gap-1.5">
+        <div className="flex items-end gap-1.5">
           <p className="text-xs text-foreground/70 leading-snug line-clamp-2 break-words">
             {totalCount !== null ? (
               <>{totalCount} available · Pay daily</>
@@ -82,8 +82,8 @@ export function FindAHouseCTA({ onClick }: FindAHouseCTAProps) {
               <>Daily rent · Pay as you stay</>
             )}
           </p>
-          <ChevronRight className="h-3.5 w-3.5 text-warning shrink-0" />
         </div>
+
 
 
       </div>
