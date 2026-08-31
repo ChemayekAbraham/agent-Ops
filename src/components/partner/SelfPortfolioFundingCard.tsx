@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic } from '@/lib/currencyFormat';
+import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
 import { CalendarClock, Check, ChevronLeft, ChevronRight, Home, Loader2, MapPin, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
 
@@ -89,36 +90,35 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
   const plansQuery = useQuery({
     queryKey: ['psm-fundable-plans'],
     queryFn: async () => {
-      const pageSize = 100;
-      const plans: FundablePlan[] = [];
-      let offset = 0;
-      let total = 0;
-      let available = 0;
-
-      do {
-        const { data, error } = await supabase.rpc('partner_self_list_fundable_plans', {
-          p_limit: pageSize,
-          p_offset: offset,
-        });
-        if (error) throw error;
-        const payload = (data ?? {}) as {
-          plans?: FundablePlan[];
-          total?: number;
-          available_balance?: number;
-        };
-        const batch = payload.plans ?? [];
-        plans.push(...batch);
-        total = Number(payload.total ?? plans.length);
-        available = Number(payload.available_balance ?? available);
-        offset += batch.length;
-        if (batch.length === 0) break;
-      } while (offset < total);
+      const { items, total, meta } = await fetchAllPages<FundablePlan, { available: number }>({
+        pageSize: 100,
+        concurrency: 8,
+        fetchPage: async (offset, limit) => {
+          const { data, error } = await supabase.rpc('partner_self_list_fundable_plans', {
+            p_limit: limit,
+            p_offset: offset,
+          });
+          if (error) throw error;
+          const payload = (data ?? {}) as {
+            plans?: FundablePlan[];
+            total?: number;
+            available_balance?: number;
+          };
+          const batch = payload.plans ?? [];
+          return {
+            items: batch,
+            total: Number(payload.total ?? batch.length),
+            meta: { available: Number(payload.available_balance ?? 0) },
+          };
+        },
+      });
 
       return {
-        plans,
+        plans: items,
         total,
-        available,
+        available: meta?.available ?? 0,
       };
+
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
@@ -540,6 +540,10 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
                     <Home className="h-7 w-7 text-muted-foreground" />
                   </div>
                 )}
+                {/* Card-type badge: this row is a tenant rent plan. */}
+                <span className="absolute left-1.5 top-1.5 rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary-foreground shadow-sm">
+                  Rent plan
+                </span>
                 {images.length > 1 && (
                   <span className="absolute bottom-1.5 right-1.5 rounded-full bg-background/85 px-1.5 py-0.5 text-[9px] font-bold backdrop-blur">
                     +{images.length - 1}

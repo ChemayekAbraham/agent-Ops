@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { formatDynamic } from '@/lib/currencyFormat';
+import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
 import { Check, Home, Loader2, MapPin, Plus, ShieldCheck, TrendingUp, UserCheck } from 'lucide-react';
 import type { HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
@@ -37,43 +38,37 @@ export function useVerifiedEmptyHouses() {
   return useQuery({
     queryKey: ['psh-verified-empty-houses'],
     queryFn: async () => {
-      const pageSize = 100;
-      const houses: SupportableHouse[] = [];
-      let offset = 0;
-      let total = 0;
-
-      do {
-        const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
-          p_search: null,
-          p_limit: pageSize,
-          p_offset: offset,
-          p_district: null,
-          p_verified_only: true,
-          p_gps_only: false,
-          p_min_rent: null,
-          p_max_rent: null,
-          p_near_lat: null,
-          p_near_lng: null,
-          p_radius_km: null,
-          // The backend currently has both the legacy 11-argument RPC and the
-          // sortable 12-argument RPC. Passing p_sort makes this call resolve to
-          // the current overload instead of failing as ambiguous and returning
-          // an empty house list to the combined feed.
-          p_sort: 'newest',
-        });
-        if (error) throw error;
-        const payload = (data ?? {}) as { houses?: SupportableHouse[]; total?: number };
-        const batch = payload.houses ?? [];
-        houses.push(...batch);
-        total = Number(payload.total ?? houses.length);
-        offset += batch.length;
-        if (batch.length === 0) break;
-      } while (offset < total);
+      const { items, total } = await fetchAllPages<SupportableHouse>({
+        pageSize: 100,
+        concurrency: 8,
+        fetchPage: async (offset, limit) => {
+          const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
+            p_search: null,
+            p_limit: limit,
+            p_offset: offset,
+            p_district: null,
+            p_verified_only: true,
+            p_gps_only: false,
+            p_min_rent: null,
+            p_max_rent: null,
+            p_near_lat: null,
+            p_near_lng: null,
+            p_radius_km: null,
+            // The backend currently has both the legacy 11-argument RPC and the
+            // sortable 12-argument RPC. Passing p_sort makes this call resolve to
+            // the current overload instead of failing as ambiguous and returning
+            // an empty house list to the combined feed.
+            p_sort: 'newest',
+          });
+          if (error) throw error;
+          const payload = (data ?? {}) as { houses?: SupportableHouse[]; total?: number };
+          const batch = payload.houses ?? [];
+          return { items: batch, total: Number(payload.total ?? batch.length) };
+        },
+      });
 
       return {
-        houses: houses.filter(
-          (h) => h.verified === true && Number(h.monthly_rent) > 0,
-        ),
+        houses: items.filter((h) => h.verified === true && Number(h.monthly_rent) > 0),
         total,
       };
     },
@@ -82,6 +77,7 @@ export function useVerifiedEmptyHouses() {
     refetchOnWindowFocus: false,
   });
 }
+
 
 /** One selectable verified empty house, styled to match the tenant plan cards. */
 export function HouseSupportCard({
@@ -136,6 +132,10 @@ export function HouseSupportCard({
               <Home className="h-7 w-7 text-muted-foreground" />
             </div>
           )}
+          {/* Card-type badge: this row is an empty house, no tenant attached. */}
+          <span className="absolute left-1.5 top-1.5 rounded-full bg-secondary px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-secondary-foreground shadow-sm">
+            House
+          </span>
           {images.length > 1 && (
             <span className="absolute bottom-1.5 right-1.5 rounded-full bg-background/85 px-1.5 py-0.5 text-[9px] font-bold backdrop-blur">
               +{images.length - 1}
