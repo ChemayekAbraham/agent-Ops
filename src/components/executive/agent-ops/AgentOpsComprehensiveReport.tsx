@@ -40,7 +40,7 @@ const resolvePreset = (id: Preset) => {
 };
 const n = (v: any) => Number(v) || 0;
 const ugx = (v: any) => formatUGX(n(v));
-const pct = (v: any) => `${n(v).toFixed(1)}%`;
+const pct = (v: any) => (v === null || v === undefined || v === '' ? 'n/a' : `${n(v).toFixed(1)}%`);
 const short = (v: any) => n(v) >= 1_000_000 ? `${(n(v) / 1_000_000).toFixed(1)}M` : n(v) >= 1_000 ? `${Math.round(n(v) / 1_000)}K` : String(Math.round(n(v)));
 
 function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
