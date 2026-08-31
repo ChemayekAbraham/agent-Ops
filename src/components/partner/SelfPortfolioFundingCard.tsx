@@ -152,13 +152,17 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
     refetchOnWindowFocus: false,
   });
 
+  const housesQuery = useVerifiedEmptyHouses();
+
   const plans = plansQuery.data?.plans ?? [];
+  const houses = housesQuery.data?.houses ?? [];
   const available = plansQuery.data?.available ?? 0;
   const fundedIds = fundedQuery.data?.fundedIds ?? [];
   const activeCommitmentId = fundedQuery.data?.activeCommitmentId ?? null;
   const earnings = fundedQuery.data?.earnings ?? null;
   // Only the very first load blocks the card; refetches keep the cards on screen.
   const loading = plansQuery.isLoading && !plansQuery.data;
+
 
   const load = useCallback(async () => {
     await plansQuery.refetch();
