@@ -44,8 +44,9 @@ export function TenantCallingHub() {
   const [recallDays, setRecallDays] = useState<(typeof RECALL_OPTIONS)[number]>(3);
   const [open, setOpen] = useState<CallingListRow | null>(null);
 
-  /** A tenant needs calling when never called, or the last call still needs a
-   *  follow-up (Pending/Missed) and is older than the re-call window. */
+  /** A tenant belongs in "To call" when they have never been called, or when
+   *  their call state does not place them in any other list (Pending / Closed /
+   *  Missed). Re-call window only re-surfaces follow-ups that are already due. */
   const needsCall = (r: CallingListRow) => {
     const s = statusOf(r);
     if (!s) return true;
@@ -62,10 +63,11 @@ export function TenantCallingHub() {
       if (s === 'pending') b.pending.push(r);
       if (s === 'closed') b.closed.push(r);
       if (s === 'missed') b.missed.push(r);
-      if (needsCall(r)) b.to_call.push(r);
+      if (!s || needsCall(r)) b.to_call.push(r);
     });
     return b;
   }, [rows, recallDays]);
+
 
   const calledToday = useMemo(
     () => rows.filter(r => r.call?.last_call_at && daysSince(r.call.last_call_at) === 0).length,
