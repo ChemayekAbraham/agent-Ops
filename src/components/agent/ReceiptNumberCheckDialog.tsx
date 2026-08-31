@@ -106,9 +106,12 @@ export function ReceiptNumberCheckDialog({
           )}
 
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-              Close
-            </Button>
+            {confirmed && (
+              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+                Close
+              </Button>
+            )}
+
             <Button type="submit" disabled={loading || query.trim().length < 4}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Search className="h-4 w-4 mr-1.5" />}
               Submit
