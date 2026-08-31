@@ -5,8 +5,9 @@ import { format } from 'date-fns';
 import {
   ArrowLeft, Users, UserCheck, FileText, HandCoins, Wallet, Share2, Loader2,
   RefreshCw, Search, ArrowUpDown, ChevronLeft, ChevronRight, Target, Repeat,
-  BarChart3, Download, Copy,
+  BarChart3, Download, Copy, Phone, MessageCircle, StickyNote,
 } from 'lucide-react';
+
 
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,6 +28,11 @@ import { createShortLink } from '@/lib/createShortLink';
 import { PromissoryNoteDialog } from '@/components/agent/PromissoryNoteDialog';
 import { SupportModeChooserDialog, type SupportMode } from '@/components/agent/SupportModeChooserDialog';
 import { EmptyHouseOpportunitiesSheet } from '@/components/agent/EmptyHouseOpportunitiesSheet';
+import {
+  PartnerContactChatSheet, hasDialablePhone, toIntlDigits, initialsOf,
+  type PartnerContact,
+} from '@/components/agent/PartnerContactChatSheet';
+
 
 import { WithdrawRequestDialog } from '@/components/wallet/WithdrawRequestDialog';
 import {
@@ -102,6 +108,17 @@ export default function ProxyAgentCommandCenter() {
   const [supportModeOpen, setSupportModeOpen] = useState(false);
   const [supportMode, setSupportMode] = useState<SupportMode>('self');
   const [houseOppsOpen, setHouseOppsOpen] = useState(false);
+
+  // WhatsApp-style partner conversation
+  const [chatContact, setChatContact] = useState<PartnerContact | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const openChat = useCallback((c: PartnerContact) => {
+    hapticTap();
+    setChatContact(c);
+    setChatOpen(true);
+  }, []);
+
+
 
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
@@ -417,46 +434,79 @@ export default function ProxyAgentCommandCenter() {
             ) : (partnersQ.data?.rows.length ?? 0) === 0 ? (
               <Card><CardContent className="p-6 text-center text-sm text-muted-foreground">No partners match this view yet.</CardContent></Card>
             ) : (
-              partnersQ.data!.rows.map((p: ProxyPartnerRow) => (
-                <Card key={p.partner_user_id}>
-                  <CardContent className="p-3 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-black truncate">{p.partner_name}</p>
-                        <p className="text-[11px] text-muted-foreground">{p.partner_phone}</p>
+              <Card className="overflow-hidden divide-y">
+                {partnersQ.data!.rows.map((p: ProxyPartnerRow) => {
+                  const dialable = hasDialablePhone(p.partner_phone);
+                  const intl = toIntlDigits(p.partner_phone);
+                  return (
+                    <button
+                      key={p.partner_user_id}
+                      onClick={() => openChat({
+                        partnerUserId: p.partner_user_id,
+                        name: p.partner_name,
+                        phone: p.partner_phone,
+                        subtitle: `${money(p.total_funded)} funded · ${p.notes_count} notes`,
+                      })}
+                      className="w-full flex items-center gap-3 px-3 py-3 text-left hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="h-11 w-11 shrink-0 rounded-full bg-primary/15 text-primary grid place-items-center text-sm font-black">
+                        {initialsOf(p.partner_name)}
                       </div>
-                      <Badge variant="outline" className={cn(
-                        'shrink-0 text-[10px]',
-                        p.is_returning ? 'border-emerald-500/40 text-emerald-600'
-                          : p.came_in ? 'border-primary/40 text-primary' : 'border-border text-muted-foreground',
-                      )}>
-                        {p.is_returning ? 'Returning' : p.came_in ? 'Came in' : 'Not yet funded'}
-                      </Badge>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-[11px]">
-                      <div className="rounded-lg bg-muted/40 px-2 py-1.5">
-                        <div className="text-muted-foreground">Total funded</div>
-                        <div className="font-black break-words">{money(p.total_funded)}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold truncate">{p.partner_name}</p>
+                          <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                            {format(new Date(p.linked_at), 'dd MMM')}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {p.partner_phone || 'No phone on file'}
+                        </p>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <span className={cn(
+                            'rounded-full px-2 py-0.5 text-[10px] font-bold',
+                            p.is_returning ? 'bg-emerald-500/15 text-emerald-600'
+                              : p.came_in ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
+                          )}>
+                            {p.is_returning ? 'Returning' : p.came_in ? 'Came in' : 'Not yet funded'}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground truncate">
+                            {money(p.total_funded)} · {p.portfolios} portfolios · {p.notes_count} notes
+                          </span>
+                        </div>
                       </div>
-                      <div className="rounded-lg bg-muted/40 px-2 py-1.5">
-                        <div className="text-muted-foreground">Portfolios · notes</div>
-                        <div className="font-black">{p.portfolios} · {p.notes_count}</div>
+                      <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <a
+                          href={dialable ? `tel:+${intl}` : undefined}
+                          aria-disabled={!dialable}
+                          aria-label={`Call ${p.partner_name}`}
+                          className={cn(
+                            'grid place-items-center h-9 w-9 rounded-full border border-border bg-background',
+                            !dialable && 'opacity-40 pointer-events-none',
+                          )}
+                        >
+                          <Phone className="h-4 w-4 text-primary" />
+                        </a>
+                        <a
+                          href={dialable ? `https://wa.me/${intl}` : undefined}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-disabled={!dialable}
+                          aria-label={`WhatsApp ${p.partner_name}`}
+                          className={cn(
+                            'grid place-items-center h-9 w-9 rounded-full bg-[hsl(142,70%,45%)] text-white',
+                            !dialable && 'opacity-40 pointer-events-none',
+                          )}
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                        </a>
                       </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-1">
-                      {(p.sources ?? []).map((src) => (
-                        <span key={src} className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-bold">
-                          {sourceLabels[src] ?? src}
-                        </span>
-                      ))}
-                      <span className="ml-auto text-[10px] text-muted-foreground">
-                        Linked {format(new Date(p.linked_at), 'dd MMM yyyy')}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+                    </button>
+                  );
+                })}
+              </Card>
             )}
+
 
             <Pager page={pPage} pages={partnerPages} total={partnerTotal} onChange={setPPage} />
               </div>
@@ -578,6 +628,49 @@ export default function ProxyAgentCommandCenter() {
                         {format(new Date(n.created_at), 'dd MMM yyyy')}
                       </span>
                     </div>
+                    {(() => {
+                      const raw = n.whatsapp_number ?? n.phone_number ?? '';
+                      const dialable = hasDialablePhone(raw);
+                      const intl = toIntlDigits(raw);
+                      return (
+                        <div className="flex items-center gap-2 pt-1">
+                          <a
+                            href={dialable ? `https://wa.me/${intl}` : undefined}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-disabled={!dialable}
+                            className={cn(
+                              'flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xl bg-[hsl(142,70%,45%)] text-white text-[11px] font-bold',
+                              !dialable && 'opacity-40 pointer-events-none',
+                            )}
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                          </a>
+                          <a
+                            href={dialable ? `tel:+${intl}` : undefined}
+                            aria-disabled={!dialable}
+                            className={cn(
+                              'flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xl border border-border bg-background text-[11px] font-bold',
+                              !dialable && 'opacity-40 pointer-events-none',
+                            )}
+                          >
+                            <Phone className="h-3.5 w-3.5 text-primary" /> Call
+                          </a>
+                          <button
+                            onClick={() => openChat({
+                              partnerUserId: n.partner_user_id,
+                              name: n.linked_partner_name ?? n.partner_name,
+                              phone: raw,
+                              subtitle: `Note ${money(n.amount)}`,
+                            })}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xl border border-border bg-background text-[11px] font-bold"
+                          >
+                            <StickyNote className="h-3.5 w-3.5" /> Notes
+                          </button>
+                        </div>
+                      );
+                    })()}
+
                   </CardContent>
                 </Card>
               ))
@@ -786,7 +879,15 @@ export default function ProxyAgentCommandCenter() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <PartnerContactChatSheet
+        open={chatOpen}
+        onOpenChange={setChatOpen}
+        contact={chatContact}
+        agentId={agentId}
+      />
     </div>
+
   );
 }
 
