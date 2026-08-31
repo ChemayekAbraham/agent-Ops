@@ -183,6 +183,23 @@ const LIABILITY_ACCOUNT_GROUPS: Record<string, LiabilityGroupLabel> = {
   // account not listed here fall through to Other Payables.
 };
 
+/**
+ * Plain-language equity labels. Presentation only: the ledger keeps its own
+ * account names (other consumers read ledger_account_catalog), and only the
+ * text printed on this statement changes. Values are untouched.
+ */
+const EQUITY_LABEL_RENAMES: Record<string, string> = {
+  'Retained Earnings / (Accumulated Deficit)': 'Accumulated Profit / (Loss)',
+  'Legacy Opening Balance Adjustments': 'Opening Balance Adjustments',
+  'Legacy One-Sided Postings — Opening Balance Counterpart': 'Unmatched Historic Postings',
+};
+
+const equityLabel = (label: string) => EQUITY_LABEL_RENAMES[label] ?? label;
+
+/** Equity lines with display labels applied; order and values unchanged. */
+const equityLinesForDisplay = (lines: PositionLine[]): PositionLine[] =>
+  lines.map(l => ({ ...l, label: equityLabel(l.label) }));
+
 function accountCodeOf(line: PositionLine): string | null {
   const m = /account\s+([A-Z]\d+)\s*$/.exec(line.source ?? '');
   return m ? m[1] : null;
@@ -306,7 +323,7 @@ export default function BalanceSheetPanel() {
     rows.push(['TOTAL LIABILITIES', data.liabilities.total]);
     rows.push([]);
     rows.push(['EQUITY', '']);
-    data.equity.lines.forEach(l => rows.push([l.label, l.value]));
+    equityLinesForDisplay(data.equity.lines).forEach(l => rows.push([l.label, l.value]));
     rows.push(['TOTAL EQUITY', data.equity.total]);
     rows.push([]);
     rows.push(['TOTAL LIABILITIES AND EQUITY', data.balance_check.total_liabilities_and_equity]);
@@ -414,7 +431,7 @@ export default function BalanceSheetPanel() {
       row('TOTAL LIABILITIES', data.liabilities.total, true);
 
       heading('Equity');
-      data.equity.lines.forEach(l => row(l.label, l.value));
+      equityLinesForDisplay(data.equity.lines).forEach(l => row(l.label, l.value));
       row('TOTAL EQUITY', data.equity.total, true);
 
       heading('Balance Check');
@@ -576,7 +593,7 @@ export default function BalanceSheetPanel() {
                 </p>
               )}
               <SectionHeading>Equity</SectionHeading>
-              <div>{data.equity.lines.map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}</div>
+              <div>{equityLinesForDisplay(data.equity.lines).map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}</div>
               <TotalRow label="Total Equity" value={data.equity.total} />
               <TotalRow label="Total Liabilities and Equity" value={data.balance_check.total_liabilities_and_equity} emphasis />
             </div>
@@ -610,7 +627,7 @@ export default function BalanceSheetPanel() {
                   <p className="text-[10px] text-muted-foreground">
                     {data.reconciliation.unresolved_groups.toLocaleString()} historic ledger transactions carry only one side of their entry
                     ({formatUGX(data.reconciliation.unresolved_absolute_amount)} in absolute terms) and are listed below by category.
-                    Their missing side is recognised, itemised, in the equity line "Legacy One-Sided Postings"
+                    Their missing side is recognised, itemised, in the equity line "Unmatched Historic Postings"
                     {typeof data.reconciliation.one_sided_equity_counterpart === 'number'
                       ? ` (${formatUGX(data.reconciliation.one_sided_equity_counterpart)})`
                       : ''}. No suspense plug is applied: every balanced ledger entry is mapped to a real debit and a real credit, so nothing
