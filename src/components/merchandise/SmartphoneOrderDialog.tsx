@@ -57,8 +57,9 @@ interface Props {
 
 /**
  * Agent Smartphone Advance application. Only the top 50 agents on the
- * operational leaderboard can apply, up to the ceiling for their position, and
- * the phone must have a registered supplier. The applicant sees the daily
+ * operational leaderboard can apply, up to the ceiling for their position. Every
+ * active, priced model is offered; Agent Ops assigns the supplier to the order
+ * after submission. The applicant sees the daily
  * amount, the chosen period and the terms — never the internal programme charge.
  */
 export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Props) {
@@ -84,7 +85,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const options = useMemo(
     () =>
       catalog
-        .filter((c) => c.is_active && !!c.supplier_id && Number(c.default_amount || 0) > 0)
+        .filter((c) => c.is_active && Number(c.default_amount || 0) > 0)
         .filter((c) => cap <= 0 || Number(c.default_amount) <= cap),
     [catalog, cap],
   );

@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Smartphone, Check, X, Loader2 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
+import { SupplierPicker, type SupplierChoice } from './SmartphoneCatalogDialog';
 import { format } from 'date-fns';
 
 const db = supabase as any;
@@ -41,6 +42,8 @@ interface SmartphoneOrderRow {
   disbursed_amount?: number | null;
   access_daily_amount?: number | null;
   access_repayment_days?: number | null;
+  supplier_id?: string | null;
+  supplier_name?: string | null;
 }
 
 
@@ -85,6 +88,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
   const [approveTarget, setApproveTarget] = useState<SmartphoneOrderRow | null>(null);
   const [officialAmount, setOfficialAmount] = useState('');
   const [repaymentDays, setRepaymentDays] = useState('30');
+  const [supplierDraft, setSupplierDraft] = useState<SupplierChoice | null>(null);
 
   const approveStage: 'coo' | 'cfo' = approveTarget && isAwaitingCfo(approveTarget.order_status) ? 'cfo' : 'coo';
 
@@ -207,6 +211,26 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
       invalidate();
     },
     onError: (e: any) => toast.error(e.message || 'Could not reject order'),
+  });
+
+  const assignSupplier = useMutation({
+    mutationFn: async ({ id, supplier }: { id: string; supplier: SupplierChoice | null }) => {
+      const { error } = await db.rpc('assign_smartphone_order_supplier', {
+        p_sale_id: id,
+        p_supplier_id: supplier?.id ?? null,
+      });
+      if (error) throw error;
+      return supplier;
+    },
+    onSuccess: (supplier) => {
+      toast.success(supplier ? `Supplier set to ${supplier.name}` : 'Supplier cleared');
+      setSupplierDraft(null);
+      setDetailsTarget((prev) =>
+        prev ? { ...prev, supplier_id: supplier?.id ?? null, supplier_name: supplier?.name ?? null } : prev,
+      );
+      invalidate();
+    },
+    onError: (e: any) => toast.error(e.message || 'Could not assign the supplier'),
   });
 
   const scoped = useMemo(
@@ -353,7 +377,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
         )}
       </CardContent>
 
-      <Dialog open={!!detailsTarget} onOpenChange={(open) => { if (!open) setDetailsTarget(null); }}>
+      <Dialog open={!!detailsTarget} onOpenChange={(open) => { if (!open) { setDetailsTarget(null); setSupplierDraft(null); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -404,6 +428,47 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
                       <span className="text-xs font-semibold text-right truncate">{value}</span>
                     </div>
                   ))}
+                </div>
+
+                <div className="rounded-lg border p-3 space-y-2">
+                  <p className="text-xs font-semibold">Supplier</p>
+                  {detailsTarget.supplier_id ? (
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-medium truncate">
+                        {detailsTarget.supplier_name || 'Registered supplier'}
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2"
+                        disabled={assignSupplier.isPending}
+                        onClick={() => assignSupplier.mutate({ id: detailsTarget.id, supplier: null })}
+                      >
+                        <X className="h-3.5 w-3.5 mr-1" /> Clear
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-[11px] text-muted-foreground">
+                        No supplier assigned yet. Search a registered user to supply this device.
+                      </p>
+                      <SupplierPicker value={supplierDraft} onChange={setSupplierDraft} />
+                      <Button
+                        size="sm"
+                        className="h-8"
+                        disabled={!supplierDraft || assignSupplier.isPending}
+                        onClick={() =>
+                          supplierDraft && assignSupplier.mutate({ id: detailsTarget.id, supplier: supplierDraft })
+                        }
+                      >
+                        {assignSupplier.isPending ? (
+                          <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Saving…</>
+                        ) : (
+                          <><Check className="h-3.5 w-3.5 mr-1" /> Assign supplier</>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="rounded-lg border p-3 space-y-2">
