@@ -69,14 +69,22 @@ export function TenantCallDrawer({
     ? [row.village, row.parish, row.sub_county, row.district || row.city, row.region].filter(Boolean).join(', ')
     : '';
 
-  const details: { label: string; value: string }[] = row
+  const details: { label: string; value: string; phone?: string | null }[] = row
     ? [
         { label: 'Full name', value: row.tenant_name },
-        { label: 'Phone', value: row.phone || '—' },
+        { label: 'Phone', value: row.phone || '—', phone: row.phone },
         { label: 'Email', value: row.email || '—' },
         { label: 'National ID', value: row.national_id || '—' },
-        { label: 'Assigned agent', value: row.agent_name + (row.agent_phone ? ` · ${row.agent_phone}` : '') },
-        { label: 'Landlord', value: row.landlord_name + (row.landlord_phone ? ` · ${row.landlord_phone}` : '') },
+        {
+          label: 'Assigned agent',
+          value: row.agent_name + (row.agent_phone ? ` · ${row.agent_phone}` : ''),
+          phone: row.agent_phone,
+        },
+        {
+          label: 'Landlord',
+          value: row.landlord_name + (row.landlord_phone ? ` · ${row.landlord_phone}` : ''),
+          phone: row.landlord_phone,
+        },
         { label: 'Occupation', value: row.occupation || '—' },
         { label: 'Preferred language', value: row.preferred_language || '—' },
         {
@@ -98,83 +106,119 @@ export function TenantCallDrawer({
 
   return (
     <Sheet open={open} onOpenChange={o => !o && onClose()}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
+      <SheetContent side="right" className="flex w-full flex-col gap-0 overflow-y-auto p-4 sm:max-w-lg">
         {row && (
           <>
-            <SheetHeader className="text-left">
-              <SheetTitle className="text-base break-words">{row.tenant_name}</SheetTitle>
-              <SheetDescription className="text-xs break-words">
-                {row.phone || 'No phone on file'}
-                {row.national_id ? ` · ID ${row.national_id}` : ''}
-              </SheetDescription>
+            <SheetHeader className="sr-only">
+              <SheetTitle>{row.tenant_name}</SheetTitle>
+              <SheetDescription>Tenant call briefing</SheetDescription>
             </SheetHeader>
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <ContactActions phone={row.phone} message={`Hello ${row.tenant_name}, this is Welile Tenant Operations.`} showSms showLabels />
-              {row.call?.last_status && (
-                <Badge variant="outline" className={cn('text-[10px]', callStatusBadgeClass(row.call.last_status))}>
-                  {TENANT_CALL_STATUS_LABEL[row.call.last_status]}
-                </Badge>
-              )}
-              {row.status && <Badge variant="secondary" className="text-[10px] capitalize">{row.status.replace(/_/g, ' ')}</Badge>}
-            </div>
+            <PersonHeader
+              name={row.tenant_name}
+              subtitle={[row.phone || 'No phone on file', row.national_id ? `ID ${row.national_id}` : '']
+                .filter(Boolean)
+                .join(' · ')}
+              badges={
+                <>
+                  {row.call?.last_status && (
+                    <Badge variant="outline" className={cn('text-[10px]', callStatusBadgeClass(row.call.last_status))}>
+                      {TENANT_CALL_STATUS_LABEL[row.call.last_status]}
+                    </Badge>
+                  )}
+                  {row.status && (
+                    <Badge variant="secondary" className="text-[10px] capitalize">
+                      {row.status.replace(/_/g, ' ')}
+                    </Badge>
+                  )}
+                  {row.missed_days > 0 && (
+                    <Badge variant="outline" className="border-destructive/40 text-[10px] text-destructive">
+                      {row.missed_days} day{row.missed_days === 1 ? '' : 's'} missed
+                    </Badge>
+                  )}
+                </>
+              }
+            >
+              <ContactActions
+                phone={row.phone}
+                message={`Hello ${row.tenant_name}, this is Welile Tenant Operations.`}
+                showSms
+                showLabels
+              />
+            </PersonHeader>
 
             {place && (
-              <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground break-words">
-                <MapPin className="h-3 w-3 shrink-0" /> {place}
+              <p className="mt-2 flex items-start gap-1.5 break-words text-[11px] text-muted-foreground">
+                <MapPin className="mt-0.5 h-3 w-3 shrink-0" /> {place}
               </p>
             )}
 
-            <Separator className="my-3" />
+            <DrawerSection title="Person details" icon={IdCard}>
+              <DetailGrid>
+                {details.map(d => (
+                  <DetailField
+                    key={d.label}
+                    label={d.label}
+                    value={d.value}
+                    phone={d.phone}
+                    message={`Hello, this is Welile Tenant Operations.`}
+                  />
+                ))}
+              </DetailGrid>
+            </DrawerSection>
 
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Person details</p>
-            <div className="grid grid-cols-1 gap-x-3 gap-y-1.5 rounded-lg border border-border/60 bg-muted/30 p-2.5 sm:grid-cols-2">
-              {details.map(d => (
-                <div key={d.label} className="min-w-0">
-                  <p className="text-[10px] leading-tight text-muted-foreground">{d.label}</p>
-                  <p className="text-xs font-medium leading-tight break-words">{d.value}</p>
-                </div>
-              ))}
-            </div>
             {row.ops_note && (
-              <p className="mt-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-[11px] break-words">
-                <span className="font-semibold">Ops note: </span>{row.ops_note}
+              <p className="mt-2 flex items-start gap-1.5 break-words rounded-xl border border-amber-500/40 bg-amber-500/10 p-2.5 text-[11px]">
+                <NotebookPen className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+                <span>
+                  <span className="font-semibold">Ops note: </span>
+                  {row.ops_note}
+                </span>
               </p>
             )}
 
-            <p className="mb-2 mt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Money</p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              <Stat label="Rent" value={formatUGX(row.rent_amount)} />
-              <Stat label="Expected daily" value={formatUGX(row.daily_repayment)} />
-              <Stat label="Amount owed" value={formatUGX(row.outstanding_balance)} tone="text-destructive" />
-              <Stat label="Repaid" value={formatUGX(row.amount_repaid)} />
-              <Stat label="Days missed" value={String(row.missed_days)} tone={row.missed_days > 0 ? 'text-destructive' : undefined} />
-              <Stat label="Repayment" value={`${row.repayment_pct}%`} />
-            </div>
+            <DrawerSection title="Money" icon={Wallet}>
+              <StatGrid>
+                <StatTile label="Rent" value={formatUGX(row.rent_amount)} />
+                <StatTile label="Expected daily" value={formatUGX(row.daily_repayment)} />
+                <StatTile label="Amount owed" value={formatUGX(row.outstanding_balance)} tone="text-destructive" />
+                <StatTile label="Repaid" value={formatUGX(row.amount_repaid)} />
+                <StatTile
+                  label="Days missed"
+                  value={String(row.missed_days)}
+                  tone={row.missed_days > 0 ? 'text-destructive' : undefined}
+                />
+                <StatTile label="Repayment" value={`${row.repayment_pct}%`} />
+              </StatGrid>
+            </DrawerSection>
 
-            <p className="mb-2 mt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Network</p>
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between gap-2 rounded-lg border border-border/60 p-2">
-                <div className="min-w-0">
-                  <p className="text-[10px] text-muted-foreground">Agent</p>
-                  <p className="truncate text-xs font-medium">{row.agent_name}</p>
+            <DrawerSection title="Network" icon={Users}>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <ContactCard
+                  role="Agent"
+                  name={row.agent_name}
+                  phone={row.agent_phone}
+                  meta={row.agent_phone || 'No phone on file'}
+                  message={`Hello ${row.agent_name}, this is Welile Tenant Operations.`}
+                />
+                <ContactCard
+                  role="Landlord"
+                  name={row.landlord_name}
+                  phone={row.landlord_phone}
+                  meta={row.landlord_phone || 'No phone on file'}
+                  message={`Hello ${row.landlord_name}, this is Welile Tenant Operations.`}
+                />
+                <div className="rounded-xl border border-border/60 bg-card px-2.5 py-2 sm:col-span-2">
+                  <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Plan started</p>
+                  <p className="text-xs font-semibold">
+                    {row.start_at
+                      ? `${format(new Date(row.start_at), 'dd MMM yyyy')} · day ${row.days_since_start}`
+                      : '—'}
+                  </p>
                 </div>
-                <ContactActions phone={row.agent_phone} size="xs" />
               </div>
-              <div className="flex items-center justify-between gap-2 rounded-lg border border-border/60 p-2">
-                <div className="min-w-0">
-                  <p className="text-[10px] text-muted-foreground">Landlord</p>
-                  <p className="truncate text-xs font-medium">{row.landlord_name}</p>
-                </div>
-                <ContactActions phone={row.landlord_phone} size="xs" />
-              </div>
-              <div className="rounded-lg border border-border/60 p-2">
-                <p className="text-[10px] text-muted-foreground">Plan started</p>
-                <p className="text-xs font-medium">
-                  {row.start_at ? `${format(new Date(row.start_at), 'dd MMM yyyy')} · day ${row.days_since_start}` : '—'}
-                </p>
-              </div>
-            </div>
+            </DrawerSection>
+
 
             <Separator className="my-3" />
 
