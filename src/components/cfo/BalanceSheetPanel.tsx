@@ -292,12 +292,12 @@ export default function BalanceSheetPanel() {
     rows.push(['TOTAL ASSETS', data.assets.total]);
     rows.push([]);
     rows.push(['LIABILITIES', '']);
-    rows.push(['Current Liabilities', '']);
-    data.liabilities.current.forEach(l => rows.push([l.label, l.value]));
-    rows.push(['Total Current Liabilities', data.liabilities.total_current]);
-    rows.push(['Non-Current Liabilities', '']);
-    data.liabilities.non_current.forEach(l => rows.push([l.label, l.value]));
-    rows.push(['Total Non-Current Liabilities', data.liabilities.total_non_current]);
+    rows.push(['Marketplace Liabilities', '']);
+    (liabilityGroups?.marketplace ?? []).forEach(g => rows.push([g.label, g.value]));
+    rows.push(['Subtotal — Marketplace Liabilities', liabilityGroups?.marketplaceTotal ?? 0]);
+    rows.push(['Operational & Other Liabilities', '']);
+    (liabilityGroups?.operational ?? []).forEach(g => rows.push([g.label, g.value]));
+    rows.push(['Subtotal — Operational & Other Liabilities', liabilityGroups?.operationalTotal ?? 0]);
     rows.push(['TOTAL LIABILITIES', data.liabilities.total]);
     rows.push([]);
     rows.push(['EQUITY', '']);
