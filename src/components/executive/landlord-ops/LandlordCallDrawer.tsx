@@ -58,6 +58,21 @@ export function LandlordCallDrawer({
 
   const place = row ? [row.village, row.district, row.region].filter(Boolean).join(', ') : '';
 
+  const details: { label: string; value: string }[] = row
+    ? [
+        { label: 'Full name', value: row.landlord_name },
+        { label: 'Phone', value: row.phone || '—' },
+        { label: 'Registering agent', value: row.agent_name + (row.agent_phone ? ` · ${row.agent_phone}` : '') },
+        { label: 'Caretaker', value: row.caretaker_name ? `${row.caretaker_name}${row.caretaker_phone ? ` · ${row.caretaker_phone}` : ''}` : '—' },
+        { label: 'House category', value: row.house_category?.replace(/_/g, ' ') || '—' },
+        { label: 'Property address', value: row.property_address || '—' },
+        { label: 'Location', value: place || '—' },
+        { label: 'Verification', value: row.verified ? 'Verified' : 'Unverified' },
+        { label: 'Smartphone', value: row.has_smartphone === null ? '—' : row.has_smartphone ? 'Yes' : 'No' },
+        { label: 'Registered on', value: row.created_at ? format(new Date(row.created_at), 'dd MMM yyyy') : '—' },
+      ].filter(d => d.value && d.value !== '—')
+    : [];
+
   return (
     <Sheet open={open} onOpenChange={o => !o && onClose()}>
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
@@ -94,7 +109,17 @@ export function LandlordCallDrawer({
 
             <Separator className="my-3" />
 
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Houses</p>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Person details</p>
+            <div className="grid grid-cols-1 gap-x-3 gap-y-1.5 rounded-lg border border-border/60 bg-muted/30 p-2.5 sm:grid-cols-2">
+              {details.map(d => (
+                <div key={d.label} className="min-w-0">
+                  <p className="text-[10px] leading-tight text-muted-foreground">{d.label}</p>
+                  <p className="text-xs font-medium leading-tight break-words">{d.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <p className="mb-2 mt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Houses</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               <Stat label="Houses listed" value={String(row.houses)} />
               <Stat label="Occupied" value={String(row.occupied_houses)} />

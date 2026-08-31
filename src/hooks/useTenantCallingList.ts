@@ -23,9 +23,22 @@ export interface CallingListRow {
   rent_request_id: string;
   tenant_name: string;
   phone: string;
+  email: string | null;
   national_id: string | null;
+  occupation: string | null;
+  preferred_language: string | null;
+  has_smartphone: boolean | null;
+  tenant_status: string | null;
+  tenant_house_category: string | null;
+  mobile_money_number: string | null;
+  mobile_money_name: string | null;
+  last_active_at: string | null;
+  ops_note: string | null;
   district: string | null;
   village: string | null;
+  sub_county: string | null;
+  parish: string | null;
+  landmark: string | null;
   city: string | null;
   region: string | null;
   status: string | null;
@@ -52,12 +65,28 @@ interface ProfileRow {
   id: string;
   full_name: string | null;
   phone: string | null;
+  email: string | null;
   national_id: string | null;
+  occupation: string | null;
+  preferred_language: string | null;
+  has_smartphone: boolean | null;
+  tenant_status: string | null;
+  tenant_house_category: string | null;
+  mobile_money_number: string | null;
+  mobile_money_name: string | null;
+  last_active_at: string | null;
+  ops_note: string | null;
   district: string | null;
   village: string | null;
+  sub_county: string | null;
+  parish: string | null;
+  landmark: string | null;
   city: string | null;
   region: string | null;
 }
+
+const PROFILE_COLS =
+  'id, full_name, phone, email, national_id, occupation, preferred_language, has_smartphone, tenant_status, tenant_house_category, mobile_money_number, mobile_money_name, last_active_at, ops_note, district, village, sub_county, parish, landmark, city, region';
 
 export function useTenantCallingList() {
   const { data: summaries, isLoading: callsLoading } = useTenantCallSummaries();
@@ -100,7 +129,7 @@ export function useTenantCallingList() {
         chunk(userIds).map(ids =>
           supabase
             .from('profiles')
-            .select('id, full_name, phone, national_id, district, village, city, region')
+            .select(PROFILE_COLS)
             .in('id', ids),
         ),
       );
@@ -140,9 +169,22 @@ export function useTenantCallingList() {
         rent_request_id: p.rent_request_id,
         tenant_name: t?.full_name || 'Unknown tenant',
         phone: t?.phone || '',
+        email: t?.email || null,
         national_id: t?.national_id || null,
+        occupation: t?.occupation || null,
+        preferred_language: t?.preferred_language || null,
+        has_smartphone: t?.has_smartphone ?? null,
+        tenant_status: t?.tenant_status || null,
+        tenant_house_category: t?.tenant_house_category || null,
+        mobile_money_number: t?.mobile_money_number || null,
+        mobile_money_name: t?.mobile_money_name || null,
+        last_active_at: t?.last_active_at || null,
+        ops_note: t?.ops_note || null,
         district: t?.district || null,
         village: t?.village || null,
+        sub_county: t?.sub_county || null,
+        parish: t?.parish || null,
+        landmark: t?.landmark || null,
         city: t?.city || null,
         region: t?.region || null,
         status: p.status || null,
