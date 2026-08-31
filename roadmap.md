@@ -35,3 +35,4 @@
 
 - ~~Mailgun back online: verified key, test email to pexpert46@gmail.com, requeued today's parked emails.~~
 - ~~Revert Today's capacity strip to the previous UGX-target logic (tenant-count version rejected).~~
+- [ ] Agent daily eligibility gate: collected % shown (33%) disagrees with actual 50% collection — align gate math with capacity definition
