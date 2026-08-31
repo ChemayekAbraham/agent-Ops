@@ -19,7 +19,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import { Smartphone, FileText, ShieldCheck, AlertTriangle, Loader2 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import smartphonePromoAsset from '@/assets/smartphone-promo.jpg.asset.json';
