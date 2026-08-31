@@ -4,7 +4,7 @@ import { LandlordOpsDashboard, type LandlordOpsClassicView } from '../LandlordOp
 import { LandlordOpsSidebar } from './LandlordOpsSidebar';
 import { LandlordOpsTopBar } from './LandlordOpsTopBar';
 import { LandlordOpsHome } from './LandlordOpsHome';
-import { LandlordCallingHub } from './LandlordCallingHub';
+import { CallingHub } from '@/components/ops/calling';
 import { useLandlordOpsBadgeCounts } from '@/hooks/useLandlordOpsBadgeCounts';
 import {
   landlordOpsLabelFor,
@@ -71,7 +71,7 @@ export function LandlordOpsDashboardShell() {
           {active === 'home' ? (
             <LandlordOpsHome onNavigate={goTo} />
           ) : active === 'calling-hub' ? (
-            <LandlordCallingHub />
+            <CallingHub subjectType="landlord" />
           ) : (
             <LandlordOpsDashboard
               view={active as LandlordOpsClassicView}
