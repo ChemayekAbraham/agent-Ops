@@ -47,48 +47,33 @@ export function FindAHouseCTA({ onClick }: FindAHouseCTAProps) {
   }, []);
 
   return (
-    <motion.button
-      whileTap={{ scale: 1 }}
+    <button
+      type="button"
       onClick={onClick}
-      className="w-full relative portfolio-hero-card rounded-[28px] p-3.5 text-left
-        flex items-center gap-3
-        active:scale-[0.99] transition-transform duration-200 touch-manipulation overflow-hidden"
+      className="w-full rounded-[28px] border bg-card p-4 text-left flex items-center gap-3 shadow-sm active:scale-[0.99] transition-transform touch-manipulation"
     >
-      {/* Decorative depth elements matching the wallet hero card */}
-      <div className="absolute -top-20 -right-20 w-56 h-56 rounded-full bg-white/[0.06] pointer-events-none" />
-      <div className="absolute -bottom-16 -left-16 w-44 h-44 rounded-full bg-white/[0.04] pointer-events-none" />
-
-      {/* Icon container — larger, more contrast */}
-      <div className="relative z-10 shrink-0">
-        <div className="p-1.5 rounded-lg bg-white/15 backdrop-blur-sm">
-          <Home className="h-3.5 w-3.5 text-white/90" strokeWidth={2.5} />
+      <div className="relative shrink-0">
+        <div className="p-2.5 rounded-2xl bg-primary/10">
+          <Home className="h-6 w-6 text-primary" />
         </div>
-        {/* Pulsing dot for new listings */}
-        <AnimatePresence>
-          {newCount > 0 && (
-            <motion.span
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0 }}
-              className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-destructive shadow-sm"
-            >
-              <span className="absolute inset-1 rounded-full bg-destructive animate-ping opacity-75" />
-              <span className="absolute inset-1 rounded-full bg-destructive" />
-            </motion.span>
-          )}
-        </AnimatePresence>
+        {newCount > 0 && (
+          <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-destructive shadow-sm">
+            <span className="absolute inset-1 rounded-full bg-destructive animate-ping opacity-75" />
+            <span className="absolute inset-1 rounded-full bg-destructive" />
+          </span>
+        )}
       </div>
 
-      <div className="flex-1 text-left min-w-0 relative z-10">
+      <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="text-[10px] font-semibold text-white/70 uppercase tracking-[0.12em] truncate">Find a House Nearby</p>
+          <p className="font-bold text-base leading-tight truncate">Find a House Nearby</p>
           {newCount > 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/15 text-[9px] font-bold uppercase tracking-wider shrink-0">
-              <Sparkles className="h-2.5 w-2.5" /> {newCount} new
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-[10px] font-semibold uppercase tracking-wider shrink-0">
+              <Sparkles className="h-3 w-3" /> {newCount} new
             </span>
           )}
         </div>
-        <p className="block text-[15px] font-black leading-tight text-white truncate">
+        <p className="text-xs text-muted-foreground leading-snug truncate">
           {totalCount !== null ? (
             <>{totalCount} house{totalCount !== 1 ? 's' : ''} available · Pay daily</>
           ) : (
@@ -97,7 +82,7 @@ export function FindAHouseCTA({ onClick }: FindAHouseCTAProps) {
         </p>
       </div>
 
-      <ChevronRight className="h-4 w-4 text-white/60 shrink-0 relative z-10" />
-    </motion.button>
+      <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+    </button>
   );
 }
