@@ -73,7 +73,7 @@ export function RecordOutcomeDialog({
     if (!attempt) return;
     if (!dueAt) return toast.error('Set the callback date and time.');
     hub.recordCallback.mutate(
-      { attemptId: attempt.id, cycleRowId: attempt.cycle_row_id, dueAt: new Date(dueAt).toISOString() },
+      { attemptId: attempt.id, dueAt: new Date(dueAt).toISOString() },
       {
         onSuccess: () => {
           toast.success('Callback booked.');
