@@ -231,7 +231,7 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
               disabled={locating}
             >
               {locating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
-              {coords ? 'Location captured — tap to refresh' : 'Share my house location'}
+              {locating ? 'Pinning live location…' : coords ? 'Location pinned — tap to refresh' : 'Share my house location'}
             </Button>
 
             <p className="text-[11px] text-muted-foreground flex items-start gap-1.5">
