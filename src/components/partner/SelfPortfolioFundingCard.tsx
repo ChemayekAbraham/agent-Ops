@@ -77,8 +77,13 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
   const [deployOpen, setDeployOpen] = useState(false);
   const [detailPlan, setDetailPlan] = useState<FundablePlan | null>(null);
   const [page, setPage] = useState(0);
+  // Which list leads the feed. Partners see rent requests first by default.
+  const [filter, setFilter] = useState<FeedFilter>('rent');
+  const [houseSelected, setHouseSelected] = useState<string[]>([]);
+  const [detailHouse, setDetailHouse] = useState<SupportableHouse | null>(null);
   // Short code arriving from a branded /s/<code> share link (?share=<code>).
   const [sharedPlanId, setSharedPlanId] = useState<string | null>(null);
+
 
   // Cached so returning to this tab paints instantly; refreshes happen silently.
   const plansQuery = useQuery({
