@@ -80,7 +80,7 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 pb-32 sm:pb-28">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-base font-bold">
           <PhoneCall className="h-4 w-4 text-primary" />
