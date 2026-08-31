@@ -7427,6 +7427,48 @@ export type Database = {
         }
         Relationships: []
       }
+      cc_cycle_populations: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          filter_sql: string | null
+          id: string
+          label: string
+          priority_column: string | null
+          source_view: string
+          subject_id_column: string
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          filter_sql?: string | null
+          id?: string
+          label: string
+          priority_column?: string | null
+          source_view: string
+          subject_id_column: string
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          filter_sql?: string | null
+          id?: string
+          label?: string
+          priority_column?: string | null
+          source_view?: string
+          subject_id_column?: string
+          subject_type?: Database["public"]["Enums"]["cc_subject_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cc_cycle_rows: {
         Row: {
           attempts_made: number
@@ -7483,6 +7525,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "cc_call_cycles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cc_cycle_rows_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_cycle_progress"
+            referencedColumns: ["cycle_id"]
           },
         ]
       }
@@ -38526,6 +38575,25 @@ export type Database = {
           },
         ]
       }
+      v_cc_cycle_progress: {
+        Row: {
+          attempted_rows: number | null
+          callback_rows: number | null
+          closed_rows: number | null
+          coverage_pct: number | null
+          cycle_id: string | null
+          cycle_no: number | null
+          engaged_rows: number | null
+          opened_at: string | null
+          parked_rows: number | null
+          reach_pct: number | null
+          subject_type: Database["public"]["Enums"]["cc_subject_type"] | null
+          to_call_rows: number | null
+          total_rows: number | null
+          unreachable_rows: number | null
+        }
+        Relationships: []
+      }
       v_cfo_promissory_bookings: {
         Row: {
           agent_id: string | null
@@ -41426,8 +41494,30 @@ export type Database = {
         Args: { p_followup_id: string; p_note: string }
         Returns: undefined
       }
+      cc_cycle_outstanding: {
+        Args: { p_cycle_id: string }
+        Returns: {
+          attempts_made: number
+          callback_due_at: string
+          cycle_row_id: string
+          last_attempt_at: string
+          next_retry_at: string
+          priority_value: number
+          state: Database["public"]["Enums"]["cc_row_state"]
+          subject_id: string
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+        }[]
+      }
       cc_expected_owner_staff: {
         Args: { p_role: Database["public"]["Enums"]["app_role"] }
+        Returns: string
+      }
+      cc_open_cycle: {
+        Args: {
+          p_limit?: number
+          p_population_code: string
+          p_subject_type: Database["public"]["Enums"]["cc_subject_type"]
+        }
         Returns: string
       }
       cc_raise_from_feedback: {
