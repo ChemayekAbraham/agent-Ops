@@ -102,8 +102,10 @@ export function AgentRatingCard({ agentId }: Props) {
             />
           </div>
           <p className="text-[10px] text-muted-foreground tabular-nums">
-            {formatUGX(cap.paid_today)} / {formatUGX(cap.expected_daily)}
+            {cap.tenants_paid_today}/{cap.tenants_due} tenants · {formatUGX(cap.paid_today)} / {formatUGX(cap.expected_daily)}
+            {rawTodayPct > todayPct ? ` (cash ${rawTodayPct}%)` : ''}
           </p>
+
         </div>
 
         <div className="rounded-xl bg-muted/50 p-2.5 space-y-1.5">
