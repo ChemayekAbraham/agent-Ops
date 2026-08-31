@@ -233,9 +233,70 @@ export function useCcCallingHub(
   );
   const effectiveSortKey = view.sortKey ?? defaultSortKey;
 
+  /* --------------------------------------------------------- filter config */
+  /**
+   * Fully config-driven: the filter keys, labels, buckets and distinct values
+   * all come from the database. Nothing about a filter is known client-side.
+   */
+  const filterOptionsQ = useQuery({
+    queryKey: ['cc-filter-options', subjectType],
+    queryFn: async (): Promise<CcFilterOption[]> => {
+      const { data: defs, error: dErr } = await supabase
+        .from('cc_filter_options')
+        .select('key, label, kind, sort_order')
+        .eq('subject_type', subjectType)
+        .eq('active', true)
+        .order('sort_order', { ascending: true });
+      if (dErr) throw new Error(err(dErr));
+
+      const rows = (defs ?? []) as Record<string, unknown>[];
+      const bucketKeys = rows.filter((d) => d.kind === 'bucket').map((d) => String(d.key));
+
+      let buckets: Record<string, unknown>[] = [];
+      if (bucketKeys.length) {
+        const { data: bData, error: bErr } = await supabase
+          .from('cc_filter_buckets')
+          .select('filter_key, bucket_key, label, sort_order')
+          .eq('subject_type', subjectType)
+          .in('filter_key', bucketKeys)
+          .order('sort_order', { ascending: true });
+        if (bErr) throw new Error(err(bErr));
+        buckets = (bData ?? []) as Record<string, unknown>[];
+      }
+
+      const out: CcFilterOption[] = [];
+      for (const d of rows) {
+        const key = String(d.key);
+        const kind = (d.kind === 'bucket' ? 'bucket' : 'value') as CcFilterKind;
+        let choices: CcFilterChoice[] = [];
+        if (kind === 'bucket') {
+          choices = buckets
+            .filter((b) => String(b.filter_key) === key)
+            .map((b) => ({ value: String(b.bucket_key), label: String(b.label), count: null }));
+        } else {
+          const { data: vData, error: vErr } = await rpc('cc_filter_values', {
+            p_subject_type: subjectType,
+            p_filter_key: key,
+          });
+          if (vErr) throw new Error(err(vErr));
+          choices = ((vData ?? []) as Record<string, unknown>[])
+            .filter((v) => v.value !== null && v.value !== undefined && String(v.value) !== '')
+            .map((v) => ({
+              value: String(v.value),
+              label: String(v.value),
+              count: v.row_count === null || v.row_count === undefined ? null : Number(v.row_count),
+            }));
+        }
+        out.push({ key, label: String(d.label), kind, choices });
+      }
+      return out;
+    },
+    staleTime: 120_000,
+  });
+
   /* --------------------------------------------------------- queue (server) */
   const queueQ = useQuery({
-    queryKey: ['cc-queue', subjectType, view.state, effectiveSortKey, view.search, view.page],
+    queryKey: ['cc-queue', subjectType, view.state, effectiveSortKey, view.search, view.page, filtersKey],
     enabled: !!cycleId,
     queryFn: async (): Promise<{ rows: CcRow[]; total: number }> => {
       const { data, error } = await rpc('cc_call_queue_page', {
@@ -245,8 +306,10 @@ export function useCcCallingHub(
         p_search: view.search.trim() || null,
         p_limit: CC_PAGE_SIZE,
         p_offset: view.page * CC_PAGE_SIZE,
+        p_filters: filtersArg,
       });
       if (error) throw new Error(err(error));
+
       const list = (data ?? []) as Record<string, unknown>[];
       const rows: CcRow[] = list.map((r) => ({
         id: String(r.cycle_row_id),
