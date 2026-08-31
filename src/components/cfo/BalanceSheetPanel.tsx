@@ -400,12 +400,12 @@ export default function BalanceSheetPanel() {
       row('Total Non-Current Assets', data.assets.total_non_current, true);
       row('TOTAL ASSETS', data.assets.total, true);
 
-      heading('Liabilities — Current');
-      data.liabilities.current.forEach(l => row(l.label, l.value));
-      row('Total Current Liabilities', data.liabilities.total_current, true);
-      heading('Liabilities — Non-Current');
-      data.liabilities.non_current.forEach(l => row(l.label, l.value));
-      row('Total Non-Current Liabilities', data.liabilities.total_non_current, true);
+      heading('Marketplace Liabilities');
+      (liabilityGroups?.marketplace ?? []).forEach(g => row(g.label, g.value));
+      row('Subtotal — Marketplace Liabilities', liabilityGroups?.marketplaceTotal ?? 0, true);
+      heading('Operational & Other Liabilities');
+      (liabilityGroups?.operational ?? []).forEach(g => row(g.label, g.value));
+      row('Subtotal — Operational & Other Liabilities', liabilityGroups?.operationalTotal ?? 0, true);
       row('TOTAL LIABILITIES', data.liabilities.total, true);
 
       heading('Equity');
