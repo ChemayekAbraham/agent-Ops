@@ -78,6 +78,7 @@ export function ProxyTargetModeCard({ agentId }: { agentId?: string | null }) {
   const qc = useQueryClient();
   const q = useProxyTargetMode(agentId);
   const t = q.data;
+  const [rewardsOpen, setRewardsOpen] = useState(false);
 
   const decide = useMutation({
     mutationFn: async (accept: boolean) => {
@@ -128,8 +129,9 @@ export function ProxyTargetModeCard({ agentId }: { agentId?: string | null }) {
           <div>
             <p className="text-2xl font-semibold leading-none">{money(t.monthly_reward)}</p>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Monthly income on the table if you register {t.monthly_note_target} promissory notes
-              — that is {t.daily_target} a day. Hit only {t.min_notes} notes and you still
+              Monthly income on the table if you register {t.monthly_note_target} promissory notes.
+              Your daily minimum is just {t.daily_min ?? 10} notes a day — go beyond it and the
+              reward grows with every extra note. Hit only {t.min_notes} notes and you still
               receive {money(t.min_reward)}.
             </p>
           </div>
