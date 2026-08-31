@@ -65,12 +65,28 @@ interface ProfileRow {
   id: string;
   full_name: string | null;
   phone: string | null;
+  email: string | null;
   national_id: string | null;
+  occupation: string | null;
+  preferred_language: string | null;
+  has_smartphone: boolean | null;
+  tenant_status: string | null;
+  tenant_house_category: string | null;
+  mobile_money_number: string | null;
+  mobile_money_name: string | null;
+  last_active_at: string | null;
+  ops_note: string | null;
   district: string | null;
   village: string | null;
+  sub_county: string | null;
+  parish: string | null;
+  landmark: string | null;
   city: string | null;
   region: string | null;
 }
+
+const PROFILE_COLS =
+  'id, full_name, phone, email, national_id, occupation, preferred_language, has_smartphone, tenant_status, tenant_house_category, mobile_money_number, mobile_money_name, last_active_at, ops_note, district, village, sub_county, parish, landmark, city, region';
 
 export function useTenantCallingList() {
   const { data: summaries, isLoading: callsLoading } = useTenantCallSummaries();
