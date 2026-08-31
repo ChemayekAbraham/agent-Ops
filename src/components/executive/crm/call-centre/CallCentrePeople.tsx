@@ -52,26 +52,25 @@ export function CallCentrePeople() {
   // exact case where Radix leaves <body> pointer-events:none and swallows the
   // next click.
   useRestoreBodyPointerEvents();
-  const { data: records = [], isLoading, error } = useCallRecords();
+  const { rows: people, isLoading, error } = useCallRoster();
   const { target, dial, close } = useCallDialer();
 
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState<CallOutcome | 'all'>('all');
+  const [status, setStatus] = useState<CallOutcome | 'all' | 'never'>('all');
   const [role, setRole] = useState<CalleeRole | 'all'>('all');
   const [historyFor, setHistoryFor] = useState<PersonRow | null>(null);
   const [visible, setVisible] = useState(25);
 
-  const people = useMemo(() => foldPeople(records), [records]);
-
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return people.filter((p) => {
-      if (status !== 'all' && p.status !== status) return false;
+      if (status === 'never' ? p.status !== null : status !== 'all' && p.status !== status) return false;
       if (role !== 'all' && p.role !== role) return false;
       if (!q) return true;
       return [p.name, p.phone, p.location ?? ''].some((v) => v.toLowerCase().includes(q));
     });
   }, [people, query, status, role]);
+
 
   if (isLoading) {
     return (
