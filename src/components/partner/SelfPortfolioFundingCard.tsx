@@ -13,11 +13,21 @@ import { SelfPortfolioDeployDialog } from './SelfPortfolioDeployDialog';
 import { SelfPortfolioPlanDetailSheet } from './SelfPortfolioPlanDetailSheet';
 import { PlanShareButton } from './PlanShareButton';
 import { SlotAmount } from './SlotAmount';
-import { SelfSupportHousesSection } from './SelfSupportHousesSection';
+import {
+  HouseSupportBar,
+  HouseSupportCard,
+  useVerifiedEmptyHouses,
+  type SupportableHouse,
+} from './SelfSupportHousesSection';
+import { EmptyHouseDetailSheet } from '@/components/agent/EmptyHouseDetailSheet';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
 const PLANS_PER_PAGE = 4;
+
+type FeedFilter = 'rent' | 'houses';
+
 
 interface EarningsSummary {
   nextPayoutDate: string | null;
