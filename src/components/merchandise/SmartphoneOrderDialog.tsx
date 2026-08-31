@@ -19,7 +19,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import { Smartphone, FileText, ShieldCheck, AlertTriangle, Loader2 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import smartphonePromoAsset from '@/assets/smartphone-promo.jpg.asset.json';
@@ -46,8 +45,8 @@ interface Props {
 }
 
 /**
- * Agent Smartphone Advance application. Only the top 50 agents on the
- * operational leaderboard can apply, up to the ceiling for their position. Every
+ * Agent Smartphone Advance application. Open to all active operational agents
+ * on the Welile network, up to the programme ceiling. Every
  * active, priced model is offered; Agent Ops assigns the supplier to the order
  * after submission. The applicant sees the daily
  * amount, the chosen period and the terms — never the internal programme charge.
@@ -121,7 +120,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const blockers: string[] = [];
   if (eligibility) {
     if (eligibility.has_open_application) blockers.push('You already have an application in progress.');
-    if (cap <= 0) blockers.push('This programme is open to the top 50 agents on the operational leaderboard.');
+    if (cap <= 0) blockers.push('Eligibility: Open to all active operational agents on the Welile network.');
   }
 
   return (
@@ -158,7 +157,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                   <ShieldCheck className="h-3.5 w-3.5 text-primary" /> You qualify
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  Leaderboard position <Badge variant="secondary">#{eligibility.rank}</Badge> — phones up to{' '}
+                  Open to all active operational agents — phones up to{' '}
                   <span className="font-semibold text-foreground">{formatUGX(cap)}</span>.
                 </p>
               </div>
@@ -243,8 +242,8 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               <h4 className="font-semibold">Terms &amp; Conditions</h4>
               <ol className="list-decimal pl-4 space-y-2 text-muted-foreground">
                 <li>
-                  <span className="font-medium text-foreground">Eligibility:</span> top 50 agents on the
-                  operational leaderboard. No ID or workplace visit is needed to apply.
+                  <span className="font-medium text-foreground">Eligibility:</span> Open to all active
+                  operational agents on the Welile network. No ID or workplace visit is needed to apply.
                 </li>
                 <li>
                   <span className="font-medium text-foreground">Collection day:</span> your national ID and a
@@ -252,7 +251,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 </li>
                 <li>
                   <span className="font-medium text-foreground">Limit:</span> the phone price must be within the
-                  ceiling for your leaderboard position.
+                  programme ceiling of UGX 1,000,000.
                 </li>
                 <li>
                   <span className="font-medium text-foreground">Supplier:</span> Welile pays the registered
