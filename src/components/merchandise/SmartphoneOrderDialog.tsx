@@ -241,7 +241,8 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
             <p className="text-[11px] text-muted-foreground">
               Your application goes to Agent Ops, then the COO, then the CFO — who pays the supplier directly.
-              Nothing is deducted from your wallet before your phone is released.
+              Nothing is deducted from your wallet before your phone is released. Your national ID and a
+              workplace photo are captured on the day you collect the phone, not now.
             </p>
           </TabsContent>
 
@@ -251,7 +252,11 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               <ol className="list-decimal pl-4 space-y-2 text-muted-foreground">
                 <li>
                   <span className="font-medium text-foreground">Eligibility:</span> top 50 agents on the
-                  operational leaderboard, with a registered national ID and a verified workplace visit.
+                  operational leaderboard. No ID or workplace visit is needed to apply.
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Collection day:</span> your national ID and a
+                  workplace photo must be captured and verified before the phone is released to you.
                 </li>
                 <li>
                   <span className="font-medium text-foreground">Limit:</span> the phone price must be within the
