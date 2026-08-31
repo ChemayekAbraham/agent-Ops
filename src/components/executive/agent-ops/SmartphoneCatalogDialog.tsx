@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
+import { smartphoneScheduleGrid } from '@/lib/smartphoneAdvance';
 
 const db = supabase as any;
 
@@ -519,6 +520,26 @@ export function SmartphoneCatalogDialog() {
                       />
                     </div>
                   </div>
+                  {Number(parseAmount(row.amount) || 0) > 0 && (
+                    <div className="rounded-md border border-border bg-background/60 p-2">
+                      <p className="text-[11px] font-medium text-muted-foreground mb-1.5">
+                        Receivables preview — internal, not shown to agents
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                        {smartphoneScheduleGrid(Number(parseAmount(row.amount) || 0)).map((s) => (
+                          <div key={s.months} className="rounded-md bg-muted/60 p-1.5 text-center">
+                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                              {s.months} months
+                            </p>
+                            <p className="text-sm font-semibold tabular-nums">{formatUGX(s.total)}</p>
+                            <p className="text-[10px] text-muted-foreground tabular-nums">
+                              {formatUGX(s.daily)}/day · {s.days} days · +{s.markupPct}%
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <Label className="text-xs">
