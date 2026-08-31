@@ -606,6 +606,12 @@ export function useCcCallingHub(
     counts,
     populations: populationsQ.data ?? [],
     sortOptions: sortOptionsQ.data ?? [],
+    filterOptions: filterOptionsQ.data ?? [],
+    filterOptionsLoading: filterOptionsQ.isLoading,
+    filterOptionsError: filterOptionsQ.error ? err(filterOptionsQ.error) : null,
+    activeFilters,
+    activeFilterCount,
+
     defaultSortKey,
     effectiveSortKey,
     rows: queueQ.data?.rows ?? [],
