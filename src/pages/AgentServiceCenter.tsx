@@ -186,20 +186,27 @@ export default function AgentServiceCenter() {
 
           <TabsContent value="vetting" className="mt-3 space-y-3">
             <Tabs defaultValue="rent">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="rent" className="text-[11px] sm:text-xs">
+              <TabsList className="flex w-full flex-wrap h-auto">
+                <TabsTrigger value="rent" className="text-[11px] sm:text-xs flex-1">
                   Rent{vetting?.pending_count ? ` (${vetting.pending_count})` : ''}
                 </TabsTrigger>
-                <TabsTrigger value="houses" className="text-[11px] sm:text-xs">
+                <TabsTrigger value="tenant_requests" className="text-[11px] sm:text-xs flex-1">
+                  Tenant requests
+                </TabsTrigger>
+                <TabsTrigger value="houses" className="text-[11px] sm:text-xs flex-1">
                   Houses{listingQueue.length ? ` (${listingQueue.length})` : ''}
                 </TabsTrigger>
-                <TabsTrigger value="landlords" className="text-[11px] sm:text-xs">
+                <TabsTrigger value="landlords" className="text-[11px] sm:text-xs flex-1">
                   Landlords{verificationQueue?.landlords?.length ? ` (${verificationQueue.landlords.length})` : ''}
                 </TabsTrigger>
-                <TabsTrigger value="lc1" className="text-[11px] sm:text-xs">
+                <TabsTrigger value="lc1" className="text-[11px] sm:text-xs flex-1">
                   LC1{verificationQueue?.lc1?.length ? ` (${verificationQueue.lc1.length})` : ''}
                 </TabsTrigger>
               </TabsList>
+
+              <TabsContent value="tenant_requests" className="mt-3">
+                <TenantRentIntakeQueue />
+              </TabsContent>
 
               <TabsContent value="rent" className="mt-3">
                 <ServiceCenterRentVettingQueue />
