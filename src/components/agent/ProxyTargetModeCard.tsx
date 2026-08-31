@@ -254,7 +254,7 @@ export function ProxyTargetModeCard({ agentId }: { agentId?: string | null }) {
 
         <div className="grid grid-cols-3 divide-x divide-border rounded-lg border border-border">
           {[
-            { label: 'Daily target', value: `${t.daily_target}` },
+            { label: 'Daily minimum', value: `${t.daily_min ?? t.daily_target}` },
             { label: 'Expected by today', value: `${t.expected_to_date}` },
             { label: 'Behind by', value: `${t.missed_notes}` },
           ].map((c) => (
@@ -266,6 +266,59 @@ export function ProxyTargetModeCard({ agentId }: { agentId?: string | null }) {
             </div>
           ))}
         </div>
+
+        <button
+          type="button"
+          onClick={() => { hapticTap(); setRewardsOpen((v) => !v); }}
+          className="flex w-full items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5 text-left"
+        >
+          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-primary">
+            <Gift className="h-3.5 w-3.5" />
+            Go beyond the {t.daily_min ?? 10}-note daily minimum — see what Welile rewards
+          </span>
+          <ChevronDown
+            className={cn('h-4 w-4 text-primary transition-transform', rewardsOpen && 'rotate-180')}
+          />
+        </button>
+
+        {rewardsOpen && (
+          <div className="rounded-lg border border-border p-2.5 space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Reward ladder this month
+            </p>
+            {[
+              { notes: t.min_notes, label: `${t.min_notes} notes` },
+              { notes: 400, label: '400 notes' },
+              { notes: 600, label: '600 notes' },
+              { notes: 800, label: '800 notes' },
+              { notes: 1000, label: '1,000 notes' },
+              { notes: t.monthly_note_target, label: `${t.monthly_note_target} notes (full target)` },
+            ].map((r) => {
+              const payout = r.notes >= t.monthly_note_target
+                ? t.monthly_reward
+                : r.notes >= t.min_notes
+                  ? t.min_reward + (r.notes - t.min_notes) * t.rate_per_note
+                  : r.notes * (t.min_reward / Math.max(t.min_notes, 1));
+              const reached = t.notes_month >= r.notes;
+              return (
+                <div key={r.notes} className="flex items-center justify-between text-[11px]">
+                  <span className={cn('flex items-center gap-1.5', reached ? 'font-semibold' : 'text-muted-foreground')}>
+                    {reached && <CheckCircle2 className="h-3 w-3 text-emerald-600" />}
+                    {r.label}
+                  </span>
+                  <span className={cn('font-mono font-semibold', reached ? 'text-emerald-600' : '')}>
+                    {money(Math.round(payout))}
+                  </span>
+                </div>
+              );
+            })}
+            <p className="pt-0.5 text-[10px] leading-snug text-muted-foreground">
+              {t.daily_min ?? 10} notes a day keeps you safe. A pace of about {t.stretch_daily} a day
+              unlocks the full {money(t.monthly_reward)}. Every note beyond the minimum adds about{' '}
+              {money(t.rate_per_note)}.
+            </p>
+          </div>
+        )}
 
         <div className="rounded-lg border border-border bg-muted/40 p-2.5 space-y-1.5">
           <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
