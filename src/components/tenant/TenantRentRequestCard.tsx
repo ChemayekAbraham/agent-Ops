@@ -61,18 +61,62 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
       return;
     }
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+
+    const startLivePin = () => {
+      // Watch briefly so the pin refines to a more accurate live fix.
+      let settled = false;
+      let best: GeolocationPosition | null = null;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        navigator.geolocation.clearWatch(watchId);
+        if (best) {
+          setCoords({ lat: best.coords.latitude, lng: best.coords.longitude });
+          toast.success('Location pinned', {
+            description: `Accuracy ±${Math.round(best.coords.accuracy)}m`,
+          });
+        } else {
+          toast.error('Could not get your location', {
+            description: 'Turn on Location/GPS on your device and allow browser access, then try again.',
+          });
+        }
         setLocating(false);
-        toast.success('Location captured');
-      },
-      () => {
-        setLocating(false);
-        toast.error('Could not get your location. Allow location access and try again.');
-      },
-      { enableHighAccuracy: true, timeout: 15000 },
-    );
+      };
+      const watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          best = pos;
+          setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          // Stop once we have a good-enough fix (< 30m) or after timeout.
+          if (pos.coords.accuracy <= 30) finish();
+        },
+        () => finish(),
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
+      );
+      setTimeout(finish, 20000);
+    };
+
+    const promptEnable = (state: PermissionState) => {
+      setLocating(false);
+      if (state === 'denied') {
+        toast.error('Location is off or blocked', {
+          duration: 8000,
+          description: 'Enable Location on your device, then tap the lock/site icon in your browser and allow Location for this app.',
+        });
+      }
+    };
+
+    // Check permission first so we can prompt the user to enable location if it's off.
+    if ('permissions' in navigator) {
+      navigator.permissions
+        .query({ name: 'geolocation' as PermissionName })
+        .then((perm) => {
+          if (perm.state === 'denied') promptEnable('denied');
+          else startLivePin();
+        })
+        .catch(() => startLivePin());
+    } else {
+      startLivePin();
+    }
   };
 
   const submit = async () => {
@@ -187,7 +231,7 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
               disabled={locating}
             >
               {locating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
-              {coords ? 'Location captured — tap to refresh' : 'Share my house location'}
+              {locating ? 'Pinning live location…' : coords ? 'Location pinned — tap to refresh' : 'Share my house location'}
             </Button>
 
             <p className="text-[11px] text-muted-foreground flex items-start gap-1.5">
