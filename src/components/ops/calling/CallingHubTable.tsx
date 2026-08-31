@@ -199,7 +199,9 @@ export function CallingHubTable({
       {/* The shadcn Table supplies its own scroll container; keep this wrapper
           non-scrolling so the sticky columns pin against that scrollport. */}
       <div className="hidden min-w-0 lg:block">
-        <Table>
+        {/* border-separate: Chrome will not honour position:sticky on cells of a
+            border-collapse table, and the sticky action column is load-bearing. */}
+        <Table className="border-separate border-spacing-0">
           <TableHeader>
             <TableRow>
               {columns.map((c, i) => (
