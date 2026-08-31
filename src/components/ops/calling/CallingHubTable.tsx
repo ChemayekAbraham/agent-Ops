@@ -2,17 +2,38 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Eye, MessageCircle } from 'lucide-react';
-import {
-  CALLING_COLUMN_LABEL,
-  type CallingColumnKey,
-} from './callingHubColumns';
+import { formatUGX } from '@/lib/rentCalculations';
+import { CALLING_COLUMN_LABEL, type CallingColumnKey } from './callingHubColumns';
 import type { CcRow } from '@/hooks/useCcCallingHub';
 
-const fmt = (v: string | null) => (v ? new Date(v).toLocaleString() : '—');
+const DASH = '—';
+const fmt = (v: string | null) => (v ? new Date(v).toLocaleString() : DASH);
+const shortDate = (v: string | null) => (v ? new Date(v).toLocaleDateString() : 'Never');
+
+/** Formatted by metric_format. A null value is an em dash, never a zero. */
+function metricCell(row: CcRow) {
+  switch (row.metric_format) {
+    case 'ugx':
+      return row.metric_value === null ? DASH : formatUGX(row.metric_value);
+    case 'days': {
+      if (row.metric_value === null) return DASH;
+      const n = Math.round(row.metric_value);
+      return n < 0 ? `${Math.abs(n)}d behind` : `${n}d`;
+    }
+    case 'date':
+      return shortDate(row.metric_date);
+    case 'number':
+      return row.metric_value === null ? DASH : Math.round(row.metric_value).toLocaleString();
+    case 'text':
+    default:
+      return row.metric_text ?? DASH;
+  }
+}
 
 export function CallingHubTable({
   columns,
   rows,
+  metricLabel,
   revealed,
   revealing,
   wipBlocked,
@@ -20,6 +41,7 @@ export function CallingHubTable({
 }: {
   columns: CallingColumnKey[];
   rows: CcRow[];
+  metricLabel: string;
   revealed: Record<string, string | null>;
   revealing: boolean;
   wipBlocked: boolean;
@@ -29,23 +51,26 @@ export function CallingHubTable({
     return <p className="px-1 py-6 text-center text-xs text-muted-foreground">No rows on this tab.</p>;
   }
 
+  const header = (c: CallingColumnKey) => (c === 'metric' ? metricLabel : CALLING_COLUMN_LABEL[c]);
+
   const cell = (row: CcRow, col: CallingColumnKey) => {
     const phone = revealed[row.id];
     switch (col) {
       case 'name':
         return <span className="font-semibold">{row.name}</span>;
       case 'phone':
+        // Unrevealed is not an error state — the Reveal button carries the affordance.
         return phone ? (
           <span className="font-mono text-xs">{phone}</span>
         ) : (
-          <span className="text-xs text-muted-foreground">hidden</span>
+          <span className="text-muted-foreground">{DASH}</span>
         );
       case 'linked_agent':
-        return row.linked_agent ?? '—';
+        return row.linked_agent ?? DASH;
       case 'district':
-        return row.district ?? '—';
-      case 'priority_value':
-        return row.priority_value === null ? '—' : row.priority_value.toLocaleString();
+        return row.district ?? DASH;
+      case 'metric':
+        return metricCell(row);
       case 'reveal':
         return (
           <Button
@@ -57,7 +82,7 @@ export function CallingHubTable({
             onClick={() => onReveal(row)}
           >
             <Eye className="mr-1 h-3 w-3" />
-            {phone ? 'Number revealed' : 'Reveal & call'}
+            {phone ? 'Number revealed' : 'Reveal number'}
           </Button>
         );
       case 'whatsapp':
@@ -71,10 +96,10 @@ export function CallingHubTable({
             <MessageCircle className="h-3 w-3" /> WhatsApp
           </a>
         ) : (
-          <span className="text-xs text-muted-foreground">—</span>
+          <span className="text-muted-foreground">{DASH}</span>
         );
       case 'feedback_category':
-        return row.feedback_category ?? '—';
+        return row.feedback_category ?? DASH;
       case 'severity':
         return row.severity ? (
           <Badge
@@ -84,17 +109,17 @@ export function CallingHubTable({
             {row.severity}
           </Badge>
         ) : (
-          '—'
+          DASH
         );
       case 'routed_to':
-        return row.routed_to ?? '—';
+        return row.routed_to ?? DASH;
       case 'ticket_ref':
-        return row.ticket_ref ? <span className="font-mono text-xs">{row.ticket_ref}</span> : '—';
+        return row.ticket_ref ? <span className="font-mono text-xs">{row.ticket_ref}</span> : DASH;
       case 'ticket_status':
         return row.ticket_status ? (
           <Badge variant="outline" className="capitalize">{String(row.ticket_status).replace(/_/g, ' ')}</Badge>
         ) : (
-          '—'
+          DASH
         );
       case 'attempts':
         return row.attempts_made;
@@ -103,15 +128,15 @@ export function CallingHubTable({
       case 'next_retry':
         return fmt(row.next_retry_at);
       case 'park_reason':
-        return row.park_reason ? String(row.park_reason).replace(/_/g, ' ') : '—';
+        return row.park_reason ? String(row.park_reason).replace(/_/g, ' ') : DASH;
       case 'fix_ticket_ref':
-        return row.fix_ticket_ref ? <span className="font-mono text-xs">{row.fix_ticket_ref}</span> : '—';
+        return row.fix_ticket_ref ? <span className="font-mono text-xs">{row.fix_ticket_ref}</span> : DASH;
       case 'callback_due':
         return fmt(row.callback_due_at);
       case 'booked_by':
-        return row.booked_by ?? '—';
+        return row.booked_by ?? DASH;
       default:
-        return '—';
+        return DASH;
     }
   };
 
@@ -122,7 +147,7 @@ export function CallingHubTable({
           <TableRow>
             {columns.map((c) => (
               <TableHead key={c} className="whitespace-nowrap text-[11px] uppercase tracking-wide">
-                {CALLING_COLUMN_LABEL[c]}
+                {header(c)}
               </TableHead>
             ))}
           </TableRow>

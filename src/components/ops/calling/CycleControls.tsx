@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import type { CcCallingHub } from '@/hooks/useCcCallingHub';
@@ -12,7 +13,10 @@ import type { CcCallingHub } from '@/hooks/useCcCallingHub';
 export function CycleControls({ hub }: { hub: CcCallingHub }) {
   const [population, setPopulation] = useState('');
   const [limit, setLimit] = useState('');
+  const [abandonOpen, setAbandonOpen] = useState(false);
+  const [abandonReason, setAbandonReason] = useState('');
   if (!hub.canManageCycles) return null;
+
 
   const p = hub.progress;
 
@@ -77,6 +81,69 @@ export function CycleControls({ hub }: { hub: CcCallingHub }) {
           >
             Close cycle
           </Button>
+
+          {/* Abandon is destructive and deliberately separated from Close. */}
+          <div className="mt-2 space-y-2 rounded-lg border border-destructive/40 bg-destructive/5 p-2">
+            <p className="text-[11px] font-semibold text-destructive">Danger zone</p>
+            <p className="text-[11px] text-muted-foreground">
+              Abandoning ends this cycle without the roster being worked. It is not the same as closing it, and it
+              cannot be undone.
+            </p>
+            {!abandonOpen ? (
+              <Button size="sm" variant="destructive" className="h-7 px-2 text-[11px]" onClick={() => setAbandonOpen(true)}>
+                Abandon cycle
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <Label className="text-[11px]">Reason (required)</Label>
+                <Textarea
+                  value={abandonReason}
+                  onChange={(e) => setAbandonReason(e.target.value)}
+                  rows={2}
+                  placeholder="Why is this cycle being abandoned?"
+                />
+                <div className="flex gap-1.5">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-7 px-2 text-[11px]"
+                    disabled={hub.abandonCycle.isPending}
+                    onClick={() => {
+                      if (!abandonReason.trim()) {
+                        toast.error('A reason is required to abandon a cycle.');
+                        return;
+                      }
+                      hub.abandonCycle.mutate(
+                        { cycleId: hub.cycle!.id, reason: abandonReason.trim() },
+                        {
+                          onSuccess: () => {
+                            toast.success('Cycle abandoned.');
+                            setAbandonOpen(false);
+                            setAbandonReason('');
+                          },
+                          onError: (e) => toast.error((e as Error).message),
+                        },
+                      );
+                    }}
+                  >
+                    Confirm abandon
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-[11px]"
+                    onClick={() => {
+                      setAbandonOpen(false);
+                      setAbandonReason('');
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
 
           {hub.outstanding && hub.outstanding.length > 0 && (
             <div className="rounded-lg bg-destructive/10 p-2">

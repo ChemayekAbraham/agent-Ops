@@ -4,6 +4,9 @@
  * A tab is a COLUMN SET, not merely a filter. Exactly these tabs, exactly these
  * columns, nothing more. Notably the Engaged tab carries NO phone number and NO
  * call action — engagement is already recorded, so re-dialling is not offered.
+ *
+ * The `metric` column is dynamic: its header is metric_label and its value is
+ * formatted by metric_format, both supplied per row by cc_call_queue_page.
  */
 import type { CcRowState } from '@/hooks/useCcCallingHub';
 
@@ -14,7 +17,7 @@ export type CallingColumnKey =
   | 'phone'
   | 'linked_agent'
   | 'district'
-  | 'priority_value'
+  | 'metric'
   | 'reveal'
   | 'whatsapp'
   | 'feedback_category'
@@ -30,13 +33,17 @@ export type CallingColumnKey =
   | 'callback_due'
   | 'booked_by';
 
+/**
+ * Static fallbacks. `metric` deliberately has no fixed label — the header comes
+ * from the RPC's metric_label. Never hardcode it at a call site.
+ */
 export const CALLING_COLUMN_LABEL: Record<CallingColumnKey, string> = {
   name: 'Name',
   phone: 'Phone',
   linked_agent: 'Linked agent',
   district: 'District',
-  priority_value: 'Priority value',
-  reveal: 'Reveal & call',
+  metric: 'Metric',
+  reveal: 'Reveal number',
   whatsapp: 'WhatsApp',
   feedback_category: 'Feedback category',
   severity: 'Severity',
@@ -56,7 +63,7 @@ export const CALLING_TABS: { key: CallingTabKey; label: string; columns: Calling
   {
     key: 'to_call',
     label: 'To call',
-    columns: ['name', 'phone', 'linked_agent', 'district', 'priority_value', 'reveal', 'whatsapp'],
+    columns: ['name', 'phone', 'linked_agent', 'district', 'metric', 'reveal', 'whatsapp'],
   },
   {
     key: 'engaged',

@@ -1,10 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PhoneCall } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PhoneCall } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCcCallingHub, type CcRow, type CcSubjectType } from '@/hooks/useCcCallingHub';
 import { CALLING_TABS, type CallingTabKey } from './callingHubColumns';
@@ -22,24 +25,33 @@ const TITLE: Record<CcSubjectType, string> = {
 
 /**
  * One component for all three subject types. Do not fork it per docket.
+ * Sorting, searching and paging are all server-side (cc_call_queue_page).
  */
 export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
-  const hub = useCcCallingHub(subjectType);
   const [tab, setTab] = useState<CallingTabKey>('to_call');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => setPage(0), [tab, debouncedSearch, sortKey, subjectType]);
+
+  const hub = useCcCallingHub(subjectType, { state: tab, sortKey, search: debouncedSearch, page });
+
   const [revealed, setRevealed] = useState<Record<string, string | null>>({});
   const [formAttempt, setFormAttempt] = useState<{ id: string; cycle_row_id: string; name: string } | null>(null);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return hub.rows.filter(
-      (r) => r.state === tab && (!q || r.name.toLowerCase().includes(q) || (r.district ?? '').toLowerCase().includes(q)),
-    );
-  }, [hub.rows, tab, search]);
+  const metricLabel = useMemo(() => hub.rows[0]?.metric_label ?? 'Metric', [hub.rows]);
+  const activeTab = CALLING_TABS.find((t) => t.key === tab) ?? CALLING_TABS[0];
 
   const handleReveal = (row: CcRow) => {
     hub.reveal.mutate(
-      { id: row.id, subject_id: row.subject_id },
+      { id: row.id },
       {
         onSuccess: ({ phone }) => {
           setRevealed((r) => ({ ...r, [row.id]: phone }));
@@ -57,12 +69,29 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
           <PhoneCall className="h-4 w-4 text-primary" />
           {TITLE[subjectType]}
         </h2>
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search name or district"
-          className="h-8 w-full max-w-xs text-xs"
-        />
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="space-y-1">
+            <Label className="text-[11px] text-muted-foreground">Sort by</Label>
+            <Select value={hub.effectiveSortKey ?? ''} onValueChange={(v) => setSortKey(v)}>
+              <SelectTrigger className="h-8 w-[190px] text-xs">
+                <SelectValue placeholder="Default order" />
+              </SelectTrigger>
+              <SelectContent>
+                {hub.sortOptions.map((o) => (
+                  <SelectItem key={o.key} value={o.key} className="text-xs">
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search name or district"
+            className="h-8 w-full max-w-xs text-xs"
+          />
+        </div>
       </div>
 
       <CycleControls hub={hub} />
@@ -91,26 +120,59 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
                 ))}
               </TabsList>
 
-              {CALLING_TABS.map((t) => (
-                <TabsContent key={t.key} value={t.key} className="mt-2">
-                  {hub.isLoading ? (
-                    <div className="space-y-2 p-2">
-                      <Skeleton className="h-6 w-full" />
-                      <Skeleton className="h-6 w-full" />
-                      <Skeleton className="h-6 w-full" />
-                    </div>
-                  ) : (
+              <TabsContent value={tab} className="mt-2">
+                {hub.error && (
+                  <p className="mb-2 rounded-lg bg-destructive/10 px-2 py-1.5 text-xs font-semibold text-destructive">
+                    {hub.error}
+                  </p>
+                )}
+                {hub.isLoading ? (
+                  <div className="space-y-2 p-2">
+                    <Skeleton className="h-6 w-full" />
+                    <Skeleton className="h-6 w-full" />
+                    <Skeleton className="h-6 w-full" />
+                  </div>
+                ) : (
+                  <>
                     <CallingHubTable
-                      columns={t.columns}
-                      rows={filtered}
+                      columns={activeTab.columns}
+                      rows={hub.rows}
+                      metricLabel={metricLabel}
                       revealed={revealed}
                       revealing={hub.reveal.isPending}
                       wipBlocked={hub.wipBlocked}
                       onReveal={handleReveal}
                     />
-                  )}
-                </TabsContent>
-              ))}
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1">
+                      <p className="text-[11px] text-muted-foreground">
+                        {hub.total === 0
+                          ? 'Showing 0 of 0'
+                          : `Showing ${hub.pageFrom} to ${hub.pageTo} of ${hub.total.toLocaleString()}`}
+                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[11px]"
+                          disabled={page === 0 || hub.isFetching}
+                          onClick={() => setPage((p) => Math.max(0, p - 1))}
+                        >
+                          <ChevronLeft className="mr-1 h-3 w-3" /> Previous
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[11px]"
+                          disabled={hub.pageTo >= hub.total || hub.isFetching}
+                          onClick={() => setPage((p) => p + 1)}
+                        >
+                          Next <ChevronRight className="ml-1 h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </TabsContent>
             </Tabs>
           )}
         </Card>

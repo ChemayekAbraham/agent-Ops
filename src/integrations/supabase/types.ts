@@ -41732,6 +41732,17 @@ export type Database = {
         Args: { p_role: Database["public"]["Enums"]["app_role"] }
         Returns: string
       }
+      cc_my_open_attempts: {
+        Args: never
+        Returns: {
+          attempt_id: string
+          attempt_no: number
+          cycle_row_id: string
+          name: string
+          revealed_at: string
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+        }[]
+      }
       cc_open_cycle: {
         Args: {
           p_limit?: number
