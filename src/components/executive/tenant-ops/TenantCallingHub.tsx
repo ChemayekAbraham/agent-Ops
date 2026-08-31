@@ -245,61 +245,100 @@ export function TenantCallingHub() {
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            <Select value={district} onValueChange={setDistrict}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="District" /></SelectTrigger>
-              <SelectContent className="max-h-72">
-                <SelectItem value={ALL} className="text-xs">All districts</SelectItem>
-                {districtOptions.map(d => <SelectItem key={d} value={d} className="text-xs">{d}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <div className="space-y-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">District</span>
+              <Select value={district} onValueChange={setDistrict}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All districts" /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <SelectItem value={ALL} className="text-xs">All districts</SelectItem>
+                  {districtOptions.map(d => <SelectItem key={d} value={d} className="text-xs">{d}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select value={agentId} onValueChange={setAgentId}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Agent" /></SelectTrigger>
-              <SelectContent className="max-h-72">
-                <SelectItem value={ALL} className="text-xs">All agents</SelectItem>
-                {agentOptions.map(([id, name]) => <SelectItem key={id} value={id} className="text-xs">{name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <div className="space-y-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Agent</span>
+              <Select value={agentId} onValueChange={setAgentId}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="All agents" /></SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <SelectItem value={ALL} className="text-xs">All agents</SelectItem>
+                  {agentOptions.map(([id, name]) => <SelectItem key={id} value={id} className="text-xs">{name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select value={payment} onValueChange={setPayment}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Payment status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL} className="text-xs">Any payment status</SelectItem>
-                {PAYMENT_FILTERS.map(p => <SelectItem key={p.key} value={p.key} className="text-xs">{p.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <div className="space-y-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Missed days / payment</span>
+              <Select value={payment} onValueChange={setPayment}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Any payment status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL} className="text-xs">Any payment status</SelectItem>
+                  {PAYMENT_FILTERS.map(p => <SelectItem key={p.key} value={p.key} className="text-xs">{p.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select value={callStatus} onValueChange={setCallStatus}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Call status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL} className="text-xs">Any call status</SelectItem>
-                <SelectItem value="never" className="text-xs">Never called</SelectItem>
-                <SelectItem value="pending" className="text-xs">{TENANT_CALL_STATUS_LABEL.pending}</SelectItem>
-                <SelectItem value="closed" className="text-xs">{TENANT_CALL_STATUS_LABEL.closed}</SelectItem>
-                <SelectItem value="missed" className="text-xs">{TENANT_CALL_STATUS_LABEL.missed}</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Call status</span>
+              <Select value={callStatus} onValueChange={setCallStatus}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Any call status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL} className="text-xs">Any call status</SelectItem>
+                  <SelectItem value="never" className="text-xs">Never called</SelectItem>
+                  <SelectItem value="pending" className="text-xs">{TENANT_CALL_STATUS_LABEL.pending}</SelectItem>
+                  <SelectItem value="closed" className="text-xs">{TENANT_CALL_STATUS_LABEL.closed}</SelectItem>
+                  <SelectItem value="missed" className="text-xs">{TENANT_CALL_STATUS_LABEL.missed}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-            <Select value={hasPhone} onValueChange={setHasPhone}>
-              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Phone" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL} className="text-xs">Phone: any</SelectItem>
-                <SelectItem value="yes" className="text-xs">Has phone number</SelectItem>
-                <SelectItem value="no" className="text-xs">No phone number</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="space-y-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Phone</span>
+              <Select value={hasPhone} onValueChange={setHasPhone}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Phone: any" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL} className="text-xs">Phone: any</SelectItem>
+                  <SelectItem value="yes" className="text-xs">Has phone number</SelectItem>
+                  <SelectItem value="no" className="text-xs">No phone number</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {activeFilters > 0 && (
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-[10px]">
-                {activeFilters} filter{activeFilters > 1 ? 's' : ''} active · {visible.length.toLocaleString('en-US')} tenants
-              </Badge>
-              <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px]" onClick={clearFilters}>
-                <X className="mr-1 h-3 w-3" /> Clear filters
-              </Button>
+          {(activeFilters > 0 || search.trim()) && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {search.trim() && (
+                <Badge variant="outline" className="gap-1 text-[10px]">
+                  Search: {search.trim()}
+                  <button type="button" aria-label="Clear search" onClick={() => setSearch('')}>
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {activeChips.map(chip => (
+                <Badge key={chip.key} variant="secondary" className="gap-1 text-[10px]">
+                  {chip.label}
+                  <button type="button" aria-label={`Clear ${chip.label}`} onClick={chip.clear}>
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+              <span className="text-[11px] text-muted-foreground">
+                {visible.length.toLocaleString('en-US')} tenants match
+              </span>
+              {(activeFilters > 0 || search.trim()) && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-[11px]"
+                  onClick={() => { clearFilters(); setSearch(''); }}
+                >
+                  <X className="mr-1 h-3 w-3" /> Clear all
+                </Button>
+              )}
             </div>
           )}
+
 
 
 
