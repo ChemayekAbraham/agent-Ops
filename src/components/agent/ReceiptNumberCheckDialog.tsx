@@ -19,21 +19,33 @@ export function ReceiptNumberCheckDialog({
 }) {
   const { query, setQuery, loading, result, errorMessage, search, reset } = useReceiptLookup();
 
+  /** The dialog only unlocks once a real receipt has been confirmed. */
+  const confirmed = Boolean(result?.ok && result.found);
+
   const handleOpenChange = (next: boolean) => {
+    if (!next && !confirmed) return; // locked: no escape, no outside click, no X
     if (!next) reset();
     onOpenChange(next);
   };
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent
+        className={`sm:max-w-md ${confirmed ? '' : '[&>button]:hidden'}`}
+        onEscapeKeyDown={e => { if (!confirmed) e.preventDefault(); }}
+        onPointerDownOutside={e => { if (!confirmed) e.preventDefault(); }}
+        onInteractOutside={e => { if (!confirmed) e.preventDefault(); }}
+      >
         <DialogHeader>
           <DialogTitle>Check a receipt number</DialogTitle>
           <DialogDescription>
             Enter the receipt number from the landlord payment and submit to confirm it exists in Welile.
-            You can close this any time.
+            {confirmed
+              ? ' Receipt confirmed — you can close this now.'
+              : ' This step is required: the dialog stays open until a valid receipt number is confirmed.'}
           </DialogDescription>
         </DialogHeader>
+
 
         <form
           className="space-y-3"
