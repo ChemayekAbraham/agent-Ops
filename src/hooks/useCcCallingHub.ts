@@ -86,6 +86,25 @@ export interface CcSortOption {
   value_format: CcMetricFormat;
 }
 
+export type CcFilterKind = 'bucket' | 'value';
+
+export interface CcFilterChoice {
+  value: string;
+  label: string;
+  /** Only present for 'value' filters, taken from cc_filter_values.row_count. */
+  count: number | null;
+}
+
+export interface CcFilterOption {
+  key: string;
+  label: string;
+  kind: CcFilterKind;
+  choices: CcFilterChoice[];
+}
+
+/** filter key -> selected value. An absent/empty key means "no filter". */
+export type CcFilterSelection = Record<string, string>;
+
 const err = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** cc_* RPCs are newer than the generated types in some environments. */
@@ -95,10 +114,24 @@ const rpc = (fn: string, args?: Record<string, unknown>) =>
     args,
   );
 
+/** Strips empty selections so an untouched dropdown never reaches the server. */
+const cleanFilters = (f: CcFilterSelection | undefined): CcFilterSelection => {
+  const out: CcFilterSelection = {};
+  for (const [k, v] of Object.entries(f ?? {})) if (v) out[k] = v;
+  return out;
+};
+
 export function useCcCallingHub(
   subjectType: CcSubjectType,
-  view: { state: CcRowState; sortKey: string | null; search: string; page: number },
+  view: {
+    state: CcRowState;
+    sortKey: string | null;
+    search: string;
+    page: number;
+    filters?: CcFilterSelection;
+  },
 ) {
+
   const { user, roles } = useAuth();
   const qc = useQueryClient();
   const [outstanding, setOutstanding] = useState<Record<string, unknown>[] | null>(null);
