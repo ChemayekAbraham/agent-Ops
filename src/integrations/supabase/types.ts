@@ -39694,13 +39694,6 @@ export type Database = {
       }
       _geo_coverage_caller_allowed: { Args: never; Returns: boolean }
       _geo_norm: { Args: { p: string }; Returns: string }
-      _tamper_test: {
-        Args: never
-        Returns: {
-          outcome: string
-          scenario: string
-        }[]
-      }
       _test_proxy_capability_sync: {
         Args: never
         Returns: {
