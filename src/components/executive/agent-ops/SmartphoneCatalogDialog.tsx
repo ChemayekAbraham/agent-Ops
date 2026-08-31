@@ -45,6 +45,7 @@ export interface SmartphoneCatalogEntry {
   specifications: string | null;
   more_specifications: string | null;
   is_active: boolean;
+  supplier_id?: string | null;
   created_at?: string | null;
 }
 
