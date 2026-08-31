@@ -129,7 +129,7 @@ export function useTenantCallingList() {
         chunk(userIds).map(ids =>
           supabase
             .from('profiles')
-            .select('id, full_name, phone, national_id, district, village, city, region')
+            .select(PROFILE_COLS)
             .in('id', ids),
         ),
       );
