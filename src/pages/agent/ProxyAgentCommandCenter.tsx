@@ -611,6 +611,49 @@ export default function ProxyAgentCommandCenter() {
                         {format(new Date(n.created_at), 'dd MMM yyyy')}
                       </span>
                     </div>
+                    {(() => {
+                      const raw = n.whatsapp_number ?? n.phone_number ?? '';
+                      const dialable = hasDialablePhone(raw);
+                      const intl = toIntlDigits(raw);
+                      return (
+                        <div className="flex items-center gap-2 pt-1">
+                          <a
+                            href={dialable ? `https://wa.me/${intl}` : undefined}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-disabled={!dialable}
+                            className={cn(
+                              'flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xl bg-[hsl(142,70%,45%)] text-white text-[11px] font-bold',
+                              !dialable && 'opacity-40 pointer-events-none',
+                            )}
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+                          </a>
+                          <a
+                            href={dialable ? `tel:+${intl}` : undefined}
+                            aria-disabled={!dialable}
+                            className={cn(
+                              'flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xl border border-border bg-background text-[11px] font-bold',
+                              !dialable && 'opacity-40 pointer-events-none',
+                            )}
+                          >
+                            <Phone className="h-3.5 w-3.5 text-primary" /> Call
+                          </a>
+                          <button
+                            onClick={() => openChat({
+                              partnerUserId: n.partner_user_id,
+                              name: n.linked_partner_name ?? n.partner_name,
+                              phone: raw,
+                              subtitle: `Note ${money(n.amount)}`,
+                            })}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-xl border border-border bg-background text-[11px] font-bold"
+                          >
+                            <StickyNote className="h-3.5 w-3.5" /> Notes
+                          </button>
+                        </div>
+                      );
+                    })()}
+
                   </CardContent>
                 </Card>
               ))
