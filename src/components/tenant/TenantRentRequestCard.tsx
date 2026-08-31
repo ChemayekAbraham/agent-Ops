@@ -179,10 +179,17 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
               onChange={(name, sel) => { setVillage(name); setDistrict(sel?.district ?? null); }}
             />
 
-            <Button type="button" variant="outline" className="w-full" onClick={captureLocation} disabled={locating}>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-success/30 bg-success/10 text-success hover:bg-success/20 hover:text-success-foreground"
+              onClick={captureLocation}
+              disabled={locating}
+            >
               {locating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="mr-2 h-4 w-4" />}
               {coords ? 'Location captured — tap to refresh' : 'Share my house location'}
             </Button>
+
             <p className="text-[11px] text-muted-foreground flex items-start gap-1.5">
               <ShieldCheck className="h-3.5 w-3.5 mt-0.5 shrink-0" />
               Sharing your location helps us route you to the closest Service Centre and speeds up house verification.
