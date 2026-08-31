@@ -31632,6 +31632,39 @@ export type Database = {
         }
         Relationships: []
       }
+      smartphone_test_allowlist: {
+        Row: {
+          active: boolean
+          added_by: string | null
+          created_at: string
+          id: string
+          max_amount: number
+          reason: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          max_amount?: number
+          reason: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          max_amount?: number
+          reason?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       sms_broadcast_campaigns: {
         Row: {
           audiences: string[]
