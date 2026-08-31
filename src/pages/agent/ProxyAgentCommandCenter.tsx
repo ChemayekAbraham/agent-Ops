@@ -5,8 +5,9 @@ import { format } from 'date-fns';
 import {
   ArrowLeft, Users, UserCheck, FileText, HandCoins, Wallet, Share2, Loader2,
   RefreshCw, Search, ArrowUpDown, ChevronLeft, ChevronRight, Target, Repeat,
-  BarChart3, Download, Copy,
+  BarChart3, Download, Copy, Phone, MessageCircle, StickyNote,
 } from 'lucide-react';
+
 
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
