@@ -60,6 +60,7 @@ import { AgentDailyCollectionsView } from '@/components/executive/agent-ops/Agen
 import { AgentOpsComprehensiveReport } from '@/components/executive/agent-ops/AgentOpsComprehensiveReport';
 import { usePendingAdvanceCount } from '@/hooks/usePendingAdvanceCount';
 import { AgentOpsOverview, AtRiskAgentsPreview } from './agent-ops-v2/AgentOpsOverview';
+import { CallingHub } from '@/components/ops/calling';
 import { AdvanceHealthCard } from './agent-ops-v2/AdvanceHealthCard';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -70,7 +71,7 @@ import {
   ChevronLeft, Briefcase, TrendingUp, TrendingDown, UsersRound, PiggyBank, HandCoins, ShieldCheck, FileBarChart,
   LayoutGrid, ChevronDown, ToggleRight, Layers, Gauge, Target, Activity, Clock3
   , Coins, Megaphone, Lock, Store, MapPinned, Workflow, Package,
-  Bike, ShoppingBag, Signpost, Smartphone
+  Bike, ShoppingBag, Signpost, Smartphone, PhoneCall
 } from 'lucide-react';
 import {
   DropdownMenu,
