@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 export type CcSubjectType = 'tenant' | 'landlord' | 'agent';
 export type CcRowState = 'to_call' | 'engaged' | 'unreachable' | 'callback' | 'parked' | 'closed';
 export type CcOutcome = 'engaged' | 'no_answer' | 'phone_off' | 'wrong_number' | 'refused' | 'callback_booked';
-export type CcSeverity = 'low' | 'medium' | 'high' | 'critical';
+export type CcSeverity = 'normal' | 'high' | 'critical';
 
 export const QUICK_OUTCOMES: { value: Exclude<CcOutcome, 'engaged' | 'callback_booked'>; label: string }[] = [
   { value: 'no_answer', label: 'No answer' },
@@ -368,7 +368,7 @@ export function useCcCallingHub(subjectType: CcSubjectType) {
           caller_id: user!.id,
           revealed_at: new Date().toISOString(),
           source: 'calling_hub',
-        })
+        } as never)
         .select('id, attempt_no')
         .single();
       if (error) throw new Error(err(error));
@@ -411,7 +411,7 @@ export function useCcCallingHub(subjectType: CcSubjectType) {
         note: v.note,
         routed_to_actual: v.routedToStaffId,
         consent_to_contact: v.consent,
-      });
+      } as never);
       if (fErr) throw new Error(err(fErr));
       const { error } = await supabase
         .from('cc_call_attempts')

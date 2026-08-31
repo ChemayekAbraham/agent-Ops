@@ -11,7 +11,7 @@ import { Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import type { CcCallingHub, CcSeverity } from '@/hooks/useCcCallingHub';
 
-const SEVERITIES: CcSeverity[] = ['low', 'medium', 'high', 'critical'];
+const SEVERITIES: CcSeverity[] = ['normal', 'high', 'critical'];
 
 export function RecordOutcomeDialog({
   hub,
@@ -23,7 +23,7 @@ export function RecordOutcomeDialog({
   onClose: () => void;
 }) {
   const [categoryId, setCategoryId] = useState('');
-  const [severity, setSeverity] = useState<CcSeverity>('medium');
+  const [severity, setSeverity] = useState<CcSeverity>('normal');
   const [note, setNote] = useState('');
   const [routedTo, setRoutedTo] = useState('');
   const [consent, setConsent] = useState(false);
