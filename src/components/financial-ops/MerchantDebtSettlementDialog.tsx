@@ -434,9 +434,17 @@ export function MerchantDebtSettlementDialog({
                             {l.payoutAmount ? ` · payout ${formatUGX(l.payoutAmount)}` : ''}
                             {` · float used ${formatUGX(l.floatUsed)}`}
                           </p>
-                          <p className="text-[10px] text-success">
-                            {`Books at that moment: desk float ${formatUGX(l.floatPositionAtPayout)} — short by ${formatUGX(Math.max(0, -l.floatPositionAtPayout))}, so this much came from their own phone money.`}
-                          </p>
+                          {l.isFinanceAttested ? (
+                            <p className="text-[10px] text-success">
+                              Attested by Finance. The money moved outside the system, so there is no
+                              ledger or provider trace to reconstruct.
+                              {l.attestationBasis ? ` ${l.attestationBasis}` : ''}
+                            </p>
+                          ) : (
+                            <p className="text-[10px] text-success">
+                              {`Books at that moment: desk float ${formatUGX(l.floatPositionAtPayout)} — short by ${formatUGX(Math.max(0, -l.floatPositionAtPayout))}, so this much came from their own phone money.`}
+                            </p>
+                          )}
                           {l.note && (
                             <p className="text-[10px] text-muted-foreground">{l.note}</p>
                           )}

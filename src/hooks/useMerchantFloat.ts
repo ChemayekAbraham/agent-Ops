@@ -968,6 +968,16 @@ export interface MerchantDebtLine {
   isEstimate: boolean;
   /** Ledger-supported portion of the claim. */
   evidencedAmount: number;
+  /**
+   * Finance attested this obligation directly, because the books cannot: the
+   * money moved outside the system and left no ledger or provider trace. The
+   * basis is recorded in the row's `evidence` and shown instead of the
+   * point-in-time float reconstruction, which would otherwise assert something
+   * false about what the books show.
+   */
+  isFinanceAttested: boolean;
+  /** Human-readable basis for a finance-attested obligation. */
+  attestationBasis: string | null;
 }
 
 export interface MerchantDebtGroup {
@@ -1000,7 +1010,7 @@ export function useMerchantSettlementDebts(enabled = true) {
       const { data, error } = await supabase
         .from('v_merchant_oop_evidence' as any)
         .select(
-          'advance_id, agent_id, withdrawal_id, kind, payout_amount, telecom_charge, float_used, shortfall_amount, status, note, created_at, attested_at, reviewed_at, payout_at, payout_tid, recipient_name, recipient_phone, provider, float_position_at_payout, is_evidenced, is_estimate, evidenced_amount',
+          'advance_id, agent_id, withdrawal_id, kind, payout_amount, telecom_charge, float_used, shortfall_amount, status, note, created_at, attested_at, reviewed_at, payout_at, payout_tid, recipient_name, recipient_phone, provider, float_position_at_payout, is_evidenced, is_estimate, evidenced_amount, evidence',
         )
         .in('status', [DEBT_STATUS_PAYABLE, DEBT_STATUS_REVIEW])
         .is('reimbursed_at', null)
@@ -1048,6 +1058,8 @@ export function useMerchantSettlementDebts(enabled = true) {
           isEvidenced: !!r.is_evidenced,
           isEstimate: !!r.is_estimate,
           evidencedAmount: Number(r.evidenced_amount ?? 0),
+          isFinanceAttested: String(r.evidence?.finance_attested ?? '') === 'true',
+          attestationBasis: r.evidence?.basis ? String(r.evidence.basis) : null,
         };
         const who = people.get(agentId);
         let g = groups.get(agentId);
