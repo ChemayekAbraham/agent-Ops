@@ -556,13 +556,20 @@ export default function BalanceSheetPanel() {
 
             <div>
               <Badge variant="outline" className="text-[10px]">Liabilities & Equity</Badge>
-              <SectionHeading>Current Liabilities</SectionHeading>
-              <div>{data.liabilities.current.map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}</div>
-              <TotalRow label="Total Current Liabilities" value={data.liabilities.total_current} />
-              <SectionHeading>Non-Current Liabilities</SectionHeading>
-              <div>{data.liabilities.non_current.map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}</div>
-              <TotalRow label="Total Non-Current Liabilities" value={data.liabilities.total_non_current} />
+              <SectionHeading>Liabilities</SectionHeading>
+              <SubHeading>Marketplace Liabilities</SubHeading>
+              <div>{liabilityGroups?.marketplace.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
+              <TotalRow label="Subtotal — Marketplace Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0} />
+              <SubHeading>Operational &amp; Other Liabilities</SubHeading>
+              <div>{liabilityGroups?.operational.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
+              <TotalRow label="Subtotal — Operational &amp; Other Liabilities" value={liabilityGroups?.operationalTotal ?? 0} />
               <TotalRow label="Total Liabilities" value={data.liabilities.total} />
+              {liabilityGroupDrift !== 0 && (
+                <p className="mt-1 flex items-start gap-1 text-[10px] text-destructive">
+                  <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                  Category subtotals differ from Total Liabilities by {formatUGX(Math.abs(liabilityGroupDrift))}.
+                </p>
+              )}
               <SectionHeading>Equity</SectionHeading>
               <div>{data.equity.lines.map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}</div>
               <TotalRow label="Total Equity" value={data.equity.total} />
