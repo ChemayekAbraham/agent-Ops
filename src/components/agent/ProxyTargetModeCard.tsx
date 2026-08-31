@@ -158,10 +158,14 @@ export function ProxyTargetModeCard({ agentId }: { agentId?: string | null }) {
           </div>
 
           <p className="text-[11px] text-muted-foreground">
-            Miss a day and the income you can still receive drops by about{' '}
-            {money(t.rate_per_note)} for every note behind. Decline and you keep earning exactly
-            the way you do today — commissions are untouched either way.
+            Record at least 1 note every day to keep the benefits above — a day with no note at
+            all pauses them. Hit the {t.daily_min ?? 10}-note daily minimum and{' '}
+            {money(t.min_reward)} is secured for your wallet. Fall short and the income you can
+            still receive drops by about {money(t.rate_per_note)} for every note behind. Decline
+            and you keep earning exactly the way you do today — commissions are untouched either
+            way.
           </p>
+
 
           <div className="flex gap-2">
             <Button
