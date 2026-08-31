@@ -111,7 +111,25 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
         </div>
       </div>
 
+      <CallingFilterBar
+        options={hub.filterOptions}
+        loading={hub.filterOptionsLoading}
+        error={hub.filterOptionsError}
+        selection={filters}
+        filteredTotal={hub.total}
+        onChange={(key, value) =>
+          setFilters((prev) => {
+            const next = { ...prev };
+            if (value) next[key] = value;
+            else delete next[key];
+            return next;
+          })
+        }
+        onClearAll={() => setFilters({})}
+      />
+
       <CycleControls hub={hub} />
+
 
       <div className="grid gap-3 lg:grid-cols-3">
         <div className="lg:col-span-1 space-y-3">
