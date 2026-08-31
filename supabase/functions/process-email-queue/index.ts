@@ -36,6 +36,18 @@ function isForbidden(error: unknown): boolean {
   return error instanceof Error && error.message.includes('403')
 }
 
+// 401 = Mailgun credential problem (disabled/rotated/wrong-region API key).
+// This is an infrastructure outage, NOT a bad message: never DLQ these, or a
+// single expired key silently destroys every queued email platform-wide.
+function isAuthFailure(error: unknown): boolean {
+  if (error && typeof error === 'object' && 'status' in error) {
+    return (error as { status: number }).status === 401
+  }
+  return error instanceof Error && error.message.includes('[401]')
+}
+
+
+
 // Extract Retry-After seconds from a structured EmailAPIError, or default to 60s.
 function getRetryAfterSeconds(error: unknown): number {
   if (error && typeof error === 'object' && 'retryAfterSeconds' in error) {
