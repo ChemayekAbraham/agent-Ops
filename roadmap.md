@@ -36,3 +36,9 @@
 - ~~Mailgun back online: verified key, test email to pexpert46@gmail.com, requeued today's parked emails.~~
 - ~~Revert Today's capacity strip to the previous UGX-target logic (tenant-count version rejected).~~
 - ~~Agent daily eligibility gate now uses the best of capped coverage and uncapped today/yesterday collection ratio; block message percentage renders correctly.~~
+
+## 2026-08-31 — Funder dashboard
+
+- Funder dashboard funded list must include funded empty houses (self-support houses), not only rent plans.
+
+- [x] Cancel spamming queued emails (purge transactional queue; only 31 Aug failures should have been resent)

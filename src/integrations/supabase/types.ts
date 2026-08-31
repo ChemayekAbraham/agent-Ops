@@ -38594,6 +38594,29 @@ export type Database = {
         }
         Relationships: []
       }
+      v_cc_routed_register: {
+        Row: {
+          category_locked: boolean | null
+          completed_at: string | null
+          days_open: number | null
+          due_at: string | null
+          feedback_category: string | null
+          followup_completed_at: string | null
+          misrouted: boolean | null
+          raised_at: string | null
+          routed_to_actual_name: string | null
+          routed_to_expected_name: string | null
+          subject_type: Database["public"]["Enums"]["cc_subject_type"] | null
+          task_assignee_name: string | null
+          task_ref: string | null
+          task_status: Database["public"]["Enums"]["hr_task_status"] | null
+          ticket_ref: string | null
+          ticket_severity:
+            | Database["public"]["Enums"]["hr_ticket_severity"]
+            | null
+        }
+        Relationships: []
+      }
       v_cfo_promissory_bookings: {
         Row: {
           agent_id: string | null
@@ -45299,6 +45322,10 @@ export type Database = {
         Returns: string
       }
       hr_claim_ticket: { Args: { p_ticket_id: string }; Returns: string }
+      hr_compute_cc_snapshots: {
+        Args: { _period_end: string; _period_start: string }
+        Returns: number
+      }
       hr_compute_snapshots: {
         Args: { _period_end: string; _period_start: string }
         Returns: number
