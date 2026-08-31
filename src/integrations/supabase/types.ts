@@ -7536,6 +7536,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cc_feedback_routed_to_actual_fkey"
+            columns: ["routed_to_actual"]
+            isOneToOne: false
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cc_feedback_routed_to_expected_fkey"
+            columns: ["routed_to_expected"]
+            isOneToOne: false
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "cc_feedback_ticket_id_fkey"
             columns: ["ticket_id"]
             isOneToOne: false
@@ -7554,6 +7568,8 @@ export type Database = {
           id: string
           label: string
           locked: boolean
+          raises_ticket: boolean
+          surface_id: string | null
         }
         Insert: {
           active?: boolean
@@ -7564,6 +7580,8 @@ export type Database = {
           id?: string
           label: string
           locked?: boolean
+          raises_ticket?: boolean
+          surface_id?: string | null
         }
         Update: {
           active?: boolean
@@ -7574,8 +7592,18 @@ export type Database = {
           id?: string
           label?: string
           locked?: boolean
+          raises_ticket?: boolean
+          surface_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cc_feedback_categories_surface_id_fkey"
+            columns: ["surface_id"]
+            isOneToOne: false
+            referencedRelation: "hr_ticket_surfaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cfo_debit_obligations: {
         Row: {
@@ -15511,6 +15539,7 @@ export type Database = {
           priority: Database["public"]["Enums"]["hr_task_priority"]
           ref: string
           reopen_count: number
+          required_role: Database["public"]["Enums"]["app_role"] | null
           started_at: string | null
           status: Database["public"]["Enums"]["hr_task_status"]
           submitted_at: string | null
@@ -15529,6 +15558,7 @@ export type Database = {
           priority?: Database["public"]["Enums"]["hr_task_priority"]
           ref?: string
           reopen_count?: number
+          required_role?: Database["public"]["Enums"]["app_role"] | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["hr_task_status"]
           submitted_at?: string | null
@@ -15547,6 +15577,7 @@ export type Database = {
           priority?: Database["public"]["Enums"]["hr_task_priority"]
           ref?: string
           reopen_count?: number
+          required_role?: Database["public"]["Enums"]["app_role"] | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["hr_task_status"]
           submitted_at?: string | null
@@ -15613,6 +15644,7 @@ export type Database = {
       hr_tickets: {
         Row: {
           body: string
+          call_attempt_id: string | null
           close_reason: string | null
           closed_no_task_at: string | null
           closed_no_task_by: string | null
@@ -15638,6 +15670,7 @@ export type Database = {
         }
         Insert: {
           body: string
+          call_attempt_id?: string | null
           close_reason?: string | null
           closed_no_task_at?: string | null
           closed_no_task_by?: string | null
@@ -15663,6 +15696,7 @@ export type Database = {
         }
         Update: {
           body?: string
+          call_attempt_id?: string | null
           close_reason?: string | null
           closed_no_task_at?: string | null
           closed_no_task_by?: string | null
@@ -15687,6 +15721,13 @@ export type Database = {
           title?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "hr_tickets_call_attempt_id_fkey"
+            columns: ["call_attempt_id"]
+            isOneToOne: false
+            referencedRelation: "cc_call_attempts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "hr_tickets_closed_no_task_by_fkey"
             columns: ["closed_no_task_by"]
@@ -41237,6 +41278,21 @@ export type Database = {
         Returns: boolean
       }
       cc_close_cycle: { Args: { p_cycle_id: string }; Returns: undefined }
+      cc_expected_owner_staff: {
+        Args: { p_role: Database["public"]["Enums"]["app_role"] }
+        Returns: string
+      }
+      cc_raise_from_feedback: {
+        Args: { p_feedback_id: string }
+        Returns: string
+      }
+      cc_task_department: {
+        Args: {
+          p_role: Database["public"]["Enums"]["app_role"]
+          p_staff_id: string
+        }
+        Returns: string
+      }
       ceo_angel_pool_shareholder_action: {
         Args: {
           p_action: string

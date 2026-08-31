@@ -37,7 +37,7 @@ import DeviceAccessDialog from '@/components/merchandise/DeviceAccessDialog';
 const db = supabase as any;
 
 
-type OrderStatus = 'submitted' | 'pending_approval' | 'ops_approved' | 'coo_approved' | 'approved' | 'rejected' | 'processing' | 'completed' | 'failed';
+type OrderStatus = 'submitted' | 'pending_approval' | 'coo_approved' | 'approved' | 'rejected' | 'processing' | 'completed' | 'failed';
 
 interface SmartphoneOrder {
   id: string;
@@ -49,17 +49,12 @@ interface SmartphoneOrder {
   client_phone: string | null;
   tracking_reference: string | null;
   access_accepted_at: string | null;
-  total_repayable?: number | null;
-  access_daily_amount?: number | null;
-  advance_period_months?: number | null;
-  repayment_starts_on?: string | null;
 }
 
 const STATUS_META: Record<OrderStatus, { label: string; icon: typeof Clock; className: string }> = {
   submitted: { label: 'Submitted', icon: Clock, className: 'bg-muted text-muted-foreground border-border' },
   pending_approval: { label: 'Pending approval', icon: Clock, className: 'bg-amber-500/15 text-amber-600 border-amber-500/30' },
-  ops_approved: { label: 'Verified — awaiting COO', icon: Clock, className: 'bg-violet-500/15 text-violet-600 border-violet-500/30' },
-  coo_approved: { label: 'Approved — awaiting supplier payment', icon: Clock, className: 'bg-sky-500/15 text-sky-600 border-sky-500/30' },
+  coo_approved: { label: 'Approved — awaiting disbursement', icon: Clock, className: 'bg-sky-500/15 text-sky-600 border-sky-500/30' },
   approved: { label: 'Approved', icon: CheckCircle2, className: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' },
   rejected: { label: 'Rejected', icon: XCircle, className: 'bg-destructive/15 text-destructive border-destructive/30' },
   processing: { label: 'Processing', icon: Loader2, className: 'bg-amber-500/15 text-amber-600 border-amber-500/30' },
@@ -67,7 +62,7 @@ const STATUS_META: Record<OrderStatus, { label: string; icon: typeof Clock; clas
   failed: { label: 'Failed', icon: XCircle, className: 'bg-destructive/15 text-destructive border-destructive/30' },
 };
 
-const KNOWN_STATUSES: OrderStatus[] = ['submitted', 'pending_approval', 'ops_approved', 'coo_approved', 'approved', 'rejected', 'processing', 'completed', 'failed'];
+const KNOWN_STATUSES: OrderStatus[] = ['submitted', 'pending_approval', 'coo_approved', 'approved', 'rejected', 'processing', 'completed', 'failed'];
 
 /** Access amount is only revealed once an executive approves the order. */
 const APPROVED_STATUSES: OrderStatus[] = ['approved', 'processing', 'completed'];
@@ -81,13 +76,8 @@ function normalizeStatus(value: unknown): OrderStatus {
 }
 
 
-/**
- * Total the agent repays: the agreed repayable figure recorded on the
- * application. Legacy rows without it fall back to the old 1.33 basis.
- */
-const accessFee = (o: Pick<SmartphoneOrder, 'unit_price' | 'total_repayable'>) =>
-  Math.round(Number(o.total_repayable) > 0 ? Number(o.total_repayable) : Number(o.unit_price) * 1.33);
-
+/** Access Fee = smartphone cost plus the 1.33× markup shown to agents. */
+const accessFee = (unitPrice: number) => Math.round(Number(unitPrice) * 1.33);
 
 
 interface Props {
@@ -144,7 +134,7 @@ export default function SmartphoneOrderStatus({
     queryFn: async () => {
       const { data, error } = await db
         .from('merchandise_sales')
-        .select('id, unit_price, amount_outstanding, order_status, created_at, client_name, client_phone, tracking_reference, access_accepted_at, total_repayable, access_daily_amount, advance_period_months, repayment_starts_on')
+        .select('id, unit_price, amount_outstanding, order_status, created_at, client_name, client_phone, tracking_reference, access_accepted_at')
         .eq('customer_id', userId)
         .in('item_name', itemNames)
         .order('created_at', { ascending: false });
@@ -238,7 +228,7 @@ export default function SmartphoneOrderStatus({
 
   const getReceipt = (o: SmartphoneOrder) => ({
     orderId: o.id,
-    amount: accessFee(o),
+    amount: accessFee(o.unit_price),
     outstanding: Number(o.amount_outstanding),
     status: normalizeStatus(o.order_status),
     orderedAt: new Date(o.created_at),
@@ -280,7 +270,7 @@ export default function SmartphoneOrderStatus({
           idempotencyKey: `smartphone-order-receipt-${o.id}-${status}`,
           templateData: {
             recipient_name: profile?.full_name || o.client_name || 'there',
-            amount: accessFee(o),
+            amount: accessFee(o.unit_price),
             outstanding: Number(o.amount_outstanding),
             currency: 'UGX',
             order_status: status,
@@ -352,7 +342,7 @@ export default function SmartphoneOrderStatus({
             <SelectContent>
               {orders.map((o) => (
                 <SelectItem key={o.id} value={o.id} className="text-xs">
-                  {format(new Date(o.created_at), 'd MMM yyyy, HH:mm')} · {formatUGX(accessFee(o))} ·{' '}
+                  {format(new Date(o.created_at), 'd MMM yyyy, HH:mm')} · {formatUGX(accessFee(o.unit_price))} ·{' '}
                   {STATUS_META[normalizeStatus(o.order_status)].label}
                 </SelectItem>
               ))}
@@ -373,7 +363,7 @@ export default function SmartphoneOrderStatus({
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold">{formatUGX(accessFee(o))}</p>
+                    <p className="text-sm font-semibold">{formatUGX(accessFee(o.unit_price))}</p>
                     <p className="text-[11px] text-muted-foreground">
                       Ordered {format(new Date(o.created_at), 'd MMM yyyy, HH:mm')}
                       {Number(o.amount_outstanding) > 0
@@ -471,7 +461,7 @@ export default function SmartphoneOrderStatus({
               <AlertDialogTitle>Delete this order?</AlertDialogTitle>
               <AlertDialogDescription className="text-xs">
                 {cancelTarget
-                  ? `Your ${formatUGX(accessFee(cancelTarget))} ${itemName} order from ${format(new Date(cancelTarget.created_at), 'd MMM yyyy, HH:mm')} will be removed and you can place a new one right away. Orders already in repayment cannot be deleted.`
+                  ? `Your ${formatUGX(accessFee(cancelTarget.unit_price))} ${itemName} order from ${format(new Date(cancelTarget.created_at), 'd MMM yyyy, HH:mm')} will be removed and you can place a new one right away. Orders already in repayment cannot be deleted.`
                   : null}
               </AlertDialogDescription>
             </AlertDialogHeader>

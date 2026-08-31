@@ -46,9 +46,6 @@ export interface SmartphoneCatalogEntry {
   more_specifications: string | null;
   is_active: boolean;
   created_at?: string | null;
-  supplier_id?: string | null;
-  supplier_name?: string | null;
-  supplier_phone?: string | null;
 }
 
 
@@ -60,10 +57,9 @@ export function useSmartphoneCatalog() {
     queryFn: async (): Promise<SmartphoneCatalogEntry[]> => {
       const { data, error } = await db
         .from('smartphone_catalog')
-        .select('id, brand, model_name, default_amount, specifications, more_specifications, is_active, created_at, supplier_id, supplier_name, supplier_phone')
+        .select('id, brand, model_name, default_amount, specifications, more_specifications, is_active, created_at')
         .order('brand', { ascending: true })
         .order('model_name', { ascending: true });
-
 
       if (error) throw error;
       return (data || []) as SmartphoneCatalogEntry[];
@@ -130,32 +126,6 @@ async function exportCatalogPdf(rows: SmartphoneCatalogEntry[], from: string, to
 
 const NEW_BRAND = '__new__';
 
-interface SupplierRef {
-  id: string;
-  full_name: string | null;
-  phone: string | null;
-}
-
-/** Resolve a supplier from a phone number of a registered Welile user. */
-async function resolveSupplier(rawPhone: string): Promise<SupplierRef | null> {
-  const phone = rawPhone.trim();
-  if (!phone) return null;
-  const digits = phone.replace(/\D/g, '');
-  const tail = digits.slice(-9);
-  if (tail.length < 9) throw new Error('Enter a valid supplier phone number');
-  const { data, error } = await db
-    .from('profiles')
-    .select('id, full_name, phone')
-    .ilike('phone', `%${tail}`)
-    .limit(2);
-  if (error) throw error;
-  const rows = (data || []) as SupplierRef[];
-  if (rows.length === 0) throw new Error('No registered Welile user found with that phone number');
-  if (rows.length > 1) throw new Error('That phone number matches more than one account — check with Support');
-  return rows[0];
-}
-
-
 interface ModelRow {
   key: string;
   modelName: string;
@@ -182,7 +152,6 @@ export function SmartphoneCatalogDialog() {
   const [newBrand, setNewBrand] = useState('');
   const [rows, setRows] = useState<ModelRow[]>([emptyRow()]);
   const [search, setSearch] = useState('');
-  const [supplierPhone, setSupplierPhone] = useState('');
 
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -192,9 +161,7 @@ export function SmartphoneCatalogDialog() {
   const [editAmount, setEditAmount] = useState('');
   const [editSpecifications, setEditSpecifications] = useState('');
   const [editMoreSpecifications, setEditMoreSpecifications] = useState('');
-  const [editSupplierPhone, setEditSupplierPhone] = useState('');
   const [pendingDelete, setPendingDelete] = useState<SmartphoneCatalogEntry | null>(null);
-
 
   const queryClient = useQueryClient();
 
@@ -250,9 +217,6 @@ export function SmartphoneCatalogDialog() {
       const b = effectiveBrand.trim();
       if (b.length < 2) throw new Error('Select an existing brand or enter a new one');
 
-      const supplier = await resolveSupplier(supplierPhone);
-      if (!supplier) throw new Error('Enter the phone number of a registered Welile supplier');
-
       const filled = rows.filter(
         (r) => r.modelName.trim() || r.amount.trim() || r.specifications.trim() || r.moreSpecifications.trim(),
       );
@@ -268,12 +232,8 @@ export function SmartphoneCatalogDialog() {
           default_amount: parseAmount(r.amount),
           specifications: r.specifications.trim() || null,
           more_specifications: r.moreSpecifications.trim() || null,
-          supplier_id: supplier.id,
-          supplier_name: supplier.full_name,
-          supplier_phone: supplier.phone,
         };
       });
-
 
       const seen = new Set<string>();
       for (const p of payload) {
@@ -302,7 +262,6 @@ export function SmartphoneCatalogDialog() {
       if (editBrand.trim().length < 2) throw new Error('Enter a brand');
       if (editModel.trim().length > 0 && editModel.trim().length < 2) throw new Error('Model name is too short');
       const total = parseAmount(editAmount);
-      const supplier = await resolveSupplier(editSupplierPhone);
       const { error } = await db
         .from('smartphone_catalog')
         .update({
@@ -311,14 +270,10 @@ export function SmartphoneCatalogDialog() {
           default_amount: total,
           specifications: editSpecifications.trim() || null,
           more_specifications: editMoreSpecifications.trim() || null,
-          supplier_id: supplier?.id ?? null,
-          supplier_name: supplier?.full_name ?? null,
-          supplier_phone: supplier?.phone ?? null,
         })
         .eq('id', id);
       if (error) throw error;
     },
-
     onSuccess: () => {
       toast.success('Phone updated');
       setEditingId(null);
@@ -368,9 +323,7 @@ export function SmartphoneCatalogDialog() {
     setEditAmount(e.default_amount != null ? String(Number(e.default_amount)) : '');
     setEditSpecifications(e.specifications ?? '');
     setEditMoreSpecifications(e.more_specifications ?? '');
-    setEditSupplierPhone(e.supplier_phone ?? '');
   };
-
 
 
   return (
@@ -412,19 +365,7 @@ export function SmartphoneCatalogDialog() {
                   <Input value={newBrand} onChange={(e) => setNewBrand(e.target.value)} placeholder="e.g. Samsung" />
                 </div>
               )}
-              <div className="space-y-1 sm:col-span-2">
-                <Label className="text-xs">Supplier phone — registered Welile user</Label>
-                <Input
-                  value={supplierPhone}
-                  onChange={(e) => setSupplierPhone(e.target.value)}
-                  placeholder="e.g. 0700000000"
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  The CFO pays this supplier directly into their Welile wallet when an application is approved.
-                </p>
-              </div>
             </div>
-
 
             <div className="space-y-2">
               {rows.map((row, idx) => (
@@ -576,11 +517,6 @@ export function SmartphoneCatalogDialog() {
                         placeholder="Default amount"
                       />
                     </div>
-                    <Input
-                      value={editSupplierPhone}
-                      onChange={(ev) => setEditSupplierPhone(ev.target.value)}
-                      placeholder="Supplier phone (registered Welile user)"
-                    />
                     <textarea
                       value={editSpecifications}
                       onChange={(ev) => setEditSpecifications(ev.target.value)}
@@ -588,7 +524,6 @@ export function SmartphoneCatalogDialog() {
                       rows={2}
                       className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
                     />
-
                     <textarea
                       value={editMoreSpecifications}
                       onChange={(ev) => setEditMoreSpecifications(ev.target.value)}
@@ -615,11 +550,6 @@ export function SmartphoneCatalogDialog() {
                         {' · added '}
                         {fmtDate(e.created_at)}
                       </p>
-                      <p className="truncate text-xs text-muted-foreground mt-0.5">
-                        {e.supplier_id
-                          ? `Supplier: ${e.supplier_name || 'registered user'}${e.supplier_phone ? ` · ${e.supplier_phone}` : ''}`
-                          : 'No supplier attached — agents cannot apply for this phone'}
-                      </p>
                       {(e.specifications || e.more_specifications) && (
                         <p className="truncate text-xs text-muted-foreground mt-0.5">
                           {[e.specifications, e.more_specifications].filter(Boolean).join(' · ')}
@@ -627,7 +557,6 @@ export function SmartphoneCatalogDialog() {
                       )}
 
                     </div>
-
                     <div className="flex shrink-0 items-center gap-1.5">
                       <Badge variant={e.is_active ? 'default' : 'secondary'}>
                         {e.is_active ? 'active' : 'inactive'}

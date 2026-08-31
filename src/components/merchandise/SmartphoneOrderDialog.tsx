@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -19,35 +19,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { Smartphone, FileText, ShieldCheck, AlertTriangle, Loader2 } from 'lucide-react';
+import { Smartphone, FileText } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import smartphonePromoAsset from '@/assets/smartphone-promo.jpg.asset.json';
 import { useSmartphoneCatalog } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
 
 const db = supabase as any;
 
-/** Repayment periods offered to agents. Programme charges stay internal. */
-const PERIODS = [
-  { months: 3, days: 90 },
-  { months: 6, days: 180 },
-  { months: 9, days: 270 },
-  { months: 12, days: 365 },
-] as const;
+/** Internal recovery markup used only to derive the agent-facing daily repayment. */
+const SMARTPHONE_RECOVERY_RATE = 0.33;
+const SMARTPHONE_REPAYMENT_DAYS = 365;
 
-/** Internal only — never shown to the applicant. */
-const INTERNAL_MARKUP: Record<number, number> = { 3: 33, 6: 36, 9: 39, 12: 42 };
 
-interface Eligibility {
-  user_id: string;
-  rank: number | null;
-  collected_30d: number;
-  max_amount: number;
-  has_national_id: boolean;
-  has_workplace_verification: boolean;
-  has_open_application: boolean;
-  eligible: boolean;
-}
 
 interface Props {
   open: boolean;
@@ -56,225 +39,155 @@ interface Props {
 }
 
 /**
- * Agent Smartphone Advance application. Only the top 50 agents on the
- * operational leaderboard can apply, up to the ceiling for their position, and
- * the phone must have a registered supplier. The applicant sees the daily
- * amount, the chosen period and the terms — never the internal programme charge.
+ * Structured smartphone order form. Orders are submitted as Pending Approval —
+ * no wallet balance is required up front and nothing is charged until an
+ * executive approves the order on the Agent Smart Phones page.
  */
 export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Props) {
   const queryClient = useQueryClient();
-  const [catalogId, setCatalogId] = useState('');
-  const [months, setMonths] = useState<string>('12');
+  const [brand, setBrand] = useState<string>('');
+  const [modelType, setModelType] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const { data: eligibility, isLoading: eligLoading } = useQuery<Eligibility | null>({
-    queryKey: ['smartphone-eligibility', userId],
-    enabled: open,
-    queryFn: async () => {
-      const { data, error } = await db.rpc('get_agent_smartphone_eligibility', { p_user_id: null });
-      if (error) throw error;
-      return (data || null) as Eligibility | null;
-    },
-  });
-
   const { data: catalog = [], isLoading: catalogLoading } = useSmartphoneCatalog();
+  const activeCatalog = catalog.filter((c) => c.is_active);
+  const brands = Array.from(new Set(activeCatalog.map((c) => c.brand)));
+  const models = activeCatalog.filter((c) => c.brand === brand && !!c.model_name);
 
-  const cap = Number(eligibility?.max_amount || 0);
+  const matched = activeCatalog.find((c) => c.brand === brand && c.model_name === modelType);
+  const totalAmount = Math.max(0, Math.round(Number(matched?.default_amount ?? 0)) || 0);
+  const dailyRepayment = totalAmount > 0
+    ? Math.max(1, Math.ceil(totalAmount * (1 + SMARTPHONE_RECOVERY_RATE) / SMARTPHONE_REPAYMENT_DAYS))
+    : 0;
 
-  const options = useMemo(
-    () =>
-      catalog
-        .filter((c) => c.is_active && !!c.supplier_id && Number(c.default_amount || 0) > 0)
-        .filter((c) => cap <= 0 || Number(c.default_amount) <= cap),
-    [catalog, cap],
-  );
+  const canSubmit = !!brand && !!modelType && totalAmount >= 1000;
 
-  const selected = options.find((c) => c.id === catalogId);
-  const price = Math.max(0, Math.round(Number(selected?.default_amount ?? 0)));
-  const period = PERIODS.find((p) => String(p.months) === months) ?? PERIODS[3];
-  const totalRepayable = price > 0 ? Math.round(price + (price * INTERNAL_MARKUP[period.months]) / 100) : 0;
-  const dailyAmount = totalRepayable > 0 ? Math.ceil(totalRepayable / period.days) : 0;
-
-  const canSubmit = !!eligibility?.eligible && !!selected && price > 0;
-
-  const reset = () => {
-    setCatalogId('');
-    setMonths('12');
+  const onBrandChange = (value: string) => {
+    setBrand(value);
+    setModelType('');
   };
 
+  const onModelChange = (value: string) => {
+    setModelType(value);
+  };
+
+  const reset = () => {
+    setBrand('');
+    setModelType('');
+  };
+
+
   const submit = async () => {
-    if (!selected) {
-      toast.error('Select a phone from the catalogue');
+    if (!brand || !modelType) {
+      toast.error('Select a brand and phone model from the catalog');
       return;
     }
+    if (totalAmount < 1000) {
+      toast.error('This model has no catalog price yet — contact Agent Ops');
+      return;
+    }
+
     setSubmitting(true);
     const { error } = await db.rpc('agent_order_smartphone', {
-      p_catalog_id: selected.id,
-      p_period_months: period.months,
+      p_amount: totalAmount,
     });
     setSubmitting(false);
     if (error) {
-      toast.error(error.message || 'Could not submit your application');
+      toast.error(error.message || 'Could not submit smartphone order');
       return;
     }
-    toast.success('Application submitted for Agent Ops review.');
+    toast.success('Order submitted for approval.');
+
     reset();
     onOpenChange(false);
-    queryClient.invalidateQueries({ queryKey: ['smartphone-eligibility', userId] });
     queryClient.invalidateQueries({ queryKey: ['my-smartphone-orders', userId] });
     queryClient.invalidateQueries({ queryKey: ['my-merchandise-plans', userId] });
     queryClient.invalidateQueries({ queryKey: ['my-merchandise-deductions', userId] });
   };
 
-  const blockers: string[] = [];
-  if (eligibility) {
-    if (eligibility.has_open_application) blockers.push('You already have an application in progress.');
-    if (!eligibility.has_national_id) blockers.push('Add your national ID to your profile.');
-    if (!eligibility.has_workplace_verification) blockers.push('A verified workplace visit is required.');
-    if (cap <= 0) blockers.push('This programme is open to the top 50 agents on the operational leaderboard.');
-  }
-
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!submitting) onOpenChange(o); }}>
-      <DialogContent className="max-w-sm max-h-[88vh] overflow-y-auto">
+      <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Smartphone className="h-4 w-4 text-primary" /> Smartphone advance
+            <Smartphone className="h-4 w-4 text-primary" /> Order a Welile Smartphone
           </DialogTitle>
         </DialogHeader>
 
         <Tabs defaultValue="order" className="w-full">
           <TabsList className="w-full">
-            <TabsTrigger value="order" className="flex-1">Apply</TabsTrigger>
+            <TabsTrigger value="order" className="flex-1">Order</TabsTrigger>
             <TabsTrigger value="tnc" className="flex-1">
-              <FileText className="h-3.5 w-3.5 mr-1.5" /> View T&amp;C
+              <FileText className="h-3.5 w-3.5 mr-1.5" /> View T&C
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="order" className="space-y-3 mt-3">
             <img
               src={smartphonePromoAsset.url}
-              alt="Welile smartphone selection"
+              alt="Welile Smartphone selection"
               className="w-full h-36 object-cover rounded-lg border border-border"
             />
 
-            {eligLoading ? (
-              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking your eligibility…
-              </p>
-            ) : eligibility?.eligible ? (
-              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1">
-                <p className="text-xs font-semibold flex items-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5 text-primary" /> You qualify
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  Leaderboard position <Badge variant="secondary">#{eligibility.rank}</Badge> — phones up to{' '}
-                  <span className="font-semibold text-foreground">{formatUGX(cap)}</span>.
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-1">
-                <p className="text-xs font-semibold flex items-center gap-1.5 text-destructive">
-                  <AlertTriangle className="h-3.5 w-3.5" /> Not eligible yet
-                </p>
-                <ul className="list-disc pl-4 text-[11px] text-muted-foreground space-y-0.5">
-                  {blockers.map((b) => <li key={b}>{b}</li>)}
-                </ul>
-              </div>
-            )}
+            <div className="space-y-1">
+              <Label className="text-xs">Product Brand</Label>
+              <Select value={brands.includes(brand) ? brand : ''} onValueChange={onBrandChange} disabled={catalogLoading}>
+                <SelectTrigger>
+                  <SelectValue placeholder={catalogLoading ? 'Loading brands…' : 'Select brand'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {brands.map((b) => (
+                    <SelectItem key={b} value={b}>{b}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             <div className="space-y-1">
-              <Label className="text-xs">Phone</Label>
+              <Label className="text-xs">Phone Model</Label>
               <Select
-                value={options.some((o) => o.id === catalogId) ? catalogId : ''}
-                onValueChange={setCatalogId}
-                disabled={catalogLoading || !eligibility?.eligible || options.length === 0}
+                value={models.some((m) => m.model_name === modelType) ? modelType : ''}
+                onValueChange={onModelChange}
+                disabled={!brand || models.length === 0}
               >
                 <SelectTrigger>
-                  <SelectValue
-                    placeholder={
-                      catalogLoading
-                        ? 'Loading phones…'
-                        : options.length
-                          ? 'Select a phone'
-                          : 'No phones available for your limit'
-                    }
-                  />
+                  <SelectValue placeholder={!brand ? 'Select a brand first' : models.length ? 'Select a listed model' : 'No models listed'} />
                 </SelectTrigger>
                 <SelectContent>
-                  {options.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.brand}{c.model_name ? ` · ${c.model_name}` : ''} — {formatUGX(Number(c.default_amount))}
-                    </SelectItem>
+                  {models.map((m) => (
+                    <SelectItem key={m.id} value={m.model_name as string}>{m.model_name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs">Repayment period</Label>
-              <Select value={months} onValueChange={setMonths} disabled={!eligibility?.eligible}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a period" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PERIODS.map((p) => (
-                    <SelectItem key={p.months} value={String(p.months)}>
-                      {p.months} months ({p.days} days)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {dailyAmount > 0 && (
-              <div className="rounded-lg border border-border bg-muted/40 p-3 text-center space-y-1">
+            {dailyRepayment > 0 && (
+              <div className="rounded-lg border border-border bg-muted/40 p-3 text-center">
                 <p className="text-xs text-muted-foreground">Daily repayment</p>
                 <p className="text-2xl font-bold tabular-nums">
-                  {formatUGX(dailyAmount)}
+                  {formatUGX(dailyRepayment)}
                   <span className="text-sm font-medium text-muted-foreground">/day</span>
                 </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {period.days} days · {formatUGX(totalRepayable)} in total. Deductions start 14 days after your
-                  phone is released.
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Deducted daily from your Welile Wallet for 365 days once approved.
                 </p>
               </div>
             )}
 
             <p className="text-[11px] text-muted-foreground">
-              Your application goes to Agent Ops, then the COO, then the CFO — who pays the supplier directly.
-              Nothing is deducted from your wallet before your phone is released.
+              Your order is submitted as Pending Approval. Nothing is charged to your wallet until it is
+              approved — you can order even with a UGX 0 balance.
             </p>
           </TabsContent>
 
           <TabsContent value="tnc" className="mt-3">
             <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3 text-sm">
-              <h4 className="font-semibold">Terms &amp; Conditions</h4>
+              <h4 className="font-semibold">Terms & Conditions</h4>
               <ol className="list-decimal pl-4 space-y-2 text-muted-foreground">
-                <li>
-                  <span className="font-medium text-foreground">Eligibility:</span> top 50 agents on the
-                  operational leaderboard, with a registered national ID and a verified workplace visit.
-                </li>
-                <li>
-                  <span className="font-medium text-foreground">Limit:</span> the phone price must be within the
-                  ceiling for your leaderboard position.
-                </li>
-                <li>
-                  <span className="font-medium text-foreground">Supplier:</span> Welile pays the registered
-                  supplier directly; you receive the phone, not cash.
-                </li>
-                <li>
-                  <span className="font-medium text-foreground">Repayment:</span> a fixed daily amount is
-                  deducted from your Welile Wallet over the period you choose (3, 6, 9 or 12 months).
-                </li>
-                <li>
-                  <span className="font-medium text-foreground">Grace period:</span> deductions begin 14 days
-                  after the phone is released.
-                </li>
-                <li>
-                  <span className="font-medium text-foreground">Late charge:</span> once you are 30 days behind
-                  schedule, UGX 50,000 is added to your balance each month until you catch up.
-                </li>
+                <li><span className="font-medium text-foreground">Eligibility:</span> Must have an active Welile Wallet and active tenants.</li>
+                <li><span className="font-medium text-foreground">Up-front cost:</span> Welile covers the phone cost up front. You repay through your wallet.</li>
+                <li><span className="font-medium text-foreground">Repayment:</span> A fixed daily amount is deducted from your Welile Wallet.</li>
+                <li><span className="font-medium text-foreground">Auto-Deduction:</span> Daily repayments will be automatically deducted from your Welile Wallet.</li>
               </ol>
             </div>
           </TabsContent>
@@ -285,7 +198,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
             Cancel
           </Button>
           <Button onClick={submit} disabled={submitting || !canSubmit}>
-            {submitting ? 'Submitting…' : 'Submit application'}
+            {submitting ? 'Submitting…' : 'Submit order'}
           </Button>
         </DialogFooter>
       </DialogContent>
