@@ -145,10 +145,10 @@ function SubHeading({ children }: { children: React.ReactNode }) {
 const LIABILITY_GROUP_LABELS = [
   'Landlord Float — Company Managed',
   'Landlord Float — Self Managed',
-  'Partner Buffer Liability',
-  'Operational Float Liability',
-  'Wallet Bucket Liability',
-  'Merchant Agent Liability',
+  'Partner Buffer',
+  'Operation Float',
+  'Wallet Bucket',
+  'Merchant Agent',
   'Other Payables',
 ] as const;
 type LiabilityGroupLabel = typeof LIABILITY_GROUP_LABELS[number];
@@ -156,12 +156,17 @@ type LiabilityGroupLabel = typeof LIABILITY_GROUP_LABELS[number];
 const MARKETPLACE_LIABILITY_LABELS: LiabilityGroupLabel[] = [
   'Landlord Float — Company Managed',
   'Landlord Float — Self Managed',
-  'Partner Buffer Liability',
+  'Partner Buffer',
+  'Operation Float',
+  'Wallet Bucket',
+  'Merchant Agent',
 ];
-const OPERATIONAL_LIABILITY_LABELS: LiabilityGroupLabel[] = [
-  'Operational Float Liability',
-  'Wallet Bucket Liability',
-  'Merchant Agent Liability',
+/**
+ * Other Payables stands on its own outside Market Liabilities. It is also the
+ * fallback bucket, so every liability account that is not mapped to one of the
+ * six marketplace lines lands here and Total Liabilities still ties exactly.
+ */
+const OTHER_LIABILITY_LABELS: LiabilityGroupLabel[] = [
   'Other Payables',
 ];
 
@@ -169,11 +174,11 @@ const OPERATIONAL_LIABILITY_LABELS: LiabilityGroupLabel[] = [
 const LIABILITY_ACCOUNT_GROUPS: Record<string, LiabilityGroupLabel> = {
   L4: 'Landlord Float — Company Managed',
   L7: 'Landlord Float — Self Managed',
-  L2: 'Partner Buffer Liability',
-  L6: 'Partner Buffer Liability',
-  L8: 'Operational Float Liability',
-  L1: 'Wallet Bucket Liability',
-  L10: 'Merchant Agent Liability',
+  L2: 'Partner Buffer',
+  L6: 'Partner Buffer',
+  L8: 'Operation Float',
+  L1: 'Wallet Bucket',
+  L10: 'Merchant Agent',
   // L3 (partner returns/rewards), L5 (agent commissions), L9 (suspense) and any
   // account not listed here fall through to Other Payables.
 };
@@ -202,13 +207,13 @@ export function groupLiabilities(lines: PositionLine[]) {
   }
   const pick = (labels: LiabilityGroupLabel[]) => labels.map(l => byLabel.get(l)!);
   const marketplace = pick(MARKETPLACE_LIABILITY_LABELS);
-  const operational = pick(OPERATIONAL_LIABILITY_LABELS);
+  const other = pick(OTHER_LIABILITY_LABELS);
   const sum = (gs: LiabilityGroup[]) => gs.reduce((t, g) => t + g.value, 0);
   return {
     marketplace,
-    operational,
+    other,
     marketplaceTotal: sum(marketplace),
-    operationalTotal: sum(operational),
+    otherTotal: sum(other),
   };
 }
 
@@ -276,7 +281,7 @@ export default function BalanceSheetPanel() {
     ? groupLiabilities([...data.liabilities.current, ...data.liabilities.non_current])
     : null;
   const liabilityGroupDrift = data && liabilityGroups
-    ? Math.round(liabilityGroups.marketplaceTotal + liabilityGroups.operationalTotal - data.liabilities.total)
+    ? Math.round(liabilityGroups.marketplaceTotal + liabilityGroups.otherTotal - data.liabilities.total)
     : 0;
 
   const exportCSV = () => {
@@ -292,12 +297,12 @@ export default function BalanceSheetPanel() {
     rows.push(['TOTAL ASSETS', data.assets.total]);
     rows.push([]);
     rows.push(['LIABILITIES', '']);
-    rows.push(['Marketplace Liabilities', '']);
+    rows.push(['Market Liabilities', '']);
     (liabilityGroups?.marketplace ?? []).forEach(g => rows.push([g.label, g.value]));
-    rows.push(['Subtotal — Marketplace Liabilities', liabilityGroups?.marketplaceTotal ?? 0]);
-    rows.push(['Operational & Other Liabilities', '']);
-    (liabilityGroups?.operational ?? []).forEach(g => rows.push([g.label, g.value]));
-    rows.push(['Subtotal — Operational & Other Liabilities', liabilityGroups?.operationalTotal ?? 0]);
+    rows.push(['Subtotal — Market Liabilities', liabilityGroups?.marketplaceTotal ?? 0]);
+    rows.push(['Other Payables', '']);
+    (liabilityGroups?.other ?? []).forEach(g => rows.push([g.label, g.value]));
+    rows.push(['Subtotal — Other Payables', liabilityGroups?.otherTotal ?? 0]);
     rows.push(['TOTAL LIABILITIES', data.liabilities.total]);
     rows.push([]);
     rows.push(['EQUITY', '']);
@@ -400,12 +405,12 @@ export default function BalanceSheetPanel() {
       row('Total Non-Current Assets', data.assets.total_non_current, true);
       row('TOTAL ASSETS', data.assets.total, true);
 
-      heading('Marketplace Liabilities');
+      heading('Market Liabilities');
       (liabilityGroups?.marketplace ?? []).forEach(g => row(g.label, g.value));
-      row('Subtotal — Marketplace Liabilities', liabilityGroups?.marketplaceTotal ?? 0, true);
-      heading('Operational & Other Liabilities');
-      (liabilityGroups?.operational ?? []).forEach(g => row(g.label, g.value));
-      row('Subtotal — Operational & Other Liabilities', liabilityGroups?.operationalTotal ?? 0, true);
+      row('Subtotal — Market Liabilities', liabilityGroups?.marketplaceTotal ?? 0, true);
+      heading('Other Payables');
+      (liabilityGroups?.other ?? []).forEach(g => row(g.label, g.value));
+      row('Subtotal — Other Payables', liabilityGroups?.otherTotal ?? 0, true);
       row('TOTAL LIABILITIES', data.liabilities.total, true);
 
       heading('Equity');
@@ -557,12 +562,12 @@ export default function BalanceSheetPanel() {
             <div>
               <Badge variant="outline" className="text-[10px]">Liabilities & Equity</Badge>
               <SectionHeading>Liabilities</SectionHeading>
-              <SubHeading>Marketplace Liabilities</SubHeading>
+              <SubHeading>Market Liabilities</SubHeading>
               <div>{liabilityGroups?.marketplace.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
-              <TotalRow label="Subtotal — Marketplace Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0} />
-              <SubHeading>Operational &amp; Other Liabilities</SubHeading>
-              <div>{liabilityGroups?.operational.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
-              <TotalRow label={'Subtotal — Operational & Other Liabilities'} value={liabilityGroups?.operationalTotal ?? 0} />
+              <TotalRow label="Subtotal — Market Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0} />
+              <SubHeading>Other Payables</SubHeading>
+              <div>{liabilityGroups?.other.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
+              <TotalRow label="Subtotal — Other Payables" value={liabilityGroups?.otherTotal ?? 0} />
               <TotalRow label="Total Liabilities" value={data.liabilities.total} />
               {liabilityGroupDrift !== 0 && (
                 <p className="mt-1 flex items-start gap-1 text-[10px] text-destructive">
