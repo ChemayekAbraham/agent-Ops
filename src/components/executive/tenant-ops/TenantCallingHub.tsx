@@ -126,6 +126,31 @@ export function TenantCallingHub() {
     setDistrict(ALL); setAgentId(ALL); setCallStatus(ALL); setPayment(ALL); setHasPhone(ALL);
   };
 
+  /** Human-readable chips for whatever is currently selected (display only). */
+  const activeChips = useMemo(() => {
+    const chips: { key: string; label: string; clear: () => void }[] = [];
+    if (district !== ALL) chips.push({ key: 'district', label: `District: ${district}`, clear: () => setDistrict(ALL) });
+    if (agentId !== ALL) {
+      const name = agentOptions.find(([id]) => id === agentId)?.[1] || 'Agent';
+      chips.push({ key: 'agent', label: `Agent: ${name}`, clear: () => setAgentId(ALL) });
+    }
+    if (payment !== ALL) {
+      const label = PAYMENT_FILTERS.find(p => p.key === payment)?.label || payment;
+      chips.push({ key: 'payment', label: `Payment: ${label}`, clear: () => setPayment(ALL) });
+    }
+    if (callStatus !== ALL) {
+      const label = callStatus === 'never'
+        ? 'Never called'
+        : TENANT_CALL_STATUS_LABEL[callStatus as TenantCallStatus] || callStatus;
+      chips.push({ key: 'call', label: `Call status: ${label}`, clear: () => setCallStatus(ALL) });
+    }
+    if (hasPhone !== ALL) {
+      chips.push({ key: 'phone', label: hasPhone === 'yes' ? 'Has phone number' : 'No phone number', clear: () => setHasPhone(ALL) });
+    }
+    return chips;
+  }, [district, agentId, payment, callStatus, hasPhone, agentOptions]);
+
+
   const visible = useMemo(() => {
     const base = tab === 'all' ? rows : buckets[tab];
     const q = search.trim().toLowerCase();
