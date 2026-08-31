@@ -168,7 +168,13 @@ export type AgentCapacity = {
    *   - 'blocked' : yesterday < 20% of expected daily → blocked today, red
    */
   daily_status: 'starter' | 'good' | 'blocked';
-  /** 5-tier human label for yesterday's performance (coverage-adjusted). */
+  /**
+   * Agent-performance ratio actually driving `daily_rating` and the daily
+   * gate: share of DUE tenants the agent got to pay (best of today /
+   * yesterday). Independent of the UGX expected-daily target.
+   */
+  performance_pct: number;
+  /** 5-tier human label for the agent's own daily performance. */
   daily_rating: DailyRating;
   /** Number of tenants due to pay today (active, non-paused rent plans). */
   tenants_due: number;
