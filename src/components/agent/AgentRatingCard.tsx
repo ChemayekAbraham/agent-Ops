@@ -90,21 +90,21 @@ export function AgentRatingCard({ agentId }: Props) {
         <div className="rounded-xl bg-muted/50 p-2.5 space-y-1.5">
           <div className="flex items-center justify-between text-[10px] font-semibold text-muted-foreground">
             <span className="flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" /> Today
+              <TrendingUp className="h-3 w-3" /> Tenants reached today
             </span>
-            <span className={todayPct >= 20 ? 'text-emerald-700' : 'text-destructive'}>
+            <span className={todayPct >= 50 ? 'text-emerald-700' : todayPct >= 15 ? 'text-amber-700' : 'text-destructive'}>
               {todayPct}%
             </span>
           </div>
           <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
             <div
-              className={`h-full transition-all ${todayPct >= 20 ? 'bg-emerald-500' : 'bg-destructive'}`}
+              className={`h-full transition-all ${todayPct >= 50 ? 'bg-emerald-500' : todayPct >= 15 ? 'bg-amber-500' : 'bg-destructive'}`}
               style={{ width: `${Math.min(100, todayPct)}%` }}
             />
           </div>
           <p className="text-[10px] text-muted-foreground tabular-nums">
-            {cap.tenants_paid_today}/{cap.tenants_due} tenants · {formatUGX(cap.paid_today)} / {formatUGX(cap.expected_daily)}
-            {rawTodayPct > todayPct ? ` (cash ${rawTodayPct}%)` : ''}
+            {cap.tenants_paid_today}/{cap.tenants_due} tenants paid · {formatUGX(cap.paid_today)} collected
+            {cashPct > 0 ? ` (${cashPct}% of target)` : ''}
           </p>
 
         </div>
