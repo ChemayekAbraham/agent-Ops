@@ -329,6 +329,11 @@ export function ProxyTargetModeCard({ agentId }: { agentId?: string | null }) {
             {money(t.rate_per_note)}, up to {money(t.monthly_reward)} at{' '}
             {t.monthly_note_target} notes. Day {t.day_of_month} of {t.days_in_month}.
           </p>
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            Your count and target reset on the 1st of every month, and you get three reminder
+            emails a day (9am, midday and 3pm) to keep recording notes.
+          </p>
+
           <div className="flex items-center gap-1.5 pt-0.5 text-[11px] font-medium">
             {t.tier_hit ? (
               <>

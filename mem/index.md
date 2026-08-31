@@ -110,3 +110,4 @@
 - [House photo sync](mem://features/tenant/house-photo-sync) — Agent listing photo updates propagate to the tenant's rent record photos (and back) via DB triggers
 - [Portfolio change audit](mem://features/partner-ops/portfolio-change-audit) — `portfolio_change_log` + DB triggers + `portfolio-change-notify` edge fn emailing every portfolio create/principal edit/date edit/terms edit/top-up/compound/renew/delete + partner suspension to jlukodda@gmail.com & pexpert46@gmail.com; action-triggered, no cron
 - [Growth Commission Claim](mem://features/growth-commission-claim) — UGX 50 per new platform user, My Space claim → CEO → CFO → wallet credit, counter baseline moves on release
+- [Proxy Target Mode daily nudge](mem://features/agent/proxy-target-daily-nudge) — Kampala-month auto reset + 3/day (9am/12pm/3pm) promissory-note nudge emails to accepted Target Mode proxy agents via `proxy-target-daily-nudge` cron
