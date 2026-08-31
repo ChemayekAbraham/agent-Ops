@@ -126,6 +126,127 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
+function SubHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mt-3 mb-1">{children}</p>
+  );
+}
+
+/**
+ * Presentation-layer regrouping of the liability side of the statement.
+ * Nothing is recalculated: every line keeps the exact value the ledger-driven
+ * RPC returned. Lines are only bucketed into business categories, keyed on the
+ * reporting account code embedded in `source`
+ * ("general_ledger trial balance — account L4").
+ *
+ * Any liability account not explicitly named falls through to "Other Payables"
+ * so no balance can silently disappear from the statement.
+ */
+const LIABILITY_GROUP_LABELS = [
+  'Landlord Float — Company Managed',
+  'Landlord Float — Self Managed',
+  'Partner Buffer Liability',
+  'Operational Float Liability',
+  'Wallet Bucket Liability',
+  'Merchant Agent Liability',
+  'Other Payables',
+] as const;
+type LiabilityGroupLabel = typeof LIABILITY_GROUP_LABELS[number];
+
+const MARKETPLACE_LIABILITY_LABELS: LiabilityGroupLabel[] = [
+  'Landlord Float — Company Managed',
+  'Landlord Float — Self Managed',
+  'Partner Buffer Liability',
+];
+const OPERATIONAL_LIABILITY_LABELS: LiabilityGroupLabel[] = [
+  'Operational Float Liability',
+  'Wallet Bucket Liability',
+  'Merchant Agent Liability',
+  'Other Payables',
+];
+
+// Reporting account code -> presented liability line.
+const LIABILITY_ACCOUNT_GROUPS: Record<string, LiabilityGroupLabel> = {
+  L4: 'Landlord Float — Company Managed',
+  L7: 'Landlord Float — Self Managed',
+  L2: 'Partner Buffer Liability',
+  L6: 'Partner Buffer Liability',
+  L8: 'Operational Float Liability',
+  L1: 'Wallet Bucket Liability',
+  L10: 'Merchant Agent Liability',
+  // L3 (partner returns/rewards), L5 (agent commissions), L9 (suspense) and any
+  // account not listed here fall through to Other Payables.
+};
+
+function accountCodeOf(line: PositionLine): string | null {
+  const m = /account\s+([A-Z]\d+)\s*$/.exec(line.source ?? '');
+  return m ? m[1] : null;
+}
+
+export interface LiabilityGroup {
+  label: LiabilityGroupLabel;
+  value: number;
+  lines: PositionLine[];
+}
+
+export function groupLiabilities(lines: PositionLine[]) {
+  const byLabel = new Map<LiabilityGroupLabel, LiabilityGroup>(
+    LIABILITY_GROUP_LABELS.map(label => [label, { label, value: 0, lines: [] }]),
+  );
+  for (const line of lines) {
+    const code = accountCodeOf(line);
+    const label = (code && LIABILITY_ACCOUNT_GROUPS[code]) || 'Other Payables';
+    const group = byLabel.get(label)!;
+    group.value += line.value;
+    group.lines.push(line);
+  }
+  const pick = (labels: LiabilityGroupLabel[]) => labels.map(l => byLabel.get(l)!);
+  const marketplace = pick(MARKETPLACE_LIABILITY_LABELS);
+  const operational = pick(OPERATIONAL_LIABILITY_LABELS);
+  const sum = (gs: LiabilityGroup[]) => gs.reduce((t, g) => t + g.value, 0);
+  return {
+    marketplace,
+    operational,
+    marketplaceTotal: sum(marketplace),
+    operationalTotal: sum(operational),
+  };
+}
+
+function GroupRow({ group, showSources }: { group: LiabilityGroup; showSources: boolean }) {
+  const [open, setOpen] = useState(false);
+  const expandable = showSources && group.lines.length > 0;
+  return (
+    <div className="border-b border-border/40 last:border-0">
+      <button
+        type="button"
+        onClick={() => expandable && setOpen(o => !o)}
+        className="w-full flex items-start justify-between gap-3 py-1.5 text-left"
+      >
+        <span className="flex items-start gap-1 min-w-0 text-xs text-muted-foreground">
+          {expandable
+            ? (open ? <ChevronDown className="h-3 w-3 mt-0.5 shrink-0" /> : <ChevronRight className="h-3 w-3 mt-0.5 shrink-0" />)
+            : null}
+          <span className="truncate">{group.label}</span>
+        </span>
+        <span className={cn('font-mono text-xs shrink-0 text-right', group.value < 0 ? 'text-destructive' : 'text-foreground')}>
+          {group.value < 0 ? `(${formatUGX(Math.abs(group.value))})` : formatUGX(group.value)}
+        </span>
+      </button>
+      {expandable && open && (
+        <div className="pb-2 pl-4 space-y-0.5">
+          {group.lines.map(l => (
+            <p key={l.label} className="text-[10px] text-muted-foreground flex justify-between gap-3">
+              <span className="truncate">{l.label}</span>
+              <span className="font-mono shrink-0">{formatUGX(l.value)}</span>
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function BalanceSheetPanel() {
   const [asAt, setAsAt] = useState<Date>(new Date());
   const [data, setData] = useState<StatementOfFinancialPosition | null>(null);
