@@ -12,6 +12,8 @@ import { AgentAdvancesDailyReportCard } from './AgentAdvancesDailyReportCard';
 import { AgentOpsLiveStatsCard } from './AgentOpsLiveStatsCard';
 import { FunderEngagementPanel } from './FunderEngagementPanel';
 import { FunderFunnelPanel } from './FunderFunnelPanel';
+import { CeoSalaryAdvanceApprovals } from './CeoSalaryAdvanceApprovals';
+
 
 export function CEODashboard() {
   const [searchParams] = useSearchParams();
