@@ -75,7 +75,7 @@ export function FindAHouseCTA({ onClick }: FindAHouseCTAProps) {
         </div>
 
         <div className="flex items-end justify-between gap-1.5">
-          <p className="text-[10px] text-foreground/70 leading-snug line-clamp-2 break-words">
+          <p className="text-xs text-foreground/70 leading-snug line-clamp-2 break-words">
             {totalCount !== null ? (
               <>{totalCount} available · Pay daily</>
             ) : (
@@ -84,6 +84,7 @@ export function FindAHouseCTA({ onClick }: FindAHouseCTAProps) {
           </p>
           <ChevronRight className="h-3.5 w-3.5 text-warning shrink-0" />
         </div>
+
 
       </div>
     </button>
