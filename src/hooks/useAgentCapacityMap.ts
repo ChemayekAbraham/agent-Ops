@@ -527,6 +527,9 @@ export function useAgentCapacityMap(agentIds: string[]) {
           elig?.today_pct ?? 0,
           elig?.yesterday_pct ?? 0,
           elig?.effective_pct ?? 0,
+          // Agent-performance basis (tenants reached), same as the rating.
+          elig?.coverage_today ?? 0,
+          elig?.coverage_yesterday ?? 0,
         );
         const daily_good_floor =
           exp.count > 0 && daily_pct_for_floor >= DAILY_ELIGIBILITY_THRESHOLD
