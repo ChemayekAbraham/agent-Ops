@@ -33,7 +33,7 @@ function SearchableFilter({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" className="h-8 w-[190px] justify-between px-2 text-xs font-normal">
+        <Button variant="outline" className="h-8 w-full justify-between px-2 text-xs font-normal sm:w-[190px]">
           <span className="truncate">{selected ? selected.label : 'All'}</span>
           <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
         </Button>
@@ -112,15 +112,19 @@ export function CallingFilterBar({
 
   return (
     <div className="space-y-2">
-      <div className="flex flex-wrap items-end gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-end">
         {options.map((o) => {
           const value = selection[o.key] ?? '';
           const disabled = o.choices.length === 0;
           return (
-            <div key={o.key} className="space-y-1">
+            <div key={o.key} className="min-w-0 space-y-1">
               <Label className="text-[11px] text-muted-foreground">{o.label}</Label>
               {disabled ? (
-                <Button variant="outline" disabled className="h-8 w-[190px] justify-start px-2 text-xs font-normal">
+                <Button
+                  variant="outline"
+                  disabled
+                  className="h-8 w-full justify-start px-2 text-xs font-normal sm:w-[190px]"
+                >
                   No values
                 </Button>
               ) : o.kind === 'value' && o.choices.length > SEARCHABLE_THRESHOLD ? (
@@ -130,7 +134,7 @@ export function CallingFilterBar({
                   value={value || ALL}
                   onValueChange={(v) => onChange(o.key, v === ALL ? '' : v)}
                 >
-                  <SelectTrigger className="h-8 w-[190px] text-xs">
+                  <SelectTrigger className="h-8 w-full text-xs sm:w-[190px]">
                     <SelectValue placeholder="All" />
                   </SelectTrigger>
                   <SelectContent>
@@ -150,6 +154,7 @@ export function CallingFilterBar({
         })}
       </div>
 
+
       {activeCount > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/60 px-2 py-1.5">
           <Filter className="h-3 w-3 text-primary" />
@@ -165,7 +170,7 @@ export function CallingFilterBar({
               const v = selection[o.key];
               const label = o.choices.find((c) => c.value === v)?.label ?? v;
               return (
-                <Badge key={o.key} variant="outline" className="gap-1 px-1.5 py-0 text-[10px]">
+                <Badge key={o.key} variant="outline" className="max-w-full gap-1 whitespace-normal break-words px-1.5 py-0 text-left text-[10px]">
                   {o.label}: {label}
                   <button type="button" onClick={() => onChange(o.key, '')} aria-label={`Clear ${o.label}`}>
                     <X className="h-2.5 w-2.5" />
@@ -173,9 +178,10 @@ export function CallingFilterBar({
                 </Badge>
               );
             })}
-          <Button size="sm" variant="ghost" className="ml-auto h-6 px-2 text-[11px]" onClick={onClearAll}>
+          <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px] sm:ml-auto" onClick={onClearAll}>
             Clear all
           </Button>
+
         </div>
       )}
     </div>

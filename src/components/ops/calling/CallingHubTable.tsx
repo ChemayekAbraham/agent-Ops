@@ -1,3 +1,4 @@
+import type * as React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -9,6 +10,9 @@ import type { CcRow } from '@/hooks/useCcCallingHub';
 const DASH = '—';
 const fmt = (v: string | null) => (v ? new Date(v).toLocaleString() : DASH);
 const shortDate = (v: string | null) => (v ? new Date(v).toLocaleDateString() : 'Never');
+
+/** Columns rendered as full-width action controls at the foot of a card. */
+const ACTION_COLUMNS: CallingColumnKey[] = ['reveal', 'whatsapp'];
 
 /** Formatted by metric_format. A null value is an em dash, never a zero. */
 function metricCell(row: CcRow) {
@@ -53,7 +57,43 @@ export function CallingHubTable({
 
   const header = (c: CallingColumnKey) => (c === 'metric' ? metricLabel : CALLING_COLUMN_LABEL[c]);
 
-  const cell = (row: CcRow, col: CallingColumnKey) => {
+  const revealButton = (row: CcRow, full: boolean) => {
+    const phone = revealed[row.id];
+    return (
+      <Button
+        size="sm"
+        variant={phone ? 'secondary' : 'default'}
+        className={full ? 'h-9 w-full text-xs' : 'h-7 px-2 text-[11px]'}
+        disabled={wipBlocked || revealing || !!phone}
+        title={wipBlocked ? 'Record the outcome of your open calls before revealing another number.' : undefined}
+        onClick={() => onReveal(row)}
+      >
+        <Eye className="mr-1 h-3 w-3" />
+        {phone ? 'Number revealed' : 'Reveal number'}
+      </Button>
+    );
+  };
+
+  const whatsappLink = (row: CcRow, full: boolean) => {
+    const phone = revealed[row.id];
+    if (!phone) return <span className="text-muted-foreground">{DASH}</span>;
+    return (
+      <a
+        href={`https://wa.me/${phone.replace(/\D/g, '')}`}
+        target="_blank"
+        rel="noreferrer"
+        className={
+          full
+            ? 'inline-flex h-9 w-full items-center justify-center gap-1 rounded-md border border-border bg-background text-xs font-semibold text-primary'
+            : 'inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline'
+        }
+      >
+        <MessageCircle className="h-3 w-3" /> WhatsApp
+      </a>
+    );
+  };
+
+  const cell = (row: CcRow, col: CallingColumnKey, full = false) => {
     const phone = revealed[row.id];
     switch (col) {
       case 'name':
@@ -72,32 +112,9 @@ export function CallingHubTable({
       case 'metric':
         return metricCell(row);
       case 'reveal':
-        return (
-          <Button
-            size="sm"
-            variant={phone ? 'secondary' : 'default'}
-            className="h-7 px-2 text-[11px]"
-            disabled={wipBlocked || revealing || !!phone}
-            title={wipBlocked ? 'Record the outcome of your open calls before revealing another number.' : undefined}
-            onClick={() => onReveal(row)}
-          >
-            <Eye className="mr-1 h-3 w-3" />
-            {phone ? 'Number revealed' : 'Reveal number'}
-          </Button>
-        );
+        return revealButton(row, full);
       case 'whatsapp':
-        return phone ? (
-          <a
-            href={`https://wa.me/${phone.replace(/\D/g, '')}`}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-          >
-            <MessageCircle className="h-3 w-3" /> WhatsApp
-          </a>
-        ) : (
-          <span className="text-muted-foreground">{DASH}</span>
-        );
+        return whatsappLink(row, full);
       case 'feedback_category':
         return row.feedback_category ?? DASH;
       case 'severity':
@@ -140,30 +157,106 @@ export function CallingHubTable({
     }
   };
 
+  /**
+   * The per-tab column set in callingHubColumns.ts is the single contract for
+   * both renderings — the cards read the same `columns` prop as the table, so a
+   * tab can never silently lose a column on a narrow screen.
+   */
+  const detailColumns = columns.filter((c) => c !== 'name' && !ACTION_COLUMNS.includes(c));
+  const actionColumns = columns.filter((c) => ACTION_COLUMNS.includes(c));
+
+  /**
+   * Trailing action columns are pinned to the right so a horizontal scroll can
+   * never put the primary action out of reach. Their widths are fixed because a
+   * sticky offset has to be known up front when more than one column is pinned.
+   */
+  const ACTION_WIDTH: Partial<Record<CallingColumnKey, number>> = { reveal: 160, whatsapp: 110 };
+  const trailing: CallingColumnKey[] = [];
+  for (let i = columns.length - 1; i >= 0 && ACTION_COLUMNS.includes(columns[i]); i -= 1) {
+    trailing.unshift(columns[i]);
+  }
+  const stickyRightOffset = (c: CallingColumnKey): number | null => {
+    const idx = trailing.indexOf(c);
+    if (idx === -1) return null;
+    return trailing.slice(idx + 1).reduce((sum, k) => sum + (ACTION_WIDTH[k] ?? 120), 0);
+  };
+  const stickyStyle = (c: CallingColumnKey, _z: number): React.CSSProperties | undefined => {
+    const right = stickyRightOffset(c);
+    if (right === null) return undefined;
+    return { right, width: ACTION_WIDTH[c] ?? 120, minWidth: ACTION_WIDTH[c] ?? 120 };
+  };
+
+
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {columns.map((c) => (
-              <TableHead key={c} className="whitespace-nowrap text-[11px] uppercase tracking-wide">
-                {header(c)}
-              </TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => (
-            <TableRow key={row.id}>
+    <>
+      {/* Stacked cards below lg */}
+      <div className="space-y-2 lg:hidden">
+        {rows.map((row) => (
+          <div key={row.id} className="rounded-xl border border-border/60 bg-card p-3">
+            <p className="text-sm font-semibold leading-tight">{row.name}</p>
+            <dl className="mt-2 grid grid-cols-1 gap-x-3 gap-y-1.5 sm:grid-cols-2">
+              {detailColumns.map((c) => (
+                <div key={c} className="min-w-0">
+                  <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{header(c)}</dt>
+                  <dd className="break-words text-xs">{cell(row, c)}</dd>
+                </div>
+              ))}
+            </dl>
+            {actionColumns.length > 0 && (
+              <div className="mt-3 flex flex-col gap-2">
+                {actionColumns.map((c) => (
+                  <div key={c} className="w-full">
+                    {cell(row, c, true)}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Table at lg and above */}
+      {/* The shadcn Table supplies its own scroll container; keep this wrapper
+          non-scrolling so the sticky columns pin against that scrollport. */}
+      <div className="hidden min-w-0 lg:block">
+        {/* border-separate: Chrome will not honour position:sticky on cells of a
+            border-collapse table, and the sticky action column is load-bearing. */}
+        <Table className="border-separate border-spacing-0">
+          <TableHeader>
+            <TableRow>
               {columns.map((c) => (
-                <TableCell key={c} className="whitespace-nowrap text-xs">
-                  {cell(row, c)}
-                </TableCell>
+                <TableHead
+                  key={c}
+                  style={stickyStyle(c, 20)}
+                  className={`whitespace-nowrap border-b border-border bg-card text-[11px] uppercase tracking-wide ${
+                    c === 'name' ? 'sticky left-0 z-20' : ''
+                  } ${stickyRightOffset(c) !== null ? 'sticky z-20' : ''}`}
+                >
+                  {header(c)}
+                </TableHead>
               ))}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={row.id}>
+                {columns.map((c) => (
+                  <TableCell
+                    key={c}
+                    style={stickyStyle(c, 10)}
+                    className={`whitespace-nowrap border-b border-border/60 bg-card text-xs ${
+                      c === 'name' ? 'sticky left-0 z-10' : ''
+                    } ${stickyRightOffset(c) !== null ? 'sticky z-10' : ''}`}
+                  >
+                    {cell(row, c)}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+    </>
   );
 }

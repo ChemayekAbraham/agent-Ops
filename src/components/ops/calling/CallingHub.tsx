@@ -80,17 +80,17 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 pb-32 sm:pb-28">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-base font-bold">
           <PhoneCall className="h-4 w-4 text-primary" />
           {TITLE[subjectType]}
         </h2>
-        <div className="flex flex-wrap items-end gap-2">
+        <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-end">
           <div className="space-y-1">
             <Label className="text-[11px] text-muted-foreground">Sort by</Label>
             <Select value={hub.effectiveSortKey ?? ''} onValueChange={(v) => setSortKey(v)}>
-              <SelectTrigger className="h-8 w-[190px] text-xs">
+              <SelectTrigger className="h-8 w-full text-xs sm:w-[190px]">
                 <SelectValue placeholder="Default order" />
               </SelectTrigger>
               <SelectContent>
@@ -106,9 +106,10 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name or district"
-            className="h-8 w-full max-w-xs text-xs"
+            className="h-8 w-full text-xs sm:max-w-xs"
           />
         </div>
+
       </div>
 
       <CallingFilterBar
@@ -131,22 +132,28 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
       <CycleControls hub={hub} />
 
 
-      <div className="grid gap-3 lg:grid-cols-3">
-        <div className="lg:col-span-1 space-y-3">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        {/* Side panels come after the queue below lg — a caller needs the list first. */}
+        <div className="order-2 space-y-3 lg:order-1 lg:col-span-1">
           <OpenAttemptQueue hub={hub} onOpenForm={setFormAttempt} />
           <FollowupsDuePanel hub={hub} />
         </div>
 
-        <Card className="rounded-2xl border-border/60 p-2 sm:p-3 lg:col-span-2">
+        <Card className="order-1 min-w-0 rounded-2xl border-border/60 p-2 sm:p-3 lg:order-2 lg:col-span-2">
           {!hub.cycle ? (
             <p className="p-6 text-center text-xs text-muted-foreground">
               No open calling cycle for {subjectType}s. Open one from the cycle controls.
             </p>
           ) : (
             <Tabs value={tab} onValueChange={(v) => setTab(v as CallingTabKey)}>
+              {/* All five tabs at every width: wrap, never truncate or overflow. */}
               <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0">
                 {CALLING_TABS.map((t) => (
-                  <TabsTrigger key={t.key} value={t.key} className="h-8 gap-1.5 text-xs data-[state=active]:bg-muted">
+                  <TabsTrigger
+                    key={t.key}
+                    value={t.key}
+                    className="h-8 shrink-0 gap-1.5 whitespace-nowrap px-2 text-xs data-[state=active]:bg-muted"
+                  >
                     {t.label}
                     <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
                       {hub.counts[t.key]}
@@ -154,6 +161,7 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
                   </TabsTrigger>
                 ))}
               </TabsList>
+
 
               <TabsContent value={tab} className="mt-2">
                 {hub.error && (
@@ -178,13 +186,14 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
                       wipBlocked={hub.wipBlocked}
                       onReveal={handleReveal}
                     />
-                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1">
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1 pb-2">
                       <p className="text-[11px] text-muted-foreground">
                         {hub.total === 0
                           ? 'Showing 0 of 0'
                           : `Showing ${hub.pageFrom} to ${hub.pageTo} of ${hub.total.toLocaleString()}`}
                       </p>
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+
                         <Button
                           size="sm"
                           variant="outline"
