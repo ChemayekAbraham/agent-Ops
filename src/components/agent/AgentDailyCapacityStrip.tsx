@@ -36,12 +36,14 @@ export function AgentDailyCapacityStrip() {
   }
   if (!cap) return null;
 
-  const todayPct = cap.expected_daily > 0
-    ? Math.min(100, Math.round((cap.paid_today / cap.expected_daily) * 100))
-    : 0;
-  const barTone = todayPct >= 50 ? 'bg-emerald-500' : todayPct >= 20 ? 'bg-amber-500' : 'bg-destructive';
+  // Agent performance = share of due tenants reached today (not the UGX target).
+  const todayPct = Math.min(100, Math.round((cap.performance_pct || 0) * 100));
+  const barTone = todayPct >= 50 ? 'bg-emerald-500' : todayPct >= 15 ? 'bg-amber-500' : 'bg-destructive';
   const canPost = cap.can_post_rent_today;
-  const remaining = Math.max(0, cap.expected_daily - cap.paid_today);
+  const tenantsToGo = Math.max(
+    0,
+    Math.ceil(cap.tenants_due * 0.5) - cap.tenants_paid_today,
+  );
 
   return (
     <div className="rounded-2xl border-2 border-border/60 bg-card p-4 space-y-3">
