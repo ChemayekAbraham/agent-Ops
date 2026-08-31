@@ -374,9 +374,9 @@ export function UnifiedWalletHeroCard({
                 Withdrawable Balance
               </p>
               <p className="text-[clamp(1.75rem,6.5vw,2.75rem)] font-black tracking-tight leading-none text-white drop-shadow-sm">
-                {formatAmount(headlineBalance)}
+                {maskAmt(headlineBalance)}
               </p>
-              {pendingHold > 0 && (
+              {pendingHold > 0 && showAmount && (
                 <div className="mt-2.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-300/20">
                   <Clock className="h-3 w-3 text-amber-300" />
                   <span className="text-[10px] font-semibold text-amber-200">
@@ -384,7 +384,7 @@ export function UnifiedWalletHeroCard({
                   </span>
                 </div>
               )}
-              {pendingHold > 0 && (
+              {pendingHold > 0 && showAmount && (
                 <p className="text-[10px] text-white mt-1.5">
                   Wallet total: <span className="font-semibold text-white">{formatAmount(balance)}</span>
                 </p>
@@ -436,7 +436,7 @@ export function UnifiedWalletHeroCard({
         {secondaryLabel && secondaryValue && !showAgentSplit && !hideSecondaryRow && (
           <div className="flex items-center justify-between pt-1 border-t border-primary-foreground/[0.08]">
             <span className="text-[11px] text-white/50 font-medium">{secondaryLabel}</span>
-            <span className="text-[11px] text-white/70 font-bold">{secondaryValue}</span>
+            <span className="text-[11px] text-white/70 font-bold">{maskStr(secondaryValue)}</span>
           </div>
         )}
 
@@ -467,9 +467,9 @@ export function UnifiedWalletHeroCard({
                 Balance growing · {(payrollGrowth.dailyRate * 100).toFixed(1)}% / day
               </p>
               <p className="text-[10px] text-white/70 mt-0.5">
-                <span className="font-bold text-white">{formatAmount(displayedParked)}</span>
+                <span className="font-bold text-white">{maskAmt(displayedParked)}</span>
                 <span className="text-white/50"> parked · </span>
-                <span className="font-semibold text-emerald-300">+{formatAmount(displayedEarned)}</span>
+                <span className="font-semibold text-emerald-300">+{maskAmt(displayedEarned)}</span>
                 <span className="text-white/50"> earned</span>
               </p>
             </div>
