@@ -23168,6 +23168,105 @@ export type Database = {
           },
         ]
       }
+      partner_supported_houses: {
+        Row: {
+          activated_at: string | null
+          cancelled_at: string | null
+          commitment_id: string | null
+          created_at: string
+          funding_tag: string
+          house_id: string
+          id: string
+          landlord_id: string | null
+          listing_agent_id: string | null
+          metadata: Json
+          monthly_rate: number
+          partner_id: string
+          portfolio_id: string | null
+          principal: number
+          status: string
+          supported_at: string
+          term_months: number
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string | null
+          cancelled_at?: string | null
+          commitment_id?: string | null
+          created_at?: string
+          funding_tag?: string
+          house_id: string
+          id?: string
+          landlord_id?: string | null
+          listing_agent_id?: string | null
+          metadata?: Json
+          monthly_rate?: number
+          partner_id: string
+          portfolio_id?: string | null
+          principal: number
+          status?: string
+          supported_at?: string
+          term_months?: number
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string | null
+          cancelled_at?: string | null
+          commitment_id?: string | null
+          created_at?: string
+          funding_tag?: string
+          house_id?: string
+          id?: string
+          landlord_id?: string | null
+          listing_agent_id?: string | null
+          metadata?: Json
+          monthly_rate?: number
+          partner_id?: string
+          portfolio_id?: string | null
+          principal?: number
+          status?: string
+          supported_at?: string
+          term_months?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_supported_houses_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "partner_self_commitments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_supported_houses_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["commitment_id"]
+          },
+          {
+            foreignKeyName: "partner_supported_houses_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "house_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_supported_houses_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_property_base"
+            referencedColumns: ["listing_id"]
+          },
+          {
+            foreignKeyName: "partner_supported_houses_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_tokens: {
         Row: {
           agent_id: string
@@ -38953,6 +39052,66 @@ export type Database = {
         }
         Relationships: []
       }
+      v_partner_self_support_house_float: {
+        Row: {
+          activated_at: string | null
+          commitment_id: string | null
+          district: string | null
+          funding_tag: string | null
+          house_id: string | null
+          house_title: string | null
+          id: string | null
+          landlord_id: string | null
+          listing_agent_id: string | null
+          monthly_rate: number | null
+          monthly_rent: number | null
+          partner_id: string | null
+          partner_name: string | null
+          portfolio_id: string | null
+          principal: number | null
+          region: string | null
+          status: string | null
+          supported_at: string | null
+          term_months: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_supported_houses_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "partner_self_commitments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_supported_houses_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["commitment_id"]
+          },
+          {
+            foreignKeyName: "partner_supported_houses_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "house_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_supported_houses_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_property_base"
+            referencedColumns: ["listing_id"]
+          },
+          {
+            foreignKeyName: "partner_supported_houses_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_payables_lines: {
         Row: {
           category_key: string | null
@@ -46454,6 +46613,14 @@ export type Database = {
       }
       partner_self_topup_eligibility: {
         Args: { p_commitment_id: string }
+        Returns: Json
+      }
+      partner_support_houses: {
+        Args: {
+          p_house_ids: string[]
+          p_idempotency_key?: string
+          p_term_months?: number
+        }
         Returns: Json
       }
       partner_supported_house_returns: { Args: never; Returns: Json }
