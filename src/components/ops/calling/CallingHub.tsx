@@ -86,11 +86,11 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
           <PhoneCall className="h-4 w-4 text-primary" />
           {TITLE[subjectType]}
         </h2>
-        <div className="flex flex-wrap items-end gap-2">
+        <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-end">
           <div className="space-y-1">
             <Label className="text-[11px] text-muted-foreground">Sort by</Label>
             <Select value={hub.effectiveSortKey ?? ''} onValueChange={(v) => setSortKey(v)}>
-              <SelectTrigger className="h-8 w-[190px] text-xs">
+              <SelectTrigger className="h-8 w-full text-xs sm:w-[190px]">
                 <SelectValue placeholder="Default order" />
               </SelectTrigger>
               <SelectContent>
@@ -106,9 +106,10 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search name or district"
-            className="h-8 w-full max-w-xs text-xs"
+            className="h-8 w-full text-xs sm:max-w-xs"
           />
         </div>
+
       </div>
 
       <CallingFilterBar
