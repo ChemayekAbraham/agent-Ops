@@ -37,26 +37,39 @@ export function useVerifiedEmptyHouses() {
   return useQuery({
     queryKey: ['psh-verified-empty-houses'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
-        p_search: null,
-        p_limit: 24,
-        p_offset: 0,
-        p_district: null,
-        p_verified_only: true,
-        p_gps_only: false,
-        p_min_rent: null,
-        p_max_rent: null,
-        p_near_lat: null,
-        p_near_lng: null,
-        p_radius_km: null,
-      });
-      if (error) throw error;
-      const payload = (data ?? {}) as { houses?: SupportableHouse[]; total?: number };
+      const pageSize = 100;
+      const houses: SupportableHouse[] = [];
+      let offset = 0;
+      let total = 0;
+
+      do {
+        const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
+          p_search: null,
+          p_limit: pageSize,
+          p_offset: offset,
+          p_district: null,
+          p_verified_only: true,
+          p_gps_only: false,
+          p_min_rent: null,
+          p_max_rent: null,
+          p_near_lat: null,
+          p_near_lng: null,
+          p_radius_km: null,
+        });
+        if (error) throw error;
+        const payload = (data ?? {}) as { houses?: SupportableHouse[]; total?: number };
+        const batch = payload.houses ?? [];
+        houses.push(...batch);
+        total = Number(payload.total ?? houses.length);
+        offset += batch.length;
+        if (batch.length === 0) break;
+      } while (offset < total);
+
       return {
-        houses: (payload.houses ?? []).filter(
+        houses: houses.filter(
           (h) => h.verified === true && Number(h.monthly_rent) > 0,
         ),
-        total: Number(payload.total || 0),
+        total,
       };
     },
     staleTime: 5 * 60 * 1000,

@@ -26,7 +26,7 @@ const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
 const PLANS_PER_PAGE = 4;
 
-type FeedFilter = 'rent' | 'houses';
+type FeedFilter = 'all' | 'rent' | 'houses';
 
 
 interface EarningsSummary {
@@ -77,8 +77,8 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
   const [deployOpen, setDeployOpen] = useState(false);
   const [detailPlan, setDetailPlan] = useState<FundablePlan | null>(null);
   const [page, setPage] = useState(0);
-  // Which list leads the feed. Partners see rent requests first by default.
-  const [filter, setFilter] = useState<FeedFilter>('rent');
+  // The default feed is continuous: every rent request, then every house.
+  const [filter, setFilter] = useState<FeedFilter>('all');
   const [houseSelected, setHouseSelected] = useState<string[]>([]);
   const [detailHouse, setDetailHouse] = useState<SupportableHouse | null>(null);
   // Short code arriving from a branded /s/<code> share link (?share=<code>).
@@ -89,15 +89,35 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
   const plansQuery = useQuery({
     queryKey: ['psm-fundable-plans'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('partner_self_list_fundable_plans', {
-        p_limit: 20,
-        p_offset: 0,
-      });
-      if (error) throw error;
-      const payload = (data ?? {}) as { plans?: FundablePlan[]; available_balance?: number };
+      const pageSize = 100;
+      const plans: FundablePlan[] = [];
+      let offset = 0;
+      let total = 0;
+      let available = 0;
+
+      do {
+        const { data, error } = await supabase.rpc('partner_self_list_fundable_plans', {
+          p_limit: pageSize,
+          p_offset: offset,
+        });
+        if (error) throw error;
+        const payload = (data ?? {}) as {
+          plans?: FundablePlan[];
+          total?: number;
+          available_balance?: number;
+        };
+        const batch = payload.plans ?? [];
+        plans.push(...batch);
+        total = Number(payload.total ?? plans.length);
+        available = Number(payload.available_balance ?? available);
+        offset += batch.length;
+        if (batch.length === 0) break;
+      } while (offset < total);
+
       return {
-        plans: payload.plans ?? [],
-        available: Number(payload.available_balance ?? 0),
+        plans,
+        total,
+        available,
       };
     },
     staleTime: 5 * 60 * 1000,
@@ -161,13 +181,13 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
   const activeCommitmentId = fundedQuery.data?.activeCommitmentId ?? null;
   const earnings = fundedQuery.data?.earnings ?? null;
   // Only the very first load blocks the card; refetches keep the cards on screen.
-  const loading = plansQuery.isLoading && !plansQuery.data;
+  const loading = (plansQuery.isLoading && !plansQuery.data) || (housesQuery.isLoading && !housesQuery.data);
 
 
   const load = useCallback(async () => {
-    await plansQuery.refetch();
+    await Promise.all([plansQuery.refetch(), housesQuery.refetch()]);
     setPage(0);
-  }, [plansQuery]);
+  }, [plansQuery, housesQuery]);
 
   const loadFunded = useCallback(async () => {
     await fundedQuery.refetch();
@@ -197,7 +217,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
     if (!sharedPlanId || plans.length === 0) return;
     const index = plans.findIndex((p) => p.rent_request_id === sharedPlanId);
     if (index < 0) return;
-    setFilter('rent');
+    setFilter('all');
     setPage(Math.floor(index / PLANS_PER_PAGE));
 
     setDetailPlan(plans[index]);
@@ -229,8 +249,8 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
   const remaining = Math.max(0, available - total - houseTotal);
   const overBudget = total + houseTotal > available;
 
-  // One combined feed: rent requests first by default, houses first when the
-  // filter selects houses. Pagination walks straight through both lists.
+  // One continuous feed by default: all rent requests, then all houses.
+  // A filter narrows the feed instead of forcing users to toggle while browsing.
   type FeedItem =
     | { kind: 'plan'; id: string; plan: FundablePlan }
     | { kind: 'house'; id: string; house: SupportableHouse };
@@ -246,12 +266,18 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
       id: house.house_id,
       house,
     }));
-    return filter === 'houses' ? [...houseItems, ...planItems] : [...planItems, ...houseItems];
+    if (filter === 'rent') return planItems;
+    if (filter === 'houses') return houseItems;
+    return [...planItems, ...houseItems];
   }, [plans, houses, filter]);
 
   const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
   const pageStart = page * PLANS_PER_PAGE;
   const pageItems = feed.slice(pageStart, pageStart + PLANS_PER_PAGE);
+
+  useEffect(() => {
+    setPage((current) => Math.min(current, pageCount - 1));
+  }, [pageCount]);
 
   const toggle = (id: string) => {
     if (selected.includes(id)) {
@@ -383,6 +409,9 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
           }}
           className="shrink-0"
         >
+          <ToggleGroupItem value="all" className="h-7 px-2.5 text-[11px]">
+            All
+          </ToggleGroupItem>
           <ToggleGroupItem value="rent" className="h-7 px-2.5 text-[11px]">
             Rent
           </ToggleGroupItem>
@@ -608,7 +637,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
             <span className="ml-1">Previous</span>
           </Button>
           <p className="text-[11px] font-semibold text-muted-foreground">
-            Page {page + 1} of {pageCount}
+            {pageStart + 1}–{Math.min(pageStart + PLANS_PER_PAGE, feed.length)} of {feed.length} · Page {page + 1} of {pageCount}
           </p>
           <Button
             variant="outline"
