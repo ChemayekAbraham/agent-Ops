@@ -238,6 +238,17 @@ export function UnifiedWalletHeroCard({
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-[9px] font-bold text-emerald-300 uppercase tracking-wider">Active</span>
             </span>
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); hapticTap(); setShowAmount((s) => !s); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setShowAmount((s) => !s); } }}
+              aria-label={showAmount ? 'Hide amount' : 'Show amount'}
+              aria-pressed={showAmount}
+              className="p-1 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 active:scale-95 transition-all text-white/70 hover:text-white shrink-0 cursor-pointer"
+            >
+              {showAmount ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+            </span>
             <ChevronDown className="h-4 w-4 text-white/60 shrink-0" />
           </motion.button>
         )}
