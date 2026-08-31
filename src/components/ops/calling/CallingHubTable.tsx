@@ -204,12 +204,13 @@ export function CallingHubTable({
         <Table className="border-separate border-spacing-0">
           <TableHeader>
             <TableRow>
-              {columns.map((c, i) => (
+              {columns.map((c) => (
                 <TableHead
                   key={c}
-                  className={`whitespace-nowrap border-b border-border text-[11px] uppercase tracking-wide ${
-                    c === 'name' ? 'sticky left-0 z-20 bg-card' : ''
-                  } ${stickyRight && i === lastIndex ? 'sticky right-0 z-20 bg-card' : ''}`}
+                  style={stickyStyle(c, 20)}
+                  className={`whitespace-nowrap border-b border-border bg-card text-[11px] uppercase tracking-wide ${
+                    c === 'name' ? 'sticky left-0 z-20' : ''
+                  } ${stickyRightOffset(c) !== null ? 'sticky z-20' : ''}`}
                 >
                   {header(c)}
                 </TableHead>
@@ -219,12 +220,13 @@ export function CallingHubTable({
           <TableBody>
             {rows.map((row) => (
               <TableRow key={row.id}>
-                {columns.map((c, i) => (
+                {columns.map((c) => (
                   <TableCell
                     key={c}
-                    className={`whitespace-nowrap border-b border-border/60 text-xs ${c === 'name' ? 'sticky left-0 z-10 bg-card' : ''} ${
-                      stickyRight && i === lastIndex ? 'sticky right-0 z-10 bg-card' : ''
-                    }`}
+                    style={stickyStyle(c, 10)}
+                    className={`whitespace-nowrap border-b border-border/60 bg-card text-xs ${
+                      c === 'name' ? 'sticky left-0 z-10' : ''
+                    } ${stickyRightOffset(c) !== null ? 'sticky z-10' : ''}`}
                   >
                     {cell(row, c)}
                   </TableCell>
@@ -234,6 +236,7 @@ export function CallingHubTable({
           </TableBody>
         </Table>
       </div>
+
     </>
   );
 }
