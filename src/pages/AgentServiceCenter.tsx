@@ -19,6 +19,7 @@ import {
   useServiceCenterTransfers,
 } from '@/hooks/useAgentServiceCenter';
 import { SubAgentRosterCard } from '@/components/agent/service-center/SubAgentRosterCard';
+import { SubAgentRankingsBoard } from '@/components/agent/service-center/SubAgentRankingsBoard';
 import { SubAgentDetailSheet } from '@/components/agent/service-center/SubAgentDetailSheet';
 import { ServiceCenterRentVettingQueue } from '@/components/agent/service-center/ServiceCenterRentVettingQueue';
 import { ServiceCenterListingVettingQueue } from '@/components/agent/service-center/ServiceCenterListingVettingQueue';
@@ -220,6 +221,13 @@ export default function AgentServiceCenter() {
           </TabsContent>
 
           <TabsContent value="team" className="mt-3 space-y-3">
+            <SubAgentRankingsBoard
+              subAgents={subAgents}
+              isLoading={isLoading}
+              error={error}
+              onOpenSubAgent={setDetailId}
+            />
+
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 onClick={() => setInviteOpen(true)}
