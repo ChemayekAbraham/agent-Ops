@@ -123,7 +123,22 @@ export function TenantCallDrawer({
 
             <Separator className="my-3" />
 
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Money</p>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Person details</p>
+            <div className="grid grid-cols-1 gap-x-3 gap-y-1.5 rounded-lg border border-border/60 bg-muted/30 p-2.5 sm:grid-cols-2">
+              {details.map(d => (
+                <div key={d.label} className="min-w-0">
+                  <p className="text-[10px] leading-tight text-muted-foreground">{d.label}</p>
+                  <p className="text-xs font-medium leading-tight break-words">{d.value}</p>
+                </div>
+              ))}
+            </div>
+            {row.ops_note && (
+              <p className="mt-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-[11px] break-words">
+                <span className="font-semibold">Ops note: </span>{row.ops_note}
+              </p>
+            )}
+
+            <p className="mb-2 mt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Money</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               <Stat label="Rent" value={formatUGX(row.rent_amount)} />
               <Stat label="Expected daily" value={formatUGX(row.daily_repayment)} />
