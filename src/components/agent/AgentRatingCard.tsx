@@ -41,11 +41,12 @@ export function AgentRatingCard({ agentId }: Props) {
 
   const dailyLabel =
     cap.daily_rating === 'Starter' ? 'New today' : `Today: ${cap.daily_rating}`;
-  // Coverage-safe today % — the SAME figure the badge is graded on. The raw
-  // amount ratio (paid_today / expected_daily) overstates performance because
-  // one tenant over-paying cannot cover tenants who paid nothing.
-  const todayPct = Math.round((cap.today_response_pct || 0) * 100);
-  const rawTodayPct = cap.expected_daily > 1
+  // Agent-performance % — the SAME figure the badge is graded on: the share of
+  // due tenants the agent got to pay. It is NOT the UGX percentage of the
+  // expected daily book, so tenants paying less than their daily amount can no
+  // longer drag the agent's rating down.
+  const todayPct = Math.round((cap.performance_pct || 0) * 100);
+  const cashPct = cap.expected_daily > 1
     ? Math.min(100, Math.round((cap.paid_today / cap.expected_daily) * 100))
     : 0;
 
