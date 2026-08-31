@@ -26,6 +26,17 @@ const FORBIDDEN = [
   { re: /\.from\(\s*['"]general_ledger['"]\s*\)\s*\.insert\s*\(/, label: "general_ledger.insert(" },
   { re: /\.from\(\s*['"]general_ledger['"]\s*\)\s*\.update\s*\(/, label: "general_ledger.update(" },
   { re: /\.from\(\s*['"]general_ledger['"]\s*\)\s*\.delete\s*\(/, label: "general_ledger.delete(" },
+  // Merchant own-money claims decide what the company owes its agents, and
+  // settlement pays against that record. The table is read-only from the
+  // client by RLS (SELECT policies only) and guarded by
+  // trg_enforce_merchant_oop_integrity in the database; this keeps a direct
+  // write from being reintroduced here. Writes go through
+  // review_merchant_out_of_pocket / settle_merchant_out_of_pocket.
+  { re: /\.from\(\s*['"]merchant_out_of_pocket_advances['"](\s+as\s+any)?\s*\)\s*\.insert\s*\(/, label: "merchant_out_of_pocket_advances.insert(" },
+  { re: /\.from\(\s*['"]merchant_out_of_pocket_advances['"](\s+as\s+any)?\s*\)\s*\.update\s*\(/, label: "merchant_out_of_pocket_advances.update(" },
+  { re: /\.from\(\s*['"]merchant_out_of_pocket_advances['"](\s+as\s+any)?\s*\)\s*\.upsert\s*\(/, label: "merchant_out_of_pocket_advances.upsert(" },
+  { re: /\.from\(\s*['"]merchant_out_of_pocket_advances['"](\s+as\s+any)?\s*\)\s*\.delete\s*\(/, label: "merchant_out_of_pocket_advances.delete(" },
+  { re: /\.from\(\s*['"]merchant_oop_settlements['"](\s+as\s+any)?\s*\)\s*\.(insert|update|upsert|delete)\s*\(/, label: "merchant_oop_settlements write" },
   // Frontend MUST NOT do balance arithmetic — backend is the only authority.
   // Catches:  wallet.balance - amount,  w.withdrawable_balance += x,  etc.
   { re: /\bwallet\??\.(balance|withdrawable_balance|float_balance|advance_balance)\s*[-+]\s*\w/, label: "client-side wallet arithmetic" },
