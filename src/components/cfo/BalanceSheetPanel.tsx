@@ -562,7 +562,7 @@ export default function BalanceSheetPanel() {
               <TotalRow label="Subtotal — Marketplace Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0} />
               <SubHeading>Operational &amp; Other Liabilities</SubHeading>
               <div>{liabilityGroups?.operational.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
-              <TotalRow label="Subtotal — Operational &amp; Other Liabilities" value={liabilityGroups?.operationalTotal ?? 0} />
+              <TotalRow label={'Subtotal — Operational & Other Liabilities'} value={liabilityGroups?.operationalTotal ?? 0} />
               <TotalRow label="Total Liabilities" value={data.liabilities.total} />
               {liabilityGroupDrift !== 0 && (
                 <p className="mt-1 flex items-start gap-1 text-[10px] text-destructive">
