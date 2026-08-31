@@ -244,6 +244,65 @@ export function TenantCallingHub() {
             )}
           </div>
 
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            <Select value={district} onValueChange={setDistrict}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="District" /></SelectTrigger>
+              <SelectContent className="max-h-72">
+                <SelectItem value={ALL} className="text-xs">All districts</SelectItem>
+                {districtOptions.map(d => <SelectItem key={d} value={d} className="text-xs">{d}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            <Select value={agentId} onValueChange={setAgentId}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Agent" /></SelectTrigger>
+              <SelectContent className="max-h-72">
+                <SelectItem value={ALL} className="text-xs">All agents</SelectItem>
+                {agentOptions.map(([id, name]) => <SelectItem key={id} value={id} className="text-xs">{name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            <Select value={payment} onValueChange={setPayment}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Payment status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL} className="text-xs">Any payment status</SelectItem>
+                {PAYMENT_FILTERS.map(p => <SelectItem key={p.key} value={p.key} className="text-xs">{p.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+
+            <Select value={callStatus} onValueChange={setCallStatus}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Call status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL} className="text-xs">Any call status</SelectItem>
+                <SelectItem value="never" className="text-xs">Never called</SelectItem>
+                <SelectItem value="pending" className="text-xs">{TENANT_CALL_STATUS_LABEL.pending}</SelectItem>
+                <SelectItem value="closed" className="text-xs">{TENANT_CALL_STATUS_LABEL.closed}</SelectItem>
+                <SelectItem value="missed" className="text-xs">{TENANT_CALL_STATUS_LABEL.missed}</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={hasPhone} onValueChange={setHasPhone}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Phone" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL} className="text-xs">Phone: any</SelectItem>
+                <SelectItem value="yes" className="text-xs">Has phone number</SelectItem>
+                <SelectItem value="no" className="text-xs">No phone number</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {activeFilters > 0 && (
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-[10px]">
+                {activeFilters} filter{activeFilters > 1 ? 's' : ''} active · {visible.length.toLocaleString('en-US')} tenants
+              </Badge>
+              <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px]" onClick={clearFilters}>
+                <X className="mr-1 h-3 w-3" /> Clear filters
+              </Button>
+            </div>
+          )}
+
+
+
           {isLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
