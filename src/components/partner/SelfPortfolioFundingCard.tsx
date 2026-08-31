@@ -215,8 +215,41 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
     [plans, selected],
   );
 
-  const remaining = Math.max(0, available - total);
-  const overBudget = total > available;
+  const houseTotal = useMemo(
+    () =>
+      houses
+        .filter((h) => houseSelected.includes(h.house_id))
+        .reduce((sum, h) => sum + Number(h.monthly_rent || 0), 0),
+    [houses, houseSelected],
+  );
+
+  // Both lists draw from the same withdrawable balance.
+  const remaining = Math.max(0, available - total - houseTotal);
+  const overBudget = total + houseTotal > available;
+
+  // One combined feed: rent requests first by default, houses first when the
+  // filter selects houses. Pagination walks straight through both lists.
+  type FeedItem =
+    | { kind: 'plan'; id: string; plan: FundablePlan }
+    | { kind: 'house'; id: string; house: SupportableHouse };
+
+  const feed = useMemo<FeedItem[]>(() => {
+    const planItems: FeedItem[] = plans.map((plan) => ({
+      kind: 'plan',
+      id: plan.rent_request_id,
+      plan,
+    }));
+    const houseItems: FeedItem[] = houses.map((house) => ({
+      kind: 'house',
+      id: house.house_id,
+      house,
+    }));
+    return filter === 'houses' ? [...houseItems, ...planItems] : [...planItems, ...houseItems];
+  }, [plans, houses, filter]);
+
+  const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
+  const pageStart = page * PLANS_PER_PAGE;
+  const pageItems = feed.slice(pageStart, pageStart + PLANS_PER_PAGE);
 
   const toggle = (id: string) => {
     if (selected.includes(id)) {
@@ -233,6 +266,23 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
     }
     setSelected((prev) => [...prev, id]);
   };
+
+  const toggleHouse = (id: string) => {
+    if (houseSelected.includes(id)) {
+      setHouseSelected((prev) => prev.filter((x) => x !== id));
+      return;
+    }
+    const house = houses.find((h) => h.house_id === id);
+    const cost = Number(house?.monthly_rent || 0);
+    if (cost > remaining) {
+      toast.error(
+        `Not enough withdrawable balance. This house needs ${formatDynamic(cost)} and you have ${formatDynamic(remaining)} left to fund.`,
+      );
+      return;
+    }
+    setHouseSelected((prev) => [...prev, id]);
+  };
+
 
   const openDeploy = () => {
     if (total < MIN_FUNDING) {
