@@ -47019,6 +47019,10 @@ export type Database = {
         }
         Returns: Json
       }
+      ops_sync_rent_request_status_to_balance: {
+        Args: { p_rent_request_id: string }
+        Returns: undefined
+      }
       ops_tenant_balance_history: {
         Args: { p_rent_request_id: string }
         Returns: {
