@@ -17,7 +17,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 const OPEN_STATUSES = ['submitted', 'claimed', 'visit_verified', 'approved'];
 
 const STATUS_COPY: Record<string, { label: string; note: string }> = {
-  submitted: { label: 'With Service Centre', note: 'Your request was sent to the nearest Welile Service Centre. An agent will be assigned to review you.' },
+  submitted: { label: 'With Service Centre', note: 'Sent to your nearest Welile Service Centre for agent review.' },
   claimed: { label: 'Agent assigned', note: 'An agent picked up your request and will visit your house to verify it.' },
   visit_verified: { label: 'House verified', note: 'Your house was verified. The agent is finishing the review.' },
   approved: { label: 'Approved', note: 'You were approved. Your agent will now raise the rent plan for you.' },
@@ -171,9 +171,9 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
             <p className="font-bold text-sm leading-tight text-foreground">Request rent as tenant</p>
           </div>
 
-          <div>
+          <div className="mt-auto">
             {openRequest ? (
-              <p className="text-xs text-foreground/70 leading-snug line-clamp-2 break-words">{status?.note}</p>
+              <p className="text-[10px] text-foreground/70 leading-tight line-clamp-3 break-words">{status?.note}</p>
             ) : (
               <p className="text-xs text-foreground/70 leading-snug line-clamp-2 break-words">
                 Request rent · agent verifies your house
