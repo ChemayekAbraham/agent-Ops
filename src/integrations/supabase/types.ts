@@ -38740,12 +38740,14 @@ export type Database = {
           linked_agent_name: string | null
           monthly_rent: number | null
           name: string | null
+          next_due_date: string | null
           next_retry_at: string | null
           outstanding: number | null
           own_cash_outstanding: number | null
           park_reason: string | null
           plan_rent_total: number | null
           plans: number | null
+          preferred_language: string | null
           priority_value: number | null
           region: string | null
           routed_to_name: string | null
