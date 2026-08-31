@@ -217,12 +217,18 @@ Deno.serve(async (req) => {
       .select("source, commitment_id, term_months")
       .eq("portfolio_id", portfolioId)
       .maybeSingle();
-    const isSelfManaged = String(pendingRow?.source || "") === "self_managed";
+    const source = String(pendingRow?.source || "");
+    const isSelfManagedTenants = source === "self_managed";
+    // Empty-house self support: no tenant, no landlord/agent float — but the
+    // partner must receive the SAME deployment confirmation email.
+    const isSelfManagedHouses = source === "self_managed_house";
+    const isSelfManaged = isSelfManagedTenants || isSelfManagedHouses;
 
     // Self-managed approval has just released the principal as landlord float
     // (inside the approve_pending_portfolio transaction) and queued one SMS per
     // agent+landlord. Drain that queue now — fire and forget.
-    if (isSelfManaged && pendingRow?.commitment_id) {
+    // House support never disburses landlord/agent float, so it is skipped.
+    if (isSelfManagedTenants && pendingRow?.commitment_id) {
       try {
         await fetch(`${supabaseUrl}/functions/v1/notify-partner-float-agents`, {
           method: "POST",
@@ -237,8 +243,39 @@ Deno.serve(async (req) => {
     if (partner?.email && isSelfManaged) {
       const monthlyReward = Math.round(Number(portfolio.investment_amount) * (Number(portfolio.roi_percentage) / 100));
       let tenants: Array<Record<string, unknown>> = [];
+      // Supported empty houses reuse the same template rows — each line is a
+      // house instead of a tenant.
       try {
-        if (pendingRow?.commitment_id) {
+        if (isSelfManagedHouses && pendingRow?.commitment_id) {
+          const { data: hrows } = await admin
+            .from("partner_supported_houses")
+            .select("principal, house_id")
+            .eq("commitment_id", pendingRow.commitment_id);
+          const houseIds = (hrows || []).map((h: any) => h.house_id).filter(Boolean);
+          const houseById: Record<string, any> = {};
+          if (houseIds.length) {
+            const { data: listings } = await admin
+              .from("house_listings")
+              .select("id, title, house_category, address, village, district, image_urls")
+              .in("id", houseIds);
+            for (const l of (listings || []) as any[]) houseById[l.id] = l;
+          }
+          tenants = (hrows || []).map((h: any) => {
+            const l = houseById[h.house_id] || {};
+            const location = Array.from(
+              new Set([l.address, l.village, l.district].map((v: any) => (typeof v === "string" ? v.trim() : "")).filter(Boolean)),
+            ).join(", ");
+            const label = l.title
+              || (typeof l.house_category === "string" ? l.house_category.replace(/_/g, " ") : "")
+              || "Empty house";
+            return {
+              tenant_name: label,
+              tenant_location: location,
+              tenant_photo_url: Array.isArray(l.image_urls) ? (l.image_urls[0] || "") : "",
+              principal: Number(h.principal),
+            };
+          });
+        } else if (pendingRow?.commitment_id) {
           const { data: lines } = await admin
             .from("partner_self_funding_lines")
             .select("principal, rent_request_id")
