@@ -42,3 +42,5 @@
 - Funder dashboard funded list must include funded empty houses (self-support houses), not only rent plans.
 
 - [x] Cancel spamming queued emails (purge transactional queue; only 31 Aug failures should have been resent)
+
+- [ ] Clear residual UGX 26 balance for tenant Namuli Roy (+256751149880) — plan completed
