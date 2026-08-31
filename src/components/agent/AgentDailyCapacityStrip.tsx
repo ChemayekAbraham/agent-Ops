@@ -97,7 +97,7 @@ export function AgentDailyCapacityStrip() {
           <>
             <Lock className="h-4 w-4 shrink-0" />
             <span>
-              Collect <strong>{formatUGX(Math.max(0, Math.round(cap.expected_daily * 0.2) - cap.paid_today))}</strong> more today to unlock new rents
+              Collect from <strong>{Math.max(1, tenantsToGo)}</strong> more tenant{Math.max(1, tenantsToGo) === 1 ? '' : 's'} today to unlock new rents
             </span>
           </>
         )}
