@@ -396,9 +396,11 @@ export function ProxyTargetModeCard({ agentId }: { agentId?: string | null }) {
 
         <div className="rounded-lg border border-border p-2.5">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Included while on Target Mode
+            {t.benefits_active === false
+              ? 'Paused until you record a note every day'
+              : 'Included while on Target Mode'}
           </p>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <div className={cn('mt-1.5 flex flex-wrap gap-1.5', t.benefits_active === false && 'opacity-50')}>
             {perks.map((p) => (
               <Badge key={p.label} variant="secondary" className="gap-1 text-[10px] font-medium">
                 <p.icon className="h-3 w-3" /> {p.label}
@@ -406,6 +408,7 @@ export function ProxyTargetModeCard({ agentId }: { agentId?: string | null }) {
             ))}
           </div>
         </div>
+
 
         <Button
           variant="ghost"
