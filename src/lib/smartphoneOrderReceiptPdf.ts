@@ -7,6 +7,7 @@ import { savePdfWithVault } from '@/lib/pdfVault';
 export type SmartphoneOrderStatus =
   | 'submitted'
   | 'pending_approval'
+  | 'ops_approved'
   | 'coo_approved'
   | 'approved'
   | 'rejected'
@@ -17,13 +18,15 @@ export type SmartphoneOrderStatus =
 const STATUS_LABELS: Record<SmartphoneOrderStatus, string> = {
   submitted: 'Submitted',
   pending_approval: 'Pending approval',
-  coo_approved: 'Approved — awaiting disbursement',
+  ops_approved: 'Verified — awaiting COO',
+  coo_approved: 'Approved — awaiting supplier payment',
   approved: 'Approved',
   rejected: 'Rejected',
   processing: 'Processing',
   completed: 'Completed',
   failed: 'Failed',
 };
+
 
 
 
