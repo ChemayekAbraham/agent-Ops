@@ -3,8 +3,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
   Target, TrendingDown, CheckCircle2, Bike, Smartphone, Home, UtensilsCrossed,
-  Loader2, Info, CalendarClock, ChevronDown, Gift,
+  Loader2, Info, CalendarClock, ChevronDown, Gift, AlertTriangle,
 } from 'lucide-react';
+
 
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,6 +34,13 @@ export interface ProxyTargetModeState {
   daily_min: number;
   stretch_daily: number;
   notes_month: number;
+  notes_today: number;
+  daily_min_hit_today: boolean;
+  behind_today: boolean;
+  today_shortfall: number;
+  zero_note_days: number;
+  benefits_active: boolean;
+  guaranteed_min_income: number;
   expected_to_date: number;
   missed_notes: number;
   earned_now: number;
@@ -41,6 +49,7 @@ export interface ProxyTargetModeState {
   target_hit: boolean;
   on_track: boolean;
   month_start: string;
+
 }
 
 export function useProxyTargetMode(agentId?: string | null) {
@@ -149,10 +158,14 @@ export function ProxyTargetModeCard({ agentId }: { agentId?: string | null }) {
           </div>
 
           <p className="text-[11px] text-muted-foreground">
-            Miss a day and the income you can still receive drops by about{' '}
-            {money(t.rate_per_note)} for every note behind. Decline and you keep earning exactly
-            the way you do today — commissions are untouched either way.
+            Record at least 1 note every day to keep the benefits above — a day with no note at
+            all pauses them. Hit the {t.daily_min ?? 10}-note daily minimum and{' '}
+            {money(t.min_reward)} is secured for your wallet. Fall short and the income you can
+            still receive drops by about {money(t.rate_per_note)} for every note behind. Decline
+            and you keep earning exactly the way you do today — commissions are untouched either
+            way.
           </p>
+
 
           <div className="flex gap-2">
             <Button
@@ -233,6 +246,40 @@ export function ProxyTargetModeCard({ agentId }: { agentId?: string | null }) {
           </Badge>
         </div>
 
+        {t.benefits_active === false && (
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2.5">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+            <p className="text-[11px] leading-snug">
+              <span className="font-semibold">Target Mode benefits paused.</span> You went{' '}
+              {t.zero_note_days} {t.zero_note_days === 1 ? 'day' : 'days'} without recording a
+              single promissory note. At least 1 note every day keeps facilitation,
+              accommodation, bike, smartphone and restaurant access active.
+            </p>
+          </div>
+        )}
+
+        {t.daily_min_hit_today ? (
+          <div className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5">
+            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+            <p className="text-[11px] leading-snug">
+              <span className="font-semibold">
+                {money(t.guaranteed_min_income ?? t.min_reward)} secured
+              </span>{' '}
+              — you hit today&apos;s {t.daily_min ?? 10}-note minimum with {t.notes_today} notes.
+              It is paid to your wallet automatically at month end.
+            </p>
+          </div>
+        ) : (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5">
+            <CalendarClock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+            <p className="text-[11px] leading-snug">
+              <span className="font-semibold">You are behind today.</span> {t.notes_today} of{' '}
+              {t.daily_min ?? 10} notes recorded — {t.today_shortfall} more to secure{' '}
+              {money(t.min_reward)}. Record at least 1 note today to keep your benefits.
+            </p>
+          </div>
+        )}
+
         {lost > 0 && (
           <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5">
             <TrendingDown className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
@@ -252,8 +299,9 @@ export function ProxyTargetModeCard({ agentId }: { agentId?: string | null }) {
           <Progress value={progressPct} className="mt-1 h-1.5" />
         </div>
 
-        <div className="grid grid-cols-3 divide-x divide-border rounded-lg border border-border">
+        <div className="grid grid-cols-4 divide-x divide-border rounded-lg border border-border">
           {[
+            { label: 'Notes today', value: `${t.notes_today ?? 0}` },
             { label: 'Daily minimum', value: `${t.daily_min ?? t.daily_target}` },
             { label: 'Expected by today', value: `${t.expected_to_date}` },
             { label: 'Behind by', value: `${t.missed_notes}` },
@@ -266,6 +314,7 @@ export function ProxyTargetModeCard({ agentId }: { agentId?: string | null }) {
             </div>
           ))}
         </div>
+
 
         <button
           type="button"
@@ -351,9 +400,11 @@ export function ProxyTargetModeCard({ agentId }: { agentId?: string | null }) {
 
         <div className="rounded-lg border border-border p-2.5">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Included while on Target Mode
+            {t.benefits_active === false
+              ? 'Paused until you record a note every day'
+              : 'Included while on Target Mode'}
           </p>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
+          <div className={cn('mt-1.5 flex flex-wrap gap-1.5', t.benefits_active === false && 'opacity-50')}>
             {perks.map((p) => (
               <Badge key={p.label} variant="secondary" className="gap-1 text-[10px] font-medium">
                 <p.icon className="h-3 w-3" /> {p.label}
@@ -361,6 +412,7 @@ export function ProxyTargetModeCard({ agentId }: { agentId?: string | null }) {
             ))}
           </div>
         </div>
+
 
         <Button
           variant="ghost"
