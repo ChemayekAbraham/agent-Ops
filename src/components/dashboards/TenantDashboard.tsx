@@ -29,7 +29,7 @@ import { WalletDisclaimer } from '@/components/wallet/WalletDisclaimer';
 import { useWallet } from '@/hooks/useWallet';
 import { hapticTap } from '@/lib/haptics';
 import AiIdButton from '@/components/ai-id/AiIdButton';
-import { CreditAccessCard } from '@/components/CreditAccessCard';
+
 import { InviteAndEarnCard } from '@/components/shared/InviteAndEarnCard';
 import { SubscriptionStatusCard } from '@/components/tenant/SubscriptionStatusCard';
 import { VerificationChecklist } from '@/components/shared/VerificationChecklist';
@@ -358,8 +358,6 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
           {/* Prominent live tracker for any in-flight / active Business Advance */}
           <BusinessAdvanceStatusHero />
 
-          {/* Credit access limit — full-size, prominent at top */}
-          <CreditAccessCard userId={user.id} />
 
           {/* Wallet hero card — replaces the previous bread hero on tenant dashboard */}
           <div id="tenant-wallet-hero">
