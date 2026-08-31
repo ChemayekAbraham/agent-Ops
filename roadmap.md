@@ -8,6 +8,13 @@
    - ~~Wire `self_managed_house` portfolios into the same `partner-self-managed-deployment` template used for rent plans (house lines instead of tenant lines), skipping landlord/agent float SMS.~~
    - ~~Resend for portfolio WSH-9681 (UGX 140,000, SSENKAALI PIUS).~~
 
+## Email transport incident (2026-08-30)
+
+- ~~Diagnose global Mailgun 401 — root cause: Mailgun API key disabled account-side.~~
+- ~~Stop 401s from DLQ-ing mail: `process-email-queue` now treats 401 as a transport outage (message stays queued, 15-min cooldown).~~
+- Replace `MAILGUN_API_KEY` with a fresh active key (user action).
+- Requeue the 169 emails DLQ'd between 2026-08-30 19:24 and the fix.
+
 ## Call centre programme (Bwayo) — sequential, one migration each
 
 3. WELILE-CC-FOLLOWUP3 — `cc_followups` table, `cc_raise_park_ticket`, park trigger, promise-loop trigger on `hr_tasks`, `cc_complete_followup`.
