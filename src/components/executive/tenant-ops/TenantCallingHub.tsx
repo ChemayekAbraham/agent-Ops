@@ -95,16 +95,58 @@ export function TenantCallingHub() {
     [rows],
   );
 
+  /** Filter option lists are derived from the rows already loaded — no new queries. */
+  const districtOptions = useMemo(
+    () => [...new Set(rows.map(r => r.district).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b)),
+    [rows],
+  );
+  const agentOptions = useMemo(() => {
+    const m = new Map<string, string>();
+    rows.forEach(r => { if (r.agent_id) m.set(r.agent_id, r.agent_name || '—'); });
+    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [rows]);
+
+  const matchesPayment = (r: CallingListRow, key: PaymentFilter) => {
+    switch (key) {
+      case 'up_to_date': return r.missed_days === 0;
+      case 'missed_1_3': return r.missed_days >= 1 && r.missed_days <= 3;
+      case 'missed_4_7': return r.missed_days >= 4 && r.missed_days <= 7;
+      case 'missed_8_plus': return r.missed_days >= 8;
+      case 'owing': return r.outstanding_balance > 0;
+      case 'cleared': return r.outstanding_balance <= 0;
+      default: return true;
+    }
+  };
+
+  const activeFilters =
+    (district !== ALL ? 1 : 0) + (agentId !== ALL ? 1 : 0) + (callStatus !== ALL ? 1 : 0) +
+    (payment !== ALL ? 1 : 0) + (hasPhone !== ALL ? 1 : 0);
+
+  const clearFilters = () => {
+    setDistrict(ALL); setAgentId(ALL); setCallStatus(ALL); setPayment(ALL); setHasPhone(ALL);
+  };
+
   const visible = useMemo(() => {
     const base = tab === 'all' ? rows : buckets[tab];
     const q = search.trim().toLowerCase();
-    const filtered = q
-      ? base.filter(r =>
-          r.tenant_name.toLowerCase().includes(q) ||
+    const filtered = base.filter(r => {
+      if (q &&
+        !(r.tenant_name.toLowerCase().includes(q) ||
           r.phone.includes(q) ||
           (r.agent_name || '').toLowerCase().includes(q) ||
-          (r.district || '').toLowerCase().includes(q))
-      : base;
+          (r.district || '').toLowerCase().includes(q))) return false;
+      if (district !== ALL && (r.district || '') !== district) return false;
+      if (agentId !== ALL && r.agent_id !== agentId) return false;
+      if (callStatus !== ALL) {
+        const s = statusOf(r);
+        if (callStatus === 'never') { if (s) return false; }
+        else if (s !== callStatus) return false;
+      }
+      if (payment !== ALL && !matchesPayment(r, payment as PaymentFilter)) return false;
+      if (hasPhone === 'yes' && !r.phone) return false;
+      if (hasPhone === 'no' && r.phone) return false;
+      return true;
+    });
     const sorted = [...filtered];
     sorted.sort((a, b) =>
       sortBy === 'name'
@@ -113,7 +155,8 @@ export function TenantCallingHub() {
           ? b.missed_days - a.missed_days
           : b.outstanding_balance - a.outstanding_balance);
     return sorted;
-  }, [tab, rows, buckets, search, sortBy]);
+  }, [tab, rows, buckets, search, sortBy, district, agentId, callStatus, payment, hasPhone]);
+
 
   const tabs: { key: Tab; label: string; count: number }[] = [
     { key: 'to_call', label: 'To call', count: buckets.to_call.length },
