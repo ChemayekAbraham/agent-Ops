@@ -330,6 +330,9 @@ export function SmartphoneCatalogDialog() {
           default_amount: parseAmount(r.amount),
           specifications: r.specifications.trim() || null,
           more_specifications: r.moreSpecifications.trim() || null,
+          supplier_id: supplier?.id ?? null,
+          supplier_name: supplier?.name ?? null,
+          supplier_phone: supplier?.phone ?? null,
         };
       });
 
