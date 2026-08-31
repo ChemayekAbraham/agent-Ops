@@ -97,17 +97,29 @@ export function useTenantCallingList() {
       const all: any[] = [];
       const page = 1000;
       for (let from = 0; ; from += page) {
+        // Full callable population: every tenant on an active rent plan.
+        // (The eligibility view narrows to money-due/defaulting rows, which is
+        // not the right population for a calling list.)
         const { data, error } = await supabase
-          .from('v_tenant_daily_eligibility')
-          .select('rent_request_id, tenant_id, agent_id, landlord_id, daily_repayment, rent_amount, amount_repaid, total_repayment, start_at, status')
-          .order('start_at', { ascending: false })
+          .from('rent_requests')
+          .select('id, tenant_id, agent_id, landlord_id, daily_repayment, rent_amount, amount_repaid, total_repayment, disbursed_at, funded_at, created_at, status')
+          .in('status', ['funded', 'repaying'])
+          .not('tenant_id', 'is', null)
+          .order('created_at', { ascending: false })
           .range(from, from + page - 1);
         if (error) throw error;
-        all.push(...(data || []));
+        all.push(
+          ...(data || []).map((r: any) => ({
+            ...r,
+            rent_request_id: r.id,
+            start_at: r.disbursed_at || r.funded_at || r.created_at,
+          })),
+        );
         if (!data || data.length < page) break;
       }
       return all;
     },
+
     staleTime: 120000,
   });
 
