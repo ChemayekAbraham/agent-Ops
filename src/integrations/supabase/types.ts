@@ -27303,6 +27303,45 @@ export type Database = {
         }
         Relationships: []
       }
+      proxy_target_mode_enrollments: {
+        Row: {
+          agent_id: string
+          created_at: string
+          decided_at: string
+          id: string
+          min_notes: number
+          min_reward: number
+          monthly_note_target: number
+          monthly_reward: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          decided_at?: string
+          id?: string
+          min_notes?: number
+          min_reward?: number
+          monthly_note_target?: number
+          monthly_reward?: number
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          decided_at?: string
+          id?: string
+          min_notes?: number
+          min_reward?: number
+          monthly_note_target?: number
+          monthly_reward?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       public_error_logs: {
         Row: {
           created_at: string
@@ -43771,6 +43810,7 @@ export type Database = {
         Args: { p_agent_id: string; p_partner_id: string }
         Returns: number
       }
+      get_proxy_target_mode: { Args: { p_agent_id?: string }; Returns: Json }
       get_public_trust_profile: { Args: { p_ai_id: string }; Returns: Json }
       get_receivables_breakdown: { Args: never; Returns: Json }
       get_receivables_forecast: {
@@ -47525,6 +47565,10 @@ export type Database = {
       }
       set_proxy_commission_auto_approve: {
         Args: { p_enabled: boolean }
+        Returns: Json
+      }
+      set_proxy_target_mode: {
+        Args: { p_accept: boolean; p_agent_id?: string }
         Returns: Json
       }
       set_staff_access_password: {
