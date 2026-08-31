@@ -33,7 +33,7 @@ function SearchableFilter({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" className="h-8 w-[190px] justify-between px-2 text-xs font-normal">
+        <Button variant="outline" className="h-8 w-full justify-between px-2 text-xs font-normal sm:w-[190px]">
           <span className="truncate">{selected ? selected.label : 'All'}</span>
           <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
         </Button>
