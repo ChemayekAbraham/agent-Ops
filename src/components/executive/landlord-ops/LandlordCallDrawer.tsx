@@ -58,6 +58,21 @@ export function LandlordCallDrawer({
 
   const place = row ? [row.village, row.district, row.region].filter(Boolean).join(', ') : '';
 
+  const details: { label: string; value: string }[] = row
+    ? [
+        { label: 'Full name', value: row.landlord_name },
+        { label: 'Phone', value: row.phone || '—' },
+        { label: 'Registering agent', value: row.agent_name + (row.agent_phone ? ` · ${row.agent_phone}` : '') },
+        { label: 'Caretaker', value: row.caretaker_name ? `${row.caretaker_name}${row.caretaker_phone ? ` · ${row.caretaker_phone}` : ''}` : '—' },
+        { label: 'House category', value: row.house_category?.replace(/_/g, ' ') || '—' },
+        { label: 'Property address', value: row.property_address || '—' },
+        { label: 'Location', value: place || '—' },
+        { label: 'Verification', value: row.verified ? 'Verified' : 'Unverified' },
+        { label: 'Smartphone', value: row.has_smartphone === null ? '—' : row.has_smartphone ? 'Yes' : 'No' },
+        { label: 'Registered on', value: row.created_at ? format(new Date(row.created_at), 'dd MMM yyyy') : '—' },
+      ].filter(d => d.value && d.value !== '—')
+    : [];
+
   return (
     <Sheet open={open} onOpenChange={o => !o && onClose()}>
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
