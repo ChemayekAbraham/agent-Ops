@@ -70,7 +70,7 @@ export function AgentRatingCard({ agentId }: Props) {
         <div className="flex items-center gap-1.5">
           <span
             className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${dailyRatingTone[cap.daily_rating]}`}
-            title={`Today's coverage-safe collection — ${todayPct}% (${cap.tenants_paid_today} of ${cap.tenants_due} due tenants paid; ${formatUGX(cap.paid_today)} of ${formatUGX(cap.expected_daily)})`}
+            title={`Your performance today — ${todayPct}% of due tenants paid (${cap.tenants_paid_today} of ${cap.tenants_due}). Amounts collected: ${formatUGX(cap.paid_today)}.`}
           >
             {dailyLabel}
           </span>
