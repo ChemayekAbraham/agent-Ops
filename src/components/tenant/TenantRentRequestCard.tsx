@@ -117,32 +117,36 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
         type="button"
         onClick={() => (openRequest ? undefined : setOpen(true))}
         disabled={!!openRequest}
-        className="w-full rounded-[28px] border bg-card p-4 text-left flex items-start gap-3 shadow-sm active:scale-[0.99] transition-transform touch-manipulation disabled:active:scale-100"
+        className="w-full aspect-square rounded-[28px] border bg-success/10 border-success/20 p-4 text-left flex flex-col shadow-sm active:scale-[0.99] transition-transform touch-manipulation disabled:opacity-60 disabled:active:scale-100"
       >
-        <div className="p-2.5 rounded-2xl bg-primary/10 shrink-0">
-          <HandCoins className="h-6 w-6 text-primary" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-bold text-base leading-tight">Request rent as tenant</p>
-          {openRequest ? (
-            <>
+        <div className="flex flex-col justify-between h-full w-full">
+          <div>
+            <div className="p-2.5 rounded-2xl bg-success/20 w-fit mb-3">
+              <HandCoins className="h-6 w-6 text-success" />
+            </div>
+            <p className="font-bold text-lg leading-tight text-foreground">Request rent as tenant</p>
+            {openRequest && (
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 <Badge variant="secondary" className="text-[10px]">{status?.label}</Badge>
-                <span className="text-[11px] text-muted-foreground">{formatUGX(Number(openRequest.rent_amount))}</span>
+                <span className="text-[11px] text-foreground/70">{formatUGX(Number(openRequest.rent_amount))}</span>
               </div>
-              <p className="mt-1 text-[11px] text-muted-foreground leading-snug">{status?.note}</p>
-            </>
-          ) : (
-            <p className="mt-1 text-xs text-muted-foreground leading-snug">
-              Ask for rent yourself. We send you to the nearest Welile Service Centre, an agent reviews you and
-              verifies your house, then raises your rent plan.
-            </p>
-          )}
-          {latest?.status === 'declined' && !openRequest && latest.decline_reason && (
-            <p className="mt-1 text-[11px] text-destructive leading-snug">
-              Last request not approved: {latest.decline_reason}
-            </p>
-          )}
+            )}
+          </div>
+
+          <div>
+            {openRequest ? (
+              <p className="text-xs text-foreground/70 leading-snug line-clamp-2">{status?.note}</p>
+            ) : (
+              <p className="text-xs text-foreground/70 leading-snug truncate">
+                Request rent · agent verifies your house
+              </p>
+            )}
+            {latest?.status === 'declined' && !openRequest && latest.decline_reason && (
+              <p className="mt-1 text-[11px] text-destructive leading-snug truncate">
+                Last request not approved: {latest.decline_reason}
+              </p>
+            )}
+          </div>
         </div>
       </button>
 
