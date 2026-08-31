@@ -131,10 +131,26 @@ export function useCcCallingHub(
     filters?: CcFilterSelection;
   },
 ) {
-
   const { user, roles } = useAuth();
   const qc = useQueryClient();
   const [outstanding, setOutstanding] = useState<Record<string, unknown>[] | null>(null);
+
+  /** Only non-empty selections are sent; the key set is a stable query key. */
+  const activeFilters = useMemo(() => cleanFilters(view.filters), [view.filters]);
+  const filtersArg = useMemo(
+    () => (Object.keys(activeFilters).length ? activeFilters : null),
+    [activeFilters],
+  );
+  const filtersKey = useMemo(
+    () =>
+      Object.keys(activeFilters)
+        .sort()
+        .map((k) => `${k}=${activeFilters[k]}`)
+        .join('&'),
+    [activeFilters],
+  );
+  const activeFilterCount = Object.keys(activeFilters).length;
+
 
   const canManageCycles = useMemo(
     () => ['operations', 'hr', 'super_admin'].some((r) => (roles || []).includes(r as never)),
