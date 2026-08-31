@@ -7341,6 +7341,242 @@ export type Database = {
           },
         ]
       }
+      cc_call_attempts: {
+        Row: {
+          attempt_no: number
+          caller_id: string
+          channel: Database["public"]["Enums"]["hr_reporter_channel"] | null
+          created_at: string
+          cycle_row_id: string
+          id: string
+          outcome: Database["public"]["Enums"]["cc_attempt_outcome"] | null
+          recorded_at: string | null
+          revealed_at: string
+          source: string
+          telephony_ref: string | null
+        }
+        Insert: {
+          attempt_no: number
+          caller_id: string
+          channel?: Database["public"]["Enums"]["hr_reporter_channel"] | null
+          created_at?: string
+          cycle_row_id: string
+          id?: string
+          outcome?: Database["public"]["Enums"]["cc_attempt_outcome"] | null
+          recorded_at?: string | null
+          revealed_at?: string
+          source?: string
+          telephony_ref?: string | null
+        }
+        Update: {
+          attempt_no?: number
+          caller_id?: string
+          channel?: Database["public"]["Enums"]["hr_reporter_channel"] | null
+          created_at?: string
+          cycle_row_id?: string
+          id?: string
+          outcome?: Database["public"]["Enums"]["cc_attempt_outcome"] | null
+          recorded_at?: string | null
+          revealed_at?: string
+          source?: string
+          telephony_ref?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cc_call_attempts_cycle_row_id_fkey"
+            columns: ["cycle_row_id"]
+            isOneToOne: false
+            referencedRelation: "cc_cycle_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cc_call_cycles: {
+        Row: {
+          attempt_cap: number
+          closed_at: string | null
+          cycle_no: number
+          id: string
+          opened_at: string
+          opened_by: string
+          retry_after_days: number
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+        }
+        Insert: {
+          attempt_cap?: number
+          closed_at?: string | null
+          cycle_no: number
+          id?: string
+          opened_at?: string
+          opened_by: string
+          retry_after_days?: number
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+        }
+        Update: {
+          attempt_cap?: number
+          closed_at?: string | null
+          cycle_no?: number
+          id?: string
+          opened_at?: string
+          opened_by?: string
+          retry_after_days?: number
+          subject_type?: Database["public"]["Enums"]["cc_subject_type"]
+        }
+        Relationships: []
+      }
+      cc_cycle_rows: {
+        Row: {
+          attempts_made: number
+          callback_due_at: string | null
+          closed_at: string | null
+          created_at: string
+          cycle_id: string
+          id: string
+          last_attempt_at: string | null
+          next_retry_at: string | null
+          park_reason: string | null
+          parked_at: string | null
+          priority_value: number | null
+          state: Database["public"]["Enums"]["cc_row_state"]
+          subject_id: string
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+        }
+        Insert: {
+          attempts_made?: number
+          callback_due_at?: string | null
+          closed_at?: string | null
+          created_at?: string
+          cycle_id: string
+          id?: string
+          last_attempt_at?: string | null
+          next_retry_at?: string | null
+          park_reason?: string | null
+          parked_at?: string | null
+          priority_value?: number | null
+          state?: Database["public"]["Enums"]["cc_row_state"]
+          subject_id: string
+          subject_type: Database["public"]["Enums"]["cc_subject_type"]
+        }
+        Update: {
+          attempts_made?: number
+          callback_due_at?: string | null
+          closed_at?: string | null
+          created_at?: string
+          cycle_id?: string
+          id?: string
+          last_attempt_at?: string | null
+          next_retry_at?: string | null
+          park_reason?: string | null
+          parked_at?: string | null
+          priority_value?: number | null
+          state?: Database["public"]["Enums"]["cc_row_state"]
+          subject_id?: string
+          subject_type?: Database["public"]["Enums"]["cc_subject_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cc_cycle_rows_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "cc_call_cycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cc_feedback: {
+        Row: {
+          attempt_id: string
+          category_id: string
+          consent_to_contact: boolean | null
+          created_at: string
+          id: string
+          note: string
+          routed_to_actual: string | null
+          routed_to_expected: string | null
+          severity: Database["public"]["Enums"]["hr_ticket_severity"]
+          ticket_id: string | null
+        }
+        Insert: {
+          attempt_id: string
+          category_id: string
+          consent_to_contact?: boolean | null
+          created_at?: string
+          id?: string
+          note: string
+          routed_to_actual?: string | null
+          routed_to_expected?: string | null
+          severity?: Database["public"]["Enums"]["hr_ticket_severity"]
+          ticket_id?: string | null
+        }
+        Update: {
+          attempt_id?: string
+          category_id?: string
+          consent_to_contact?: boolean | null
+          created_at?: string
+          id?: string
+          note?: string
+          routed_to_actual?: string | null
+          routed_to_expected?: string | null
+          severity?: Database["public"]["Enums"]["hr_ticket_severity"]
+          ticket_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cc_feedback_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: true
+            referencedRelation: "cc_call_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cc_feedback_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "cc_feedback_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cc_feedback_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "hr_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cc_feedback_categories: {
+        Row: {
+          active: boolean
+          applies_to: Database["public"]["Enums"]["cc_subject_type"][]
+          code: string
+          created_at: string
+          default_owner_role: Database["public"]["Enums"]["app_role"] | null
+          id: string
+          label: string
+          locked: boolean
+        }
+        Insert: {
+          active?: boolean
+          applies_to: Database["public"]["Enums"]["cc_subject_type"][]
+          code: string
+          created_at?: string
+          default_owner_role?: Database["public"]["Enums"]["app_role"] | null
+          id?: string
+          label: string
+          locked?: boolean
+        }
+        Update: {
+          active?: boolean
+          applies_to?: Database["public"]["Enums"]["cc_subject_type"][]
+          code?: string
+          created_at?: string
+          default_owner_role?: Database["public"]["Enums"]["app_role"] | null
+          id?: string
+          label?: string
+          locked?: boolean
+        }
+        Relationships: []
+      }
       cfo_debit_obligations: {
         Row: {
           amount: number
@@ -40992,6 +41228,15 @@ export type Database = {
         }
         Returns: Json
       }
+      cc_can_read_subject: {
+        Args: { p_subject: Database["public"]["Enums"]["cc_subject_type"] }
+        Returns: boolean
+      }
+      cc_can_write_subject: {
+        Args: { p_subject: Database["public"]["Enums"]["cc_subject_type"] }
+        Returns: boolean
+      }
+      cc_close_cycle: { Args: { p_cycle_id: string }; Returns: undefined }
       ceo_angel_pool_shareholder_action: {
         Args: {
           p_action: string
@@ -48597,6 +48842,21 @@ export type Database = {
         | "invalidated"
         | "duplicate"
         | "existing_user"
+      cc_attempt_outcome:
+        | "engaged"
+        | "no_answer"
+        | "phone_off"
+        | "wrong_number"
+        | "refused"
+        | "callback_booked"
+      cc_row_state:
+        | "to_call"
+        | "engaged"
+        | "unreachable"
+        | "callback"
+        | "parked"
+        | "closed"
+      cc_subject_type: "tenant" | "landlord" | "agent"
       collection_payment_method: "mobile_money" | "cash" | "in_app_wallet"
       deposit_purpose:
         | "operational_float"
@@ -48949,6 +49209,23 @@ export const Constants = {
         "duplicate",
         "existing_user",
       ],
+      cc_attempt_outcome: [
+        "engaged",
+        "no_answer",
+        "phone_off",
+        "wrong_number",
+        "refused",
+        "callback_booked",
+      ],
+      cc_row_state: [
+        "to_call",
+        "engaged",
+        "unreachable",
+        "callback",
+        "parked",
+        "closed",
+      ],
+      cc_subject_type: ["tenant", "landlord", "agent"],
       collection_payment_method: ["mobile_money", "cash", "in_app_wallet"],
       deposit_purpose: [
         "operational_float",
