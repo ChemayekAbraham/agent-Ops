@@ -24,19 +24,9 @@ import { Smartphone, FileText, ShieldCheck, AlertTriangle, Loader2 } from 'lucid
 import { formatUGX } from '@/lib/rentCalculations';
 import smartphonePromoAsset from '@/assets/smartphone-promo.jpg.asset.json';
 import { useSmartphoneCatalog } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
+import { SMARTPHONE_PERIODS as PERIODS, smartphoneSchedule } from '@/lib/smartphoneAdvance';
 
 const db = supabase as any;
-
-/** Repayment periods offered to agents. Programme charges stay internal. */
-const PERIODS = [
-  { months: 3, days: 90 },
-  { months: 6, days: 180 },
-  { months: 9, days: 270 },
-  { months: 12, days: 365 },
-] as const;
-
-/** Internal only — never shown to the applicant. */
-const INTERNAL_MARKUP: Record<number, number> = { 3: 33, 6: 36, 9: 39, 12: 42 };
 
 interface Eligibility {
   user_id: string;
@@ -91,9 +81,10 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
   const selected = options.find((c) => c.id === catalogId);
   const price = Math.max(0, Math.round(Number(selected?.default_amount ?? 0)));
-  const period = PERIODS.find((p) => String(p.months) === months) ?? PERIODS[3];
-  const totalRepayable = price > 0 ? Math.round(price + (price * INTERNAL_MARKUP[period.months]) / 100) : 0;
-  const dailyAmount = totalRepayable > 0 ? Math.ceil(totalRepayable / period.days) : 0;
+  const period = PERIODS.find((p) => String(p.months) === months) ?? PERIODS[PERIODS.length - 1];
+  const schedule = smartphoneSchedule(price, period.months);
+  const totalRepayable = schedule.total;
+  const dailyAmount = schedule.daily;
 
   const canSubmit = !!eligibility?.eligible && !!selected && price > 0;
 
@@ -202,7 +193,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 <SelectContent>
                   {options.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.brand}{c.model_name ? ` · ${c.model_name}` : ''} — {formatUGX(Number(c.default_amount))}
+                      {c.brand}{c.model_name ? ` · ${c.model_name}` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
