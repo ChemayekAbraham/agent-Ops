@@ -13,11 +13,21 @@ import { SelfPortfolioDeployDialog } from './SelfPortfolioDeployDialog';
 import { SelfPortfolioPlanDetailSheet } from './SelfPortfolioPlanDetailSheet';
 import { PlanShareButton } from './PlanShareButton';
 import { SlotAmount } from './SlotAmount';
-import { SelfSupportHousesSection } from './SelfSupportHousesSection';
+import {
+  HouseSupportBar,
+  HouseSupportCard,
+  useVerifiedEmptyHouses,
+  type SupportableHouse,
+} from './SelfSupportHousesSection';
+import { EmptyHouseDetailSheet } from '@/components/agent/EmptyHouseDetailSheet';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
 const PLANS_PER_PAGE = 4;
+
+type FeedFilter = 'rent' | 'houses';
+
 
 interface EarningsSummary {
   nextPayoutDate: string | null;
@@ -67,8 +77,13 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
   const [deployOpen, setDeployOpen] = useState(false);
   const [detailPlan, setDetailPlan] = useState<FundablePlan | null>(null);
   const [page, setPage] = useState(0);
+  // Which list leads the feed. Partners see rent requests first by default.
+  const [filter, setFilter] = useState<FeedFilter>('rent');
+  const [houseSelected, setHouseSelected] = useState<string[]>([]);
+  const [detailHouse, setDetailHouse] = useState<SupportableHouse | null>(null);
   // Short code arriving from a branded /s/<code> share link (?share=<code>).
   const [sharedPlanId, setSharedPlanId] = useState<string | null>(null);
+
 
   // Cached so returning to this tab paints instantly; refreshes happen silently.
   const plansQuery = useQuery({
@@ -137,13 +152,17 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
     refetchOnWindowFocus: false,
   });
 
+  const housesQuery = useVerifiedEmptyHouses();
+
   const plans = plansQuery.data?.plans ?? [];
+  const houses = housesQuery.data?.houses ?? [];
   const available = plansQuery.data?.available ?? 0;
   const fundedIds = fundedQuery.data?.fundedIds ?? [];
   const activeCommitmentId = fundedQuery.data?.activeCommitmentId ?? null;
   const earnings = fundedQuery.data?.earnings ?? null;
   // Only the very first load blocks the card; refetches keep the cards on screen.
   const loading = plansQuery.isLoading && !plansQuery.data;
+
 
   const load = useCallback(async () => {
     await plansQuery.refetch();
@@ -178,7 +197,9 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
     if (!sharedPlanId || plans.length === 0) return;
     const index = plans.findIndex((p) => p.rent_request_id === sharedPlanId);
     if (index < 0) return;
+    setFilter('rent');
     setPage(Math.floor(index / PLANS_PER_PAGE));
+
     setDetailPlan(plans[index]);
     setSharedPlanId(null);
     window.setTimeout(() => {
@@ -196,8 +217,41 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
     [plans, selected],
   );
 
-  const remaining = Math.max(0, available - total);
-  const overBudget = total > available;
+  const houseTotal = useMemo(
+    () =>
+      houses
+        .filter((h) => houseSelected.includes(h.house_id))
+        .reduce((sum, h) => sum + Number(h.monthly_rent || 0), 0),
+    [houses, houseSelected],
+  );
+
+  // Both lists draw from the same withdrawable balance.
+  const remaining = Math.max(0, available - total - houseTotal);
+  const overBudget = total + houseTotal > available;
+
+  // One combined feed: rent requests first by default, houses first when the
+  // filter selects houses. Pagination walks straight through both lists.
+  type FeedItem =
+    | { kind: 'plan'; id: string; plan: FundablePlan }
+    | { kind: 'house'; id: string; house: SupportableHouse };
+
+  const feed = useMemo<FeedItem[]>(() => {
+    const planItems: FeedItem[] = plans.map((plan) => ({
+      kind: 'plan',
+      id: plan.rent_request_id,
+      plan,
+    }));
+    const houseItems: FeedItem[] = houses.map((house) => ({
+      kind: 'house',
+      id: house.house_id,
+      house,
+    }));
+    return filter === 'houses' ? [...houseItems, ...planItems] : [...planItems, ...houseItems];
+  }, [plans, houses, filter]);
+
+  const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
+  const pageStart = page * PLANS_PER_PAGE;
+  const pageItems = feed.slice(pageStart, pageStart + PLANS_PER_PAGE);
 
   const toggle = (id: string) => {
     if (selected.includes(id)) {
@@ -214,6 +268,23 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
     }
     setSelected((prev) => [...prev, id]);
   };
+
+  const toggleHouse = (id: string) => {
+    if (houseSelected.includes(id)) {
+      setHouseSelected((prev) => prev.filter((x) => x !== id));
+      return;
+    }
+    const house = houses.find((h) => h.house_id === id);
+    const cost = Number(house?.monthly_rent || 0);
+    if (cost > remaining) {
+      toast.error(
+        `Not enough withdrawable balance. This house needs ${formatDynamic(cost)} and you have ${formatDynamic(remaining)} left to fund.`,
+      );
+      return;
+    }
+    setHouseSelected((prev) => [...prev, id]);
+  };
+
 
   const openDeploy = () => {
     if (total < MIN_FUNDING) {
@@ -296,15 +367,41 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
         </Card>
       )}
 
-      {plans.length === 0 && (
+      <div className="flex items-center justify-between gap-2 px-1">
+        <p className="text-[11px] font-semibold text-muted-foreground">
+          {plans.length} rent request{plans.length === 1 ? '' : 's'} · {houses.length} house
+          {houses.length === 1 ? '' : 's'}
+        </p>
+        <ToggleGroup
+          type="single"
+          size="sm"
+          value={filter}
+          onValueChange={(v) => {
+            if (!v) return;
+            setFilter(v as FeedFilter);
+            setPage(0);
+          }}
+          className="shrink-0"
+        >
+          <ToggleGroupItem value="rent" className="h-7 px-2.5 text-[11px]">
+            Rent
+          </ToggleGroupItem>
+          <ToggleGroupItem value="houses" className="h-7 px-2.5 text-[11px]">
+            Houses
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+
+      {feed.length === 0 && (
         <Card className="p-6 rounded-2xl text-center">
           <Wallet className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
-          <p className="text-sm font-semibold">No approved plans awaiting money right now</p>
+          <p className="text-sm font-semibold">Nothing awaiting money right now</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Plans appear here after approval and disappear once the landlord is paid.
+            Rent requests appear here after approval, and verified empty houses appear as soon as they are listed.
           </p>
         </Card>
       )}
+
 
       {plans.length > 1 && (
         <div className="flex items-center justify-between gap-2 px-1">
@@ -345,9 +442,42 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
         </div>
       )}
 
-      {plans
-        .slice(page * PLANS_PER_PAGE, page * PLANS_PER_PAGE + PLANS_PER_PAGE)
-        .map((plan) => {
+      {pageItems.map((item, i) => {
+        const globalIndex = pageStart + i;
+        const prevKind = globalIndex > 0 ? feed[globalIndex - 1].kind : null;
+        const groupHeader =
+          prevKind !== item.kind ? (
+            <div key={`hr-${item.kind}`} className="flex items-center gap-2 px-1 pt-2">
+              <span className="h-px flex-1 bg-border" />
+              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                {item.kind === 'house' ? 'Houses' : 'Rent requests'}
+              </span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          ) : null;
+
+        if (item.kind === 'house') {
+          return (
+            <div key={`house-${item.id}`} className="space-y-3">
+              {groupHeader}
+              <HouseSupportCard
+                house={item.house}
+                isSelected={houseSelected.includes(item.id)}
+                remaining={remaining}
+                busy={busy}
+                onToggle={toggleHouse}
+                onOpenDetail={setDetailHouse}
+              />
+            </div>
+          );
+        }
+
+        return (
+          <div key={`plan-${item.id}`} className="space-y-3">
+            {groupHeader}
+            {(() => {
+        const plan = item.plan;
+
         const isFunded = fundedIds.includes(plan.rent_request_id);
         const heldByOther = !!plan.held_by && plan.held_by !== partnerId;
         const isSelected = selected.includes(plan.rent_request_id);
@@ -460,9 +590,12 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
             </div>
           </Card>
         );
+            })()}
+          </div>
+        );
       })}
 
-      {plans.length > PLANS_PER_PAGE && (
+      {feed.length > PLANS_PER_PAGE && (
         <div className="flex items-center justify-between gap-2 px-1 pt-1">
           <Button
             variant="outline"
@@ -475,13 +608,13 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
             <span className="ml-1">Previous</span>
           </Button>
           <p className="text-[11px] font-semibold text-muted-foreground">
-            Page {page + 1} of {Math.ceil(plans.length / PLANS_PER_PAGE)}
+            Page {page + 1} of {pageCount}
           </p>
           <Button
             variant="outline"
             size="sm"
             className="h-8 text-[11px]"
-            disabled={page >= Math.ceil(plans.length / PLANS_PER_PAGE) - 1}
+            disabled={page >= pageCount - 1}
             onClick={() => setPage((p) => p + 1)}
           >
             <span className="mr-1">Next</span>
@@ -489,6 +622,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
           </Button>
         </div>
       )}
+
 
       {selected.length > 0 && (
         <Card className="mt-3 rounded-2xl border-primary/25 bg-background/95 p-3 sm:p-4 shadow-xl backdrop-blur-md">
@@ -537,7 +671,31 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
         </Card>
       )}
 
-      <SelfSupportHousesSection available={remaining} />
+      {houseSelected.length > 0 && (
+        <HouseSupportBar
+          selectedCount={houseSelected.length}
+          total={houseTotal}
+          available={Math.max(0, available - total)}
+          busy={busy}
+          setBusy={setBusy}
+          selectedIds={houseSelected}
+          onSubmitted={async (outcome) => {
+            setHouseSelected([]);
+            await housesQuery.refetch();
+            if (outcome === 'submitted') await loadFunded();
+          }}
+        />
+      )}
+
+      <EmptyHouseDetailSheet
+        house={detailHouse}
+        open={!!detailHouse}
+        onOpenChange={(v) => !v && setDetailHouse(null)}
+        isPartner
+        isPicked={!!detailHouse && houseSelected.includes(detailHouse.house_id)}
+        onTogglePick={(h) => toggleHouse(h.house_id)}
+      />
+
 
       <SelfPortfolioDeployDialog
         open={deployOpen}
