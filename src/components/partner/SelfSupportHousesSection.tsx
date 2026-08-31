@@ -132,6 +132,10 @@ export function HouseSupportCard({
               <Home className="h-7 w-7 text-muted-foreground" />
             </div>
           )}
+          {/* Card-type badge: this row is an empty house, no tenant attached. */}
+          <span className="absolute left-1.5 top-1.5 rounded-full bg-secondary px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-secondary-foreground shadow-sm">
+            House
+          </span>
           {images.length > 1 && (
             <span className="absolute bottom-1.5 right-1.5 rounded-full bg-background/85 px-1.5 py-0.5 text-[9px] font-bold backdrop-blur">
               +{images.length - 1}
