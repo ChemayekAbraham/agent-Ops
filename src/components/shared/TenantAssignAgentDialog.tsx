@@ -25,6 +25,9 @@ export default function TenantAssignAgentDialog({
 }: Props) {
   const qc = useQueryClient();
   const [agentId, setAgentId] = useState<string>(currentAgentId || '');
+  // Remember the picked person so the selection stays visible even after the
+  // search list reloads (the list is re-fetched per search term).
+  const [selectedAgent, setSelectedAgent] = useState<{ id: string; full_name: string | null; phone: string | null } | null>(null);
   const [agentQuery, setAgentQuery] = useState('');
   const deferredAgentQuery = useDeferredValue(agentQuery.trim());
   const [agentDropdownOpen, setAgentDropdownOpen] = useState(false);
@@ -34,10 +37,12 @@ export default function TenantAssignAgentDialog({
 
   useEffect(() => {
     setAgentId(currentAgentId || '');
+    setSelectedAgent(null);
     setAgentQuery('');
     setAgentDropdownOpen(false);
     setListingId('');
   }, [currentAgentId, rentRequestId, open]);
+
 
   // Load the rent_request landlord (used to scope listings)
   const { data: rentReq } = useQuery({
