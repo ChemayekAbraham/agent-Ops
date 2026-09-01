@@ -234,7 +234,9 @@ export function SubmitGate({
               </ul>
             </>
           )}
+          {notifyNotice}
         </div>
+
         <Button type="button" disabled={!canSubmit || busy} onClick={handleSubmit}>
           {busy ? 'Submitting…' : 'Submit report'}
         </Button>
