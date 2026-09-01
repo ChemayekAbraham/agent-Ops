@@ -43,13 +43,16 @@ export function PartnerOpsReportExportButton() {
   const download = async (period: Period, format: Format = 'pdf') => {
     setBusy(`${period}:${format}`);
     try {
-      const day = period === 'yesterday' ? eatDay(-1) : eatDay(0);
-      const resolved = period === 'yesterday' ? 'daily' : period;
+      const lm = period === 'last_month' ? lastMonthWindow() : null;
+      const day = lm ? lm.end : period === 'yesterday' ? eatDay(-1) : eatDay(0);
+      const resolved = period === 'yesterday' ? 'daily' : period === 'last_month' ? 'monthly' : period;
+      const range = lm ? { start: lm.start, end: lm.end } : {};
       if (format === 'html') {
         const { data, error } = await supabase.functions.invoke('partner-ops-daily-report', {
-          body: { period: resolved, date: day, preview: true },
+          body: { period: resolved, date: day, ...range, preview: true },
         });
         if (error) throw error;
+
         const html = typeof data === 'string' ? data : await (data as Blob).text();
         const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
         const url = URL.createObjectURL(blob);
