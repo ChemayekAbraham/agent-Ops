@@ -66,5 +66,5 @@
 
 ## 2026-09-01 (later)
 
-- [ ] Balance Sheet: split Landlord Float into Company Managed / Self Managed + Total Landlord Float subtotal (presentation only, UI + CSV + PDF)
-- [ ] Service Centre page still raising HOUSE_VERIFICATION_FORBIDDEN — allow the listing's assigned service centre manager (not only tagged managers) to run the review step
+- [x] Balance Sheet: split Landlord Float into Company Managed / Self Managed + Total Landlord Float subtotal (presentation only, UI + CSV + PDF)
+- [x] Service Centre page still raising HOUSE_VERIFICATION_FORBIDDEN — allow the listing's assigned service centre manager (not only tagged managers) to run the review step
