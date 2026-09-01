@@ -63,6 +63,38 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
         </p>
         <p>{threshold === null ? 'threshold —' : `threshold ${threshold.toFixed(1)}%`}</p>
       </div>
+
+      <div className="mt-4 space-y-1 border-t border-border pt-3 text-sm text-muted-foreground">
+        <p>
+          <span className="text-foreground">total rent recovered this period</span>
+          {' — '}
+          {collectedTotal === null ? '—' : formatUGX(collectedTotal)}
+        </p>
+        <p>
+          <span className="text-foreground">of which counted in the rate</span>
+          {' — '}
+          {collected === null ? '—' : formatUGX(collected)}
+          {cohortCount !== null && ` across ${cohortCount} funded tenancies within term`}
+        </p>
+        <p>
+          <span className="text-foreground">arrears recovered on completed terms</span>
+          {' — '}
+          {arrearsRecovered === null ? '—' : formatUGX(arrearsRecovered)}
+          {arrearsCount !== null && ` across ${arrearsCount} funded tenancies past term`}
+        </p>
+        {unallocated !== null && unallocated > 0 && (
+          <p>
+            <span className="text-foreground">unattributed</span>
+            {' — '}
+            {formatUGX(unallocated)}
+            <span className="ml-1">not matched to a funded tenancy</span>
+          </p>
+        )}
+        <p className="pt-2 text-xs italic">
+          The headline rate is measured only on rent scheduled and recovered within term; arrears
+          recovery is reported beside it, not inside it.
+        </p>
+      </div>
     </section>
   );
 }
