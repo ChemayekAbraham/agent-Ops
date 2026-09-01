@@ -48544,6 +48544,10 @@ export type Database = {
         Returns: undefined
       }
       psm_queue_promissory_release_warnings: { Args: never; Returns: Json }
+      psm_release_cancelled_idempotency: {
+        Args: { p_key: string; p_partner: string }
+        Returns: boolean
+      }
       psm_release_expired_promissory_intents: { Args: never; Returns: Json }
       psm_release_orphaned_self_funding: {
         Args: { p_partner_id?: string }
