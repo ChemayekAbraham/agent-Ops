@@ -127,20 +127,32 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
           next_payout_at?: string | null;
           monthly_rate?: number;
           created_at?: string;
+          committed_amount?: number;
+          kind?: 'rent' | 'houses' | 'unknown';
+          portfolio_code?: string | null;
         }[];
         totals?: { total_earned?: number; total_paid?: number; active?: number };
       };
 
-      const activeCommitments = (payload.commitments ?? []).filter((c) => c.status === 'active');
-      // Newest active portfolio is the top-up target.
-      const activeCommitmentId =
-        [...activeCommitments].sort((a, b) =>
-          String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')),
-        )[0]?.id ?? null;
+      // Newest active portfolio per kind. Rent-plan capital may only top up a
+      // rent portfolio, house capital only a house portfolio — the flows differ.
+      const activeCommitments = (payload.commitments ?? [])
+        .filter((c) => c.status === 'active')
+        .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')));
+
+      const rentCommitment = activeCommitments.find((c) => c.kind === 'rent') ?? null;
+      const houseCommitment = activeCommitments.find((c) => c.kind === 'houses') ?? null;
 
       return {
         fundedIds: (payload.lines ?? []).map((l) => l.rent_request_id),
-        activeCommitmentId,
+        activeCommitmentId: rentCommitment?.id ?? null,
+        houseCommitment: houseCommitment
+          ? {
+              id: String(houseCommitment.id),
+              committed_amount: Number(houseCommitment.committed_amount ?? 0),
+              portfolio_code: houseCommitment.portfolio_code ?? null,
+            }
+          : null,
       };
     },
     staleTime: 5 * 60 * 1000,
@@ -155,6 +167,8 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
   const available = plansQuery.data?.available ?? 0;
   const fundedIds = fundedQuery.data?.fundedIds ?? [];
   const activeCommitmentId = fundedQuery.data?.activeCommitmentId ?? null;
+  const activeHouseCommitment = fundedQuery.data?.houseCommitment ?? null;
+
   
   // Only the very first load blocks the card; refetches keep the cards on screen.
   const loading = (plansQuery.isLoading && !plansQuery.data) || (housesQuery.isLoading && !housesQuery.data);
