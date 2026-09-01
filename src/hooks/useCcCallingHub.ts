@@ -105,7 +105,50 @@ export interface CcFilterOption {
 /** filter key -> selected value. An absent/empty key means "no filter". */
 export type CcFilterSelection = Record<string, string>;
 
-const err = (e: unknown) => (e instanceof Error ? e.message : String(e));
+/**
+ * Turn anything thrown by Supabase into text a human can act on.
+ *
+ * A PostgrestError is a plain object, not an Error, so `String(e)` renders it
+ * as "[object Object]" and the real reason ("Record the outcome of your open
+ * calls before revealing another number.") never reaches the operator.
+ * This never returns "[object Object]" for any input.
+ */
+export const ccErrorText = (e: unknown): string => {
+  if (e == null) return 'Something went wrong.';
+  if (typeof e === 'string') return e || 'Something went wrong.';
+  if (typeof e !== 'object') return String(e);
+
+  const o = e as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown; error_description?: unknown };
+  const parts: string[] = [];
+  const message = typeof o.message === 'string' ? o.message.trim() : '';
+  const description = typeof o.error_description === 'string' ? o.error_description.trim() : '';
+  const head = message || description;
+  if (head) parts.push(head);
+
+  const details = typeof o.details === 'string' ? o.details.trim() : '';
+  if (details && details !== head) parts.push(details);
+
+  const hint = typeof o.hint === 'string' ? o.hint.trim() : '';
+  if (hint && hint !== head) parts.push(hint);
+
+  // A code alone is still more useful than nothing when there is no message.
+  if (!head && o.code != null) parts.push(`Error ${String(o.code)}`);
+
+  if (parts.length) return parts.join(' — ');
+
+  if (e instanceof Error) return e.message || e.name || 'Something went wrong.';
+
+  try {
+    const json = JSON.stringify(e);
+    if (json && json !== '{}') return json;
+  } catch {
+    /* circular or non-serialisable — fall through */
+  }
+  return 'Something went wrong.';
+};
+
+const err = ccErrorText;
+
 
 /** cc_* RPCs are newer than the generated types in some environments. */
 const rpc = (fn: string, args?: Record<string, unknown>) =>
