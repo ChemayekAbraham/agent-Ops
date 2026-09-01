@@ -477,6 +477,28 @@ export interface EndCallVars {
  * and letting staff assert it would corrupt both the answer rate and the
  * average-talk-time figure.
  */
+/**
+ * Cancel / hang up a live call for real.
+ *
+ * Africa's Talking exposes no REST hang-up, so the cancel is recorded on the
+ * telephony row by `crm_cancel_call` and enforced by the voice callback, which
+ * answers the next provider event with <Hangup/> and never bridges. Without
+ * this, pressing the red button only changed the drawer — both handsets kept
+ * ringing and the customer was still dialled once the staff leg answered.
+ */
+export function useCancelCall() {
+  const invalidate = useInvalidateCallRecords();
+
+  return useMutation({
+    mutationFn: async (callId: string): Promise<void> => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).rpc('crm_cancel_call', { p_session_id: callId });
+      if (error) throw error;
+      invalidate();
+    },
+  });
+}
+
 export function useEndCall() {
   const invalidate = useInvalidateCallRecords();
 

@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
   // ---- locate our row ----
   let query = admin
     .from('crm_call_sessions')
-    .select('id, target_phone, status, at_session_id')
+    .select('id, target_phone, status, at_session_id, cancel_requested_at')
     .limit(1);
 
   query = UUID_RE.test(clientRequestId)
@@ -139,6 +139,39 @@ Deno.serve(async (req) => {
 
   const isActive = (p.isActive ?? '').trim() === '1';
   const dialStatus = (p.dialStatus ?? '').trim();
+
+  // ---------------- CANCELLED BY STAFF (honour it before anything else) ----
+  // Africa's Talking has no REST "hang up" endpoint: the only way to end a leg
+  // is to answer its callback with <Hangup/>. So a cancel is recorded on the
+  // row (crm_cancel_call) and enforced here — we must never bridge a call the
+  // staff member already dropped, and any still-live leg is ended immediately.
+  if (session.cancel_requested_at) {
+    console.log('[crm-voice-callback] cancel requested — hanging up leg', {
+      callId: session.id,
+      atSessionId,
+      isActive,
+      dialStatus: dialStatus || null,
+    });
+
+    if (!isActive) {
+      const duration = Number.parseInt(p.durationInSeconds ?? p.callDuration ?? '0', 10);
+      const cost = Number.parseFloat((p.amount ?? '').replace(/[^\d.]/g, ''));
+      await patch(
+        {
+          status: 'cancelled',
+          hangup_cause: (p.hangupCause ?? '').trim() || 'CancelledByStaff',
+          duration_seconds: Number.isFinite(duration) ? Math.max(0, duration) : 0,
+          cost_amount: Number.isFinite(cost) ? cost : null,
+          cost_currency: p.currencyCode || null,
+        },
+        'cancelled_terminal',
+      );
+      return done();
+    }
+
+    return hangup();
+  }
+
   // A leg may only be dialled while it is still in a pre-bridge state. Anything
   // else (already bridged, or already terminal) must never dial again — that is
   // the redial loop.
