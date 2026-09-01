@@ -283,7 +283,7 @@ export default function BalanceSheetPanel() {
     marketplaceRows.forEach(g => rows.push(['   ' + g.label, g.value]));
     rows.push(['Subtotal — Market Place Liabilities', liabilityGroups?.marketplaceTotal ?? 0]);
     rows.push(['Partner and Agent Obligations', '']);
-    (liabilityGroups?.partner ?? []).forEach(g => rows.push(['   ' + g.label, g.value]));
+    partnerRows.forEach(g => rows.push(['   ' + g.label, g.value]));
     rows.push(['Subtotal — Partner and Agent Obligations', liabilityGroups?.partnerTotal ?? 0]);
     if (liabilityGroups && hasFlagged(liabilityGroups.flagged)) {
       rows.push([liabilityGroups.flagged.label, liabilityGroups.flagged.value]);
