@@ -7,7 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { UserAvatar } from '@/components/UserAvatar';
 import { supabase } from '@/integrations/supabase/client';
-import { formatUGX } from '@/lib/utils';
+import { formatUGX } from '@/lib/rentCalculations';
 
 interface AgentDetail {
   agent: {
