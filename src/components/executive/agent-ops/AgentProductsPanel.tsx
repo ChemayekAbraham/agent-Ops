@@ -501,7 +501,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
               <Clock className="h-4 w-4 text-amber-500" />
               Pending applications
-              <Badge variant="secondary" className="text-[10px]">{pendingApps.length}</Badge>
+              <Badge variant="secondary" className="text-[10px]">{filteredPending.length}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -509,11 +509,16 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
               <div className="p-4 space-y-2">
                 {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
               </div>
-            ) : pendingApps.length === 0 ? (
-              <p className="p-6 text-sm text-muted-foreground text-center">Nothing awaiting approval right now.</p>
+            ) : filteredPending.length === 0 ? (
+              <p className="p-6 text-sm text-muted-foreground text-center">
+                {pendingApps.length === 0
+                  ? 'Nothing awaiting approval right now.'
+                  : 'No application matches your search or item filter.'}
+              </p>
             ) : (
-              <div className="divide-y divide-border">{pendingApps.map(renderPendingRow)}</div>
+              <div className="divide-y divide-border">{filteredPending.map(renderPendingRow)}</div>
             )}
+
           </CardContent>
         </Card>
       )}
