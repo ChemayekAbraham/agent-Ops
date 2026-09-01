@@ -217,8 +217,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
 
   const rows = useMemo(() => {
     const list = data?.rows ?? [];
-  const rows = useMemo(() => {
-    const list = data?.rows ?? [];
+
     const term = search.trim().toLowerCase();
     return list.filter((r) => {
       const names = (r.product_names || []).join(' ').toLowerCase();
