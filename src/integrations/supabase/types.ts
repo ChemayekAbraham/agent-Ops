@@ -42794,6 +42794,10 @@ export type Database = {
           total_rows: number
         }[]
       }
+      crm_record_call_outcome: {
+        Args: { p_outcome: string; p_session_id: string }
+        Returns: undefined
+      }
       crm_reveal_target_phone: {
         Args: { p_person_id: string }
         Returns: string
