@@ -72,6 +72,7 @@ export function CFOApprovalNotificationsBell({
     partnerTopups: Wallet,
     directorRequisitions: FileText,
     employeeRequisitions: Users,
+    staffRequisitions: Users,
     withdrawals: ArrowDownToLine,
   };
 
