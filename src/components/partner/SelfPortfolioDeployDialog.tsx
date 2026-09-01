@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { toast } from 'sonner';
-import { CalendarClock, CheckCircle2, HandCoins, Info, Loader2, PlusCircle, Sparkles } from 'lucide-react';
+import { CalendarClock, CheckCircle2, HandCoins, Info, Loader2, PlusCircle, Sparkles, Star } from 'lucide-react';
 
 
 /**
@@ -263,7 +263,8 @@ export function SelfPortfolioDeployDialog({
                     </p>
                   </div>
                   {canTopUp && cyclesRemaining >= 3 && (
-                    <Badge variant="secondary" className="text-[10px] shrink-0">
+                    <Badge className="gap-1 text-[10px] shrink-0 bg-primary text-primary-foreground hover:bg-primary">
+                      <Star className="h-3 w-3 fill-current" aria-hidden="true" />
                       Recommended
                     </Badge>
                   )}

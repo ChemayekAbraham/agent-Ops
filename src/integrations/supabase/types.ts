@@ -48756,6 +48756,7 @@ export type Database = {
         Returns: Json
       }
       resume_expired_repayment_pauses: { Args: never; Returns: Json }
+      retire_tenant_document: { Args: { p_doc_id: string }; Returns: Json }
       return_rent_request_for_correction: {
         Args: { p_reason: string; p_request_id: string; p_stage: string }
         Returns: string
