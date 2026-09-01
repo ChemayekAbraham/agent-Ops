@@ -434,12 +434,13 @@ export function ExpenseReportPanel() {
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" onClick={() => void handleExport()} disabled={!!exporting || isLoading}>
               {exporting === 'pdf' ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileDown className="h-4 w-4 mr-1" />}
-              Generate Expense Report
+              Download PDF — {periodLabel}
             </Button>
             <Button size="sm" variant="outline" onClick={() => void handlePrint()} disabled={!!exporting || isLoading}>
               {exporting === 'print' ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Printer className="h-4 w-4 mr-1" />}
               Print
             </Button>
+
             <Button size="sm" variant="ghost" onClick={() => void refetch()} disabled={isRefetching}>
               <RefreshCw className={`h-4 w-4 mr-1 ${isRefetching ? 'animate-spin' : ''}`} />
               Refresh
