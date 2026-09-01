@@ -92,6 +92,21 @@ Deno.serve(async (req) => {
     const amount = Number(preRow.investment_amount);
     const portfolioCode = String(preRow.portfolio_code || "");
 
+    // Which funding path is this? Self-managed tenants / self-support houses are
+    // funded from the partner's OPERATIONAL FLOAT bucket, and that debit is
+    // posted inside `approve_pending_portfolio` (idempotency keys
+    // `psm-commit-*` / `psh-commit-*`) atomically with the landlord float
+    // release. Posting the generic withdrawable-bucket debit here as well would
+    // charge the partner twice out of the wrong bucket, so it is skipped for
+    // those sources — the rent-pool path keeps the pre-debit.
+    const { data: prePending } = await admin
+      .from("funder_pending_portfolios")
+      .select("source")
+      .eq("portfolio_id", portfolioId)
+      .maybeSingle();
+    const fundedFromFloatByRpc = ["self_managed", "self_managed_house"]
+      .includes(String(prePending?.source || ""));
+
     // Skip re-debit if a partner_funding cash_out leg already exists for this
     // portfolio (defensive against retries or historical funding paths).
     const { data: existingDebit } = await admin
@@ -104,7 +119,8 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    if (!existingDebit) {
+    if (!existingDebit && !fundedFromFloatByRpc) {
+
       // Strict balance check via the single source of truth.
       // IMPORTANT: `get_user_available_balance` subtracts `funder_pending_hold`,
       // which holds back the amount of every *pending* funder_pending_portfolios
@@ -173,9 +189,16 @@ Deno.serve(async (req) => {
           error: `Wallet deduction failed: ${msg}. Portfolio was NOT activated.`,
         }, 500);
       }
+    } else if (fundedFromFloatByRpc) {
+      console.log(
+        "[approve-pending-portfolio] Self-managed/self-support portfolio",
+        portfolioId,
+        "— operational float debit is posted by approve_pending_portfolio; skipping pre-debit.",
+      );
     } else {
       console.log("[approve-pending-portfolio] Debit already posted for", portfolioId, "— skipping.");
     }
+
 
     // RPC enforces the Ops-role gate + status transition atomically.
     const { error: rpcErr } = await userClient.rpc("approve_pending_portfolio", {
