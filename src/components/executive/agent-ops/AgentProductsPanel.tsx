@@ -709,7 +709,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                       variant="outline"
                       className="gap-1.5 text-destructive hover:text-destructive"
                       disabled={busy}
-                      onClick={() => { setRejectTarget(appDetail); setRejectReason(''); }}
+                      onClick={() => { setRejectTarget(appDetail); setRejectReason(""); setAppDetail(null); }}
                     >
                       <X className="h-4 w-4" /> Reject
                     </Button>
