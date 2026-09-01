@@ -767,7 +767,9 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">
-              {scopeLabel ? `${scopeLabel} in the field` : 'Products in the field'} ({rows.length})
+              {showCompleted
+                ? `${scopeLabel ?? 'Products'} fully repaid`
+                : scopeLabel ? `${scopeLabel} in the field` : 'Products in the field'} ({rows.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -777,9 +779,11 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
               </div>
             ) : rows.length === 0 ? (
               <p className="p-6 text-sm text-muted-foreground text-center">
-                {scopeLabel
-                  ? `No ${scopeLabel.toLowerCase()} issued to agents yet. Use “New entry” to record one.`
-                  : 'No products issued to agents yet. Use “New entry” to record one.'}
+                {showCompleted
+                  ? 'No agents have fully cleared their balance yet.'
+                  : scopeLabel
+                  ? `No ${scopeLabel.toLowerCase()} with an outstanding balance. Use “New entry” to record one.`
+                  : 'No products with an outstanding balance. Use “New entry” to record one.'}
               </p>
             ) : (
               <div className="divide-y divide-border">
