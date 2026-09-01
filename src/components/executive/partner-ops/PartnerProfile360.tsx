@@ -319,6 +319,63 @@ function changeAmounts(r: Row): { before: number | null; after: number | null; d
   return { before, after, delta };
 }
 
+/**
+ * Portfolio payment-detail edits are recorded in `metadata.changes` as
+ * { field: { from, to } }. Amount movement already has its own columns, so this
+ * renders the non-amount plan/payment terms that were touched (rate, payout
+ * mode, term, payout day, next payout date, status, nickname, proxy agent).
+ */
+const DETAIL_FIELD_LABELS: Record<string, string> = {
+  roi_percentage: 'Rate',
+  roi_mode: 'Payout mode',
+  duration_months: 'Term (months)',
+  payout_day: 'Payout day',
+  next_roi_date: 'Next payout',
+  maturity_date: 'Maturity',
+  status: 'Status',
+  account_name: 'Nickname',
+  nickname: 'Nickname',
+  agent_id: 'Proxy agent',
+  agent_name: 'Proxy agent',
+  payment_method: 'Payment method',
+  payout_method: 'Payout method',
+  created_at: 'Start date',
+  kind: 'Portfolio kind',
+};
+
+const prettyDetailValue = (field: string, v: unknown): string => {
+  if (v == null || v === '') return '—';
+  if (field === 'roi_percentage') return `${Number(v) || 0}%`;
+  if (['next_roi_date', 'maturity_date', 'created_at'].includes(field)) return fmtDate(String(v));
+  return String(v).replace(/_/g, ' ');
+};
+
+function changeDetails(r: Row): string {
+  const m: Record<string, any> = (r.metadata as Record<string, any>) || {};
+  const changes: Record<string, any> = m.changes && typeof m.changes === 'object' ? m.changes : {};
+  const parts: string[] = [];
+
+  for (const [field, pair] of Object.entries(changes)) {
+    if (field === 'investment_amount' || field === 'amount') continue; // shown in amount columns
+    if (!pair || typeof pair !== 'object') continue;
+    const from = (pair as any).from;
+    const to = (pair as any).to;
+    const same = String(from ?? '') === String(to ?? '')
+      || (['next_roi_date', 'maturity_date', 'created_at'].includes(field)
+        && from && to && new Date(from).getTime() === new Date(to).getTime());
+    if (same) continue;
+    const label = DETAIL_FIELD_LABELS[field] || field.replace(/_/g, ' ');
+    parts.push(`${label}: ${prettyDetailValue(field, from)} → ${prettyDetailValue(field, to)}`);
+  }
+
+  return parts.length ? parts.join(' · ') : '—';
+}
+
+const portfolioLabel = (r: Row): string => {
+  const m: Record<string, any> = (r.metadata as Record<string, any>) || {};
+  return m.portfolio_code || m.portfolio_id || r.record_id || '—';
+};
+
 const CHANGE_COLS: Col[] = [
   { key: 'created_at', label: 'When', render: (r) => fmtDate(r.created_at, true) },
   { key: 'action', label: 'Action', render: (r) => r.action || r.action_type || '—' },
