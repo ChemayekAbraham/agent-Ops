@@ -212,7 +212,7 @@ export function CallCentrePeople() {
             <span className="font-semibold text-foreground">{counts.all.toLocaleString()}</span> users
             {CALLEE_ROLES.map((r) => (
               <span key={r} className="rounded-md bg-muted px-1.5 py-0.5">
-                {CALLEE_ROLE_LABEL[r]} {counts[r].toLocaleString()}
+                {CALLEE_ROLE_LABEL[r]} {(counts[r] ?? 0).toLocaleString()}
               </span>
             ))}
           </div>
