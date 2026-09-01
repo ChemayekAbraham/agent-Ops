@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PeriodToggle, type TppoGranularity } from '@/components/tenant-ops/tppo/PeriodToggle';
+import { HeadlineA1 } from '@/components/tenant-ops/tppo/HeadlineA1';
+import { VarianceA2 } from '@/components/tenant-ops/tppo/VarianceA2';
 
 interface ZoneAReport {
   period_start: string | null;
@@ -51,8 +53,6 @@ function periodInWords(
 }
 
 const ZONE_PLACEHOLDERS = [
-  { id: 'A1', title: 'A1' },
-  { id: 'A2', title: 'A2' },
   { id: 'A3', title: 'A3' },
 ];
 
@@ -110,6 +110,8 @@ export default function PortfolioPerformanceReport() {
           )}
         </CardHeader>
         <CardContent className="space-y-4">
+          <HeadlineA1 report={data} />
+          <VarianceA2 report={data} />
           {ZONE_PLACEHOLDERS.map((zone) => (
             <div
               key={zone.id}
