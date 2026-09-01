@@ -34988,6 +34988,219 @@ export type Database = {
           },
         ]
       }
+      tppo_period_snapshots: {
+        Row: {
+          basis: Json
+          collected_ugx: number
+          computed_at: string
+          frozen_at: string | null
+          granularity: string
+          id: string
+          period_end: string
+          period_start: string
+          plan_count: number
+          provisional: boolean
+          scheduled_due_ugx: number
+        }
+        Insert: {
+          basis?: Json
+          collected_ugx?: number
+          computed_at?: string
+          frozen_at?: string | null
+          granularity: string
+          id?: string
+          period_end: string
+          period_start: string
+          plan_count?: number
+          provisional?: boolean
+          scheduled_due_ugx?: number
+        }
+        Update: {
+          basis?: Json
+          collected_ugx?: number
+          computed_at?: string
+          frozen_at?: string | null
+          granularity?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+          plan_count?: number
+          provisional?: boolean
+          scheduled_due_ugx?: number
+        }
+        Relationships: []
+      }
+      tppo_report_actions: {
+        Row: {
+          carried_from_action_id: string | null
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          created_by: string
+          due_date: string
+          id: string
+          item_text: string
+          outcome: string | null
+          outcome_note: string | null
+          owner_label: string | null
+          owner_staff_id: string | null
+          report_id: string
+          zone: string
+        }
+        Insert: {
+          carried_from_action_id?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          created_by?: string
+          due_date: string
+          id?: string
+          item_text: string
+          outcome?: string | null
+          outcome_note?: string | null
+          owner_label?: string | null
+          owner_staff_id?: string | null
+          report_id: string
+          zone: string
+        }
+        Update: {
+          carried_from_action_id?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          created_by?: string
+          due_date?: string
+          id?: string
+          item_text?: string
+          outcome?: string | null
+          outcome_note?: string | null
+          owner_label?: string | null
+          owner_staff_id?: string | null
+          report_id?: string
+          zone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tppo_report_actions_carried_from_action_id_fkey"
+            columns: ["carried_from_action_id"]
+            isOneToOne: false
+            referencedRelation: "tppo_report_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tppo_report_actions_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tppo_report_actions_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "tppo_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tppo_report_notes: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          reason_note: string
+          report_id: string
+          zone: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          reason_note: string
+          report_id: string
+          zone: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          reason_note?: string
+          report_id?: string
+          zone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tppo_report_notes_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "tppo_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tppo_reports: {
+        Row: {
+          created_at: string
+          created_by: string
+          granularity: string
+          id: string
+          period_end: string
+          period_start: string
+          prior_snapshot_id: string | null
+          snapshot_id: string
+          status: string
+          submitted_at: string | null
+          submitted_by: string | null
+          threshold_pct: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          granularity: string
+          id?: string
+          period_end: string
+          period_start: string
+          prior_snapshot_id?: string | null
+          snapshot_id: string
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          threshold_pct?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          granularity?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+          prior_snapshot_id?: string | null
+          snapshot_id?: string
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          threshold_pct?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tppo_reports_prior_snapshot_id_fkey"
+            columns: ["prior_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "tppo_period_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tppo_reports_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "tppo_period_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transaction_approvals: {
         Row: {
           approval_id: string
