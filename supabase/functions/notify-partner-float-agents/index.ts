@@ -77,16 +77,19 @@ async function sendViaYoola(phone: string, message: string) {
     if (!accepted) {
       return { ok: false, reason: `yoola_${res.status}_${status || "rejected"}` };
     }
-    // Yoola accepting the request is NOT proof the handset received it: poll the
-    // delivery report and treat anything but a confirmed delivery as a failure so
-    // the caller fails over to Africa's Talking.
+    // Yoola accepting the request is not proof of handset delivery, but a
+    // second send through Africa's Talking after an accepted request delivers
+    // the SAME message twice (observed in production). So: only fail over when
+    // Yoola REJECTED the request. An accepted-but-unconfirmed send is reported
+    // as delivered with a note instead of being duplicated.
     const messageId = extractYoolaMessageId(data);
     const confirmation = await confirmYoolaDelivery(messageId, { attempts: 4, delayMs: 2500 });
     if (confirmation.outcome === "delivered") return { ok: true };
     return {
-      ok: false,
-      reason: `yoola_undelivered_${confirmation.detail ?? confirmation.outcome}`,
+      ok: true,
+      unconfirmed: `yoola_unconfirmed_${confirmation.detail ?? confirmation.outcome}`,
     };
+
   } catch (e) {
     console.error("[partner-float-sms] Yoola error:", e);
     return { ok: false, reason: "network_error" };
