@@ -330,6 +330,7 @@ export function usePlatformPeopleCounts() {
         all: Number(row?.all_users ?? 0),
         tenant: Number(row?.tenants ?? 0),
         agent: Number(row?.agents ?? 0),
+        sub_agent: Number(row?.sub_agents ?? 0),
         partner: Number(row?.partners ?? 0),
         landlord: Number(row?.landlords ?? 0),
         employee: Number(row?.employees ?? 0),
