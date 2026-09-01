@@ -196,8 +196,17 @@ export function SubmitGate({
       });
       if (freezeError) throw freezeError;
 
+      // Notify last: nothing is raised to the COO for a report that failed to submit.
+      // A notification failure never rolls back or retries the submission.
+      const { error: notifyError } = await supabase.rpc(
+        'tppo_notify_reviewer_on_overdue_actions',
+        { p_report_id: targetReportId as string },
+      );
+      setNotifyFailed(Boolean(notifyError));
+
       toast.success('Report submitted. The period denominator is frozen.');
       onSubmitted();
+
     } catch (err) {
       toast.error((err as Error)?.message ?? 'Could not submit this report');
     } finally {
