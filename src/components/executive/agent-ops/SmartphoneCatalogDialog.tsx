@@ -38,10 +38,13 @@ import { smartphoneScheduleGrid } from '@/lib/smartphoneAdvance';
 
 const db = supabase as any;
 
+export type SmartphoneOsType = 'android' | 'ios';
+
 export interface SmartphoneCatalogEntry {
   id: string;
   brand: string;
   model_name: string | null;
+  os_type: SmartphoneOsType;
   default_amount: number | null;
   specifications: string | null;
   more_specifications: string | null;
