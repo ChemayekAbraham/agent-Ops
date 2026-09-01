@@ -19,6 +19,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Loader2, CheckCircle2, Banknote, Home, TrendingUp, Users, Wallet, AlertTriangle, XCircle, Search, MapPin, Filter, Eye } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { TenantPaymentHistoryCard } from '@/components/executive/TenantPaymentHistoryCard';
 import {
   fetchPartnerReservedStages,
   PARTNER_RESERVED_HINT,
