@@ -182,6 +182,7 @@ function BoutiqueTabs({ category }: { category?: AgentProductCategory }) {
           {pendingCount > 0 && <Badge variant="secondary">{pendingCount}</Badge>}
         </TabsTrigger>
         <TabsTrigger value="issued">Issued in Field</TabsTrigger>
+        <TabsTrigger value="completed">Completed Payments</TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview" className="space-y-6">
@@ -194,6 +195,10 @@ function BoutiqueTabs({ category }: { category?: AgentProductCategory }) {
 
       <TabsContent value="issued" className="space-y-6">
         <AgentProductsPanel category={category} mode="issued" />
+      </TabsContent>
+
+      <TabsContent value="completed" className="space-y-6">
+        <AgentProductsPanel category={category} mode="completed" />
       </TabsContent>
     </Tabs>
   );
