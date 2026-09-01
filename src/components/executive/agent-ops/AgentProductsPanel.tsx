@@ -102,6 +102,8 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
   const [deleteReason, setDeleteReason] = useState('');
   const [rejectTarget, setRejectTarget] = useState<PendingApp | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  /** Pending application opened in the read-out + decide modal. */
+  const [appDetail, setAppDetail] = useState<PendingApp | null>(null);
 
   const scopeLabel = category ? CATEGORY_LABELS[category] : null;
   const showApplications = mode === 'applications';
