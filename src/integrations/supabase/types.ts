@@ -49715,6 +49715,10 @@ export type Database = {
           period_start: string
         }[]
       }
+      tppo_projection_zone_a: {
+        Args: { p_as_at: string; p_granularity: string }
+        Returns: Json
+      }
       trigger_agent_liability_for_unpaid_rents: {
         Args: never
         Returns: {
