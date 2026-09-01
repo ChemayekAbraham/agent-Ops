@@ -324,7 +324,9 @@ export function LandlordSearchSelect({
         }).abortSignal(signal);
         if (error) throw error;
         if (!isAborted()) {
-          // RPC already filters to verified landlords only.
+          // Returns both verified and pending-verification landlords
+          // (verified ranked first) — agents may post on a pending landlord.
+
           setResults(((data ?? []) as unknown as LandlordOption[]));
           // This search finished — clear any lingering cancellation note.
           setCancelledInfo(null);
