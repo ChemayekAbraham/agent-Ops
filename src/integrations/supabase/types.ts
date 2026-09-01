@@ -48215,13 +48215,15 @@ export type Database = {
       partner_ops_pending_portfolio_lines: {
         Args: { p_portfolio_id: string }
         Returns: {
+          counterparty_name: string
           daily_repayment: number
           line_id: string
+          line_kind: string
           location: string
           principal: number
-          tenant_id: string
-          tenant_name: string
-          tenant_phone: string
+          subject_id: string
+          subject_name: string
+          subject_phone: string
         }[]
       }
       partner_ops_pending_portfolio_summary: {

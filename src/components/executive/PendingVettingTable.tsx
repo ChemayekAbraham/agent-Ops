@@ -455,7 +455,7 @@ export function PendingVettingTable() {
                 {openRow.kind === 'self_support' && openRow.portfolio_id && (
                   <div className="space-y-2">
                     <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                      Tenants on this portfolio
+                      What this partner is supporting
                     </p>
                     <CommitmentLines portfolioId={openRow.portfolio_id} />
                   </div>
