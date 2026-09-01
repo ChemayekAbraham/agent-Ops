@@ -185,7 +185,7 @@ export default function TicketDetailDialog({
               <Separator className="bg-border/60" />
 
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2.5 sm:grid-cols-2">
                 <Field label="Area" value={ticket.hr_ticket_surfaces?.label} />
                 <Field label="How bad" value={severityLabel} />
                 <Field label="Why this severity" value={ticket.severity_basis} />
@@ -204,8 +204,8 @@ export default function TicketDetailDialog({
                 ticket.reporter_channel ||
                 ticket.reporter_words) && (
                 <>
-                  <Separator />
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <Separator className="bg-border/60" />
+                  <div className="grid gap-2.5 sm:grid-cols-2">
                     <Field label="Reporter" value={ticket.reporter_name} />
                     <Field label="Contact" value={ticket.reporter_contact} />
                     <Field
@@ -223,8 +223,8 @@ export default function TicketDetailDialog({
 
               {(people?.assignee_name || people?.task_title || ticket.closed_no_task_at) && (
                 <>
-                  <Separator />
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <Separator className="bg-border/60" />
+                  <div className="grid gap-2.5 sm:grid-cols-2">
                     <Field label="Picked up by" value={people?.assignee_name} />
                     <Field label="Work item" value={people?.task_title} />
                     <Field label="Closed" value={when(ticket.closed_no_task_at)} />
@@ -235,7 +235,7 @@ export default function TicketDetailDialog({
                 </>
               )}
 
-              <Separator />
+              <Separator className="bg-border/60" />
               <div className="space-y-2">
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
                   Attachments
