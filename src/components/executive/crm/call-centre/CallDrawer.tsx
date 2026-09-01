@@ -343,6 +343,14 @@ export function CallDrawer({
                 {statusLine}
               </p>
 
+              {causeLine && (
+                <p className="mx-auto mt-1 max-w-[18rem] text-[11px] leading-snug text-muted-foreground">
+                  {causeLine}
+                </p>
+              )}
+
+
+
               {phase === 'ringing' && (
                 <p className="mx-auto mt-3 max-w-[16rem] text-[11px] leading-snug text-muted-foreground">
                   {CALL_CENTRE_IS_STUBBED
