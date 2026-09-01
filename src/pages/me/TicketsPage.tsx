@@ -9,11 +9,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import PersonalLayout from '@/components/layout/PersonalLayout';
 import { getMyStaff } from '@/hr/api';
 import { supabase } from '@/hr/api/client';
 import RaiseTicket from '@/hr/components/RaiseTicket';
+import TicketDetailDialog, { type TicketPeople } from '@/hr/components/TicketDetailDialog';
 
 interface QueueRow {
   id: string;
@@ -23,6 +25,15 @@ interface QueueRow {
   severity: string;
   raised_at: string;
   raised_by: string | null;
+  origin?: string | null;
+  reported_at?: string | null;
+  reporter_name?: string | null;
+  reporter_contact?: string | null;
+  reporter_channel?: string | null;
+  reporter_words?: string | null;
+  severity_basis?: string | null;
+  resolution_summary?: string | null;
+  close_reason?: string | null;
   task_id?: string | null;
   closed_no_task_at?: string | null;
   hr_ticket_surfaces?: { label: string } | null;
@@ -85,6 +96,8 @@ const TicketsPage = () => {
   const [queue, setQueue] = useState<QueueRow[]>([]);
   const [mine, setMine] = useState<QueueRow[]>([]);
   const [creatorNames, setCreatorNames] = useState<Record<string, string>>({});
+  const [ticketPeople, setTicketPeople] = useState<Record<string, TicketPeople>>({});
+  const [viewing, setViewing] = useState<QueueRow | null>(null);
   const [claiming, setClaiming] = useState<string | null>(null);
 
   useEffect(() => {
@@ -130,7 +143,9 @@ const TicketsPage = () => {
   const loadQueue = useCallback(async () => {
     const { data, error } = await supabase
       .from('hr_tickets')
-      .select('id, ref, title, body, severity, raised_at, raised_by, hr_ticket_surfaces(label)')
+      .select(
+        'id, ref, title, body, severity, raised_at, raised_by, origin, reported_at, reporter_name, reporter_contact, reporter_channel, reporter_words, severity_basis, resolution_summary, close_reason, task_id, closed_no_task_at, hr_ticket_surfaces(label)',
+      )
       .is('task_id', null)
       .is('closed_no_task_at', null)
       .order('raised_at', { ascending: true });
@@ -143,7 +158,7 @@ const TicketsPage = () => {
     const { data, error } = await supabase
       .from('hr_tickets')
       .select(
-        'id, ref, title, body, severity, raised_at, raised_by, task_id, closed_no_task_at, hr_ticket_surfaces(label)',
+        'id, ref, title, body, severity, raised_at, raised_by, origin, reported_at, reporter_name, reporter_contact, reporter_channel, reporter_words, severity_basis, resolution_summary, close_reason, task_id, closed_no_task_at, hr_ticket_surfaces(label)',
       )
       .eq('raised_by', staff.id)
       .order('raised_at', { ascending: false });
@@ -157,41 +172,38 @@ const TicketsPage = () => {
     void loadMine();
   }, [staff?.id, loadQueue, loadMine]);
 
-  // Resolve ticket creators (hr_staff -> profile) for the queue table.
+  // Resolve ticket people through a definer RPC: hr_staff/profiles are RLS-restricted,
+  // so a direct client join returns nothing for other people's tickets.
   useEffect(() => {
-    if (!queue.length) return;
-    const staffIds = Array.from(new Set(queue.map((r) => r.raised_by).filter(Boolean))) as string[];
-    if (!staffIds.length) return;
+    const rows = [...queue, ...mine];
+    if (!rows.length) return;
+    const ids = Array.from(new Set(rows.map((r) => r.id)));
     let cancelled = false;
     (async () => {
-      const { data: staffRows } = await supabase
-        .from('hr_staff')
-        .select('id, user_id')
-        .in('id', staffIds);
+      const { data, error } = await supabase.rpc('hr_ticket_people', { p_ticket_ids: ids });
       if (cancelled) return;
-      const userIds = Array.from(
-        new Set((staffRows ?? []).map((s: any) => s.user_id).filter(Boolean)),
-      ) as string[];
-      const profileNames: Record<string, string> = {};
-      if (userIds.length) {
-        const { data: profilesRows } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', userIds);
-        (profilesRows ?? []).forEach((p: any) => {
-          if (p.full_name) profileNames[p.id] = p.full_name;
-        });
+      if (error) {
+        console.error('hr_ticket_people', error);
+        return;
       }
-      const map: Record<string, string> = {};
-      (staffRows ?? []).forEach((s: any) => {
-        map[s.id] = compactName(profileNames[s.user_id]) || '—';
+      const people: Record<string, TicketPeople> = {};
+      const names: Record<string, string> = {};
+      (data ?? []).forEach((r: any) => {
+        people[r.ticket_id] = {
+          raised_by_name: r.raised_by_name,
+          closed_by_name: r.closed_by_name,
+          assignee_name: r.assignee_name,
+          task_title: r.task_title,
+        };
+        names[r.ticket_id] = compactName(r.raised_by_name) || '—';
       });
-      if (!cancelled) setCreatorNames(map);
+      setTicketPeople(people);
+      setCreatorNames(names);
     })();
     return () => {
       cancelled = true;
     };
-  }, [queue]);
+  }, [queue, mine]);
 
   // Only people who can act on the queue get a live subscription.
   useEffect(() => {
@@ -226,6 +238,7 @@ const TicketsPage = () => {
         return;
       }
       toast.success(`Ticket ${ticket.ref} claimed`);
+      setViewing(null);
       await loadQueue();
       await loadMine();
     } finally {
@@ -269,6 +282,7 @@ const TicketsPage = () => {
                     <TableHead>Area</TableHead>
                     <TableHead>How bad</TableHead>
                     <TableHead>Raised</TableHead>
+                    <TableHead className="w-[64px] text-center">View</TableHead>
                     <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -277,10 +291,21 @@ const TicketsPage = () => {
                     <TableRow key={row.id}>
                       <TableCell className="font-mono text-xs">{row.ref}</TableCell>
                       <TableCell className="max-w-[280px] text-sm">{row.title}</TableCell>
-                      <TableCell className="text-xs">{creatorNames[row.raised_by ?? ''] || '—'}</TableCell>
+                      <TableCell className="text-xs">{creatorNames[row.id] || '—'}</TableCell>
                       <TableCell className="text-xs">{row.hr_ticket_surfaces?.label ?? '—'}</TableCell>
                       <TableCell className="text-xs">{SEVERITY_LABEL[row.severity] ?? row.severity}</TableCell>
                       <TableCell className="text-xs">{when(row.raised_at)}</TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8"
+                          aria-label={`View ticket ${row.ref}`}
+                          onClick={() => setViewing(row)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                       <TableCell className="text-right">
                         {isEngineering ? (
                           <Button
@@ -336,6 +361,24 @@ const TicketsPage = () => {
             )}
           </CardContent>
         </Card>
+
+        <TicketDetailDialog
+          ticket={viewing}
+          people={viewing ? ticketPeople[viewing.id] : undefined}
+          creatorLabel={viewing ? creatorNames[viewing.id] : undefined}
+          stateLabel={viewing ? state(viewing) : ''}
+          severityLabel={
+            viewing ? SEVERITY_LABEL[viewing.severity] ?? viewing.severity : ''
+          }
+          canClaim={
+            !!viewing && isEngineering && !viewing.task_id && !viewing.closed_no_task_at
+          }
+          claiming={claiming === viewing?.id}
+          onClaim={() => (viewing ? claim(viewing) : undefined)}
+          onOpenChange={(open) => {
+            if (!open) setViewing(null);
+          }}
+        />
       </div>
     </PersonalLayout>
   );
