@@ -211,17 +211,16 @@ export default function TenantAssignAgentDialog({
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <Input
-                  placeholder={agentsLoading ? 'Loading agents…' : 'Type agent name or phone…'}
+                  placeholder={agentsLoading ? 'Loading agents…' : 'Type agent or sub-agent name or phone…'}
                   value={agentQuery}
                   onChange={(e) => {
                     setAgentQuery(e.target.value);
                     setAgentDropdownOpen(true);
                   }}
                   onFocus={() => setAgentDropdownOpen(true)}
-                  disabled={agentsLoading}
                   className="pl-9 pr-9"
                 />
-                {agentsLoading ? (
+                {agentsFetching ? (
                   <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
                 ) : agentQuery ? (
                   <button
