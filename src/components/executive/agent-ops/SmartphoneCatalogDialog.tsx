@@ -395,6 +395,7 @@ export function SmartphoneCatalogDialog() {
         .update({
           brand: editBrand.trim(),
           model_name: editModel.trim() || null,
+          os_type: editOsType,
           default_amount: total,
           specifications: editSpecifications.trim() || null,
           more_specifications: editMoreSpecifications.trim() || null,
