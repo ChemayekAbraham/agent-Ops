@@ -165,24 +165,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                   decided.
                 </p>
               </div>
-            ) : (
-              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1">
-                <p className="text-xs font-semibold flex items-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5 text-primary" /> Open to all agents
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  Apply for a phone up to{' '}
-                  <span className="font-semibold text-foreground">{formatUGX(cap)}</span>. Your profile —
-                  {' '}{activeTenants} active tenant{activeTenants === 1 ? '' : 's'} — is shared with Agent Ops,
-                  who review and decide.
-                </p>
-                {notes.length > 0 && (
-                  <ul className="list-disc pl-4 text-[11px] text-muted-foreground space-y-0.5 pt-1">
-                    {notes.map((n) => <li key={n}>{n}</li>)}
-                  </ul>
-                )}
-              </div>
-            )}
+            ) : null}
 
             <div className="space-y-1">
               <Label className="text-xs">Phone</Label>
