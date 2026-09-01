@@ -311,6 +311,7 @@ export function SelfPortfolioDeployDialog({
               </button>
             )}
 
+            {showNewPortfolio && (
             <button
               type="button"
               disabled={busy}
