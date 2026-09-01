@@ -49,6 +49,8 @@ export function CallDrawer({
   const [callId, setCallId] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<CallOutcome | null>(null);
   const [savedSummary, setSavedSummary] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
+
 
   const ringbackRef = useRef<RingbackHandle | null>(null);
   /** Talk time is measured from a wall-clock mark, so a throttled background
