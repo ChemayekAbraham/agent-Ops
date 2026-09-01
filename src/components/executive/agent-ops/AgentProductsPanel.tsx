@@ -79,6 +79,10 @@ const PRODUCT_SUGGESTIONS = [
   'Company ID', 'Signage (Shop Board)', 'Banner / Poster', 'Umbrella', 'Branded Bag',
 ];
 
+/** Company-owned bike attached to an agent for operations — never sold, no wallet recovery. */
+const FLEET_BIKE_OPTION = 'Company Fleet Bike (Assigned / Operational)';
+
+
 export type AgentProductCategory = 'motor_bike' | 'smart_phone' | 'signage' | 'boutique';
 
 /** Which overview KPI card the drill-down sheet is showing. */
