@@ -734,13 +734,15 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
                 <Camera className="h-4 w-4 text-primary" /> House photos
               </p>
               <p className="text-xs text-muted-foreground">
-                Tap a slot to retake or add a photo. Untouched slots keep the photo already on file.
+                Tap a slot to retake or add a photo. Whatever is shown here is exactly what the
+                reviewer will see — use Remove to drop a photo you are not resubmitting.
               </p>
             </div>
             <div className="grid grid-cols-4 gap-2">
               {HOUSE_PHOTO_SLOTS.map((angle, i) => {
                 const picked = newPhotos[i];
-                const existing = existingPhotos[i];
+                const dropped = !!droppedExisting[i];
+                const existing = dropped ? null : existingPhotos[i];
                 const src = picked?.preview ?? existing ?? null;
                 return (
                   <div key={angle} className="space-y-1">
@@ -762,7 +764,7 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
                     </label>
                     <div className="flex items-center justify-between gap-1">
                       <span className="text-[10px] text-muted-foreground">{angle}</span>
-                      {picked && (
+                      {picked ? (
                         <button
                           type="button"
                           onClick={() => clearNewPhoto(i)}
@@ -770,10 +772,22 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
                         >
                           <X className="h-3 w-3" /> undo
                         </button>
-                      )}
+                      ) : existingPhotos[i] ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleDropExisting(i)}
+                          className="text-[10px] text-destructive inline-flex items-center gap-0.5"
+                        >
+                          <X className="h-3 w-3" /> {dropped ? 'keep' : 'remove'}
+                        </button>
+                      ) : null}
                     </div>
                     {picked && <p className="text-[10px] font-medium text-primary">New</p>}
+                    {!picked && dropped && (
+                      <p className="text-[10px] font-medium text-destructive">Removed</p>
+                    )}
                   </div>
+
                 );
               })}
             </div>
