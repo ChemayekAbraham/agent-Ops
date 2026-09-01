@@ -233,15 +233,17 @@ export function SupplierPicker({
 
 interface ModelRow {
   key: string;
+  osType: SmartphoneOsType;
   modelName: string;
   amount: string;
   specifications: string;
   moreSpecifications: string;
 }
 
-function emptyRow(): ModelRow {
+function emptyRow(defaultOs: SmartphoneOsType = 'android'): ModelRow {
   return {
     key: Math.random().toString(36).slice(2),
+    osType: defaultOs,
     modelName: '',
     amount: '',
     specifications: '',
