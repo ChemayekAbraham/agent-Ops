@@ -215,6 +215,8 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   const [payoutRef, setPayoutRef] = useState('');
   const [payoutMethod, setPayoutMethod] = useState('wallet');
   const [processing, setProcessing] = useState(false);
+  // Tenant Ops approval confirmation (details recheck + funder visibility)
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [quickProcessingId, setQuickProcessingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [editingField, setEditingField] = useState<string | null>(null);
