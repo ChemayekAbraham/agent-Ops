@@ -377,9 +377,17 @@ export function SelfPortfolioDeployDialog({
                       : 'You have no balance to cover this. It is recorded as a landlord float receivable and releases once you deposit on the date you choose.'}
                   </p>
                 </div>
-                <Badge variant={covered ? 'secondary' : 'outline'} className="text-[10px] shrink-0">
-                  {covered ? 'Instant' : 'Deposit date needed'}
-                </Badge>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {!eligibility && covered && (
+                    <Badge className="gap-1 text-[10px] bg-primary text-primary-foreground hover:bg-primary">
+                      <Star className="h-3 w-3 fill-current" aria-hidden="true" />
+                      Recommended
+                    </Badge>
+                  )}
+                  <Badge variant={covered ? 'secondary' : 'outline'} className="text-[10px]">
+                    {covered ? 'Instant' : 'Deposit date needed'}
+                  </Badge>
+                </div>
               </div>
               <div className="mt-2 grid grid-cols-3 gap-2">
                 {[
