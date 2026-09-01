@@ -158,7 +158,7 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    let outcome = await sendViaYoola(phone, message);
+    let outcome: any = await sendViaYoola(phone, message);
     let provider = "yoola";
     if (!outcome.ok) {
       outcome = await sendViaAfricasTalking(phone, message);
@@ -172,10 +172,11 @@ Deno.serve(async (req) => {
       message,
       provider,
       status: outcome.ok ? "accepted" : "failed",
-      error: outcome.ok ? null : (outcome as any).reason ?? null,
+      error: outcome.ok ? (outcome.unconfirmed ?? null) : (outcome as any).reason ?? null,
       reference_id: row.id,
       source: "notify-partner-float-agents",
     });
+
 
     if (outcome.ok) {
       sent++;
