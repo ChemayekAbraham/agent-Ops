@@ -211,6 +211,7 @@ export default function TenantAssignAgentDialog({
                   className="h-7 px-2 text-xs"
                   onClick={() => {
                     setAgentId('');
+                    setSelectedAgent(null);
                     setAgentQuery('');
                     setAgentDropdownOpen(true);
                   }}
