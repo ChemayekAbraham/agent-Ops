@@ -1728,11 +1728,9 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       // free-typed names are never auto-created any more.
       const landlordRegistered = !!selectedLandlord || !!selectedHouse?.landlord_id;
       if (!landlordRegistered) {
-        errors.push('Step 2 — Landlord verified: Register the landlord first. Search to pick an existing landlord, or tap "Add new" to register them.');
+        errors.push('Step 2 — Landlord: Pick or register the landlord first. Search to pick an existing landlord, or tap "Add new" to register them.');
       } else if (landlordCheck === 'missing') {
-        errors.push('Step 2 — Landlord verified: The selected landlord is no longer registered in the system. Pick a registered landlord or register them again.');
-      } else if (landlordCheck === 'checking') {
-        errors.push('Step 2 — Landlord verified: Confirming the landlord is registered — please wait a moment before posting.');
+        errors.push('Step 2 — Landlord: The selected landlord is no longer in the system. Pick a registered landlord or register them again.');
       }
       // The landlord's listed house MUST show photos. Block rent requests on
       // any selected listing that has no photos on record.
@@ -1790,11 +1788,9 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       if (!houseCategory) map['houseCategory'] = 'Choose the house type';
       const landlordRegistered = !!selectedLandlord || !!selectedHouse?.landlord_id;
       if (!landlordRegistered) {
-        map['landlord'] = 'Step 2 — Landlord verified: Register the landlord first. Search to pick an existing landlord, or tap "Add new" to register them.';
+        map['landlord'] = 'Step 2 — Landlord: Pick or register the landlord first. Search to pick an existing landlord, or tap "Add new" to register them.';
       } else if (landlordCheck === 'missing') {
-        map['landlord'] = 'Step 2 — Landlord verified: The selected landlord is no longer registered in the system. Pick a registered landlord or register them again.';
-      } else if (landlordCheck === 'checking') {
-        map['landlord'] = 'Step 2 — Landlord verified: Confirming the landlord is registered — please wait a moment before posting.';
+        map['landlord'] = 'Step 2 — Landlord: The selected landlord is no longer in the system. Pick a registered landlord or register them again.';
       }
       if (selectedHouse && !listingHasRealPhoto(selectedHouse)) {
         map['housePhotos'] = "This landlord's house has no photos — pick a house that shows photos before posting the rent request";
@@ -1852,11 +1848,9 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       if (!outstandingHouseCategory) map['outstandingHouseCategory'] = 'Choose the house type';
       const landlordRegistered = !!selectedLandlord || !!selectedHouse?.landlord_id;
       if (!landlordRegistered) {
-        map['landlord'] = 'Step 2 — Landlord verified: Register the landlord first. Search to pick an existing landlord, or tap "Add new" to register them.';
+        map['landlord'] = 'Step 2 — Landlord: Pick or register the landlord first. Search to pick an existing landlord, or tap "Add new" to register them.';
       } else if (landlordCheck === 'missing') {
-        map['landlord'] = 'Step 2 — Landlord verified: The selected landlord is no longer registered in the system. Pick a registered landlord or register them again.';
-      } else if (landlordCheck === 'checking') {
-        map['landlord'] = 'Step 2 — Landlord verified: Confirming the landlord is registered — please wait a moment before posting.';
+        map['landlord'] = 'Step 2 — Landlord: The selected landlord is no longer in the system. Pick a registered landlord or register them again.';
       }
       if (!propertyAddress.trim()) map['propertyAddress'] = 'Type the property address';
       if (!lc1Name.trim()) map['lc1Name'] = "Type the LC1 chairperson's name";
@@ -1872,11 +1866,9 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       if (!houseCategory) map['houseCategory'] = 'Choose the house type';
       const landlordRegistered = !!selectedLandlord || !!selectedHouse?.landlord_id;
       if (!landlordRegistered) {
-        map['landlord'] = 'Step 2 — Landlord verified: Register the landlord first. Search to pick an existing landlord, or tap "Add new" to register them.';
+        map['landlord'] = 'Step 2 — Landlord: Pick or register the landlord first. Search to pick an existing landlord, or tap "Add new" to register them.';
       } else if (landlordCheck === 'missing') {
-        map['landlord'] = 'Step 2 — Landlord verified: The selected landlord is no longer registered in the system. Pick a registered landlord or register them again.';
-      } else if (landlordCheck === 'checking') {
-        map['landlord'] = 'Step 2 — Landlord verified: Confirming the landlord is registered — please wait a moment before posting.';
+        map['landlord'] = 'Step 2 — Landlord: The selected landlord is no longer in the system. Pick a registered landlord or register them again.';
       }
       if (selectedHouse && !listingHasRealPhoto(selectedHouse)) {
         map['housePhotos'] = "This landlord's house has no photos — pick a house that shows photos before posting the rent request";
@@ -2442,8 +2434,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     // Other flows still collect landlord + LC1 inline.
     if (isOutstanding) {
       if (!selectedLandlord) errors.push('Pick the landlord from the list');
-      else if (landlordCheck === 'missing') errors.push('Step 2 — Landlord verified: The selected landlord is no longer registered in the system. Pick a registered landlord.');
-      else if (landlordCheck === 'checking') errors.push('Step 2 — Landlord verified: Confirming the landlord is registered — please wait a moment before posting.');
+      else if (landlordCheck === 'missing') errors.push('Step 2 — Landlord: The selected landlord is no longer in the system. Pick a registered landlord.');
       if (!outstandingRentAmount || parseInt(outstandingRentAmount.replace(/,/g, '')) <= 0) {
         errors.push('Type the rent amount');
       }
@@ -2459,11 +2450,9 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       // A registered landlord is mandatory before a rent request can be posted.
       const landlordRegistered = !!selectedLandlord || !!selectedHouse?.landlord_id;
       if (!landlordRegistered) {
-        errors.push('Step 2 — Landlord verified: Register the landlord first. Search to pick an existing landlord, or tap "Add new" to register them.');
+        errors.push('Step 2 — Landlord: Pick or register the landlord first. Search to pick an existing landlord, or tap "Add new" to register them.');
       } else if (landlordCheck === 'missing') {
-        errors.push('Step 2 — Landlord verified: The selected landlord is no longer registered in the system. Pick a registered landlord or register them again.');
-      } else if (landlordCheck === 'checking') {
-        errors.push('Step 2 — Landlord verified: Confirming the landlord is registered — please wait a moment before posting.');
+        errors.push('Step 2 — Landlord: The selected landlord is no longer in the system. Pick a registered landlord or register them again.');
       }
       if (!propertyAddress.trim()) errors.push('Type the property address');
       if (!lc1Name.trim()) errors.push('Type the LC1 chairperson\'s name');
