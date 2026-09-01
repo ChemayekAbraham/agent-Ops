@@ -20,7 +20,7 @@ import { toast } from 'sonner';
 interface PositionLine {
   label: string;
   value: number;
-  source: string;
+  source?: string;
 }
 
 interface ScheduleRow {
