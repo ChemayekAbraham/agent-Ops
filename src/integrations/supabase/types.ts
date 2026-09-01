@@ -45819,6 +45819,16 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_tenant_ops_service_centre_metrics: {
+        Args: never
+        Returns: {
+          active_tenants: number
+          agents: number
+          centre_label: string
+          centre_status: string
+          total_tenants: number
+        }[]
+      }
       get_tenant_rent_summary: {
         Args: { p_tenant_id: string }
         Returns: {

@@ -12,8 +12,16 @@ export interface TenantOpsAcquisition {
   applicationsRejected: number;
   trend: { date: string; fullDate: string; count: number }[];
   byLocation: { label: string; value: number }[];
-  byServiceCentre: { label: string; value: number }[];
+  byServiceCentre: {
+    label: string;
+    value: number;
+    /** Agents rostered to this centre (stationed, manager or their sub-agents). */
+    agents: number;
+    /** Every tenant ever registered by the centre's agents, active or not. */
+    totalTenants: number;
+  }[];
   byAgent: { label: string; value: number }[];
+
 }
 
 // Statuses that represent an application that passed review (existing lifecycle states).
@@ -39,6 +47,15 @@ interface GeoRow {
    */
   tenants_active: number;
 }
+
+interface ServiceCentreRow {
+  centre_label: string;
+  centre_status: string | null;
+  agents: number;
+  active_tenants: number;
+  total_tenants: number;
+}
+
 
 const emptyAcquisition: TenantOpsAcquisition = {
   newToday: 0,
@@ -71,9 +88,9 @@ export function useTenantOpsAcquisition(enabled: boolean = true) {
         applicationsRejectedRes,
         districtGeoRes,
         agentGeoRes,
-        assignmentsRes,
-        entriesRes,
+        serviceCentreRes,
       ] = await Promise.all([
+
         supabase.rpc('get_tenant_ops_acquisition'),
         supabase
           .from('rent_requests')
@@ -89,14 +106,11 @@ export function useTenantOpsAcquisition(enabled: boolean = true) {
           .eq('status', 'rejected'),
         supabase.rpc('get_tenant_ops_geo_metrics', { p_level: 'district' }),
         supabase.rpc('get_tenant_ops_geo_metrics', { p_level: 'agent' }),
-        supabase
-          .from('service_centre_agent_assignments')
-          .select('service_centre_id, agent_id')
-          .is('unassigned_at', null),
-        supabase
-          .from('service_centre_entries')
-          .select('id, stationed_location'),
+        // Service centre roster + active tenants, computed server-side from the
+        // centre entries, approved centre managers and their sub-agents.
+        supabase.rpc('get_tenant_ops_service_centre_metrics' as any),
       ]);
+
       if (acquisitionRes.error) throw acquisitionRes.error;
 
       // Registration counts (existing tenant source, computed server-side)
@@ -144,31 +158,21 @@ export function useTenantOpsAcquisition(enabled: boolean = true) {
         .filter((r) => r.value > 0)
         .sort((a, b) => b.value - a.value);
 
-      // Service centre grouping: agents assigned to centres, labelled by centre location.
-      const centreLabels = new Map<string, string>();
-      for (const e of entriesRes.data || []) {
-        centreLabels.set(e.id, e.stationed_location || 'Service centre');
-      }
-      const agentToCentre = new Map<string, string>();
-      for (const a of assignmentsRes.data || []) {
-        const label = centreLabels.get(a.service_centre_id);
-        if (label) agentToCentre.set(a.agent_id, label);
-      }
-      const centreTotals = new Map<string, number>();
-      let fieldAgents = 0;
-      for (const r of agentRows) {
-        if (r.key === 'unassigned') continue;
-        const centre = r.agent_id ? agentToCentre.get(r.agent_id) : undefined;
-        if (centre) centreTotals.set(centre, (centreTotals.get(centre) || 0) + activeOf(r));
-        else fieldAgents += activeOf(r);
-      }
-      const byServiceCentre = [...centreTotals.entries()]
-        .map(([label, value]) => ({ label, value }))
-        .filter((r) => r.value > 0)
+      // Service centre grouping (server-side): each verified/pending centre plus
+      // every approved service centre manager, with their active sub-agents
+      // rolled into the same centre. Field agents are shown separately so the
+      // chart accounts for the whole active book.
+      const centreRows = (serviceCentreRes?.data || []) as ServiceCentreRow[];
+      const byServiceCentre = centreRows
+        .map((r) => ({
+          label: r.centre_label,
+          value: Number(r.active_tenants) || 0,
+          agents: Number(r.agents) || 0,
+          totalTenants: Number(r.total_tenants) || 0,
+        }))
+        .filter((r) => r.value > 0 || r.agents > 0)
         .sort((a, b) => b.value - a.value);
-      if (fieldAgents > 0) {
-        byServiceCentre.push({ label: 'Field agents (no service centre)', value: fieldAgents });
-      }
+
 
       return {
         newToday,
