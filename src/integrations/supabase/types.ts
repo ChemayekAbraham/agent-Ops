@@ -34993,7 +34993,6 @@ export type Database = {
           arrears_plan_count: number
           arrears_recovered_ugx: number
           basis: Json
-          collected_outside_cohort_ugx: number
           collected_total_ugx: number
           collected_ugx: number
           computed_at: string
@@ -35011,7 +35010,6 @@ export type Database = {
           arrears_plan_count?: number
           arrears_recovered_ugx?: number
           basis?: Json
-          collected_outside_cohort_ugx?: number
           collected_total_ugx?: number
           collected_ugx?: number
           computed_at?: string
@@ -35029,7 +35027,6 @@ export type Database = {
           arrears_plan_count?: number
           arrears_recovered_ugx?: number
           basis?: Json
-          collected_outside_cohort_ugx?: number
           collected_total_ugx?: number
           collected_ugx?: number
           computed_at?: string
