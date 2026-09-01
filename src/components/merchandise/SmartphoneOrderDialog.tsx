@@ -32,6 +32,8 @@ interface Eligibility {
   rank: number | null;
   collected_30d: number;
   max_amount: number;
+  active_tenant_count?: number;
+  required_active_tenants?: number;
   has_national_id: boolean;
   has_workplace_verification: boolean;
   has_open_application: boolean;
@@ -45,10 +47,10 @@ interface Props {
 }
 
 /**
- * Agent Smartphone Advance application. Open to all active operational agents
- * on the Welile network, up to the programme ceiling. Every
- * active, priced model is offered; Agent Ops assigns the supplier to the order
- * after submission. The applicant sees the daily
+ * Agent Smartphone Advance application. Open to agents and sub-agents with at
+ * least 3 active tenants on the Welile network, up to the programme ceiling.
+ * Every active, priced model is offered; Agent Ops assigns the supplier to the
+ * order after submission. The applicant sees the daily
  * amount, the chosen period and the terms — never the internal programme charge.
  */
 export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Props) {
@@ -117,10 +119,20 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
     queryClient.invalidateQueries({ queryKey: ['my-merchandise-deductions', userId] });
   };
 
+  const activeTenants = Number(eligibility?.active_tenant_count || 0);
+  const requiredTenants = Number(eligibility?.required_active_tenants || 3);
+  const tenantShortfall = !!eligibility && !eligibility.eligible && !eligibility.has_open_application && activeTenants < requiredTenants;
+
   const blockers: string[] = [];
   if (eligibility) {
     if (eligibility.has_open_application) blockers.push('You already have an application in progress.');
-    if (cap <= 0) blockers.push('Eligibility: Open to all active operational agents on the Welile network.');
+    if (tenantShortfall) {
+      blockers.push(
+        `You need at least ${requiredTenants} active tenants to apply — you currently have ${activeTenants}.`,
+      );
+    } else if (!eligibility.eligible && !eligibility.has_open_application) {
+      blockers.push('Eligibility is open to active agents and sub-agents on the Welile network.');
+    }
   }
 
   return (
