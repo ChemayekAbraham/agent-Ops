@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Mic, MicOff, PhoneOff, Save, UserRound, Volume2, VolumeX } from 'lucide-react';
+import { Mic, MicOff, PhoneCall, PhoneOff, Save, UserRound, Volume2, VolumeX } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
