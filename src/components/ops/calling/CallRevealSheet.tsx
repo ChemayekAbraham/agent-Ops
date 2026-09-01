@@ -30,6 +30,8 @@ export function CallRevealSheet({
   onOpenForm: (attempt: OpenFormAttempt) => void;
 }) {
   const phone = target?.phone ?? null;
+  const attemptNo =
+    target?.attemptNo ?? hub.openAttempts.find((a) => a.id === target?.attemptId)?.attempt_no ?? 1;
 
   return (
     <Sheet open={!!target} onOpenChange={(o) => !o && onClose()}>
@@ -40,7 +42,7 @@ export function CallRevealSheet({
         <SheetHeader className="text-left">
           <SheetTitle className="text-base">{target?.name ?? 'Call'}</SheetTitle>
           <p className="text-xs text-muted-foreground">
-            Attempt {target?.attemptNo ?? 1} · dial, then come back and record the outcome
+            Attempt {attemptNo} · dial, then come back and record the outcome
           </p>
         </SheetHeader>
 
