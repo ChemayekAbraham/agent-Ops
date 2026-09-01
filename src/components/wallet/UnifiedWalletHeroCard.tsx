@@ -101,6 +101,7 @@ export function UnifiedWalletHeroCard({
   floatCaption,
   commissionBalance,
   withdrawableBalance,
+  operationalFloatBalance,
   otherBalance,
   onOpenWallet,
   onViewStatement,
