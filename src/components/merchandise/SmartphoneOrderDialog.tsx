@@ -175,6 +175,36 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               </div>
             ) : null}
 
+            <div className="space-y-2">
+              <Label className="text-xs">Choose phone type</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={hasOpenApplication}
+                  onClick={() => setOsType('android')}
+                  className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
+                    osType === 'android'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-card hover:bg-muted'
+                  } disabled:opacity-50`}
+                >
+                  <Smartphone className="h-4 w-4" /> Android
+                </button>
+                <button
+                  type="button"
+                  disabled={hasOpenApplication}
+                  onClick={() => setOsType('ios')}
+                  className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
+                    osType === 'ios'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-card hover:bg-muted'
+                  } disabled:opacity-50`}
+                >
+                  <Smartphone className="h-4 w-4" /> iPhone
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-1">
               <Label className="text-xs">Phone</Label>
               <Select
@@ -189,7 +219,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                         ? 'Loading phones…'
                         : options.length
                           ? 'Select a phone'
-                          : 'No phones available for your limit'
+                          : `No ${osType === 'ios' ? 'iPhone' : 'Android'} phones available for your limit`
                     }
                   />
                 </SelectTrigger>
