@@ -26,6 +26,25 @@ export const CALLEE_ROLE_LABEL: Record<CalleeRole, string> = {
   employee: 'Employees',
 };
 
+/** Singular form, for per-person role badges. */
+export const CALLEE_ROLE_BADGE: Record<CalleeRole, string> = {
+  tenant: 'Tenant',
+  agent: 'Agent',
+  partner: 'Partner',
+  landlord: 'Landlord',
+  employee: 'Employee',
+};
+
+/**
+ * Which single audience a multi-role person belongs to, most specific first.
+ * Used only where one label is unavoidable (the dialer target).
+ */
+export const CALLEE_ROLE_PRECEDENCE: CalleeRole[] = ['employee', 'partner', 'landlord', 'agent', 'tenant'];
+
+export function primaryRole(roles: CalleeRole[]): CalleeRole {
+  return CALLEE_ROLE_PRECEDENCE.find((r) => roles.includes(r)) ?? 'tenant';
+}
+
 export const OUTCOME_LABEL: Record<CallOutcome, string> = {
   answered: 'Answered',
   rejected: 'Rejected',

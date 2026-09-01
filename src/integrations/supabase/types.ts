@@ -39136,6 +39136,13 @@ export type Database = {
         }
         Relationships: []
       }
+      v_crm_person_roles: {
+        Row: {
+          person_id: string | null
+          role: string | null
+        }
+        Relationships: []
+      }
       v_general_ledger_effective: {
         Row: {
           account: string | null
@@ -42744,7 +42751,48 @@ export type Database = {
           target_user_id: string
         }[]
       }
+      crm_derive_outcome: {
+        Args: { p_duration: number; p_hangup_cause: string; p_status: string }
+        Returns: string
+      }
       crm_mask_phone: { Args: { raw: string }; Returns: string }
+      crm_platform_people_counts: {
+        Args: never
+        Returns: {
+          agents: number
+          all_users: number
+          employees: number
+          landlords: number
+          partners: number
+          tenants: number
+        }[]
+      }
+      crm_platform_people_page: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_role?: string
+          p_search?: string
+          p_sort?: string
+          p_status?: string
+        }
+        Returns: {
+          avatar_url: string
+          first_called_at: string
+          has_phone: boolean
+          last_call_id: string
+          last_called_at: string
+          last_outcome: string
+          location: string
+          name: string
+          person_id: string
+          phone_masked: string
+          roles: string[]
+          summaries: number
+          total_calls: number
+          total_rows: number
+        }[]
+      }
       crm_reveal_target_phone: {
         Args: { p_person_id: string }
         Returns: string
