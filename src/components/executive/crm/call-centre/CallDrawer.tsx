@@ -207,9 +207,19 @@ export function CallDrawer({
   );
 
   const handleHangUp = useCallback(() => {
+    // Tell the provider first: `crm_cancel_call` flags the leg so the voice
+    // callback answers with <Hangup/> instead of bridging. Previously this
+    // button only changed the drawer, so both handsets kept ringing and the
+    // customer was still dialled the moment the staff leg picked up.
+    if (callId) {
+      cancelCall
+        .mutateAsync(callId)
+        .catch(() => toast.error('Could not stop the call on the phone network.'));
+    }
     if (phase === 'connected') settle('answered');
     else settle('not_reachable');
-  }, [phase, settle]);
+  }, [callId, cancelCall, phase, settle]);
+
 
   const handleSaveSummary = async () => {
     if (!callId) return;
