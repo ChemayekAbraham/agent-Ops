@@ -136,6 +136,20 @@ export function SelfPortfolioDeployDialog({
   const needsDepositDate = choice === 'direct' && !covered;
   const todayISO = new Date().toISOString().slice(0, 10);
 
+  /**
+   * With no active self-support portfolio, the direct landlord-float release is the
+   * offer. The new-portfolio path only reappears when a direct release cannot cover
+   * the amount, so the landlord float can still be funded another way.
+   */
+  const showNewPortfolio = !!eligibility || !covered;
+
+  useEffect(() => {
+    if (!open || eligibility) return;
+    setChoice(covered ? 'direct' : 'new');
+  }, [open, eligibility, covered]);
+
+
+
 
   const deploy = async () => {
     if (selectedIds.length === 0) return;
