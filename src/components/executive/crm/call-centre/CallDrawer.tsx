@@ -76,6 +76,8 @@ export function CallDrawer({
     setOutcome(null);
     setSavedSummary(false);
     setStartError(null);
+    setCallId(null);
+
 
     connectedAtRef.current = null;
 
