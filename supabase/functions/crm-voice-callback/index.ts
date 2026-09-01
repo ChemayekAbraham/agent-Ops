@@ -103,19 +103,43 @@ Deno.serve(async (req) => {
     ? query.eq('id', clientRequestId)
     : query.eq('at_session_id', atSessionId);
 
-  const { data: session } = await query.maybeSingle();
+  const { data: session, error: lookupErr } = await query.maybeSingle();
+
+  if (lookupErr) {
+    console.error('[crm-voice-callback] session lookup failed', {
+      atSessionId,
+      clientRequestId,
+      code: lookupErr.code,
+      message: lookupErr.message,
+    });
+    return done();
+  }
 
   if (!session) {
     console.warn('[crm-voice-callback] no matching session', { atSessionId, clientRequestId });
-    return silence();
+    return done();
   }
+
+  /** Patch helper — every write is checked and logged. */
+  const patch = async (values: Record<string, unknown>, label: string) => {
+    const { error } = await admin.from('crm_call_sessions').update(values).eq('id', session.id);
+    if (error) {
+      console.error(`[crm-voice-callback] ${label} update failed`, {
+        callId: session.id,
+        code: error.code,
+        message: error.message,
+      });
+    }
+  };
 
   // Keep the provider session id attached the first time we see it.
   if (atSessionId && session.at_session_id !== atSessionId) {
-    await admin.from('crm_call_sessions').update({ at_session_id: atSessionId }).eq('id', session.id);
+    await patch({ at_session_id: atSessionId }, 'at_session_id');
   }
 
   const isActive = (p.isActive ?? '').trim() === '1';
+  const dialStatus = (p.dialStatus ?? '').trim();
+  const alreadyBridged = ['bridged', 'bridge_failed'].includes((session.status ?? '').toLowerCase());
 
   // ---------------- terminal event ----------------
   if (!isActive) {
@@ -124,39 +148,84 @@ Deno.serve(async (req) => {
     const state = (p.callSessionState ?? p.status ?? '').trim() || 'completed';
     const hangupCause = (p.hangupCause ?? '').trim() || null;
 
-    await admin
-      .from('crm_call_sessions')
-      .update({
+    console.log('[crm-voice-callback] terminal event', {
+      callId: session.id,
+      atSessionId,
+      state,
+      hangupCause,
+      dialStatus: dialStatus || null,
+      duration,
+    });
+
+    await patch(
+      {
         status: state.toLowerCase(),
         hangup_cause: hangupCause,
         duration_seconds: Number.isFinite(duration) ? Math.max(0, duration) : 0,
         recording_url: p.recordingUrl || null,
         cost_amount: Number.isFinite(cost) ? cost : null,
         cost_currency: p.currencyCode || null,
-      })
-      .eq('id', session.id);
+        ...(dialStatus && dialStatus.toLowerCase() !== 'completed'
+          ? { failure_reason: `dial_${dialStatus.toLowerCase()}`.slice(0, 300) }
+          : {}),
+      },
+      'terminal',
+    );
 
-    return silence();
+    return done();
+  }
+
+  // ---------------- post-<Dial> callback (LOOP GUARD) ----------------
+  // Once <Dial> finishes AT re-posts to this URL with the leg still active and
+  // dial* fields populated. Issuing <Dial> again here is what causes an endless
+  // redial loop, so we record the outcome and end the leg instead.
+  if (dialStatus || p.dialDestinationNumber || p.dialDestinationPhoneNumber || alreadyBridged) {
+    const dialDuration = Number.parseInt(p.dialDurationInSeconds ?? '0', 10);
+    const ok = dialStatus.toLowerCase() === 'completed';
+
+    console.log('[crm-voice-callback] bridge finished, hanging up (no redial)', {
+      callId: session.id,
+      atSessionId,
+      dialStatus: dialStatus || 'unknown',
+      dialDuration,
+      alreadyBridged,
+    });
+
+    await patch(
+      {
+        status: ok || !dialStatus ? 'bridged' : 'bridge_failed',
+        ...(dialStatus && !ok ? { failure_reason: `dial_${dialStatus.toLowerCase()}`.slice(0, 300) } : {}),
+        ...(Number.isFinite(dialDuration) && dialDuration > 0 ? { duration_seconds: dialDuration } : {}),
+      },
+      'post_dial',
+    );
+
+    return hangup();
   }
 
   // ---------------- staff leg answered → bridge to the customer ----------------
   const target = toE164(session.target_phone);
   if (!target) {
-    await admin
-      .from('crm_call_sessions')
-      .update({ status: 'failed', failure_reason: 'invalid_target_phone' })
-      .eq('id', session.id);
-    return silence();
+    console.error('[crm-voice-callback] invalid target phone, cannot bridge', { callId: session.id });
+    await patch({ status: 'failed', failure_reason: 'invalid_target_phone' }, 'invalid_target');
+    return hangup();
   }
 
-  await admin.from('crm_call_sessions').update({ status: 'bridged' }).eq('id', session.id);
+  await patch({ status: 'bridged' }, 'bridged');
 
   // Recording is OFF unless explicitly enabled. The spoken notice would only
   // ever reach the staff leg, never the customer, so enabling it without a
   // customer-side notice would be a consent problem.
   const record = (Deno.env.get('CRM_CALL_RECORDING') ?? '').toLowerCase() === 'true';
 
+  console.log('[crm-voice-callback] bridging staff leg to target', {
+    callId: session.id,
+    atSessionId,
+    record,
+  });
+
   return xml(
     `<Response><Dial phoneNumbers="${target}"${record ? ' record="true"' : ''}/></Response>`,
   );
+
 });
