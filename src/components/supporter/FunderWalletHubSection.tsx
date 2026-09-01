@@ -114,10 +114,7 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
             {isLoading && !data ? (
               <div className="space-y-4">
                 <Skeleton className="h-24 w-full rounded-2xl" />
-                <div className="grid grid-cols-2 gap-3">
-                  <Skeleton className="h-28 rounded-2xl" />
-                  <Skeleton className="h-28 rounded-2xl" />
-                </div>
+                <Skeleton className="h-28 rounded-2xl" />
                 <Skeleton className="h-12 w-full rounded-xl" />
                 <Skeleton className="h-64 w-full rounded-2xl" />
               </div>
@@ -127,44 +124,26 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
               </div>
             ) : (
               <>
-                {/* Balance hero + operational float — 50/50 on desktop, stacked on mobile */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch">
-                  <UnifiedWalletHeroCard
-                    balance={data?.totalAvailable ?? 0}
-                    role="supporter"
-                    withdrawableBalance={data?.withdrawableAmount ?? 0}
-                    defaultCollapsed={false}
-                    collapsible={false}
-                    disableTap
-                    hideSupporterMetrics
-                    hideSecondaryRow
-                    hidePayrollGrowth
-                    hideFooter
-                    quickActions={
-                      <FunderQuickActions
-                        variant="hero"
-                        availableBalance={data?.withdrawableAmount ?? 0}
-                        roiBalance={data?.roiAmount ?? 0}
-                        onChanged={() => { refetch(); }}
-                      />
-                    }
-                  />
-
-                  <Card className="rounded-2xl border-border/50 shadow-sm overflow-hidden h-full">
-                    <CardContent className="p-4 flex flex-col justify-center h-full gap-2">
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-                        <Banknote className="h-3.5 w-3.5" />
-                        Operational Float
-                      </p>
-                      <p className="text-2xl sm:text-3xl font-black tracking-tight leading-none text-foreground">
-                        {formatUGX(data?.floatAmount ?? 0)}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        Balance available to fund rent plans and houses. Not withdrawable.
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
+                <UnifiedWalletHeroCard
+                  balance={data?.totalAvailable ?? 0}
+                  role="supporter"
+                  withdrawableBalance={data?.withdrawableAmount ?? 0}
+                  defaultCollapsed={false}
+                  collapsible={false}
+                  disableTap
+                  hideSupporterMetrics
+                  hideSecondaryRow
+                  hidePayrollGrowth
+                  hideFooter
+                  quickActions={
+                    <FunderQuickActions
+                      variant="hero"
+                      availableBalance={data?.withdrawableAmount ?? 0}
+                      roiBalance={data?.roiAmount ?? 0}
+                      onChanged={() => { refetch(); }}
+                    />
+                  }
+                />
 
 
                 {/* Providers — wallet-card style, compact logos with names */}
