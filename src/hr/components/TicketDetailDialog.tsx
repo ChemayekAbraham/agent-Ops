@@ -81,10 +81,20 @@ function sizeLabel(bytes: number | null) {
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="space-y-0.5">
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="text-sm break-words">{value || '—'}</p>
+    <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-0.5 break-words text-sm font-medium text-foreground">{value || '—'}</p>
     </div>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+      {children}
+    </p>
   );
 }
 
