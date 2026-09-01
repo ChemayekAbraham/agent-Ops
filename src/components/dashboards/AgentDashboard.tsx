@@ -1216,9 +1216,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold leading-tight">Order a Welile Spiro Bike</p>
                       <p className="text-[11px] text-muted-foreground mt-0.5">
-                        {formatUGX(SPIRO_BIKE_BASE_PRICE)} bike. Pick 3, 6, 9 or 12 months and see your monthly repayment.
+                        Ride green, earn faster — get your Spiro Electric Bike with flexible daily payments!
                       </p>
-
                     </div>
                     <Button size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => { setBikeAmount(''); setBikeOpen(true); }}>
                       Order
