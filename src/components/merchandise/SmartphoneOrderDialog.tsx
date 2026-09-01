@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Smartphone, FileText, ShieldCheck, AlertTriangle, Loader2 } from 'lucide-react';
+import { Smartphone, FileText, AlertTriangle, Loader2 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import smartphonePromoAsset from '@/assets/smartphone-promo.jpg.asset.json';
 import { useSmartphoneCatalog } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
@@ -126,24 +126,6 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
     queryClient.invalidateQueries({ queryKey: ['my-merchandise-deductions', userId] });
   };
 
-  const activeTenants = Number(eligibility?.active_tenant_count || 0);
-  const requiredTenants = Number(eligibility?.required_active_tenants || 3);
-
-  // Advisory notes only — they inform the agent what the reviewer will look at.
-  const notes: string[] = [];
-  if (eligibility && !hasOpenApplication) {
-    if (activeTenants < requiredTenants) {
-      notes.push(
-        `You have ${activeTenants} active tenant${activeTenants === 1 ? '' : 's'}. Agent Ops normally looks for ${requiredTenants}+, but you can still apply and let the manager decide.`,
-      );
-    }
-    if (!eligibility.has_national_id) {
-      notes.push('Add your National ID number to your profile — it is verified on phone collection day.');
-    }
-    if (!eligibility.has_workplace_verification) {
-      notes.push('A workplace photo has not been captured yet. It is needed before the phone is released.');
-    }
-  }
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!submitting) onOpenChange(o); }}>
@@ -183,24 +165,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                   decided.
                 </p>
               </div>
-            ) : (
-              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1">
-                <p className="text-xs font-semibold flex items-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5 text-primary" /> Open to all agents
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  Apply for a phone up to{' '}
-                  <span className="font-semibold text-foreground">{formatUGX(cap)}</span>. Your profile —
-                  {' '}{activeTenants} active tenant{activeTenants === 1 ? '' : 's'} — is shared with Agent Ops,
-                  who review and decide.
-                </p>
-                {notes.length > 0 && (
-                  <ul className="list-disc pl-4 text-[11px] text-muted-foreground space-y-0.5 pt-1">
-                    {notes.map((n) => <li key={n}>{n}</li>)}
-                  </ul>
-                )}
-              </div>
-            )}
+            ) : null}
 
             <div className="space-y-1">
               <Label className="text-xs">Phone</Label>
