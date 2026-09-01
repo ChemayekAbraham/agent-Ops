@@ -17,31 +17,9 @@ import {
   type CarriedCloseOut,
 } from '@/components/tenant-ops/tppo/CarriedActions';
 import { SubmitGate } from '@/components/tenant-ops/tppo/SubmitGate';
+import type { TppoZoneAReport } from '@/components/tenant-ops/tppo/tppoTypes';
 
 
-export interface ZoneAReport {
-  period_start: string | null;
-  period_end: string | null;
-  granularity: string | null;
-  collected_ugx: number | null;
-  scheduled_due_ugx: number | null;
-  provisional: boolean | null;
-  collection_rate_pct: number | null;
-  threshold_pct: number | null;
-  below_threshold: boolean | null;
-  report_id: string | null;
-  status: string | null;
-  rate_variance_pp: number | null;
-  collected_delta_ugx: number | null;
-  scheduled_delta_ugx: number | null;
-  prior: {
-    period_start: string | null;
-    period_end: string | null;
-    collected_ugx: number | null;
-    scheduled_due_ugx: number | null;
-    collection_rate_pct: number | null;
-  } | null;
-}
 
 /** Kampala-local anchor date (YYYY-MM-DD) for today. */
 function kampalaToday(): string {
@@ -90,13 +68,13 @@ export default function PortfolioPerformanceReport() {
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['tppo-report-zone-a', granularity, anchor],
-    queryFn: async (): Promise<ZoneAReport> => {
+    queryFn: async (): Promise<TppoZoneAReport> => {
       const { data: rpcData, error: rpcError } = await supabase.rpc('tppo_get_report_zone_a', {
         p_granularity: granularity,
         p_anchor: anchor,
       });
       if (rpcError) throw rpcError;
-      return (rpcData ?? {}) as unknown as ZoneAReport;
+      return (rpcData ?? {}) as unknown as TppoZoneAReport;
     },
   });
 
