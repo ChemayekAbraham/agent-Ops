@@ -7406,6 +7406,7 @@ export type Database = {
           revealed_at: string
           source: string
           telephony_ref: string | null
+          void_reason: string | null
         }
         Insert: {
           attempt_no: number
@@ -7420,6 +7421,7 @@ export type Database = {
           revealed_at?: string
           source?: string
           telephony_ref?: string | null
+          void_reason?: string | null
         }
         Update: {
           attempt_no?: number
@@ -7434,6 +7436,7 @@ export type Database = {
           revealed_at?: string
           source?: string
           telephony_ref?: string | null
+          void_reason?: string | null
         }
         Relationships: [
           {
@@ -42056,6 +42059,7 @@ export type Database = {
           revealed_at: string
           source: string
           telephony_ref: string | null
+          void_reason: string | null
         }
         SetofOptions: {
           from: "*"
@@ -42157,6 +42161,7 @@ export type Database = {
           cycle_row_id: string
           name: string
           revealed_at: string
+          stale: boolean
           subject_type: Database["public"]["Enums"]["cc_subject_type"]
         }[]
       }
@@ -42219,6 +42224,10 @@ export type Database = {
           p_staff_id: string
         }
         Returns: string
+      }
+      cc_void_attempt: {
+        Args: { p_attempt_id: string; p_reason: string }
+        Returns: undefined
       }
       ceo_angel_pool_shareholder_action: {
         Args: {
