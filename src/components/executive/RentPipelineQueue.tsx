@@ -1868,7 +1868,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                 </Button>
                 <Button
                   size="sm"
-                  onClick={handleApprove}
+                  onClick={() => void handleApprove()}
                   disabled={processing}
                   className="gap-1"
                 >
