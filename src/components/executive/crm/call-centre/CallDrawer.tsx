@@ -49,6 +49,8 @@ export function CallDrawer({
   const [callId, setCallId] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<CallOutcome | null>(null);
   const [savedSummary, setSavedSummary] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
+
 
   const ringbackRef = useRef<RingbackHandle | null>(null);
   /** Talk time is measured from a wall-clock mark, so a throttled background
@@ -71,6 +73,8 @@ export function CallDrawer({
     setSummary('');
     setOutcome(null);
     setSavedSummary(false);
+    setStartError(null);
+
     connectedAtRef.current = null;
 
     let cancelled = false;
@@ -90,9 +94,19 @@ export function CallDrawer({
         // not "the customer is connected".
         toast.info(res.message);
       })
-      .catch(() => {
-        if (!cancelled) toast.error('Could not start the call.');
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        // The edge function returns an operator-readable reason (out of voice
+        // credit, invalid staff number, throttled…). Swallowing it left staff
+        // staring at a ringing drawer with no idea why nothing happened.
+        const reason = err instanceof Error && err.message ? err.message : 'Could not start the call.';
+        stopRingback();
+        setStartError(reason);
+        setPhase('ended');
+        setOutcome('not_reachable');
+        toast.error(reason);
       });
+
 
     return () => {
       cancelled = true;
@@ -196,12 +210,14 @@ export function CallDrawer({
   };
 
   const statusLine = useMemo(() => {
+    if (startError) return startError;
     if (phase === 'ringing') return 'Ringing your handset…';
     if (phase === 'connected') return formatTalkTime(elapsed);
     if (outcome === 'answered') return `Call ended · ${formatTalkTime(elapsed)}`;
     if (outcome === 'rejected') return 'Call rejected';
     return 'Not reachable';
-  }, [phase, elapsed, outcome]);
+  }, [phase, elapsed, outcome, startError]);
+
 
   const summaryDirty = summary.trim().length > 0 && !savedSummary;
 
