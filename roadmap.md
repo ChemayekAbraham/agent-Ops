@@ -54,3 +54,6 @@
 
 - ~~Real hang-up for CRM voice calls: `crm-hangup-call` edge function (cancel flag + AT `dequeueInteractiveCall` best-effort drop), wired through `useCancelCall` and `CallDrawer`.~~
 - ~~Partner Profile 360 change log: show portfolio code and payment/plan detail changes (rate, payout mode, term, payout day, dates, status) alongside amount before/change/after.~~
+
+- [x] Partner Profile 360 change log: show payout destination details (bank / mobile money) changed from → to
+- [x] Verify CRM cancel-call actually drops the leg (crm-hangup-call was never deployed; deployed 2026-09-01)
