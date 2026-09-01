@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Plus, Trash2, Smartphone, Pencil, FileDown, X, Check } from 'lucide-react';
@@ -38,10 +38,13 @@ import { smartphoneScheduleGrid } from '@/lib/smartphoneAdvance';
 
 const db = supabase as any;
 
+export type SmartphoneOsType = 'android' | 'ios';
+
 export interface SmartphoneCatalogEntry {
   id: string;
   brand: string;
   model_name: string | null;
+  os_type: SmartphoneOsType;
   default_amount: number | null;
   specifications: string | null;
   more_specifications: string | null;
@@ -67,11 +70,12 @@ export function useSmartphoneCatalog() {
   return useQuery({
     queryKey: SMARTPHONE_CATALOG_QUERY_KEY,
     queryFn: async (): Promise<SmartphoneCatalogEntry[]> => {
-      const { data, error } = await db
-        .from('smartphone_catalog')
-        .select('id, brand, model_name, default_amount, specifications, more_specifications, is_active, supplier_id, supplier_name, supplier_phone, created_at')
-        .order('brand', { ascending: true })
-        .order('model_name', { ascending: true });
+    const { data, error } = await db
+      .from('smartphone_catalog')
+      .select('id, brand, model_name, os_type, default_amount, specifications, more_specifications, is_active, supplier_id, supplier_name, supplier_phone, created_at')
+      .order('os_type', { ascending: true })
+      .order('brand', { ascending: true })
+      .order('model_name', { ascending: true });
 
       if (error) throw error;
       return (data || []) as SmartphoneCatalogEntry[];
@@ -86,6 +90,15 @@ function fmtDate(d?: string | null): string {
 
 function labelOf(e: SmartphoneCatalogEntry): string {
   return e.model_name ? `${e.brand} · ${e.model_name}` : `${e.brand} · any model`;
+}
+
+function osLabel(os: SmartphoneOsType): string {
+  return os === 'ios' ? 'iPhone (iOS)' : 'Android';
+}
+
+function defaultOsForBrand(brand: string): SmartphoneOsType {
+  const b = brand.trim().toLowerCase();
+  return b === 'apple' || b === 'iphone' || b.startsWith('iphone') ? 'ios' : 'android';
 }
 
 async function exportCatalogPdf(rows: SmartphoneCatalogEntry[], from: string, to: string) {
@@ -229,15 +242,17 @@ export function SupplierPicker({
 
 interface ModelRow {
   key: string;
+  osType: SmartphoneOsType;
   modelName: string;
   amount: string;
   specifications: string;
   moreSpecifications: string;
 }
 
-function emptyRow(): ModelRow {
+function emptyRow(defaultOs: SmartphoneOsType = 'android'): ModelRow {
   return {
     key: Math.random().toString(36).slice(2),
+    osType: defaultOs,
     modelName: '',
     amount: '',
     specifications: '',
@@ -251,7 +266,8 @@ export function SmartphoneCatalogDialog() {
   const [open, setOpen] = useState(false);
   const [brandChoice, setBrandChoice] = useState<string>(NEW_BRAND);
   const [newBrand, setNewBrand] = useState('');
-  const [rows, setRows] = useState<ModelRow[]>([emptyRow()]);
+  const [osType, setOsType] = useState<SmartphoneOsType>('android');
+  const [rows, setRows] = useState<ModelRow[]>([emptyRow('android')]);
   const [search, setSearch] = useState('');
 
   const [fromDate, setFromDate] = useState('');
@@ -259,6 +275,7 @@ export function SmartphoneCatalogDialog() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBrand, setEditBrand] = useState('');
   const [editModel, setEditModel] = useState('');
+  const [editOsType, setEditOsType] = useState<SmartphoneOsType>('android');
   const [editAmount, setEditAmount] = useState('');
   const [editSpecifications, setEditSpecifications] = useState('');
   const [editMoreSpecifications, setEditMoreSpecifications] = useState('');
@@ -308,10 +325,14 @@ export function SmartphoneCatalogDialog() {
 
   const effectiveBrand = brandChoice === NEW_BRAND ? newBrand : brandChoice;
 
+  useEffect(() => {
+    setOsType(defaultOsForBrand(effectiveBrand));
+  }, [effectiveBrand]);
+
   const updateRow = (key: string, patch: Partial<ModelRow>) =>
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 
-  const addRow = () => setRows((prev) => [...prev, emptyRow()]);
+  const addRow = () => setRows((prev) => [...prev, emptyRow(osType)]);
   const removeRow = (key: string) =>
     setRows((prev) => (prev.length === 1 ? [emptyRow()] : prev.filter((r) => r.key !== key)));
 
@@ -332,6 +353,7 @@ export function SmartphoneCatalogDialog() {
         return {
           brand: b,
           model_name: r.modelName.trim() || null,
+          os_type: r.osType,
           default_amount: parseAmount(r.amount),
           specifications: r.specifications.trim() || null,
           more_specifications: r.moreSpecifications.trim() || null,
@@ -373,6 +395,7 @@ export function SmartphoneCatalogDialog() {
         .update({
           brand: editBrand.trim(),
           model_name: editModel.trim() || null,
+          os_type: editOsType,
           default_amount: total,
           specifications: editSpecifications.trim() || null,
           more_specifications: editMoreSpecifications.trim() || null,
@@ -429,6 +452,7 @@ export function SmartphoneCatalogDialog() {
     setEditingId(e.id);
     setEditBrand(e.brand);
     setEditModel(e.model_name ?? '');
+    setEditOsType(e.os_type ?? 'android');
     setEditAmount(e.default_amount != null ? String(Number(e.default_amount)) : '');
     setEditSpecifications(e.specifications ?? '');
     setEditMoreSpecifications(e.more_specifications ?? '');
@@ -468,6 +492,18 @@ export function SmartphoneCatalogDialog() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Operating system</Label>
+                <Select value={osType} onValueChange={(v) => setOsType(v as SmartphoneOsType)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select OS" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="android">Android</SelectItem>
+                    <SelectItem value="ios">iPhone (iOS)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               {brandChoice === NEW_BRAND && (
                 <div className="space-y-1">
                   <Label className="text-xs">New brand name</Label>
@@ -494,7 +530,7 @@ export function SmartphoneCatalogDialog() {
                       </Button>
                     )}
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div className="space-y-1">
                       <Label className="text-xs">
                         Model name <span className="text-muted-foreground font-normal">— optional</span>
@@ -504,6 +540,21 @@ export function SmartphoneCatalogDialog() {
                         onChange={(e) => updateRow(row.key, { modelName: e.target.value })}
                         placeholder="e.g. Galaxy A14"
                       />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Operating system</Label>
+                      <Select
+                        value={row.osType}
+                        onValueChange={(v) => updateRow(row.key, { osType: v as SmartphoneOsType })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="android">Android</SelectItem>
+                          <SelectItem value="ios">iPhone (iOS)</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">
@@ -633,9 +684,18 @@ export function SmartphoneCatalogDialog() {
               filtered.map((e) =>
                 editingId === e.id ? (
                   <div key={e.id} className="space-y-2 rounded-lg border p-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                       <Input value={editBrand} onChange={(ev) => setEditBrand(ev.target.value)} placeholder="Brand" />
                       <Input value={editModel} onChange={(ev) => setEditModel(ev.target.value)} placeholder="Model (optional)" />
+                      <Select value={editOsType} onValueChange={(v) => setEditOsType(v as SmartphoneOsType)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="android">Android</SelectItem>
+                          <SelectItem value="ios">iPhone (iOS)</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <Input
                         type="number"
                         min={1000}
@@ -675,6 +735,8 @@ export function SmartphoneCatalogDialog() {
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold">{labelOf(e)}</p>
                       <p className="text-xs text-muted-foreground">
+                        {e.os_type ? osLabel(e.os_type) : 'Phone'}
+                        {' · '}
                         {e.default_amount != null ? formatUGX(Number(e.default_amount)) : 'No default amount'}
                         {' · added '}
                         {fmtDate(e.created_at)}

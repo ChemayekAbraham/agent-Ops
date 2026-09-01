@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,7 +23,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Smartphone, FileText, AlertTriangle, Loader2 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import smartphonePromoAsset from '@/assets/smartphone-promo.jpg.asset.json';
-import { useSmartphoneCatalog } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
+import { useSmartphoneCatalog, type SmartphoneOsType } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
 import { SMARTPHONE_PERIODS as PERIODS, smartphoneSchedule } from '@/lib/smartphoneAdvance';
 
 const db = supabase as any;
@@ -56,6 +56,7 @@ interface Props {
  */
 export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Props) {
   const queryClient = useQueryClient();
+  const [osType, setOsType] = useState<SmartphoneOsType>('android');
   const [catalogId, setCatalogId] = useState('');
   const [months, setMonths] = useState<string>('12');
   const [submitting, setSubmitting] = useState(false);
@@ -79,12 +80,18 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
     () =>
       catalog
         .filter((c) => c.is_active && Number(c.default_amount || 0) > 0)
-        .filter((c) => cap <= 0 || Number(c.default_amount) <= cap),
-    [catalog, cap],
+        .filter((c) => cap <= 0 || Number(c.default_amount) <= cap)
+        .filter((c) => c.os_type === osType),
+    [catalog, cap, osType],
   );
 
   const selected = options.find((c) => c.id === catalogId);
   const price = Math.max(0, Math.round(Number(selected?.default_amount ?? 0)));
+
+  useEffect(() => {
+    setCatalogId('');
+  }, [osType]);
+
   const period = PERIODS.find((p) => String(p.months) === months) ?? PERIODS[PERIODS.length - 1];
   const schedule = smartphoneSchedule(price, period.months);
   const totalRepayable = schedule.total;
@@ -97,6 +104,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const canSubmit = !hasOpenApplication && !!selected && price > 0 && docsReady;
 
   const reset = () => {
+    setOsType('android');
     setCatalogId('');
     setMonths('12');
     setDocsReady(false);
@@ -167,6 +175,36 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               </div>
             ) : null}
 
+            <div className="space-y-2">
+              <Label className="text-xs">Choose phone type</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={hasOpenApplication}
+                  onClick={() => setOsType('android')}
+                  className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
+                    osType === 'android'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-card hover:bg-muted'
+                  } disabled:opacity-50`}
+                >
+                  <Smartphone className="h-4 w-4" /> Android
+                </button>
+                <button
+                  type="button"
+                  disabled={hasOpenApplication}
+                  onClick={() => setOsType('ios')}
+                  className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
+                    osType === 'ios'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-card hover:bg-muted'
+                  } disabled:opacity-50`}
+                >
+                  <Smartphone className="h-4 w-4" /> iPhone
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-1">
               <Label className="text-xs">Phone</Label>
               <Select
@@ -181,7 +219,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                         ? 'Loading phones…'
                         : options.length
                           ? 'Select a phone'
-                          : 'No phones available for your limit'
+                          : `No ${osType === 'ios' ? 'iPhone' : 'Android'} phones available for your limit`
                     }
                   />
                 </SelectTrigger>
