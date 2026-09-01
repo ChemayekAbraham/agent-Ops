@@ -452,6 +452,7 @@ export function SmartphoneCatalogDialog() {
     setEditingId(e.id);
     setEditBrand(e.brand);
     setEditModel(e.model_name ?? '');
+    setEditOsType(e.os_type ?? 'android');
     setEditAmount(e.default_amount != null ? String(Number(e.default_amount)) : '');
     setEditSpecifications(e.specifications ?? '');
     setEditMoreSpecifications(e.more_specifications ?? '');
