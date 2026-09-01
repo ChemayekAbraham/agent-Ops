@@ -355,8 +355,8 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
             <AiIdButton variant="compact" />
           </div>
 
-          {/* Prominent live tracker for any in-flight / active Business Advance */}
-          <BusinessAdvanceStatusHero />
+
+
 
 
           {/* Wallet hero card — replaces the previous bread hero on tenant dashboard */}
