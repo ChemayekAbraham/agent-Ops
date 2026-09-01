@@ -603,12 +603,21 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
         updated_at: statusChangedAt,
       };
 
+      // Requests Tenant Ops kept off the Funder dashboard skip Partner Ops.
+      if (stage === 'tenant_ops_approved' && !isOutstanding && req.funder_visible === false) {
+        updateData.status = 'partner_ops_approved';
+        updateData.partner_ops_reviewed_at = statusChangedAt;
+        updateData.partner_ops_comment =
+          `No proxy attached — not published to the Funder dashboard. Tenant Ops reason: ${req.funder_visibility_reason || 'not provided'}`;
+      }
+
       if (config.showLandlordChecklist && !isOutstanding) {
         updateData.landlord_called = true;
         updateData.landlord_acknowledged = true;
         updateData.landlord_verification_method = landlordVerificationMethod || 'phone_call';
         updateData.landlord_call_notes = landlordCallNotes || null;
       }
+
 
       const { error } = await supabase
         .from('rent_requests')
