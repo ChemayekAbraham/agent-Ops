@@ -87,6 +87,11 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
   const selected = options.find((c) => c.id === catalogId);
   const price = Math.max(0, Math.round(Number(selected?.default_amount ?? 0)));
+
+  useEffect(() => {
+    setCatalogId('');
+  }, [osType]);
+
   const period = PERIODS.find((p) => String(p.months) === months) ?? PERIODS[PERIODS.length - 1];
   const schedule = smartphoneSchedule(price, period.months);
   const totalRepayable = schedule.total;
