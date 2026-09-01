@@ -184,29 +184,37 @@ Deno.serve(async (req) => {
   // Once <Dial> finishes AT re-posts to this URL with the leg still active and
   // dial* fields populated. Issuing <Dial> again here is what causes an endless
   // redial loop, so we record the outcome and end the leg instead.
-  if (dialStatus || p.dialDestinationNumber || p.dialDestinationPhoneNumber || alreadyBridged) {
+  const isPostDial = Boolean(dialStatus || p.dialDestinationNumber || p.dialDestinationPhoneNumber);
+
+  if (isPostDial || alreadyBridged) {
     const dialDuration = Number.parseInt(p.dialDurationInSeconds ?? '0', 10);
     const ok = dialStatus.toLowerCase() === 'completed';
 
-    console.log('[crm-voice-callback] bridge finished, hanging up (no redial)', {
+    console.log('[crm-voice-callback] ending leg without redial', {
       callId: session.id,
       atSessionId,
-      dialStatus: dialStatus || 'unknown',
+      sessionStatus: session.status,
+      dialStatus: dialStatus || null,
       dialDuration,
-      alreadyBridged,
+      isPostDial,
     });
 
-    await patch(
-      {
-        status: ok || !dialStatus ? 'bridged' : 'bridge_failed',
-        ...(dialStatus && !ok ? { failure_reason: `dial_${dialStatus.toLowerCase()}`.slice(0, 300) } : {}),
-        ...(Number.isFinite(dialDuration) && dialDuration > 0 ? { duration_seconds: dialDuration } : {}),
-      },
-      'post_dial',
-    );
+    // Only a real post-dial event may move the row. A stray active callback on an
+    // already-terminal call is answered with <Hangup/> and nothing is overwritten.
+    if (isPostDial && dialable) {
+      await patch(
+        {
+          status: ok || !dialStatus ? 'bridged' : 'bridge_failed',
+          ...(dialStatus && !ok ? { failure_reason: `dial_${dialStatus.toLowerCase()}`.slice(0, 300) } : {}),
+          ...(Number.isFinite(dialDuration) && dialDuration > 0 ? { duration_seconds: dialDuration } : {}),
+        },
+        'post_dial',
+      );
+    }
 
     return hangup();
   }
+
 
   // ---------------- staff leg answered → bridge to the customer ----------------
   const target = toE164(session.target_phone);
