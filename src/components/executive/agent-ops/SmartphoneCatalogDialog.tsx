@@ -70,11 +70,12 @@ export function useSmartphoneCatalog() {
   return useQuery({
     queryKey: SMARTPHONE_CATALOG_QUERY_KEY,
     queryFn: async (): Promise<SmartphoneCatalogEntry[]> => {
-      const { data, error } = await db
-        .from('smartphone_catalog')
-        .select('id, brand, model_name, default_amount, specifications, more_specifications, is_active, supplier_id, supplier_name, supplier_phone, created_at')
-        .order('brand', { ascending: true })
-        .order('model_name', { ascending: true });
+    const { data, error } = await db
+      .from('smartphone_catalog')
+      .select('id, brand, model_name, os_type, default_amount, specifications, more_specifications, is_active, supplier_id, supplier_name, supplier_phone, created_at')
+      .order('os_type', { ascending: true })
+      .order('brand', { ascending: true })
+      .order('model_name', { ascending: true });
 
       if (error) throw error;
       return (data || []) as SmartphoneCatalogEntry[];
