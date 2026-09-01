@@ -99,7 +99,7 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
             <Bike className="h-4 w-4 text-primary" /> Order a Welile Spiro Bike
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Choose your repayment period — the total access fee and total repayable amount update
+            Choose your repayment period — the total repayable amount and daily payment update
             automatically.
           </DialogDescription>
         </DialogHeader>
