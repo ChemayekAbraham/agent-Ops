@@ -331,7 +331,7 @@ export function SelfPortfolioDeployDialog({
                     Fresh start date, one monthly payout on its own anniversary date.
                   </p>
                 </div>
-                {(!eligibility || !canTopUp || cyclesRemaining < 3) && (
+                {eligibility && (!canTopUp || cyclesRemaining < 3) && (
                   <Badge className="gap-1 text-[10px] shrink-0 bg-primary text-primary-foreground hover:bg-primary">
                     <Star className="h-3 w-3 fill-current" aria-hidden="true" />
                     Recommended
