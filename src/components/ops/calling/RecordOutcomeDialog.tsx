@@ -86,7 +86,9 @@ export function RecordOutcomeDialog({
 
   return (
     <Dialog open={!!attempt} onOpenChange={(o) => !o && close()}>
-      <DialogContent className="max-w-lg">
+      {/* Capped height + scroll so the submit button stays reachable with the
+          on-screen keyboard open on a handset. */}
+      <DialogContent className="max-h-[85svh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-base">Record outcome — {attempt?.name}</DialogTitle>
         </DialogHeader>
@@ -128,6 +130,7 @@ export function RecordOutcomeDialog({
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={3}
+                className="max-h-40"
                 placeholder="What did they say, in their words?"
               />
             </div>

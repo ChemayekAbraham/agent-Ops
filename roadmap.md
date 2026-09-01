@@ -68,3 +68,6 @@
 
 - [x] Balance Sheet: split Landlord Float into Company Managed / Self Managed + Total Landlord Float subtotal (presentation only, UI + CSV + PDF)
 - [x] Service Centre page still raising HOUSE_VERIFICATION_FORBIDDEN — allow the listing's assigned service centre manager (not only tagged managers) to run the review step
+
+- ~~WELILE-CC-CYCLEDESC21~~ — cycle title (required) + description on `cc_call_cycles`, `cc_open_cycle`, `v_cc_cycle_progress`, cycle controls UI.
+- WELILE-CC-MOBILE22 — mobile-first calling hub: sticky bottom bar, reveal sheet with tel: dialing, record/follow-ups sheet, filter sheet. No migration, no data-layer change.

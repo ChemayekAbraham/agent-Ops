@@ -17,6 +17,10 @@ import { OpenAttemptQueue } from './OpenAttemptQueue';
 import { RecordOutcomeDialog } from './RecordOutcomeDialog';
 import { CycleControls } from './CycleControls';
 import { FollowupsDuePanel } from './FollowupsDuePanel';
+import { MobileCallBar } from './MobileCallBar';
+import { MobileControlsBar } from './MobileControlsBar';
+import { CallRevealSheet, type RevealTarget } from './CallRevealSheet';
+import { useBelowLg } from './useBelowLg';
 
 
 const TITLE: Record<CcSubjectType, string> = {
@@ -62,6 +66,8 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
 
   const [revealed, setRevealed] = useState<Record<string, string | null>>({});
   const [formAttempt, setFormAttempt] = useState<{ id: string; cycle_row_id: string; name: string } | null>(null);
+  const [revealTarget, setRevealTarget] = useState<RevealTarget | null>(null);
+  const belowLg = useBelowLg();
 
   const metricLabel = useMemo(() => hub.rows[0]?.metric_label ?? 'Metric', [hub.rows]);
   const activeTab = CALLING_TABS.find((t) => t.key === tab) ?? CALLING_TABS[0];
@@ -70,9 +76,14 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
     hub.reveal.mutate(
       { id: row.id },
       {
-        onSuccess: ({ phone }) => {
+        onSuccess: ({ attemptId, phone }) => {
           setRevealed((r) => ({ ...r, [row.id]: phone }));
-          toast.success(phone ? `Number revealed: ${phone}` : 'Attempt opened, but no number is on file.');
+          if (belowLg) {
+            // On a handset the operator dials straight from the sheet.
+            setRevealTarget({ attemptId, cycleRowId: row.id, name: row.name ?? 'Unnamed', attemptNo: null, phone });
+          } else {
+            toast.success(phone ? `Number revealed: ${phone}` : 'Attempt opened, but no number is on file.');
+          }
         },
         onError: (e) => toast.error(ccErrorText(e)),
       },
@@ -86,7 +97,7 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
           <PhoneCall className="h-4 w-4 text-primary" />
           {TITLE[subjectType]}
         </h2>
-        <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-end">
+        <div className="hidden w-full grid-cols-1 gap-2 sm:w-auto sm:flex-wrap sm:items-end lg:flex">
           <div className="space-y-1">
             <Label className="text-[11px] text-muted-foreground">Sort by</Label>
             <Select value={hub.effectiveSortKey ?? ''} onValueChange={(v) => setSortKey(v)}>
@@ -112,7 +123,26 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
 
       </div>
 
-      <CallingFilterBar
+      <div className="hidden lg:block">
+        <CallingFilterBar
+          options={hub.filterOptions}
+          loading={hub.filterOptionsLoading}
+          error={hub.filterOptionsError}
+          selection={filters}
+          filteredTotal={hub.total}
+          onChange={(key, value) =>
+            setFilters((prev) => {
+              const next = { ...prev };
+              if (value) next[key] = value;
+              else delete next[key];
+              return next;
+            })
+          }
+          onClearAll={() => setFilters({})}
+        />
+      </div>
+
+      <MobileControlsBar
         options={hub.filterOptions}
         loading={hub.filterOptionsLoading}
         error={hub.filterOptionsError}
@@ -127,6 +157,11 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
           })
         }
         onClearAll={() => setFilters({})}
+        search={search}
+        onSearch={setSearch}
+        sortOptions={hub.sortOptions}
+        sortKey={hub.effectiveSortKey ?? null}
+        onSortKey={(v) => setSortKey(v)}
       />
 
       <CycleControls hub={hub} />
@@ -134,7 +169,7 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         {/* Side panels come after the queue below lg — a caller needs the list first. */}
-        <div className="order-2 space-y-3 lg:order-1 lg:col-span-1">
+        <div className="order-2 hidden space-y-3 lg:order-1 lg:col-span-1 lg:block">
           <OpenAttemptQueue hub={hub} onOpenForm={setFormAttempt} />
           <FollowupsDuePanel hub={hub} />
         </div>
@@ -223,6 +258,15 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
       </div>
 
       <RecordOutcomeDialog hub={hub} attempt={formAttempt} onClose={() => setFormAttempt(null)} />
+
+      <CallRevealSheet
+        hub={hub}
+        target={revealTarget}
+        onClose={() => setRevealTarget(null)}
+        onOpenForm={setFormAttempt}
+      />
+
+      {hub.cycle && <MobileCallBar hub={hub} phones={revealed} onOpenForm={setFormAttempt} />}
     </div>
   );
 }

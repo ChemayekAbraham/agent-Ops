@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.cc_open_cycle(cc_subject_type, text, integer);
