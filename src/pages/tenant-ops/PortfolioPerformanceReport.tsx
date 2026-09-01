@@ -254,14 +254,54 @@ export default function PortfolioPerformanceReport() {
           <HeadlineA1 report={data} />
           <VarianceA2 report={data} />
           <ProjectionA3 granularity={granularity} anchor={anchor} />
-          {ZONE_PLACEHOLDERS.map((zone) => (
-            <div
-              key={zone.id}
-              className="flex min-h-24 items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 text-sm font-medium text-muted-foreground"
-            >
-              {zone.title}
-            </div>
-          ))}
+          <NarrativeCollections
+            granularity={granularity}
+            submitted={submitted}
+            note={note}
+            onNoteChange={(value) => setNoteDrafts((prev) => ({ ...prev, [draftKey]: value }))}
+            priorNote={narrative.data?.priorNote ?? null}
+            submittedNote={narrative.data?.submittedNote ?? null}
+            actions={actions}
+            onActionsChange={(next) =>
+              setActionDrafts((prev) => ({ ...prev, [draftKey]: next }))
+            }
+            submittedActions={narrative.data?.submittedActions ?? []}
+          />
+          <CarriedActions
+            submitted={submitted}
+            rows={carriedRows}
+            closeOuts={closeOuts}
+            onChange={(id, patch) =>
+              setCloseOutDrafts((prev) => {
+                const forPeriod = prev[draftKey] ?? {};
+                const existing = forPeriod[id] ?? { outcome: null, result: '' };
+                return {
+                  ...prev,
+                  [draftKey]: { ...forPeriod, [id]: { ...existing, ...patch } },
+                };
+              })
+            }
+          />
+          <SubmitGate
+            granularity={granularity}
+            anchor={anchor}
+            periodStart={periodStart}
+            periodEnd={periodEnd}
+            reportId={reportId}
+            submitted={submitted}
+            state={{
+              note,
+              priorNote: narrative.data?.priorNote ?? null,
+              actions,
+              carriedRows,
+              closeOuts,
+            }}
+            onSubmitted={() => {
+              void queryClient.invalidateQueries({ queryKey: ['tppo-report-zone-a'] });
+              void queryClient.invalidateQueries({ queryKey: ['tppo-narrative-collections'] });
+            }}
+          />
+
         </CardContent>
       </Card>
     </div>
