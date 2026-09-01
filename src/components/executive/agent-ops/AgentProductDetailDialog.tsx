@@ -170,7 +170,6 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
                         {agent?.email ? 'No role' : 'Profile not linked'}
                       </Badge>
                     ) : (
-                    ) : (
                       (agent?.roles ?? []).map((r) => (
                         <Badge key={r} variant="secondary" className="text-[10px] capitalize">
                           {r.replace(/_/g, ' ')}
