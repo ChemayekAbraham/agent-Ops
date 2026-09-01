@@ -1,26 +1,9 @@
 import { ArrowDown, ArrowRight, ArrowUp, Minus } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
-
-export interface VarianceA2Report {
-  period_start?: string | null;
-  period_end?: string | null;
-  collected_ugx?: number | null;
-  scheduled_due_ugx?: number | null;
-  collection_rate_pct?: number | null;
-  rate_variance_pp?: number | null;
-  collected_delta_ugx?: number | null;
-  scheduled_delta_ugx?: number | null;
-  prior?: {
-    period_start?: string | null;
-    period_end?: string | null;
-    collected_ugx?: number | null;
-    scheduled_due_ugx?: number | null;
-    collection_rate_pct?: number | null;
-  } | null;
-}
+import { ZoneAReport } from '@/pages/tenant-ops/PortfolioPerformanceReport';
 
 interface VarianceA2Props {
-  report?: VarianceA2Report | null;
+  report?: ZoneAReport | null;
 }
 
 function shortDate(iso?: string | null): string {

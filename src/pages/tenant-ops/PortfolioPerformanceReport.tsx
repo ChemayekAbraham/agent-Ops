@@ -19,7 +19,7 @@ import {
 import { SubmitGate } from '@/components/tenant-ops/tppo/SubmitGate';
 
 
-interface ZoneAReport {
+export interface ZoneAReport {
   period_start: string | null;
   period_end: string | null;
   granularity: string | null;
@@ -31,6 +31,16 @@ interface ZoneAReport {
   below_threshold: boolean | null;
   report_id: string | null;
   status: string | null;
+  rate_variance_pp: number | null;
+  collected_delta_ugx: number | null;
+  scheduled_delta_ugx: number | null;
+  prior: {
+    period_start: string | null;
+    period_end: string | null;
+    collected_ugx: number | null;
+    scheduled_due_ugx: number | null;
+    collection_rate_pct: number | null;
+  } | null;
 }
 
 /** Kampala-local anchor date (YYYY-MM-DD) for today. */
