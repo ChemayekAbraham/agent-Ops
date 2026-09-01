@@ -815,11 +815,17 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
     return true;
   });
 
-  const handleApprove = async () => {
+  const handleApprove = async (decision?: FunderVisibilityDecision) => {
     if (!selectedRequest || !user) return;
     const isOutstanding = selectedRequest.registration_type === 'outstanding_balance';
     if (config.showAgentSelector && !isOutstanding && !assignedAgentId && !selectedRequest.agent_id) {
       toast({ title: 'Please assign an agent', variant: 'destructive' });
+      return;
+    }
+
+    // Tenant Ops confirms the request details and decides funder visibility first.
+    if (stage === 'agent_ops_approved' && !isOutstanding && !decision) {
+      setConfirmOpen(true);
       return;
     }
 
@@ -829,6 +835,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       toast({ title: 'Complete the landlord verification checklist first', variant: 'destructive' });
       return;
     }
+
 
     // TID is mandatory for CFO approval (audit compliance)
     if (stage === 'coo_approved' && !payoutRef.trim()) {
