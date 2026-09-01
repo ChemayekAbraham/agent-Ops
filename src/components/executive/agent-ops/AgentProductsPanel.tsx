@@ -644,6 +644,90 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
         </div>
       )}
 
+      {/* ---------- Pending application detail ---------- */}
+      <Dialog open={!!appDetail} onOpenChange={(o) => { if (!o) setAppDetail(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Application details</DialogTitle>
+          </DialogHeader>
+          {appDetail && (() => {
+            const qty = Math.max(1, Number(appDetail.quantity || 1));
+            const total = Number(appDetail.requested_amount || 0);
+            const unit = total / qty;
+            const item = [appDetail.brand, appDetail.model_type].filter(Boolean).join(' ') || appDetail.item_name || '—';
+            const centre = (appDetail.agent_id && centreByAgent.get(appDetail.agent_id)) || 'No service center';
+            const busy = approveApp.isPending || rejectApp.isPending;
+            return (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                  <UserAvatar avatarUrl={appDetail.avatar_url} fullName={appDetail.full_name || undefined} size="md" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate">{appDetail.full_name || 'Unknown agent'}</p>
+                    <p className="text-xs text-muted-foreground truncate">{appDetail.phone || 'No phone on file'}</p>
+                    <Badge variant="secondary" className="mt-1 text-[10px]">{centre}</Badge>
+                  </div>
+                </div>
+
+                <dl className="grid grid-cols-2 gap-3 text-sm">
+                  <div className="col-span-2">
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Requested item</dt>
+                    <dd className="font-medium">{item}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Quantity</dt>
+                    <dd className="font-medium tabular-nums">{qty}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Unit price</dt>
+                    <dd className="font-medium tabular-nums">{formatUGX(unit)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Total amount</dt>
+                    <dd className="font-semibold tabular-nums">{formatUGX(total)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Request date</dt>
+                    <dd className="font-medium">
+                      {appDetail.created_at ? format(new Date(appDetail.created_at), 'dd MMM yyyy HH:mm') : '—'}
+                    </dd>
+                  </div>
+                </dl>
+
+                {appDetail.agent_id && (
+                  <Button
+                    variant="link"
+                    className="h-auto p-0 text-xs"
+                    onClick={() => { const id = appDetail.agent_id!; setAppDetail(null); setDetailAgentId(id); }}
+                  >
+                    Open full agent profile
+                  </Button>
+                )}
+
+                {canDecide ? (
+                  <DialogFooter className="gap-2 sm:gap-2">
+                    <Button
+                      variant="outline"
+                      className="gap-1.5 text-destructive hover:text-destructive"
+                      disabled={busy}
+                      onClick={() => { setRejectTarget(appDetail); setRejectReason(''); }}
+                    >
+                      <X className="h-4 w-4" /> Reject
+                    </Button>
+                    <Button className="gap-1.5" disabled={busy} onClick={() => approveApp.mutate(appDetail)}>
+                      {approveApp.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                      Approve
+                    </Button>
+                  </DialogFooter>
+                ) : (
+                  <p className="text-xs text-muted-foreground">This category is reviewed elsewhere.</p>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+
       <Dialog open={!!rejectTarget} onOpenChange={(o) => { if (!o) { setRejectTarget(null); setRejectReason(''); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
