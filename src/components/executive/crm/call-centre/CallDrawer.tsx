@@ -11,6 +11,7 @@ import { startRingback, type RingbackHandle } from '@/lib/ringbackTone';
 import { CALLEE_ROLE_LABEL, deriveOutcome, formatTalkTime, type CallOutcome } from '@/lib/callCentre';
 import {
   useCallSession,
+  useCancelCall,
   useEndCall,
   usePlaceCall,
   useSaveCallSummary,
