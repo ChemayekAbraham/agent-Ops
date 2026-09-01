@@ -228,7 +228,7 @@ Deno.serve(async (req) => {
   };
 
   const endedByFor = (cause: string | null): string => {
-    if (session!.cancel_requested_at) return 'crm_user';
+    if (row.cancel_requested_at) return 'crm_user';
     switch ((cause ?? '').toUpperCase()) {
       case 'CALL_REJECTED':
       case 'USER_BUSY':
