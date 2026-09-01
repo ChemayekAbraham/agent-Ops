@@ -96,8 +96,32 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
     },
   });
 
+  // Company-owned bikes attached to the agent for operations (no recovery, no sale).
+  const { data: fleetRows } = useQuery({
+    queryKey: ['agent-fleet-assignments', agentId],
+    enabled: !!agentId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('agent_fleet_assignments' as any)
+        .select('id,item_name,plate_number,serial_number,assigned_on,status')
+        .eq('agent_id', agentId!)
+        .order('assigned_on', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as Array<{
+        id: string;
+        item_name: string | null;
+        plate_number: string | null;
+        serial_number: string | null;
+        assigned_on: string | null;
+        status: string | null;
+      }>;
+    },
+  });
+  const fleet = fleetRows ?? [];
+
   const agent = data?.agent;
   const totals = data?.totals;
+
 
   return (
     <Dialog open={!!agentId} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -176,6 +200,39 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
               </div>
 
               <Separator />
+
+              {/* Company fleet bikes: assigned assets, no money involved */}
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold">Company fleet assets ({fleet.length})</h3>
+                {fleet.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No company bike assigned to this agent.</p>
+                ) : (
+                  <div className="rounded-xl border border-border divide-y divide-border">
+                    {fleet.map((f) => (
+                      <div key={f.id} className="p-2.5 flex flex-wrap items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{f.item_name || 'Company Fleet Bike'}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {dt(f.assigned_on)}
+                            {f.plate_number ? ` · Plate ${f.plate_number}` : ''}
+                            {f.serial_number ? ` · SN ${f.serial_number}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[11px] text-muted-foreground tabular-nums">{formatUGX(0)}</span>
+                          <Badge variant="secondary" className="text-[10px] capitalize">
+                            {(f.status || 'assigned').replace(/_/g, ' ')}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <Separator />
+
+
 
               {/* Items held */}
               <section className="space-y-2">

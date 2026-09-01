@@ -2461,6 +2461,57 @@ export type Database = {
           },
         ]
       }
+      agent_fleet_assignments: {
+        Row: {
+          agent_id: string
+          asset_type: string
+          assigned_by: string | null
+          assigned_on: string
+          created_at: string
+          id: string
+          item_name: string
+          notes: string | null
+          plate_number: string | null
+          returned_on: string | null
+          serial_number: string | null
+          service_centre_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          asset_type?: string
+          assigned_by?: string | null
+          assigned_on?: string
+          created_at?: string
+          id?: string
+          item_name?: string
+          notes?: string | null
+          plate_number?: string | null
+          returned_on?: string | null
+          serial_number?: string | null
+          service_centre_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          asset_type?: string
+          assigned_by?: string | null
+          assigned_on?: string
+          created_at?: string
+          id?: string
+          item_name?: string
+          notes?: string | null
+          plate_number?: string | null
+          returned_on?: string | null
+          serial_number?: string | null
+          service_centre_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       agent_float_funding: {
         Row: {
           agent_id: string
@@ -40967,6 +41018,17 @@ export type Database = {
       agent_ops_approve_smartphone_order: {
         Args: { p_note?: string; p_sale_id: string }
         Returns: Json
+      }
+      agent_ops_assign_company_fleet_bike: {
+        Args: {
+          p_agent_id: string
+          p_item_name?: string
+          p_notes?: string
+          p_plate_number?: string
+          p_serial_number?: string
+          p_service_centre_id?: string
+        }
+        Returns: string
       }
       agent_ops_can_view_rent_behaviour: {
         Args: { _user_id: string }

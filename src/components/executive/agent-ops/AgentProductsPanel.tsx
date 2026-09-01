@@ -79,6 +79,10 @@ const PRODUCT_SUGGESTIONS = [
   'Company ID', 'Signage (Shop Board)', 'Banner / Poster', 'Umbrella', 'Branded Bag',
 ];
 
+/** Company-owned bike attached to an agent for operations — never sold, no wallet recovery. */
+const FLEET_BIKE_OPTION = 'Company Fleet Bike (Assigned / Operational)';
+
+
 export type AgentProductCategory = 'motor_bike' | 'smart_phone' | 'signage' | 'boutique';
 
 /** Which overview KPI card the drill-down sheet is showing. */
@@ -1055,6 +1059,10 @@ function IssueProductDialog({
   const [plan, setPlan] = useState<'installment' | 'full'>('installment');
   const [amountPaid, setAmountPaid] = useState('0');
   const [notes, setNotes] = useState('');
+  const [fleetModel, setFleetModel] = useState('');
+  const [plateNumber, setPlateNumber] = useState('');
+  const [serialNumber, setSerialNumber] = useState('');
+
 
   const { data: agents } = useQuery({
     queryKey: ['agent-products-agent-search', agentTerm],
@@ -1089,29 +1097,50 @@ function IssueProductDialog({
     }
     const names = new Set<string>(category ? CATEGORY_SUGGESTIONS[category] : PRODUCT_SUGGESTIONS);
     catalog.forEach((c) => names.add(c.item_name));
-    return Array.from(names).sort();
+    const list = Array.from(names).sort();
+    // Company-owned bikes are assigned, never sold — offered on bike/full scopes only.
+    if (!category || category === 'motor_bike') list.push(FLEET_BIKE_OPTION);
+    return list;
   }, [catalog, category, phoneCatalog, isSmartphone]);
+
+  /** Company fleet bike: assignment only, no price, no wallet recovery. */
+  const isFleetBike = itemName === FLEET_BIKE_OPTION;
 
   // Smartphones are issued at cost + 33% markup (Access Amount). Other products keep the legacy markup UI.
   const INTEREST_RATE = 0.33;
   const baseValue = (Number(quantity) || 0) * (Number(unitPrice) || 0);
-  const interestAmount = isSmartphone ? 0 : Math.round(baseValue * INTEREST_RATE);
-  const total = isSmartphone ? baseValue : baseValue + interestAmount;
-  const outstanding = isSmartphone
-    ? total
-    : Math.max(total - (plan === 'full' ? total : Number(amountPaid) || 0), 0);
+  const interestAmount = isSmartphone || isFleetBike ? 0 : Math.round(baseValue * INTEREST_RATE);
+  const total = isFleetBike ? 0 : isSmartphone ? baseValue : baseValue + interestAmount;
+  const outstanding = isFleetBike
+    ? 0
+    : isSmartphone
+      ? total
+      : Math.max(total - (plan === 'full' ? total : Number(amountPaid) || 0), 0);
 
   // Smartphones and Welile Bikes recover at a fixed 33% rate from the agent wallet.
   const isFixedRecoveryProduct = useMemo(() => {
+    if (isFleetBike) return false;
     if (isSmartphone) return true;
     const name = itemName.trim().toLowerCase();
     if (!name) return false;
     return name.includes('phone') || name.includes('bike');
-  }, [itemName, isSmartphone]);
+  }, [itemName, isSmartphone, isFleetBike]);
   const recoveryRate = isFixedRecoveryProduct ? 0.33 : null;
 
   const mutation = useMutation({
     mutationFn: async () => {
+      if (isFleetBike) {
+        const { data, error } = await supabase.rpc('agent_ops_assign_company_fleet_bike' as any, {
+          p_agent_id: agent!.id,
+          p_item_name: fleetModel.trim() || 'Company Fleet Bike',
+          p_plate_number: plateNumber.trim() || null,
+          p_serial_number: serialNumber.trim() || null,
+          p_service_centre_id: centreId === 'none' ? null : centreId,
+          p_notes: notes || null,
+        });
+        if (error) throw error;
+        return data;
+      }
       const { data, error } = await supabase.rpc('agent_ops_issue_agent_product' as any, {
         p_agent_id: agent!.id,
         p_item_name: itemName,
@@ -1128,13 +1157,20 @@ function IssueProductDialog({
       return data;
     },
     onSuccess: () => {
-      toast.success('Product entry recorded. Repayment plan created automatically.');
+      toast.success(
+        isFleetBike
+          ? 'Company bike assigned. It is recorded on the agent profile with no wallet recovery.'
+          : 'Product entry recorded. Repayment plan created automatically.',
+      );
       onDone();
     },
     onError: (e: any) => toast.error(e?.message || 'Could not record the entry'),
   });
 
-  const valid = agent && itemName && Number(quantity) > 0 && Number(unitPrice) > 0;
+  const valid = isFleetBike
+    ? !!agent
+    : agent && itemName && Number(quantity) > 0 && Number(unitPrice) > 0;
+
 
   return (
     <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -1199,20 +1235,45 @@ function IssueProductDialog({
           </Select>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          <div className="space-y-1.5">
-            <Label>Quantity</Label>
-            <Input type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+        {isFleetBike && (
+          <div className="space-y-3 rounded-lg border border-border p-3">
+            <div className="space-y-1.5">
+              <Label>Bike model / description</Label>
+              <Input
+                value={fleetModel}
+                onChange={(e) => setFleetModel(e.target.value)}
+                placeholder="e.g. Spiro fleet bike"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label>Plate / registration</Label>
+                <Input value={plateNumber} onChange={(e) => setPlateNumber(e.target.value)} placeholder="Optional" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Serial / chassis number</Label>
+                <Input value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} placeholder="Optional" />
+              </div>
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>Unit price</Label>
-            <Input type="number" min="0" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />
+        )}
+
+        {!isFleetBike && (
+          <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-1.5">
+              <Label>Quantity</Label>
+              <Input type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Unit price</Label>
+              <Input type="number" min="0" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Unit cost</Label>
+              <Input type="number" min="0" value={unitCost} onChange={(e) => setUnitCost(e.target.value)} />
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>Unit cost</Label>
-            <Input type="number" min="0" value={unitCost} onChange={(e) => setUnitCost(e.target.value)} />
-          </div>
-        </div>
+        )}
 
         {!isSmartphone && (
           <div className="space-y-1.5">
@@ -1231,7 +1292,7 @@ function IssueProductDialog({
           </div>
         )}
 
-        {!isSmartphone && (
+        {!isSmartphone && !isFleetBike && (
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
               <Label>Payment</Label>
@@ -1261,7 +1322,20 @@ function IssueProductDialog({
           <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
         </div>
 
-        {isSmartphone ? (
+        {isFleetBike ? (
+          <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Recovery from wallet</span>
+              <span className="font-bold tabular-nums text-lg">{formatUGX(0)}</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Company fleet bikes are assigned, not sold. No value is charged and no wallet deductions are made — the
+              bike is recorded on the agent profile for operational tracking only.
+            </p>
+            <Badge variant="secondary" className="text-[11px]">Company asset · Assigned</Badge>
+          </div>
+        ) : isSmartphone ? (
+
           <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
             <div className="flex items-center justify-between">
               <span className="font-medium">Access Amount (UGX)</span>
@@ -1306,7 +1380,7 @@ function IssueProductDialog({
       </div>
       <DialogFooter>
         <Button onClick={() => mutation.mutate()} disabled={!valid || mutation.isPending} className="w-full">
-          {mutation.isPending ? 'Recording…' : 'Record entry'}
+          {mutation.isPending ? 'Recording…' : isFleetBike ? 'Assign company bike' : 'Record entry'}
         </Button>
       </DialogFooter>
     </DialogContent>
