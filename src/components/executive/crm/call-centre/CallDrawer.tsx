@@ -50,6 +50,8 @@ export function CallDrawer({
   const [outcome, setOutcome] = useState<CallOutcome | null>(null);
   const [savedSummary, setSavedSummary] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  /** Bumped by the redial button so the dial effect runs again for the same person. */
+  const [dialAttempt, setDialAttempt] = useState(0);
 
 
   const ringbackRef = useRef<RingbackHandle | null>(null);
