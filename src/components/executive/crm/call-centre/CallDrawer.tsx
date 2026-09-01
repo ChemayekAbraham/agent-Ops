@@ -251,6 +251,14 @@ export function CallDrawer({
     return 'Not reachable';
   }, [phase, elapsed, outcome, startError]);
 
+  /** Plain-language reason the network gave for ending the call. */
+  const causeLine = useMemo(
+    () => (phase === 'ended' ? describeHangupCause(session?.hangupCause) : null),
+    [phase, session?.hangupCause],
+  );
+
+
+
 
   const summaryDirty = summary.trim().length > 0 && !savedSummary;
 
