@@ -142,7 +142,10 @@ Deno.serve(async (req) => {
   // A leg may only be dialled while it is still in a pre-bridge state. Anything
   // else (already bridged, or already terminal) must never dial again — that is
   // the redial loop.
-  const dialable = ['initiating', 'ringing_staff'].includes((session.status ?? '').toLowerCase());
+  const st = (session.status ?? '').toLowerCase();
+  const dialable = ['initiating', 'ringing_staff'].includes(st);
+  // 'bridged' is not dialable, but a post-dial outcome may still be recorded on it.
+  const recordable = dialable || st === 'bridged';
   const alreadyBridged = !dialable;
 
 
@@ -201,7 +204,7 @@ Deno.serve(async (req) => {
 
     // Only a real post-dial event may move the row. A stray active callback on an
     // already-terminal call is answered with <Hangup/> and nothing is overwritten.
-    if (isPostDial && dialable) {
+    if (isPostDial && recordable) {
       await patch(
         {
           status: ok || !dialStatus ? 'bridged' : 'bridge_failed',
