@@ -248,13 +248,20 @@ export default function CFODashboardPage() {
       case 'standing-orders':
         return (
           <div className="space-y-4">
-            <div>
-              <h1 className="text-xl font-bold">🔁 Standing Orders</h1>
-              <p className="text-sm text-muted-foreground">
-                Automated recurring payouts set up from "Send Money". Orders whose target account is
-                missing or that have failed on the daily run are flagged for attention — pause or fix
-                them here.
-              </p>
+            <div className="rounded-2xl border border-border/80 bg-gradient-to-r from-card via-card to-muted/20 p-5 sm:p-6 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1 max-w-3xl">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🔁</span>
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+                      Standing Orders &amp; Automated Payouts
+                    </h1>
+                  </div>
+                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                    Automated recurring payouts scheduled from "Send Money". Health monitoring flags orders with deleted/missing target accounts, cron failures, or stalled execution schedules so you can pause or resolve leaks immediately.
+                  </p>
+                </div>
+              </div>
             </div>
             <StandingOrdersPanel />
           </div>
