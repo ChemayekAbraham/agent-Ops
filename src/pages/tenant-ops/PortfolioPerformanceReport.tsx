@@ -111,6 +111,7 @@ export default function PortfolioPerformanceReport() {
         <CardContent className="space-y-4">
           <HeadlineA1 report={data} />
           <VarianceA2 report={data} />
+          <ProjectionA3 granularity={granularity} anchor={anchor} />
           {ZONE_PLACEHOLDERS.map((zone) => (
             <div
               key={zone.id}
