@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Mic, MicOff, PhoneOff, Save, UserRound, Volume2, VolumeX } from 'lucide-react';
+import { Mic, MicOff, PhoneCall, PhoneOff, Save, UserRound, Volume2, VolumeX } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -50,6 +50,8 @@ export function CallDrawer({
   const [outcome, setOutcome] = useState<CallOutcome | null>(null);
   const [savedSummary, setSavedSummary] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  /** Bumped by the redial button so the dial effect runs again for the same person. */
+  const [dialAttempt, setDialAttempt] = useState(0);
 
 
   const ringbackRef = useRef<RingbackHandle | null>(null);
@@ -74,6 +76,8 @@ export function CallDrawer({
     setOutcome(null);
     setSavedSummary(false);
     setStartError(null);
+    setCallId(null);
+
 
     connectedAtRef.current = null;
 
@@ -113,7 +117,14 @@ export function CallDrawer({
     };
     // `placeCall` is a stable mutation object; re-running on it would re-dial.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, target?.calleeId]);
+  }, [open, target?.calleeId, dialAttempt]);
+
+  /** Dial the same person again after the call ended or failed to start. */
+  const handleRedial = useCallback(() => {
+    stopRingback();
+    connectedAtRef.current = null;
+    setDialAttempt((n) => n + 1);
+  }, [stopRingback]);
 
   /* --- Ringback tone, tied to the ringing phase. --- */
   useEffect(() => {
@@ -343,10 +354,27 @@ export function CallDrawer({
                     <PhoneOff className="h-8 w-8" />
                   </Button>
                 ) : (
-                  <Badge variant="outline" className="px-3 py-1.5 text-xs">
-                    {outcome === 'answered' ? 'Answered' : outcome === 'rejected' ? 'Rejected' : 'Not reachable'}
-                  </Badge>
+                  <div className="flex flex-col items-center gap-2">
+                    {/* Redial: the call is over, so the primary action becomes
+                        trying the same person again without reopening the row. */}
+                    <Button
+                      type="button"
+                      className="h-20 w-20 rounded-full bg-emerald-600 shadow-lg hover:bg-emerald-700"
+                      onClick={handleRedial}
+                      disabled={placeCall.isPending}
+                      aria-label={`Redial ${target.name}`}
+                    >
+                      <PhoneCall className="h-8 w-8" />
+                    </Button>
+                    <Badge variant="outline" className="px-3 py-1 text-[10px]">
+                      {outcome === 'answered' ? 'Answered' : outcome === 'rejected' ? 'Rejected' : 'Not reachable'}
+                    </Badge>
+                    <span className="text-[11px] font-medium text-muted-foreground">
+                      {placeCall.isPending ? 'Redialling…' : 'Tap to redial'}
+                    </span>
+                  </div>
                 )}
+
 
                 <Button
                   type="button"
