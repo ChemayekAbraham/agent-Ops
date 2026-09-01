@@ -51,8 +51,6 @@ function periodInWords(
 }
 
 const ZONE_PLACEHOLDERS = [
-  { id: 'A1', title: 'A1' },
-  { id: 'A2', title: 'A2' },
   { id: 'A3', title: 'A3' },
 ];
 
