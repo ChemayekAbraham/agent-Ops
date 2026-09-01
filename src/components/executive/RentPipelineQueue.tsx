@@ -25,6 +25,8 @@ import { format } from 'date-fns';
 import { AgentProximitySelector } from './AgentProximitySelector';
 import { UserDrilldownDrawer } from '@/components/ops/UserDrilldownDrawer';
 import { PipelineAgentTransferDialog } from './PipelineAgentTransferDialog';
+import { TenantPaymentHistoryCard } from './TenantPaymentHistoryCard';
+
 
 // Per-user preference key for the CFO's selected tenant filter (cross-device).
 const TENANT_FILTER_PREF_KEY = 'rentPipeline.selectedTenantId';
