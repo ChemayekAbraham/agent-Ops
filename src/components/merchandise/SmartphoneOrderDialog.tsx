@@ -171,26 +171,34 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
             {eligLoading ? (
               <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking your eligibility…
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading your profile…
               </p>
-            ) : eligibility?.eligible ? (
-              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1">
-                <p className="text-xs font-semibold flex items-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5 text-primary" /> You qualify
+            ) : hasOpenApplication ? (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-1">
+                <p className="text-xs font-semibold flex items-center gap-1.5 text-destructive">
+                  <AlertTriangle className="h-3.5 w-3.5" /> Application in progress
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  For agents with {requiredTenants}+ active tenants — phones up to{' '}
-                  <span className="font-semibold text-foreground">{formatUGX(cap)}</span>.
+                  You already have a smartphone application under review. You can apply again once it is
+                  decided.
                 </p>
               </div>
             ) : (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-1">
-                <p className="text-xs font-semibold flex items-center gap-1.5 text-destructive">
-                  <AlertTriangle className="h-3.5 w-3.5" /> Not eligible yet
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1">
+                <p className="text-xs font-semibold flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-primary" /> Open to all agents
                 </p>
-                <ul className="list-disc pl-4 text-[11px] text-muted-foreground space-y-0.5">
-                  {blockers.map((b) => <li key={b}>{b}</li>)}
-                </ul>
+                <p className="text-[11px] text-muted-foreground">
+                  Apply for a phone up to{' '}
+                  <span className="font-semibold text-foreground">{formatUGX(cap)}</span>. Your profile —
+                  {' '}{activeTenants} active tenant{activeTenants === 1 ? '' : 's'} — is shared with Agent Ops,
+                  who review and decide.
+                </p>
+                {notes.length > 0 && (
+                  <ul className="list-disc pl-4 text-[11px] text-muted-foreground space-y-0.5 pt-1">
+                    {notes.map((n) => <li key={n}>{n}</li>)}
+                  </ul>
+                )}
               </div>
             )}
 
