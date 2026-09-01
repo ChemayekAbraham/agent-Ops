@@ -85,6 +85,135 @@ export default function PortfolioPerformanceReport() {
     },
   });
 
+  const periodStart = data?.period_start ?? null;
+  const periodEnd = data?.period_end ?? null;
+  const submitted = data?.status === 'submitted';
+  const reportId = data?.report_id ?? null;
+
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
+  const [actionDrafts, setActionDrafts] = useState<Record<string, DraftAction[]>>({});
+  const [closeOutDrafts, setCloseOutDrafts] = useState<
+    Record<string, Record<string, CarriedCloseOut>>
+  >({});
+  const draftKey = `${granularity}:${periodStart ?? 'none'}`;
+
+  const queryClient = useQueryClient();
+
+  const narrative = useQuery({
+    queryKey: ['tppo-narrative-collections', granularity, periodStart, reportId],
+    enabled: Boolean(periodStart),
+    queryFn: async () => {
+      const { data: priorBounds, error: boundsError } = await supabase.rpc(
+        'tppo_period_bounds',
+        { p_granularity: granularity, p_anchor: priorAnchor(periodStart as string) },
+      );
+      if (boundsError) throw boundsError;
+      const priorStart = priorBounds?.[0]?.period_start ?? null;
+
+      let priorNote: string | null = null;
+      let carriedRows: CarriedActionRow[] = [];
+
+      if (priorStart) {
+        const { data: priorReport } = await supabase
+          .from('tppo_reports')
+          .select('id')
+          .eq('granularity', granularity)
+          .eq('period_start', priorStart)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (priorReport?.id) {
+          const { data: priorNoteRow } = await supabase
+            .from('tppo_report_notes')
+            .select('reason_note')
+            .eq('report_id', priorReport.id)
+            .eq('zone', 'collections')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          priorNote = priorNoteRow?.reason_note ?? null;
+
+          const { data: priorActions } = await supabase
+            .from('tppo_report_actions')
+            .select(
+              'id, item_text, owner_label, owner_staff_id, due_date, outcome, carried_from_action_id',
+            )
+            .eq('report_id', priorReport.id)
+            .eq('zone', 'collections')
+            .order('created_at', { ascending: true });
+
+          carriedRows = (priorActions ?? [])
+            .filter((a) => a.carried_from_action_id === null || a.outcome === 'not_done')
+            .map((a) => ({
+              id: a.id,
+              item_text: a.item_text,
+              owner: a.owner_label ?? 'Owner on staff',
+              due_date: a.due_date,
+              repeatNotDone: a.outcome === 'not_done',
+            }));
+        }
+      }
+
+      let submittedNote: string | null = null;
+      let submittedActions: Array<{ item_text: string; owner: string; due_date: string }> = [];
+      let submittedCloseOuts: Record<string, CarriedCloseOut> = {};
+      if (reportId) {
+        const { data: currentNote } = await supabase
+          .from('tppo_report_notes')
+          .select('reason_note')
+          .eq('report_id', reportId)
+          .eq('zone', 'collections')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        submittedNote = currentNote?.reason_note ?? null;
+
+        const { data: currentActions } = await supabase
+          .from('tppo_report_actions')
+          .select(
+            'id, item_text, owner_label, due_date, outcome, outcome_note, carried_from_action_id',
+          )
+          .eq('report_id', reportId)
+          .eq('zone', 'collections')
+          .order('created_at', { ascending: true });
+
+        submittedActions = (currentActions ?? [])
+          .filter((a) => a.carried_from_action_id === null)
+          .map((a) => ({
+            item_text: a.item_text,
+            owner: a.owner_label ?? 'Owner on staff',
+            due_date: a.due_date,
+          }));
+
+        submittedCloseOuts = Object.fromEntries(
+          (currentActions ?? [])
+            .filter((a) => a.carried_from_action_id !== null)
+            .map((a) => [
+              a.carried_from_action_id as string,
+              {
+                outcome: (a.outcome ?? null) as CarriedCloseOut['outcome'],
+                result: a.outcome_note ?? '',
+              },
+            ]),
+        );
+      }
+
+      return { priorNote, carriedRows, submittedNote, submittedActions, submittedCloseOuts };
+    },
+  });
+
+  const carriedRows = narrative.data?.carriedRows ?? [];
+  const note = noteDrafts[draftKey] ?? '';
+  const actions = actionDrafts[draftKey] ?? [];
+  const closeOuts = useMemo(
+    () =>
+      submitted
+        ? (narrative.data?.submittedCloseOuts ?? {})
+        : (closeOutDrafts[draftKey] ?? {}),
+    [submitted, narrative.data?.submittedCloseOuts, closeOutDrafts, draftKey],
+  );
+
   const verdict =
     data?.below_threshold === null || data?.below_threshold === undefined
       ? '—'
@@ -93,6 +222,7 @@ export default function PortfolioPerformanceReport() {
         : 'ON THRESHOLD';
 
   const status = data?.status === 'submitted' ? 'Submitted' : 'Draft';
+
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6 p-4 md:p-8">
