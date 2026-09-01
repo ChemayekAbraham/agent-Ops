@@ -59,31 +59,44 @@ Deno.serve(async (req) => {
 
   const clientName = clientNameFor(staff.id);
 
-  try {
-    const res = await fetch('https://webrtc.africastalking.com/capability-token/request', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        apiKey,
-      },
-      body: JSON.stringify({
-        username,
-        clientName,
-        phoneNumber: voiceNumber,
-        incoming: 'false',
-        outgoing: 'true',
-        expire: String(EXPIRE_SECONDS),
-      }),
-    });
+  // Africa's Talking is picky about this payload and its exact requirements have
+  // varied between accounts (string vs boolean flags, with/without phoneNumber).
+  // Try the known-good shapes in order and keep the first that yields a token.
+  const digits = voiceNumber.replace(/[^0-9]/g, '');
+  const e164 = voiceNumber.startsWith('+') ? voiceNumber : `+${digits}`;
+  const candidates: Record<string, unknown>[] = [
+    { username, clientName, phoneNumber: e164, incoming: 'false', outgoing: 'true', expire: String(EXPIRE_SECONDS) },
+    { username, clientName, phoneNumber: e164, incoming: 'true', outgoing: 'true', expire: String(EXPIRE_SECONDS) },
+    { username, clientName, incoming: 'false', outgoing: 'true', expire: String(EXPIRE_SECONDS) },
+    { username, clientName, phoneNumber: e164, incoming: 'false', outgoing: 'true', lifeTimeSec: String(EXPIRE_SECONDS) },
+  ];
 
-    const raw = await res.text();
+  try {
+    let res!: Response;
+    let raw = '';
     let payload: { token?: string; clientName?: string; lifeTimeSec?: string; message?: string } | null = null;
-    try {
-      payload = JSON.parse(raw);
-    } catch {
-      payload = null;
+
+    for (const [i, body] of candidates.entries()) {
+      res = await fetch('https://webrtc.africastalking.com/capability-token/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', apiKey },
+        body: JSON.stringify(body),
+      });
+      raw = await res.text();
+      try {
+        payload = JSON.parse(raw);
+      } catch {
+        payload = null;
+      }
+      if (res.ok && payload?.token) break;
+      console.error('[crm-voice-capability-token] attempt failed', {
+        attempt: i,
+        httpStatus: res.status,
+        body: raw.slice(0, 200),
+        numberShape: `${e164.length}chars`,
+      });
     }
+
 
     if (!res.ok || !payload?.token) {
       // Never log the token itself; a truncated body is enough to diagnose.
