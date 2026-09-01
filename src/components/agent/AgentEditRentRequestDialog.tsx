@@ -53,6 +53,8 @@ interface Props {
 
 export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResubmitted }: Props) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+
   const [rentAmount, setRentAmount] = useState('');
   const [duration, setDuration] = useState('30');
   const [numberOfPayments, setNumberOfPayments] = useState('4');
