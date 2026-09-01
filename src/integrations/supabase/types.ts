@@ -45145,6 +45145,10 @@ export type Database = {
         }[]
       }
       get_partner_360: { Args: { p_user_id: string }; Returns: Json }
+      get_partner_capital_management_split: {
+        Args: { p_as_at?: string }
+        Returns: Json
+      }
       get_partner_capital_projections: {
         Args: { p_bucket?: string; p_days?: number; p_months?: number }
         Returns: Json
