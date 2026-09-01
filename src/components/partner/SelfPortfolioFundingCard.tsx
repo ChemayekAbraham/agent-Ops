@@ -366,11 +366,23 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
 
 
 
-      <div className="flex items-center justify-between gap-2 px-1">
-        <p className="text-[11px] font-semibold text-muted-foreground">
-          {plans.length} rent request{plans.length === 1 ? '' : 's'} · {houses.length} house
-          {houses.length === 1 ? '' : 's'}
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-[11px] font-semibold text-muted-foreground">
+            {plans.length} rent request{plans.length === 1 ? '' : 's'} · {houses.length} house
+            {houses.length === 1 ? '' : 's'}
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant={approvedOnly ? 'default' : 'outline'}
+            className="h-7 rounded-full px-2.5 text-[11px]"
+            aria-pressed={approvedOnly}
+            onClick={() => { setApprovedOnly((v) => !v); setPage(0); }}
+          >
+            Approved for funders
+          </Button>
+        </div>
         <ToggleGroup
           type="single"
           size="sm"
