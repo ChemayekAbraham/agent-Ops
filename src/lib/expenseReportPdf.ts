@@ -29,7 +29,10 @@ export interface ExpenseReportFilters {
   category?: string;
   status?: string;
   search?: string;
+  /** Human-readable reporting period, e.g. "September 2026". */
+  periodLabel?: string;
 }
+
 
 const fmtUGX = (n: number) =>
   `UGX ${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(Number(n) || 0))}`;
