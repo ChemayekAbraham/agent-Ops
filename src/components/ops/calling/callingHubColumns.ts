@@ -18,8 +18,7 @@ export type CallingColumnKey =
   | 'linked_agent'
   | 'district'
   | 'metric'
-  | 'reveal'
-  | 'whatsapp'
+  | 'actions'
   | 'feedback_category'
   | 'severity'
   | 'routed_to'
@@ -43,8 +42,7 @@ export const CALLING_COLUMN_LABEL: Record<CallingColumnKey, string> = {
   linked_agent: 'Linked agent',
   district: 'District',
   metric: 'Metric',
-  reveal: 'Reveal number',
-  whatsapp: 'WhatsApp',
+  actions: 'Actions',
   feedback_category: 'Feedback category',
   severity: 'Severity',
   routed_to: 'Routed to',
@@ -63,7 +61,7 @@ export const CALLING_TABS: { key: CallingTabKey; label: string; columns: Calling
   {
     key: 'to_call',
     label: 'To call',
-    columns: ['name', 'phone', 'linked_agent', 'district', 'metric', 'reveal', 'whatsapp'],
+    columns: ['name', 'phone', 'linked_agent', 'district', 'metric', 'actions'],
   },
   {
     key: 'engaged',
@@ -74,7 +72,7 @@ export const CALLING_TABS: { key: CallingTabKey; label: string; columns: Calling
   {
     key: 'unreachable',
     label: 'Not reached',
-    columns: ['name', 'phone', 'attempts', 'last_attempt', 'next_retry', 'reveal'],
+    columns: ['name', 'phone', 'attempts', 'last_attempt', 'next_retry', 'actions'],
   },
   {
     key: 'parked',
@@ -84,12 +82,12 @@ export const CALLING_TABS: { key: CallingTabKey; label: string; columns: Calling
   {
     key: 'callback',
     label: 'Callback',
-    columns: ['name', 'phone', 'callback_due', 'booked_by', 'reveal'],
+    columns: ['name', 'phone', 'callback_due', 'booked_by', 'actions'],
   },
 ];
 
 /** Columns that must never appear in an export produced by this screen. */
-export const EXPORT_FORBIDDEN_COLUMNS: CallingColumnKey[] = ['phone', 'reveal', 'whatsapp'];
+export const EXPORT_FORBIDDEN_COLUMNS: CallingColumnKey[] = ['phone', 'actions'];
 
 export function exportableColumns(columns: CallingColumnKey[]): CallingColumnKey[] {
   return columns.filter((c) => !EXPORT_FORBIDDEN_COLUMNS.includes(c));
