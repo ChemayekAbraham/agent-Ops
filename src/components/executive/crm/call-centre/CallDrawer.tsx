@@ -73,6 +73,8 @@ export function CallDrawer({
     setSummary('');
     setOutcome(null);
     setSavedSummary(false);
+    setStartError(null);
+
     connectedAtRef.current = null;
 
     let cancelled = false;
