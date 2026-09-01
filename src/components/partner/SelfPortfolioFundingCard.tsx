@@ -248,18 +248,20 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
     | { kind: 'house'; id: string; house: SupportableHouse };
 
   const feed = useMemo<FeedItem[]>(() => {
-    const planItems: FeedItem[] = plans.map((plan) => ({
-      kind: 'plan',
-      id: plan.rent_request_id,
-      plan,
-    }));
+    const planItems: FeedItem[] = plans
+      .filter((plan) => !approvedOnly || plan.funder_visible !== false)
+      .map((plan) => ({
+        kind: 'plan',
+        id: plan.rent_request_id,
+        plan,
+      }));
     const houseItems: FeedItem[] = houses.map((house) => ({
       kind: 'house',
       id: house.house_id,
       house,
     }));
     return feedOrder === 'houses' ? [...houseItems, ...planItems] : [...planItems, ...houseItems];
-  }, [plans, houses, feedOrder]);
+  }, [plans, houses, feedOrder, approvedOnly]);
 
   const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
   const pageStart = page * PLANS_PER_PAGE;
