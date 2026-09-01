@@ -108,7 +108,8 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
   const scopeLabel = category ? CATEGORY_LABELS[category] : null;
   const showApplications = mode === 'applications';
   const showOverview = mode === 'overview' || mode === 'full';
-  const showIssued = mode === 'issued' || mode === 'full';
+  const showCompleted = mode === 'completed';
+  const showIssued = mode === 'issued' || mode === 'full' || showCompleted;
 
 
   const deleteHolding = useMutation({
