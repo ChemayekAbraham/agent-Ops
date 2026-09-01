@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PeriodToggle, type TppoGranularity } from '@/components/tenant-ops/tppo/PeriodToggle';
 import { HeadlineA1 } from '@/components/tenant-ops/tppo/HeadlineA1';
 import { VarianceA2 } from '@/components/tenant-ops/tppo/VarianceA2';
+import { ProjectionA3 } from '@/components/tenant-ops/tppo/ProjectionA3';
 
 interface ZoneAReport {
   period_start: string | null;
