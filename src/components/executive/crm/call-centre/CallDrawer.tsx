@@ -40,6 +40,7 @@ export function CallDrawer({
 }) {
   const placeCall = usePlaceCall();
   const endCall = useEndCall();
+  const cancelCall = useCancelCall();
   const saveSummary = useSaveCallSummary();
 
   const [phase, setPhase] = useState<DialerPhase>('ringing');
