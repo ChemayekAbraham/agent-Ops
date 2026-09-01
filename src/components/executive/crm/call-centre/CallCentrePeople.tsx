@@ -36,6 +36,7 @@ const OUTCOME_TONE: Record<CallOutcome, string> = {
 const ROLE_TONE: Record<CalleeRole, string> = {
   tenant: 'border-primary/30 bg-primary/10 text-primary',
   agent: 'border-success/30 bg-success/10 text-success',
+  sub_agent: 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300',
   partner: 'border-warning/30 bg-warning/10 text-warning',
   landlord: 'border-accent bg-accent/40 text-accent-foreground',
   employee: 'border-destructive/30 bg-destructive/10 text-destructive',
