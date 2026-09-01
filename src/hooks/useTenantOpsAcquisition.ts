@@ -12,8 +12,16 @@ export interface TenantOpsAcquisition {
   applicationsRejected: number;
   trend: { date: string; fullDate: string; count: number }[];
   byLocation: { label: string; value: number }[];
-  byServiceCentre: { label: string; value: number }[];
+  byServiceCentre: {
+    label: string;
+    value: number;
+    /** Agents rostered to this centre (stationed, manager or their sub-agents). */
+    agents: number;
+    /** Every tenant ever registered by the centre's agents, active or not. */
+    totalTenants: number;
+  }[];
   byAgent: { label: string; value: number }[];
+
 }
 
 // Statuses that represent an application that passed review (existing lifecycle states).
