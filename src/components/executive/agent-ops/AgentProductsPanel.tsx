@@ -278,7 +278,16 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
       (approveApp.isPending && approveApp.variables?.sale_id === p.sale_id) ||
       (rejectApp.isPending && rejectApp.variables?.row.sale_id === p.sale_id);
     return (
-      <div key={p.sale_id} className="p-3 flex flex-wrap items-center gap-3">
+      <div
+        key={p.sale_id}
+        role={p.agent_id ? 'button' : undefined}
+        tabIndex={p.agent_id ? 0 : undefined}
+        onClick={() => p.agent_id && setDetailAgentId(p.agent_id)}
+        onKeyDown={(e) => {
+          if (p.agent_id && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setDetailAgentId(p.agent_id); }
+        }}
+        className={`p-3 flex flex-wrap items-center gap-3 ${p.agent_id ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
+      >
         <UserAvatar avatarUrl={p.avatar_url} fullName={p.full_name || undefined} size="sm" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold truncate">{p.full_name || 'Unknown agent'}</p>
@@ -291,6 +300,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
         <span className="hidden sm:block text-[11px] text-muted-foreground shrink-0">
           {p.created_at ? format(new Date(p.created_at), 'dd MMM') : '—'}
         </span>
+
         {canDecide ? (
           <div className="flex items-center gap-1 shrink-0">
             <Button
