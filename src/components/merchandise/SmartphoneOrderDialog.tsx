@@ -169,7 +169,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                   <ShieldCheck className="h-3.5 w-3.5 text-primary" /> You qualify
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  Open to all active operational agents — phones up to{' '}
+                  For agents with {requiredTenants}+ active tenants — phones up to{' '}
                   <span className="font-semibold text-foreground">{formatUGX(cap)}</span>.
                 </p>
               </div>
