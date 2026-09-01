@@ -94,6 +94,8 @@ const CATEGORY_SUGGESTIONS: Record<AgentProductCategory, string[]> = {
 export function AgentProductsPanel({ category, mode = 'full' }: { category?: AgentProductCategory; mode?: 'overview' | 'issued' | 'applications' | 'full' } = {}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const [itemFilter, setItemFilter] = useState('all');
+  const [detailAgentId, setDetailAgentId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AgentProductRow | null>(null);
   const [deleteReason, setDeleteReason] = useState('');
