@@ -1,9 +1,9 @@
 import { ArrowDown, ArrowRight, ArrowUp, Minus } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
-import { ZoneAReport } from '@/pages/tenant-ops/PortfolioPerformanceReport';
+import type { TppoZoneAReport } from '@/components/tenant-ops/tppo/tppoTypes';
 
 interface VarianceA2Props {
-  report?: ZoneAReport | null;
+  report?: TppoZoneAReport | null;
 }
 
 function shortDate(iso?: string | null): string {

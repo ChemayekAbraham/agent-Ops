@@ -1,17 +1,10 @@
 import { formatUGX } from '@/lib/rentCalculations';
-
-export interface HeadlineA1Report {
-  collected_ugx?: number | null;
-  scheduled_due_ugx?: number | null;
-  collection_rate_pct?: number | null;
-  threshold_pct?: number | null;
-  below_threshold?: boolean | null;
-  provisional?: boolean | null;
-}
+import type { TppoZoneAReport } from '@/components/tenant-ops/tppo/tppoTypes';
 
 interface HeadlineA1Props {
-  report?: HeadlineA1Report | null;
+  report?: TppoZoneAReport | null;
 }
+
 
 /**
  * A1 · HEADLINE. Every figure is rendered as supplied by tppo_get_report_zone_a;
