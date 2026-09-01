@@ -207,7 +207,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               <Select
                 value={options.some((o) => o.id === catalogId) ? catalogId : ''}
                 onValueChange={setCatalogId}
-                disabled={catalogLoading || !eligibility?.eligible || options.length === 0}
+                disabled={catalogLoading || hasOpenApplication || options.length === 0}
               >
                 <SelectTrigger>
                   <SelectValue
@@ -232,7 +232,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
             <div className="space-y-1">
               <Label className="text-xs">Repayment period</Label>
-              <Select value={months} onValueChange={setMonths} disabled={!eligibility?.eligible}>
+              <Select value={months} onValueChange={setMonths} disabled={hasOpenApplication}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a period" />
                 </SelectTrigger>
@@ -265,7 +265,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 id="docs-ready"
                 checked={docsReady}
                 onCheckedChange={(v) => setDocsReady(v === true)}
-                disabled={!eligibility?.eligible}
+                disabled={hasOpenApplication}
                 className="mt-0.5"
               />
               <Label htmlFor="docs-ready" className="text-[11px] leading-snug text-muted-foreground font-normal cursor-pointer">
