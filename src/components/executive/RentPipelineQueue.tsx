@@ -1228,6 +1228,20 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                             Resubmitted
                           </span>
                         )}
+                        {req.funder_visible === false && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30 shrink-0">
+                                <AlertCircle className="h-2.5 w-2.5" />
+                                No proxy attached
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs text-xs">
+                              Not published to the Funder dashboard. Tenant Ops reason:{' '}
+                              {req.funder_visibility_reason || 'not provided'}
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 sm:gap-3 text-xs text-muted-foreground flex-wrap min-w-0">
                         {req.landlord_id ? (
