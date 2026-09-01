@@ -645,7 +645,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
           {overBudget ? (
             <p className="mt-2 text-[10px] font-semibold text-destructive">
               This selection is {formatDynamic(total - available)} more than your operational
-              balance of {formatDynamic(available)}. Remove a plan or add funds.
+              float of {formatDynamic(available)}. Remove a plan or add funds.
             </p>
           ) : (
             <p className="mt-2 text-[10px] text-muted-foreground">

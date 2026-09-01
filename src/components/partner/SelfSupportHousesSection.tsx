@@ -363,7 +363,7 @@ export function HouseSupportBar({
             <DialogDescription className="text-xs sm:text-sm">
               You are about to commit{' '}
               <span className="font-black text-primary">{formatDynamic(total)}</span> from your operational
-              balance to {selectedCount} house{selectedCount > 1 ? 's' : ''}. The portfolio will stay pending
+              float to {selectedCount} house{selectedCount > 1 ? 's' : ''}. The portfolio will stay pending
               until Partner Operations approve it. No landlord or agent payout happens because no tenant is
               involved yet.
             </DialogDescription>
