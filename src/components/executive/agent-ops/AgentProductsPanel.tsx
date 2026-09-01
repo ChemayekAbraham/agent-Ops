@@ -171,7 +171,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
       if (isBoutique) {
         const { error } = await supabase
           .from('merchandise_sales')
-          .update({ order_status: 'processing' })
+          .update({ order_status: 'issued' })
           .eq('id', row.sale_id);
         if (error) throw error;
         return;
