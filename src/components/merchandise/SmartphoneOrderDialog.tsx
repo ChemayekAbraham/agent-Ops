@@ -128,20 +128,20 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
   const activeTenants = Number(eligibility?.active_tenant_count || 0);
   const requiredTenants = Number(eligibility?.required_active_tenants || 3);
-  const tenantShortfall = !!eligibility && !eligibility.eligible && !eligibility.has_open_application && activeTenants < requiredTenants;
 
-  const blockers: string[] = [];
-  if (eligibility) {
-    if (eligibility.has_open_application) blockers.push('You already have an application in progress.');
-    if (!eligibility.has_national_id) {
-      blockers.push('Add your National ID number to your profile before applying — it is verified on phone collection day.');
-    }
-    if (tenantShortfall) {
-      blockers.push(
-        `You need at least ${requiredTenants} active tenants to apply — you currently have ${activeTenants}.`,
+  // Advisory notes only — they inform the agent what the reviewer will look at.
+  const notes: string[] = [];
+  if (eligibility && !hasOpenApplication) {
+    if (activeTenants < requiredTenants) {
+      notes.push(
+        `You have ${activeTenants} active tenant${activeTenants === 1 ? '' : 's'}. Agent Ops normally looks for ${requiredTenants}+, but you can still apply and let the manager decide.`,
       );
-    } else if (!eligibility.eligible && !eligibility.has_open_application) {
-      blockers.push('Eligibility is open to active agents and sub-agents on the Welile network.');
+    }
+    if (!eligibility.has_national_id) {
+      notes.push('Add your National ID number to your profile — it is verified on phone collection day.');
+    }
+    if (!eligibility.has_workplace_verification) {
+      notes.push('A workplace photo has not been captured yet. It is needed before the phone is released.');
     }
   }
 
