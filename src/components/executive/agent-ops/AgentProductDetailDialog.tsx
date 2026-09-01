@@ -96,8 +96,32 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
     },
   });
 
+  // Company-owned bikes attached to the agent for operations (no recovery, no sale).
+  const { data: fleetRows } = useQuery({
+    queryKey: ['agent-fleet-assignments', agentId],
+    enabled: !!agentId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('agent_fleet_assignments' as any)
+        .select('id,item_name,plate_number,serial_number,assigned_on,status')
+        .eq('agent_id', agentId!)
+        .order('assigned_on', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as Array<{
+        id: string;
+        item_name: string | null;
+        plate_number: string | null;
+        serial_number: string | null;
+        assigned_on: string | null;
+        status: string | null;
+      }>;
+    },
+  });
+  const fleet = fleetRows ?? [];
+
   const agent = data?.agent;
   const totals = data?.totals;
+
 
   return (
     <Dialog open={!!agentId} onOpenChange={(o) => { if (!o) onClose(); }}>
