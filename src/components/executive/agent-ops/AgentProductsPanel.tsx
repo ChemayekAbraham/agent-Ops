@@ -348,7 +348,9 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Pending Applications</p>
-                      <p className="text-2xl font-bold tabular-nums">{kpis.pending_applications ?? 0}</p>
+                      {/* Count the same list the Applications tab renders, so the KPI and the tab badge can never disagree. */}
+                      <p className="text-2xl font-bold tabular-nums">{pendingApps.length}</p>
+
                     </div>
                     <div className="rounded-lg bg-primary/10 p-2 text-primary">
                       <Package className="h-4 w-4" />
