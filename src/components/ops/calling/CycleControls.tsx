@@ -13,12 +13,17 @@ import { ccErrorText, type CcCallingHub } from '@/hooks/useCcCallingHub';
 export function CycleControls({ hub }: { hub: CcCallingHub }) {
   const [population, setPopulation] = useState('');
   const [limit, setLimit] = useState('');
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [abandonOpen, setAbandonOpen] = useState(false);
   const [abandonReason, setAbandonReason] = useState('');
   if (!hub.canManageCycles) return null;
 
 
   const p = hub.progress;
+  const titleOk = title.trim().length >= 3;
+  const cycleTitle = p?.title ? String(p.title) : '';
+  const cycleDescription = p?.description ? String(p.description) : '';
 
   return (
     <Card className="rounded-2xl border-border/60 p-3 sm:p-4">
@@ -43,12 +48,21 @@ export function CycleControls({ hub }: { hub: CcCallingHub }) {
         <div className="flex items-end">
           <Button
             className="w-full"
-            disabled={!population || hub.openCycle.isPending}
+            disabled={!population || !titleOk || hub.openCycle.isPending}
             onClick={() =>
               hub.openCycle.mutate(
-                { populationCode: population, limit: limit ? Number(limit) : null },
                 {
-                  onSuccess: () => toast.success('Cycle opened.'),
+                  populationCode: population,
+                  limit: limit ? Number(limit) : null,
+                  title: title.trim(),
+                  description: description.trim() || null,
+                },
+                {
+                  onSuccess: () => {
+                    toast.success('Cycle opened.');
+                    setTitle('');
+                    setDescription('');
+                  },
                   onError: (e) => toast.error(ccErrorText(e)),
                 },
               )
@@ -59,10 +73,43 @@ export function CycleControls({ hub }: { hub: CcCallingHub }) {
         </div>
       </div>
 
+      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Title (required)</Label>
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="What is this cycle for?"
+            maxLength={120}
+          />
+          {!titleOk && (
+            <p className="text-[11px] text-muted-foreground">At least 3 characters — a cycle must say what it is for.</p>
+          )}
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Description (optional)</Label>
+          <Textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+            placeholder="Longer purpose, scope or instructions for callers"
+          />
+        </div>
+      </div>
+
+
       {hub.cycle && (
         <div className="mt-3 space-y-2 rounded-xl border border-border/60 p-2">
           <div className="flex flex-wrap items-center gap-1.5 text-xs">
             <Badge variant="secondary">Cycle #{hub.cycle.cycle_no}</Badge>
+            {cycleTitle && (
+              <span className="font-semibold" title={cycleDescription ?? undefined}>
+                {cycleTitle}
+              </span>
+            )}
+            {cycleDescription && (
+              <span className="w-full text-[11px] text-muted-foreground">{cycleDescription}</span>
+            )}
             <Badge variant="outline">{Number(p?.total_rows ?? 0)} rows</Badge>
             <Badge variant="outline">Coverage {p?.coverage_pct ?? 0}%</Badge>
             <Badge variant="outline">Reach {p?.reach_pct ?? 0}%</Badge>

@@ -593,11 +593,13 @@ export function useCcCallingHub(
   });
 
   const openCycle = useMutation({
-    mutationFn: async (v: { populationCode: string; limit: number | null }) => {
+    mutationFn: async (v: { populationCode: string; limit: number | null; title: string; description?: string | null }) => {
       const { data, error } = await rpc('cc_open_cycle', {
         p_subject_type: subjectType,
         p_population_code: v.populationCode,
         p_limit: v.limit,
+        p_title: v.title,
+        p_description: v.description ?? null,
       });
       if (error) throw new Error(err(error));
       return data as string;

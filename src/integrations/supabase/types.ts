@@ -7461,33 +7461,39 @@ export type Database = {
           attempt_cap: number
           closed_at: string | null
           cycle_no: number
+          description: string | null
           id: string
           opened_at: string
           opened_by: string
           retry_after_days: number
           subject_type: Database["public"]["Enums"]["cc_subject_type"]
+          title: string | null
         }
         Insert: {
           abandoned_reason?: string | null
           attempt_cap?: number
           closed_at?: string | null
           cycle_no: number
+          description?: string | null
           id?: string
           opened_at?: string
           opened_by: string
           retry_after_days?: number
           subject_type: Database["public"]["Enums"]["cc_subject_type"]
+          title?: string | null
         }
         Update: {
           abandoned_reason?: string | null
           attempt_cap?: number
           closed_at?: string | null
           cycle_no?: number
+          description?: string | null
           id?: string
           opened_at?: string
           opened_by?: string
           retry_after_days?: number
           subject_type?: Database["public"]["Enums"]["cc_subject_type"]
+          title?: string | null
         }
         Relationships: []
       }
@@ -39098,11 +39104,13 @@ export type Database = {
           coverage_pct: number | null
           cycle_id: string | null
           cycle_no: number | null
+          description: string | null
           engaged_rows: number | null
           opened_at: string | null
           parked_rows: number | null
           reach_pct: number | null
           subject_type: Database["public"]["Enums"]["cc_subject_type"] | null
+          title: string | null
           to_call_rows: number | null
           total_rows: number | null
           unreachable_rows: number | null
@@ -42184,9 +42192,11 @@ export type Database = {
       }
       cc_open_cycle: {
         Args: {
+          p_description?: string
           p_limit?: number
           p_population_code: string
           p_subject_type: Database["public"]["Enums"]["cc_subject_type"]
+          p_title?: string
         }
         Returns: string
       }
