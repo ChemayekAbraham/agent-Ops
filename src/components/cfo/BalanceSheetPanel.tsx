@@ -270,7 +270,7 @@ export default function BalanceSheetPanel() {
     rows.push(['LIABILITIES', '']);
     (liabilityGroups?.standalone ?? []).forEach(g => rows.push([g.label, g.value]));
     rows.push(['Market Place Liabilities', '']);
-    (liabilityGroups?.marketplace ?? []).forEach(g => rows.push(['   ' + g.label, g.value]));
+    marketplaceRows.forEach(g => rows.push([(g.subtotal ? '   ' : '   ') + g.label, g.value]));
     rows.push(['Subtotal — Market Place Liabilities', liabilityGroups?.marketplaceTotal ?? 0]);
     rows.push(['Partner and Agent Obligations', '']);
     (liabilityGroups?.partner ?? []).forEach(g => rows.push(['   ' + g.label, g.value]));
@@ -391,7 +391,7 @@ export default function BalanceSheetPanel() {
       heading('Liabilities');
       (liabilityGroups?.standalone ?? []).forEach(g => row(g.label, g.value));
       heading('Market Place Liabilities');
-      (liabilityGroups?.marketplace ?? []).forEach(g => row(g.label, g.value));
+      marketplaceRows.forEach(g => row(g.label, g.value, g.subtotal));
       row('Subtotal — Market Place Liabilities', liabilityGroups?.marketplaceTotal ?? 0, true);
       heading('Partner and Agent Obligations');
       (liabilityGroups?.partner ?? []).forEach(g => row(g.label, g.value));
@@ -549,7 +549,13 @@ export default function BalanceSheetPanel() {
               <SectionHeading>Liabilities</SectionHeading>
               <div>{liabilityGroups?.standalone.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
               <SubHeading>Market Place Liabilities</SubHeading>
-              <div>{liabilityGroups?.marketplace.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
+              <div>
+                {marketplaceRows.map(g => (
+                  g.subtotal
+                    ? <TotalRow key={g.label} label={g.label} value={g.value} />
+                    : <GroupRow key={g.label} group={g} showSources={showSources} />
+                ))}
+              </div>
               <TotalRow label="Subtotal — Market Place Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0} />
               <SubHeading>Partner and Agent Obligations</SubHeading>
               <div>{liabilityGroups?.partner.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
