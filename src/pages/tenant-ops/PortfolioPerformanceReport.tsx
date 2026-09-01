@@ -110,6 +110,8 @@ export default function PortfolioPerformanceReport() {
           )}
         </CardHeader>
         <CardContent className="space-y-4">
+          <HeadlineA1 report={data} />
+          <VarianceA2 report={data} />
           {ZONE_PLACEHOLDERS.map((zone) => (
             <div
               key={zone.id}
