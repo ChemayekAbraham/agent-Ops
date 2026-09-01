@@ -210,12 +210,14 @@ export function CallDrawer({
   };
 
   const statusLine = useMemo(() => {
+    if (startError) return startError;
     if (phase === 'ringing') return 'Ringing your handset…';
     if (phase === 'connected') return formatTalkTime(elapsed);
     if (outcome === 'answered') return `Call ended · ${formatTalkTime(elapsed)}`;
     if (outcome === 'rejected') return 'Call rejected';
     return 'Not reachable';
-  }, [phase, elapsed, outcome]);
+  }, [phase, elapsed, outcome, startError]);
+
 
   const summaryDirty = summary.trim().length > 0 && !savedSummary;
 
