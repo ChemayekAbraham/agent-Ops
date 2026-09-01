@@ -384,7 +384,7 @@ export function UnifiedWalletHeroCard({
             <div className="bg-primary-foreground/[0.10] rounded-2xl p-4 border border-primary-foreground/[0.06]">
               <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-white mb-2 flex items-center gap-1.5">
                 <Wallet className="h-3 w-3" />
-                Withdrawable Balance
+                ROI
               </p>
               <p className="text-[clamp(1.75rem,6.5vw,2.75rem)] font-black tracking-tight leading-none text-white drop-shadow-sm">
                 {maskAmt(headlineBalance)}
