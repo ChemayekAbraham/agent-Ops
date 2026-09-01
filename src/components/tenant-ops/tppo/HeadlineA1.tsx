@@ -12,6 +12,11 @@ interface HeadlineA1Props {
  */
 export function HeadlineA1({ report }: HeadlineA1Props) {
   const collected = report?.collected_ugx ?? null;
+  const collectedTotal = report?.collected_total_ugx ?? null;
+  const arrearsRecovered = report?.arrears_recovered_ugx ?? null;
+  const unallocated = report?.unallocated_ugx ?? null;
+  const cohortCount = report?.cohort_plan_count ?? null;
+  const arrearsCount = report?.arrears_plan_count ?? null;
   const scheduled = report?.scheduled_due_ugx ?? null;
   const rate = report?.collection_rate_pct ?? null;
   const threshold = report?.threshold_pct ?? null;
