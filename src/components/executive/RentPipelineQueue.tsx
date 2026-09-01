@@ -26,6 +26,8 @@ import { AgentProximitySelector } from './AgentProximitySelector';
 import { UserDrilldownDrawer } from '@/components/ops/UserDrilldownDrawer';
 import { PipelineAgentTransferDialog } from './PipelineAgentTransferDialog';
 import { TenantPaymentHistoryCard } from './TenantPaymentHistoryCard';
+import { RentApprovalConfirmDialog, type FunderVisibilityDecision } from './RentApprovalConfirmDialog';
+
 
 
 // Per-user preference key for the CFO's selected tenant filter (cross-device).
