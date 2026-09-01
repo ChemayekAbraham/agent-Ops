@@ -302,7 +302,8 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
         </span>
 
         {canDecide ? (
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+
             <Button
               size="sm"
               variant="outline"
