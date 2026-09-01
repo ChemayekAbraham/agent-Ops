@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import {
-  classifyAssets, classifyLiabilities, classifyEquity, hasFlagged,
+  classifyAssets, classifyLiabilities, classifyEquity, hasFlagged, visibleFlaggedLines,
   type BsGroup,
 } from '@/components/cfo/balanceSheetClassification';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
@@ -190,7 +190,7 @@ function FlaggedBlock({ group, showSources }: { group?: BsGroup; showSources: bo
       <p className="mb-1 text-[10px] text-muted-foreground">
         Included in the section total. These accounts have no confident home in the current structure.
       </p>
-      {group.lines.map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}
+      {visibleFlaggedLines(group).map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}
       <TotalRow label="Subtotal — flagged" value={group.value} />
     </div>
   );
@@ -253,7 +253,7 @@ export default function BalanceSheetPanel() {
     (assetGroups?.groups ?? []).forEach(g => rows.push([g.label, g.value]));
     if (assetGroups && hasFlagged(assetGroups.flagged)) {
       rows.push([assetGroups.flagged.label, assetGroups.flagged.value]);
-      assetGroups.flagged.lines.forEach(l => rows.push(['   ' + l.label, l.value]));
+      visibleFlaggedLines(assetGroups.flagged).forEach(l => rows.push(['   ' + l.label, l.value]));
     }
     rows.push(['TOTAL ASSETS', data.assets.total]);
     rows.push([]);
@@ -262,9 +262,12 @@ export default function BalanceSheetPanel() {
     rows.push(['Market Place Liabilities', '']);
     (liabilityGroups?.marketplace ?? []).forEach(g => rows.push(['   ' + g.label, g.value]));
     rows.push(['Subtotal — Market Place Liabilities', liabilityGroups?.marketplaceTotal ?? 0]);
+    rows.push(['Partner and Agent Obligations', '']);
+    (liabilityGroups?.partner ?? []).forEach(g => rows.push(['   ' + g.label, g.value]));
+    rows.push(['Subtotal — Partner and Agent Obligations', liabilityGroups?.partnerTotal ?? 0]);
     if (liabilityGroups && hasFlagged(liabilityGroups.flagged)) {
       rows.push([liabilityGroups.flagged.label, liabilityGroups.flagged.value]);
-      liabilityGroups.flagged.lines.forEach(l => rows.push(['   ' + l.label, l.value]));
+      visibleFlaggedLines(liabilityGroups.flagged).forEach(l => rows.push(['   ' + l.label, l.value]));
     }
     rows.push(['TOTAL LIABILITIES', data.liabilities.total]);
     rows.push([]);
@@ -272,7 +275,7 @@ export default function BalanceSheetPanel() {
     (equityGroups?.groups ?? []).forEach(g => rows.push([g.label, g.value]));
     if (equityGroups && hasFlagged(equityGroups.flagged)) {
       rows.push([equityGroups.flagged.label, equityGroups.flagged.value]);
-      equityGroups.flagged.lines.forEach(l => rows.push(['   ' + l.label, l.value]));
+      visibleFlaggedLines(equityGroups.flagged).forEach(l => rows.push(['   ' + l.label, l.value]));
     }
     rows.push(["TOTAL SHAREHOLDERS' EQUITY", data.equity.total]);
     rows.push([]);
@@ -367,7 +370,7 @@ export default function BalanceSheetPanel() {
       const flaggedRows = (g?: BsGroup) => {
         if (!g || !hasFlagged(g)) return;
         row(g.label, g.value, true);
-        g.lines.forEach(l => row('   ' + l.label, l.value));
+        visibleFlaggedLines(g).forEach(l => row('   ' + l.label, l.value));
       };
 
       heading('Assets');
@@ -380,6 +383,9 @@ export default function BalanceSheetPanel() {
       heading('Market Place Liabilities');
       (liabilityGroups?.marketplace ?? []).forEach(g => row(g.label, g.value));
       row('Subtotal — Market Place Liabilities', liabilityGroups?.marketplaceTotal ?? 0, true);
+      heading('Partner and Agent Obligations');
+      (liabilityGroups?.partner ?? []).forEach(g => row(g.label, g.value));
+      row('Subtotal — Partner and Agent Obligations', liabilityGroups?.partnerTotal ?? 0, true);
       flaggedRows(liabilityGroups?.flagged);
       row('TOTAL LIABILITIES', data.liabilities.total, true);
 
@@ -535,6 +541,9 @@ export default function BalanceSheetPanel() {
               <SubHeading>Market Place Liabilities</SubHeading>
               <div>{liabilityGroups?.marketplace.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
               <TotalRow label="Subtotal — Market Place Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0} />
+              <SubHeading>Partner and Agent Obligations</SubHeading>
+              <div>{liabilityGroups?.partner.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
+              <TotalRow label="Subtotal — Partner and Agent Obligations" value={liabilityGroups?.partnerTotal ?? 0} />
               <FlaggedBlock group={liabilityGroups?.flagged} showSources={showSources} />
               <TotalRow label="Total Liabilities" value={data.liabilities.total} />
               <DriftNote drift={liabilityGroupDrift} of="Total Liabilities" />
