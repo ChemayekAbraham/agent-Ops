@@ -408,9 +408,30 @@ export function CFOAdvanceRequestPayments({ onViewDisbursed }: { onViewDisbursed
       const newDaily = Math.ceil(newTotal / cycleDays);
       const nowIso = new Date().toISOString();
 
-      // 1. Approve + mark paid in a single update (records both approval + disbursement).
-      // One atomic transaction: stamp paid + create the advance + post both ledger
-      // legs. Rolls back entirely on any failure (no "paid but no money" state).
+      // 1. Stamp the CFO approval FIRST. `disburse_agent_advance_request` enforces a
+      // mandatory CFO gate and refuses anything that is not already `cfo_approved`
+      // with a recorded approver, so skipping this step made every one-click
+      // "Approve & Disburse" fail with "Disbursement blocked — CFO approval is
+      // required". Same fields, same values as the two-step approve path.
+      const { error: approveErr } = await supabase.from('agent_advance_requests').update({
+        status: 'cfo_approved',
+        cfo_approved_by: user.id,
+        cfo_approved_at: nowIso,
+        cfo_adjusted_rate: adjustedRate !== Number(req.monthly_rate) ? adjustedRate : null,
+        cfo_notes: notes[req.id] || null,
+        principal,
+        cycle_days: cycleDays,
+        registration_fee: registrationFee,
+        access_fee: newAccessFee,
+        total_payable: newTotal,
+        daily_payment: newDaily,
+        monthly_rate: adjustedRate,
+      }).eq('id', req.id).select('id').maybeSingle();
+      if (approveErr) throw approveErr;
+
+      // 2. Disburse: one atomic transaction that stamps the request paid, creates the
+      // advance row and posts both ledger legs. Rolls back entirely on any failure
+      // (no "paid but no money" state).
       if (isTopup) {
         await applyAdvanceTopupForRequest(req, principal, Number(req.extend_days ?? cycleDays));
       } else {
