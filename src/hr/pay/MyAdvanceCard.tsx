@@ -153,28 +153,36 @@ export default function MyAdvanceCard({ staffId }: { staffId: string }) {
         ) : rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">You have no salary advances.</p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Stage</TableHead>
-                <TableHead className="text-right">Principal</TableHead>
-                <TableHead className="text-right">Monthly deduction</TableHead>
-                <TableHead>First recovery</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell className="text-xs">
-                    {STAGE_LABEL[row.status] ?? '—'}
-                  </TableCell>
-                  <TableCell className="text-right">{formatAmount(row.principal)}</TableCell>
-                  <TableCell className="text-right">{formatAmount(row.recovery_value)}</TableCell>
-                  <TableCell className="text-xs">{formatDate(row.first_recovery_on)}</TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Stage</TableHead>
+                  <TableHead className="text-right">Principal</TableHead>
+                  <TableHead className="text-right">Monthly deduction</TableHead>
+                  <TableHead className="text-right">Deducted so far</TableHead>
+                  <TableHead className="text-right">Still pending</TableHead>
+                  <TableHead>First recovery</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="text-xs">
+                      {STAGE_LABEL[row.status] ?? '—'}
+                    </TableCell>
+                    <TableCell className="text-right">{formatAmount(row.principal)}</TableCell>
+                    <TableCell className="text-right">{formatAmount(row.recovery_value)}</TableCell>
+                    <TableCell className="text-right">{formatAmount(row.recovered)}</TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatAmount(row.outstanding)}
+                    </TableCell>
+                    <TableCell className="text-xs">{formatDate(row.first_recovery_on)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </CardContent>
 
