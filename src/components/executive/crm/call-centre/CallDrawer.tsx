@@ -90,9 +90,19 @@ export function CallDrawer({
         // not "the customer is connected".
         toast.info(res.message);
       })
-      .catch(() => {
-        if (!cancelled) toast.error('Could not start the call.');
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        // The edge function returns an operator-readable reason (out of voice
+        // credit, invalid staff number, throttled…). Swallowing it left staff
+        // staring at a ringing drawer with no idea why nothing happened.
+        const reason = err instanceof Error && err.message ? err.message : 'Could not start the call.';
+        stopRingback();
+        setStartError(reason);
+        setPhase('ended');
+        setOutcome('not_reachable');
+        toast.error(reason);
       });
+
 
     return () => {
       cancelled = true;
