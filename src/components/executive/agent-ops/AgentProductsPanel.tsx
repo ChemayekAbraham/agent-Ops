@@ -1055,6 +1055,10 @@ function IssueProductDialog({
   const [plan, setPlan] = useState<'installment' | 'full'>('installment');
   const [amountPaid, setAmountPaid] = useState('0');
   const [notes, setNotes] = useState('');
+  const [fleetModel, setFleetModel] = useState('');
+  const [plateNumber, setPlateNumber] = useState('');
+  const [serialNumber, setSerialNumber] = useState('');
+
 
   const { data: agents } = useQuery({
     queryKey: ['agent-products-agent-search', agentTerm],
