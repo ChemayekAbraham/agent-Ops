@@ -41,6 +41,7 @@ export type CfoApprovalNotificationKey =
   | 'partnerTopups'
   | 'directorRequisitions'
   | 'employeeRequisitions'
+  | 'staffRequisitions'
   | 'withdrawals';
 
 export interface CfoApprovalNotification {
