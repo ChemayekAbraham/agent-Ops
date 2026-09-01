@@ -65,15 +65,22 @@ Deno.serve(async (req) => {
     return json({ error: 'target_required' }, 400);
   }
 
-  // Prefer resolving the number server-side from the person id — the client is
-  // never trusted with, nor required to hold, the raw phone number.
+  // Resolve the number server-side from the person id — the client is never
+  // trusted with, nor required to hold, the raw phone number. NOTE: read the
+  // profile directly; the `crm_reveal_target_phone` RPC gates on auth.uid(),
+  // which is NULL under the service-role client and would always throw.
   let targetPhone: string | null = null;
   if (targetUserId) {
-    const { data: revealed } = await admin.rpc('crm_reveal_target_phone', { p_person_id: targetUserId });
-    targetPhone = toE164(typeof revealed === 'string' ? revealed : null);
+    const { data: prof } = await admin
+      .from('profiles')
+      .select('phone')
+      .eq('id', targetUserId)
+      .maybeSingle();
+    targetPhone = toE164(typeof prof?.phone === 'string' ? prof.phone : null);
   }
   if (!targetPhone && typeof body.targetPhone === 'string') targetPhone = toE164(body.targetPhone);
   if (!targetPhone) return json({ error: 'invalid_target_phone' }, 400);
+
 
   // ---- the staff leg ----
   const { data: staffProfile } = await admin
