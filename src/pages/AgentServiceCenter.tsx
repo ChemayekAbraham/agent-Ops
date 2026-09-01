@@ -187,23 +187,24 @@ export default function AgentServiceCenter() {
 
           <TabsContent value="vetting" className="mt-3 space-y-3">
             <Tabs defaultValue="rent">
-              <TabsList className="flex w-full flex-wrap h-auto">
-                <TabsTrigger value="rent" className="text-[11px] sm:text-xs flex-1">
+              <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 h-auto gap-1 p-1">
+                <TabsTrigger value="rent" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
                   Rent{vetting?.pending_count ? ` (${vetting.pending_count})` : ''}
                 </TabsTrigger>
-                <TabsTrigger value="tenant_requests" className="text-[11px] sm:text-xs flex-1">
+                <TabsTrigger value="tenant_requests" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
                   Tenant requests
                 </TabsTrigger>
-                <TabsTrigger value="houses" className="text-[11px] sm:text-xs flex-1">
+                <TabsTrigger value="houses" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
                   Houses{listingQueue.length ? ` (${listingQueue.length})` : ''}
                 </TabsTrigger>
-                <TabsTrigger value="landlords" className="text-[11px] sm:text-xs flex-1">
+                <TabsTrigger value="landlords" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
                   Landlords{verificationQueue?.landlords?.length ? ` (${verificationQueue.landlords.length})` : ''}
                 </TabsTrigger>
-                <TabsTrigger value="lc1" className="text-[11px] sm:text-xs flex-1">
+                <TabsTrigger value="lc1" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
                   LC1{verificationQueue?.lc1?.length ? ` (${verificationQueue.lc1.length})` : ''}
                 </TabsTrigger>
               </TabsList>
+
 
               <TabsContent value="tenant_requests" className="mt-3">
                 <TenantRentIntakeQueue />
