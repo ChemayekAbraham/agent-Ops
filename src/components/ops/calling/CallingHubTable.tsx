@@ -233,12 +233,16 @@ export function CallingHubTable({
   const columnStyle = (c: CallingColumnKey): React.CSSProperties =>
     c === 'actions'
       ? { width: ACTIONS_WIDTH, minWidth: ACTIONS_WIDTH, right: 0 }
-      : { width: `calc((100% - ${ACTIONS_WIDTH}px) * ${(COLUMN_WEIGHT[c] ?? 1.5) / totalWeight})` };
-  const pinClass = (c: CallingColumnKey, z: number) =>
+      : { width: `calc((100% - ${hasActions ? ACTIONS_WIDTH : 0}px) * ${(COLUMN_WEIGHT[c] ?? 1.5) / totalWeight})` };
+  const pinClass = (c: CallingColumnKey, header: boolean) =>
     c === 'name'
-      ? `sticky left-0 z-${z}`
+      ? header
+        ? 'sticky left-0 z-20'
+        : 'sticky left-0 z-10'
       : c === 'actions' && hasActions
-        ? `sticky z-${z}`
+        ? header
+          ? 'sticky z-20'
+          : 'sticky z-10'
         : '';
   const nowrap = (c: CallingColumnKey) =>
     ['name', 'linked_agent', 'district', 'feedback_category', 'routed_to', 'park_reason', 'booked_by'].includes(c)
