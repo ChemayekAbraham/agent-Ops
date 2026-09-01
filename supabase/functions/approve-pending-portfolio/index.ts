@@ -189,9 +189,16 @@ Deno.serve(async (req) => {
           error: `Wallet deduction failed: ${msg}. Portfolio was NOT activated.`,
         }, 500);
       }
+    } else if (fundedFromFloatByRpc) {
+      console.log(
+        "[approve-pending-portfolio] Self-managed/self-support portfolio",
+        portfolioId,
+        "— operational float debit is posted by approve_pending_portfolio; skipping pre-debit.",
+      );
     } else {
       console.log("[approve-pending-portfolio] Debit already posted for", portfolioId, "— skipping.");
     }
+
 
     // RPC enforces the Ops-role gate + status transition atomically.
     const { error: rpcErr } = await userClient.rpc("approve_pending_portfolio", {
