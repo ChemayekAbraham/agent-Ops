@@ -16,8 +16,13 @@ export function FollowupsDuePanel({ hub }: { hub: CcCallingHub }) {
         Follow-ups due ({hub.followups.length})
       </h3>
 
+      {hub.followupsError && (
+        <p className="mb-2 rounded-lg bg-destructive/10 p-2 text-xs text-destructive">{hub.followupsError}</p>
+      )}
+
       {!hub.followups.length ? (
         <p className="text-xs text-muted-foreground">Nothing owed by you.</p>
+
       ) : (
         <ul className="space-y-2">
           {hub.followups.map((f: any) => (
