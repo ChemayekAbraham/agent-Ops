@@ -373,7 +373,7 @@ export function UnifiedWalletHeroCard({
             )}
           </div>
         ) : (
-          /* Default: single Available Balance */
+          /* Supporter partner wallet: ROI + Operational Float side-by-side */
           <div
             role={disableTap ? undefined : 'button'}
             tabIndex={disableTap ? -1 : 0}
@@ -384,33 +384,73 @@ export function UnifiedWalletHeroCard({
               !disableTap && 'active:scale-[0.98] transition-transform cursor-pointer'
             )}
           >
-            <div className="bg-primary-foreground/[0.10] rounded-2xl p-4 border border-primary-foreground/[0.06]">
-              <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-white mb-2 flex items-center gap-1.5">
-                <Wallet className="h-3 w-3" />
-                ROI
-              </p>
-              <p className="text-[clamp(1.75rem,6.5vw,2.75rem)] font-black tracking-tight leading-none text-white drop-shadow-sm">
-                {maskAmt(headlineBalance)}
-              </p>
-              {pendingHold > 0 && showAmount && (
-                <div className="mt-2.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-300/20">
-                  <Clock className="h-3 w-3 text-amber-300" />
-                  <span className="text-[10px] font-semibold text-amber-200">
-                    {formatAmount(pendingHold)} pending withdrawal
-                  </span>
+            {role === 'supporter' && operationalFloatBalance !== undefined ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-primary-foreground/[0.10] rounded-2xl p-4 border border-primary-foreground/[0.06]">
+                  <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-white mb-2 flex items-center gap-1.5">
+                    <Wallet className="h-3 w-3" />
+                    ROI
+                  </p>
+                  <p className="text-[clamp(1.75rem,6.5vw,2.75rem)] font-black tracking-tight leading-none text-white drop-shadow-sm">
+                    {maskAmt(headlineBalance)}
+                  </p>
+                  {pendingHold > 0 && showAmount && (
+                    <div className="mt-2.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-300/20">
+                      <Clock className="h-3 w-3 text-amber-300" />
+                      <span className="text-[10px] font-semibold text-amber-200">
+                        {formatAmount(pendingHold)} pending withdrawal
+                      </span>
+                    </div>
+                  )}
+                  {pendingHold > 0 && showAmount && (
+                    <p className="text-[10px] text-white mt-1.5">
+                      Wallet total: <span className="font-semibold text-white">{formatAmount(balance)}</span>
+                    </p>
+                  )}
                 </div>
-              )}
-              {pendingHold > 0 && showAmount && (
-                <p className="text-[10px] text-white mt-1.5">
-                  Wallet total: <span className="font-semibold text-white">{formatAmount(balance)}</span>
+
+                <div className="bg-primary-foreground/[0.10] rounded-2xl p-4 border border-primary-foreground/[0.06]">
+                  <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-white mb-2 flex items-center gap-1.5">
+                    <Wallet className="h-3 w-3" />
+                    Balance
+                  </p>
+                  <p className="text-[clamp(1.75rem,6.5vw,2.75rem)] font-black tracking-tight leading-none text-white drop-shadow-sm">
+                    {maskAmt(operationalFloatBalance)}
+                  </p>
+                  <p className="mt-2.5 text-[10px] text-white/80 font-medium">
+                    Balance available to fund rent plans and houses. Not withdrawable.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-primary-foreground/[0.10] rounded-2xl p-4 border border-primary-foreground/[0.06]">
+                <p className="text-[10px] uppercase tracking-[0.15em] font-bold text-white mb-2 flex items-center gap-1.5">
+                  <Wallet className="h-3 w-3" />
+                  ROI
                 </p>
-              )}
-              {!disableTap && (
-                <p className="mt-2.5 text-[10px] text-white font-medium">
-                  Tap to see how your money moves in and out
+                <p className="text-[clamp(1.75rem,6.5vw,2.75rem)] font-black tracking-tight leading-none text-white drop-shadow-sm">
+                  {maskAmt(headlineBalance)}
                 </p>
-              )}
-            </div>
+                {pendingHold > 0 && showAmount && (
+                  <div className="mt-2.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-300/20">
+                    <Clock className="h-3 w-3 text-amber-300" />
+                    <span className="text-[10px] font-semibold text-amber-200">
+                      {formatAmount(pendingHold)} pending withdrawal
+                    </span>
+                  </div>
+                )}
+                {pendingHold > 0 && showAmount && (
+                  <p className="text-[10px] text-white mt-1.5">
+                    Wallet total: <span className="font-semibold text-white">{formatAmount(balance)}</span>
+                  </p>
+                )}
+                {!disableTap && (
+                  <p className="mt-2.5 text-[10px] text-white font-medium">
+                    Tap to see how your money moves in and out
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
