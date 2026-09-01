@@ -691,6 +691,8 @@ export function useCcCallingHub(
     categories: categoriesQ.data ?? [],
     staffOptions: staffQ.data ?? [],
     followups: followupsQ.data ?? [],
+    followupsError: followupsQ.error ? err(followupsQ.error) : null,
+
     canManageCycles,
     outstanding,
     reveal,
