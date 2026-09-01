@@ -266,7 +266,8 @@ export function SmartphoneCatalogDialog() {
   const [open, setOpen] = useState(false);
   const [brandChoice, setBrandChoice] = useState<string>(NEW_BRAND);
   const [newBrand, setNewBrand] = useState('');
-  const [rows, setRows] = useState<ModelRow[]>([emptyRow()]);
+  const [osType, setOsType] = useState<SmartphoneOsType>('android');
+  const [rows, setRows] = useState<ModelRow[]>([emptyRow('android')]);
   const [search, setSearch] = useState('');
 
   const [fromDate, setFromDate] = useState('');
@@ -274,6 +275,7 @@ export function SmartphoneCatalogDialog() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBrand, setEditBrand] = useState('');
   const [editModel, setEditModel] = useState('');
+  const [editOsType, setEditOsType] = useState<SmartphoneOsType>('android');
   const [editAmount, setEditAmount] = useState('');
   const [editSpecifications, setEditSpecifications] = useState('');
   const [editMoreSpecifications, setEditMoreSpecifications] = useState('');
