@@ -353,6 +353,7 @@ export function SmartphoneCatalogDialog() {
         return {
           brand: b,
           model_name: r.modelName.trim() || null,
+          os_type: r.osType,
           default_amount: parseAmount(r.amount),
           specifications: r.specifications.trim() || null,
           more_specifications: r.moreSpecifications.trim() || null,
