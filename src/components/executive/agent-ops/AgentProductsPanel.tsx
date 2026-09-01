@@ -241,6 +241,36 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
   const activity = data?.activity ?? [];
   const isSmartphone = category === 'smart_phone';
 
+  // KPI drill-down. The lists come straight from the same overview payload the
+  // cards count, so a card and its sheet can never disagree.
+  const [drill, setDrill] = useState<DrillKey | null>(null);
+  const allRows = data?.rows ?? [];
+  const repaidRows = useMemo(
+    () => allRows.filter((r) => Number(r.repaid_amount || 0) > 0)
+      .sort((a, b) => Number(b.repaid_amount || 0) - Number(a.repaid_amount || 0)),
+    [allRows],
+  );
+  const fullyPaidRows = useMemo(
+    () => allRows.filter((r) => Number(r.held_amount || 0) > 0 && Number(r.outstanding_amount || 0) <= 0),
+    [allRows],
+  );
+  const drillRows = useMemo(() => {
+    switch (drill) {
+      case 'fleet':
+        return allRows.filter((r) => Number(r.items_held || 0) > 0);
+      case 'portfolio':
+        return allRows.filter((r) => Number(r.outstanding_amount || 0) > 0)
+          .sort((a, b) => Number(b.outstanding_amount || 0) - Number(a.outstanding_amount || 0));
+      case 'recovery':
+      case 'repaid':
+        return repaidRows;
+      default:
+        return [];
+    }
+  }, [drill, allRows, repaidRows]);
+
+
+
   const rows = useMemo(() => {
     const list = data?.rows ?? [];
 
