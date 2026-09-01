@@ -262,6 +262,7 @@ const RentCoverageDetail = lazy(() => import('./pages/coo/RentCoverageDetail'));
 const COOPartnerOpsReport = lazy(() => import('./pages/coo/reports/PartnerOpsReport'));
 const COOAgentOpsReport = lazy(() => import('./pages/coo/reports/AgentOpsReport'));
 const COOTenantOpsReport = lazy(() => import('./pages/coo/reports/TenantOpsReport'));
+const TppoPortfolioPerformanceReport = lazy(() => import('./pages/tenant-ops/PortfolioPerformanceReport'));
 const COOFinancialOpsReport = lazy(() => import('./pages/coo/reports/FinancialOpsReport'));
 const COOSystemOverviewReport = lazy(() => import('./pages/coo/reports/SystemOverviewReport'));
 const WelileAIPage = lazy(() => import('./components/ai-chat/WelileAIChatButton').then(m => ({ default: m.WelileAIPage })));
