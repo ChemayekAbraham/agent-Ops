@@ -5,13 +5,14 @@ import { FileDown, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
-type Period = 'daily' | 'yesterday' | 'weekly' | 'monthly' | 'weekend';
+type Period = 'daily' | 'yesterday' | 'weekly' | 'monthly' | 'last_month' | 'weekend';
 
 const OPTIONS: { key: Period; label: string; hint: string }[] = [
   { key: 'daily', label: 'Daily report', hint: 'Today only (EAT)' },
   { key: 'yesterday', label: "Yesterday's report", hint: 'Previous day only (EAT)' },
   { key: 'weekly', label: 'Weekly report', hint: 'Last 7 days' },
   { key: 'monthly', label: 'Monthly report', hint: 'Month to date' },
+  { key: 'last_month', label: 'Last month report', hint: 'Previous full calendar month' },
   { key: 'weekend', label: 'Weekend report', hint: 'Latest Sat - Sun' },
 ];
 
@@ -19,6 +20,18 @@ const OPTIONS: { key: Period; label: string; hint: string }[] = [
 function eatDay(offset = 0): string {
   return new Date(Date.now() + 3 * 60 * 60 * 1000 + offset * 86_400_000).toISOString().slice(0, 10);
 }
+
+/** First and last day of the previous full calendar month (EAT anchored). */
+function lastMonthWindow(): { start: string; end: string } {
+  const today = eatDay(0);
+  const [y, m] = today.split('-').map(Number);
+  const prevY = m === 1 ? y - 1 : y;
+  const prevM = m === 1 ? 12 : m - 1;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const lastDay = new Date(Date.UTC(prevY, prevM, 0)).getUTCDate();
+  return { start: `${prevY}-${pad(prevM)}-01`, end: `${prevY}-${pad(prevM)}-${pad(lastDay)}` };
+}
+
 
 type Format = 'pdf' | 'html';
 
@@ -30,13 +43,16 @@ export function PartnerOpsReportExportButton() {
   const download = async (period: Period, format: Format = 'pdf') => {
     setBusy(`${period}:${format}`);
     try {
-      const day = period === 'yesterday' ? eatDay(-1) : eatDay(0);
-      const resolved = period === 'yesterday' ? 'daily' : period;
+      const lm = period === 'last_month' ? lastMonthWindow() : null;
+      const day = lm ? lm.end : period === 'yesterday' ? eatDay(-1) : eatDay(0);
+      const resolved = period === 'yesterday' ? 'daily' : period === 'last_month' ? 'monthly' : period;
+      const range = lm ? { start: lm.start, end: lm.end } : {};
       if (format === 'html') {
         const { data, error } = await supabase.functions.invoke('partner-ops-daily-report', {
-          body: { period: resolved, date: day, preview: true },
+          body: { period: resolved, date: day, ...range, preview: true },
         });
         if (error) throw error;
+
         const html = typeof data === 'string' ? data : await (data as Blob).text();
         const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
         const url = URL.createObjectURL(blob);
@@ -51,8 +67,9 @@ export function PartnerOpsReportExportButton() {
         return;
       }
       const { data, error } = await supabase.functions.invoke('partner-ops-daily-report', {
-        body: { period: resolved, date: day, pdf: true },
+        body: { period: resolved, date: day, ...range, pdf: true },
       });
+
       if (error) throw error;
       const blob = data instanceof Blob ? data : new Blob([data as any], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
