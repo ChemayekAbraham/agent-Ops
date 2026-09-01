@@ -42764,6 +42764,7 @@ export type Database = {
           employees: number
           landlords: number
           partners: number
+          sub_agents: number
           tenants: number
         }[]
       }
@@ -42792,6 +42793,10 @@ export type Database = {
           total_calls: number
           total_rows: number
         }[]
+      }
+      crm_record_call_outcome: {
+        Args: { p_outcome: string; p_session_id: string }
+        Returns: undefined
       }
       crm_reveal_target_phone: {
         Args: { p_person_id: string }
