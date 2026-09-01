@@ -265,6 +265,7 @@ const TicketsPage = () => {
                   <TableRow>
                     <TableHead>Ref</TableHead>
                     <TableHead>Title</TableHead>
+                    <TableHead>Raised by</TableHead>
                     <TableHead>Area</TableHead>
                     <TableHead>How bad</TableHead>
                     <TableHead>Raised</TableHead>
