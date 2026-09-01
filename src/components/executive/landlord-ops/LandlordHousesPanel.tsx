@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Building2, Home, Search, User, UserPlus, UserX, UserCog, ChevronDown, ChevronRight, ChevronUp, Loader2, X, Eye, EyeOff, Info, MapPin, Minus, Plus,
+  Building2, Home, Search, User, UserPlus, UserX, UserCog, ChevronDown, ChevronRight, ChevronUp, Loader2, X, Eye, EyeOff, Info, MapPin, Minus, Plus, Star,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { BindTenantToHouseDialog } from './BindTenantToHouseDialog';
@@ -295,7 +295,7 @@ export function LandlordHousesPanel() {
             <p className="text-sm font-bold">Browse by Location</p>
             <p className="text-[11px] text-muted-foreground">Country → Region → District → Agent → Landlord</p>
             <div className="flex items-center gap-1 mt-1">
-              <Badge variant="default" className="text-[9px] h-4">Recommended</Badge>
+              <Badge variant="default" className="gap-1 text-[9px] h-4"><Star className="h-2.5 w-2.5 fill-current" aria-hidden="true" />Recommended</Badge>
               <span className="text-[10px] text-muted-foreground">Best for ops at scale</span>
             </div>
           </div>

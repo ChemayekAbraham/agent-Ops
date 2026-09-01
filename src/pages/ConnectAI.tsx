@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeft, Check, Copy, Lock, Globe, MessageSquare, Wallet, FileDown, Home } from 'lucide-react';
+import { ArrowLeft, Check, Copy, Lock, Globe, MessageSquare, Wallet, FileDown, Home, Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -146,7 +146,10 @@ export default function ConnectAI() {
                 <div className="flex items-center gap-2">
                   <Lock className="h-4 w-4 text-primary" />
                   <CardTitle className="text-base">Your own Welile account</CardTitle>
-                  <Badge variant="secondary">Recommended</Badge>
+                  <Badge className="gap-1 bg-primary text-primary-foreground hover:bg-primary">
+                    <Star className="h-3 w-3 fill-current" aria-hidden="true" />
+                    Recommended
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">

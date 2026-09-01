@@ -119,10 +119,13 @@ export function TenantDocumentsSection({
       } as any);
       if (insErr) throw insErr;
 
-      // Retire the version being replaced (best effort — history is preserved).
+      // Retire the version being replaced. Goes through the secure helper so a
+      // photo first uploaded by another agent is retired too (history kept).
       if (existing) {
-        await supabase.from('tenant_documents').update({ is_current: false }).eq('id', existing.id);
+        const { error: retErr } = await (supabase.rpc as any)('retire_tenant_document', { p_doc_id: existing.id });
+        if (retErr) throw retErr;
       }
+
 
       // Keep the tenant's profile photo in step with the passport on file.
       if (docType === 'tenant_passport' && publicUrl) {
@@ -149,11 +152,9 @@ export function TenantDocumentsSection({
   const removeDoc = async (doc: DocRow) => {
     setBusy(doc.doc_type + doc.id);
     try {
-      const { error } = await supabase
-        .from('tenant_documents')
-        .update({ is_current: false })
-        .eq('id', doc.id);
+      const { error } = await (supabase.rpc as any)('retire_tenant_document', { p_doc_id: doc.id });
       if (error) throw error;
+
       toast.success('Photo removed');
       await load();
     } catch (err: any) {
