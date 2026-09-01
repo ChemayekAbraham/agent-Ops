@@ -1089,6 +1089,11 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                 </SheetDescription>
               </SheetHeader>
 
+              {/* Tenant status first: renewal vs new tenant, with existing payment history */}
+              <TenantPaymentHistoryCard tenantId={reviewTarget.tenant_id} currentRequestId={reviewTarget.id} />
+
+
+
               <div className="rounded-xl border border-border/70 divide-y divide-border/60 text-sm">
                 {[
                   { label: 'Tenant', value: reviewTarget.tenant_name },
