@@ -1490,6 +1490,18 @@ Deno.serve(async (req) => {
       dt.setUTCDate(dt.getUTCDate() - back);
       return dt.toISOString().slice(0, 10);
     };
+
+    // The rollback rate is only a real daily figure if the previous snapshot
+    // in db_stat_snapshots is actually from the day before. Otherwise commits
+    // and rollbacks silently accumulate over however many days separate the
+    // two snapshots (a 14-day gap once produced a false "elevated rollback
+    // rate" board item at 16.52% for what was really a single-day non-issue).
+    const rollbackBaselineOk = (baselineAt: unknown, dayIso: string): boolean => {
+      if (!baselineAt) return false;
+      const baselineDay = String(baselineAt).slice(0, 10);
+      return baselineDay === shiftDay(dayIso, 1);
+    };
+    const rollbackTrustworthy = rollbackBaselineOk(I.rollback_baseline_at, dateStr);
     const weekDates = Array.from({ length: 7 }, (_, i) => shiftDay(dateStr, 6 - i));
     const weekStart = weekDates[0];
     const boardPeriodLabel = `${weekStart} to ${dateStr}`;
@@ -1497,6 +1509,7 @@ Deno.serve(async (req) => {
       d: string; health: number; errUsers: number; active: number;
       loginFail: number; loginEvents: number; emailFailed: number; emailSent: number;
       jobRuns: number; jobFailed: number; rollbacks: number; commits: number; rls: number;
+      rollbackOk: boolean;
     };
     const weekDays: DayRoll[] = [];
     if (reportType === 'board') {
@@ -1531,6 +1544,7 @@ Deno.serve(async (req) => {
           emailFailed: n(xM.failed_today), emailSent: n(xM.sent_today),
           jobRuns: n(xJ.runs_24h), jobFailed: n(xJ.failed_24h),
           rollbacks: n(xI.rollbacks), commits: n(xI.commits), rls: dRls,
+          rollbackOk: rollbackBaselineOk(xI.rollback_baseline_at, r.dy),
         });
       }
       weekDays.sort((a2, b2) => (a2.d < b2.d ? -1 : 1));
@@ -1548,6 +1562,11 @@ Deno.serve(async (req) => {
     const wJobFailRate = weeklyMode ? pct(sum('jobFailed'), Math.max(1, sum('jobRuns'))) : jobFailRate;
     const wFailedRuns = weeklyMode ? sum('jobFailed') : n(J.failed_24h);
     const wRollbackRate = weeklyMode ? pct(sum('rollbacks'), Math.max(1, sum('commits') + sum('rollbacks'))) : rollbackRate;
+    // Trustworthy only if every day in the window had a same-day-before
+    // snapshot to diff against — one gap anywhere poisons the sum for the
+    // whole period, since rollbacks/commits from the missing days land on
+    // whichever day the gap was finally closed.
+    const wRollbackTrustworthy = weeklyMode ? weekDays.every((wd) => wd.rollbackOk) : rollbackTrustworthy;
     const wAffectedUsers = weeklyMode ? sum('errUsers') : n(E.affected_users_today);
     const wLedgerNote = weeklyMode ? `${fmt(P.active_7d)} active customers over the week` : `${fmt(P.active_24h)} active customers today`;
     const periodWord = weeklyMode ? 'this week' : 'today';
@@ -1613,8 +1632,15 @@ Deno.serve(async (req) => {
 
 
     const ragTone = (v: number): Tone => (v >= 85 ? 'good' : v >= 65 ? 'warn' : 'bad');
+    // Same 85/65 bands as ragTone, so a pillar's color and its status word
+    // never disagree. Security and Customer used to carry their own tighter
+    // thresholds (98/90, 95/85) that only fed the text, not the color, so a
+    // 92% security score rendered a green-colored "Amber" to the board.
+    const ragLabel = (v: number): string => (v >= 85 ? 'Green' : v >= 65 ? 'Amber' : 'Red');
     const pillarScores = {
-      reliability: Math.max(0, Math.min(100, 100 - wRollbackRate * 6 - wErrRate * 10)),
+      // An untrustworthy rollback figure must not drag the score down (or
+      // prop it up) on a number that isn't really this period's rate.
+      reliability: Math.max(0, Math.min(100, 100 - (wRollbackTrustworthy ? wRollbackRate : 0) * 6 - wErrRate * 10)),
       controls: Math.max(0, 100 - guardrailJobs.length * 22 - Math.max(0, failingJobs.length - guardrailJobs.length) * 6),
       security: Math.min(100, rlsCoverage),
       // Customer experience scores on people who eventually got in and on true
@@ -1626,13 +1652,13 @@ Deno.serve(async (req) => {
     const boardPillars: { label: string; status: string; tone: Tone; note: string }[] = [
       {
         label: 'Platform Reliability',
-        status: pillarScores.reliability >= 85 ? 'Green' : pillarScores.reliability >= 65 ? 'Amber' : 'Red',
+        status: ragLabel(pillarScores.reliability),
         tone: ragTone(pillarScores.reliability),
-        note: `${wRollbackRate.toFixed(2)}% of database transactions rolled back ${periodWord}; ${wErrRate.toFixed(2)}% of active customers hit an app error (${fmt(wAffectedUsers)} ${weeklyMode ? 'affected user-days' : 'users'}).`,
+        note: `${wRollbackTrustworthy ? `${wRollbackRate.toFixed(2)}% of database transactions rolled back ${periodWord}` : 'Transaction rollback rate not trustworthy this period — the daily report has gaps in its snapshot history'}; ${wErrRate.toFixed(2)}% of active customers hit an app error (${fmt(wAffectedUsers)} ${weeklyMode ? 'affected user-days' : 'users'}).`,
       },
       {
         label: 'Financial Controls Automation',
-        status: pillarScores.controls >= 85 ? 'Green' : pillarScores.controls >= 65 ? 'Amber' : 'Red',
+        status: ragLabel(pillarScores.controls),
         tone: ragTone(pillarScores.controls),
         note: guardrailJobs.length
           ? `${guardrailJobs.length} financial-control automation${guardrailJobs.length > 1 ? 's' : ''} not completing (${jobList(guardrailJobs)}); ${brokenAllDay} job(s) had no successful run today.`
@@ -1641,13 +1667,13 @@ Deno.serve(async (req) => {
       },
       {
         label: 'Security & Compliance',
-        status: pillarScores.security >= 98 ? 'Green' : pillarScores.security >= 90 ? 'Amber' : 'Red',
+        status: ragLabel(pillarScores.security),
         tone: ragTone(pillarScores.security),
         note: `Access controls enforced on ${rlsCoverage.toFixed(1)}% of data tables; ${fmt(S.fraud_blocks_active)} fraud blocks active; ${fmt(P.txn_today)} balanced ledger postings.`,
       },
       {
         label: 'Customer Experience',
-        status: pillarScores.customer >= 95 ? 'Green' : pillarScores.customer >= 85 ? 'Amber' : 'Red',
+        status: ragLabel(pillarScores.customer),
         tone: ragTone(pillarScores.customer),
         note: `${siEventualRate.toFixed(1)}% of the ${fmt(siUsersTried)} people who tried to sign in ${periodWord} got in (${siPlatRate.toFixed(2)}% of attempts failed for platform reasons); ${em30Rate.toFixed(1)}% of ${fmt(em30)} e-mails over 30 days were delivered and ${em30PendingRate.toFixed(1)}% never left the queue. E-mail only — SMS is not included in this figure.`,
       },
@@ -1712,16 +1738,20 @@ Deno.serve(async (req) => {
       guardrailJobs.length
         ? `One item needs board visibility: ${guardrailJobs.length} automated job${guardrailJobs.length > 1 ? 's' : ''} enforcing financial controls (${jobList(guardrailJobs)}) ${guardrailJobs.length > 1 ? 'have' : 'has'} not completed successfully in the last 24 hours, so those controls are currently running on manual oversight rather than automatically.`
         : `No financial-control automation is currently failing; all scheduled control jobs completed in the last 24 hours.`,
-      wRollbackRate >= 5
+      wRollbackTrustworthy && wRollbackRate >= 5
         ? `Separately, ${wRollbackRate.toFixed(2)}% of database transactions were rolled back ${periodWord}, above the internal tolerance — this signals wasted processing and retried customer actions rather than lost money.`
-        : `Overall technology health stands at ${wHealth} out of 100 (${wHealthLabel}); no other item requires a board decision this cycle.`,
+        : !wRollbackTrustworthy
+          ? `Separately, the transaction rollback rate cannot be trusted this period because the daily snapshot history has a gap; that figure is being suppressed rather than reported as an anomaly.`
+          : `Overall technology health stands at ${wHealth} out of 100 (${wHealthLabel}); no other item requires a board decision this cycle.`,
     ];
 
     const boardDecisions: string[] = [];
     if (guardrailJobs.length)
       boardDecisions.push(`Approve prioritising a remediation sprint for the ${guardrailJobs.length} financial-guardrail automation${guardrailJobs.length > 1 ? 's' : ''} (${jobList(guardrailJobs)}) so financial controls run without manual oversight.`);
-    if (wRollbackRate >= 5)
+    if (wRollbackTrustworthy && wRollbackRate >= 5)
       boardDecisions.push(`Note the elevated transaction rollback rate (${wRollbackRate.toFixed(2)}% ${periodWord}) and the engineering commitment to bring it back within tolerance.`);
+    else if (!wRollbackTrustworthy)
+      boardDecisions.push(`Note that the transaction rollback rate is not being reported this cycle: the daily report has a gap in its snapshot history, so any percentage would span an unknown number of days rather than ${periodWord}. Restoring the daily run is the fix, not the rollback rate itself.`);
     if (!backupOk)
       boardDecisions.push(`Note that the last successful backup is ${backupAgeLabel} against a weekly cadence; continuity assurance requires attention before the next cycle.`);
     if (smsConfirmBroken)
@@ -1746,7 +1776,7 @@ Deno.serve(async (req) => {
       ['E-mail delivery (excludes SMS)', `${em30Rate.toFixed(1)}% of ${fmt(em30)} over 30 days`, '95.0% or above', em30Rate >= 95 ? 'On target' : 'Below target'],
       ['SMS accepted by a provider', `${smsAcceptedRate.toFixed(1)}% of ${fmt(smsTotal)} over 30 days`, '95.0% or above', smsAcceptedRate >= 95 ? 'On target' : 'Below target'],
       ['SMS confirmed on the handset', smsConfirmCell, smsConfirmBroken ? 'Measurement fault — being fixed' : `Confirmable traffic only (${num(n(SMS.dlr_capable), smsTotal)})`, smsConfirmBroken ? 'Not measured' : (smsConfirmedRate >= 50 ? 'On target' : 'Below target')],
-      ['Transaction rollback rate', `${wRollbackRate.toFixed(2)}%`, 'Below 5.00%', wRollbackRate < 5 ? 'On target' : 'Below target'],
+      ['Transaction rollback rate', wRollbackTrustworthy ? `${wRollbackRate.toFixed(2)}%` : 'Not trustworthy', wRollbackTrustworthy ? 'Below 5.00%' : 'Snapshot history has a gap', wRollbackTrustworthy ? (wRollbackRate < 5 ? 'On target' : 'Below target') : 'Not measured'],
       ['Financial controls automated', `${fmt(Math.max(0, n(J.total_scheduled) - failingJobs.length))} of ${fmt(J.total_scheduled)}`, 'All scheduled jobs', failingJobs.length ? 'Below target' : 'On target'],
     ];
 
