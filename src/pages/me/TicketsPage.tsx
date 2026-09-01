@@ -40,6 +40,15 @@ function when(value: string | null) {
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString();
 }
 
+function compactName(fullName?: string | null) {
+  if (!fullName) return '';
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '';
+  const [first, ...rest] = parts;
+  const initials = rest.map((p) => `${p[0]?.toUpperCase()}.`).join(' ');
+  return initials ? `${first} ${initials}` : first;
+}
+
 /** Short beep for a newly raised ticket. Blocked audio must never break the UI. */
 function playChime() {
   try {
@@ -75,6 +84,7 @@ const TicketsPage = () => {
   const [canAssign, setCanAssign] = useState(false);
   const [queue, setQueue] = useState<QueueRow[]>([]);
   const [mine, setMine] = useState<QueueRow[]>([]);
+  const [creatorNames, setCreatorNames] = useState<Record<string, string>>({});
   const [claiming, setClaiming] = useState<string | null>(null);
 
   useEffect(() => {
@@ -146,6 +156,42 @@ const TicketsPage = () => {
     void loadQueue();
     void loadMine();
   }, [staff?.id, loadQueue, loadMine]);
+
+  // Resolve ticket creators (hr_staff -> profile) for the queue table.
+  useEffect(() => {
+    if (!queue.length) return;
+    const staffIds = Array.from(new Set(queue.map((r) => r.raised_by).filter(Boolean))) as string[];
+    if (!staffIds.length) return;
+    let cancelled = false;
+    (async () => {
+      const { data: staffRows } = await supabase
+        .from('hr_staff')
+        .select('id, user_id')
+        .in('id', staffIds);
+      if (cancelled) return;
+      const userIds = Array.from(
+        new Set((staffRows ?? []).map((s: any) => s.user_id).filter(Boolean)),
+      ) as string[];
+      const profileNames: Record<string, string> = {};
+      if (userIds.length) {
+        const { data: profilesRows } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds);
+        (profilesRows ?? []).forEach((p: any) => {
+          if (p.full_name) profileNames[p.id] = p.full_name;
+        });
+      }
+      const map: Record<string, string> = {};
+      (staffRows ?? []).forEach((s: any) => {
+        map[s.id] = compactName(profileNames[s.user_id]) || '—';
+      });
+      if (!cancelled) setCreatorNames(map);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [queue]);
 
   // Only people who can act on the queue get a live subscription.
   useEffect(() => {
@@ -219,6 +265,7 @@ const TicketsPage = () => {
                   <TableRow>
                     <TableHead>Ref</TableHead>
                     <TableHead>Title</TableHead>
+                    <TableHead>Raised by</TableHead>
                     <TableHead>Area</TableHead>
                     <TableHead>How bad</TableHead>
                     <TableHead>Raised</TableHead>
@@ -230,6 +277,7 @@ const TicketsPage = () => {
                     <TableRow key={row.id}>
                       <TableCell className="font-mono text-xs">{row.ref}</TableCell>
                       <TableCell className="max-w-[280px] text-sm">{row.title}</TableCell>
+                      <TableCell className="text-xs">{creatorNames[row.raised_by ?? ''] || '—'}</TableCell>
                       <TableCell className="text-xs">{row.hr_ticket_surfaces?.label ?? '—'}</TableCell>
                       <TableCell className="text-xs">{SEVERITY_LABEL[row.severity] ?? row.severity}</TableCell>
                       <TableCell className="text-xs">{when(row.raised_at)}</TableCell>
