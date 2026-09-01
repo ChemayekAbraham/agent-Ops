@@ -380,9 +380,22 @@ export function usePlaceCall() {
           targetLocation: vars.location ?? null,
         },
       });
-      if (error) throw error;
+
+      // A non-2xx reply carries the operator-readable reason in its body (e.g.
+      // "Voice calling is out of credit"). Without this it is swallowed as a
+      // generic "Edge Function returned a non-2xx status code".
+      if (error) {
+        const ctx = (error as { context?: Response }).context;
+        if (ctx && typeof ctx.json === 'function') {
+          const body = await ctx.json().catch(() => null) as { message?: string; error?: string } | null;
+          if (body?.message || body?.error) throw new Error(body.message ?? body.error!);
+        }
+        throw error;
+      }
+
       const payload = data as { callId?: string; error?: string; message?: string } | null;
-      if (!payload?.callId) throw new Error(payload?.error ?? 'could_not_place_call');
+      if (!payload?.callId) throw new Error(payload?.message ?? payload?.error ?? 'could_not_place_call');
+
       invalidate();
       return {
         callId: payload.callId,
