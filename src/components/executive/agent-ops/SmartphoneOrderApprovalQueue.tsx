@@ -140,6 +140,31 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
     },
   });
 
+  // Applicant profile metrics — applications are no longer gated on tenant
+  // count or documents, so the reviewing manager sees the full standing here
+  // and makes the call.
+  const { data: applicant, isLoading: applicantLoading } = useQuery({
+    queryKey: ['smartphone-applicant-metrics', detailsTarget?.customer_id],
+    enabled: !!detailsTarget?.customer_id,
+    queryFn: async () => {
+      const { data, error } = await db.rpc('get_agent_smartphone_eligibility', {
+        p_user_id: detailsTarget!.customer_id,
+      });
+      if (error) throw error;
+      return (data || null) as {
+        rank: number | null;
+        collected_30d: number;
+        max_amount: number;
+        is_active_agent?: boolean;
+        active_tenant_count: number;
+        required_active_tenants: number;
+        meets_tenant_guideline?: boolean;
+        has_national_id: boolean;
+        has_workplace_verification: boolean;
+      } | null;
+    },
+  });
+
 
   const { data: orders = [], isLoading } = useQuery<SmartphoneOrderRow[]>({
     queryKey: ['smartphone-order-queue'],
