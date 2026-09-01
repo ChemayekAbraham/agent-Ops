@@ -117,7 +117,14 @@ export function CallDrawer({
     };
     // `placeCall` is a stable mutation object; re-running on it would re-dial.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, target?.calleeId]);
+  }, [open, target?.calleeId, dialAttempt]);
+
+  /** Dial the same person again after the call ended or failed to start. */
+  const handleRedial = useCallback(() => {
+    stopRingback();
+    connectedAtRef.current = null;
+    setDialAttempt((n) => n + 1);
+  }, [stopRingback]);
 
   /* --- Ringback tone, tied to the ringing phase. --- */
   useEffect(() => {
