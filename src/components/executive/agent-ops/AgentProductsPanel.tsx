@@ -216,14 +216,45 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
 
   const rows = useMemo(() => {
     const list = data?.rows ?? [];
+  const rows = useMemo(() => {
+    const list = data?.rows ?? [];
     const term = search.trim().toLowerCase();
-    if (!term) return list;
-    return list.filter((r) =>
-      (r.full_name || '').toLowerCase().includes(term) ||
-      (r.location_name || '').toLowerCase().includes(term) ||
-      (r.product_names || []).join(' ').toLowerCase().includes(term)
-    );
-  }, [data?.rows, search]);
+    return list.filter((r) => {
+      const names = (r.product_names || []).join(' ').toLowerCase();
+      if (itemFilter !== 'all' && !names.includes(itemFilter.toLowerCase())) return false;
+      if (!term) return true;
+      return (
+        (r.full_name || '').toLowerCase().includes(term) ||
+        (r.location_name || '').toLowerCase().includes(term) ||
+        ((r as any).phone || '').toLowerCase().includes(term) ||
+        names.includes(term)
+      );
+    });
+  }, [data?.rows, search, itemFilter]);
+
+  /** Item names offered in the dropdown — drawn from what actually exists in this category. */
+  const itemOptions = useMemo(() => {
+    const names = new Set<string>();
+    breakdown.forEach((b) => b.label && names.add(b.label));
+    pendingApps.forEach((p) => p.item_name && names.add(p.item_name));
+    (data?.rows ?? []).forEach((r) => (r.product_names || []).forEach((n) => n && names.add(n)));
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [breakdown, pendingApps, data?.rows]);
+
+  const filteredPending = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return pendingApps.filter((p) => {
+      const item = [p.brand, p.model_type].filter(Boolean).join(' ') || p.item_name || '';
+      if (itemFilter !== 'all' && !`${item} ${p.item_name ?? ''}`.toLowerCase().includes(itemFilter.toLowerCase())) return false;
+      if (!term) return true;
+      return (
+        (p.full_name || '').toLowerCase().includes(term) ||
+        (p.phone || '').toLowerCase().includes(term) ||
+        item.toLowerCase().includes(term)
+      );
+    });
+  }, [pendingApps, search, itemFilter]);
+
 
   const exportPdf = async () => {
     if (!kpis) return;
