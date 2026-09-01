@@ -340,17 +340,42 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         {scopeLabel && <Badge variant="secondary" className="text-[11px]">{scopeLabel}</Badge>}
-        {showIssued && (
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={scopeLabel ? `Search agent, location or ${scopeLabel.toLowerCase()}` : 'Search agent, location or product'}
-              className="pl-8"
-            />
-          </div>
+        {(showIssued || showApplications) && (
+          <>
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search agent name or phone"
+                className="pl-8"
+              />
+            </div>
+            <Select value={itemFilter} onValueChange={setItemFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All items" />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                <SelectItem value="all">All items</SelectItem>
+                {itemOptions.map((name) => (
+                  <SelectItem key={name} value={name}>{name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {(search.trim() || itemFilter !== 'all') && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1"
+                onClick={() => { setSearch(''); setItemFilter('all'); }}
+              >
+                <X className="h-3.5 w-3.5" />
+                Clear
+              </Button>
+            )}
+          </>
         )}
+
         <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="gap-1.5">
           <RefreshCw className={isFetching ? 'h-4 w-4 animate-spin' : 'h-4 w-4'} />
           Refresh
