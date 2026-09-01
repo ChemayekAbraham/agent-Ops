@@ -5,6 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import {
+  classifyAssets, classifyLiabilities, classifyEquity, hasFlagged,
+  type BsGroup,
+} from '@/components/cfo/balanceSheetClassification';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
 import { format, endOfDay } from 'date-fns';
 import {
@@ -142,115 +146,7 @@ function SubHeading({ children }: { children: React.ReactNode }) {
  * Any liability account not explicitly named falls through to "Other Payables"
  * so no balance can silently disappear from the statement.
  */
-const LIABILITY_GROUP_LABELS = [
-  'Landlord Float — Company Managed',
-  'Landlord Float — Self Managed',
-  'Partner Buffer',
-  'Operation Float',
-  'Wallet Bucket',
-  'Merchant Agent',
-  'Other Payables',
-] as const;
-type LiabilityGroupLabel = typeof LIABILITY_GROUP_LABELS[number];
-
-const MARKETPLACE_LIABILITY_LABELS: LiabilityGroupLabel[] = [
-  'Landlord Float — Company Managed',
-  'Landlord Float — Self Managed',
-  'Partner Buffer',
-  'Operation Float',
-  'Wallet Bucket',
-  'Merchant Agent',
-];
-/**
- * Other Payables stands on its own outside Market Liabilities. It is also the
- * fallback bucket, so every liability account that is not mapped to one of the
- * six marketplace lines lands here and Total Liabilities still ties exactly.
- */
-const OTHER_LIABILITY_LABELS: LiabilityGroupLabel[] = [
-  'Other Payables',
-];
-
-// Reporting account code -> presented liability line.
-const LIABILITY_ACCOUNT_GROUPS: Record<string, LiabilityGroupLabel> = {
-  L4: 'Landlord Float — Company Managed',
-  L7: 'Landlord Float — Self Managed',
-  L2: 'Partner Buffer',
-  L6: 'Partner Buffer',
-  L8: 'Operation Float',
-  L1: 'Wallet Bucket',
-  L10: 'Merchant Agent',
-  // L3 (partner returns/rewards), L5 (agent commissions), L9 (suspense) and any
-  // account not listed here fall through to Other Payables.
-};
-
-/**
- * Plain-language equity labels. Presentation only: the ledger keeps its own
- * account names (other consumers read ledger_account_catalog), and only the
- * text printed on this statement changes. Values are untouched.
- */
-const EQUITY_LABEL_RENAMES: Record<string, string> = {
-  'Retained Earnings / (Accumulated Deficit)': 'Accumulated Profit / (Loss)',
-  'Legacy Opening Balance Adjustments': 'Opening Balance Adjustments',
-  'Legacy One-Sided Postings — Opening Balance Counterpart': 'Unmatched Historic Postings',
-};
-
-const equityLabel = (label: string) => EQUITY_LABEL_RENAMES[label] ?? label;
-
-/**
- * Drops the A9 suspense line from the asset list when it carries nothing.
- *
- * A9 "Suspense - Unresolved Postings (debit balance)" is the debit counterpart
- * of one-sided historic postings. With a zero balance it is noise on the face
- * of the statement, so it is hidden.
- *
- * It is NOT hidden when it holds a balance: the RPC's Total Current Assets and
- * Total Assets include A9, so suppressing a non-zero line would leave the
- * printed lines no longer footing to their own subtotal while the balance check
- * still reported "balanced" - a statement that looks right and does not add up.
- * A real suspense balance is a ledger problem to fix, not to hide.
- */
-const assetLinesForDisplay = (lines: PositionLine[]): PositionLine[] =>
-  lines.filter(l => !(accountCodeOf(l) === 'A9' && Math.round(l.value) === 0));
-
-/** Equity lines with display labels applied; order and values unchanged. */
-const equityLinesForDisplay = (lines: PositionLine[]): PositionLine[] =>
-  lines.map(l => ({ ...l, label: equityLabel(l.label) }));
-
-function accountCodeOf(line: PositionLine): string | null {
-  const m = /account\s+([A-Z]\d+)\s*$/.exec(line.source ?? '');
-  return m ? m[1] : null;
-}
-
-export interface LiabilityGroup {
-  label: LiabilityGroupLabel;
-  value: number;
-  lines: PositionLine[];
-}
-
-export function groupLiabilities(lines: PositionLine[]) {
-  const byLabel = new Map<LiabilityGroupLabel, LiabilityGroup>(
-    LIABILITY_GROUP_LABELS.map(label => [label, { label, value: 0, lines: [] }]),
-  );
-  for (const line of lines) {
-    const code = accountCodeOf(line);
-    const label = (code && LIABILITY_ACCOUNT_GROUPS[code]) || 'Other Payables';
-    const group = byLabel.get(label)!;
-    group.value += line.value;
-    group.lines.push(line);
-  }
-  const pick = (labels: LiabilityGroupLabel[]) => labels.map(l => byLabel.get(l)!);
-  const marketplace = pick(MARKETPLACE_LIABILITY_LABELS);
-  const other = pick(OTHER_LIABILITY_LABELS);
-  const sum = (gs: LiabilityGroup[]) => gs.reduce((t, g) => t + g.value, 0);
-  return {
-    marketplace,
-    other,
-    marketplaceTotal: sum(marketplace),
-    otherTotal: sum(other),
-  };
-}
-
-function GroupRow({ group, showSources }: { group: LiabilityGroup; showSources: boolean }) {
+function GroupRow({ group, showSources }: { group: BsGroup; showSources: boolean }) {
   const [open, setOpen] = useState(false);
   const expandable = showSources && group.lines.length > 0;
   return (
@@ -285,6 +181,32 @@ function GroupRow({ group, showSources }: { group: LiabilityGroup; showSources: 
 }
 
 
+/** Unclassified lines, itemised so nothing hides inside a total. */
+function FlaggedBlock({ group, showSources }: { group?: BsGroup; showSources: boolean }) {
+  if (!group || !hasFlagged(group)) return null;
+  return (
+    <div className="mt-2 rounded-md border border-warning/40 bg-warning/5 p-2">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-warning">{group.label}</p>
+      <p className="mb-1 text-[10px] text-muted-foreground">
+        Included in the section total. These accounts have no confident home in the current structure.
+      </p>
+      {group.lines.map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}
+      <TotalRow label="Subtotal — flagged" value={group.value} />
+    </div>
+  );
+}
+
+/** The categories must sum to the RPC's own total; say so loudly if they do not. */
+function DriftNote({ drift, of }: { drift: number; of: string }) {
+  if (drift === 0) return null;
+  return (
+    <p className="mt-1 flex items-start gap-1 text-[10px] text-destructive">
+      <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+      Category subtotals differ from {of} by {formatUGX(Math.abs(drift))}.
+    </p>
+  );
+}
+
 export default function BalanceSheetPanel() {
   const [asAt, setAsAt] = useState<Date>(new Date());
   const [data, setData] = useState<StatementOfFinancialPosition | null>(null);
@@ -310,37 +232,49 @@ export default function BalanceSheetPanel() {
   useEffect(() => { load(asAt); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const title = `WELILE — BALANCE SHEET — As at ${format(asAt, 'dd MMMM yyyy')}`;
-  const liabilityGroups = data
-    ? groupLiabilities([...data.liabilities.current, ...data.liabilities.non_current])
+  const assetGroups = data
+    ? classifyAssets([...data.assets.current, ...data.assets.non_current])
     : null;
+  const liabilityGroups = data
+    ? classifyLiabilities([...data.liabilities.current, ...data.liabilities.non_current])
+    : null;
+  const equityGroups = data ? classifyEquity(data.equity.lines) : null;
+  /** Each section's groups must still sum to the RPC's own total. */
+  const assetDrift = data && assetGroups ? Math.round(assetGroups.total - data.assets.total) : 0;
+  const equityDrift = data && equityGroups ? Math.round(equityGroups.total - data.equity.total) : 0;
   const liabilityGroupDrift = data && liabilityGroups
-    ? Math.round(liabilityGroups.marketplaceTotal + liabilityGroups.otherTotal - data.liabilities.total)
+    ? Math.round(liabilityGroups.total - data.liabilities.total)
     : 0;
 
   const exportCSV = () => {
     if (!data) return;
     const rows: (string | number)[][] = [[title], []];
     rows.push(['ASSETS', '']);
-    rows.push(['Current Assets', '']);
-    assetLinesForDisplay(data.assets.current).forEach(l => rows.push([l.label, l.value]));
-    rows.push(['Total Current Assets', data.assets.total_current]);
-    rows.push(['Non-Current Assets', '']);
-    data.assets.non_current.forEach(l => rows.push([l.label, l.value]));
-    rows.push(['Total Non-Current Assets', data.assets.total_non_current]);
+    (assetGroups?.groups ?? []).forEach(g => rows.push([g.label, g.value]));
+    if (assetGroups && hasFlagged(assetGroups.flagged)) {
+      rows.push([assetGroups.flagged.label, assetGroups.flagged.value]);
+      assetGroups.flagged.lines.forEach(l => rows.push(['   ' + l.label, l.value]));
+    }
     rows.push(['TOTAL ASSETS', data.assets.total]);
     rows.push([]);
     rows.push(['LIABILITIES', '']);
-    rows.push(['Market Liabilities', '']);
-    (liabilityGroups?.marketplace ?? []).forEach(g => rows.push([g.label, g.value]));
-    rows.push(['Subtotal — Market Liabilities', liabilityGroups?.marketplaceTotal ?? 0]);
-    rows.push(['Other Payables', '']);
-    (liabilityGroups?.other ?? []).forEach(g => rows.push([g.label, g.value]));
-    rows.push(['Subtotal — Other Payables', liabilityGroups?.otherTotal ?? 0]);
+    (liabilityGroups?.standalone ?? []).forEach(g => rows.push([g.label, g.value]));
+    rows.push(['Market Place Liabilities', '']);
+    (liabilityGroups?.marketplace ?? []).forEach(g => rows.push(['   ' + g.label, g.value]));
+    rows.push(['Subtotal — Market Place Liabilities', liabilityGroups?.marketplaceTotal ?? 0]);
+    if (liabilityGroups && hasFlagged(liabilityGroups.flagged)) {
+      rows.push([liabilityGroups.flagged.label, liabilityGroups.flagged.value]);
+      liabilityGroups.flagged.lines.forEach(l => rows.push(['   ' + l.label, l.value]));
+    }
     rows.push(['TOTAL LIABILITIES', data.liabilities.total]);
     rows.push([]);
-    rows.push(['EQUITY', '']);
-    equityLinesForDisplay(data.equity.lines).forEach(l => rows.push([l.label, l.value]));
-    rows.push(['TOTAL EQUITY', data.equity.total]);
+    rows.push(["SHAREHOLDERS' EQUITY", '']);
+    (equityGroups?.groups ?? []).forEach(g => rows.push([g.label, g.value]));
+    if (equityGroups && hasFlagged(equityGroups.flagged)) {
+      rows.push([equityGroups.flagged.label, equityGroups.flagged.value]);
+      equityGroups.flagged.lines.forEach(l => rows.push(['   ' + l.label, l.value]));
+    }
+    rows.push(["TOTAL SHAREHOLDERS' EQUITY", data.equity.total]);
     rows.push([]);
     rows.push(['TOTAL LIABILITIES AND EQUITY', data.balance_check.total_liabilities_and_equity]);
     rows.push(['Balance check difference', data.balance_check.difference]);
@@ -430,25 +364,29 @@ export default function BalanceSheetPanel() {
         y += bold ? 7 : 5;
       };
 
-      heading('Assets — Current');
-      assetLinesForDisplay(data.assets.current).forEach(l => row(l.label, l.value));
-      row('Total Current Assets', data.assets.total_current, true);
-      heading('Assets — Non-Current');
-      data.assets.non_current.forEach(l => row(l.label, l.value));
-      row('Total Non-Current Assets', data.assets.total_non_current, true);
+      const flaggedRows = (g?: BsGroup) => {
+        if (!g || !hasFlagged(g)) return;
+        row(g.label, g.value, true);
+        g.lines.forEach(l => row('   ' + l.label, l.value));
+      };
+
+      heading('Assets');
+      (assetGroups?.groups ?? []).forEach(g => row(g.label, g.value));
+      flaggedRows(assetGroups?.flagged);
       row('TOTAL ASSETS', data.assets.total, true);
 
-      heading('Market Liabilities');
+      heading('Liabilities');
+      (liabilityGroups?.standalone ?? []).forEach(g => row(g.label, g.value));
+      heading('Market Place Liabilities');
       (liabilityGroups?.marketplace ?? []).forEach(g => row(g.label, g.value));
-      row('Subtotal — Market Liabilities', liabilityGroups?.marketplaceTotal ?? 0, true);
-      heading('Other Payables');
-      (liabilityGroups?.other ?? []).forEach(g => row(g.label, g.value));
-      row('Subtotal — Other Payables', liabilityGroups?.otherTotal ?? 0, true);
+      row('Subtotal — Market Place Liabilities', liabilityGroups?.marketplaceTotal ?? 0, true);
+      flaggedRows(liabilityGroups?.flagged);
       row('TOTAL LIABILITIES', data.liabilities.total, true);
 
-      heading('Equity');
-      equityLinesForDisplay(data.equity.lines).forEach(l => row(l.label, l.value));
-      row('TOTAL EQUITY', data.equity.total, true);
+      heading("Shareholders' Equity");
+      (equityGroups?.groups ?? []).forEach(g => row(g.label, g.value));
+      flaggedRows(equityGroups?.flagged);
+      row("TOTAL SHAREHOLDERS' EQUITY", data.equity.total, true);
 
       heading('Balance Check');
       row('Total Assets', data.balance_check.total_assets);
@@ -583,35 +521,29 @@ export default function BalanceSheetPanel() {
           <div className="grid gap-4 lg:grid-cols-2">
             <div>
               <Badge variant="outline" className="text-[10px]">Assets</Badge>
-              <SectionHeading>Current Assets</SectionHeading>
-              <div>{assetLinesForDisplay(data.assets.current).map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}</div>
-              <TotalRow label="Total Current Assets" value={data.assets.total_current} />
-              <SectionHeading>Non-Current Assets</SectionHeading>
-              <div>{data.assets.non_current.map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}</div>
-              <TotalRow label="Total Non-Current Assets" value={data.assets.total_non_current} />
+              <SectionHeading>Assets</SectionHeading>
+              <div>{assetGroups?.groups.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
+              <FlaggedBlock group={assetGroups?.flagged} showSources={showSources} />
               <TotalRow label="Total Assets" value={data.assets.total} emphasis />
+              <DriftNote drift={assetDrift} of="Total Assets" />
             </div>
 
             <div>
-              <Badge variant="outline" className="text-[10px]">Liabilities & Equity</Badge>
+              <Badge variant="outline" className="text-[10px]">Liabilities &amp; Shareholders&apos; Equity</Badge>
               <SectionHeading>Liabilities</SectionHeading>
-              <SubHeading>Market Liabilities</SubHeading>
+              <div>{liabilityGroups?.standalone.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
+              <SubHeading>Market Place Liabilities</SubHeading>
               <div>{liabilityGroups?.marketplace.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
-              <TotalRow label="Subtotal — Market Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0} />
-              <SubHeading>Other Payables</SubHeading>
-              <div>{liabilityGroups?.other.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
-              <TotalRow label="Subtotal — Other Payables" value={liabilityGroups?.otherTotal ?? 0} />
+              <TotalRow label="Subtotal — Market Place Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0} />
+              <FlaggedBlock group={liabilityGroups?.flagged} showSources={showSources} />
               <TotalRow label="Total Liabilities" value={data.liabilities.total} />
-              {liabilityGroupDrift !== 0 && (
-                <p className="mt-1 flex items-start gap-1 text-[10px] text-destructive">
-                  <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-                  Category subtotals differ from Total Liabilities by {formatUGX(Math.abs(liabilityGroupDrift))}.
-                </p>
-              )}
-              <SectionHeading>Equity</SectionHeading>
-              <div>{equityLinesForDisplay(data.equity.lines).map(l => <LineRow key={l.label} line={l} showSources={showSources} />)}</div>
-              <TotalRow label="Total Equity" value={data.equity.total} />
-              <TotalRow label="Total Liabilities and Equity" value={data.balance_check.total_liabilities_and_equity} emphasis />
+              <DriftNote drift={liabilityGroupDrift} of="Total Liabilities" />
+              <SectionHeading>Shareholders&apos; Equity</SectionHeading>
+              <div>{equityGroups?.groups.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
+              <FlaggedBlock group={equityGroups?.flagged} showSources={showSources} />
+              <TotalRow label="Total Shareholders&apos; Equity" value={data.equity.total} />
+              <DriftNote drift={equityDrift} of="Total Shareholders&apos; Equity" />
+              <TotalRow label="Total Liabilities and Shareholders&apos; Equity" value={data.balance_check.total_liabilities_and_equity} emphasis />
             </div>
           </div>
 
