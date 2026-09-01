@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PeriodToggle, type TppoGranularity } from '@/components/tenant-ops/tppo/PeriodToggle';
 import { HeadlineA1 } from '@/components/tenant-ops/tppo/HeadlineA1';
 import { VarianceA2 } from '@/components/tenant-ops/tppo/VarianceA2';
+import { ProjectionA3 } from '@/components/tenant-ops/tppo/ProjectionA3';
 
 interface ZoneAReport {
   period_start: string | null;
@@ -53,7 +54,6 @@ function periodInWords(
 }
 
 const ZONE_PLACEHOLDERS = [
-  { id: 'A3', title: 'A3' },
 ];
 
 export default function PortfolioPerformanceReport() {
@@ -112,6 +112,7 @@ export default function PortfolioPerformanceReport() {
         <CardContent className="space-y-4">
           <HeadlineA1 report={data} />
           <VarianceA2 report={data} />
+          <ProjectionA3 granularity={granularity} anchor={anchor} />
           {ZONE_PLACEHOLDERS.map((zone) => (
             <div
               key={zone.id}
