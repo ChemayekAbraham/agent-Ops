@@ -640,6 +640,8 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
           busy={busy}
           setBusy={setBusy}
           selectedIds={houseSelected}
+          activeHouseCommitment={activeHouseCommitment}
+
           onSubmitted={async (outcome) => {
             setHouseSelected([]);
             await housesQuery.refetch();
