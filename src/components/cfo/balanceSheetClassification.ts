@@ -62,11 +62,13 @@ export const ASSET_CATEGORIES = [
  * are all cash; the cash flow statement already defines cash as A1 + A2.
  * A3 is tenant rent access receivables.
  *
- * A4 "Advances and Other Receivables" is deliberately NOT mapped, and stays
- * flagged for separate investigation. It is a single account carrying agent
- * advances, employee advances and wallet deductions together, and it currently
- * shows a credit balance (~UGX 1.212bn) even though it is an asset account.
- * Classifying it anywhere would bury that anomaly.
+ * A4 "Advances and Other Receivables" now carries only agent advance
+ * disbursements and their repayments (a genuine debit balance), so it is
+ * reported under agent receivables. It used to be left flagged because wallet
+ * deductions were credited to it, pushing an asset account to a ~UGX 1.21bn
+ * credit balance; those deductions are corrections with no receivable behind
+ * them and are now presented as equity balance corrections (E3) by
+ * sofp_ledger_legs, which is where the misclassification actually lived.
  *
  * A9 Suspense is unresolved postings by definition and is never classified.
  */
@@ -75,7 +77,9 @@ const ASSET_ACCOUNT_MAP: Record<string, string> = {
   A2: 'Cash and Bank Balances',
   A5: 'Cash and Bank Balances',
   A3: 'Receivables from Tenant Products and Services',
+  A4: 'Receivables from Agent Products and Services',
 };
+
 
 /* ── Liabilities ───────────────────────────────────────────────────────── */
 
