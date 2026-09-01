@@ -53,9 +53,7 @@ function periodInWords(
   return `${longDate(periodStart)} to ${longDate(periodEnd)}`;
 }
 
-const ZONE_PLACEHOLDERS = [
-  { id: 'A3', title: 'A3' },
-];
+const ZONE_PLACEHOLDERS: { id: string; title: string }[] = [];
 
 export default function PortfolioPerformanceReport() {
   // Each period state holds its own record: the query key is the sole carrier of
