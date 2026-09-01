@@ -54,17 +54,18 @@ export default function TenantAssignAgentDialog({
     },
   });
 
-  // Canonical, behaviour-based agent set (listed a house, posted a promissory
-  // note, made a rent request on behalf of a tenant, or has a qualifying
-  // sub-agent). Used to strip out tenants/landlords/plain users that only look
-  // like agents because they submitted their OWN rent request.
-  const { agentIds: qualifyingIds, isReady: qualifyingReady } = useQualifyingAgentIds();
-
-  // Search only real registered agents. The RPC filters server-side so matches
-  // are not lost to the API row cap before the user types a name.
-  const { data: agents = [], isLoading: agentsLoading } = useQuery({
+  // Search real registered agents AND sub-agents. `list_assignable_agents`
+  // already scopes server-side to profiles holding an agent / senior_agent /
+  // sub_agent role, so no extra client-side narrowing is applied (the previous
+  // "qualifying agents" filter silently hid sub-agents). The RPC also filters
+  // by the search term so matches are not lost to the row cap.
+  const { data: agents = [], isFetching: agentsFetching, isPending: agentsPending } = useQuery({
     queryKey: ['tenant-assign-agents', deferredAgentQuery],
     enabled: open,
+    // Keep the previous page of results mounted while a new search resolves so
+    // the input is never unmounted/disabled mid-typing (that stole focus after
+    // every keystroke).
+    placeholderData: (prev) => prev,
     queryFn: async () => {
       const { data, error } = await (supabase as any).rpc('list_assignable_agents', {
         p_search: deferredAgentQuery || null,
@@ -77,16 +78,17 @@ export default function TenantAssignAgentDialog({
     },
   });
 
+  const agentsLoading = agentsPending;
+
   const filteredAgents = useMemo(() => {
-    // Don't filter to empty while the canonical set is still loading.
-    const base = qualifyingReady ? agents.filter(a => qualifyingIds.has(a.id)) : agents;
     const q = agentQuery.trim().toLowerCase();
-    if (!q) return base;
-    return base.filter(a =>
+    if (!q) return agents;
+    return agents.filter(a =>
       (a.full_name || '').toLowerCase().includes(q) ||
       (a.phone || '').toLowerCase().includes(q)
     );
-  }, [agents, agentQuery, qualifyingIds, qualifyingReady]);
+  }, [agents, agentQuery]);
+
 
 
   // Close the agent dropdown when clicking outside the picker.
