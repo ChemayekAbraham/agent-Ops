@@ -226,9 +226,10 @@ export default function BalanceSheetPanel() {
       });
       if (error) throw error;
       setData(res as StatementOfFinancialPosition);
-      const { data: split } = await (supabase as any).rpc('get_landlord_float_management_split', {
+      const { data: split, error: splitError } = await (supabase as any).rpc('get_landlord_float_management_split', {
         p_as_at: asAtIso,
       });
+      if (splitError) console.warn('Landlord float split unavailable:', splitError.message);
       setFloatSplit((split as LandlordFloatSplit) ?? null);
     } catch (e: any) {
       toast.error(e?.message ?? 'Failed to generate the statement of financial position');
