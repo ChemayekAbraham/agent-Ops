@@ -75,11 +75,14 @@ export default function AgentProductCategoryPage() {
           <SmartphoneTabs category={entry.category ?? undefined} />
         ) : entry.slug === 'motor-bikes' ? (
           <MotorBikeTabs category={entry.category ?? undefined} />
+        ) : entry.slug === 'boutique' ? (
+          <BoutiqueTabs category={entry.category ?? undefined} />
         ) : (
           <div className="space-y-6">
             <AgentProductsPanel category={entry.category ?? undefined} />
           </div>
         )}
+
       </div>
     </div>
   );
