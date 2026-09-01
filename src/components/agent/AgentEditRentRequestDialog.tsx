@@ -230,14 +230,6 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
     setNewLcLetter({ file, preview: URL.createObjectURL(file) });
   };
 
-  /**
-   * Push any newly picked evidence to storage and return the patch fragment.
-   * Photos overwrite the same deterministic paths the original submission
-   * used, so reviewers always look at the latest capture for each angle.
-   */
-  const uploadEvidence = async (requestId: string): Promise<Record<string, unknown>> => {
-    const patch: Record<string, unknown> = {};
-    if (!user) return patch;
 
   /**
    * Push any newly picked evidence to storage and return the patch fragment.
