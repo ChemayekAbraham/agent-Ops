@@ -1235,20 +1235,45 @@ function IssueProductDialog({
           </Select>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          <div className="space-y-1.5">
-            <Label>Quantity</Label>
-            <Input type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+        {isFleetBike && (
+          <div className="space-y-3 rounded-lg border border-border p-3">
+            <div className="space-y-1.5">
+              <Label>Bike model / description</Label>
+              <Input
+                value={fleetModel}
+                onChange={(e) => setFleetModel(e.target.value)}
+                placeholder="e.g. Spiro fleet bike"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label>Plate / registration</Label>
+                <Input value={plateNumber} onChange={(e) => setPlateNumber(e.target.value)} placeholder="Optional" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Serial / chassis number</Label>
+                <Input value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} placeholder="Optional" />
+              </div>
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>Unit price</Label>
-            <Input type="number" min="0" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />
+        )}
+
+        {!isFleetBike && (
+          <div className="grid grid-cols-3 gap-2">
+            <div className="space-y-1.5">
+              <Label>Quantity</Label>
+              <Input type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Unit price</Label>
+              <Input type="number" min="0" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Unit cost</Label>
+              <Input type="number" min="0" value={unitCost} onChange={(e) => setUnitCost(e.target.value)} />
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>Unit cost</Label>
-            <Input type="number" min="0" value={unitCost} onChange={(e) => setUnitCost(e.target.value)} />
-          </div>
-        </div>
+        )}
 
         {!isSmartphone && (
           <div className="space-y-1.5">
@@ -1267,7 +1292,7 @@ function IssueProductDialog({
           </div>
         )}
 
-        {!isSmartphone && (
+        {!isSmartphone && !isFleetBike && (
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1.5">
               <Label>Payment</Label>
@@ -1297,7 +1322,20 @@ function IssueProductDialog({
           <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
         </div>
 
-        {isSmartphone ? (
+        {isFleetBike ? (
+          <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Recovery from wallet</span>
+              <span className="font-bold tabular-nums text-lg">{formatUGX(0)}</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Company fleet bikes are assigned, not sold. No value is charged and no wallet deductions are made — the
+              bike is recorded on the agent profile for operational tracking only.
+            </p>
+            <Badge variant="secondary" className="text-[11px]">Company asset · Assigned</Badge>
+          </div>
+        ) : isSmartphone ? (
+
           <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
             <div className="flex items-center justify-between">
               <span className="font-medium">Access Amount (UGX)</span>
