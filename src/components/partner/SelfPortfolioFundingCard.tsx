@@ -54,6 +54,8 @@ interface FundablePlan {
   request_latitude?: number | string | null;
   request_longitude?: number | string | null;
   proxy_agent_phone: string | null;
+  /** Tenant Ops decision — false means it was never published to funders. */
+  funder_visible?: boolean | null;
 }
 
 /**
@@ -69,6 +71,8 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
   const [page, setPage] = useState(0);
   // Both datasets always remain in one feed; this only chooses which group leads.
   const [feedOrder, setFeedOrder] = useState<FeedOrder>('rent');
+  // Only show rent plans Tenant Ops approved for the Funder dashboard.
+  const [approvedOnly, setApprovedOnly] = useState(true);
   const [houseSelected, setHouseSelected] = useState<string[]>([]);
   const [detailHouse, setDetailHouse] = useState<SupportableHouse | null>(null);
   // Short code arriving from a branded /s/<code> share link (?share=<code>).
@@ -163,6 +167,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
   const housesQuery = useVerifiedEmptyHouses();
 
   const plans = plansQuery.data?.plans ?? [];
+
   const houses = housesQuery.data?.houses ?? [];
   const available = plansQuery.data?.available ?? 0;
   const fundedIds = fundedQuery.data?.fundedIds ?? [];
@@ -246,18 +251,20 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
     | { kind: 'house'; id: string; house: SupportableHouse };
 
   const feed = useMemo<FeedItem[]>(() => {
-    const planItems: FeedItem[] = plans.map((plan) => ({
-      kind: 'plan',
-      id: plan.rent_request_id,
-      plan,
-    }));
+    const planItems: FeedItem[] = plans
+      .filter((plan) => !approvedOnly || plan.funder_visible !== false)
+      .map((plan) => ({
+        kind: 'plan',
+        id: plan.rent_request_id,
+        plan,
+      }));
     const houseItems: FeedItem[] = houses.map((house) => ({
       kind: 'house',
       id: house.house_id,
       house,
     }));
     return feedOrder === 'houses' ? [...houseItems, ...planItems] : [...planItems, ...houseItems];
-  }, [plans, houses, feedOrder]);
+  }, [plans, houses, feedOrder, approvedOnly]);
 
   const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
   const pageStart = page * PLANS_PER_PAGE;
@@ -359,11 +366,23 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
 
 
 
-      <div className="flex items-center justify-between gap-2 px-1">
-        <p className="text-[11px] font-semibold text-muted-foreground">
-          {plans.length} rent request{plans.length === 1 ? '' : 's'} · {houses.length} house
-          {houses.length === 1 ? '' : 's'}
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-[11px] font-semibold text-muted-foreground">
+            {plans.length} rent request{plans.length === 1 ? '' : 's'} · {houses.length} house
+            {houses.length === 1 ? '' : 's'}
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant={approvedOnly ? 'default' : 'outline'}
+            className="h-7 rounded-full px-2.5 text-[11px]"
+            aria-pressed={approvedOnly}
+            onClick={() => { setApprovedOnly((v) => !v); setPage(0); }}
+          >
+            Approved for funders
+          </Button>
+        </div>
         <ToggleGroup
           type="single"
           size="sm"
@@ -503,6 +522,11 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
                     <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
                       {plan.duration_days} days
                     </span>
+                  ) : null}
+                  {plan.funder_visible !== false ? (
+                    <Badge className="rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                      Approved for funders
+                    </Badge>
                   ) : null}
                   {isFunded ? (
                     <Badge variant="secondary" className="rounded-full text-[10px] font-semibold">Funded by you</Badge>

@@ -26,6 +26,8 @@ import { AgentProximitySelector } from './AgentProximitySelector';
 import { UserDrilldownDrawer } from '@/components/ops/UserDrilldownDrawer';
 import { PipelineAgentTransferDialog } from './PipelineAgentTransferDialog';
 import { TenantPaymentHistoryCard } from './TenantPaymentHistoryCard';
+import { RentApprovalConfirmDialog, type FunderVisibilityDecision } from './RentApprovalConfirmDialog';
+
 
 
 // Per-user preference key for the CFO's selected tenant filter (cross-device).
@@ -213,6 +215,8 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   const [payoutRef, setPayoutRef] = useState('');
   const [payoutMethod, setPayoutMethod] = useState('wallet');
   const [processing, setProcessing] = useState(false);
+  // Tenant Ops approval confirmation (details recheck + funder visibility)
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [quickProcessingId, setQuickProcessingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -603,12 +607,21 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
         updated_at: statusChangedAt,
       };
 
+      // Requests Tenant Ops kept off the Funder dashboard skip Partner Ops.
+      if (stage === 'tenant_ops_approved' && !isOutstanding && req.funder_visible === false) {
+        updateData.status = 'partner_ops_approved';
+        updateData.partner_ops_reviewed_at = statusChangedAt;
+        updateData.partner_ops_comment =
+          `No proxy attached — not published to the Funder dashboard. Tenant Ops reason: ${req.funder_visibility_reason || 'not provided'}`;
+      }
+
       if (config.showLandlordChecklist && !isOutstanding) {
         updateData.landlord_called = true;
         updateData.landlord_acknowledged = true;
         updateData.landlord_verification_method = landlordVerificationMethod || 'phone_call';
         updateData.landlord_call_notes = landlordCallNotes || null;
       }
+
 
       const { error } = await supabase
         .from('rent_requests')
@@ -658,7 +671,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       const statuses = [stage, ...additionalStatuses];
       let query = supabase
         .from('rent_requests')
-        .select('id, tenant_id, agent_id, landlord_id, lc1_id, rent_amount, duration_days, access_fee, request_fee, total_repayment, daily_repayment, status, created_at, updated_at, resubmitted_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, coo_reviewed_at, house_category, request_city, request_latitude, request_longitude, assigned_agent_id, payout_method, payout_transaction_reference, approval_comment, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, partner_ops_reviewed_at, proxy_agent_id, registration_type, initial_outstanding_balance, tenant_photo_url, house_image_urls, latest_rent_receipt_url, latest_rent_receipt_uploaded_at')
+        .select('id, tenant_id, agent_id, landlord_id, lc1_id, rent_amount, duration_days, access_fee, request_fee, total_repayment, daily_repayment, status, created_at, updated_at, resubmitted_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, coo_reviewed_at, house_category, request_city, request_latitude, request_longitude, assigned_agent_id, payout_method, payout_transaction_reference, approval_comment, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, partner_ops_reviewed_at, proxy_agent_id, registration_type, initial_outstanding_balance, tenant_photo_url, house_image_urls, latest_rent_receipt_url, latest_rent_receipt_uploaded_at, funder_visible, funder_visibility_reason')
         .in('status', statuses);
 
       // Outstanding-balance rent requests bypass COO + CFO (DB trigger short-circuits
@@ -815,11 +828,17 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
     return true;
   });
 
-  const handleApprove = async () => {
+  const handleApprove = async (decision?: FunderVisibilityDecision) => {
     if (!selectedRequest || !user) return;
     const isOutstanding = selectedRequest.registration_type === 'outstanding_balance';
     if (config.showAgentSelector && !isOutstanding && !assignedAgentId && !selectedRequest.agent_id) {
       toast({ title: 'Please assign an agent', variant: 'destructive' });
+      return;
+    }
+
+    // Tenant Ops confirms the request details and decides funder visibility first.
+    if (stage === 'agent_ops_approved' && !isOutstanding && !decision) {
+      setConfirmOpen(true);
       return;
     }
 
@@ -829,6 +848,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       toast({ title: 'Complete the landlord verification checklist first', variant: 'destructive' });
       return;
     }
+
 
     // TID is mandatory for CFO approval (audit compliance)
     if (stage === 'coo_approved' && !payoutRef.trim()) {
@@ -876,6 +896,23 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
           updateData.landlord_call_notes = landlordCallNotes || null;
         }
 
+        // Tenant Ops funder-dashboard decision
+        if (decision) {
+          updateData.funder_visible = decision.funderVisible;
+          updateData.funder_visibility_reason = decision.funderVisible ? null : decision.reason;
+          updateData.funder_visibility_decided_by = user.id;
+          updateData.funder_visibility_decided_at = statusChangedAt;
+        }
+
+        // Requests kept off the Funder dashboard have no proxy partner to attach,
+        // so Landlord Ops forwards them straight to the COO.
+        if (stage === 'tenant_ops_approved' && !isOutstanding && selectedRequest.funder_visible === false) {
+          updateData.status = 'partner_ops_approved';
+          updateData.partner_ops_reviewed_at = statusChangedAt;
+          updateData.partner_ops_comment =
+            `No proxy attached — not published to the Funder dashboard. Tenant Ops reason: ${selectedRequest.funder_visibility_reason || 'not provided'}`;
+        }
+
         const { error } = await supabase
           .from('rent_requests')
           .update(updateData)
@@ -889,6 +926,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
           ? 'Outstanding balance recorded'
           : 'Request approved and forwarded',
       });
+      setConfirmOpen(false);
       setSelectedRequest(null);
       setComment('');
       setAssignedAgentId(null);
@@ -1189,6 +1227,20 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                             <RotateCcw className="h-2.5 w-2.5" />
                             Resubmitted
                           </span>
+                        )}
+                        {req.funder_visible === false && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30 shrink-0">
+                                <AlertCircle className="h-2.5 w-2.5" />
+                                No proxy attached
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs text-xs">
+                              Not published to the Funder dashboard. Tenant Ops reason:{' '}
+                              {req.funder_visibility_reason || 'not provided'}
+                            </TooltipContent>
+                          </Tooltip>
                         )}
                       </div>
                       <div className="flex items-center gap-2 sm:gap-3 text-xs text-muted-foreground flex-wrap min-w-0">
@@ -1830,7 +1882,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                 </Button>
                 <Button
                   size="sm"
-                  onClick={handleApprove}
+                  onClick={() => void handleApprove()}
                   disabled={processing}
                   className="gap-1"
                 >
@@ -1852,6 +1904,14 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
           )}
         </SheetContent>
       </Sheet>
+      <RentApprovalConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        request={selectedRequest}
+        approveLabel={config.approveLabel}
+        processing={processing}
+        onConfirm={(decision: FunderVisibilityDecision) => void handleApprove(decision)}
+      />
       <UserDrilldownDrawer
         open={!!drilldownAgentId}
         onOpenChange={(v) => { if (!v) setDrilldownAgentId(null); }}
