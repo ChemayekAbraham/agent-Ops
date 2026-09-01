@@ -150,10 +150,6 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
               Your repayment summary
             </p>
             <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Total access fee</span>
-              <span className="font-semibold">{formatUGX(schedule.accessFee)}</span>
-            </div>
-            <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">Total repayable</span>
               <span className="font-bold">{formatUGX(schedule.total)}</span>
             </div>
