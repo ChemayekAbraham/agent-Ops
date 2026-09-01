@@ -1890,6 +1890,14 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
           )}
         </SheetContent>
       </Sheet>
+      <RentApprovalConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        request={selectedRequest}
+        approveLabel={config.approveLabel}
+        processing={processing}
+        onConfirm={(decision: FunderVisibilityDecision) => void handleApprove(decision)}
+      />
       <UserDrilldownDrawer
         open={!!drilldownAgentId}
         onOpenChange={(v) => { if (!v) setDrilldownAgentId(null); }}
