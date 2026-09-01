@@ -751,10 +751,11 @@ export function LandlordSearchSelect({
                           <ShieldCheck className="h-3 w-3" /> Verified
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 shrink-0 rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-bold text-destructive border border-destructive/30">
-                          <ShieldAlert className="h-3 w-3" /> Not Verified
+                        <span className="inline-flex items-center gap-1 shrink-0 rounded-full bg-warning/10 px-1.5 py-0.5 text-[10px] font-semibold text-warning border border-warning/30">
+                          <ShieldAlert className="h-3 w-3" /> Pending verification
                         </span>
                       )}
+
                     </div>
                     <p className="text-xs truncate flex items-center gap-1 text-[#188038] dark:text-[#81c995]">
                       <Phone className="h-3 w-3 shrink-0" />
