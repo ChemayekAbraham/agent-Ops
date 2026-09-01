@@ -80,8 +80,9 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
     () =>
       catalog
         .filter((c) => c.is_active && Number(c.default_amount || 0) > 0)
-        .filter((c) => cap <= 0 || Number(c.default_amount) <= cap),
-    [catalog, cap],
+        .filter((c) => cap <= 0 || Number(c.default_amount) <= cap)
+        .filter((c) => c.os_type === osType),
+    [catalog, cap, osType],
   );
 
   const selected = options.find((c) => c.id === catalogId);
