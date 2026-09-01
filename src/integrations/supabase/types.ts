@@ -43800,6 +43800,10 @@ export type Database = {
           with_withdrawable: number
         }[]
       }
+      get_agent_product_detail: {
+        Args: { p_agent_id: string; p_category?: string }
+        Returns: Json
+      }
       get_agent_products_cumulative: {
         Args: { p_date?: string }
         Returns: Json
