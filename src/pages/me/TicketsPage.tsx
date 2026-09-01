@@ -84,6 +84,7 @@ const TicketsPage = () => {
   const [canAssign, setCanAssign] = useState(false);
   const [queue, setQueue] = useState<QueueRow[]>([]);
   const [mine, setMine] = useState<QueueRow[]>([]);
+  const [creatorNames, setCreatorNames] = useState<Record<string, string>>({});
   const [claiming, setClaiming] = useState<string | null>(null);
 
   useEffect(() => {
