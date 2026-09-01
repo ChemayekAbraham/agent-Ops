@@ -265,6 +265,7 @@ const COOTenantOpsReport = lazy(() => import('./pages/coo/reports/TenantOpsRepor
 const TppoPortfolioPerformanceReport = lazy(() => import('./pages/tenant-ops/PortfolioPerformanceReport'));
 const COOFinancialOpsReport = lazy(() => import('./pages/coo/reports/FinancialOpsReport'));
 const COOSystemOverviewReport = lazy(() => import('./pages/coo/reports/SystemOverviewReport'));
+const COOFunderRentPlanVisibility = lazy(() => import('./pages/coo/FunderRentPlanVisibility'));
 const WelileAIPage = lazy(() => import('./components/ai-chat/WelileAIChatButton').then(m => ({ default: m.WelileAIPage })));
 const Terms = lazy(() => import('./pages/Terms'));
 const SeoResults = lazy(() => import('./pages/SeoResults'));
@@ -703,6 +704,7 @@ function AppRoutes() {
           <Route path="/coo/reports/tenant-portfolio-performance" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><TppoPortfolioPerformanceReport /></RoleGuard>} />
           <Route path="/coo/reports/financial-ops" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOFinancialOpsReport /></RoleGuard>} />
           <Route path="/coo/reports/system-overview" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOSystemOverviewReport /></RoleGuard>} />
+          <Route path="/coo/funder-rent-plans" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOFunderRentPlanVisibility /></RoleGuard>} />
           <Route path="/share" element={<Index />} />
           <Route path="/ai" element={<WelileAIPage />} />
           <Route path="/terms" element={<Terms />} />
