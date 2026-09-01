@@ -148,49 +148,21 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
 
           <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 space-y-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
-              Your repayment schedule
+              Your repayment summary
             </p>
             <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Bike price</span>
-              <span className="font-semibold">{formatUGX(schedule.base)}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Access fee ({schedule.feePct}%)</span>
+              <span className="text-muted-foreground">Total access fee</span>
               <span className="font-semibold">{formatUGX(schedule.accessFee)}</span>
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">Total repayable</span>
               <span className="font-bold">{formatUGX(schedule.total)}</span>
             </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Monthly repayment</span>
-              <span className="font-bold">
-                {formatUGX(schedule.monthly)} × {schedule.months}
-              </span>
-            </div>
             <p className="text-[11px] text-muted-foreground pt-1">
               Repayments are recovered from your wallet earnings —{' '}
               {Math.round(BIKE_RECOVERY_RATE * 100)}% up to 4 times a day. Ownership transfers once
               the balance reaches zero.
             </p>
-          </div>
-
-          <div className="rounded-lg border border-border bg-muted/40 px-3 py-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">
-              All periods
-            </p>
-            <div className="space-y-0.5">
-              {grid.map((row) => (
-                <div key={row.months} className="flex justify-between text-[11px]">
-                  <span className={row.months === schedule.months ? 'font-semibold' : 'text-muted-foreground'}>
-                    {row.months} months ({row.feePct}%)
-                  </span>
-                  <span className={row.months === schedule.months ? 'font-semibold' : ''}>
-                    {formatUGX(row.monthly)} / month · {formatUGX(row.total)} total
-                  </span>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
 
