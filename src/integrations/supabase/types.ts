@@ -42764,6 +42764,7 @@ export type Database = {
           employees: number
           landlords: number
           partners: number
+          sub_agents: number
           tenants: number
         }[]
       }
