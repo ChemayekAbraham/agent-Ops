@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Smartphone, FileText, ShieldCheck, AlertTriangle, Loader2 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import smartphonePromoAsset from '@/assets/smartphone-promo.jpg.asset.json';
@@ -58,6 +59,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const [catalogId, setCatalogId] = useState('');
   const [months, setMonths] = useState<string>('12');
   const [submitting, setSubmitting] = useState(false);
+  const [docsReady, setDocsReady] = useState(false);
 
   const { data: eligibility, isLoading: eligLoading } = useQuery<Eligibility | null>({
     queryKey: ['smartphone-eligibility', userId],
@@ -88,11 +90,12 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const totalRepayable = schedule.total;
   const dailyAmount = schedule.daily;
 
-  const canSubmit = !!eligibility?.eligible && !!selected && price > 0;
+  const canSubmit = !!eligibility?.eligible && !!selected && price > 0 && docsReady;
 
   const reset = () => {
     setCatalogId('');
     setMonths('12');
+    setDocsReady(false);
   };
 
   const submit = async () => {
@@ -126,6 +129,9 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const blockers: string[] = [];
   if (eligibility) {
     if (eligibility.has_open_application) blockers.push('You already have an application in progress.');
+    if (!eligibility.has_national_id) {
+      blockers.push('Add your National ID number to your profile before applying — it is verified on phone collection day.');
+    }
     if (tenantShortfall) {
       blockers.push(
         `You need at least ${requiredTenants} active tenants to apply — you currently have ${activeTenants}.`,
@@ -242,10 +248,24 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               </div>
             )}
 
+            <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 p-3">
+              <Checkbox
+                id="docs-ready"
+                checked={docsReady}
+                onCheckedChange={(v) => setDocsReady(v === true)}
+                disabled={!eligibility?.eligible}
+                className="mt-0.5"
+              />
+              <Label htmlFor="docs-ready" className="text-[11px] leading-snug text-muted-foreground font-normal cursor-pointer">
+                I confirm I will present my <span className="font-medium text-foreground">National ID</span> and a{' '}
+                <span className="font-medium text-foreground">workplace photo</span> for verification on phone
+                collection day. The phone is not released without them.
+              </Label>
+            </div>
+
             <p className="text-[11px] text-muted-foreground">
               Your application is reviewed internally, then the supplier is paid directly.
-              Nothing is deducted from your wallet before your phone is released. Your national ID and a
-              workplace photo are captured on the day you collect the phone, not now.
+              Nothing is deducted from your wallet before your phone is released.
             </p>
           </TabsContent>
 
@@ -254,12 +274,13 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               <h4 className="font-semibold">Terms &amp; Conditions</h4>
               <ol className="list-decimal pl-4 space-y-2 text-muted-foreground">
                 <li>
-                  <span className="font-medium text-foreground">Eligibility:</span> Open to all active
-                  operational agents on the Welile network. No ID or workplace visit is needed to apply.
+                  <span className="font-medium text-foreground">Eligibility:</span> Open to active operational
+                  agents with 3+ active tenants and a National ID recorded on their Welile profile.
                 </li>
                 <li>
-                  <span className="font-medium text-foreground">Collection day:</span> your national ID and a
-                  workplace photo must be captured and verified before the phone is released to you.
+                  <span className="font-medium text-foreground">Collection day:</span> you must present your
+                  National ID and a workplace photo. Both are captured and verified before the phone is released
+                  to you — no documents, no phone.
                 </li>
                 <li>
                   <span className="font-medium text-foreground">Limit:</span> the phone price must be within the
