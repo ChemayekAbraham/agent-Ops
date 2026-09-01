@@ -47,6 +47,49 @@ const SEVERITY_LABEL: Record<string, string> = {
   normal: 'Normal',
 };
 
+const SEVERITY_BADGE: Record<string, string> = {
+  critical: 'bg-destructive/10 text-destructive border-destructive/30',
+  high: 'bg-warning/10 text-warning-foreground border-warning/40 dark:text-warning',
+  normal: 'bg-muted text-muted-foreground border-border',
+};
+
+const STATE_BADGE: Record<string, string> = {
+  Closed: 'bg-muted text-muted-foreground border-border',
+  'Being worked on': 'bg-primary/10 text-primary border-primary/30',
+  'Waiting to be picked up': 'bg-warning/10 text-warning-foreground border-warning/40 dark:text-warning',
+};
+
+function SeverityBadge({ severity }: { severity: string }) {
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        'rounded-full px-2.5 py-0.5 text-[11px] font-medium',
+        SEVERITY_BADGE[severity] ?? SEVERITY_BADGE.normal,
+      )}
+    >
+      {SEVERITY_LABEL[severity] ?? severity}
+    </Badge>
+  );
+}
+
+function StateBadge({ label }: { label: string }) {
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        'rounded-full px-2.5 py-0.5 text-[11px] font-medium',
+        STATE_BADGE[label] ?? 'bg-muted text-muted-foreground border-border',
+      )}
+    >
+      {label}
+    </Badge>
+  );
+}
+
+const headCell =
+  'h-10 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground';
+
 function when(value: string | null) {
   if (!value) return '—';
   const d = new Date(value);
