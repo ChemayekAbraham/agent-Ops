@@ -1,6 +1,6 @@
 # Self Support funding source change: operational float, not withdrawable balance
 
-Status: proposal / spec (no code or database change made yet)
+Status: IMPLEMENTED 2026-09-01 (Phase 1 — gates, ledger buckets and tags applied; see mem://business-model/self-support-float-funding)
 Scope: Funder (Partner) dashboard → Self Portfolio Management ("Self Support") only
 Date raised: 2026-09-01
 
