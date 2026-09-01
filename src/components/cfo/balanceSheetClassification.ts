@@ -263,8 +263,8 @@ export function expandLandlordFloat(
   split: LandlordFloatSplit | null | undefined,
 ): MarketplaceRow[] {
   return marketplace.flatMap((g): MarketplaceRow[] => {
-    if (g.label !== LANDLORD_FLOAT_LABEL || !split) return [g];
-    const share = split.total !== 0 ? split.self_managed / split.total : 0;
+    if (g.label !== LANDLORD_FLOAT_LABEL) return [g];
+    const share = split && split.total !== 0 ? split.self_managed / split.total : 0;
     const self = Math.round(g.value * share);
     const company = g.value - self;
     return [
