@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { startRingback, type RingbackHandle } from '@/lib/ringbackTone';
-import { CALLEE_ROLE_LABEL, deriveOutcome, formatTalkTime, type CallOutcome } from '@/lib/callCentre';
+import { CALLEE_ROLE_LABEL, deriveOutcome, describeHangupCause, formatTalkTime, type CallOutcome } from '@/lib/callCentre';
 import {
   useCallSession,
   useCancelCall,
