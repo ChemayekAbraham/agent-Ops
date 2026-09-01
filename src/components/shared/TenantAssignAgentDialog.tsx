@@ -25,6 +25,9 @@ export default function TenantAssignAgentDialog({
 }: Props) {
   const qc = useQueryClient();
   const [agentId, setAgentId] = useState<string>(currentAgentId || '');
+  // Remember the picked person so the selection stays visible even after the
+  // search list reloads (the list is re-fetched per search term).
+  const [selectedAgent, setSelectedAgent] = useState<{ id: string; full_name: string | null; phone: string | null } | null>(null);
   const [agentQuery, setAgentQuery] = useState('');
   const deferredAgentQuery = useDeferredValue(agentQuery.trim());
   const [agentDropdownOpen, setAgentDropdownOpen] = useState(false);
@@ -34,10 +37,12 @@ export default function TenantAssignAgentDialog({
 
   useEffect(() => {
     setAgentId(currentAgentId || '');
+    setSelectedAgent(null);
     setAgentQuery('');
     setAgentDropdownOpen(false);
     setListingId('');
   }, [currentAgentId, rentRequestId, open]);
+
 
   // Load the rent_request landlord (used to scope listings)
   const { data: rentReq } = useQuery({
@@ -118,10 +123,28 @@ export default function TenantAssignAgentDialog({
     },
   });
 
-  const selectedListing = useMemo(
-    () => listings.find(l => l.id === listingId),
-    [listings, listingId]
-  );
+
+  // Name/phone of the person currently assigned, so the picker shows a real
+  // person (not "Selected agent") when the dialog opens.
+  const { data: currentAgentProfile } = useQuery({
+    queryKey: ['tenant-assign-current-agent', currentAgentId],
+    enabled: open && !!currentAgentId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, phone')
+        .eq('id', currentAgentId!)
+        .maybeSingle();
+      return (data || null) as { id: string; full_name: string | null; phone: string | null } | null;
+    },
+  });
+
+  const shownAgent = useMemo(() => {
+    if (!agentId) return null;
+    if (selectedAgent?.id === agentId) return selectedAgent;
+    if (currentAgentProfile?.id === agentId) return currentAgentProfile;
+    return agents.find((x) => x.id === agentId) || null;
+  }, [agentId, selectedAgent, currentAgentProfile, agents]);
 
   const handleSave = async () => {
     if (!rentRequestId) return;
@@ -131,28 +154,15 @@ export default function TenantAssignAgentDialog({
     }
     setSaving(true);
     try {
-      // 1) Assign agent on the rent_request
-      if (agentId && agentId !== currentAgentId) {
-        const { error } = await supabase
-          .from('rent_requests')
-          .update({ agent_id: agentId, assigned_agent_id: agentId })
-          .eq('id', rentRequestId);
-        if (error) throw error;
-      }
-
-      // 2) Link property to the chosen agent + tenant
-      if (listingId) {
-        const updates: Record<string, any> = {};
-        if (agentId) updates.agent_id = agentId;
-        if (tenantId && !selectedListing?.tenant_id) updates.tenant_id = tenantId;
-        if (Object.keys(updates).length > 0) {
-          const { error } = await supabase
-            .from('house_listings')
-            .update(updates)
-            .eq('id', listingId);
-          if (error) throw error;
-        }
-      }
+      // Ops staff cannot write to rent_requests directly (RLS), so the transfer
+      // goes through the SECURITY DEFINER RPC, which also writes the history row.
+      const { error } = await (supabase as any).rpc('ops_transfer_tenant_agent', {
+        p_rent_request_id: rentRequestId,
+        p_new_agent_id: agentId || null,
+        p_listing_id: listingId || null,
+        p_reason: null,
+      });
+      if (error) throw error;
 
       toast.success('Tenant assignment updated');
       qc.invalidateQueries({ queryKey: ['daily-collection-rent-requests'] });
@@ -164,6 +174,7 @@ export default function TenantAssignAgentDialog({
       setSaving(false);
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -177,21 +188,18 @@ export default function TenantAssignAgentDialog({
               <UserPlus className="h-3.5 w-3.5" /> Assigned Agent
             </Label>
             {agentId ? (
-              <div className="flex items-center gap-2 p-2.5 rounded-md border bg-muted/30">
+              <div className="flex items-center gap-2 p-2.5 rounded-md border border-primary/40 bg-primary/5">
                 <User className="h-4 w-4 text-primary shrink-0" />
                 <div className="flex-1 min-w-0">
-                  {(() => {
-                    const a = agents.find((x) => x.id === agentId);
-                    return a ? (
-                      <>
-                        <p className="text-sm font-medium truncate">{a.full_name || 'Unnamed'}</p>
-                        {a.phone ? <p className="text-xs text-muted-foreground truncate">{a.phone}</p> : null}
-                      </>
-                    ) : (
-                      <p className="text-sm text-muted-foreground truncate">Selected agent</p>
-                    );
-                  })()}
+                  <p className="text-[10px] uppercase tracking-wide font-semibold text-primary">
+                    {agentId === currentAgentId ? 'Currently assigned' : 'Selected'}
+                  </p>
+                  <p className="text-sm font-medium truncate">{shownAgent?.full_name || 'Unnamed'}</p>
+                  {shownAgent?.phone ? (
+                    <p className="text-xs text-muted-foreground truncate">{shownAgent.phone}</p>
+                  ) : null}
                 </div>
+
                 <Button
                   type="button"
                   variant="ghost"
@@ -199,6 +207,7 @@ export default function TenantAssignAgentDialog({
                   className="h-7 px-2 text-xs"
                   onClick={() => {
                     setAgentId('');
+                    setSelectedAgent(null);
                     setAgentQuery('');
                     setAgentDropdownOpen(true);
                   }}
@@ -249,6 +258,7 @@ export default function TenantAssignAgentDialog({
                           className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-accent transition-colors"
                           onClick={() => {
                             setAgentId(a.id);
+                            setSelectedAgent(a);
                             setAgentQuery('');
                             setAgentDropdownOpen(false);
                           }}
