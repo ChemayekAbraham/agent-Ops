@@ -14,6 +14,7 @@ import {
   ArrowUpRight,
   PiggyBank,
   TrendingUp,
+  Banknote,
   ArrowRightLeft,
   Receipt,
   HandCoins,
