@@ -83,7 +83,7 @@ export function TenantRegistrationReview({ tenantId, tenantName, onBack }: Props
       // Get latest rent request for this tenant
       const { data: reqData } = await supabase
         .from('rent_requests')
-        .select('id, landlord_id, lc1_id, house_category, tenant_water_meter, tenant_electricity_meter, house_image_urls, tenant_photo_url, status, created_at')
+        .select('id, landlord_id, lc1_id, house_category, tenant_water_meter, tenant_electricity_meter, house_image_urls, tenant_photo_url, status, created_at, updated_at, resubmitted_at, last_resubmitted_at')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
         .limit(1)
