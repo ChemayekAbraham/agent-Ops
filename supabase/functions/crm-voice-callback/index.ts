@@ -23,8 +23,19 @@ const XML = { ...corsHeaders, 'Content-Type': 'application/xml' };
 
 const xml = (body: string) => new Response(`<?xml version="1.0" encoding="UTF-8"?>${body}`, { headers: XML });
 
-/** Nothing to say — used for inbound and for anything unrecognised. */
+/** Reject the leg — used for inbound and for anything unrecognised. */
 const silence = () => xml('<Response><Reject/></Response>');
+
+/**
+ * Terminal / already-handled events. AT only needs a 200; returning an empty
+ * <Response/> guarantees we never issue a second <Dial> for the same leg
+ * (that is what produces an endless redial loop).
+ */
+const done = () => xml('<Response></Response>');
+
+/** End the leg deliberately (post-bridge, or a duplicate active callback). */
+const hangup = () => xml('<Response><Hangup/></Response>');
+
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
