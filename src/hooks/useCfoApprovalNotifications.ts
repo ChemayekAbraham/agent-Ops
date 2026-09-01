@@ -175,6 +175,17 @@ const DEFINITIONS: CategoryDef[] = [
       supabase.from('employee_requisitions').select('id', HEAD).eq('status', 'pending'),
   },
   {
+    // Staff requisitions (My Space -> department head -> COO -> CFO). Counts only
+    // rows the COO has already passed on and that are parked at the CFO stage,
+    // which is exactly what the shared queue's "Awaiting my review" tab shows.
+    key: 'staffRequisitions',
+    title: 'Staff Requisitions Awaiting CFO Approval',
+    tabId: 'requisitions',
+    table: 'staff_requisitions',
+    fetchCount: () =>
+      supabase.from('staff_requisitions').select('id', HEAD).eq('stage', 'cfo'),
+  },
+  {
     key: 'withdrawals',
     title: 'Wallet Withdrawals Awaiting Approval',
     tabId: 'withdrawals',
