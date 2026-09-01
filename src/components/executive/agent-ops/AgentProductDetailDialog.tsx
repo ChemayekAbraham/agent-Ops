@@ -177,6 +177,39 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
 
               <Separator />
 
+              {/* Company fleet bikes: assigned assets, no money involved */}
+              <section className="space-y-2">
+                <h3 className="text-sm font-semibold">Company fleet assets ({fleet.length})</h3>
+                {fleet.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No company bike assigned to this agent.</p>
+                ) : (
+                  <div className="rounded-xl border border-border divide-y divide-border">
+                    {fleet.map((f) => (
+                      <div key={f.id} className="p-2.5 flex flex-wrap items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{f.item_name || 'Company Fleet Bike'}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {dt(f.assigned_on)}
+                            {f.plate_number ? ` · Plate ${f.plate_number}` : ''}
+                            {f.serial_number ? ` · SN ${f.serial_number}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-[11px] text-muted-foreground tabular-nums">{formatUGX(0)}</span>
+                          <Badge variant="secondary" className="text-[10px] capitalize">
+                            {(f.status || 'assigned').replace(/_/g, ' ')}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <Separator />
+
+
+
               {/* Items held */}
               <section className="space-y-2">
                 <h3 className="text-sm font-semibold">Items ({data?.items.length ?? 0})</h3>
