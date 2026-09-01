@@ -239,13 +239,24 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
     const patch: Record<string, unknown> = {};
     if (!user) return patch;
 
-    const touchedPhoto = newPhotos.some(Boolean);
+  /**
+   * Push any newly picked evidence to storage and return the patch fragment.
+   * Photos overwrite the same deterministic paths the original submission
+   * used, so reviewers always look at the latest capture for each angle.
+   */
+  const uploadEvidence = async (requestId: string): Promise<Record<string, unknown>> => {
+    const patch: Record<string, unknown> = {};
+    if (!user) return patch;
+
+    const touchedPhoto = newPhotos.some(Boolean) || droppedExisting.some(Boolean);
     if (touchedPhoto) {
       const finalUrls: string[] = [];
       for (let i = 0; i < HOUSE_PHOTO_SLOTS.length; i++) {
         const picked = newPhotos[i];
         if (!picked) {
-          if (existingPhotos[i]) finalUrls.push(existingPhotos[i] as string);
+          // A dropped slot is deliberately left out — old photos are never
+          // silently carried into the new submission.
+          if (existingPhotos[i] && !droppedExisting[i]) finalUrls.push(existingPhotos[i] as string);
           continue;
         }
         // Some phone captures (HEIC on older Android/iOS browsers) cannot be
@@ -269,12 +280,19 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
         const { data } = supabase.storage.from('house-images').getPublicUrl(path);
         finalUrls.push(data.publicUrl);
       }
-      // Keep any extra photos beyond the four slots.
-      const extras = (Array.isArray(request?.house_image_urls) ? request!.house_image_urls : []).slice(
-        HOUSE_PHOTO_SLOTS.length,
-      );
+      // The resubmitted array IS the latest submission. Extra photos beyond the
+      // four angles are only kept when the agent replaced nothing wholesale —
+      // once a full new set is captured, stale extras are dropped so reviewers
+      // never see a mixture of old and new evidence.
+      const capturedAll = newPhotos.every((p, i) => Boolean(p) || Boolean(droppedExisting[i]));
+      const extras = capturedAll
+        ? []
+        : (Array.isArray(request?.house_image_urls) ? request!.house_image_urls : []).slice(
+            HOUSE_PHOTO_SLOTS.length,
+          );
       patch.house_image_urls = [...finalUrls, ...extras];
     }
+
 
     if (newLcLetter) {
       const ext = (newLcLetter.file.name.split('.').pop() || 'jpg').toLowerCase();
