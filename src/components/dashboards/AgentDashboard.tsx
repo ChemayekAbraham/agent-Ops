@@ -57,6 +57,9 @@ import { ShoppingBag, Smartphone, Bike, Store } from 'lucide-react';
 import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatus';
 import { useMerchandiseOrderLock } from '@/hooks/useMerchandiseOrderLock';
 import SmartphoneOrderDialog from '@/components/merchandise/SmartphoneOrderDialog';
+import SpiroBikeOrderDialog from '@/components/merchandise/SpiroBikeOrderDialog';
+import { SPIRO_BIKE_BASE_PRICE } from '@/lib/spiroBikeLease';
+
 
 import spiroBikeAsset from '@/assets/spiro-bike.jpg.asset.json';
 import smartphonePromoAsset from '@/assets/smartphone-promo.jpg.asset.json';
