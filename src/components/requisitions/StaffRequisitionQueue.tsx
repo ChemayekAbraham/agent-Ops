@@ -318,6 +318,9 @@ export function StaffRequisitionQueue() {
                       {b?.department_name ? ` • ${b.department_name}` : ''}
                       {row.category ? ` • ${row.category}` : ''} • {fmtDate(row.created_at)}
                     </p>
+                    <p className="text-xs text-muted-foreground">
+                      {routeNote(row)}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-bold">{formatUGX(Number(row.approved_amount ?? row.amount))}</p>
