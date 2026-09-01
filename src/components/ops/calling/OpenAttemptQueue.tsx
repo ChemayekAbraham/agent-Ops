@@ -1,7 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, PhoneOff } from 'lucide-react';
+import { Clock, PhoneOff, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { OPEN_ATTEMPT_LIMIT, QUICK_OUTCOMES, ccErrorText, type CcCallingHub } from '@/hooks/useCcCallingHub';
 
@@ -23,7 +23,7 @@ export function OpenAttemptQueue({
   hub: CcCallingHub;
   onOpenForm: (attempt: { id: string; cycle_row_id: string; name: string }) => void;
 }) {
-  const { openAttempts, openCount, wipBlocked, recordQuick } = hub;
+  const { openAttempts, openCount, wipBlocked, recordQuick, voidAttempt } = hub;
 
   return (
     <Card className="rounded-2xl border-border/60 p-3 sm:p-4">
@@ -51,11 +51,46 @@ export function OpenAttemptQueue({
             <li key={a.id} className="rounded-xl border border-border/60 p-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold">{a.name}</div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate text-sm font-semibold">{a.name}</span>
+                    {a.stale && (
+                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                        Cycle closed
+                      </Badge>
+                    )}
+                  </div>
                   <div className="text-[11px] text-muted-foreground">
                     Attempt {a.attempt_no} · {openFor(a.revealed_at)}
                   </div>
                 </div>
+                {/*
+                  A stale attempt sits on a cycle nobody is working any more, so
+                  there is no call outcome left to record — only the discard that
+                  releases it from the WIP count. Offering the outcome buttons
+                  here would invite a call record against a dead cycle.
+                */}
+                {a.stale ? (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2 text-[11px]"
+                      disabled={voidAttempt.isPending}
+                      onClick={() =>
+                        voidAttempt.mutate(
+                          { attemptId: a.id, reason: 'Discarded by operator: cycle closed before the outcome was recorded' },
+                          {
+                            onSuccess: () => toast.success('Discarded'),
+                            onError: (e) => toast.error(ccErrorText(e)),
+                          },
+                        )
+                      }
+                    >
+                      <Trash2 className="mr-1 h-3 w-3" />
+                      Discard
+                    </Button>
+                  </div>
+                ) : (
                 <div className="flex flex-wrap items-center gap-1.5">
                   {QUICK_OUTCOMES.map((o) => (
                     <Button
@@ -86,6 +121,7 @@ export function OpenAttemptQueue({
                     Engaged / callback
                   </Button>
                 </div>
+                )}
               </div>
             </li>
           ))}

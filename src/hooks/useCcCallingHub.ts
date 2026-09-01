@@ -69,6 +69,12 @@ export interface CcOpenAttempt {
   revealed_at: string;
   subject_type: CcSubjectType;
   name: string;
+  /**
+   * The attempt's cycle has been closed, so there is no call left to make —
+   * only bookkeeping to clear. It still counts against the WIP limit, which is
+   * why it must be shown and voidable rather than hidden.
+   */
+  stale: boolean;
 }
 
 export interface CcCategory {
@@ -419,6 +425,7 @@ export function useCcCallingHub(
         revealed_at: (a.revealed_at as string) ?? new Date().toISOString(),
         subject_type: a.subject_type as CcSubjectType,
         name: (a.name as string) || 'Unnamed',
+        stale: a.stale === true,
       }));
     },
     staleTime: 5_000,
@@ -537,6 +544,19 @@ export function useCcCallingHub(
   const recordQuick = useMutation({
     mutationFn: async (v: { attemptId: string; outcome: CcOutcome }) => {
       const { error } = await rpc('cc_record_unreached', { p_attempt_id: v.attemptId, p_outcome: v.outcome });
+      if (error) throw new Error(err(error));
+    },
+    onSuccess: invalidate,
+  });
+
+  /**
+   * Clears an attempt without claiming a call was made. The server records it
+   * as refused with no channel and stores the reason. This is the only way out
+   * of an attempt stranded on a closed cycle, so the WIP guard cannot deadlock.
+   */
+  const voidAttempt = useMutation({
+    mutationFn: async (v: { attemptId: string; reason: string }) => {
+      const { error } = await rpc('cc_void_attempt', { p_attempt_id: v.attemptId, p_reason: v.reason });
       if (error) throw new Error(err(error));
     },
     onSuccess: invalidate,
@@ -675,6 +695,7 @@ export function useCcCallingHub(
     outstanding,
     reveal,
     recordQuick,
+    voidAttempt,
     recordEngaged,
     recordCallback,
     openCycle,
