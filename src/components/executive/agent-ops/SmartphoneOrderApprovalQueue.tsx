@@ -497,6 +497,82 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
                 </div>
 
                 <div className="rounded-lg border p-3 space-y-2">
+                  <p className="text-xs font-semibold">Applicant profile &amp; standing</p>
+                  {!detailsTarget.customer_id ? (
+                    <p className="text-[11px] text-muted-foreground">No linked agent account.</p>
+                  ) : applicantLoading ? (
+                    <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Loading agent metrics…
+                    </p>
+                  ) : !applicant ? (
+                    <p className="text-[11px] text-muted-foreground">Metrics unavailable for this agent.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                        <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                          <p className="text-[10px] text-muted-foreground">Active tenants</p>
+                          <p className="text-xs font-semibold">
+                            {Number(applicant.active_tenant_count || 0)}
+                            <span className="text-muted-foreground font-normal">
+                              {' '}/ {Number(applicant.required_active_tenants || 3)} guide
+                            </span>
+                          </p>
+                        </div>
+                        <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                          <p className="text-[10px] text-muted-foreground">Collections (30d)</p>
+                          <p className="text-xs font-semibold">{formatUGX(Number(applicant.collected_30d || 0))}</p>
+                        </div>
+                        <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                          <p className="text-[10px] text-muted-foreground">Rank</p>
+                          <p className="text-xs font-semibold">{applicant.rank ?? '—'}</p>
+                        </div>
+                        <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                          <p className="text-[10px] text-muted-foreground">Portfolio cap</p>
+                          <p className="text-xs font-semibold">{formatUGX(Number(applicant.max_amount || 0))}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        <Badge
+                          variant="outline"
+                          className={applicant.is_active_agent
+                            ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
+                            : 'bg-amber-500/15 text-amber-600 border-amber-500/30'}
+                        >
+                          {applicant.is_active_agent ? 'Active agent' : 'Agent status unconfirmed'}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className={applicant.has_national_id
+                            ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
+                            : 'bg-destructive/15 text-destructive border-destructive/30'}
+                        >
+                          National ID {applicant.has_national_id ? 'verified' : 'missing'}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className={applicant.has_workplace_verification
+                            ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
+                            : 'bg-amber-500/15 text-amber-600 border-amber-500/30'}
+                        >
+                          Workplace {applicant.has_workplace_verification ? 'captured' : 'not captured'}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className={applicant.meets_tenant_guideline
+                            ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
+                            : 'bg-amber-500/15 text-amber-600 border-amber-500/30'}
+                        >
+                          {applicant.meets_tenant_guideline ? 'Meets tenant guideline' : 'Below tenant guideline'}
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Applications are open to every agent — approve or reject on the standing above.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-lg border p-3 space-y-2">
                   <p className="text-xs font-semibold">Agent wallet (live)</p>
                   {!detailsTarget.customer_id ? (
                     <p className="text-[11px] text-muted-foreground">No linked agent account.</p>
