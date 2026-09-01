@@ -47624,6 +47624,15 @@ export type Database = {
         Args: { p_reason: string; p_request_id: string; p_to_agent_id: string }
         Returns: Json
       }
+      ops_transfer_tenant_agent: {
+        Args: {
+          p_listing_id?: string
+          p_new_agent_id?: string
+          p_reason?: string
+          p_rent_request_id: string
+        }
+        Returns: Json
+      }
       ops_undo_agent_capability_job: {
         Args: { _job_id: string; _reason: string }
         Returns: Json
