@@ -404,7 +404,7 @@ export default function BalanceSheetPanel() {
       marketplaceRows.forEach(g => row(g.label, g.value, g.subtotal));
       row('Subtotal — Market Place Liabilities', liabilityGroups?.marketplaceTotal ?? 0, true);
       heading('Partner and Agent Obligations');
-      (liabilityGroups?.partner ?? []).forEach(g => row(g.label, g.value));
+      partnerRows.forEach(g => row(g.label, g.value, g.subtotal));
       row('Subtotal — Partner and Agent Obligations', liabilityGroups?.partnerTotal ?? 0, true);
       flaggedRows(liabilityGroups?.flagged);
       row('TOTAL LIABILITIES', data.liabilities.total, true);
