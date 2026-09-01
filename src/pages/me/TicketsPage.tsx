@@ -40,6 +40,15 @@ function when(value: string | null) {
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString();
 }
 
+function compactName(fullName?: string | null) {
+  if (!fullName) return '';
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '';
+  const [first, ...rest] = parts;
+  const initials = rest.map((p) => `${p[0]?.toUpperCase()}.`).join(' ');
+  return initials ? `${first} ${initials}` : first;
+}
+
 /** Short beep for a newly raised ticket. Blocked audio must never break the UI. */
 function playChime() {
   try {
