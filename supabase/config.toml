@@ -1,6 +1,15 @@
 project_id = "wirntoujqoyjobfhyelc"
 
 [functions]
+  # Africa's Talking cannot present our JWT, so the voice callback must be
+  # reachable unauthenticated or every answered call hangs up immediately.
+  # It is safe because it trusts nothing in the payload to identify a user: it
+  # matches only on our own row id / the AT sessionId we already stored, and
+  # rejects direction=Inbound outright.
+  # NOTE: crm-place-call is deliberately NOT listed — it is staff-initiated and
+  # must keep the default verify_jwt = true plus its own role gate.
+  [functions.crm-voice-callback]
+    verify_jwt = false
   [functions.og-merchandise]
     verify_jwt = false
   [functions.og-house]

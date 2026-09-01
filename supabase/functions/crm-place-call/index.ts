@@ -7,7 +7,11 @@
  * answers AT with <Dial phoneNumbers="…"/> once the staff leg picks up.
  */
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
+// Manual CORS headers (project standard — do not import corsHeaders).
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
