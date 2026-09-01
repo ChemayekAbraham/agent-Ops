@@ -57,3 +57,9 @@
 
 - [x] Partner Profile 360 change log: show payout destination details (bank / mobile money) changed from → to
 - [x] Verify CRM cancel-call actually drops the leg (crm-hangup-call was never deployed; deployed 2026-09-01)
+
+## 2026-09-01
+
+- ~~Service Centre managers blocked by `HOUSE_VERIFICATION_FORBIDDEN` when passing/returning listings — guard allow list widened (review fields only).~~
+- ~~Agent tenant photo re-upload/remove appeared to do nothing when the original photo was uploaded by another agent — added `retire_tenant_document` RPC and wired the UI to it.~~
+- ~~"Recommended" badges: primary background + star icon.~~
