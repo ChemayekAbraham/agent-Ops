@@ -91,7 +91,7 @@ const CATEGORY_SUGGESTIONS: Record<AgentProductCategory, string[]> = {
   boutique: ['Welile Jumper', 'Welile Jacket', 'Welile Polo', 'Welile T-Shirt', 'Welile Cap', 'Company ID', 'Umbrella', 'Branded Bag'],
 };
 
-export function AgentProductsPanel({ category, mode = 'full' }: { category?: AgentProductCategory; mode?: 'overview' | 'issued' | 'full' } = {}) {
+export function AgentProductsPanel({ category, mode = 'full' }: { category?: AgentProductCategory; mode?: 'overview' | 'issued' | 'applications' | 'full' } = {}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [addOpen, setAddOpen] = useState(false);
@@ -101,8 +101,10 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
   const [rejectReason, setRejectReason] = useState('');
 
   const scopeLabel = category ? CATEGORY_LABELS[category] : null;
-  const showOverview = mode !== 'issued';
-  const showIssued = mode !== 'overview';
+  const showApplications = mode === 'applications';
+  const showOverview = mode === 'overview' || mode === 'full';
+  const showIssued = mode === 'issued' || mode === 'full';
+
 
   const deleteHolding = useMutation({
     mutationFn: async () => {
