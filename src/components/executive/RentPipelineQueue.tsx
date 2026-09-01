@@ -1499,11 +1499,8 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                 )}
               </div>
 
-              {/* Existing tenant payment history (read-only context for the officer) */}
-              <TenantPaymentHistoryCard
-                tenantId={selectedRequest.tenant_id}
-                currentRequestId={selectedRequest.id}
-              />
+
+
 
 
 
