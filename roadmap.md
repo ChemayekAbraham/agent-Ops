@@ -63,3 +63,8 @@
 - ~~Service Centre managers blocked by `HOUSE_VERIFICATION_FORBIDDEN` when passing/returning listings — guard allow list widened (review fields only).~~
 - ~~Agent tenant photo re-upload/remove appeared to do nothing when the original photo was uploaded by another agent — added `retire_tenant_document` RPC and wired the UI to it.~~
 - ~~"Recommended" badges: primary background + star icon.~~
+
+## 2026-09-01 (later)
+
+- [ ] Balance Sheet: split Landlord Float into Company Managed / Self Managed + Total Landlord Float subtotal (presentation only, UI + CSV + PDF)
+- [ ] Service Centre page still raising HOUSE_VERIFICATION_FORBIDDEN — allow the listing's assigned service centre manager (not only tagged managers) to run the review step
