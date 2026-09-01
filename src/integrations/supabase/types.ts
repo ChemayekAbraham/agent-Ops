@@ -49403,6 +49403,15 @@ export type Database = {
         Returns: Json
       }
       sync_service_center_manager_tags: { Args: never; Returns: Json }
+      sync_tenant_house_images: {
+        Args: {
+          p_source_rent_request_id: string
+          p_tenant_id: string
+          p_uploaded_by: string
+          p_urls: string[]
+        }
+        Returns: number
+      }
       telecom_sending_charge: { Args: { p_amount: number }; Returns: number }
       tenant_ops_correct_rent_request: {
         Args: {
