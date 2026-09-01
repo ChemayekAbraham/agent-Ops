@@ -56,6 +56,7 @@ interface Props {
  */
 export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Props) {
   const queryClient = useQueryClient();
+  const [osType, setOsType] = useState<SmartphoneOsType>('android');
   const [catalogId, setCatalogId] = useState('');
   const [months, setMonths] = useState<string>('12');
   const [submitting, setSubmitting] = useState(false);
