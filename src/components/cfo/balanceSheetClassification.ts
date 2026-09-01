@@ -275,39 +275,6 @@ export function expandLandlordFloat(
   });
 }
 
-/* ── Partner Portfolio Capital presentation split ──────────────────────── */
-
-export const PARTNER_CAPITAL_LABEL = 'Partner Portfolio Capital Held';
-export const PARTNER_CAPITAL_COMPANY_LABEL =
-  'Partner Portfolio Capital Held — Landlord Float Company Managed';
-export const PARTNER_CAPITAL_SELF_LABEL =
-  'Partner Portfolio Capital Held — Landlord Float Self Managed';
-export const PARTNER_CAPITAL_TOTAL_LABEL = 'Total Partner Portfolio Capital Held';
-
-/**
- * Presentation only: splits the existing Partner Portfolio Capital Held line by
- * whether the capital supports self-managed or company-managed landlords. The
- * reported value never changes — the measured self-managed share is applied
- * proportionally and the company figure is the residual, so the two lines
- * always foot to the existing total exactly.
- */
-export function expandPartnerCapital(
-  partner: BsGroup[],
-  split: LandlordFloatSplit | null | undefined,
-): MarketplaceRow[] {
-  return partner.flatMap((g): MarketplaceRow[] => {
-    if (g.label !== PARTNER_CAPITAL_LABEL) return [g];
-    const share = split && split.total !== 0 ? split.self_managed / split.total : 0;
-    const self = Math.round(g.value * share);
-    const company = g.value - self;
-    return [
-      { ...g, label: PARTNER_CAPITAL_COMPANY_LABEL, value: company },
-      { ...g, label: PARTNER_CAPITAL_SELF_LABEL, value: self, lines: [] },
-      { label: PARTNER_CAPITAL_TOTAL_LABEL, value: g.value, lines: [], subtotal: true },
-    ];
-  });
-}
-
 
 /**
  * Lines worth showing inside the flagged block. Accounts sitting at exactly
