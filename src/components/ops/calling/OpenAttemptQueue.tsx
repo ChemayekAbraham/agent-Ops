@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Clock, PhoneOff } from 'lucide-react';
 import { toast } from 'sonner';
-import { OPEN_ATTEMPT_LIMIT, QUICK_OUTCOMES, type CcCallingHub } from '@/hooks/useCcCallingHub';
+import { OPEN_ATTEMPT_LIMIT, QUICK_OUTCOMES, ccErrorText, type CcCallingHub } from '@/hooks/useCcCallingHub';
 
 function openFor(iso: string) {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));

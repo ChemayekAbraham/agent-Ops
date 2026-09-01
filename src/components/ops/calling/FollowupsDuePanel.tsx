@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CalendarClock } from 'lucide-react';
 import { toast } from 'sonner';
-import type { CcCallingHub } from '@/hooks/useCcCallingHub';
+import { ccErrorText, type CcCallingHub } from '@/hooks/useCcCallingHub';
 
 export function FollowupsDuePanel({ hub }: { hub: CcCallingHub }) {
   const [notes, setNotes] = useState<Record<string, string>>({});

@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronLeft, ChevronRight, PhoneCall } from 'lucide-react';
 import { toast } from 'sonner';
-import { useCcCallingHub, type CcFilterSelection, type CcRow, type CcSubjectType } from '@/hooks/useCcCallingHub';
+import { useCcCallingHub, ccErrorText, type CcFilterSelection, type CcRow, type CcSubjectType } from '@/hooks/useCcCallingHub';
 import { CALLING_TABS, type CallingTabKey } from './callingHubColumns';
 import { CallingHubTable } from './CallingHubTable';
 import { CallingFilterBar } from './CallingFilterBar';
