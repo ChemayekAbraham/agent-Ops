@@ -141,8 +141,11 @@ export function CallingHubTable({
         );
       case 'phone':
         // Unrevealed is not an error state — the Reveal button carries the affordance.
+        // A revealed number is always dialable, at every viewport width.
         return phone ? (
-          <span className="font-mono text-xs">{phone}</span>
+          <a href={telHref(phone)} className="font-mono text-xs font-semibold text-primary underline-offset-2 hover:underline">
+            {phone}
+          </a>
         ) : (
           <span className="text-muted-foreground">{DASH}</span>
         );
