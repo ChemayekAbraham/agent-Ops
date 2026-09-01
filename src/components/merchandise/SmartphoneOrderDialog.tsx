@@ -90,7 +90,11 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const totalRepayable = schedule.total;
   const dailyAmount = schedule.daily;
 
-  const canSubmit = !!eligibility?.eligible && !!selected && price > 0 && docsReady;
+  // Applications are open to every agent — only a duplicate open application
+  // stops a submission. Portfolio and document checks are review inputs shown
+  // to the Agent Ops manager, never a block here.
+  const hasOpenApplication = !!eligibility?.has_open_application;
+  const canSubmit = !hasOpenApplication && !!selected && price > 0 && docsReady;
 
   const reset = () => {
     setCatalogId('');
@@ -124,20 +128,20 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
   const activeTenants = Number(eligibility?.active_tenant_count || 0);
   const requiredTenants = Number(eligibility?.required_active_tenants || 3);
-  const tenantShortfall = !!eligibility && !eligibility.eligible && !eligibility.has_open_application && activeTenants < requiredTenants;
 
-  const blockers: string[] = [];
-  if (eligibility) {
-    if (eligibility.has_open_application) blockers.push('You already have an application in progress.');
-    if (!eligibility.has_national_id) {
-      blockers.push('Add your National ID number to your profile before applying — it is verified on phone collection day.');
-    }
-    if (tenantShortfall) {
-      blockers.push(
-        `You need at least ${requiredTenants} active tenants to apply — you currently have ${activeTenants}.`,
+  // Advisory notes only — they inform the agent what the reviewer will look at.
+  const notes: string[] = [];
+  if (eligibility && !hasOpenApplication) {
+    if (activeTenants < requiredTenants) {
+      notes.push(
+        `You have ${activeTenants} active tenant${activeTenants === 1 ? '' : 's'}. Agent Ops normally looks for ${requiredTenants}+, but you can still apply and let the manager decide.`,
       );
-    } else if (!eligibility.eligible && !eligibility.has_open_application) {
-      blockers.push('Eligibility is open to active agents and sub-agents on the Welile network.');
+    }
+    if (!eligibility.has_national_id) {
+      notes.push('Add your National ID number to your profile — it is verified on phone collection day.');
+    }
+    if (!eligibility.has_workplace_verification) {
+      notes.push('A workplace photo has not been captured yet. It is needed before the phone is released.');
     }
   }
 
@@ -167,26 +171,34 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
             {eligLoading ? (
               <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking your eligibility…
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading your profile…
               </p>
-            ) : eligibility?.eligible ? (
-              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1">
-                <p className="text-xs font-semibold flex items-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5 text-primary" /> You qualify
+            ) : hasOpenApplication ? (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-1">
+                <p className="text-xs font-semibold flex items-center gap-1.5 text-destructive">
+                  <AlertTriangle className="h-3.5 w-3.5" /> Application in progress
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  For agents with {requiredTenants}+ active tenants — phones up to{' '}
-                  <span className="font-semibold text-foreground">{formatUGX(cap)}</span>.
+                  You already have a smartphone application under review. You can apply again once it is
+                  decided.
                 </p>
               </div>
             ) : (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-1">
-                <p className="text-xs font-semibold flex items-center gap-1.5 text-destructive">
-                  <AlertTriangle className="h-3.5 w-3.5" /> Not eligible yet
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1">
+                <p className="text-xs font-semibold flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-primary" /> Open to all agents
                 </p>
-                <ul className="list-disc pl-4 text-[11px] text-muted-foreground space-y-0.5">
-                  {blockers.map((b) => <li key={b}>{b}</li>)}
-                </ul>
+                <p className="text-[11px] text-muted-foreground">
+                  Apply for a phone up to{' '}
+                  <span className="font-semibold text-foreground">{formatUGX(cap)}</span>. Your profile —
+                  {' '}{activeTenants} active tenant{activeTenants === 1 ? '' : 's'} — is shared with Agent Ops,
+                  who review and decide.
+                </p>
+                {notes.length > 0 && (
+                  <ul className="list-disc pl-4 text-[11px] text-muted-foreground space-y-0.5 pt-1">
+                    {notes.map((n) => <li key={n}>{n}</li>)}
+                  </ul>
+                )}
               </div>
             )}
 
@@ -195,7 +207,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               <Select
                 value={options.some((o) => o.id === catalogId) ? catalogId : ''}
                 onValueChange={setCatalogId}
-                disabled={catalogLoading || !eligibility?.eligible || options.length === 0}
+                disabled={catalogLoading || hasOpenApplication || options.length === 0}
               >
                 <SelectTrigger>
                   <SelectValue
@@ -220,7 +232,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
             <div className="space-y-1">
               <Label className="text-xs">Repayment period</Label>
-              <Select value={months} onValueChange={setMonths} disabled={!eligibility?.eligible}>
+              <Select value={months} onValueChange={setMonths} disabled={hasOpenApplication}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a period" />
                 </SelectTrigger>
@@ -253,7 +265,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 id="docs-ready"
                 checked={docsReady}
                 onCheckedChange={(v) => setDocsReady(v === true)}
-                disabled={!eligibility?.eligible}
+                disabled={hasOpenApplication}
                 className="mt-0.5"
               />
               <Label htmlFor="docs-ready" className="text-[11px] leading-snug text-muted-foreground font-normal cursor-pointer">
