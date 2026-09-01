@@ -170,13 +170,47 @@ Deno.serve(async (req) => {
       const detail = entry?.errorMessage && entry.errorMessage !== 'None' ? entry.errorMessage : null;
       const reason =
         detail ??
-        payload?.errorMessage ??
+        (payload?.errorMessage && payload.errorMessage !== 'None' ? payload.errorMessage : null) ??
         (entry?.status ? `provider_status_${entry.status}` : `provider_http_${res.status}`);
+
+      // Operator-readable mapping for the statuses that actually happen.
+      const known: Record<string, { code: string; message: string; http: number }> = {
+        insufficientcredit: {
+          code: 'voice_insufficient_credit',
+          message: 'Voice calling is out of credit. Top up the Africa\u2019s Talking voice account, then retry.',
+          http: 402,
+        },
+        invalidphonenumber: {
+          code: 'invalid_staff_phone',
+          message: 'Your own phone number is not a valid number Africa\u2019s Talking can ring.',
+          http: 400,
+        },
+        throttled: {
+          code: 'provider_throttled',
+          message: 'Africa\u2019s Talking is throttling calls. Wait a moment and try again.',
+          http: 429,
+        },
+      };
+      const mapped = known[entryStatus];
+
       await admin
         .from('crm_call_sessions')
-        .update({ status: 'failed', failure_reason: String(reason).slice(0, 300) })
+        .update({
+          status: 'failed',
+          failure_reason: String(mapped?.code ?? reason).slice(0, 300),
+        })
         .eq('id', session.id);
-      return json({ error: 'provider_rejected', message: String(reason), callId: session.id }, 502);
+
+      return json(
+        {
+          error: mapped?.code ?? 'provider_rejected',
+          message: mapped?.message ?? String(reason),
+          providerStatus: entry?.status ?? null,
+          callId: session.id,
+        },
+        mapped?.http ?? 502,
+      );
+
     }
 
     console.log('[crm-place-call] provider accepted', {
