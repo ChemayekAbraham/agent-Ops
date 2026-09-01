@@ -14,6 +14,7 @@ import { PlatformVsWalletSummary } from '@/components/cfo/PlatformVsWalletSummar
 import { CFOROIRequests } from '@/components/cfo/CFOROIRequests';
 import { CFOOverviewDashboard } from '@/components/cfo/CFOOverviewDashboard';
 import { DirectCreditTool } from '@/components/cfo/DirectCreditTool';
+import { StandingOrdersPanel } from '@/components/cfo/StandingOrdersPanel';
 import BudgetApprovalPanel from '@/components/cfo/BudgetApprovalPanel';
 import CFOServiceCentreSpendApproval from '@/components/cfo/CFOServiceCentreSpendApproval';
 import { MerchantFloatRequestsPanel } from '@/components/cfo/MerchantFloatRequestsPanel';
@@ -244,6 +245,20 @@ export default function CFODashboardPage() {
           </div>
         );
 
+      case 'standing-orders':
+        return (
+          <div className="space-y-4">
+            <div>
+              <h1 className="text-xl font-bold">🔁 Standing Orders</h1>
+              <p className="text-sm text-muted-foreground">
+                Automated recurring payouts set up from "Send Money". Orders whose target account is
+                missing or that have failed on the daily run are flagged for attention — pause or fix
+                them here.
+              </p>
+            </div>
+            <StandingOrdersPanel />
+          </div>
+        );
       case 'roi-requests':
         return <CFOROIRequests />;
       case 'rent-payouts':

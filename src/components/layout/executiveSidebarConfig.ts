@@ -5,7 +5,7 @@ import {
   Crown, LayoutDashboard, Globe, DollarSign, UserCog, Truck, Layers, MinusCircle, Receipt,
   ShieldCheck, GraduationCap, Mail, FolderOpen, CalendarCheck, Landmark, KeyRound, SlidersHorizontal, HandCoins, Snowflake, ShoppingBag, MonitorSmartphone
   , Gauge, Download, ShieldAlert,
-  Eye, Trash2, PhoneCall, History,
+  Eye, Trash2, PhoneCall, History, RefreshCw,
 } from 'lucide-react';
 import type { AppRole } from '@/hooks/auth/types';
 
@@ -107,6 +107,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Home', icon: Home, id: 'overview' },
         { label: 'Payroll Release', icon: Banknote, id: 'payroll-release' },
         { label: 'Send Money', icon: Wallet, id: 'wallet-payout' },
+        { label: 'Standing Orders', icon: RefreshCw, id: 'standing-orders' },
         { label: 'Wallet Activities', icon: ClipboardList, id: 'wallet-activities' },
         { label: 'How Did They Earn?', icon: ClipboardList, id: 'earnings-explainer' },
         { label: 'Platform Impact', icon: Globe, id: 'platform-impact' },
