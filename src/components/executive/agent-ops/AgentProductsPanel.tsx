@@ -183,6 +183,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
     },
     onSuccess: () => {
       toast.success('Application approved');
+      setAppDetail(null);
       queryClient.invalidateQueries({ queryKey: ['agent-products-overview'], exact: false });
       queryClient.invalidateQueries({ queryKey: ['smartphone-order-queue'] });
       queryClient.invalidateQueries({ queryKey: ['smartphone-order-pending-count'] });
