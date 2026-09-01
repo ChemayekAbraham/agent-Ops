@@ -23,7 +23,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Smartphone, FileText, AlertTriangle, Loader2 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import smartphonePromoAsset from '@/assets/smartphone-promo.jpg.asset.json';
-import { useSmartphoneCatalog } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
+import { useSmartphoneCatalog, type SmartphoneOsType } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
 import { SMARTPHONE_PERIODS as PERIODS, smartphoneSchedule } from '@/lib/smartphoneAdvance';
 
 const db = supabase as any;
