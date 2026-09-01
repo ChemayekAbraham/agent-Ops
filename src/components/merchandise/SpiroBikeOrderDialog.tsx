@@ -25,7 +25,6 @@ import { formatUGX } from '@/lib/rentCalculations';
 import spiroBikeAsset from '@/assets/spiro-bike.jpg.asset.json';
 import {
   BIKE_RECOVERY_RATE,
-  SPIRO_BIKE_BASE_PRICE,
   SPIRO_LEASE_PERIODS,
   spiroLeaseGrid,
   spiroLeaseSchedule,
