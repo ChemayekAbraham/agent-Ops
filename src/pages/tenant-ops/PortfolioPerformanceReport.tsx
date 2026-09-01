@@ -68,13 +68,13 @@ export default function PortfolioPerformanceReport() {
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['tppo-report-zone-a', granularity, anchor],
-    queryFn: async (): Promise<ZoneAReport> => {
+    queryFn: async (): Promise<TppoZoneAReport> => {
       const { data: rpcData, error: rpcError } = await supabase.rpc('tppo_get_report_zone_a', {
         p_granularity: granularity,
         p_anchor: anchor,
       });
       if (rpcError) throw rpcError;
-      return (rpcData ?? {}) as unknown as ZoneAReport;
+      return (rpcData ?? {}) as unknown as TppoZoneAReport;
     },
   });
 
