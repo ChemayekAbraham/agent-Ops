@@ -64,8 +64,13 @@ function periodInWords(
   return `${longDate(periodStart)} to ${longDate(periodEnd)}`;
 }
 
-const ZONE_PLACEHOLDERS = [
-];
+/** The day before a period start, used as the anchor for the prior period. */
+function priorAnchor(periodStart: string): string {
+  const [y, m, d] = periodStart.split('-').map(Number);
+  const prev = new Date(Date.UTC(y, m - 1, d - 1));
+  return prev.toISOString().slice(0, 10);
+}
+
 
 export default function PortfolioPerformanceReport() {
   // Each period state holds its own record: the query key is the sole carrier of
