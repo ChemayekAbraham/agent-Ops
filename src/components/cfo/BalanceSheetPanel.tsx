@@ -270,7 +270,7 @@ export default function BalanceSheetPanel() {
     rows.push(['LIABILITIES', '']);
     (liabilityGroups?.standalone ?? []).forEach(g => rows.push([g.label, g.value]));
     rows.push(['Market Place Liabilities', '']);
-    marketplaceRows.forEach(g => rows.push([(g.subtotal ? '   ' : '   ') + g.label, g.value]));
+    marketplaceRows.forEach(g => rows.push(['   ' + g.label, g.value]));
     rows.push(['Subtotal — Market Place Liabilities', liabilityGroups?.marketplaceTotal ?? 0]);
     rows.push(['Partner and Agent Obligations', '']);
     (liabilityGroups?.partner ?? []).forEach(g => rows.push(['   ' + g.label, g.value]));
