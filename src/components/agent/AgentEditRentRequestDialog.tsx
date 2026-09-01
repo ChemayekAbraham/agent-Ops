@@ -472,9 +472,21 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
         p_agent_note: note.trim(),
       });
       if (error) throw error;
+      // Reviewer queues are already open on other screens/sessions — drop their
+      // cached snapshots so the newly submitted photos appear without a manual
+      // page refresh.
+      [
+        'rent-pipeline',
+        'service-center-rent-queue',
+        'partner-ops-rent-queue',
+        'agent-rejected-rent-requests',
+        'tenant-registration',
+        'tenant-documents',
+      ].forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
       toast.success('Resubmitted for review');
       onOpenChange(false);
       onResubmitted();
+
     } catch (e: any) {
       const raw = (e?.message ?? '') as string;
       const code = e?.code as string | undefined;
