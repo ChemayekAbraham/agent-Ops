@@ -128,6 +128,28 @@ export default function TenantAssignAgentDialog({
     [listings, listingId]
   );
 
+  // Name/phone of the person currently assigned, so the picker shows a real
+  // person (not "Selected agent") when the dialog opens.
+  const { data: currentAgentProfile } = useQuery({
+    queryKey: ['tenant-assign-current-agent', currentAgentId],
+    enabled: open && !!currentAgentId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, phone')
+        .eq('id', currentAgentId!)
+        .maybeSingle();
+      return (data || null) as { id: string; full_name: string | null; phone: string | null } | null;
+    },
+  });
+
+  const shownAgent = useMemo(() => {
+    if (!agentId) return null;
+    if (selectedAgent?.id === agentId) return selectedAgent;
+    if (currentAgentProfile?.id === agentId) return currentAgentProfile;
+    return agents.find((x) => x.id === agentId) || null;
+  }, [agentId, selectedAgent, currentAgentProfile, agents]);
+
   const handleSave = async () => {
     if (!rentRequestId) return;
     if (!agentId && !listingId) {
@@ -136,28 +158,15 @@ export default function TenantAssignAgentDialog({
     }
     setSaving(true);
     try {
-      // 1) Assign agent on the rent_request
-      if (agentId && agentId !== currentAgentId) {
-        const { error } = await supabase
-          .from('rent_requests')
-          .update({ agent_id: agentId, assigned_agent_id: agentId })
-          .eq('id', rentRequestId);
-        if (error) throw error;
-      }
-
-      // 2) Link property to the chosen agent + tenant
-      if (listingId) {
-        const updates: Record<string, any> = {};
-        if (agentId) updates.agent_id = agentId;
-        if (tenantId && !selectedListing?.tenant_id) updates.tenant_id = tenantId;
-        if (Object.keys(updates).length > 0) {
-          const { error } = await supabase
-            .from('house_listings')
-            .update(updates)
-            .eq('id', listingId);
-          if (error) throw error;
-        }
-      }
+      // Ops staff cannot write to rent_requests directly (RLS), so the transfer
+      // goes through the SECURITY DEFINER RPC, which also writes the history row.
+      const { error } = await (supabase as any).rpc('ops_transfer_tenant_agent', {
+        p_rent_request_id: rentRequestId,
+        p_new_agent_id: agentId || null,
+        p_listing_id: listingId || null,
+        p_reason: null,
+      });
+      if (error) throw error;
 
       toast.success('Tenant assignment updated');
       qc.invalidateQueries({ queryKey: ['daily-collection-rent-requests'] });
@@ -169,6 +178,7 @@ export default function TenantAssignAgentDialog({
       setSaving(false);
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
