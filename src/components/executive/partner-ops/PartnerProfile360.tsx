@@ -339,9 +339,58 @@ const DETAIL_FIELD_LABELS: Record<string, string> = {
   agent_name: 'Proxy agent',
   payment_method: 'Payment method',
   payout_method: 'Payout method',
+  bank_name: 'Bank',
+  payout_account_name: 'Account name',
+  account_number: 'Account number',
+  bank_account_number: 'Account number',
+  mobile_money_number: 'Mobile money number',
+  momo_number: 'Mobile money number',
+  momo_provider: 'Mobile money provider',
+  payout_phone: 'Payout phone',
   created_at: 'Start date',
   kind: 'Portfolio kind',
 };
+
+/** Fields that describe WHERE the partner is actually paid (not just the mode). */
+const PAYOUT_DESTINATION_FIELDS = [
+  'payment_method', 'payout_method', 'bank_name', 'account_name',
+  'account_number', 'bank_account_number', 'mobile_money_number',
+  'momo_number', 'momo_provider', 'payout_phone',
+];
+
+/** Renders "Bank: Stanbic → Centenary · Account number: 123 → 456" for payout details only. */
+function payoutDestinationChange(r: Row): string {
+  const m: Record<string, any> = (r.metadata as Record<string, any>) || {};
+  const changes: Record<string, any> = m.changes && typeof m.changes === 'object' ? m.changes : {};
+  const ov: Record<string, any> = (r.old_values as Record<string, any>) || {};
+  const nv: Record<string, any> = (r.new_values as Record<string, any>) || {};
+  const parts: string[] = [];
+
+  for (const field of PAYOUT_DESTINATION_FIELDS) {
+    const pair = changes[field];
+    const from = pair && typeof pair === 'object' ? (pair as any).from : ov[field];
+    const to = pair && typeof pair === 'object' ? (pair as any).to : nv[field];
+    if (from == null && to == null) continue;
+    if (String(from ?? '') === String(to ?? '')) continue;
+    const label = DETAIL_FIELD_LABELS[field] || field.replace(/_/g, ' ');
+    parts.push(`${label}: ${prettyDetailValue(field, from)} → ${prettyDetailValue(field, to)}`);
+  }
+
+  // No change recorded — fall back to the destination currently on record, so the
+  // officer still sees how this partner is paid.
+  if (!parts.length) {
+    const current: string[] = [];
+    for (const field of PAYOUT_DESTINATION_FIELDS) {
+      const v = nv[field] ?? m[field];
+      if (v == null || v === '') continue;
+      const label = DETAIL_FIELD_LABELS[field] || field.replace(/_/g, ' ');
+      current.push(`${label}: ${prettyDetailValue(field, v)}`);
+    }
+    return current.length ? current.join(' · ') : '—';
+  }
+
+  return parts.join(' · ');
+}
 
 const prettyDetailValue = (field: string, v: unknown): string => {
   if (v == null || v === '') return '—';
@@ -357,6 +406,7 @@ function changeDetails(r: Row): string {
 
   for (const [field, pair] of Object.entries(changes)) {
     if (field === 'investment_amount' || field === 'amount') continue; // shown in amount columns
+    if (PAYOUT_DESTINATION_FIELDS.includes(field)) continue; // shown in the payout destination column
     if (!pair || typeof pair !== 'object') continue;
     const from = (pair as any).from;
     const to = (pair as any).to;
@@ -383,6 +433,7 @@ const CHANGE_COLS: Col[] = [
   { key: 'portfolio', label: 'Portfolio', render: portfolioLabel },
   { key: 'actor_name', label: 'Actor', render: (r) => r.actor_name || '—' },
   { key: 'payment_details', label: 'Payment details changed', wrap: true, render: changeDetails },
+  { key: 'payout_destination', label: 'Payout details (bank / mobile money)', wrap: true, render: payoutDestinationChange },
   { key: 'reason', label: 'Reason', wrap: true, render: (r) => {
     const raw = String(r.reason || (r.metadata as any)?.reason || (r.metadata as any)?.notes || '').replace(/_/g, ' ').trim();
     if (!raw) return '—';
