@@ -218,6 +218,12 @@ export function HouseSupportCard({
   );
 }
 
+export interface ActiveHouseCommitment {
+  id: string;
+  committed_amount: number;
+  portfolio_code: string | null;
+}
+
 /** Submit bar for a selected set of verified empty houses. */
 export function HouseSupportBar({
   selectedCount,
@@ -226,6 +232,7 @@ export function HouseSupportBar({
   busy,
   setBusy,
   selectedIds,
+  activeHouseCommitment,
   onSubmitted,
 }: {
   selectedCount: number;
@@ -234,10 +241,20 @@ export function HouseSupportBar({
   busy: boolean;
   setBusy: (v: boolean) => void;
   selectedIds: string[];
+  /**
+   * The partner's current ACTIVE house portfolio, if any. Houses can only be
+   * added to a house portfolio — a rent-plan portfolio follows a different
+   * flow — so this is null whenever they hold none, and the
+   * "add to existing portfolio" choice is then not offered at all.
+   */
+  activeHouseCommitment?: ActiveHouseCommitment | null;
   onSubmitted: (outcome: 'submitted' | 'stale') => void;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [target, setTarget] = useState<'existing' | 'new'>('existing');
   const overBudget = total > available;
+  const canTopUp = !!activeHouseCommitment;
+  const useExisting = canTopUp && target === 'existing';
 
   const doSubmit = async () => {
     if (total < HOUSE_MIN_FUNDING) {
@@ -253,10 +270,13 @@ export function HouseSupportBar({
       const { error } = await supabase.rpc('partner_support_houses', {
         p_house_ids: selectedIds,
         p_term_months: 1,
+        p_commitment_id: useExisting ? activeHouseCommitment!.id : null,
       });
       if (error) throw error;
       toast.success('Submitted — pending approval', {
-        description: `Partner Operations will review your ${formatDynamic(total)} house portfolio. Your money stays in your wallet until it is approved, and your confirmation email is sent once approval goes through.`,
+        description: useExisting
+          ? `Partner Operations will review the ${formatDynamic(total)} you added to your existing house portfolio. Your money stays in your wallet until it is approved.`
+          : `Partner Operations will review your ${formatDynamic(total)} house portfolio. Your money stays in your wallet until it is approved, and your confirmation email is sent once approval goes through.`,
         duration: 9000,
       });
       setConfirmOpen(false);
@@ -273,6 +293,12 @@ export function HouseSupportBar({
         onSubmitted('stale');
       } else if (raw.includes('PARTNER_FUNDS_SHORT')) {
         toast.error('Your withdrawable balance does not cover this selection.');
+      } else if (raw.includes('PORTFOLIO_KIND_MISMATCH')) {
+        setTarget('new');
+        toast.error('That portfolio funds rent plans. Houses start their own portfolio.');
+      } else if (raw.includes('PSM_TOPUP_WINDOW_CLOSED')) {
+        setTarget('new');
+        toast.error(raw.replace(/^.*PSM_TOPUP_WINDOW_CLOSED:\s*/, ''));
       } else {
         toast.error(raw);
       }
@@ -280,6 +306,7 @@ export function HouseSupportBar({
       setBusy(false);
     }
   };
+
 
   return (
     <>
@@ -343,7 +370,53 @@ export function HouseSupportBar({
           </DialogHeader>
 
           <div className="px-4 sm:px-6 py-4 space-y-3">
+            {canTopUp && (
+              <div className="space-y-2">
+                <p className="text-[11px] font-bold text-muted-foreground">Where should this capital go?</p>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setTarget('existing')}
+                  aria-pressed={target === 'existing'}
+                  className={`w-full text-left rounded-xl border p-3 transition-colors ${
+                    target === 'existing' ? 'border-primary bg-primary/5' : 'border-border'
+                  }`}
+                >
+                  <p className="flex items-center gap-2 text-sm font-bold">
+                    <Plus className="h-4 w-4 text-primary shrink-0" />
+                    Add to my house portfolio
+                    {activeHouseCommitment?.portfolio_code ? (
+                      <Badge variant="secondary" className="text-[10px]">
+                        {activeHouseCommitment.portfolio_code}
+                      </Badge>
+                    ) : null}
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Currently holding {formatDynamic(activeHouseCommitment?.committed_amount ?? 0)}. These
+                    houses join it and share its monthly payout date.
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setTarget('new')}
+                  aria-pressed={target === 'new'}
+                  className={`w-full text-left rounded-xl border p-3 transition-colors ${
+                    target === 'new' ? 'border-primary bg-primary/5' : 'border-border'
+                  }`}
+                >
+                  <p className="flex items-center gap-2 text-sm font-bold">
+                    <Home className="h-4 w-4 text-primary shrink-0" />
+                    Start a new house portfolio
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Fresh start date with its own monthly payout anniversary.
+                  </p>
+                </button>
+              </div>
+            )}
             <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs space-y-1">
+
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Principal</span>
                 <span className="font-black text-foreground">{formatDynamic(total)}</span>

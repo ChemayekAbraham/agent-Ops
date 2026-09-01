@@ -47875,14 +47875,24 @@ export type Database = {
         Args: { p_commitment_id: string }
         Returns: Json
       }
-      partner_support_houses: {
-        Args: {
-          p_house_ids: string[]
-          p_idempotency_key?: string
-          p_term_months?: number
-        }
-        Returns: Json
-      }
+      partner_support_houses:
+        | {
+            Args: {
+              p_house_ids: string[]
+              p_idempotency_key?: string
+              p_term_months?: number
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_commitment_id?: string
+              p_house_ids: string[]
+              p_idempotency_key?: string
+              p_term_months?: number
+            }
+            Returns: Json
+          }
       partner_supported_house_returns: { Args: never; Returns: Json }
       pause_agent_advance: {
         Args: { p_advance_id: string; p_reason: string }
