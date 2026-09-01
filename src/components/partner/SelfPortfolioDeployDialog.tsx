@@ -316,7 +316,8 @@ export function SelfPortfolioDeployDialog({
                   </p>
                 </div>
                 {(!eligibility || !canTopUp || cyclesRemaining < 3) && (
-                  <Badge variant="secondary" className="text-[10px] shrink-0">
+                  <Badge className="gap-1 text-[10px] shrink-0 bg-primary text-primary-foreground hover:bg-primary">
+                    <Star className="h-3 w-3 fill-current" aria-hidden="true" />
                     Recommended
                   </Badge>
                 )}
