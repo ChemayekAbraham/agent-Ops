@@ -370,7 +370,53 @@ export function HouseSupportBar({
           </DialogHeader>
 
           <div className="px-4 sm:px-6 py-4 space-y-3">
+            {canTopUp && (
+              <div className="space-y-2">
+                <p className="text-[11px] font-bold text-muted-foreground">Where should this capital go?</p>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setTarget('existing')}
+                  aria-pressed={target === 'existing'}
+                  className={`w-full text-left rounded-xl border p-3 transition-colors ${
+                    target === 'existing' ? 'border-primary bg-primary/5' : 'border-border'
+                  }`}
+                >
+                  <p className="flex items-center gap-2 text-sm font-bold">
+                    <Plus className="h-4 w-4 text-primary shrink-0" />
+                    Add to my house portfolio
+                    {activeHouseCommitment?.portfolio_code ? (
+                      <Badge variant="secondary" className="text-[10px]">
+                        {activeHouseCommitment.portfolio_code}
+                      </Badge>
+                    ) : null}
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Currently holding {formatDynamic(activeHouseCommitment?.committed_amount ?? 0)}. These
+                    houses join it and share its monthly payout date.
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setTarget('new')}
+                  aria-pressed={target === 'new'}
+                  className={`w-full text-left rounded-xl border p-3 transition-colors ${
+                    target === 'new' ? 'border-primary bg-primary/5' : 'border-border'
+                  }`}
+                >
+                  <p className="flex items-center gap-2 text-sm font-bold">
+                    <Home className="h-4 w-4 text-primary shrink-0" />
+                    Start a new house portfolio
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Fresh start date with its own monthly payout anniversary.
+                  </p>
+                </button>
+              </div>
+            )}
             <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs space-y-1">
+
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Principal</span>
                 <span className="font-black text-foreground">{formatDynamic(total)}</span>
