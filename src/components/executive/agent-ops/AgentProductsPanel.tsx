@@ -158,8 +158,18 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
     refetchOnWindowFocus: false,
   });
 
+  const isBoutique = category === 'boutique';
+
   const approveApp = useMutation({
     mutationFn: async (row: PendingApp) => {
+      if (isBoutique) {
+        const { error } = await supabase
+          .from('merchandise_sales')
+          .update({ order_status: 'processing' })
+          .eq('id', row.sale_id);
+        if (error) throw error;
+        return;
+      }
       const { error } = await supabase.rpc('approve_smartphone_order' as any, {
         p_sale_id: row.sale_id,
         p_total_amount: Math.round(Number(row.requested_amount || 0)),
@@ -177,10 +187,10 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
 
   const rejectApp = useMutation({
     mutationFn: async ({ row, reason }: { row: PendingApp; reason: string }) => {
-      const { error } = await supabase.rpc('reject_smartphone_order' as any, {
-        p_sale_id: row.sale_id,
-        p_reason: reason.trim(),
-      });
+      const { error } = await supabase.rpc(
+        (isBoutique ? 'reject_merchandise_purchase' : 'reject_smartphone_order') as any,
+        { p_sale_id: row.sale_id, p_reason: reason.trim() },
+      );
       if (error) throw error;
     },
     onSuccess: () => {
@@ -193,6 +203,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
     },
     onError: (e: any) => toast.error(e?.message || 'Could not reject application'),
   });
+
 
 
   const kpis = data?.kpis as AgentProductKpis | undefined;
