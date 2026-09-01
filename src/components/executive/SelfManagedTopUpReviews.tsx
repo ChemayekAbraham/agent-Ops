@@ -93,6 +93,10 @@ export function SelfManagedTopUpReviews() {
     void supabase.functions.invoke('notify-partner-float-agents', {
       body: { commitment_id: (row as any).commitment_id ?? null },
     });
+    // Partner confirmation email for the deployed top-up (fire-and-forget).
+    void supabase.functions.invoke('notify-self-topup-approved', {
+      body: { topup_id: row.id },
+    });
     toast.success(`Top-up of ${formatUGX(Number(row.amount))} confirmed and now earning.`);
     await load();
   };
