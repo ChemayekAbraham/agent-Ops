@@ -32,6 +32,12 @@ interface GeoRow {
   label: string;
   agent_id: string | null;
   tenants_total: number;
+  /**
+   * Tenants on a live rent plan (status funded/repaying and not flagged
+   * not_paying) — the same "active" definition Agent Ops performance uses via
+   * `v_tenant_ops_tenant_base.is_active`.
+   */
+  tenants_active: number;
 }
 
 const emptyAcquisition: TenantOpsAcquisition = {
