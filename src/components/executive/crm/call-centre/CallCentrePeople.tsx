@@ -258,7 +258,7 @@ export function CallCentrePeople() {
                   {CALLEE_ROLES.map((r) => (
                     <SelectItem key={r} value={r} className="text-xs">
                       {CALLEE_ROLE_LABEL[r]}
-                      {counts ? ` (${counts[r].toLocaleString()})` : ''}
+                      {counts ? ` (${(counts[r] ?? 0).toLocaleString()})` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
