@@ -169,10 +169,9 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
   const approveApp = useMutation({
     mutationFn: async (row: PendingApp) => {
       if (isBoutique) {
-        const { error } = await supabase
-          .from('merchandise_sales')
-          .update({ order_status: 'issued' })
-          .eq('id', row.sale_id);
+        const { error } = await supabase.rpc('agent_ops_approve_merchandise_order' as any, {
+          p_sale_id: row.sale_id,
+        });
         if (error) throw error;
         return;
       }
