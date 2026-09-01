@@ -83,9 +83,10 @@ export function SelfPortfolioDeployDialog({
   const loadEligibility = useCallback(async () => {
     if (!activeCommitmentId) {
       setEligibility(null);
-      setChoice('new');
+      setChoice('direct');
       return;
     }
+
     setLoading(true);
     const { data, error } = await supabase.rpc('partner_self_topup_eligibility', {
       p_commitment_id: activeCommitmentId,
