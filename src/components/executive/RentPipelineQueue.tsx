@@ -883,6 +883,23 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
           updateData.landlord_call_notes = landlordCallNotes || null;
         }
 
+        // Tenant Ops funder-dashboard decision
+        if (decision) {
+          updateData.funder_visible = decision.funderVisible;
+          updateData.funder_visibility_reason = decision.funderVisible ? null : decision.reason;
+          updateData.funder_visibility_decided_by = user.id;
+          updateData.funder_visibility_decided_at = statusChangedAt;
+        }
+
+        // Requests kept off the Funder dashboard have no proxy partner to attach,
+        // so Landlord Ops forwards them straight to the COO.
+        if (stage === 'tenant_ops_approved' && !isOutstanding && selectedRequest.funder_visible === false) {
+          updateData.status = 'partner_ops_approved';
+          updateData.partner_ops_reviewed_at = statusChangedAt;
+          updateData.partner_ops_comment =
+            `No proxy attached — not published to the Funder dashboard. Tenant Ops reason: ${selectedRequest.funder_visibility_reason || 'not provided'}`;
+        }
+
         const { error } = await supabase
           .from('rent_requests')
           .update(updateData)
@@ -896,6 +913,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
           ? 'Outstanding balance recorded'
           : 'Request approved and forwarded',
       });
+      setConfirmOpen(false);
       setSelectedRequest(null);
       setComment('');
       setAssignedAgentId(null);
