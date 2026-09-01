@@ -34588,6 +34588,59 @@ export type Database = {
           },
         ]
       }
+      tenant_rent_intake_notices: {
+        Row: {
+          attempts: number
+          created_at: string
+          id: string
+          last_error: string | null
+          phone: string | null
+          request_id: string
+          sent_at: string | null
+          sms_status: string
+          sms_text: string
+          stage: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          phone?: string | null
+          request_id: string
+          sent_at?: string | null
+          sms_status?: string
+          sms_text: string
+          stage: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          phone?: string | null
+          request_id?: string
+          sent_at?: string | null
+          sms_status?: string
+          sms_text?: string
+          stage?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_rent_intake_notices_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_rent_intake_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_rent_intake_requests: {
         Row: {
           assigned_agent_id: string | null
@@ -48565,6 +48618,17 @@ export type Database = {
         }[]
       }
       purge_geo_coverage_cache: { Args: never; Returns: number }
+      queue_tenant_rent_intake_notice: {
+        Args: {
+          p_message: string
+          p_request_id: string
+          p_sms: string
+          p_stage: string
+          p_title: string
+        }
+        Returns: undefined
+      }
+      queue_tenant_rent_intake_stall_notices: { Args: never; Returns: number }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
