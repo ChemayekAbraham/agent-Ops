@@ -353,6 +353,7 @@ export function SelfPortfolioDeployDialog({
                 ))}
               </div>
             </button>
+            )}
 
 
             <button
