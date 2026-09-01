@@ -25,6 +25,8 @@ import { format } from 'date-fns';
 import { AgentProximitySelector } from './AgentProximitySelector';
 import { UserDrilldownDrawer } from '@/components/ops/UserDrilldownDrawer';
 import { PipelineAgentTransferDialog } from './PipelineAgentTransferDialog';
+import { TenantPaymentHistoryCard } from './TenantPaymentHistoryCard';
+
 
 // Per-user preference key for the CFO's selected tenant filter (cross-device).
 const TENANT_FILTER_PREF_KEY = 'rentPipeline.selectedTenantId';
@@ -1490,6 +1492,14 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                   </div>
                 )}
               </div>
+
+              {/* Existing tenant payment history (read-only context for the officer) */}
+              <TenantPaymentHistoryCard
+                tenantId={selectedRequest.tenant_id}
+                currentRequestId={selectedRequest.id}
+              />
+
+
 
               {/* Latest rent receipt from landlord — highlighted for operator review */}
               {selectedRequest.latest_rent_receipt_url && (
