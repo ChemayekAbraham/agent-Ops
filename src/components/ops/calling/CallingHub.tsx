@@ -125,19 +125,19 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
 
       <div className="hidden lg:block">
         <CallingFilterBar
-        options={hub.filterOptions}
-        loading={hub.filterOptionsLoading}
-        error={hub.filterOptionsError}
-        selection={filters}
-        filteredTotal={hub.total}
-        onChange={(key, value) =>
-          setFilters((prev) => {
-            const next = { ...prev };
-            if (value) next[key] = value;
-            else delete next[key];
-            return next;
-          })
-        }
+          options={hub.filterOptions}
+          loading={hub.filterOptionsLoading}
+          error={hub.filterOptionsError}
+          selection={filters}
+          filteredTotal={hub.total}
+          onChange={(key, value) =>
+            setFilters((prev) => {
+              const next = { ...prev };
+              if (value) next[key] = value;
+              else delete next[key];
+              return next;
+            })
+          }
           onClearAll={() => setFilters({})}
         />
       </div>
