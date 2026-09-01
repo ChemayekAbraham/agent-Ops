@@ -490,6 +490,18 @@ export function SmartphoneCatalogDialog() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Operating system</Label>
+                <Select value={osType} onValueChange={(v) => setOsType(v as SmartphoneOsType)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select OS" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="android">Android</SelectItem>
+                    <SelectItem value="ios">iPhone (iOS)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               {brandChoice === NEW_BRAND && (
                 <div className="space-y-1">
                   <Label className="text-xs">New brand name</Label>
