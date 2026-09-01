@@ -507,11 +507,6 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
                       {plan.duration_days} days
                     </span>
                   ) : null}
-                  {plan.funder_visible !== false ? (
-                    <Badge className="rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-                      Approved for funders
-                    </Badge>
-                  ) : null}
                   {isFunded ? (
                     <Badge variant="secondary" className="rounded-full text-[10px] font-semibold">Funded by you</Badge>
                   ) : heldByOther ? (
