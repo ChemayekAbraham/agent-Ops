@@ -58,7 +58,7 @@ import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatu
 import { useMerchandiseOrderLock } from '@/hooks/useMerchandiseOrderLock';
 import SmartphoneOrderDialog from '@/components/merchandise/SmartphoneOrderDialog';
 import SpiroBikeOrderDialog from '@/components/merchandise/SpiroBikeOrderDialog';
-import { SPIRO_BIKE_BASE_PRICE } from '@/lib/spiroBikeLease';
+
 
 
 import spiroBikeAsset from '@/assets/spiro-bike.jpg.asset.json';
