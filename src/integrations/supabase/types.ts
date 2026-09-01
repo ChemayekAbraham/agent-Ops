@@ -8742,6 +8742,8 @@ export type Database = {
       crm_call_sessions: {
         Row: {
           at_session_id: string | null
+          cancel_requested_at: string | null
+          cancelled_by: string | null
           cost_amount: number | null
           cost_currency: string | null
           created_at: string
@@ -8764,6 +8766,8 @@ export type Database = {
         }
         Insert: {
           at_session_id?: string | null
+          cancel_requested_at?: string | null
+          cancelled_by?: string | null
           cost_amount?: number | null
           cost_currency?: string | null
           created_at?: string
@@ -8786,6 +8790,8 @@ export type Database = {
         }
         Update: {
           at_session_id?: string | null
+          cancel_requested_at?: string | null
+          cancelled_by?: string | null
           cost_amount?: number | null
           cost_currency?: string | null
           created_at?: string
@@ -42751,6 +42757,7 @@ export type Database = {
           target_user_id: string
         }[]
       }
+      crm_cancel_call: { Args: { p_session_id: string }; Returns: string }
       crm_derive_outcome: {
         Args: { p_duration: number; p_hangup_cause: string; p_status: string }
         Returns: string
