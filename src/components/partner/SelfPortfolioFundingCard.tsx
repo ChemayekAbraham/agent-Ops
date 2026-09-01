@@ -54,6 +54,8 @@ interface FundablePlan {
   request_latitude?: number | string | null;
   request_longitude?: number | string | null;
   proxy_agent_phone: string | null;
+  /** Tenant Ops decision — false means it was never published to funders. */
+  funder_visible?: boolean | null;
 }
 
 /**
