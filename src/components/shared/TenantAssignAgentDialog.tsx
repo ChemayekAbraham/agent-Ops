@@ -262,6 +262,7 @@ export default function TenantAssignAgentDialog({
                           className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-accent transition-colors"
                           onClick={() => {
                             setAgentId(a.id);
+                            setSelectedAgent(a);
                             setAgentQuery('');
                             setAgentDropdownOpen(false);
                           }}
