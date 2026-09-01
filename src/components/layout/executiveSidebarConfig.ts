@@ -111,7 +111,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Wallet Activities', icon: ClipboardList, id: 'wallet-activities' },
         { label: 'How Did They Earn?', icon: ClipboardList, id: 'earnings-explainer' },
         { label: 'Platform Impact', icon: Globe, id: 'platform-impact' },
-        { label: 'Request Funding (Director)', icon: HandCoins, id: 'requisitions' },
+        { label: 'Requisitions', icon: ClipboardList, id: 'requisitions' },
         { label: 'My Work', icon: ClipboardList, id: 'my-work' },
       ],
     },
