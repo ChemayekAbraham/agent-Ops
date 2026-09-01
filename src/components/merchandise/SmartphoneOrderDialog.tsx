@@ -126,24 +126,6 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
     queryClient.invalidateQueries({ queryKey: ['my-merchandise-deductions', userId] });
   };
 
-  const activeTenants = Number(eligibility?.active_tenant_count || 0);
-  const requiredTenants = Number(eligibility?.required_active_tenants || 3);
-
-  // Advisory notes only — they inform the agent what the reviewer will look at.
-  const notes: string[] = [];
-  if (eligibility && !hasOpenApplication) {
-    if (activeTenants < requiredTenants) {
-      notes.push(
-        `You have ${activeTenants} active tenant${activeTenants === 1 ? '' : 's'}. Agent Ops normally looks for ${requiredTenants}+, but you can still apply and let the manager decide.`,
-      );
-    }
-    if (!eligibility.has_national_id) {
-      notes.push('Add your National ID number to your profile — it is verified on phone collection day.');
-    }
-    if (!eligibility.has_workplace_verification) {
-      notes.push('A workplace photo has not been captured yet. It is needed before the phone is released.');
-    }
-  }
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!submitting) onOpenChange(o); }}>
