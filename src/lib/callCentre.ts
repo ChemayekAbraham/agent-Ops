@@ -14,13 +14,14 @@ export type CallOutcome = 'answered' | 'rejected' | 'not_reachable' | 'in_progre
 export type CallTemperature = 'cold' | 'warm';
 
 /** Audience buckets the doughnut splits on. */
-export type CalleeRole = 'tenant' | 'agent' | 'partner' | 'landlord' | 'employee';
+export type CalleeRole = 'tenant' | 'agent' | 'sub_agent' | 'partner' | 'landlord' | 'employee';
 
-export const CALLEE_ROLES: CalleeRole[] = ['tenant', 'agent', 'partner', 'landlord', 'employee'];
+export const CALLEE_ROLES: CalleeRole[] = ['tenant', 'agent', 'sub_agent', 'partner', 'landlord', 'employee'];
 
 export const CALLEE_ROLE_LABEL: Record<CalleeRole, string> = {
   tenant: 'Tenants',
   agent: 'Agents',
+  sub_agent: 'Sub-Agents',
   partner: 'Partners',
   landlord: 'Landlords',
   employee: 'Employees',
@@ -30,6 +31,7 @@ export const CALLEE_ROLE_LABEL: Record<CalleeRole, string> = {
 export const CALLEE_ROLE_BADGE: Record<CalleeRole, string> = {
   tenant: 'Tenant',
   agent: 'Agent',
+  sub_agent: 'Sub-Agent',
   partner: 'Partner',
   landlord: 'Landlord',
   employee: 'Employee',
@@ -39,7 +41,7 @@ export const CALLEE_ROLE_BADGE: Record<CalleeRole, string> = {
  * Which single audience a multi-role person belongs to, most specific first.
  * Used only where one label is unavoidable (the dialer target).
  */
-export const CALLEE_ROLE_PRECEDENCE: CalleeRole[] = ['employee', 'partner', 'landlord', 'agent', 'tenant'];
+export const CALLEE_ROLE_PRECEDENCE: CalleeRole[] = ['employee', 'partner', 'landlord', 'sub_agent', 'agent', 'tenant'];
 
 export function primaryRole(roles: CalleeRole[]): CalleeRole {
   return CALLEE_ROLE_PRECEDENCE.find((r) => roles.includes(r)) ?? 'tenant';
@@ -500,7 +502,7 @@ export interface AudienceMemberships {
  * tenant. Being a tenant is the broadest, most common relationship, so it loses
  * every tie; being staff is the narrowest, so it wins every tie.
  */
-export const AUDIENCE_PRECEDENCE: CalleeRole[] = ['employee', 'partner', 'landlord', 'agent', 'tenant'];
+export const AUDIENCE_PRECEDENCE: CalleeRole[] = ['employee', 'partner', 'landlord', 'sub_agent', 'agent', 'tenant'];
 
 /** Collapse a person's memberships into their single primary audience. */
 export function resolvePrimaryAudience(memberships: AudienceMemberships): CalleeRole {
