@@ -33,6 +33,8 @@ interface UnifiedWalletHeroCardProps {
   floatCaption?: string;
   commissionBalance?: number;
   withdrawableBalance?: number;
+  /** Supporter-specific: operational float available to fund rent plans / houses. */
+  operationalFloatBalance?: number;
   /** Agent-specific: withdrawable funds NOT classified as commission (CFO admin credits etc.) */
   otherBalance?: number;
   /** Callback when user taps balance area or "View Wallet" */
