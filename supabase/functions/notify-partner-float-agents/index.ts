@@ -181,8 +181,9 @@ Deno.serve(async (req) => {
     if (outcome.ok) {
       sent++;
       await admin.from("partner_float_agent_notices")
-        .update({ status: "sent", provider, sent_at: new Date().toISOString(), last_error: null })
+        .update({ status: "sent", provider, sent_at: new Date().toISOString(), last_error: outcome.unconfirmed ?? null })
         .eq("id", row.id);
+
     } else {
       failed++;
       await admin.from("partner_float_agent_notices")
