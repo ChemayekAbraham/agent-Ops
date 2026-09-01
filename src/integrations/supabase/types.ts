@@ -8741,6 +8741,8 @@ export type Database = {
       }
       crm_call_sessions: {
         Row: {
+          answered_at: string | null
+          at_client_name: string | null
           at_session_id: string | null
           cancel_requested_at: string | null
           cancelled_by: string | null
@@ -8749,9 +8751,12 @@ export type Database = {
           created_at: string
           direction: string
           duration_seconds: number | null
+          ended_at: string | null
+          ended_by: string | null
           failure_reason: string | null
           hangup_cause: string | null
           id: string
+          is_active: boolean | null
           recording_url: string | null
           staff_id: string
           staff_phone: string | null
@@ -8762,9 +8767,12 @@ export type Database = {
           target_phone: string
           target_role: string
           target_user_id: string | null
+          transport: string
           updated_at: string
         }
         Insert: {
+          answered_at?: string | null
+          at_client_name?: string | null
           at_session_id?: string | null
           cancel_requested_at?: string | null
           cancelled_by?: string | null
@@ -8773,9 +8781,12 @@ export type Database = {
           created_at?: string
           direction?: string
           duration_seconds?: number | null
+          ended_at?: string | null
+          ended_by?: string | null
           failure_reason?: string | null
           hangup_cause?: string | null
           id?: string
+          is_active?: boolean | null
           recording_url?: string | null
           staff_id: string
           staff_phone?: string | null
@@ -8786,9 +8797,12 @@ export type Database = {
           target_phone: string
           target_role?: string
           target_user_id?: string | null
+          transport?: string
           updated_at?: string
         }
         Update: {
+          answered_at?: string | null
+          at_client_name?: string | null
           at_session_id?: string | null
           cancel_requested_at?: string | null
           cancelled_by?: string | null
@@ -8797,9 +8811,12 @@ export type Database = {
           created_at?: string
           direction?: string
           duration_seconds?: number | null
+          ended_at?: string | null
+          ended_by?: string | null
           failure_reason?: string | null
           hangup_cause?: string | null
           id?: string
+          is_active?: boolean | null
           recording_url?: string | null
           staff_id?: string
           staff_phone?: string | null
@@ -8810,6 +8827,7 @@ export type Database = {
           target_phone?: string
           target_role?: string
           target_user_id?: string | null
+          transport?: string
           updated_at?: string
         }
         Relationships: []
@@ -42766,6 +42784,18 @@ export type Database = {
         Args: { p_duration: number; p_hangup_cause: string; p_status: string }
         Returns: string
       }
+      crm_finalize_call_from_client: {
+        Args: {
+          p_duration?: number
+          p_hangup_cause?: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
+      crm_mark_call_answered: {
+        Args: { p_session_id: string }
+        Returns: undefined
+      }
       crm_mask_phone: { Args: { raw: string }; Returns: string }
       crm_platform_people_counts: {
         Args: never
@@ -42816,6 +42846,17 @@ export type Database = {
       crm_save_call_summary: {
         Args: { p_session_id: string; p_summary: string }
         Returns: undefined
+      }
+      crm_start_webrtc_call: {
+        Args: {
+          p_client_name: string
+          p_target_location: string
+          p_target_name: string
+          p_target_phone?: string
+          p_target_role: string
+          p_target_user_id: string
+        }
+        Returns: Json
       }
       cron_jobs_health: {
         Args: never
