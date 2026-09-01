@@ -87,6 +87,10 @@ const UNREACHABLE_CAUSES = new Set([
   'NETWORK_OUT_OF_ORDER',
   'RECOVERY_ON_TIMER_EXPIRE',
   'ORIGINATOR_CANCEL',
+  // Written by crm_sweep_stale_calls() when no provider callback ever arrived.
+  // Treated as unreachable on purpose: a stranded row is no evidence the
+  // customer was reached, and inventing an answer would inflate the answer rate.
+  'CALLBACK_TIMEOUT',
 ]);
 
 const norm = (v: string | null | undefined) => (v ?? '').trim().toUpperCase();
@@ -112,7 +116,10 @@ export function deriveOutcome(record: Pick<CallRecord, 'status' | 'hangupCause' 
   if (REJECTED_CAUSES.has(cause)) return 'rejected';
   if (UNREACHABLE_CAUSES.has(cause)) return 'not_reachable';
 
-  if (status === 'no_answer' || status === 'failed' || status === 'unreachable') return 'not_reachable';
+  // 'expired' is the sweeper's own status for a row nothing ever settled.
+  if (status === 'no_answer' || status === 'failed' || status === 'unreachable' || status === 'expired') {
+    return 'not_reachable';
+  }
   if (status === 'rejected' || status === 'busy') return 'rejected';
 
   // 'completed' with zero talk time and no usable cause never reached anyone.

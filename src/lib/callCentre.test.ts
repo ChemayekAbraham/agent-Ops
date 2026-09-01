@@ -71,6 +71,35 @@ describe('deriveOutcome', () => {
     expect(deriveOutcome(call({ hangupCause: null, durationSeconds: 0 }))).toBe('not_reachable');
   });
 
+  it('reads a swept stale row as not_reachable, not as an answered call', () => {
+    // crm_sweep_stale_calls() writes this when no provider callback ever
+    // arrived. A stranded row is no evidence the customer was reached.
+    expect(
+      deriveOutcome(call({ status: 'expired', hangupCause: 'CALLBACK_TIMEOUT', durationSeconds: 0 })),
+    ).toBe('not_reachable');
+    // The status alone is enough, even without the cause.
+    expect(deriveOutcome(call({ status: 'expired', hangupCause: null, durationSeconds: 0 }))).toBe('not_reachable');
+  });
+
+  it('still trusts real talk time on a swept row', () => {
+    // If the provider had already recorded a duration before the row stranded,
+    // that conversation genuinely happened and must not be erased by the sweep.
+    expect(
+      deriveOutcome(call({ status: 'expired', hangupCause: 'CALLBACK_TIMEOUT', durationSeconds: 95 })),
+    ).toBe('answered');
+  });
+
+  it('keeps a swept row out of the answered count and the talk-time average', () => {
+    const kpis = computeKpis([
+      call({ id: 'ok', durationSeconds: 120 }),
+      call({ id: 'swept', status: 'expired', hangupCause: 'CALLBACK_TIMEOUT', durationSeconds: 0 }),
+    ]);
+    expect(kpis.answered).toBe(1);
+    expect(kpis.notReachable).toBe(1);
+    // 120/1, not 120/2 — a swept row must not drag the average toward zero.
+    expect(kpis.averageTalkSeconds).toBe(120);
+  });
+
   it('is case- and whitespace-insensitive about provider strings', () => {
     expect(deriveOutcome(call({ hangupCause: ' call_rejected ', durationSeconds: 0 }))).toBe('rejected');
   });

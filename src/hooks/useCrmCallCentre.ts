@@ -308,17 +308,36 @@ export interface EndCallVars {
 }
 
 /**
- * Manual failure override.
+ * Manual failure override — the write path behind "They rejected" / "Not
+ * reachable".
  *
- * The provider is the authority on how a call ended, so this only nudges the
- * local caches to refetch — it never writes telephony state, which the frontend
- * is not permitted to do.
+ * The staff member can see what the provider cannot: the customer picked up and
+ * refused, or the number is plainly wrong. This still does not write telephony
+ * state from the client — it goes through the `crm_record_call_outcome` RPC,
+ * which is role-gated and applies ONLY while the row is still live, so a
+ * terminal callback that already landed is never overwritten by a human
+ * assertion.
+ *
+ * 'answered' is intentionally not sent: talk time is the provider's to report,
+ * and letting staff assert it would corrupt both the answer rate and the
+ * average-talk-time figure.
  */
 export function useEndCall() {
   const invalidate = useInvalidateCallRecords();
 
   return useMutation({
-    mutationFn: async (_vars: EndCallVars): Promise<void> => {
+    mutationFn: async (vars: EndCallVars): Promise<void> => {
+      if (vars.outcome === 'rejected' || vars.outcome === 'not_reachable') {
+        // Cross-runtime escape hatch (project convention): this RPC is newer
+        // than the generated types. Drop the cast once
+        // src/integrations/supabase/types.ts is regenerated.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase as any).rpc('crm_record_call_outcome', {
+          p_session_id: vars.callId,
+          p_outcome: vars.outcome,
+        });
+        if (error) throw error;
+      }
       invalidate();
     },
   });
