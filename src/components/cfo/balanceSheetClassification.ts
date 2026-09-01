@@ -197,27 +197,47 @@ export function classifyAssets(lines: PositionLine[]) {
 }
 
 export function classifyEquity(lines: PositionLine[]) {
-  return build(lines, EQUITY_CATEGORIES, l => EQUITY_LABEL_MAP[l.label] ?? null);
+  return build(lines, EQUITY_CATEGORIES, l => {
+    const code = accountCodeOf(l);
+    return (code ? EQUITY_ACCOUNT_MAP[code] : null) ?? EQUITY_LABEL_MAP[l.label] ?? null;
+  });
 }
 
 export function classifyLiabilities(lines: PositionLine[]) {
-  const all = [...MARKETPLACE_LIABILITY_CATEGORIES, ...STANDALONE_LIABILITY_CATEGORIES];
+  const all = [
+    ...MARKETPLACE_LIABILITY_CATEGORIES,
+    ...STANDALONE_LIABILITY_CATEGORIES,
+    ...PARTNER_LIABILITY_CATEGORIES,
+  ];
   const { groups, flagged, total } = build(lines, all, l => {
     const code = accountCodeOf(l);
     return code ? LIABILITY_ACCOUNT_MAP[code] ?? null : null;
   });
-  const marketplace = groups.filter(g =>
-    (MARKETPLACE_LIABILITY_CATEGORIES as readonly string[]).includes(g.label));
-  const standalone = groups.filter(g =>
-    (STANDALONE_LIABILITY_CATEGORIES as readonly string[]).includes(g.label));
+  const inList = (list: readonly string[], g: BsGroup) => list.includes(g.label);
+  const marketplace = groups.filter(g => inList(MARKETPLACE_LIABILITY_CATEGORIES, g));
+  const standalone = groups.filter(g => inList(STANDALONE_LIABILITY_CATEGORIES, g));
+  const partner = groups.filter(g => inList(PARTNER_LIABILITY_CATEGORIES, g));
   return {
     marketplace,
     marketplaceTotal: marketplace.reduce((t, g) => t + g.value, 0),
     standalone,
+    partner,
+    partnerTotal: partner.reduce((t, g) => t + g.value, 0),
     flagged,
     total,
   };
 }
 
+/**
+ * Lines worth showing inside the flagged block. Accounts sitting at exactly
+ * zero (typically the suspense accounts A9 / L9) contribute nothing to the
+ * section total, so listing them only adds noise to the review warning. They
+ * remain part of the flagged group's value, which is zero for them.
+ */
+export const visibleFlaggedLines = (g: BsGroup) =>
+  g.lines.filter(l => Math.round(l.value) !== 0);
+
 /** Only show the flagged group when it actually holds something. */
-export const hasFlagged = (g: BsGroup) => g.lines.length > 0 && Math.round(g.value) !== 0;
+export const hasFlagged = (g: BsGroup) =>
+  visibleFlaggedLines(g).length > 0 && Math.round(g.value) !== 0;
+
