@@ -344,6 +344,75 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
                 </div>
               </div>
 
+              {/* Eligibility review — tenant portfolio, risk & compliance (Smartphone T&C) */}
+              <div className="rounded-lg border bg-card px-3 py-2 space-y-1.5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Agent eligibility review
+                </p>
+                {eligibilityLoading ? (
+                  <p className="text-xs text-muted-foreground">Checking eligibility…</p>
+                ) : !eligibility ? (
+                  <p className="text-xs text-muted-foreground">
+                    Eligibility details unavailable for this applicant.
+                  </p>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">Tenant portfolio (active plans)</span>
+                      <span className="font-semibold flex items-center gap-1.5">
+                        {tenantCount} / {requiredTenants}
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] ${
+                            meetsTenantThreshold
+                              ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
+                              : 'bg-destructive/15 text-destructive border-destructive/30'
+                          }`}
+                        >
+                          {meetsTenantThreshold ? 'Meets threshold' : 'Below threshold'}
+                        </Badge>
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">National ID on file</span>
+                      <span className={eligibility.has_national_id ? 'font-semibold text-emerald-600' : 'font-semibold text-destructive'}>
+                        {eligibility.has_national_id ? 'Verified' : 'Missing'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Workplace verification</span>
+                      <span className={eligibility.has_workplace_verification ? 'font-semibold text-emerald-600' : 'font-semibold text-amber-600'}>
+                        {eligibility.has_workplace_verification ? 'Captured' : 'Not captured'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Collections (last 30 days)</span>
+                      <span className="font-semibold">{formatUGX(Number(eligibility.collected_30d || 0))}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Programme standing</span>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] ${
+                          eligibility.eligible
+                            ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
+                            : 'bg-amber-500/15 text-amber-600 border-amber-500/30'
+                        }`}
+                      >
+                        {eligibility.eligible ? 'Eligible' : 'Review required'}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground pt-1 border-t mt-1">
+                      Terms &amp; Conditions (as per the Smartphone programme): the agent must hold at
+                      least {requiredTenants} active tenant plans, a verified National ID and no other
+                      open application. Missed recovery days attract the standard penalty and the
+                      asset stays company property until the balance clears.
+                    </p>
+                  </>
+                )}
+              </div>
+
+
               <div className="space-y-1">
                 <Label className="text-xs">Approved bike valuation (UGX)</Label>
                 <Input
