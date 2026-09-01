@@ -214,11 +214,21 @@ export function CallDrawer({
     if (callId) {
       cancelCall
         .mutateAsync(callId)
+        .then(() => {
+          // The voice provider offers no remote hang-up for a leg that is
+          // already up, so be honest instead of implying the line is dead.
+          if (phase === 'connected') {
+            toast.info('Call closed here. Put your handset down to drop the line.');
+          } else {
+            toast.info('Call cancelled. A handset already ringing may ring a few more seconds.');
+          }
+        })
         .catch(() => toast.error('Could not stop the call on the phone network.'));
     }
     if (phase === 'connected') settle('answered');
     else settle('not_reachable');
   }, [callId, cancelCall, phase, settle]);
+
 
 
   const handleSaveSummary = async () => {
