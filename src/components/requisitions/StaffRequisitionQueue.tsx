@@ -83,6 +83,26 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+/**
+ * Explains the route a requisition is taking, so a CFO-skipping path is visible
+ * instead of looking like a lost item. Nobody reviews their own money: a
+ * requester who holds the CFO role is routed COO -> CEO, and a requester who
+ * holds the COO role starts at CFO.
+ */
+function routeNote(row: StaffRequisition) {
+  const final = row.final_stage === 'ceo' ? 'CEO' : 'CFO';
+  const cfoSkipped = row.final_stage === 'ceo' && (row.requester_role || '').toLowerCase() === 'cfo';
+  const withNow =
+    row.current_approver_role ? STAGE_LABEL[row.current_approver_role] || row.current_approver_role.toUpperCase() : null;
+  return [
+    withNow ? `Now with ${withNow}` : null,
+    `Final approval: ${final}`,
+    cfoSkipped ? 'CFO review skipped — requester holds the CFO role' : null,
+  ]
+    .filter(Boolean)
+    .join(' • ');
+}
+
 function StageBadge({ row }: { row: StaffRequisition }) {
   if (row.stage === 'approved') {
     return (
@@ -317,6 +337,9 @@ export function StaffRequisitionQueue() {
                       {row.requester_name || 'Staff'}
                       {b?.department_name ? ` • ${b.department_name}` : ''}
                       {row.category ? ` • ${row.category}` : ''} • {fmtDate(row.created_at)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {routeNote(row)}
                     </p>
                   </div>
                   <div className="text-right">
