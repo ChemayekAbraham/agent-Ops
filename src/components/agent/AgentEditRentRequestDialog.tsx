@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -51,6 +53,8 @@ interface Props {
 
 export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResubmitted }: Props) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+
   const [rentAmount, setRentAmount] = useState('');
   const [duration, setDuration] = useState('30');
   const [numberOfPayments, setNumberOfPayments] = useState('4');
@@ -77,6 +81,11 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
   // on resubmit; untouched slots keep their existing URL.
   const [existingPhotos, setExistingPhotos] = useState<(string | null)[]>([]);
   const [newPhotos, setNewPhotos] = useState<({ file: File; preview: string } | null)[]>([]);
+  // Slots whose on-file photo the agent explicitly dropped. A dropped slot is
+  // never carried into the resubmission, so the submitted set is exactly what
+  // the agent is submitting now.
+  const [droppedExisting, setDroppedExisting] = useState<boolean[]>([]);
+
   const [existingLcPath, setExistingLcPath] = useState<string | null>(null);
   const [existingLcUrl, setExistingLcUrl] = useState<string | null>(null);
   const [newLcLetter, setNewLcLetter] = useState<{ file: File; preview: string } | null>(null);
@@ -114,6 +123,8 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
       const urls = Array.isArray(request.house_image_urls) ? request.house_image_urls : [];
       setExistingPhotos(HOUSE_PHOTO_SLOTS.map((_, i) => urls[i] ?? null));
       setNewPhotos(HOUSE_PHOTO_SLOTS.map(() => null));
+      setDroppedExisting(HOUSE_PHOTO_SLOTS.map(() => false));
+
       setNewLcLetter(null);
       setExistingLcPath(request.lc_letter_path ?? null);
       setExistingLcUrl(null);
@@ -197,6 +208,16 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
     });
   };
 
+  /** Drop the photo already on file for this slot so it is not resubmitted. */
+  const toggleDropExisting = (slot: number) => {
+    setDroppedExisting((prev) => {
+      const next = [...prev];
+      next[slot] = !next[slot];
+      return next;
+    });
+  };
+
+
   const pickLcLetter = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -213,6 +234,7 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
     setNewLcLetter({ file, preview: URL.createObjectURL(file) });
   };
 
+
   /**
    * Push any newly picked evidence to storage and return the patch fragment.
    * Photos overwrite the same deterministic paths the original submission
@@ -222,13 +244,15 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
     const patch: Record<string, unknown> = {};
     if (!user) return patch;
 
-    const touchedPhoto = newPhotos.some(Boolean);
+    const touchedPhoto = newPhotos.some(Boolean) || droppedExisting.some(Boolean);
     if (touchedPhoto) {
       const finalUrls: string[] = [];
       for (let i = 0; i < HOUSE_PHOTO_SLOTS.length; i++) {
         const picked = newPhotos[i];
         if (!picked) {
-          if (existingPhotos[i]) finalUrls.push(existingPhotos[i] as string);
+          // A dropped slot is deliberately left out — old photos are never
+          // silently carried into the new submission.
+          if (existingPhotos[i] && !droppedExisting[i]) finalUrls.push(existingPhotos[i] as string);
           continue;
         }
         // Some phone captures (HEIC on older Android/iOS browsers) cannot be
@@ -252,12 +276,19 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
         const { data } = supabase.storage.from('house-images').getPublicUrl(path);
         finalUrls.push(data.publicUrl);
       }
-      // Keep any extra photos beyond the four slots.
-      const extras = (Array.isArray(request?.house_image_urls) ? request!.house_image_urls : []).slice(
-        HOUSE_PHOTO_SLOTS.length,
-      );
+      // The resubmitted array IS the latest submission. Extra photos beyond the
+      // four angles are only kept when the agent replaced nothing wholesale —
+      // once a full new set is captured, stale extras are dropped so reviewers
+      // never see a mixture of old and new evidence.
+      const capturedAll = newPhotos.every((p, i) => Boolean(p) || Boolean(droppedExisting[i]));
+      const extras = capturedAll
+        ? []
+        : (Array.isArray(request?.house_image_urls) ? request!.house_image_urls : []).slice(
+            HOUSE_PHOTO_SLOTS.length,
+          );
       patch.house_image_urls = [...finalUrls, ...extras];
     }
+
 
     if (newLcLetter) {
       const ext = (newLcLetter.file.name.split('.').pop() || 'jpg').toLowerCase();
@@ -411,7 +442,7 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
       // Upload replaced photos / LC letter FIRST so the resubmit carries the
       // new evidence in the same patch the reviewer sees.
       let evidencePatch: Record<string, unknown> = {};
-      if (newPhotos.some(Boolean) || newLcLetter) {
+      if (newPhotos.some(Boolean) || droppedExisting.some(Boolean) || newLcLetter) {
         setUploadingEvidence(true);
         try {
           evidencePatch = await uploadEvidence(request.id);
@@ -445,9 +476,21 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
         p_agent_note: note.trim(),
       });
       if (error) throw error;
+      // Reviewer queues are already open on other screens/sessions — drop their
+      // cached snapshots so the newly submitted photos appear without a manual
+      // page refresh.
+      [
+        'rent-pipeline',
+        'service-center-rent-queue',
+        'partner-ops-rent-queue',
+        'agent-rejected-rent-requests',
+        'tenant-registration',
+        'tenant-documents',
+      ].forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
       toast.success('Resubmitted for review');
       onOpenChange(false);
       onResubmitted();
+
     } catch (e: any) {
       const raw = (e?.message ?? '') as string;
       const code = e?.code as string | undefined;
@@ -691,13 +734,15 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
                 <Camera className="h-4 w-4 text-primary" /> House photos
               </p>
               <p className="text-xs text-muted-foreground">
-                Tap a slot to retake or add a photo. Untouched slots keep the photo already on file.
+                Tap a slot to retake or add a photo. Whatever is shown here is exactly what the
+                reviewer will see — use Remove to drop a photo you are not resubmitting.
               </p>
             </div>
             <div className="grid grid-cols-4 gap-2">
               {HOUSE_PHOTO_SLOTS.map((angle, i) => {
                 const picked = newPhotos[i];
-                const existing = existingPhotos[i];
+                const dropped = !!droppedExisting[i];
+                const existing = dropped ? null : existingPhotos[i];
                 const src = picked?.preview ?? existing ?? null;
                 return (
                   <div key={angle} className="space-y-1">
@@ -719,7 +764,7 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
                     </label>
                     <div className="flex items-center justify-between gap-1">
                       <span className="text-[10px] text-muted-foreground">{angle}</span>
-                      {picked && (
+                      {picked ? (
                         <button
                           type="button"
                           onClick={() => clearNewPhoto(i)}
@@ -727,10 +772,22 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
                         >
                           <X className="h-3 w-3" /> undo
                         </button>
-                      )}
+                      ) : existingPhotos[i] ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleDropExisting(i)}
+                          className="text-[10px] text-destructive inline-flex items-center gap-0.5"
+                        >
+                          <X className="h-3 w-3" /> {dropped ? 'keep' : 'remove'}
+                        </button>
+                      ) : null}
                     </div>
                     {picked && <p className="text-[10px] font-medium text-primary">New</p>}
+                    {!picked && dropped && (
+                      <p className="text-[10px] font-medium text-destructive">Removed</p>
+                    )}
                   </div>
+
                 );
               })}
             </div>

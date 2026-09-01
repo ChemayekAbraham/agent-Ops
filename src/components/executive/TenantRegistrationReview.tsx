@@ -83,7 +83,7 @@ export function TenantRegistrationReview({ tenantId, tenantName, onBack }: Props
       // Get latest rent request for this tenant
       const { data: reqData } = await supabase
         .from('rent_requests')
-        .select('id, landlord_id, lc1_id, house_category, tenant_water_meter, tenant_electricity_meter, house_image_urls, tenant_photo_url, status, created_at')
+        .select('id, landlord_id, lc1_id, house_category, tenant_water_meter, tenant_electricity_meter, house_image_urls, tenant_photo_url, status, created_at, updated_at, resubmitted_at, last_resubmitted_at')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -118,18 +118,31 @@ export function TenantRegistrationReview({ tenantId, tenantName, onBack }: Props
         .sort((a, b) => (b.version ?? 0) - (a.version ?? 0));
       const currentPassport = docRows.find(d => d.doc_type === 'tenant_passport' && d.is_current !== false && d.public_url);
 
+      // Precedence: the newest evidence wins. When the request was resubmitted
+      // after the current document generation was registered, the request
+      // snapshot is the latest submission and must be what the reviewer sees.
+      const resubmittedAt = reqData?.last_resubmitted_at ?? reqData?.resubmitted_at ?? null;
+      const newestDocAt = currentHouseDocs.reduce<number>((max, d) => {
+        const t = d.created_at ? new Date(d.created_at).getTime() : 0;
+        return t > max ? t : max;
+      }, 0);
+      const requestPhotos = (reqData?.house_image_urls as string[] | null) ?? [];
+      const requestIsNewer =
+        !!resubmittedAt && requestPhotos.length > 0 && new Date(resubmittedAt).getTime() > newestDocAt;
+
+      const useDocs = currentHouseDocs.length > 0 && !requestIsNewer;
+
       return {
         profile: profileRes.data,
         landlord: landlordRes.data,
         lc1: lc1Res.data,
         request: reqData,
-        houseImages: currentHouseDocs.length > 0
-          ? currentHouseDocs.map(d => d.public_url as string)
-          : ((reqData?.house_image_urls as string[] | null) ?? []),
-        houseImagesFromDocs: currentHouseDocs.length > 0,
+        houseImages: useDocs ? currentHouseDocs.map(d => d.public_url as string) : requestPhotos,
+        houseImagesFromDocs: useDocs,
         passportUrl: (currentPassport?.public_url as string | undefined) ?? reqData?.tenant_photo_url ?? null,
       };
     },
+
   });
 
 
