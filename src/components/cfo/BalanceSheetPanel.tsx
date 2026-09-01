@@ -568,7 +568,13 @@ export default function BalanceSheetPanel() {
               </div>
               <TotalRow label="Subtotal — Market Place Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0} />
               <SubHeading>Partner and Agent Obligations</SubHeading>
-              <div>{liabilityGroups?.partner.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
+              <div>
+                {partnerRows.map(g => (
+                  g.subtotal
+                    ? <TotalRow key={g.label} label={g.label} value={g.value} />
+                    : <GroupRow key={g.label} group={g} showSources={showSources} />
+                ))}
+              </div>
               <TotalRow label="Subtotal — Partner and Agent Obligations" value={liabilityGroups?.partnerTotal ?? 0} />
               <FlaggedBlock group={liabilityGroups?.flagged} showSources={showSources} />
               <TotalRow label="Total Liabilities" value={data.liabilities.total} />
