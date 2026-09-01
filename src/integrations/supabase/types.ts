@@ -35057,6 +35057,7 @@ export type Database = {
           owner_label: string | null
           owner_staff_id: string | null
           report_id: string
+          reviewer_notified_at: string | null
           zone: string
         }
         Insert: {
@@ -35073,6 +35074,7 @@ export type Database = {
           owner_label?: string | null
           owner_staff_id?: string | null
           report_id: string
+          reviewer_notified_at?: string | null
           zone: string
         }
         Update: {
@@ -35089,6 +35091,7 @@ export type Database = {
           owner_label?: string | null
           owner_staff_id?: string | null
           report_id?: string
+          reviewer_notified_at?: string | null
           zone?: string
         }
         Relationships: [
@@ -49719,6 +49722,10 @@ export type Database = {
       tppo_get_report_zone_a: {
         Args: { p_anchor: string; p_granularity: string }
         Returns: Json
+      }
+      tppo_notify_reviewer_on_overdue_actions: {
+        Args: { p_report_id: string }
+        Returns: number
       }
       tppo_period_bounds: {
         Args: { p_anchor: string; p_granularity: string }
