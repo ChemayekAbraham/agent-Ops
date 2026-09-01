@@ -123,10 +123,6 @@ export default function TenantAssignAgentDialog({
     },
   });
 
-  const selectedListing = useMemo(
-    () => listings.find(l => l.id === listingId),
-    [listings, listingId]
-  );
 
   // Name/phone of the person currently assigned, so the picker shows a real
   // person (not "Selected agent") when the dialog opens.
