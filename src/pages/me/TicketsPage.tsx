@@ -9,7 +9,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Eye } from 'lucide-react';
+import { Eye, Inbox, Ticket, Clock3 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import PersonalLayout from '@/components/layout/PersonalLayout';
 import { getMyStaff } from '@/hr/api';
