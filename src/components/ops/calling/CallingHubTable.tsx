@@ -6,6 +6,7 @@ import { Eye, MessageCircle } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { CALLING_COLUMN_LABEL, type CallingColumnKey } from './callingHubColumns';
 import type { CcRow } from '@/hooks/useCcCallingHub';
+import { telHref } from './ccPhone';
 
 const DASH = '—';
 const fmt = (v: string | null) => (v ? new Date(v).toLocaleString() : DASH);
