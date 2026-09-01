@@ -262,7 +262,7 @@ export function HouseSupportBar({
       return;
     }
     if (overBudget) {
-      toast.error('Your withdrawable balance is not enough for this selection.');
+      toast.error('Your operational float is not enough for this selection.');
       return;
     }
     setBusy(true);
@@ -292,7 +292,7 @@ export function HouseSupportBar({
         setConfirmOpen(false);
         onSubmitted('stale');
       } else if (raw.includes('PARTNER_FUNDS_SHORT')) {
-        toast.error('Your withdrawable balance does not cover this selection.');
+        toast.error('Your operational float does not cover this selection.');
       } else if (raw.includes('PORTFOLIO_KIND_MISMATCH')) {
         setTarget('new');
         toast.error('That portfolio funds rent plans. Houses start their own portfolio.');
@@ -341,7 +341,7 @@ export function HouseSupportBar({
 
         {overBudget ? (
           <p className="mt-2 text-[10px] font-semibold text-destructive">
-            This selection is {formatDynamic(total - available)} more than your withdrawable balance of{' '}
+            This selection is {formatDynamic(total - available)} more than your operational float of{' '}
             {formatDynamic(available)}. Remove a house or add funds.
           </p>
         ) : (
@@ -362,7 +362,7 @@ export function HouseSupportBar({
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
               You are about to commit{' '}
-              <span className="font-black text-primary">{formatDynamic(total)}</span> from your withdrawable
+              <span className="font-black text-primary">{formatDynamic(total)}</span> from your operational
               balance to {selectedCount} house{selectedCount > 1 ? 's' : ''}. The portfolio will stay pending
               until Partner Operations approve it. No landlord or agent payout happens because no tenant is
               involved yet.
