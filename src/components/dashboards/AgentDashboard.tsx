@@ -764,35 +764,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
 
 
 
-  const bikeAmountNum = Math.max(0, parseInt(bikeAmount || '0', 10) || 0);
-  const orderSpiroBike = async () => {
-    if (bikeAmountNum < 1000) {
-      const { toast } = await import('sonner');
-      toast.error('Enter an amount of at least UGX 1,000');
-      return;
-    }
-    if (bikeAmountNum > realWithdrawableBalance) {
-      const { toast } = await import('sonner');
-      toast.error(
-        `Amount exceeds your available wallet balance of ${formatUGX(realWithdrawableBalance)}. Enter ${formatUGX(realWithdrawableBalance)} or less.`
-      );
-      return;
-    }
-    setOrderingBike(true);
-    const { error } = await (supabase as any).rpc('agent_order_spiro_bike', { p_amount: bikeAmountNum });
-    setOrderingBike(false);
-    if (error) {
-      const { toast } = await import('sonner');
-      toast.error(error.message || 'Could not place Spiro bike order');
-      return;
-    }
-    const { toast } = await import('sonner');
-    toast.success(`Welile Spiro Bike requested. ${formatUGX(bikeAmountNum)} will be recovered from your wallet.`);
-    setBikeOpen(false);
-    setBikeAmount('');
-    queryClient.invalidateQueries({ queryKey: ['my-merchandise-plans', user?.id] });
-    queryClient.invalidateQueries({ queryKey: ['my-merchandise-deductions', user?.id] });
-  };
+  // Spiro bike ordering now runs through SpiroBikeOrderDialog (fixed base price
+  // plus a period-based access fee) and is reviewed by Agent Ops.
+
 
   const menuItems = [
     { icon: Store, label: 'Service Center', onClick: () => { hapticTap(); navigate('/agent/service-center'); } },
