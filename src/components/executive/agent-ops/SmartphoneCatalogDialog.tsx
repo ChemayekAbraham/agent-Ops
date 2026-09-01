@@ -682,9 +682,18 @@ export function SmartphoneCatalogDialog() {
               filtered.map((e) =>
                 editingId === e.id ? (
                   <div key={e.id} className="space-y-2 rounded-lg border p-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                       <Input value={editBrand} onChange={(ev) => setEditBrand(ev.target.value)} placeholder="Brand" />
                       <Input value={editModel} onChange={(ev) => setEditModel(ev.target.value)} placeholder="Model (optional)" />
+                      <Select value={editOsType} onValueChange={(v) => setEditOsType(v as SmartphoneOsType)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="android">Android</SelectItem>
+                          <SelectItem value="ios">iPhone (iOS)</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <Input
                         type="number"
                         min={1000}
