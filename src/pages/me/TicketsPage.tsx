@@ -9,7 +9,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Eye } from 'lucide-react';
+import { Eye, Inbox, Ticket, Clock3 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import PersonalLayout from '@/components/layout/PersonalLayout';
 import { getMyStaff } from '@/hr/api';
@@ -44,6 +46,49 @@ const SEVERITY_LABEL: Record<string, string> = {
   high: 'High',
   normal: 'Normal',
 };
+
+const SEVERITY_BADGE: Record<string, string> = {
+  critical: 'bg-destructive/10 text-destructive border-destructive/30',
+  high: 'bg-warning/10 text-warning-foreground border-warning/40 dark:text-warning',
+  normal: 'bg-muted text-muted-foreground border-border',
+};
+
+const STATE_BADGE: Record<string, string> = {
+  Closed: 'bg-muted text-muted-foreground border-border',
+  'Being worked on': 'bg-primary/10 text-primary border-primary/30',
+  'Waiting to be picked up': 'bg-warning/10 text-warning-foreground border-warning/40 dark:text-warning',
+};
+
+function SeverityBadge({ severity }: { severity: string }) {
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        'rounded-full px-2.5 py-0.5 text-[11px] font-medium',
+        SEVERITY_BADGE[severity] ?? SEVERITY_BADGE.normal,
+      )}
+    >
+      {SEVERITY_LABEL[severity] ?? severity}
+    </Badge>
+  );
+}
+
+function StateBadge({ label }: { label: string }) {
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        'rounded-full px-2.5 py-0.5 text-[11px] font-medium',
+        STATE_BADGE[label] ?? 'bg-muted text-muted-foreground border-border',
+      )}
+    >
+      {label}
+    </Badge>
+  );
+}
+
+const headCell =
+  'h-10 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground';
 
 function when(value: string | null) {
   if (!value) return '—';
@@ -265,56 +310,94 @@ const TicketsPage = () => {
       <div className="space-y-4">
         <RaiseTicket staffId={staff?.id ?? null} />
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Waiting to be picked up</CardTitle>
+        <Card className="overflow-hidden border-border/70 shadow-card">
+          <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 border-b border-border/60 bg-muted/30 px-4 py-3">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-warning/10 text-warning-foreground dark:text-warning">
+                <Clock3 className="h-4 w-4" />
+              </span>
+              <div>
+                <CardTitle className="text-sm font-semibold tracking-tight">
+                  Waiting to be picked up
+                </CardTitle>
+                <p className="text-[11px] text-muted-foreground">Oldest first</p>
+              </div>
+            </div>
+            <Badge
+              variant="outline"
+              className="rounded-full border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary"
+            >
+              {queue.length}
+            </Badge>
           </CardHeader>
           <CardContent className="p-0">
             {queue.length === 0 ? (
-              <p className="p-4 text-center text-sm text-muted-foreground">Nothing waiting right now</p>
+              <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <Inbox className="h-5 w-5" />
+                </span>
+                <p className="text-sm font-medium">Nothing waiting right now</p>
+                <p className="text-xs text-muted-foreground">New tickets appear here instantly.</p>
+              </div>
             ) : (
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Ref</TableHead>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Raised by</TableHead>
-                    <TableHead>Area</TableHead>
-                    <TableHead>How bad</TableHead>
-                    <TableHead>Raised</TableHead>
-                    <TableHead className="w-[64px] text-center">View</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
+                <TableHeader className="[&_tr]:border-b [&_tr]:border-border/60">
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableHead className={headCell}>Ref</TableHead>
+                    <TableHead className={headCell}>Title</TableHead>
+                    <TableHead className={headCell}>Raised by</TableHead>
+                    <TableHead className={headCell}>Area</TableHead>
+                    <TableHead className={headCell}>How bad</TableHead>
+                    <TableHead className={headCell}>Raised</TableHead>
+                    <TableHead className={cn(headCell, 'w-[64px] text-center')}>View</TableHead>
+                    <TableHead className={cn(headCell, 'text-right')}>Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {queue.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell className="font-mono text-xs">{row.ref}</TableCell>
-                      <TableCell className="max-w-[280px] text-sm">{row.title}</TableCell>
-                      <TableCell className="text-xs">{creatorNames[row.id] || '—'}</TableCell>
-                      <TableCell className="text-xs">{row.hr_ticket_surfaces?.label ?? '—'}</TableCell>
-                      <TableCell className="text-xs">{SEVERITY_LABEL[row.severity] ?? row.severity}</TableCell>
-                      <TableCell className="text-xs">{when(row.raised_at)}</TableCell>
-                      <TableCell className="text-center">
+                    <TableRow
+                      key={row.id}
+                      className="border-border/50 transition-colors hover:bg-primary/[0.04]"
+                    >
+                      <TableCell className="py-3 font-mono text-xs font-medium text-muted-foreground">
+                        {row.ref}
+                      </TableCell>
+                      <TableCell className="max-w-[280px] py-3 text-sm font-medium text-foreground">
+                        {row.title}
+                      </TableCell>
+                      <TableCell className="py-3 text-xs text-muted-foreground">
+                        {creatorNames[row.id] || '—'}
+                      </TableCell>
+                      <TableCell className="py-3 text-xs text-muted-foreground">
+                        {row.hr_ticket_surfaces?.label ?? '—'}
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <SeverityBadge severity={row.severity} />
+                      </TableCell>
+                      <TableCell className="py-3 text-xs tabular-nums text-muted-foreground">
+                        {when(row.raised_at)}
+                      </TableCell>
+                      <TableCell className="py-3 text-center">
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="h-8 w-8"
+                          className="h-8 w-8 rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
                           aria-label={`View ticket ${row.ref}`}
                           onClick={() => setViewing(row)}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="py-3 text-right">
                         {isEngineering ? (
                           <Button
                             size="sm"
                             variant="outline"
+                            className="h-8 rounded-full border-primary/30 bg-primary/5 px-3 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
                             disabled={claiming === row.id}
                             onClick={() => void claim(row)}
                           >
-                            Claim
+                            {claiming === row.id ? 'Claiming…' : 'Claim'}
                           </Button>
                         ) : null}
                       </TableCell>
@@ -326,34 +409,69 @@ const TicketsPage = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">My tickets</CardTitle>
+        <Card className="overflow-hidden border-border/70 shadow-card">
+          <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 border-b border-border/60 bg-muted/30 px-4 py-3">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Ticket className="h-4 w-4" />
+              </span>
+              <div>
+                <CardTitle className="text-sm font-semibold tracking-tight">My tickets</CardTitle>
+                <p className="text-[11px] text-muted-foreground">Everything you raised</p>
+              </div>
+            </div>
+            <Badge
+              variant="outline"
+              className="rounded-full border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary"
+            >
+              {mine.length}
+            </Badge>
           </CardHeader>
           <CardContent className="p-0">
             {mine.length === 0 ? (
-              <p className="p-4 text-center text-sm text-muted-foreground">You have not raised any yet</p>
+              <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <Ticket className="h-5 w-5" />
+                </span>
+                <p className="text-sm font-medium">You have not raised any yet</p>
+                <p className="text-xs text-muted-foreground">Use the form above to raise one.</p>
+              </div>
             ) : (
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Ref</TableHead>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Area</TableHead>
-                    <TableHead>How bad</TableHead>
-                    <TableHead>Raised</TableHead>
-                    <TableHead>State</TableHead>
+                <TableHeader className="[&_tr]:border-b [&_tr]:border-border/60">
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableHead className={headCell}>Ref</TableHead>
+                    <TableHead className={headCell}>Title</TableHead>
+                    <TableHead className={headCell}>Area</TableHead>
+                    <TableHead className={headCell}>How bad</TableHead>
+                    <TableHead className={headCell}>Raised</TableHead>
+                    <TableHead className={headCell}>State</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {mine.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell className="font-mono text-xs">{row.ref}</TableCell>
-                      <TableCell className="max-w-[280px] text-sm">{row.title}</TableCell>
-                      <TableCell className="text-xs">{row.hr_ticket_surfaces?.label ?? '—'}</TableCell>
-                      <TableCell className="text-xs">{SEVERITY_LABEL[row.severity] ?? row.severity}</TableCell>
-                      <TableCell className="text-xs">{when(row.raised_at)}</TableCell>
-                      <TableCell className="text-xs">{state(row)}</TableCell>
+                    <TableRow
+                      key={row.id}
+                      className="border-border/50 transition-colors hover:bg-primary/[0.04]"
+                    >
+                      <TableCell className="py-3 font-mono text-xs font-medium text-muted-foreground">
+                        {row.ref}
+                      </TableCell>
+                      <TableCell className="max-w-[280px] py-3 text-sm font-medium text-foreground">
+                        {row.title}
+                      </TableCell>
+                      <TableCell className="py-3 text-xs text-muted-foreground">
+                        {row.hr_ticket_surfaces?.label ?? '—'}
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <SeverityBadge severity={row.severity} />
+                      </TableCell>
+                      <TableCell className="py-3 text-xs tabular-nums text-muted-foreground">
+                        {when(row.raised_at)}
+                      </TableCell>
+                      <TableCell className="py-3">
+                        <StateBadge label={state(row)} />
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

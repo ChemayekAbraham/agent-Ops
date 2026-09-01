@@ -81,10 +81,20 @@ function sizeLabel(bytes: number | null) {
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="space-y-0.5">
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="text-sm break-words">{value || '—'}</p>
+    <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-0.5 break-words text-sm font-medium text-foreground">{value || '—'}</p>
     </div>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+      {children}
+    </p>
   );
 }
 
@@ -131,34 +141,51 @@ export default function TicketDetailDialog({
 
   return (
     <Dialog open={!!ticket} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto p-0">
         {ticket ? (
           <>
-            <DialogHeader className="space-y-2 text-left">
+            <DialogHeader className="space-y-2 border-b border-border/60 bg-muted/30 px-5 py-4 text-left">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-xs text-muted-foreground">{ticket.ref}</span>
-                <Badge variant={ticket.severity === 'critical' ? 'destructive' : 'secondary'}>
+                <span className="rounded-md border border-border/60 bg-background px-2 py-0.5 font-mono text-[11px] font-medium text-muted-foreground">
+                  {ticket.ref}
+                </span>
+                <Badge
+                  variant="outline"
+                  className={
+                    ticket.severity === 'critical'
+                      ? 'rounded-full border-destructive/30 bg-destructive/10 px-2.5 py-0.5 text-[11px] font-medium text-destructive'
+                      : 'rounded-full border-border bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground'
+                  }
+                >
                   {severityLabel}
                 </Badge>
-                <Badge variant="outline">{stateLabel}</Badge>
+                <Badge
+                  variant="outline"
+                  className="rounded-full border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary"
+                >
+                  {stateLabel}
+                </Badge>
               </div>
-              <DialogTitle className="text-base leading-snug">{ticket.title}</DialogTitle>
+              <DialogTitle className="text-base font-semibold leading-snug tracking-tight">
+                {ticket.title}
+              </DialogTitle>
               <DialogDescription className="text-xs">
                 Raised by {creatorLabel || people?.raised_by_name || '—'} · {when(ticket.raised_at)}
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
-              <div>
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Description
+            <div className="space-y-4 px-5 pb-5">
+              <div className="rounded-xl border border-border/60 bg-card p-3.5">
+                <SectionLabel>Description</SectionLabel>
+                <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed">
+                  {ticket.body || '—'}
                 </p>
-                <p className="mt-1 whitespace-pre-wrap text-sm">{ticket.body || '—'}</p>
               </div>
 
-              <Separator />
+              <Separator className="bg-border/60" />
 
-              <div className="grid gap-4 sm:grid-cols-2">
+
+              <div className="grid gap-2.5 sm:grid-cols-2">
                 <Field label="Area" value={ticket.hr_ticket_surfaces?.label} />
                 <Field label="How bad" value={severityLabel} />
                 <Field label="Why this severity" value={ticket.severity_basis} />
@@ -177,8 +204,8 @@ export default function TicketDetailDialog({
                 ticket.reporter_channel ||
                 ticket.reporter_words) && (
                 <>
-                  <Separator />
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <Separator className="bg-border/60" />
+                  <div className="grid gap-2.5 sm:grid-cols-2">
                     <Field label="Reporter" value={ticket.reporter_name} />
                     <Field label="Contact" value={ticket.reporter_contact} />
                     <Field
@@ -196,8 +223,8 @@ export default function TicketDetailDialog({
 
               {(people?.assignee_name || people?.task_title || ticket.closed_no_task_at) && (
                 <>
-                  <Separator />
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <Separator className="bg-border/60" />
+                  <div className="grid gap-2.5 sm:grid-cols-2">
                     <Field label="Picked up by" value={people?.assignee_name} />
                     <Field label="Work item" value={people?.task_title} />
                     <Field label="Closed" value={when(ticket.closed_no_task_at)} />
@@ -208,26 +235,29 @@ export default function TicketDetailDialog({
                 </>
               )}
 
-              <Separator />
+              <Separator className="bg-border/60" />
               <div className="space-y-2">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Attachments
-                </p>
+                <SectionLabel>Attachments</SectionLabel>
                 {attachments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">None attached</p>
+                  <p className="rounded-lg border border-dashed border-border/70 px-3 py-2.5 text-sm text-muted-foreground">
+                    None attached
+                  </p>
                 ) : (
-                  <ul className="space-y-1">
+                  <ul className="space-y-1.5">
                     {attachments.map((a) => (
-                      <li key={a.id} className="flex items-center gap-2 text-sm">
-                        <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                      <li
+                        key={a.id}
+                        className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm transition-colors hover:border-primary/30 hover:bg-primary/[0.05]"
+                      >
+                        <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         <button
                           type="button"
-                          className="truncate text-left underline-offset-2 hover:underline"
+                          className="truncate rounded text-left font-medium underline-offset-2 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           onClick={() => void openAttachment(a.storage_path)}
                         >
                           {a.file_name || a.storage_path.split('/').pop()}
                         </button>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
                           {sizeLabel(a.size_bytes)}
                         </span>
                       </li>
@@ -236,13 +266,18 @@ export default function TicketDetailDialog({
                 )}
               </div>
 
-              <div className="flex flex-wrap justify-end gap-2 pt-2">
-                {canClaim && onClaim ? (
-                  <Button size="sm" disabled={claiming} onClick={() => void onClaim()}>
+              {canClaim && onClaim ? (
+                <div className="flex flex-wrap justify-end gap-2 border-t border-border/60 pt-3">
+                  <Button
+                    size="sm"
+                    className="h-9 rounded-full px-5 font-semibold shadow-sm"
+                    disabled={claiming}
+                    onClick={() => void onClaim()}
+                  >
                     {claiming ? 'Claiming…' : 'Claim'}
                   </Button>
-                ) : null}
-              </div>
+                </div>
+              ) : null}
             </div>
           </>
         ) : null}
