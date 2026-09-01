@@ -225,6 +225,9 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
 
     const term = search.trim().toLowerCase();
     return list.filter((r) => {
+      const outstanding = Number(r.outstanding_amount || 0);
+      // "Issued in field" keeps only agents still owing; fully repaid agents live in "Completed payments".
+      if (showCompleted ? outstanding > 0 : mode === 'issued' && outstanding <= 0) return false;
       const names = (r.product_names || []).join(' ').toLowerCase();
       if (itemFilter !== 'all' && !names.includes(itemFilter.toLowerCase())) return false;
       if (!term) return true;
@@ -235,7 +238,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
         names.includes(term)
       );
     });
-  }, [data?.rows, search, itemFilter]);
+  }, [data?.rows, search, itemFilter, showCompleted, mode]);
 
   /** Service centre per agent, taken from the already-loaded issued rows — no extra round trip. */
   const centreByAgent = useMemo(() => {
