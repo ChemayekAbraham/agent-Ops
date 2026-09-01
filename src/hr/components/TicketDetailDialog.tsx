@@ -237,9 +237,6 @@ export default function TicketDetailDialog({
               </div>
 
               <div className="flex flex-wrap justify-end gap-2 pt-2">
-                <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
-                  Close
-                </Button>
                 {canClaim && onClaim ? (
                   <Button size="sm" disabled={claiming} onClick={() => void onClaim()}>
                     {claiming ? 'Claiming…' : 'Claim'}
