@@ -438,7 +438,7 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
       // Upload replaced photos / LC letter FIRST so the resubmit carries the
       // new evidence in the same patch the reviewer sees.
       let evidencePatch: Record<string, unknown> = {};
-      if (newPhotos.some(Boolean) || newLcLetter) {
+      if (newPhotos.some(Boolean) || droppedExisting.some(Boolean) || newLcLetter) {
         setUploadingEvidence(true);
         try {
           evidencePatch = await uploadEvidence(request.id);
