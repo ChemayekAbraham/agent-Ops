@@ -277,6 +277,7 @@ const TicketsPage = () => {
                     <TableRow key={row.id}>
                       <TableCell className="font-mono text-xs">{row.ref}</TableCell>
                       <TableCell className="max-w-[280px] text-sm">{row.title}</TableCell>
+                      <TableCell className="text-xs">{creatorNames[row.raised_by ?? ''] || '—'}</TableCell>
                       <TableCell className="text-xs">{row.hr_ticket_surfaces?.label ?? '—'}</TableCell>
                       <TableCell className="text-xs">{SEVERITY_LABEL[row.severity] ?? row.severity}</TableCell>
                       <TableCell className="text-xs">{when(row.raised_at)}</TableCell>
