@@ -118,18 +118,31 @@ export function TenantRegistrationReview({ tenantId, tenantName, onBack }: Props
         .sort((a, b) => (b.version ?? 0) - (a.version ?? 0));
       const currentPassport = docRows.find(d => d.doc_type === 'tenant_passport' && d.is_current !== false && d.public_url);
 
+      // Precedence: the newest evidence wins. When the request was resubmitted
+      // after the current document generation was registered, the request
+      // snapshot is the latest submission and must be what the reviewer sees.
+      const resubmittedAt = reqData?.last_resubmitted_at ?? reqData?.resubmitted_at ?? null;
+      const newestDocAt = currentHouseDocs.reduce<number>((max, d) => {
+        const t = d.created_at ? new Date(d.created_at).getTime() : 0;
+        return t > max ? t : max;
+      }, 0);
+      const requestPhotos = (reqData?.house_image_urls as string[] | null) ?? [];
+      const requestIsNewer =
+        !!resubmittedAt && requestPhotos.length > 0 && new Date(resubmittedAt).getTime() > newestDocAt;
+
+      const useDocs = currentHouseDocs.length > 0 && !requestIsNewer;
+
       return {
         profile: profileRes.data,
         landlord: landlordRes.data,
         lc1: lc1Res.data,
         request: reqData,
-        houseImages: currentHouseDocs.length > 0
-          ? currentHouseDocs.map(d => d.public_url as string)
-          : ((reqData?.house_image_urls as string[] | null) ?? []),
-        houseImagesFromDocs: currentHouseDocs.length > 0,
+        houseImages: useDocs ? currentHouseDocs.map(d => d.public_url as string) : requestPhotos,
+        houseImagesFromDocs: useDocs,
         passportUrl: (currentPassport?.public_url as string | undefined) ?? reqData?.tenant_photo_url ?? null,
       };
     },
+
   });
 
 
