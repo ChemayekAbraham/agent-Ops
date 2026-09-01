@@ -192,21 +192,18 @@ export default function TenantAssignAgentDialog({
               <UserPlus className="h-3.5 w-3.5" /> Assigned Agent
             </Label>
             {agentId ? (
-              <div className="flex items-center gap-2 p-2.5 rounded-md border bg-muted/30">
+              <div className="flex items-center gap-2 p-2.5 rounded-md border border-primary/40 bg-primary/5">
                 <User className="h-4 w-4 text-primary shrink-0" />
                 <div className="flex-1 min-w-0">
-                  {(() => {
-                    const a = agents.find((x) => x.id === agentId);
-                    return a ? (
-                      <>
-                        <p className="text-sm font-medium truncate">{a.full_name || 'Unnamed'}</p>
-                        {a.phone ? <p className="text-xs text-muted-foreground truncate">{a.phone}</p> : null}
-                      </>
-                    ) : (
-                      <p className="text-sm text-muted-foreground truncate">Selected agent</p>
-                    );
-                  })()}
+                  <p className="text-[10px] uppercase tracking-wide font-semibold text-primary">
+                    {agentId === currentAgentId ? 'Currently assigned' : 'Selected'}
+                  </p>
+                  <p className="text-sm font-medium truncate">{shownAgent?.full_name || 'Unnamed'}</p>
+                  {shownAgent?.phone ? (
+                    <p className="text-xs text-muted-foreground truncate">{shownAgent.phone}</p>
+                  ) : null}
                 </div>
+
                 <Button
                   type="button"
                   variant="ghost"
