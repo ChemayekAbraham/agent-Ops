@@ -207,17 +207,16 @@ export function CallDrawer({
   );
 
   const handleHangUp = useCallback(() => {
-    // Tell the provider first: `crm_cancel_call` flags the leg so the voice
-    // callback answers with <Hangup/> instead of bridging. Previously this
-    // button only changed the drawer, so both handsets kept ringing and the
-    // customer was still dialled the moment the staff leg picked up.
+    // `crm-hangup-call` flags the leg (voice callback then answers <Hangup/>
+    // instead of bridging) and also asks the provider to drop the leg now.
+    // `providerDropped` says whether the network actually killed it immediately.
     if (callId) {
       cancelCall
         .mutateAsync(callId)
-        .then(() => {
-          // The voice provider offers no remote hang-up for a leg that is
-          // already up, so be honest instead of implying the line is dead.
-          if (phase === 'connected') {
+        .then((res) => {
+          if (res?.providerDropped) {
+            toast.success('Call dropped on the phone network.');
+          } else if (phase === 'connected') {
             toast.info('Call closed here. Put your handset down to drop the line.');
           } else {
             toast.info('Call cancelled. A handset already ringing may ring a few more seconds.');
