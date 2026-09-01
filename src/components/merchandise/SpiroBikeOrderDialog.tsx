@@ -100,8 +100,8 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
             <Bike className="h-4 w-4 text-primary" /> Order a Welile Spiro Bike
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Bike price is {formatUGX(SPIRO_BIKE_BASE_PRICE)}. Choose your repayment period — the
-            access fee and monthly repayment update automatically.
+            Choose your repayment period — the total access fee and total repayable amount update
+            automatically.
           </DialogDescription>
         </DialogHeader>
 
