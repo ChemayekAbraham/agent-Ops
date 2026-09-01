@@ -1403,7 +1403,13 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
           </SheetHeader>
           {selectedRequest && (
             <div className="space-y-4 mt-4 overflow-y-auto max-h-[calc(85vh-80px)] pb-6">
+              {/* Tenant status first: renewal vs new tenant, with existing payment history */}
+              <TenantPaymentHistoryCard
+                tenantId={selectedRequest.tenant_id}
+                currentRequestId={selectedRequest.id}
+              />
               {selectedRequest.registration_type === 'outstanding_balance' && (
+
                 <div className="rounded-xl border-2 border-amber-500/30 bg-amber-500/5 p-3 flex items-start gap-2">
                   <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
                   <div className="text-xs">
