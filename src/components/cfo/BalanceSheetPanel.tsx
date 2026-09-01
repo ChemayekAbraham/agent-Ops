@@ -216,6 +216,8 @@ export default function BalanceSheetPanel() {
   const [exporting, setExporting] = useState(false);
   /** Presentation-only breakdown of the existing Landlord Float. */
   const [floatSplit, setFloatSplit] = useState<LandlordFloatSplit | null>(null);
+  /** Presentation-only breakdown of Partner Portfolio Capital Held. */
+  const [capitalSplit, setCapitalSplit] = useState<LandlordFloatSplit | null>(null);
 
   const load = useCallback(async (date: Date) => {
     setLoading(true);
