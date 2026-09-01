@@ -49700,6 +49700,21 @@ export type Database = {
         }[]
       }
       topup_dedup_bucket: { Args: { ts: string }; Returns: string }
+      tppo_freeze_period: {
+        Args: { p_anchor: string; p_finalise?: boolean; p_granularity: string }
+        Returns: string
+      }
+      tppo_get_report_zone_a: {
+        Args: { p_anchor: string; p_granularity: string }
+        Returns: Json
+      }
+      tppo_period_bounds: {
+        Args: { p_anchor: string; p_granularity: string }
+        Returns: {
+          period_end: string
+          period_start: string
+        }[]
+      }
       trigger_agent_liability_for_unpaid_rents: {
         Args: never
         Returns: {
