@@ -43663,6 +43663,7 @@ export type Database = {
         }
         Returns: Json
       }
+      funder_float_available: { Args: { p_user_id: string }; Returns: number }
       funder_has_signed_agreement: {
         Args: { p_user_id: string }
         Returns: boolean
