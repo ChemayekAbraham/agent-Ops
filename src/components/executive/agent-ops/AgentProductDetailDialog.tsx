@@ -166,7 +166,10 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
                   </div>
                   <div className="flex flex-wrap gap-1 pt-0.5">
                     {(agent?.roles ?? []).length === 0 ? (
-                      <Badge variant="outline" className="text-[10px]">No role</Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        {agent?.email ? 'No role' : 'Profile not linked'}
+                      </Badge>
+                    ) : (
                     ) : (
                       (agent?.roles ?? []).map((r) => (
                         <Badge key={r} variant="secondary" className="text-[10px] capitalize">
