@@ -104,6 +104,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const canSubmit = !hasOpenApplication && !!selected && price > 0 && docsReady;
 
   const reset = () => {
+    setOsType('android');
     setCatalogId('');
     setMonths('12');
     setDocsReady(false);
