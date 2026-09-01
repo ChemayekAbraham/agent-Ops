@@ -32061,6 +32061,7 @@ export type Database = {
           is_active: boolean
           model_name: string | null
           more_specifications: string | null
+          os_type: string
           specifications: string | null
           supplier_id: string | null
           supplier_name: string | null
@@ -32076,6 +32077,7 @@ export type Database = {
           is_active?: boolean
           model_name?: string | null
           more_specifications?: string | null
+          os_type: string
           specifications?: string | null
           supplier_id?: string | null
           supplier_name?: string | null
@@ -32091,6 +32093,7 @@ export type Database = {
           is_active?: boolean
           model_name?: string | null
           more_specifications?: string | null
+          os_type?: string
           specifications?: string | null
           supplier_id?: string | null
           supplier_name?: string | null
