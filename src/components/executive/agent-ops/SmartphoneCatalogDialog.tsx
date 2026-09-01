@@ -528,7 +528,7 @@ export function SmartphoneCatalogDialog() {
                       </Button>
                     )}
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div className="space-y-1">
                       <Label className="text-xs">
                         Model name <span className="text-muted-foreground font-normal">— optional</span>
@@ -538,6 +538,21 @@ export function SmartphoneCatalogDialog() {
                         onChange={(e) => updateRow(row.key, { modelName: e.target.value })}
                         placeholder="e.g. Galaxy A14"
                       />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Operating system</Label>
+                      <Select
+                        value={row.osType}
+                        onValueChange={(v) => updateRow(row.key, { osType: v as SmartphoneOsType })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="android">Android</SelectItem>
+                          <SelectItem value="ios">iPhone (iOS)</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">
