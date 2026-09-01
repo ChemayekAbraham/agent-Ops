@@ -178,11 +178,12 @@ export function SelfPortfolioDeployDialog({
             duration: 9000,
           });
         } else {
-          toast.success('Sent to the landlord float', {
-            description: `${formatDynamic(total)} moved out of your ${Number(payload.from_float ?? 0) > 0 ? 'wallet and operational float' : 'spendable wallet'} onto the tenant's agent landlord float.`,
+          toast.success('Submitted — pending approval', {
+            description: `${formatDynamic(total)} is committed and waiting for Partner Operations to verify it. Nothing leaves your wallet or operational float until they approve, and only then is it released to the landlord float.`,
             duration: 9000,
           });
         }
+
       } else if (choice === 'topup' && eligibility) {
         const { error } = await supabase.rpc('partner_self_top_up', {
           p_commitment_id: eligibility.commitment_id,
