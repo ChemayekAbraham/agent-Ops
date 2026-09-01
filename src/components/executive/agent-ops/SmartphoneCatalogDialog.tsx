@@ -735,6 +735,8 @@ export function SmartphoneCatalogDialog() {
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold">{labelOf(e)}</p>
                       <p className="text-xs text-muted-foreground">
+                        {e.os_type ? osLabel(e.os_type) : 'Phone'}
+                        {' · '}
                         {e.default_amount != null ? formatUGX(Number(e.default_amount)) : 'No default amount'}
                         {' · added '}
                         {fmtDate(e.created_at)}
