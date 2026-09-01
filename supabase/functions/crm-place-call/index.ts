@@ -143,21 +143,48 @@ Deno.serve(async (req) => {
       body: form,
     });
 
-    const payload = await res.json().catch(() => null) as
-      | { entries?: Array<{ sessionId?: string; status?: string; errorMessage?: string }>; errorMessage?: string }
-      | null;
+    const raw = await res.text();
+    let payload: {
+      entries?: Array<{ sessionId?: string; status?: string; errorMessage?: string; phoneNumber?: string }>;
+      errorMessage?: string;
+    } | null = null;
+    try {
+      payload = JSON.parse(raw);
+    } catch {
+      payload = null;
+    }
 
     const entry = payload?.entries?.[0];
-    const providerOk = res.ok && (entry?.status ?? '').toLowerCase() === 'queued';
+    const entryStatus = (entry?.status ?? '').toLowerCase();
+    // AT reports acceptance as Queued (occasionally Success / Ringing).
+    const providerOk = res.ok && ['queued', 'success', 'ringing'].includes(entryStatus);
 
     if (!providerOk) {
-      const reason = entry?.errorMessage ?? payload?.errorMessage ?? `provider_http_${res.status}`;
+      // Full provider echo — a bare "None" errorMessage is useless on its own.
+      console.error('[crm-place-call] provider rejected', {
+        callId: session.id,
+        httpStatus: res.status,
+        entryStatus: entry?.status ?? null,
+        body: raw.slice(0, 800),
+      });
+      const detail = entry?.errorMessage && entry.errorMessage !== 'None' ? entry.errorMessage : null;
+      const reason =
+        detail ??
+        payload?.errorMessage ??
+        (entry?.status ? `provider_status_${entry.status}` : `provider_http_${res.status}`);
       await admin
         .from('crm_call_sessions')
         .update({ status: 'failed', failure_reason: String(reason).slice(0, 300) })
         .eq('id', session.id);
       return json({ error: 'provider_rejected', message: String(reason), callId: session.id }, 502);
     }
+
+    console.log('[crm-place-call] provider accepted', {
+      callId: session.id,
+      atSessionId: entry?.sessionId ?? null,
+      entryStatus,
+    });
+
 
     await admin
       .from('crm_call_sessions')
