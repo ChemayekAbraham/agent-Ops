@@ -14,6 +14,9 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
+} from '@/components/ui/sheet';
 import { UserAvatar } from '@/components/UserAvatar';
 import { AgentProductDetailDialog } from './AgentProductDetailDialog';
 import { formatUGX } from '@/lib/rentCalculations';
