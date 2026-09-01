@@ -448,7 +448,7 @@ export function SelfPortfolioDeployDialog({
                   ? 'Add to portfolio'
                   : choice === 'direct'
                     ? covered
-                      ? 'Send to landlord float'
+                      ? 'Support Tenant'
                       : 'Pledge with deposit date'
                     : 'Start new portfolio'}
               </span>
