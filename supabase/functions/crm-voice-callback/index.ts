@@ -163,18 +163,21 @@ Deno.serve(async (req) => {
       : done();
   }
 
+  /** Stable non-null handle, so closures below keep the narrowing. */
+  const row = session;
 
   /** Patch helper — every write is checked and logged. */
   const patch = async (values: Record<string, unknown>, label: string) => {
-    const { error } = await admin.from('crm_call_sessions').update(values).eq('id', session.id);
+    const { error } = await admin.from('crm_call_sessions').update(values).eq('id', row.id);
     if (error) {
       console.error(`[crm-voice-callback] ${label} update failed`, {
-        callId: session.id,
+        callId: row.id,
         code: error.code,
         message: error.message,
       });
     }
   };
+
 
   // Keep the provider session id attached the first time we see it.
   if (atSessionId && session.at_session_id !== atSessionId) {
