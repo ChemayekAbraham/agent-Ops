@@ -77,6 +77,11 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
   // on resubmit; untouched slots keep their existing URL.
   const [existingPhotos, setExistingPhotos] = useState<(string | null)[]>([]);
   const [newPhotos, setNewPhotos] = useState<({ file: File; preview: string } | null)[]>([]);
+  // Slots whose on-file photo the agent explicitly dropped. A dropped slot is
+  // never carried into the resubmission, so the submitted set is exactly what
+  // the agent is submitting now.
+  const [droppedExisting, setDroppedExisting] = useState<boolean[]>([]);
+
   const [existingLcPath, setExistingLcPath] = useState<string | null>(null);
   const [existingLcUrl, setExistingLcUrl] = useState<string | null>(null);
   const [newLcLetter, setNewLcLetter] = useState<{ file: File; preview: string } | null>(null);
