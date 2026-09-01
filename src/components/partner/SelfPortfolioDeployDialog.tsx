@@ -83,9 +83,10 @@ export function SelfPortfolioDeployDialog({
   const loadEligibility = useCallback(async () => {
     if (!activeCommitmentId) {
       setEligibility(null);
-      setChoice('new');
+      setChoice('direct');
       return;
     }
+
     setLoading(true);
     const { data, error } = await supabase.rpc('partner_self_topup_eligibility', {
       p_commitment_id: activeCommitmentId,
@@ -134,6 +135,20 @@ export function SelfPortfolioDeployDialog({
   const covered = capacity !== null && capacity >= total && total > 0;
   const needsDepositDate = choice === 'direct' && !covered;
   const todayISO = new Date().toISOString().slice(0, 10);
+
+  /**
+   * With no active self-support portfolio, the direct landlord-float release is the
+   * offer. The new-portfolio path only reappears when a direct release cannot cover
+   * the amount, so the landlord float can still be funded another way.
+   */
+  const showNewPortfolio = !!eligibility || !covered;
+
+  useEffect(() => {
+    if (!open || eligibility) return;
+    setChoice(covered ? 'direct' : 'new');
+  }, [open, eligibility, covered]);
+
+
 
 
   const deploy = async () => {
@@ -296,6 +311,7 @@ export function SelfPortfolioDeployDialog({
               </button>
             )}
 
+            {showNewPortfolio && (
             <button
               type="button"
               disabled={busy}
@@ -315,7 +331,7 @@ export function SelfPortfolioDeployDialog({
                     Fresh start date, one monthly payout on its own anniversary date.
                   </p>
                 </div>
-                {(!eligibility || !canTopUp || cyclesRemaining < 3) && (
+                {eligibility && (!canTopUp || cyclesRemaining < 3) && (
                   <Badge className="gap-1 text-[10px] shrink-0 bg-primary text-primary-foreground hover:bg-primary">
                     <Star className="h-3 w-3 fill-current" aria-hidden="true" />
                     Recommended
@@ -337,6 +353,7 @@ export function SelfPortfolioDeployDialog({
                 ))}
               </div>
             </button>
+            )}
 
 
             <button
@@ -360,9 +377,17 @@ export function SelfPortfolioDeployDialog({
                       : 'You have no balance to cover this. It is recorded as a landlord float receivable and releases once you deposit on the date you choose.'}
                   </p>
                 </div>
-                <Badge variant={covered ? 'secondary' : 'outline'} className="text-[10px] shrink-0">
-                  {covered ? 'Instant' : 'Deposit date needed'}
-                </Badge>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {!eligibility && covered && (
+                    <Badge className="gap-1 text-[10px] bg-primary text-primary-foreground hover:bg-primary">
+                      <Star className="h-3 w-3 fill-current" aria-hidden="true" />
+                      Recommended
+                    </Badge>
+                  )}
+                  <Badge variant={covered ? 'secondary' : 'outline'} className="text-[10px]">
+                    {covered ? 'Instant' : 'Deposit date needed'}
+                  </Badge>
+                </div>
               </div>
               <div className="mt-2 grid grid-cols-3 gap-2">
                 {[
