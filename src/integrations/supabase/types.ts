@@ -46419,6 +46419,16 @@ export type Database = {
         Returns: number
       }
       hr_task_wip_limit: { Args: never; Returns: number }
+      hr_ticket_people: {
+        Args: { p_ticket_ids: string[] }
+        Returns: {
+          assignee_name: string
+          closed_by_name: string
+          raised_by_name: string
+          task_title: string
+          ticket_id: string
+        }[]
+      }
       hr_transfer_position: {
         Args: {
           p_from_assignment: string
