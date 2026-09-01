@@ -92,7 +92,7 @@ const CATEGORY_SUGGESTIONS: Record<AgentProductCategory, string[]> = {
   boutique: ['Welile Jumper', 'Welile Jacket', 'Welile Polo', 'Welile T-Shirt', 'Welile Cap', 'Company ID', 'Umbrella', 'Branded Bag'],
 };
 
-export function AgentProductsPanel({ category, mode = 'full' }: { category?: AgentProductCategory; mode?: 'overview' | 'issued' | 'applications' | 'full' } = {}) {
+export function AgentProductsPanel({ category, mode = 'full' }: { category?: AgentProductCategory; mode?: 'overview' | 'issued' | 'applications' | 'completed' | 'full' } = {}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [itemFilter, setItemFilter] = useState('all');
@@ -108,7 +108,8 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
   const scopeLabel = category ? CATEGORY_LABELS[category] : null;
   const showApplications = mode === 'applications';
   const showOverview = mode === 'overview' || mode === 'full';
-  const showIssued = mode === 'issued' || mode === 'full';
+  const showCompleted = mode === 'completed';
+  const showIssued = mode === 'issued' || mode === 'full' || showCompleted;
 
 
   const deleteHolding = useMutation({
@@ -224,6 +225,9 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
 
     const term = search.trim().toLowerCase();
     return list.filter((r) => {
+      const outstanding = Number(r.outstanding_amount || 0);
+      // "Issued in field" keeps only agents still owing; fully repaid agents live in "Completed payments".
+      if (showCompleted ? outstanding > 0 : mode === 'issued' && outstanding <= 0) return false;
       const names = (r.product_names || []).join(' ').toLowerCase();
       if (itemFilter !== 'all' && !names.includes(itemFilter.toLowerCase())) return false;
       if (!term) return true;
@@ -234,7 +238,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
         names.includes(term)
       );
     });
-  }, [data?.rows, search, itemFilter]);
+  }, [data?.rows, search, itemFilter, showCompleted, mode]);
 
   /** Service centre per agent, taken from the already-loaded issued rows — no extra round trip. */
   const centreByAgent = useMemo(() => {
@@ -763,7 +767,9 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">
-              {scopeLabel ? `${scopeLabel} in the field` : 'Products in the field'} ({rows.length})
+              {showCompleted
+                ? `${scopeLabel ?? 'Products'} fully repaid`
+                : scopeLabel ? `${scopeLabel} in the field` : 'Products in the field'} ({rows.length})
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -773,9 +779,11 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
               </div>
             ) : rows.length === 0 ? (
               <p className="p-6 text-sm text-muted-foreground text-center">
-                {scopeLabel
-                  ? `No ${scopeLabel.toLowerCase()} issued to agents yet. Use “New entry” to record one.`
-                  : 'No products issued to agents yet. Use “New entry” to record one.'}
+                {showCompleted
+                  ? 'No agents have fully cleared their balance yet.'
+                  : scopeLabel
+                  ? `No ${scopeLabel.toLowerCase()} with an outstanding balance. Use “New entry” to record one.`
+                  : 'No products with an outstanding balance. Use “New entry” to record one.'}
               </p>
             ) : (
               <div className="divide-y divide-border">
