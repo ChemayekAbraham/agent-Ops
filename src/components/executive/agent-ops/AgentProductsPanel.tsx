@@ -1089,29 +1089,50 @@ function IssueProductDialog({
     }
     const names = new Set<string>(category ? CATEGORY_SUGGESTIONS[category] : PRODUCT_SUGGESTIONS);
     catalog.forEach((c) => names.add(c.item_name));
-    return Array.from(names).sort();
+    const list = Array.from(names).sort();
+    // Company-owned bikes are assigned, never sold — offered on bike/full scopes only.
+    if (!category || category === 'motor_bike') list.push(FLEET_BIKE_OPTION);
+    return list;
   }, [catalog, category, phoneCatalog, isSmartphone]);
+
+  /** Company fleet bike: assignment only, no price, no wallet recovery. */
+  const isFleetBike = itemName === FLEET_BIKE_OPTION;
 
   // Smartphones are issued at cost + 33% markup (Access Amount). Other products keep the legacy markup UI.
   const INTEREST_RATE = 0.33;
   const baseValue = (Number(quantity) || 0) * (Number(unitPrice) || 0);
-  const interestAmount = isSmartphone ? 0 : Math.round(baseValue * INTEREST_RATE);
-  const total = isSmartphone ? baseValue : baseValue + interestAmount;
-  const outstanding = isSmartphone
-    ? total
-    : Math.max(total - (plan === 'full' ? total : Number(amountPaid) || 0), 0);
+  const interestAmount = isSmartphone || isFleetBike ? 0 : Math.round(baseValue * INTEREST_RATE);
+  const total = isFleetBike ? 0 : isSmartphone ? baseValue : baseValue + interestAmount;
+  const outstanding = isFleetBike
+    ? 0
+    : isSmartphone
+      ? total
+      : Math.max(total - (plan === 'full' ? total : Number(amountPaid) || 0), 0);
 
   // Smartphones and Welile Bikes recover at a fixed 33% rate from the agent wallet.
   const isFixedRecoveryProduct = useMemo(() => {
+    if (isFleetBike) return false;
     if (isSmartphone) return true;
     const name = itemName.trim().toLowerCase();
     if (!name) return false;
     return name.includes('phone') || name.includes('bike');
-  }, [itemName, isSmartphone]);
+  }, [itemName, isSmartphone, isFleetBike]);
   const recoveryRate = isFixedRecoveryProduct ? 0.33 : null;
 
   const mutation = useMutation({
     mutationFn: async () => {
+      if (isFleetBike) {
+        const { data, error } = await supabase.rpc('agent_ops_assign_company_fleet_bike' as any, {
+          p_agent_id: agent!.id,
+          p_item_name: fleetModel.trim() || 'Company Fleet Bike',
+          p_plate_number: plateNumber.trim() || null,
+          p_serial_number: serialNumber.trim() || null,
+          p_service_centre_id: centreId === 'none' ? null : centreId,
+          p_notes: notes || null,
+        });
+        if (error) throw error;
+        return data;
+      }
       const { data, error } = await supabase.rpc('agent_ops_issue_agent_product' as any, {
         p_agent_id: agent!.id,
         p_item_name: itemName,
@@ -1128,13 +1149,20 @@ function IssueProductDialog({
       return data;
     },
     onSuccess: () => {
-      toast.success('Product entry recorded. Repayment plan created automatically.');
+      toast.success(
+        isFleetBike
+          ? 'Company bike assigned. It is recorded on the agent profile with no wallet recovery.'
+          : 'Product entry recorded. Repayment plan created automatically.',
+      );
       onDone();
     },
     onError: (e: any) => toast.error(e?.message || 'Could not record the entry'),
   });
 
-  const valid = agent && itemName && Number(quantity) > 0 && Number(unitPrice) > 0;
+  const valid = isFleetBike
+    ? !!agent
+    : agent && itemName && Number(quantity) > 0 && Number(unitPrice) > 0;
+
 
   return (
     <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
