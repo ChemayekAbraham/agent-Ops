@@ -29635,6 +29635,10 @@ export type Database = {
           fund_recipient_type: string | null
           fund_routed_at: string | null
           funded_at: string | null
+          funder_visibility_decided_at: string | null
+          funder_visibility_decided_by: string | null
+          funder_visibility_reason: string | null
+          funder_visible: boolean
           house_category: string | null
           house_image_urls: string[] | null
           house_listing_id: string | null
@@ -29760,6 +29764,10 @@ export type Database = {
           fund_recipient_type?: string | null
           fund_routed_at?: string | null
           funded_at?: string | null
+          funder_visibility_decided_at?: string | null
+          funder_visibility_decided_by?: string | null
+          funder_visibility_reason?: string | null
+          funder_visible?: boolean
           house_category?: string | null
           house_image_urls?: string[] | null
           house_listing_id?: string | null
@@ -29885,6 +29893,10 @@ export type Database = {
           fund_recipient_type?: string | null
           fund_routed_at?: string | null
           funded_at?: string | null
+          funder_visibility_decided_at?: string | null
+          funder_visibility_decided_by?: string | null
+          funder_visibility_reason?: string | null
+          funder_visible?: boolean
           house_category?: string | null
           house_image_urls?: string[] | null
           house_listing_id?: string | null
@@ -40104,6 +40116,7 @@ export type Database = {
           approved_at: string | null
           daily_repayment: number | null
           duration_days: number | null
+          funder_visible: boolean | null
           funding_amount: number | null
           held_by: string | null
           hold_expires_at: string | null
@@ -41242,6 +41255,10 @@ export type Database = {
           fund_recipient_type: string | null
           fund_routed_at: string | null
           funded_at: string | null
+          funder_visibility_decided_at: string | null
+          funder_visibility_decided_by: string | null
+          funder_visibility_reason: string | null
+          funder_visible: boolean
           house_category: string | null
           house_image_urls: string[] | null
           house_listing_id: string | null
