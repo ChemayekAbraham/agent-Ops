@@ -233,6 +233,11 @@ export default function BalanceSheetPanel() {
       });
       if (splitError) console.warn('Landlord float split unavailable:', splitError.message);
       setFloatSplit((split as LandlordFloatSplit) ?? null);
+      const { data: capSplit, error: capError } = await (supabase as any).rpc('get_partner_capital_management_split', {
+        p_as_at: asAtIso,
+      });
+      if (capError) console.warn('Partner capital split unavailable:', capError.message);
+      setCapitalSplit((capSplit as LandlordFloatSplit) ?? null);
     } catch (e: any) {
       toast.error(e?.message ?? 'Failed to generate the statement of financial position');
     } finally {
