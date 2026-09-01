@@ -1,12 +1,17 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import {
+  addDays, addMonths, addQuarters, addWeeks, addYears,
+  endOfMonth, endOfQuarter, endOfWeek, endOfYear,
+  format, getQuarter, startOfMonth, startOfQuarter, startOfWeek, startOfYear,
+} from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileText, FileDown, Printer, RefreshCw, Loader2 } from 'lucide-react';
+import { FileText, FileDown, Printer, RefreshCw, Loader2, ChevronLeft, ChevronRight, CalendarClock } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
@@ -36,8 +41,58 @@ const LABELS = new Map(EXPENSE_CATEGORIES.map((c) => [c.category, c.label]));
 const PAGE = 1000;
 const MAX_PAGES = 25;
 
-const isoDaysAgo = (days: number) =>
-  new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+type PeriodKind = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly' | 'custom';
+
+const PERIOD_OPTIONS: { value: PeriodKind; label: string }[] = [
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'yearly', label: 'Yearly' },
+  { value: 'custom', label: 'Custom range' },
+];
+
+const iso = (d: Date) => format(d, 'yyyy-MM-dd');
+
+/** Pure derivation of the reporting window + label for a period + anchor date. */
+function resolvePeriod(kind: PeriodKind, anchor: Date): { from: string; to: string; label: string } {
+  switch (kind) {
+    case 'daily':
+      return { from: iso(anchor), to: iso(anchor), label: format(anchor, 'd MMMM yyyy') };
+    case 'weekly': {
+      const s = startOfWeek(anchor, { weekStartsOn: 1 });
+      const e = endOfWeek(anchor, { weekStartsOn: 1 });
+      return {
+        from: iso(s),
+        to: iso(e),
+        label: `Week of ${format(s, 'd MMM')}–${format(e, 'd MMM yyyy')}`,
+      };
+    }
+    case 'monthly':
+      return { from: iso(startOfMonth(anchor)), to: iso(endOfMonth(anchor)), label: format(anchor, 'MMMM yyyy') };
+    case 'quarterly':
+      return {
+        from: iso(startOfQuarter(anchor)),
+        to: iso(endOfQuarter(anchor)),
+        label: `Q${getQuarter(anchor)} ${format(anchor, 'yyyy')}`,
+      };
+    case 'yearly':
+      return { from: iso(startOfYear(anchor)), to: iso(endOfYear(anchor)), label: format(anchor, 'yyyy') };
+    default:
+      return { from: '', to: '', label: 'Custom range' };
+  }
+}
+
+const shift = (kind: PeriodKind, anchor: Date, dir: 1 | -1): Date => {
+  switch (kind) {
+    case 'daily': return addDays(anchor, dir);
+    case 'weekly': return addWeeks(anchor, dir);
+    case 'monthly': return addMonths(anchor, dir);
+    case 'quarterly': return addQuarters(anchor, dir);
+    case 'yearly': return addYears(anchor, dir);
+    default: return anchor;
+  }
+};
 
 interface RawRow {
   id: string;
@@ -57,12 +112,23 @@ interface RawRow {
  * `general_ledger`. It never writes and never touches any expense workflow.
  */
 export function ExpenseReportPanel() {
-  const [from, setFrom] = useState(isoDaysAgo(30));
-  const [to, setTo] = useState('');
+  const [periodKind, setPeriodKind] = useState<PeriodKind>('monthly');
+  const [anchor, setAnchor] = useState<Date>(() => new Date());
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
   const [category, setCategory] = useState('all');
   const [status, setStatus] = useState('all');
   const [search, setSearch] = useState('');
   const [exporting, setExporting] = useState<'pdf' | 'print' | null>(null);
+
+  const resolved = useMemo(() => resolvePeriod(periodKind, anchor), [periodKind, anchor]);
+  const from = periodKind === 'custom' ? customFrom : resolved.from;
+  const to = periodKind === 'custom' ? customTo : resolved.to;
+  const periodLabel = periodKind === 'custom'
+    ? (customFrom || customTo
+        ? `${customFrom ? format(new Date(customFrom), 'd MMM yyyy') : 'earliest'} – ${customTo ? format(new Date(customTo), 'd MMM yyyy') : 'latest'}`
+        : 'All recorded expenses')
+    : resolved.label;
 
   const { data: rows = [], isLoading, isRefetching, refetch } = useQuery({
     queryKey: ['cfo-expense-report', from, to],
@@ -134,7 +200,7 @@ export function ExpenseReportPanel() {
   const largest = reportRows.reduce((m, r) => Math.max(m, r.amount), 0);
 
   const buildPdf = async () =>
-    generateExpenseReportPdf(reportRows, summary, { from, to, category, status, search });
+    generateExpenseReportPdf(reportRows, summary, { from, to, category, status, search, periodLabel });
 
   const handleExport = async () => {
     if (!reportRows.length) { toast.error('No expenses match the selected filters'); return; }
@@ -144,7 +210,7 @@ export function ExpenseReportPanel() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `expense-report-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.download = `expense-report-${periodLabel.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.pdf`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
       toast.success(`Report exported — ${reportRows.length} expense records`);
@@ -173,6 +239,8 @@ export function ExpenseReportPanel() {
   };
 
   const visible = reportRows.slice(0, 500);
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 8 }, (_, i) => currentYear - i);
 
   return (
     <div className="space-y-4">
@@ -183,20 +251,157 @@ export function ExpenseReportPanel() {
             Expense Report
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Read-only report of every expense already recorded in the system. Filter, refresh,
-            print or export as PDF — nothing here changes an expense or its approval.
+            Read-only report of every expense already recorded in the system. Choose a reporting
+            period, filter, refresh, print or export as PDF — nothing here changes an expense or
+            its approval.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+          {/* Period selector */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
             <div>
-              <label className="text-[11px] text-muted-foreground">From</label>
-              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+              <label className="text-[11px] text-muted-foreground">Reporting period</label>
+              <Select value={periodKind} onValueChange={(v) => setPeriodKind(v as PeriodKind)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent className="z-[200]">
+                  {PERIOD_OPTIONS.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div>
-              <label className="text-[11px] text-muted-foreground">To</label>
-              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-            </div>
+
+            {periodKind === 'daily' && (
+              <div>
+                <label className="text-[11px] text-muted-foreground">Select date</label>
+                <Input
+                  type="date"
+                  value={iso(anchor)}
+                  onChange={(e) => e.target.value && setAnchor(new Date(`${e.target.value}T00:00:00`))}
+                />
+              </div>
+            )}
+
+            {periodKind === 'weekly' && (
+              <div>
+                <label className="text-[11px] text-muted-foreground">Select week (any day in it)</label>
+                <Input
+                  type="date"
+                  value={iso(anchor)}
+                  onChange={(e) => e.target.value && setAnchor(new Date(`${e.target.value}T00:00:00`))}
+                />
+              </div>
+            )}
+
+            {periodKind === 'monthly' && (
+              <div>
+                <label className="text-[11px] text-muted-foreground">Select month</label>
+                <Input
+                  type="month"
+                  value={format(anchor, 'yyyy-MM')}
+                  onChange={(e) => e.target.value && setAnchor(new Date(`${e.target.value}-01T00:00:00`))}
+                />
+              </div>
+            )}
+
+            {periodKind === 'quarterly' && (
+              <>
+                <div>
+                  <label className="text-[11px] text-muted-foreground">Quarter</label>
+                  <Select
+                    value={String(getQuarter(anchor))}
+                    onValueChange={(v) => setAnchor(new Date(anchor.getFullYear(), (Number(v) - 1) * 3, 1))}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent className="z-[200]">
+                      {[1, 2, 3, 4].map((q) => (
+                        <SelectItem key={q} value={String(q)}>Q{q}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-[11px] text-muted-foreground">Year</label>
+                  <Select
+                    value={String(anchor.getFullYear())}
+                    onValueChange={(v) => setAnchor(new Date(Number(v), anchor.getMonth(), 1))}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent className="z-[200]">
+                      {years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+
+            {periodKind === 'yearly' && (
+              <div>
+                <label className="text-[11px] text-muted-foreground">Select year</label>
+                <Select
+                  value={String(anchor.getFullYear())}
+                  onValueChange={(v) => setAnchor(new Date(Number(v), 0, 1))}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent className="z-[200]">
+                    {years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {periodKind === 'custom' && (
+              <>
+                <div>
+                  <label className="text-[11px] text-muted-foreground">From</label>
+                  <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-[11px] text-muted-foreground">To</label>
+                  <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Period navigation + resolved range */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={periodKind === 'custom'}
+              onClick={() => setAnchor((a) => shift(periodKind, a, -1))}
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Previous period
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={periodKind === 'custom'}
+              onClick={() => setAnchor((a) => shift(periodKind, a, 1))}
+            >
+              Next period
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={periodKind === 'custom'}
+              onClick={() => setAnchor(new Date())}
+            >
+              <CalendarClock className="h-4 w-4 mr-1" />
+              {periodKind === 'daily' ? 'Today' : 'Current period'}
+            </Button>
+            <span className="text-[11px] text-muted-foreground">
+              {from || 'earliest'} → {to || 'latest'}
+            </span>
+          </div>
+
+          <h3 className="text-sm font-semibold">Expenses — {periodLabel}</h3>
+
+          {/* Filters */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div>
               <label className="text-[11px] text-muted-foreground">Category</label>
               <Select value={category} onValueChange={setCategory}>
@@ -239,11 +444,11 @@ export function ExpenseReportPanel() {
               <RefreshCw className={`h-4 w-4 mr-1 ${isRefetching ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            {(from || to || category !== 'all' || status !== 'all' || search) && (
+            {(category !== 'all' || status !== 'all' || search) && (
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => { setFrom(''); setTo(''); setCategory('all'); setStatus('all'); setSearch(''); }}
+                onClick={() => { setCategory('all'); setStatus('all'); setSearch(''); }}
               >
                 Clear filters
               </Button>
@@ -289,7 +494,7 @@ export function ExpenseReportPanel() {
                   <tr><td colSpan={8} className="px-2 py-6 text-center text-muted-foreground">Loading expenses…</td></tr>
                 )}
                 {!isLoading && reportRows.length === 0 && (
-                  <tr><td colSpan={8} className="px-2 py-6 text-center text-muted-foreground">No expenses match the selected filters.</td></tr>
+                  <tr><td colSpan={8} className="px-2 py-6 text-center text-muted-foreground">No expenses recorded for {periodLabel} with the selected filters.</td></tr>
                 )}
                 {visible.map((r, i) => (
                   <tr key={`${r.reference}-${i}`} className="border-t border-border/60">

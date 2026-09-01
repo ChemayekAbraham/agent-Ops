@@ -29,7 +29,10 @@ export interface ExpenseReportFilters {
   category?: string;
   status?: string;
   search?: string;
+  /** Human-readable reporting period, e.g. "September 2026". */
+  periodLabel?: string;
 }
+
 
 const fmtUGX = (n: number) =>
   `UGX ${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(Number(n) || 0))}`;
@@ -83,7 +86,11 @@ export async function generateExpenseReportPdf(
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(15);
-  doc.text('Expense Report', logo ? margin + 20 : margin, 13);
+  doc.text(
+    filters.periodLabel ? `Expense Report — ${filters.periodLabel}` : 'Expense Report',
+    logo ? margin + 20 : margin,
+    13,
+  );
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.text(`Generated ${format(generatedAt, 'dd MMM yyyy, HH:mm')}`, logo ? margin + 20 : margin, 20);
@@ -94,10 +101,11 @@ export async function generateExpenseReportPdf(
   doc.setFontSize(10);
   const period =
     filters.from || filters.to
-      ? `Period: ${filters.from || 'earliest'} – ${filters.to || 'latest'}`
+      ? `Period: ${filters.periodLabel ? `${filters.periodLabel} (` : ''}${filters.from || 'earliest'} – ${filters.to || 'latest'}${filters.periodLabel ? ')' : ''}`
       : 'Period: all recorded expenses';
   doc.text(period, margin, y);
   y += 5;
+
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
