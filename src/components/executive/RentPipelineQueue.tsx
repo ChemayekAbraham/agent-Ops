@@ -1491,6 +1491,14 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                 )}
               </div>
 
+              {/* Existing tenant payment history (read-only context for the officer) */}
+              <TenantPaymentHistoryCard
+                tenantId={selectedRequest.tenant_id}
+                currentRequestId={selectedRequest.id}
+              />
+
+
+
               {/* Latest rent receipt from landlord — highlighted for operator review */}
               {selectedRequest.latest_rent_receipt_url && (
                 <div className="rounded-xl border-2 border-amber-400/60 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
