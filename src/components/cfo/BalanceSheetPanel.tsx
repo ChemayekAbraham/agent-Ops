@@ -247,6 +247,8 @@ export default function BalanceSheetPanel() {
     ? classifyLiabilities([...data.liabilities.current, ...data.liabilities.non_current])
     : null;
   const equityGroups = data ? classifyEquity(data.equity.lines) : null;
+  /** Landlord Float shown as Company Managed / Self Managed + subtotal. */
+  const marketplaceRows = expandLandlordFloat(liabilityGroups?.marketplace ?? [], floatSplit);
   /** Each section's groups must still sum to the RPC's own total. */
   const assetDrift = data && assetGroups ? Math.round(assetGroups.total - data.assets.total) : 0;
   const equityDrift = data && equityGroups ? Math.round(equityGroups.total - data.equity.total) : 0;
