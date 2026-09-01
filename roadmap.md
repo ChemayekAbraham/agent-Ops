@@ -44,3 +44,8 @@
 - [x] Cancel spamming queued emails (purge transactional queue; only 31 Aug failures should have been resent)
 
 - [ ] Clear residual UGX 26 balance for tenant Namuli Roy (+256751149880) — plan completed
+
+## 2026-09-01
+
+- [x] CRM People roster role definitions corrected (tenant = any rent repayment status, agent = agent-ops strict rule + verified sub-agents, landlord = ever received landlord float disbursement)
+- [x] My Space salary advance card: show cumulative deducted and pending balance
