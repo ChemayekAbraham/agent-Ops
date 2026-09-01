@@ -138,7 +138,7 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
               <SelectContent>
                 {grid.map((row) => (
                   <SelectItem key={row.months} value={String(row.months)} className="text-sm">
-                    {row.months} months · {row.feePct}% access fee
+                    {row.months} months
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -156,6 +156,12 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">Total repayable</span>
               <span className="font-bold">{formatUGX(schedule.total)}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">
+                Daily payment ({schedule.days} days)
+              </span>
+              <span className="font-bold">{formatUGX(schedule.daily)}</span>
             </div>
             <p className="text-[11px] text-muted-foreground pt-1">
               Repayments are recovered from your wallet earnings —{' '}

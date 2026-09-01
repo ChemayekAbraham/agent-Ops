@@ -27,6 +27,10 @@ export interface SpiroLeaseSchedule {
   total: number;
   /** Monthly repayment. */
   monthly: number;
+  /** Exact number of days covered by the lease period. */
+  days: number;
+  /** Daily repayment amount (total / exact days). */
+  daily: number;
   /** Amount recovered per wallet credit at the 15% recovery rate. */
   perCredit: number;
 }
@@ -40,6 +44,12 @@ export function spiroLeaseSchedule(
   const base = Math.max(0, Math.round(Number(basePrice) || 0));
   const accessFee = Math.round((base * period.feePct) / 100);
   const total = base + accessFee;
+
+  const start = new Date();
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + period.months);
+  const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+
   return {
     months: period.months,
     feePct: period.feePct,
@@ -47,6 +57,8 @@ export function spiroLeaseSchedule(
     accessFee,
     total,
     monthly: period.months > 0 ? Math.ceil(total / period.months) : total,
+    days,
+    daily: Math.ceil(total / days),
     perCredit: Math.round(total * BIKE_RECOVERY_RATE),
   };
 }
