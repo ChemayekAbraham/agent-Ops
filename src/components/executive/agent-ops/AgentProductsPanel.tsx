@@ -234,6 +234,18 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
     });
   }, [data?.rows, search, itemFilter]);
 
+  /** Service centre per agent, taken from the already-loaded issued rows — no extra round trip. */
+  const centreByAgent = useMemo(() => {
+    const map = new Map<string, string>();
+    (data?.rows ?? []).forEach((r) => {
+      if (r.agent_id && r.location_name) map.set(r.agent_id, r.location_name);
+    });
+    (data?.centres ?? []).forEach((c) => {
+      if (c.agent_id && c.location_name && !map.has(c.agent_id)) map.set(c.agent_id, c.location_name);
+    });
+    return map;
+  }, [data?.rows, data?.centres]);
+
   /** Item names offered in the dropdown — drawn from what actually exists in this category. */
   const itemOptions = useMemo(() => {
     const names = new Set<string>();
