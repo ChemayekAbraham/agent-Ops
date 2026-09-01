@@ -71,8 +71,6 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
   const [page, setPage] = useState(0);
   // Both datasets always remain in one feed; this only chooses which group leads.
   const [feedOrder, setFeedOrder] = useState<FeedOrder>('rent');
-  // Only show rent plans Tenant Ops approved for the Funder dashboard.
-  const [approvedOnly, setApprovedOnly] = useState(true);
   const [houseSelected, setHouseSelected] = useState<string[]>([]);
   const [detailHouse, setDetailHouse] = useState<SupportableHouse | null>(null);
   // Short code arriving from a branded /s/<code> share link (?share=<code>).
