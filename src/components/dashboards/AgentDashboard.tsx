@@ -1239,8 +1239,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold leading-tight">Order a Welile Spiro Bike</p>
                       <p className="text-[11px] text-muted-foreground mt-0.5">
-                        Get a Spiro bike on credit. Choose how much can be deducted from your wallet.
+                        {formatUGX(SPIRO_BIKE_BASE_PRICE)} bike. Pick 3, 6, 9 or 12 months and see your monthly repayment.
                       </p>
+
                     </div>
                     <Button size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => { setBikeAmount(''); setBikeOpen(true); }}>
                       Order
