@@ -317,6 +317,7 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
         )}
       </CardContent>
 
+
       {/* Approve / release dialog with the payment recovery projection */}
       <Dialog open={!!approveTarget} onOpenChange={(o) => { if (!o) setApproveTarget(null); }}>
         <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
