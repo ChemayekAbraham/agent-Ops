@@ -380,7 +380,9 @@ const CHANGE_COLS: Col[] = [
   { key: 'created_at', label: 'When', render: (r) => fmtDate(r.created_at, true) },
   { key: 'action', label: 'Action', render: (r) => r.action || r.action_type || '—' },
   { key: 'table_name', label: 'Record' },
+  { key: 'portfolio', label: 'Portfolio', render: portfolioLabel },
   { key: 'actor_name', label: 'Actor', render: (r) => r.actor_name || '—' },
+  { key: 'payment_details', label: 'Payment details changed', wrap: true, render: changeDetails },
   { key: 'reason', label: 'Reason', wrap: true, render: (r) => {
     const raw = String(r.reason || (r.metadata as any)?.reason || (r.metadata as any)?.notes || '').replace(/_/g, ' ').trim();
     if (!raw) return '—';
