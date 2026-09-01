@@ -48,6 +48,15 @@ interface GeoRow {
   tenants_active: number;
 }
 
+interface ServiceCentreRow {
+  centre_label: string;
+  centre_status: string | null;
+  agents: number;
+  active_tenants: number;
+  total_tenants: number;
+}
+
+
 const emptyAcquisition: TenantOpsAcquisition = {
   newToday: 0,
   newThisWeek: 0,
