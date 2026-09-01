@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
   // ---- locate our row ----
   let query = admin
     .from('crm_call_sessions')
-    .select('id, target_phone, status, at_session_id')
+    .select('id, target_phone, status, at_session_id, cancel_requested_at')
     .limit(1);
 
   query = UUID_RE.test(clientRequestId)
