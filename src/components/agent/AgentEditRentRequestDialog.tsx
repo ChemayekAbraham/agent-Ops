@@ -119,6 +119,8 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
       const urls = Array.isArray(request.house_image_urls) ? request.house_image_urls : [];
       setExistingPhotos(HOUSE_PHOTO_SLOTS.map((_, i) => urls[i] ?? null));
       setNewPhotos(HOUSE_PHOTO_SLOTS.map(() => null));
+      setDroppedExisting(HOUSE_PHOTO_SLOTS.map(() => false));
+
       setNewLcLetter(null);
       setExistingLcPath(request.lc_letter_path ?? null);
       setExistingLcUrl(null);
