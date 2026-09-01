@@ -81,6 +81,25 @@ const PRODUCT_SUGGESTIONS = [
 
 export type AgentProductCategory = 'motor_bike' | 'smart_phone' | 'signage' | 'boutique';
 
+/** Which overview KPI card the drill-down sheet is showing. */
+type DrillKey = 'pending' | 'fleet' | 'portfolio' | 'recovery' | 'repaid';
+
+const DRILL_TITLES: Record<DrillKey, string> = {
+  pending: 'Pending applications',
+  fleet: 'Active field fleet',
+  portfolio: 'Outstanding portfolio',
+  recovery: 'Repayments received',
+  repaid: 'Repaid & fully paid off',
+};
+
+const DRILL_DESCRIPTIONS: Record<DrillKey, string> = {
+  pending: 'Orders awaiting approval.',
+  fleet: 'Every agent currently holding issued items.',
+  portfolio: 'Agents who still owe on issued items, largest balance first.',
+  recovery: 'Agents who have paid something back, largest repayment first.',
+  repaid: 'Agents who have repaid part or all of their merchandise. Fully paid orders are marked.',
+};
+
 const CATEGORY_LABELS: Record<AgentProductCategory, string> = {
   motor_bike: 'Motor bikes',
   smart_phone: 'Smart phones',
