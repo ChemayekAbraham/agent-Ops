@@ -291,7 +291,7 @@ export function CallingHubTable({
                 <TableHead
                   key={c}
                   style={columnStyle(c)}
-                  className={`truncate border-b border-border bg-card text-[11px] uppercase tracking-wide ${nowrap(c)} ${pinClass(c, 20)}`}
+                  className={`truncate border-b border-border bg-card text-[11px] uppercase tracking-wide ${nowrap(c)} ${pinClass(c, true)}`}
                   title={header(c)}
                 >
                   {header(c)}
@@ -306,7 +306,7 @@ export function CallingHubTable({
                   <TableCell
                     key={c}
                     style={columnStyle(c)}
-                    className={`overflow-hidden text-ellipsis border-b border-border/60 bg-card text-xs ${nowrap(c)} ${pinClass(c, 10)}`}
+                    className={`overflow-hidden text-ellipsis border-b border-border/60 bg-card text-xs ${nowrap(c)} ${pinClass(c, false)}`}
                   >
                     {cell(row, c)}
                   </TableCell>
