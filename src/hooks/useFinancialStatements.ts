@@ -499,7 +499,11 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
       // alongside the dedicated `transaction_platform_expenses` bucket.
       const transactionExpenses = sumWithDirectionFallback(platformOut, platformIn, ['transaction_platform_expenses', 'agent_commission_earned']);
       const generalOperating = sumWithDirectionFallback(platformOut, platformIn, ['operational_expenses', 'platform_expense']);
-      const payrollExpenses = sumWithDirectionFallback(platformOut, platformIn, ['salary_payment', 'employee_advance', 'payroll_expense']);
+      // 'employee_advance' deliberately excluded: an advance to an employee is a
+      // receivable, not payroll cost. Including it overstated payroll and
+      // operating expenses, and understated assets, until the advance was
+      // repaid.
+      const payrollExpenses = sumWithDirectionFallback(platformOut, platformIn, ['salary_payment', 'payroll_expense']);
       const agentRequisitions = sumWithDirectionFallback(platformOut, platformIn, ['agent_requisition']);
       const financialAgentExpenses = sumWithDirectionFallback(platformOut, platformIn, ['platform_expense_disbursement']);
 

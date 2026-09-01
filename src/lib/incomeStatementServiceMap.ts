@@ -107,7 +107,10 @@ export const OPERATING_EXPENSE_CATEGORIES = [
   'payroll_expense',
   'salary_payout',
   'salary_payment',
-  'employee_advance',
+  // 'employee_advance' is a receivable, not an expense - an advance to an
+  // employee is money owed back to the company. Removed from operating
+  // expenses; it now surfaces in the unmapped-category review queue until it
+  // is mapped to a balance sheet receivable account.
   'general_admin_expense',
   'operational_expenses',
   'platform_expense',

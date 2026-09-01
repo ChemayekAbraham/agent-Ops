@@ -1,0 +1,99 @@
+-- Employee advances are receivables, not expenses.
+--
+-- An advance paid to an employee is money owed back to the company. It was
+-- being treated as payroll cost on the income statement, and had no
+-- ledger_account_map row at all, so on the balance sheet its legs fell to the
+-- unmapped default.
+--
+-- The income statement half is fixed in the application layer (employee_advance
+-- removed from payrollExpenses and from OPERATING_EXPENSE_CATEGORIES). This
+-- migration fixes the balance sheet half.
+--
+-- ── Direction, derived rather than guessed ──────────────────────────────────
+--
+-- get_statement_of_financial_position() resolves a leg to a debit or a credit
+-- with:   CASE WHEN a.dir = a.dw THEN debit ELSE credit END
+-- and for an asset:  value = SUM(dr) - SUM(cr).
+--
+-- An employee advance is paid out on the platform ledger with
+-- direction = 'cash_out'. To DEBIT A4 (increase the receivable) on payout, the
+-- mapping's debit_when must therefore be 'cash_out'.
+--
+-- The same single row also handles repayment correctly. A repayment arrives as
+-- direction = 'cash_in', which no longer equals debit_when, so it CREDITS A4
+-- and reduces the receivable. No second mapping row is needed, provided
+-- repayments are posted under the same 'employee_advance' category. If a
+-- distinct repayment category is introduced later it needs its own row.
+--
+-- ── What this changes on the balance sheet ──────────────────────────────────
+--
+-- Unmapped platform legs currently fall through to account 'A9' with
+-- debit_when 'cash_in' (see the COALESCE fallbacks in the SOFP function). A
+-- payout leg (dir 'cash_out') therefore does not equal that fallback
+-- debit_when, so today it CREDITS A9 - pushing the suspense asset negative.
+--
+-- After this row exists the same leg DEBITS A4 instead. Employee advances move
+-- out of Suspense and into Advances and Other Receivables, where they belong.
+--
+-- No plug value is introduced and no total is forced. The balance check in the
+-- SOFP remains a real assertion.
+--
+-- ── advance_repayment and agent_repayment: checked, both already correct ────
+--
+--   ('platform','agent_repayment',  NULL,'A4','cash_out')
+--   ('wallet',  'advance_repayment',NULL,'A4','cash_in')
+--
+-- These look contradictory but are not, because the two categories carry
+-- opposite leg directions in their respective scopes:
+--
+--   agent_repayment   is read from platform cash_in
+--                     dir 'cash_in'  <> dw 'cash_out' -> CREDIT A4 -> correct
+--   advance_repayment is read from wallet   cash_out
+--                     dir 'cash_out' <> dw 'cash_in'  -> CREDIT A4 -> correct
+--
+-- Both reduce the receivable on repayment, which is the intended behaviour.
+-- Neither is changed by this migration.
+
+INSERT INTO public.ledger_account_map (ledger_scope, category, wallet_bucket, account_code, debit_when)
+VALUES ('platform', 'employee_advance', NULL, 'A4', 'cash_out')
+ON CONFLICT (ledger_scope, category, COALESCE(wallet_bucket, '*')) DO UPDATE
+  SET account_code = EXCLUDED.account_code,
+      debit_when   = EXCLUDED.debit_when;
+
+-- ── Reconciliation ──────────────────────────────────────────────────────────
+--
+-- This mapping applies to the full history the moment it exists: the SOFP
+-- recomputes from general_ledger every time, so every historical
+-- employee_advance leg is reclassified at once. Run the checks below BEFORE
+-- and AFTER applying, and compare.
+--
+-- 1. Size and shape of what moves:
+--
+--    SELECT ledger_scope, direction, COUNT(*) AS legs, SUM(amount) AS total
+--      FROM general_ledger
+--     WHERE category = 'employee_advance'
+--       AND classification IN ('production','legacy_real')
+--     GROUP BY 1,2 ORDER BY 1,2;
+--
+-- 2. Whether those postings are two-sided. If a transaction group holds only
+--    the single employee_advance leg, the counterpart is absorbed by the
+--    one-sided mechanism and the E4 equity counterpart, and the A9->A4 move
+--    will shift total assets rather than being a like-for-like reclass:
+--
+--    SELECT legs_in_group, COUNT(*) AS groups FROM (
+--      SELECT g.transaction_group_id, COUNT(*) AS legs_in_group
+--        FROM general_ledger g
+--       WHERE g.transaction_group_id IN (
+--               SELECT transaction_group_id FROM general_ledger
+--                WHERE category = 'employee_advance')
+--       GROUP BY 1) x
+--    GROUP BY 1 ORDER BY 1;
+--
+-- 3. Balance sheet before/after - A4 should rise, A9 should rise toward zero,
+--    and the balance check must still report balanced:
+--
+--    SELECT public.get_statement_of_financial_position(now());
+--
+-- If step 2 shows single-leg groups, review before deploying: the reclass is
+-- still correct, but the effect on total assets will not net to zero and the
+-- movement should be understood rather than discovered.
