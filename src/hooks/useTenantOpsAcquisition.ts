@@ -124,18 +124,24 @@ export function useTenantOpsAcquisition(enabled: boolean = true) {
       const growthPct =
         prevMonth > 0 ? ((newThisMonth - prevMonth) / prevMonth) * 100 : null;
 
-      // Geo breakdowns (existing RPC data)
+      // Geo breakdowns (existing RPC data). These charts show ACTIVE tenants
+      // (funded / repaying, excluding not_paying) so they match Agent Ops
+      // performance, instead of every tenant record ever created.
+      const activeOf = (r: GeoRow) => Number(r.tenants_active) || 0;
+
       const districtRows = ((districtGeoRes.data || []) as GeoRow[]).filter(
         (r) => r.key !== 'unassigned'
       );
       const byLocation = districtRows
-        .map((r) => ({ label: r.label, value: r.tenants_total }))
+        .map((r) => ({ label: r.label, value: activeOf(r) }))
+        .filter((r) => r.value > 0)
         .sort((a, b) => b.value - a.value);
 
       const agentRows = (agentGeoRes.data || []) as GeoRow[];
       const byAgent = agentRows
         .filter((r) => r.key !== 'unassigned')
-        .map((r) => ({ label: r.label, value: r.tenants_total }))
+        .map((r) => ({ label: r.label, value: activeOf(r) }))
+        .filter((r) => r.value > 0)
         .sort((a, b) => b.value - a.value);
 
       // Service centre grouping: agents assigned to centres, labelled by centre location.
@@ -153,11 +159,12 @@ export function useTenantOpsAcquisition(enabled: boolean = true) {
       for (const r of agentRows) {
         if (r.key === 'unassigned') continue;
         const centre = r.agent_id ? agentToCentre.get(r.agent_id) : undefined;
-        if (centre) centreTotals.set(centre, (centreTotals.get(centre) || 0) + r.tenants_total);
-        else fieldAgents += r.tenants_total;
+        if (centre) centreTotals.set(centre, (centreTotals.get(centre) || 0) + activeOf(r));
+        else fieldAgents += activeOf(r);
       }
       const byServiceCentre = [...centreTotals.entries()]
         .map(([label, value]) => ({ label, value }))
+        .filter((r) => r.value > 0)
         .sort((a, b) => b.value - a.value);
       if (fieldAgents > 0) {
         byServiceCentre.push({ label: 'Field agents (no service centre)', value: fieldAgents });
