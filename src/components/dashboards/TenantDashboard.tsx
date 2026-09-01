@@ -44,7 +44,6 @@ import {
 import { useTenantAgreement } from '@/hooks/useTenantAgreement';
 import RepaymentSection from '@/components/tenant/RepaymentSection';
 import RentProcessTracker from '@/components/rent/RentProcessTracker';
-import { BusinessAdvanceStatusHero } from '@/components/tenant/BusinessAdvanceStatusHero';
 import PaymentPartnersDialog from '@/components/payments/PaymentPartnersDialog';
 
 import { MerchantCodePills } from '@/components/supporter/MerchantCodePills';
