@@ -183,30 +183,92 @@ Deno.serve(async (req) => {
 
   const isActive = (p.isActive ?? '').trim() === '1';
   const dialStatus = (p.dialStatus ?? '').trim();
+  const isWebrtc = (session.transport ?? 'pstn') === 'webrtc';
+  /** A call is finalised exactly once — whoever gets there first wins. */
+  const alreadyEnded = Boolean(session.ended_at);
+
+  const numeric = (raw: string | undefined) => {
+    const n = Number.parseInt(raw ?? '', 10);
+    return Number.isFinite(n) ? Math.max(0, n) : null;
+  };
+  const costOf = () => {
+    const n = Number.parseFloat((p.amount ?? '').replace(/[^\d.]/g, ''));
+    return Number.isFinite(n) ? n : null;
+  };
+
+  /** Africa's Talking callSessionState / dialStatus → our internal status. */
+  const mapState = (state: string, answered: boolean): string => {
+    switch (state.trim().toLowerCase()) {
+      case 'dialing':
+        return 'ringing';
+      case 'ringing':
+        return 'ringing';
+      case 'bridged':
+        return 'active';
+      case 'active':
+        return 'active';
+      case 'completed':
+        return answered ? 'completed' : 'not_answered';
+      case 'notanswered':
+      case 'noanswer':
+        return 'not_answered';
+      case 'busy':
+        return 'busy';
+      case 'rejected':
+        return 'rejected';
+      case 'expired':
+      case 'failed':
+        return 'failed';
+      default:
+        return answered ? 'completed' : 'not_answered';
+    }
+  };
+
+  const endedByFor = (cause: string | null): string => {
+    if (session!.cancel_requested_at) return 'crm_user';
+    switch ((cause ?? '').toUpperCase()) {
+      case 'CALL_REJECTED':
+      case 'USER_BUSY':
+      case 'NO_ANSWER':
+      case 'NO_USER_RESPONSE':
+      case 'SUBSCRIBER_ABSENT':
+        return 'remote_party';
+      case 'SERVICE_UNAVAILABLE':
+      case 'USER_NOT_REGISTERED':
+      case 'UNALLOCATED_NUMBER':
+      case 'NORMAL_TEMPORARY_FAILURE':
+      case 'RECOVERY_ON_TIMER_EXPIRE':
+        return 'network';
+      default:
+        // NORMAL_CLEARING alone does not say which side hung up.
+        return 'unknown';
+    }
+  };
 
   // ---------------- CANCELLED BY STAFF (honour it before anything else) ----
-  // Africa's Talking has no REST "hang up" endpoint: the only way to end a leg
-  // is to answer its callback with <Hangup/>. So a cancel is recorded on the
-  // row (crm_cancel_call) and enforced here — we must never bridge a call the
-  // staff member already dropped, and any still-live leg is ended immediately.
-  if (session.cancel_requested_at) {
+  // For a PSTN leg the only way to end it is to answer its callback with
+  // <Hangup/>. For a WebRTC leg the browser's own `client.hangup()` ends it,
+  // but the flag still guarantees we never bridge a dropped call.
+  if (session.cancel_requested_at && !alreadyEnded) {
     console.log('[crm-voice-callback] cancel requested — hanging up leg', {
       callId: session.id,
       atSessionId,
       isActive,
+      transport: session.transport,
       dialStatus: dialStatus || null,
     });
 
     if (!isActive) {
-      const duration = Number.parseInt(p.durationInSeconds ?? p.callDuration ?? '0', 10);
-      const cost = Number.parseFloat((p.amount ?? '').replace(/[^\d.]/g, ''));
       await patch(
         {
           status: 'cancelled',
-          hangup_cause: (p.hangupCause ?? '').trim() || 'CancelledByStaff',
-          duration_seconds: Number.isFinite(duration) ? Math.max(0, duration) : 0,
-          cost_amount: Number.isFinite(cost) ? cost : null,
+          hangup_cause: (p.hangupCause ?? '').trim() || 'ORIGINATOR_CANCEL',
+          duration_seconds: numeric(p.durationInSeconds ?? p.callDuration) ?? 0,
+          cost_amount: costOf(),
           cost_currency: p.currencyCode || null,
+          is_active: false,
+          ended_at: new Date().toISOString(),
+          ended_by: 'crm_user',
         },
         'cancelled_terminal',
       );
@@ -220,41 +282,60 @@ Deno.serve(async (req) => {
   // else (already bridged, or already terminal) must never dial again — that is
   // the redial loop.
   const st = (session.status ?? '').toLowerCase();
-  const dialable = ['initiating', 'ringing_staff'].includes(st);
+  const dialable = !alreadyEnded && ['initiating', 'ringing_staff', 'ringing'].includes(st);
   // 'bridged' is not dialable, but a post-dial outcome may still be recorded on it.
-  const recordable = dialable || st === 'bridged';
+  const recordable = dialable || ['bridged', 'active'].includes(st);
   const alreadyBridged = !dialable;
 
 
   // ---------------- terminal event ----------------
+  // Authoritative: callSessionState = Completed / NotAnswered, or isActive = 0.
   if (!isActive) {
-    const duration = Number.parseInt(p.durationInSeconds ?? p.callDuration ?? '0', 10);
-    const cost = Number.parseFloat((p.amount ?? '').replace(/[^\d.]/g, ''));
-    const state = (p.callSessionState ?? p.status ?? '').trim() || 'completed';
-    const hangupCause = (p.hangupCause ?? '').trim() || null;
+    const duration = numeric(p.durationInSeconds ?? p.callDuration) ?? 0;
+    const hangupCause = (p.hangupCause ?? '').trim().toUpperCase() || null;
+    const rawState = (p.callSessionState ?? p.status ?? '').trim();
+    const answered =
+      Boolean(session.answered_at) ||
+      duration > 0 ||
+      dialStatus.toLowerCase() === 'completed';
+    const mapped = mapState(rawState, answered);
 
     console.log('[crm-voice-callback] terminal event', {
       callId: session.id,
       atSessionId,
-      state,
+      rawState,
+      mapped,
       hangupCause,
       dialStatus: dialStatus || null,
       duration,
+      alreadyEnded,
     });
 
+    // Duplicate callbacks (AT retries) must not rewrite the outcome. The
+    // provider's duration/cost/recording are still worth absorbing, since AT's
+    // `durationInSeconds` is the authoritative talk time.
     await patch(
-      {
-        status: state.toLowerCase(),
-        hangup_cause: hangupCause,
-        duration_seconds: Number.isFinite(duration) ? Math.max(0, duration) : 0,
-        recording_url: p.recordingUrl || null,
-        cost_amount: Number.isFinite(cost) ? cost : null,
-        cost_currency: p.currencyCode || null,
-        ...(dialStatus && dialStatus.toLowerCase() !== 'completed'
-          ? { failure_reason: `dial_${dialStatus.toLowerCase()}`.slice(0, 300) }
-          : {}),
-      },
-      'terminal',
+      alreadyEnded
+        ? {
+            ...(duration > 0 ? { duration_seconds: duration } : {}),
+            ...(p.recordingUrl ? { recording_url: p.recordingUrl } : {}),
+            ...(costOf() !== null ? { cost_amount: costOf(), cost_currency: p.currencyCode || null } : {}),
+          }
+        : {
+            status: mapped,
+            hangup_cause: hangupCause,
+            duration_seconds: duration,
+            recording_url: p.recordingUrl || null,
+            cost_amount: costOf(),
+            cost_currency: p.currencyCode || null,
+            is_active: false,
+            ended_at: new Date().toISOString(),
+            ended_by: endedByFor(hangupCause),
+            ...(dialStatus && dialStatus.toLowerCase() !== 'completed'
+              ? { failure_reason: `dial_${dialStatus.toLowerCase()}`.slice(0, 300) }
+              : {}),
+          },
+      alreadyEnded ? 'terminal_duplicate' : 'terminal',
     );
 
     return done();
@@ -267,13 +348,14 @@ Deno.serve(async (req) => {
   const isPostDial = Boolean(dialStatus || p.dialDestinationNumber || p.dialDestinationPhoneNumber);
 
   if (isPostDial || alreadyBridged) {
-    const dialDuration = Number.parseInt(p.dialDurationInSeconds ?? '0', 10);
+    const dialDuration = numeric(p.dialDurationInSeconds) ?? 0;
     const ok = dialStatus.toLowerCase() === 'completed';
 
     console.log('[crm-voice-callback] ending leg without redial', {
       callId: session.id,
       atSessionId,
       sessionStatus: session.status,
+      transport: session.transport,
       dialStatus: dialStatus || null,
       dialDuration,
       isPostDial,
@@ -281,12 +363,23 @@ Deno.serve(async (req) => {
 
     // Only a real post-dial event may move the row. A stray active callback on an
     // already-terminal call is answered with <Hangup/> and nothing is overwritten.
-    if (isPostDial && recordable) {
+    if (isPostDial && recordable && !alreadyEnded) {
+      // A WebRTC leg has no second "staff handset" step: once the dial to the
+      // customer is over, the CRM call itself is over.
+      const webrtcTerminal = isWebrtc
+        ? {
+            status: mapState(dialStatus || 'Completed', ok || dialDuration > 0),
+            is_active: false,
+            ended_at: new Date().toISOString(),
+            ended_by: session.cancel_requested_at ? 'crm_user' : ok ? 'unknown' : 'remote_party',
+          }
+        : { status: ok || !dialStatus ? 'bridged' : 'bridge_failed' };
+
       await patch(
         {
-          status: ok || !dialStatus ? 'bridged' : 'bridge_failed',
+          ...webrtcTerminal,
           ...(dialStatus && !ok ? { failure_reason: `dial_${dialStatus.toLowerCase()}`.slice(0, 300) } : {}),
-          ...(Number.isFinite(dialDuration) && dialDuration > 0 ? { duration_seconds: dialDuration } : {}),
+          ...(dialDuration > 0 ? { duration_seconds: dialDuration } : {}),
         },
         'post_dial',
       );
@@ -294,6 +387,34 @@ Deno.serve(async (req) => {
 
     return hangup();
   }
+
+  // ---------------- BROWSER (WebRTC) leg → dial the customer ----------------
+  // The CRM user's browser client is already connected; AT is asking what to do
+  // with it. Bridge it straight to the number the client dialled.
+  if (isWebrtc || clientDialedNumber) {
+    const dest = clientDialedNumber ?? toE164(session.target_phone);
+    if (!dest) {
+      await patch(
+        { status: 'failed', failure_reason: 'invalid_target_phone', is_active: false, ended_at: new Date().toISOString(), ended_by: 'network' },
+        'webrtc_invalid_target',
+      );
+      return hangup();
+    }
+
+    await patch({ status: 'ringing', is_active: true }, 'webrtc_ringing');
+
+    const recordWebrtc = (Deno.env.get('CRM_CALL_RECORDING') ?? '').toLowerCase() === 'true';
+    console.log('[crm-voice-callback] dialling customer for browser client', {
+      callId: session.id,
+      atSessionId,
+      dest,
+    });
+
+    return xml(
+      `<Response><Dial phoneNumbers="${dest}"${recordWebrtc ? ' record="true"' : ''}/></Response>`,
+    );
+  }
+
 
 
   // ---------------- staff leg answered → bridge to the customer ----------------
