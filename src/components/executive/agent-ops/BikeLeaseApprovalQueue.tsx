@@ -119,6 +119,34 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
   const perCredit = Math.round(valuationNum * rate);
   const monthly = valuationNum > 0 ? Math.round(valuationNum / termNum) : 0;
 
+  // Manager eligibility review: tenant portfolio + risk/compliance standing,
+  // read from the shared agent asset-programme eligibility check.
+  const { data: eligibility, isLoading: eligibilityLoading } = useQuery({
+    queryKey: ['bike-lease-eligibility', approveTarget?.customer_id],
+    enabled: !!approveTarget?.customer_id,
+    queryFn: async () => {
+      const { data, error } = await db.rpc('get_agent_smartphone_eligibility', {
+        p_user_id: approveTarget!.customer_id,
+      });
+      if (error) throw error;
+      return data as {
+        active_tenant_count: number;
+        required_active_tenants: number;
+        collected_30d: number;
+        has_national_id: boolean;
+        has_workplace_verification: boolean;
+        has_open_application: boolean;
+        eligible: boolean;
+      } | null;
+    },
+  });
+
+  const tenantCount = Number(eligibility?.active_tenant_count || 0);
+  const requiredTenants = Number(eligibility?.required_active_tenants || 3);
+  const meetsTenantThreshold = tenantCount >= requiredTenants;
+
+
+
   const approve = useMutation({
     mutationFn: async ({ id, stage }: { id: string; stage: 'coo' | 'cfo' }) => {
       const { data, error } = await db.rpc(
