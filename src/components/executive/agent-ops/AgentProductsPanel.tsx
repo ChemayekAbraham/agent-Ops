@@ -1380,7 +1380,7 @@ function IssueProductDialog({
       </div>
       <DialogFooter>
         <Button onClick={() => mutation.mutate()} disabled={!valid || mutation.isPending} className="w-full">
-          {mutation.isPending ? 'Recording…' : 'Record entry'}
+          {mutation.isPending ? 'Recording…' : isFleetBike ? 'Assign company bike' : 'Record entry'}
         </Button>
       </DialogFooter>
     </DialogContent>
