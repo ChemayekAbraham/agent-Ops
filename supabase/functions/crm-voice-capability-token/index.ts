@@ -71,8 +71,8 @@ Deno.serve(async (req) => {
         username,
         clientName,
         phoneNumber: voiceNumber,
-        incoming: false,
-        outgoing: true,
+        incoming: 'false',
+        outgoing: 'true',
         expire: String(EXPIRE_SECONDS),
       }),
     });
