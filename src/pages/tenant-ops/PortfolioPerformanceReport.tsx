@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PeriodToggle, type TppoGranularity } from '@/components/tenant-ops/tppo/PeriodToggle';
+import { HeadlineA1 } from '@/components/tenant-ops/tppo/HeadlineA1';
+import { VarianceA2 } from '@/components/tenant-ops/tppo/VarianceA2';
 
 interface ZoneAReport {
   period_start: string | null;
