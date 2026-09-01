@@ -128,6 +128,10 @@ export interface IncomeStatementData {
   };
   // GAAP Below-the-Line Items
   operatingIncome: number; // Revenue - COGS - OpEx
+  /** Non-operating items presented between operating profit and tax. */
+  otherIncomeExpensesNet: number;
+  /** Operating profit plus other income/(expenses), before tax. */
+  profitBeforeTax: number;
   interestExpense: number;
   interestIncome: number;
   taxProvision: number;
@@ -540,7 +544,14 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
       const totalInterestExpense = interestExpenseCat + opSubInterests;
       const totalEquipmentExpense = equipmentExpenseCat + opSubPropertyEquipment;
 
-      const operatingExpensesTotal = totalMarketingExpense + totalGeneralAdmin + totalPayroll + totalRnD + totalTaxExpense + totalInterestExpense + totalEquipmentExpense + agentRequisitions + financialAgentExpenses + transactionExpenses + tenantDefaultCharges + debtClearance;
+      // Operating expenses proper: excludes interest, tax and D&A, which belong
+      // below operating profit. Previously they were inside this figure while
+      // being stripped out again for the EBIT calculation, so the printed
+      // "Total Operating Expenses" was not the subtotal the statement used and
+      // Gross Profit less that subtotal did not reproduce Operating Income.
+      // Operating Income, Net Income and EBITDA are all unchanged by this: the
+      // same three amounts are simply removed once here instead of twice.
+      const operatingExpensesTotal = totalMarketingExpense + totalGeneralAdmin + totalPayroll + totalRnD + agentRequisitions + financialAgentExpenses + transactionExpenses + tenantDefaultCharges + debtClearance;
 
       const advanceAccessFeesCollected = activeAdvances.reduce((s: number, a: any) => s + Number(a.access_fee_collected || 0), 0);
 
@@ -580,12 +591,19 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
       const depreciation = totalEquipmentExpense;
       const amortization = 0; // No software amortization tracked separately yet
 
-      // Operating Income = Gross Profit - OpEx (excluding interest, tax, D&A)
-      const opExExcludingITDA = operatingExpensesTotal - interestExpense - taxProvision - depreciation - amortization;
-      const operatingIncome = grossProfit - opExExcludingITDA + adjustmentsTotal;
+      // Operating Income = Gross Profit - Operating Expenses (+ adjustments).
+      // operatingExpensesTotal now already excludes interest, tax and D&A.
+      const operatingIncome = grossProfit - operatingExpensesTotal + adjustmentsTotal;
 
-      // Net Income = Operating Income - Interest - Tax
-      const netOperatingIncome = operatingIncome - interestExpense + interestIncome - taxProvision;
+      // Other income / (expenses): non-operating items, presented between
+      // operating profit and tax rather than buried in operating expenses.
+      const otherIncomeExpensesNet = interestIncome - interestExpense;
+
+      // Profit Before Tax - the subtotal the statement previously skipped.
+      const profitBeforeTax = operatingIncome + otherIncomeExpensesNet;
+
+      // Net Income = Profit Before Tax - Tax
+      const netOperatingIncome = profitBeforeTax - taxProvision;
 
       // EBITDA = Operating Income + D&A (already excludes interest & tax)
       const ebitda = operatingIncome + depreciation + amortization;
@@ -872,6 +890,8 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
             deferredRevenue, recognitionRate,
           },
           operatingIncome,
+          otherIncomeExpensesNet,
+          profitBeforeTax,
           interestExpense,
           interestIncome,
           taxProvision,

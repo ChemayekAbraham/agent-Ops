@@ -187,11 +187,14 @@ function IncomeStatementSection({ d, cm }: { d: FinancialStatementsData['incomeS
         'mt-2 p-3 rounded-lg border flex justify-between items-center font-bold',
         bs.netProfit >= 0 ? 'bg-success/5 border-success/20 text-success' : 'bg-destructive/5 border-destructive/20 text-destructive'
       )}>
-        <span>Net {bs.netProfit >= 0 ? 'Profit' : '(Loss)'}</span>
+        <span>Service Contribution {bs.netProfit >= 0 ? '' : '(Deficit)'}</span>
         <span className="font-mono">{bs.netProfit >= 0 ? formatUGX(bs.netProfit) : `(${formatUGX(Math.abs(bs.netProfit))})`}</span>
       </div>
       <p className="text-[10px] text-muted-foreground pl-1 mt-1">
-        Net = Total Revenue − Total Marketing Expenses − Total Operating Expenses. Custody, rent facilitation principal, capital and correction entries are excluded to prevent double-counting.
+        Service Contribution = Total Revenue − Total Marketing Expenses − Total Operating Expenses. This is a
+        breakdown of revenue and direct costs by service, not the statutory result: it carries no cost of revenue,
+        depreciation, interest or tax, so it will not equal Net Income below. Custody, rent facilitation principal,
+        capital and correction entries are excluded to prevent double-counting.
       </p>
 
       {bs.reviewQueue.length > 0 && (
@@ -284,6 +287,20 @@ function IncomeStatementSection({ d, cm }: { d: FinancialStatementsData['incomeS
       <LineItem label="General & Admin Expenses" value={d.operatingExpenses.generalOperating} negative indent />
       <LineItem label="Total Operating Expenses" value={d.operatingExpenses.total} negative bold delta={cm?.totalOperatingExpenses} />
 
+      {/* Adjustments are a component of Operating Income below, so they are
+          presented here rather than after Net Income, where they read as a
+          footnote to a figure they had already changed. */}
+      {(d.adjustments.walletDeductions > 0 || d.adjustments.systemCorrections > 0 || d.adjustments.orphanReassignments > 0 || d.adjustments.orphanReversals > 0) && (
+        <>
+          <SectionHeader>Adjustments & Corrections</SectionHeader>
+          {d.adjustments.walletDeductions > 0 && <LineItem label="Wallet Deductions (Recoveries)" value={d.adjustments.walletDeductions} indent />}
+          {d.adjustments.systemCorrections > 0 && <LineItem label="System Balance Corrections" value={d.adjustments.systemCorrections} indent />}
+          {d.adjustments.orphanReassignments > 0 && <LineItem label="Orphan Reassignments" value={d.adjustments.orphanReassignments} indent />}
+          {d.adjustments.orphanReversals > 0 && <LineItem label="Orphan Reversals" value={d.adjustments.orphanReversals} negative indent />}
+          <LineItem label="Net Adjustments" value={d.adjustments.total} bold />
+        </>
+      )}
+
       {/* GAAP: Operating Income (EBIT before D&A) */}
       <div className={cn(
         'flex justify-between items-center font-semibold pt-2 mt-1 border-t border-primary/20',
@@ -319,21 +336,23 @@ function IncomeStatementSection({ d, cm }: { d: FinancialStatementsData['incomeS
       </div>
 
       {/* GAAP: Below-the-Line (Interest & Tax) */}
-      <SectionHeader>Interest & Tax</SectionHeader>
+      <SectionHeader>Other Income / (Expenses)</SectionHeader>
       <LineItem label="Interest Income" value={d.interestIncome} indent />
       <LineItem label="Interest Expense" value={d.interestExpense} negative indent />
+      <LineItem label="Net Other Income / (Expenses)" value={d.otherIncomeExpensesNet} bold />
+
+      {/* The subtotal the statement previously skipped: EBIT -> PBT -> Tax -> Net. */}
+      <div className={cn(
+        'flex justify-between items-center font-semibold pt-2 mt-1 border-t border-primary/20',
+        d.profitBeforeTax >= 0 ? 'text-success' : 'text-destructive'
+      )}>
+        <span>Profit / (Loss) Before Tax</span>
+        <span className="font-mono">{formatUGX(d.profitBeforeTax)}</span>
+      </div>
+
+      <SectionHeader>Tax</SectionHeader>
       <LineItem label="Tax Provision" value={d.taxProvision} negative indent />
 
-      {(d.adjustments.walletDeductions > 0 || d.adjustments.systemCorrections > 0 || d.adjustments.orphanReassignments > 0 || d.adjustments.orphanReversals > 0) && (
-        <>
-          <SectionHeader>Adjustments & Corrections</SectionHeader>
-          {d.adjustments.walletDeductions > 0 && <LineItem label="Wallet Deductions (Recoveries)" value={d.adjustments.walletDeductions} indent />}
-          {d.adjustments.systemCorrections > 0 && <LineItem label="System Balance Corrections" value={d.adjustments.systemCorrections} indent />}
-          {d.adjustments.orphanReassignments > 0 && <LineItem label="Orphan Reassignments" value={d.adjustments.orphanReassignments} indent />}
-          {d.adjustments.orphanReversals > 0 && <LineItem label="Orphan Reversals" value={d.adjustments.orphanReversals} negative indent />}
-          <LineItem label="Net Adjustments" value={d.adjustments.total} bold />
-        </>
-      )}
 
       <div className={cn(
         'flex justify-between items-center text-base font-bold pt-3 border-t-2 border-primary/30 mt-2',
