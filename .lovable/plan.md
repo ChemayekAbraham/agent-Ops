@@ -1,52 +1,45 @@
-# Landlord Rental Accounting — Recommended Changes (not implemented)
+# Requisitions not reaching the CFO after COO approval
 
-This is the recommendation set from the read-only audit. Nothing here has been applied.
+## What I found
 
-## 1. Decide the pricing model (business decision, blocks everything else)
+The COO → CFO handover in the database is working. SRQ-00030 moved supervisor → COO → CFO this morning, `stage` is `cfo`, `current_approver_role` is `cfo`, and all three CFO-role holders (including Angwen Sarah) received an in-app notification at 09:13. Nothing is stuck in transit.
 
-The live formula prices a 30-day, UGX 100,000 placement at **UGX 143,000** (daily 4,767) and pays agent commission *out of* that. The reference rules price it at **UGX 156,310** (daily 4,877) with agent commission layered *on top* of principal + returns + residual.
+Two real problems explain what you are seeing.
 
-Both are internally consistent. Only one can be the tenant obligation. Until this is settled, no ledger change should be made.
+### 1. Ten requisitions never route to the CFO by design
 
-```text
-LIVE      100,000 principal + 33,000 access fee + 10,000 reg   = 143,000
-          of which ROI 15,000, agent commission 14,300, residual 3,700
-INTENDED  100,000 principal + 15,000 ROI + 14,631 commission
-          + 16,679 residual + 10,000 reg                       = 156,310
-```
+`staff_requisition_route` checks the requester's roles. If the requester holds the `cfo` role, the route becomes COO → **CEO** and the CFO stage is skipped entirely (`final_stage = 'ceo'`), so that nobody approves their own money.
 
-## 2. Single authoritative pricing function
+JOSHUA WANDA holds `cfo` alongside `cto`, `manager` and `access_admin`. Every requisition he raises therefore goes COO → CEO. That is 10 of the 33 requisitions on file, including SRQ-00031 and SRQ-00032 today, both approved by the COO and then finished by the CEO. From the CFO dashboard they look like requisitions that vanished after COO approval.
 
-Extend `compute_rent_repayment` to return the full component breakdown (principal, partner return, agent commission, registration fee, platform residual) instead of only access fee / total / daily. Keep `trg_enforce_rent_request_formula` as the sole writer of those columns.
+### 2. The CFO approval bell does not watch this queue at all
 
-Then retire the duplicated client math: `src/lib/rentCalculations.ts`, `PublicRentCalculator.tsx`, `mcp-public/tools/estimate-rent-access.ts`, `ReceivablesAudit.tsx` and the agent dialogs should read the RPC rather than recompute `1.33^(days/30)` and `× 0.10` locally.
+`src/hooks/useCfoApprovalNotifications.ts` has entries for `director_requisitions` and `employee_requisitions` — both retired flows — and **no entry for `staff_requisitions`**. So a requisition sitting at the CFO stage raises no count, no bell badge, and no link into the requisitions section. The CFO only ever finds it by opening that section manually.
 
-## 3. Recognise fee revenue at collection
+The legacy `employee_requisitions` queue the bell does watch holds exactly one pending row, from 14 August, and its submit function returns 410, so that counter is permanently near zero and misleading.
 
-Today access fee and registration fee are effectively not recognised: `access_fee_collected` has 8 production legs, and `registration_fee_collected` posts an equal platform cash_in and cash_out so it self-nets. R1 Platform Revenue stands at UGX 11.4M against UGX 669M disbursed.
+## Proposed fixes
 
-Every collection should split the collected amount into its components and post the fee share to R1 once, on one side only.
+**A. Surface staff requisitions in the CFO bell**
 
-## 4. Use the liability accounts that already exist
+Add a `staffRequisitions` definition to `useCfoApprovalNotifications` counting `staff_requisitions` where `stage = 'cfo'`, pointing at the existing `requisitions` tab, and drop or clearly mark the two retired counters. Nothing about the existing 13 queues changes.
 
-`ledger_account_map` defines L3 Partner Returns Payable, L4 Landlord Rent Payable and L5 Agent Commission Payable. All three carry zero balance. Recommend:
+**B. Decide what the CFO-role skip should mean**
 
-- landlord principal recognised as L4 on placement, cleared to A1 on disbursement
-- partner return accrued to L3, cleared on payout
-- agent commission accrued to L5, cleared when it hits the withdrawable wallet
+This is a business decision, not a bug fix, so I want your call before touching it:
 
-## 5. Pin the rates to config, not to code
+- Keep it as is — a person holding the CFO role can never have their own requisition reviewed by the CFO office, and the CEO is the backstop.
+- Or narrow it, so the skip applies only when the requester is *the* acting CFO rather than anyone who happens to carry the role. JOSHUA WANDA's primary function is CTO; under this option his requisitions would route COO → CFO like everyone else.
 
-`0.15` (partner return) and `0.10` (agent commission) are hardcoded in both the edge functions and roughly twenty frontend files. Move them to a single config table read by the pricing function, and have the UI display the values it receives.
+Either way, the CFO queue should show a visible line for requisitions that bypassed the CFO stage, so nothing appears to disappear silently.
 
-## 6. Resolve the two commission functions
+**C. Make the routing visible on the card**
 
-Two overloads of `credit_agent_rent_commission` exist — one at 10% flat, one at 5%/4% tiered. Confirm which resolves at each call site and drop the dead one.
+Show the remaining path on each requisition card ("COO, then CEO" / "COO, then CFO") so an approver can tell at a glance where a request is headed and why it may never arrive.
 
-## 7. Repoint the vestigial ledgers
+## Technical notes
 
-`commission_accrual_ledger` and `fee_revenue_ledger` receive no writes from the current flow but are still read by CFO and agent dashboards. Either write to them from the live path or repoint those dashboards at `general_ledger`.
-
-## Explicitly preserved
-
-No change is proposed to the recent balance-sheet classification work: Partner and Agent Obligations, Angel Pool Shares, E3 Legacy Opening Balance Adjustments, E4 Legacy One-Sided Posting Counterparts, genuine A4 Agent Receivables, and the CFO wallet-deduction equity corrections all stay exactly as they are. The recommendations above add postings to accounts that are currently empty; they do not reclassify anything already mapped.
+- Database objects involved: `staff_requisitions`, `staff_requisition_events`, `staff_requisition_department_routes`, function `staff_requisition_route(_user_id)`.
+- Edge function `staff-requisition-decide` advances the stage with `nextStage = stageKey === 'supervisor' ? 'coo' : row.final_stage`, so the COO always hands to whatever `final_stage` was stamped at submission. The skip is decided at submission time, not at approval time — that is why re-approving cannot recover it.
+- `notifications` inserts are fine: `block_all_notification_inserts` already allowlists the `staff_requisition` type, and 337 such rows exist.
+- Option A is frontend only. Option B needs a migration to `staff_requisition_route` plus a decision on whether the 10 existing `final_stage = 'ceo'` rows are left alone (recommended — they are already approved and credited).
