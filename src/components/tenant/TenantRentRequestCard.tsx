@@ -138,14 +138,18 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
       });
       if (error) throw error;
       const centre = (data as any)?.service_centre_name as string | undefined;
+      // Fire-and-forget: pushes the "request received" SMS out now instead of
+      // waiting for the 15-minute dispatch sweep.
+      supabase.functions.invoke('tenant-rent-intake-notices').catch(() => {});
       toast.success('Request sent', {
         description: centre
-          ? `Routed to ${centre}. An agent will review you and verify your house.`
-          : 'An agent will be assigned to review you and verify your house.',
+          ? `Routed to ${centre}. We'll SMS and notify you at every step.`
+          : `An agent will be assigned to review you. We'll SMS and notify you at every step.`,
       });
       setOpen(false);
       setAmount(''); setNote('');
       qc.invalidateQueries({ queryKey: ['tenant-rent-intake', userId] });
+
     } catch (e: any) {
       toast.error('Could not send request', { description: e?.message });
     } finally {
