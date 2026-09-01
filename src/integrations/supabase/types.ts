@@ -34991,6 +34991,8 @@ export type Database = {
       tppo_period_snapshots: {
         Row: {
           basis: Json
+          collected_outside_cohort_ugx: number
+          collected_total_ugx: number
           collected_ugx: number
           computed_at: string
           frozen_at: string | null
@@ -35004,6 +35006,8 @@ export type Database = {
         }
         Insert: {
           basis?: Json
+          collected_outside_cohort_ugx?: number
+          collected_total_ugx?: number
           collected_ugx?: number
           computed_at?: string
           frozen_at?: string | null
@@ -35017,6 +35021,8 @@ export type Database = {
         }
         Update: {
           basis?: Json
+          collected_outside_cohort_ugx?: number
+          collected_total_ugx?: number
           collected_ugx?: number
           computed_at?: string
           frozen_at?: string | null
