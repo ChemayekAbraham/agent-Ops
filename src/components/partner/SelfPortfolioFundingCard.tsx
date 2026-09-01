@@ -165,6 +165,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
   const housesQuery = useVerifiedEmptyHouses();
 
   const plans = plansQuery.data?.plans ?? [];
+
   const houses = housesQuery.data?.houses ?? [];
   const available = plansQuery.data?.available ?? 0;
   const fundedIds = fundedQuery.data?.fundedIds ?? [];
