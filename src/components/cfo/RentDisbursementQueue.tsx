@@ -19,6 +19,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Loader2, CheckCircle2, Banknote, Home, TrendingUp, Users, Wallet, AlertTriangle, XCircle, Search, MapPin, Filter, Eye } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { TenantPaymentHistoryCard } from '@/components/executive/TenantPaymentHistoryCard';
 import {
   fetchPartnerReservedStages,
   PARTNER_RESERVED_HINT,
@@ -1088,6 +1089,11 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                   COO-approved payout for {reviewTarget.tenant_name} → {reviewTarget.landlord_name}.
                 </SheetDescription>
               </SheetHeader>
+
+              {/* Tenant status first: renewal vs new tenant, with existing payment history */}
+              <TenantPaymentHistoryCard tenantId={reviewTarget.tenant_id} currentRequestId={reviewTarget.id} />
+
+
 
               <div className="rounded-xl border border-border/70 divide-y divide-border/60 text-sm">
                 {[

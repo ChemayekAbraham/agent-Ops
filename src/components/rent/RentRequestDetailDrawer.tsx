@@ -10,6 +10,7 @@ import { format, addDays } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
+import { TenantPaymentHistoryCard } from '@/components/executive/TenantPaymentHistoryCard';
 
 interface RentRequestDetailDrawerProps {
   requestId: string | null;
@@ -205,7 +206,10 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
         ) : (
           <div className="space-y-5 overflow-y-auto max-h-[calc(90vh-80px)] pb-6">
 
-            {/* Amount header */}
+            {/* Tenant status first: renewal vs new tenant, with existing payment history */}
+            <TenantPaymentHistoryCard tenantId={request.tenant_id} currentRequestId={request.id} />
+
+
             <div className="text-center py-4 bg-muted/30 rounded-2xl">
               <p className="text-sm text-muted-foreground">Rent Amount</p>
               <p className="text-3xl font-bold">{formatUGX(request.rent_amount)}</p>
