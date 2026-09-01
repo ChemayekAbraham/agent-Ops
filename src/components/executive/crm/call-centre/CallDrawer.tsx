@@ -354,10 +354,27 @@ export function CallDrawer({
                     <PhoneOff className="h-8 w-8" />
                   </Button>
                 ) : (
-                  <Badge variant="outline" className="px-3 py-1.5 text-xs">
-                    {outcome === 'answered' ? 'Answered' : outcome === 'rejected' ? 'Rejected' : 'Not reachable'}
-                  </Badge>
+                  <div className="flex flex-col items-center gap-2">
+                    {/* Redial: the call is over, so the primary action becomes
+                        trying the same person again without reopening the row. */}
+                    <Button
+                      type="button"
+                      className="h-20 w-20 rounded-full bg-emerald-600 shadow-lg hover:bg-emerald-700"
+                      onClick={handleRedial}
+                      disabled={placeCall.isPending}
+                      aria-label={`Redial ${target.name}`}
+                    >
+                      <PhoneCall className="h-8 w-8" />
+                    </Button>
+                    <Badge variant="outline" className="px-3 py-1 text-[10px]">
+                      {outcome === 'answered' ? 'Answered' : outcome === 'rejected' ? 'Rejected' : 'Not reachable'}
+                    </Badge>
+                    <span className="text-[11px] font-medium text-muted-foreground">
+                      {placeCall.isPending ? 'Redialling…' : 'Tap to redial'}
+                    </span>
+                  </div>
                 )}
+
 
                 <Button
                   type="button"
