@@ -141,32 +141,49 @@ export default function TicketDetailDialog({
 
   return (
     <Dialog open={!!ticket} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto p-0">
         {ticket ? (
           <>
-            <DialogHeader className="space-y-2 text-left">
+            <DialogHeader className="space-y-2 border-b border-border/60 bg-muted/30 px-5 py-4 text-left">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-xs text-muted-foreground">{ticket.ref}</span>
-                <Badge variant={ticket.severity === 'critical' ? 'destructive' : 'secondary'}>
+                <span className="rounded-md border border-border/60 bg-background px-2 py-0.5 font-mono text-[11px] font-medium text-muted-foreground">
+                  {ticket.ref}
+                </span>
+                <Badge
+                  variant="outline"
+                  className={
+                    ticket.severity === 'critical'
+                      ? 'rounded-full border-destructive/30 bg-destructive/10 px-2.5 py-0.5 text-[11px] font-medium text-destructive'
+                      : 'rounded-full border-border bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground'
+                  }
+                >
                   {severityLabel}
                 </Badge>
-                <Badge variant="outline">{stateLabel}</Badge>
+                <Badge
+                  variant="outline"
+                  className="rounded-full border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary"
+                >
+                  {stateLabel}
+                </Badge>
               </div>
-              <DialogTitle className="text-base leading-snug">{ticket.title}</DialogTitle>
+              <DialogTitle className="text-base font-semibold leading-snug tracking-tight">
+                {ticket.title}
+              </DialogTitle>
               <DialogDescription className="text-xs">
                 Raised by {creatorLabel || people?.raised_by_name || '—'} · {when(ticket.raised_at)}
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
-              <div>
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Description
+            <div className="space-y-4 px-5 pb-5">
+              <div className="rounded-xl border border-border/60 bg-card p-3.5">
+                <SectionLabel>Description</SectionLabel>
+                <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed">
+                  {ticket.body || '—'}
                 </p>
-                <p className="mt-1 whitespace-pre-wrap text-sm">{ticket.body || '—'}</p>
               </div>
 
-              <Separator />
+              <Separator className="bg-border/60" />
+
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Area" value={ticket.hr_ticket_surfaces?.label} />
