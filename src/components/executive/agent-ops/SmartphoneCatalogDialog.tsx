@@ -92,6 +92,15 @@ function labelOf(e: SmartphoneCatalogEntry): string {
   return e.model_name ? `${e.brand} · ${e.model_name}` : `${e.brand} · any model`;
 }
 
+function osLabel(os: SmartphoneOsType): string {
+  return os === 'ios' ? 'iPhone (iOS)' : 'Android';
+}
+
+function defaultOsForBrand(brand: string): SmartphoneOsType {
+  const b = brand.trim().toLowerCase();
+  return b === 'apple' || b === 'iphone' || b.startsWith('iphone') ? 'ios' : 'android';
+}
+
 async function exportCatalogPdf(rows: SmartphoneCatalogEntry[], from: string, to: string) {
   const { default: jsPDF } = await import('jspdf');
   const autoTableMod: any = await import('jspdf-autotable');
