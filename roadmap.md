@@ -49,3 +49,8 @@
 
 - [x] CRM People roster role definitions corrected (tenant = any rent repayment status, agent = agent-ops strict rule + verified sub-agents, landlord = ever received landlord float disbursement)
 - [x] My Space salary advance card: show cumulative deducted and pending balance
+
+## 2026-09-01
+
+- ~~Real hang-up for CRM voice calls: `crm-hangup-call` edge function (cancel flag + AT `dequeueInteractiveCall` best-effort drop), wired through `useCancelCall` and `CallDrawer`.~~
+- ~~Partner Profile 360 change log: show portfolio code and payment/plan detail changes (rate, payout mode, term, payout day, dates, status) alongside amount before/change/after.~~
