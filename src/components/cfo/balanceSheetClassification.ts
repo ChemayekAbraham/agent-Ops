@@ -62,10 +62,11 @@ export const ASSET_CATEGORIES = [
  * are all cash; the cash flow statement already defines cash as A1 + A2.
  * A3 is tenant rent access receivables.
  *
- * A4 "Advances and Other Receivables" is deliberately NOT mapped. It is a
- * single account carrying agent advances, employee advances and wallet
- * deductions together, so it cannot be split into the separate agent and
- * employee lines this structure asks for without inventing the split.
+ * A4 "Advances and Other Receivables" is deliberately NOT mapped, and stays
+ * flagged for separate investigation. It is a single account carrying agent
+ * advances, employee advances and wallet deductions together, and it currently
+ * shows a credit balance (~UGX 1.212bn) even though it is an asset account.
+ * Classifying it anywhere would bury that anomaly.
  *
  * A9 Suspense is unresolved postings by definition and is never classified.
  */
@@ -92,15 +93,38 @@ export const STANDALONE_LIABILITY_CATEGORIES = [
 ] as const;
 
 /**
+ * Obligations owed to partners and agents. These are real payables that do not
+ * belong in Marketplace float, so they get their own block instead of being
+ * left unclassified.
+ *
+ * L2 is partner capital held under rent-plan portfolios (partner_funding,
+ * roi_reinvestment, supporter_facilitation_capital) — capital the company holds
+ * and must eventually return, i.e. a non-current partner obligation.
+ * L6 is money received from partners that has not yet been applied to a
+ * portfolio (pending_portfolio_topup) — a short-term custody obligation.
+ * L3 partner returns payable and L5 agent commission payable are accrued
+ * payouts.
+ */
+export const PARTNER_LIABILITY_CATEGORIES = [
+  'Partner Portfolio Capital Held',
+  'Partner Top-Ups Awaiting Application',
+  'Partner Returns Payable',
+  'Agent Commission Payable',
+] as const;
+
+/**
  * L4 is the landlord payable and L1 is withdrawable user wallet custody.
  *
- * L2, L3, L5, L6 (partner capital, partner returns, agent commissions, partner
- * top-ups) and L9 (suspense) have no home in this structure, so they are
- * flagged rather than forced into Marketplace.
+ * L9 (suspense) stays unmapped by design — unresolved postings must remain
+ * visible as unresolved.
  */
 const LIABILITY_ACCOUNT_MAP: Record<string, string> = {
   L4: 'Landlord Float',
   L1: 'Withdrawal Balances',
+  L2: 'Partner Portfolio Capital Held',
+  L6: 'Partner Top-Ups Awaiting Application',
+  L3: 'Partner Returns Payable',
+  L5: 'Agent Commission Payable',
 };
 
 /* ── Equity ────────────────────────────────────────────────────────────── */
@@ -109,20 +133,36 @@ export const EQUITY_CATEGORIES = [
   'Angel Pool Shares',
   'Retained Earnings',
   'Proposed Dividends',
+  'Legacy Opening Balance Adjustments',
+  'Legacy One-Sided Posting Counterparts',
 ] as const;
 
 /**
  * Retained earnings is a derived line with no account code, matched by label.
  *
- * E1 Shareholders' Capital Contributions is NOT mapped to Angel Pool Shares:
- * the Angel Pool is one funding route among several and E1 is the general
- * contributions account, so equating them would misstate both. E3 and E4
- * (legacy opening balances and one-sided posting counterparts) are flagged.
+ * E1 Shareholders' Capital Contributions is reported under Angel Pool Shares:
+ * the underlying legs are 'pool_capital_received' (UGX 94.155m of the UGX
+ * 96.274m balance) plus a small 'share_capital' remainder (UGX 2.119m). The
+ * statement exposes one line per account, so the remainder rides along with the
+ * pool contributions rather than being split — the account is materially the
+ * angel pool.
+ *
+ * E3 carries opening-balance and system balance corrections; E4 is the equity
+ * counterpart raised for historic one-sided postings. Both are legitimate
+ * equity movements with their own meaning, so each gets its own line instead of
+ * being flagged as unexplained.
  */
 const EQUITY_LABEL_MAP: Record<string, string> = {
   'Retained Earnings / (Accumulated Deficit)': 'Retained Earnings',
   'Accumulated Profit / (Loss)': 'Retained Earnings',
 };
+
+const EQUITY_ACCOUNT_MAP: Record<string, string> = {
+  E1: 'Angel Pool Shares',
+  E3: 'Legacy Opening Balance Adjustments',
+  E4: 'Legacy One-Sided Posting Counterparts',
+};
+
 
 /* ── Grouping ──────────────────────────────────────────────────────────── */
 
