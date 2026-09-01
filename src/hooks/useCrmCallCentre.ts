@@ -199,6 +199,147 @@ export function useCallRoster(options: { limit?: number } = {}) {
   return { ...query, rows: query.data?.rows ?? [], total: query.data?.total ?? 0 };
 }
 
+/* ------------------------------------------------------------------ *
+ * Platform people — every user, with every role they actually hold
+ * ------------------------------------------------------------------ */
+
+/** One person on the platform-wide people directory. */
+export interface PlatformPerson {
+  calleeId: string;
+  name: string;
+  phone: string;
+  hasPhone: boolean;
+  avatarUrl: string | null;
+  location: string | null;
+  /** Every audience this person genuinely belongs to. Can be empty. */
+  roles: CalleeRole[];
+  status: CallOutcome | null;
+  calledAt: string | null;
+  recalledAt: string | null;
+  totalCalls: number;
+  summaries: number;
+  lastCallId: string | null;
+}
+
+export type PeopleStatusFilter = CallOutcome | 'all' | 'never';
+export type PeopleSort = 'name' | 'recent_call' | 'newest';
+
+export interface PlatformPeopleQuery {
+  search?: string;
+  role?: CalleeRole | 'all';
+  status?: PeopleStatusFilter;
+  sort?: PeopleSort;
+  page?: number;
+  pageSize?: number;
+}
+
+interface PlatformPersonRow {
+  person_id: string;
+  name: string | null;
+  phone_masked: string | null;
+  has_phone: boolean | null;
+  location: string | null;
+  avatar_url: string | null;
+  roles: string[] | null;
+  total_calls: number | null;
+  summaries: number | null;
+  first_called_at: string | null;
+  last_called_at: string | null;
+  last_outcome: string | null;
+  last_call_id: string | null;
+  total_rows: number | null;
+}
+
+export const PEOPLE_PAGE_SIZE = 20;
+
+/**
+ * Server-paged directory of EVERY platform user.
+ *
+ * Filtering, searching, sorting and counting all happen in SQL — 61k+ profiles
+ * are never shipped to the browser. Roles come from real evidence (rent
+ * records, portfolios, landlord float disbursements, agent links, staff roles),
+ * so a person can hold several at once.
+ */
+export function usePlatformPeople(params: PlatformPeopleQuery = {}) {
+  const {
+    search = '',
+    role = 'all',
+    status = 'all',
+    sort = 'name',
+    page = 0,
+    pageSize = PEOPLE_PAGE_SIZE,
+  } = params;
+
+  const query = useQuery({
+    queryKey: ['crm-platform-people', search, role, status, sort, page, pageSize],
+    queryFn: async (): Promise<{ rows: PlatformPerson[]; total: number }> => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any).rpc('crm_platform_people_page', {
+        p_search: search.trim() || null,
+        p_role: role === 'all' ? null : role,
+        p_status: status === 'all' ? null : status,
+        p_sort: sort,
+        p_limit: pageSize,
+        p_offset: page * pageSize,
+      });
+      if (error) throw error;
+
+      const raw = (data ?? []) as PlatformPersonRow[];
+      return {
+        total: Number(raw[0]?.total_rows ?? 0),
+        rows: raw.map((r) => ({
+          calleeId: r.person_id,
+          name: r.name?.trim() || 'Unnamed user',
+          phone: r.phone_masked ?? '—',
+          hasPhone: r.has_phone === true,
+          avatarUrl: r.avatar_url,
+          location: r.location,
+          roles: (r.roles ?? []).filter((x): x is CalleeRole => CALLEE_ROLES.includes(x as CalleeRole)),
+          status: r.last_call_id ? ((r.last_outcome ?? 'not_reachable') as CallOutcome) : null,
+          calledAt: r.first_called_at,
+          recalledAt: r.last_called_at,
+          totalCalls: Number(r.total_calls ?? 0),
+          summaries: Number(r.summaries ?? 0),
+          lastCallId: r.last_call_id,
+        })),
+      };
+    },
+    staleTime: 30_000,
+    placeholderData: (prev) => prev,
+  });
+
+  return {
+    rows: query.data?.rows ?? [],
+    total: query.data?.total ?? 0,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    error: query.error,
+  };
+}
+
+/** Platform-wide audience sizes, for the filter chips. */
+export function usePlatformPeopleCounts() {
+  const query = useQuery({
+    queryKey: ['crm-platform-people-counts'],
+    queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any).rpc('crm_platform_people_counts');
+      if (error) throw error;
+      const row = (data ?? [])[0] as Record<string, number> | undefined;
+      return {
+        all: Number(row?.all_users ?? 0),
+        tenant: Number(row?.tenants ?? 0),
+        agent: Number(row?.agents ?? 0),
+        partner: Number(row?.partners ?? 0),
+        landlord: Number(row?.landlords ?? 0),
+        employee: Number(row?.employees ?? 0),
+      };
+    },
+    staleTime: 300_000,
+  });
+  return query.data ?? null;
+}
+
 function useInvalidateCallRecords() {
   const qc = useQueryClient();
   return useCallback(() => {
