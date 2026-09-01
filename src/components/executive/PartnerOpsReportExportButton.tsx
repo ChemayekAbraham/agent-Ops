@@ -67,8 +67,9 @@ export function PartnerOpsReportExportButton() {
         return;
       }
       const { data, error } = await supabase.functions.invoke('partner-ops-daily-report', {
-        body: { period: resolved, date: day, pdf: true },
+        body: { period: resolved, date: day, ...range, pdf: true },
       });
+
       if (error) throw error;
       const blob = data instanceof Blob ? data : new Blob([data as any], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
