@@ -282,13 +282,13 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
     return (
       <div
         key={p.sale_id}
-        role={p.agent_id ? 'button' : undefined}
-        tabIndex={p.agent_id ? 0 : undefined}
-        onClick={() => p.agent_id && setDetailAgentId(p.agent_id)}
+        role="button"
+        tabIndex={0}
+        onClick={() => setAppDetail(p)}
         onKeyDown={(e) => {
-          if (p.agent_id && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setDetailAgentId(p.agent_id); }
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setAppDetail(p); }
         }}
-        className={`p-3 flex flex-wrap items-center gap-3 ${p.agent_id ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
+        className="p-3 flex flex-wrap items-center gap-3 cursor-pointer hover:bg-muted/50 transition-colors"
       >
         <UserAvatar avatarUrl={p.avatar_url} fullName={p.full_name || undefined} size="sm" />
         <div className="min-w-0 flex-1">
