@@ -145,11 +145,13 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
         p_agent_id: deleteTarget.agent_id,
         p_category: category ?? null,
         p_reason: deleteReason.trim(),
+        // Unlinked holdings carry no profile — match them by the recorded buyer name.
+        p_client_name: deleteTarget.full_name ?? null,
       });
       if (error) throw error;
       return (data ?? {}) as { deleted_sales?: number; deleted_plans?: number; deleted_deductions?: number };
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       const sales = Number(result?.deleted_sales ?? 0);
       const plans = Number(result?.deleted_plans ?? 0);
       const deductions = Number(result?.deleted_deductions ?? 0);
@@ -158,9 +160,17 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
       } else {
         toast.success(`Deleted ${sales} sale(s), ${plans} plan(s), ${deductions} deduction(s)`);
       }
+      const removedId = deleteTarget?.agent_id ?? null;
       setDeleteTarget(null);
       setDeleteReason('');
-      queryClient.invalidateQueries({ queryKey: ['agent-products-overview'], exact: false });
+      if (removedId) {
+        // Drop the row from the cached list right away, then refetch from the server.
+        queryClient.setQueriesData<Overview>({ queryKey: ['agent-products-overview'], exact: false }, (prev) =>
+          prev ? { ...prev, rows: (prev.rows ?? []).filter((r) => r.agent_id !== removedId) } : prev,
+        );
+        queryClient.removeQueries({ queryKey: ['agent-product-detail', removedId], exact: false });
+      }
+      await queryClient.invalidateQueries({ queryKey: ['agent-products-overview'], exact: false });
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to delete records'),
   });

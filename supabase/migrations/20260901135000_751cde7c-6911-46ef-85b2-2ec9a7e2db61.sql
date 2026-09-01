@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.delete_agent_product_holdings(uuid, text, text);
