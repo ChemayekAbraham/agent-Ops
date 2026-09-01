@@ -214,15 +214,22 @@ export default function BalanceSheetPanel() {
   const [loading, setLoading] = useState(false);
   const [showSources, setShowSources] = useState(false);
   const [exporting, setExporting] = useState(false);
+  /** Presentation-only breakdown of the existing Landlord Float. */
+  const [floatSplit, setFloatSplit] = useState<LandlordFloatSplit | null>(null);
 
   const load = useCallback(async (date: Date) => {
     setLoading(true);
     try {
+      const asAtIso = endOfDay(date).toISOString();
       const { data: res, error } = await (supabase as any).rpc('get_statement_of_financial_position', {
-        p_as_at: endOfDay(date).toISOString(),
+        p_as_at: asAtIso,
       });
       if (error) throw error;
       setData(res as StatementOfFinancialPosition);
+      const { data: split } = await (supabase as any).rpc('get_landlord_float_management_split', {
+        p_as_at: asAtIso,
+      });
+      setFloatSplit((split as LandlordFloatSplit) ?? null);
     } catch (e: any) {
       toast.error(e?.message ?? 'Failed to generate the statement of financial position');
     } finally {
