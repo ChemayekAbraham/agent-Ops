@@ -12,7 +12,35 @@ const fmt = (v: string | null) => (v ? new Date(v).toLocaleString() : DASH);
 const shortDate = (v: string | null) => (v ? new Date(v).toLocaleDateString() : 'Never');
 
 /** Columns rendered as full-width action controls at the foot of a card. */
-const ACTION_COLUMNS: CallingColumnKey[] = ['reveal', 'whatsapp'];
+const ACTION_COLUMNS: CallingColumnKey[] = ['actions'];
+
+/** Fixed pixel width of the pinned Actions column. */
+const ACTIONS_WIDTH = 150;
+
+/**
+ * Relative weights for the flexible columns. The table is table-fixed, so the
+ * browser cannot widen a column to fit its content; these weights decide the
+ * share of the remaining space instead.
+ */
+const COLUMN_WEIGHT: Partial<Record<CallingColumnKey, number>> = {
+  name: 3,
+  phone: 2,
+  linked_agent: 2.4,
+  district: 1.6,
+  metric: 1.6,
+  feedback_category: 2,
+  severity: 1.2,
+  routed_to: 1.6,
+  ticket_ref: 1.4,
+  ticket_status: 1.4,
+  attempts: 0.9,
+  last_attempt: 1.8,
+  next_retry: 1.8,
+  park_reason: 2,
+  fix_ticket_ref: 1.6,
+  callback_due: 1.8,
+  booked_by: 1.8,
+};
 
 /** Formatted by metric_format. A null value is an em dash, never a zero. */
 function metricCell(row: CcRow) {
@@ -65,18 +93,24 @@ export function CallingHubTable({
         variant={phone ? 'secondary' : 'default'}
         className={full ? 'h-9 w-full text-xs' : 'h-7 px-2 text-[11px]'}
         disabled={wipBlocked || revealing || !!phone}
-        title={wipBlocked ? 'Record the outcome of your open calls before revealing another number.' : undefined}
+        title={
+          wipBlocked
+            ? 'Record the outcome of your open calls before revealing another number.'
+            : phone
+              ? 'Number revealed'
+              : 'Reveal number'
+        }
         onClick={() => onReveal(row)}
       >
         <Eye className="mr-1 h-3 w-3" />
-        {phone ? 'Number revealed' : 'Reveal number'}
+        {full ? (phone ? 'Number revealed' : 'Reveal number') : phone ? 'Revealed' : 'Reveal'}
       </Button>
     );
   };
 
   const whatsappLink = (row: CcRow, full: boolean) => {
     const phone = revealed[row.id];
-    if (!phone) return <span className="text-muted-foreground">{DASH}</span>;
+    if (!phone) return full ? <span className="text-muted-foreground">{DASH}</span> : null;
     return (
       <a
         href={`https://wa.me/${phone.replace(/\D/g, '')}`}
@@ -85,10 +119,13 @@ export function CallingHubTable({
         className={
           full
             ? 'inline-flex h-9 w-full items-center justify-center gap-1 rounded-md border border-border bg-background text-xs font-semibold text-primary'
-            : 'inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline'
+            : 'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border text-primary hover:bg-muted'
         }
+        title="Open WhatsApp chat"
+        aria-label="Open WhatsApp chat"
       >
-        <MessageCircle className="h-3 w-3" /> WhatsApp
+        <MessageCircle className="h-3.5 w-3.5" />
+        {full && <span className="ml-1">WhatsApp</span>}
       </a>
     );
   };
@@ -97,7 +134,11 @@ export function CallingHubTable({
     const phone = revealed[row.id];
     switch (col) {
       case 'name':
-        return <span className="font-semibold">{row.name}</span>;
+        return (
+          <span className="block truncate font-semibold" title={row.name ?? undefined}>
+            {row.name}
+          </span>
+        );
       case 'phone':
         // Unrevealed is not an error state — the Reveal button carries the affordance.
         return phone ? (
@@ -106,15 +147,31 @@ export function CallingHubTable({
           <span className="text-muted-foreground">{DASH}</span>
         );
       case 'linked_agent':
-        return row.linked_agent ?? DASH;
+        return (
+          <span className="block truncate" title={row.linked_agent ?? undefined}>
+            {row.linked_agent ?? DASH}
+          </span>
+        );
       case 'district':
-        return row.district ?? DASH;
+        return (
+          <span className="block truncate" title={row.district ?? undefined}>
+            {row.district ?? DASH}
+          </span>
+        );
       case 'metric':
         return metricCell(row);
-      case 'reveal':
-        return revealButton(row, full);
-      case 'whatsapp':
-        return whatsappLink(row, full);
+      case 'actions':
+        return full ? (
+          <div className="flex flex-col gap-2">
+            {revealButton(row, true)}
+            {whatsappLink(row, true)}
+          </div>
+        ) : (
+          <div className="flex items-center justify-end gap-1">
+            {revealButton(row, false)}
+            {whatsappLink(row, false)}
+          </div>
+        );
       case 'feedback_category':
         return row.feedback_category ?? DASH;
       case 'severity':
@@ -166,25 +223,27 @@ export function CallingHubTable({
   const actionColumns = columns.filter((c) => ACTION_COLUMNS.includes(c));
 
   /**
-   * Trailing action columns are pinned to the right so a horizontal scroll can
-   * never put the primary action out of reach. Their widths are fixed because a
-   * sticky offset has to be known up front when more than one column is pinned.
+   * The single trailing Actions column is pinned to the right so a narrow
+   * viewport can never put the primary action out of reach. Everything else
+   * shares the remaining width proportionally under table-fixed.
    */
-  const ACTION_WIDTH: Partial<Record<CallingColumnKey, number>> = { reveal: 160, whatsapp: 110 };
-  const trailing: CallingColumnKey[] = [];
-  for (let i = columns.length - 1; i >= 0 && ACTION_COLUMNS.includes(columns[i]); i -= 1) {
-    trailing.unshift(columns[i]);
-  }
-  const stickyRightOffset = (c: CallingColumnKey): number | null => {
-    const idx = trailing.indexOf(c);
-    if (idx === -1) return null;
-    return trailing.slice(idx + 1).reduce((sum, k) => sum + (ACTION_WIDTH[k] ?? 120), 0);
-  };
-  const stickyStyle = (c: CallingColumnKey, _z: number): React.CSSProperties | undefined => {
-    const right = stickyRightOffset(c);
-    if (right === null) return undefined;
-    return { right, width: ACTION_WIDTH[c] ?? 120, minWidth: ACTION_WIDTH[c] ?? 120 };
-  };
+  const hasActions = columns.includes('actions');
+  const flexColumns = columns.filter((c) => c !== 'actions');
+  const totalWeight = flexColumns.reduce((sum, c) => sum + (COLUMN_WEIGHT[c] ?? 1.5), 0) || 1;
+  const columnStyle = (c: CallingColumnKey): React.CSSProperties =>
+    c === 'actions'
+      ? { width: ACTIONS_WIDTH, minWidth: ACTIONS_WIDTH, right: 0 }
+      : { width: `calc((100% - ${ACTIONS_WIDTH}px) * ${(COLUMN_WEIGHT[c] ?? 1.5) / totalWeight})` };
+  const pinClass = (c: CallingColumnKey, z: number) =>
+    c === 'name'
+      ? `sticky left-0 z-${z}`
+      : c === 'actions' && hasActions
+        ? `sticky z-${z}`
+        : '';
+  const nowrap = (c: CallingColumnKey) =>
+    ['name', 'linked_agent', 'district', 'feedback_category', 'routed_to', 'park_reason', 'booked_by'].includes(c)
+      ? ''
+      : 'whitespace-nowrap';
 
 
   return (
@@ -221,16 +280,15 @@ export function CallingHubTable({
       <div className="hidden min-w-0 lg:block">
         {/* border-separate: Chrome will not honour position:sticky on cells of a
             border-collapse table, and the sticky action column is load-bearing. */}
-        <Table className="border-separate border-spacing-0">
+        <Table className="w-full table-fixed border-separate border-spacing-0">
           <TableHeader>
             <TableRow>
               {columns.map((c) => (
                 <TableHead
                   key={c}
-                  style={stickyStyle(c, 20)}
-                  className={`whitespace-nowrap border-b border-border bg-card text-[11px] uppercase tracking-wide ${
-                    c === 'name' ? 'sticky left-0 z-20' : ''
-                  } ${stickyRightOffset(c) !== null ? 'sticky z-20' : ''}`}
+                  style={columnStyle(c)}
+                  className={`truncate border-b border-border bg-card text-[11px] uppercase tracking-wide ${nowrap(c)} ${pinClass(c, 20)}`}
+                  title={header(c)}
                 >
                   {header(c)}
                 </TableHead>
@@ -243,10 +301,8 @@ export function CallingHubTable({
                 {columns.map((c) => (
                   <TableCell
                     key={c}
-                    style={stickyStyle(c, 10)}
-                    className={`whitespace-nowrap border-b border-border/60 bg-card text-xs ${
-                      c === 'name' ? 'sticky left-0 z-10' : ''
-                    } ${stickyRightOffset(c) !== null ? 'sticky z-10' : ''}`}
+                    style={columnStyle(c)}
+                    className={`overflow-hidden text-ellipsis border-b border-border/60 bg-card text-xs ${nowrap(c)} ${pinClass(c, 10)}`}
                   >
                     {cell(row, c)}
                   </TableCell>
