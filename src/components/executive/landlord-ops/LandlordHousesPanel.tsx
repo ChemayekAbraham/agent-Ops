@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Building2, Home, Search, User, UserPlus, UserX, UserCog, ChevronDown, ChevronRight, ChevronUp, Loader2, X, Eye, EyeOff, Info, MapPin, Minus, Plus,
+  Building2, Home, Search, User, UserPlus, UserX, UserCog, ChevronDown, ChevronRight, ChevronUp, Loader2, X, Eye, EyeOff, Info, MapPin, Minus, Plus, Star,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { BindTenantToHouseDialog } from './BindTenantToHouseDialog';
