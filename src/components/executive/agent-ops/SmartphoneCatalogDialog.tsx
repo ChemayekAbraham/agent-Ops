@@ -66,6 +66,44 @@ export function catalogVisibleToAgents(e: SmartphoneCatalogEntry): boolean {
 
 export const SMARTPHONE_CATALOG_QUERY_KEY = ['smartphone-catalog'];
 
+/**
+ * iPhone release order (oldest → newest). Alphabetical sorting would place
+ * "XR" after "17", so iOS models are ordered by this list instead.
+ */
+const IPHONE_RELEASE_ORDER: string[] = [
+  'xr', 'xs', 'xs max',
+  '11', '11 pro', '11 pro max',
+  'se (2nd generation)',
+  '12 mini', '12', '12 pro', '12 pro max',
+  '13 mini', '13', '13 pro', '13 pro max',
+  'se (3rd generation)',
+  '14', '14 plus', '14 pro', '14 pro max',
+  '15', '15 plus', '15 pro', '15 pro max',
+  '16e', '16', '16 plus', '16 pro', '16 pro max',
+  'air',
+  '17', '17 pro', '17 pro max',
+];
+
+function modelRank(e: SmartphoneCatalogEntry): number {
+  if (e.os_type !== 'ios') return -1;
+  const idx = IPHONE_RELEASE_ORDER.indexOf((e.model_name ?? '').trim().toLowerCase());
+  return idx === -1 ? IPHONE_RELEASE_ORDER.length : idx;
+}
+
+/** os → brand → release order (iOS) or model name (Android). */
+export function sortCatalogEntries(rows: SmartphoneCatalogEntry[]): SmartphoneCatalogEntry[] {
+  return [...rows].sort((a, b) => {
+    if (a.os_type !== b.os_type) return a.os_type.localeCompare(b.os_type);
+    const brand = a.brand.localeCompare(b.brand);
+    if (brand !== 0) return brand;
+    if (a.os_type === 'ios') {
+      const rank = modelRank(a) - modelRank(b);
+      if (rank !== 0) return rank;
+    }
+    return (a.model_name ?? '').localeCompare(b.model_name ?? '', undefined, { numeric: true });
+  });
+}
+
 export function useSmartphoneCatalog() {
   return useQuery({
     queryKey: SMARTPHONE_CATALOG_QUERY_KEY,
@@ -78,7 +116,7 @@ export function useSmartphoneCatalog() {
       .order('model_name', { ascending: true });
 
       if (error) throw error;
-      return (data || []) as SmartphoneCatalogEntry[];
+      return sortCatalogEntries((data || []) as SmartphoneCatalogEntry[]);
     },
   });
 }
