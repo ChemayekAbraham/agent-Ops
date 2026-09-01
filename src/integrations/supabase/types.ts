@@ -48545,6 +48545,14 @@ export type Database = {
       }
       psm_queue_promissory_release_warnings: { Args: never; Returns: Json }
       psm_release_expired_promissory_intents: { Args: never; Returns: Json }
+      psm_release_orphaned_self_funding: {
+        Args: { p_partner_id?: string }
+        Returns: Json
+      }
+      psm_release_self_funding_line: {
+        Args: { p_line_id: string; p_reason?: string }
+        Returns: Json
+      }
       psm_reserved_plan_ids: {
         Args: { p_rent_request_ids: string[] }
         Returns: {
