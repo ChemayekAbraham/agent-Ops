@@ -161,3 +161,40 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
     </Tabs>
   );
 }
+
+function BoutiqueTabs({ category }: { category?: AgentProductCategory }) {
+  const { data: pendingCount = 0 } = useQuery({
+    queryKey: ['agent-products-pending-count', 'boutique'],
+    queryFn: async () => {
+      const { data, error } = await db.rpc('get_agent_products_overview' as any, { p_category: 'boutique' });
+      if (error) throw error;
+      return (((data as any)?.pending ?? []) as unknown[]).length;
+    },
+    staleTime: 60_000,
+  });
+
+  return (
+    <Tabs defaultValue="overview" className="space-y-4">
+      <TabsList className="flex-wrap h-auto">
+        <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsTrigger value="applications" className="gap-2">
+          Applications
+          {pendingCount > 0 && <Badge variant="secondary">{pendingCount}</Badge>}
+        </TabsTrigger>
+        <TabsTrigger value="issued">Issued in Field</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="overview" className="space-y-6">
+        <AgentProductsPanel category={category} mode="overview" />
+      </TabsContent>
+
+      <TabsContent value="applications" className="space-y-6">
+        <AgentProductsPanel category={category} mode="applications" />
+      </TabsContent>
+
+      <TabsContent value="issued" className="space-y-6">
+        <AgentProductsPanel category={category} mode="issued" />
+      </TabsContent>
+    </Tabs>
+  );
+}
