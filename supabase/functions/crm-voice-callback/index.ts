@@ -73,13 +73,25 @@ Deno.serve(async (req) => {
   // Minimal shape validation — an AT voice payload always carries a sessionId.
   const atSessionId = p.sessionId ?? '';
   const clientRequestId = p.clientRequestId ?? '';
-  if (!atSessionId && !clientRequestId) {
+  /**
+   * Set by Africa's Talking ONLY when the leg originated in a browser voice
+   * client (`client.call("+256…")`). It is the number the CRM user dialled, and
+   * it is how we recognise a WebRTC call: the browser cannot send us a
+   * clientRequestId, so the number + the pending row is the correlation key.
+   */
+  const clientDialedNumber = toE164(
+    p.clientDialedNumber || p.clientDialledNumber || p.dialedNumber || null,
+  );
+
+  if (!atSessionId && !clientRequestId && !clientDialedNumber) {
     console.warn('[crm-voice-callback] unrecognised payload, ignoring');
     return silence();
   }
 
   // ---- INBOUND: never dial, never bridge, never play a menu. ----
-  if ((p.direction ?? '').toLowerCase() === 'inbound') {
+  // A browser-client leg can arrive flagged Inbound (the call enters AT *from*
+  // our client), so it is exempted — it is still an outbound CRM call.
+  if ((p.direction ?? '').toLowerCase() === 'inbound' && !clientDialedNumber) {
     console.warn('[crm-voice-callback] inbound call rejected', {
       sessionId: atSessionId,
       caller: p.callerNumber ?? null,
@@ -93,32 +105,64 @@ Deno.serve(async (req) => {
     { auth: { persistSession: false } },
   );
 
+  const COLS =
+    'id, target_phone, status, at_session_id, cancel_requested_at, transport, answered_at, ended_at, at_client_name';
+
   // ---- locate our row ----
-  let query = admin
-    .from('crm_call_sessions')
-    .select('id, target_phone, status, at_session_id, cancel_requested_at')
-    .limit(1);
+  let session: {
+    id: string;
+    target_phone: string | null;
+    status: string | null;
+    at_session_id: string | null;
+    cancel_requested_at: string | null;
+    transport: string | null;
+    answered_at: string | null;
+    ended_at: string | null;
+    at_client_name: string | null;
+  } | null = null;
 
-  query = UUID_RE.test(clientRequestId)
-    ? query.eq('id', clientRequestId)
-    : query.eq('at_session_id', atSessionId);
+  if (UUID_RE.test(clientRequestId)) {
+    const { data } = await admin.from('crm_call_sessions').select(COLS).eq('id', clientRequestId).maybeSingle();
+    session = data ?? null;
+  }
 
-  const { data: session, error: lookupErr } = await query.maybeSingle();
+  if (!session && atSessionId) {
+    const { data } = await admin
+      .from('crm_call_sessions')
+      .select(COLS)
+      .eq('at_session_id', atSessionId)
+      .maybeSingle();
+    session = data ?? null;
+  }
 
-  if (lookupErr) {
-    console.error('[crm-voice-callback] session lookup failed', {
-      atSessionId,
-      clientRequestId,
-      code: lookupErr.code,
-      message: lookupErr.message,
-    });
-    return done();
+  // Browser-originated leg: match the newest still-live WebRTC row the CRM user
+  // opened for that number (created by `crm_start_webrtc_call`).
+  if (!session && clientDialedNumber) {
+    const { data } = await admin
+      .from('crm_call_sessions')
+      .select(COLS)
+      .eq('transport', 'webrtc')
+      .eq('target_phone', clientDialedNumber)
+      .is('ended_at', null)
+      .gte('created_at', new Date(Date.now() - 5 * 60_000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    session = data ?? null;
   }
 
   if (!session) {
-    console.warn('[crm-voice-callback] no matching session', { atSessionId, clientRequestId });
-    return done();
+    console.warn('[crm-voice-callback] no matching session', {
+      atSessionId,
+      clientRequestId,
+      clientDialedNumber,
+    });
+    return clientDialedNumber
+      // Never leave a live browser leg hanging with no instruction.
+      ? xml(`<Response><Dial phoneNumbers="${clientDialedNumber}"/></Response>`)
+      : done();
   }
+
 
   /** Patch helper — every write is checked and logged. */
   const patch = async (values: Record<string, unknown>, label: string) => {
