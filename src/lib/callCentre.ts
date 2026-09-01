@@ -112,7 +112,42 @@ const UNREACHABLE_CAUSES = new Set([
   // Treated as unreachable on purpose: a stranded row is no evidence the
   // customer was reached, and inventing an answer would inflate the answer rate.
   'CALLBACK_TIMEOUT',
+  // Documented Africa's Talking causes that all mean "the leg never became a
+  // conversation" — see their hangup-cause reference.
+  'NORMAL_TEMPORARY_FAILURE',
+  'SERVICE_UNAVAILABLE',
+  'USER_NOT_REGISTERED',
+  'LOSE_RACE',
 ]);
+
+/**
+ * Plain-language explanation of an Africa's Talking hangup cause, for staff who
+ * should never have to read provider jargon. Unknown causes return null so the
+ * caller can fall back to its own wording.
+ */
+const HANGUP_CAUSE_TEXT: Record<string, string> = {
+  UNSPECIFIED: 'The network gave no reason for ending the call.',
+  NORMAL_CLEARING: 'The call was answered and ended normally.',
+  CALL_REJECTED: 'They declined the call.',
+  USER_BUSY: 'They were on another call.',
+  NO_ANSWER: 'It rang but nobody picked up.',
+  NO_USER_RESPONSE: 'Their phone never responded to the call.',
+  SUBSCRIBER_ABSENT: 'Their phone was off or out of network coverage.',
+  UNALLOCATED_NUMBER: 'That number is not in use on any network.',
+  SERVICE_UNAVAILABLE: 'The voice service was unavailable for this call.',
+  NORMAL_TEMPORARY_FAILURE: 'A temporary network fault. Try again shortly.',
+  RECOVERY_ON_TIMER_EXPIRE: 'The call timed out before it could be set up.',
+  ORIGINATOR_CANCEL: 'The call was cancelled before they picked up.',
+  LOSE_RACE: 'Another handset answered this call first.',
+  USER_NOT_REGISTERED: 'That line is not registered to receive calls.',
+  CALLBACK_TIMEOUT: 'The network never reported back on this call.',
+};
+
+export function describeHangupCause(cause: string | null | undefined): string | null {
+  const key = (cause ?? '').trim().toUpperCase();
+  return HANGUP_CAUSE_TEXT[key] ?? null;
+}
+
 
 const norm = (v: string | null | undefined) => (v ?? '').trim().toUpperCase();
 

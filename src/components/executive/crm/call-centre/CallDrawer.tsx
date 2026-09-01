@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { startRingback, type RingbackHandle } from '@/lib/ringbackTone';
-import { CALLEE_ROLE_LABEL, deriveOutcome, formatTalkTime, type CallOutcome } from '@/lib/callCentre';
+import { CALLEE_ROLE_LABEL, deriveOutcome, describeHangupCause, formatTalkTime, type CallOutcome } from '@/lib/callCentre';
 import {
   useCallSession,
   useCancelCall,
@@ -251,6 +251,14 @@ export function CallDrawer({
     return 'Not reachable';
   }, [phase, elapsed, outcome, startError]);
 
+  /** Plain-language reason the network gave for ending the call. */
+  const causeLine = useMemo(
+    () => (phase === 'ended' ? describeHangupCause(session?.hangupCause) : null),
+    [phase, session?.hangupCause],
+  );
+
+
+
 
   const summaryDirty = summary.trim().length > 0 && !savedSummary;
 
@@ -334,6 +342,14 @@ export function CallDrawer({
               >
                 {statusLine}
               </p>
+
+              {causeLine && (
+                <p className="mx-auto mt-1 max-w-[18rem] text-[11px] leading-snug text-muted-foreground">
+                  {causeLine}
+                </p>
+              )}
+
+
 
               {phase === 'ringing' && (
                 <p className="mx-auto mt-3 max-w-[16rem] text-[11px] leading-snug text-muted-foreground">
