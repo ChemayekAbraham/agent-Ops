@@ -52,10 +52,13 @@ Deno.serve(async (req) => {
       let errMsg: string | null = null;
       try {
         ok = await sendSMS(phone, n.sms_text, {
-          purpose: "tenant_rent_intake_progress",
-          recipientUserId: n.tenant_id,
-          referenceId: `tri-${n.request_id}-${n.stage}`,
-        } as any);
+          admin,
+          source: "tenant_rent_intake_progress",
+          recipient_user_id: n.tenant_id,
+          reference_id: `tri-${n.request_id}-${n.stage}`,
+          idempotencyKey: `tri-${n.request_id}-${n.stage}`,
+        });
+
       } catch (e) {
         errMsg = (e as Error)?.message || "send_error";
       }
