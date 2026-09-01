@@ -232,6 +232,50 @@ export function classifyLiabilities(lines: PositionLine[]) {
   };
 }
 
+/* ── Landlord Float presentation split ─────────────────────────────────── */
+
+export const LANDLORD_FLOAT_LABEL = 'Landlord Float';
+export const LANDLORD_FLOAT_COMPANY_LABEL = 'Landlord Float — Company Managed';
+export const LANDLORD_FLOAT_SELF_LABEL = 'Landlord Float — Self Managed';
+export const LANDLORD_FLOAT_TOTAL_LABEL = 'Total Landlord Float';
+
+export interface LandlordFloatSplit {
+  total: number;
+  self_managed: number;
+  company_managed: number;
+}
+
+/** A marketplace row for rendering: a normal group, or a subtotal line. */
+export type MarketplaceRow = BsGroup & { subtotal?: boolean };
+
+/**
+ * Presentation only: shows the existing Landlord Float as Company Managed vs
+ * Self Managed (per the landlord record's own management flag) followed by a
+ * Total Landlord Float subtotal.
+ *
+ * The reported Landlord Float value is never changed — the self-managed share
+ * measured on the ledger is applied proportionally to it and the company figure
+ * is the residual, so the two lines always foot to the existing total exactly.
+ * With no split available the original single line is returned untouched.
+ */
+export function expandLandlordFloat(
+  marketplace: BsGroup[],
+  split: LandlordFloatSplit | null | undefined,
+): MarketplaceRow[] {
+  return marketplace.flatMap((g): MarketplaceRow[] => {
+    if (g.label !== LANDLORD_FLOAT_LABEL || !split) return [g];
+    const share = split.total !== 0 ? split.self_managed / split.total : 0;
+    const self = Math.round(g.value * share);
+    const company = g.value - self;
+    return [
+      { ...g, label: LANDLORD_FLOAT_COMPANY_LABEL, value: company },
+      { ...g, label: LANDLORD_FLOAT_SELF_LABEL, value: self, lines: [] },
+      { label: LANDLORD_FLOAT_TOTAL_LABEL, value: g.value, lines: [], subtotal: true },
+    ];
+  });
+}
+
+
 /**
  * Lines worth showing inside the flagged block. Accounts sitting at exactly
  * zero (typically the suspense accounts A9 / L9) contribute nothing to the

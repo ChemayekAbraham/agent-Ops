@@ -44649,6 +44649,10 @@ export type Database = {
           max_single_transfer_ugx: number
         }[]
       }
+      get_landlord_float_management_split: {
+        Args: { p_as_at?: string }
+        Returns: Json
+      }
       get_landlord_ops_rows:
         | {
             Args: {

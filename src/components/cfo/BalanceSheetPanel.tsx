@@ -7,7 +7,8 @@ import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import {
   classifyAssets, classifyLiabilities, classifyEquity, hasFlagged, visibleFlaggedLines,
-  type BsGroup,
+  expandLandlordFloat,
+  type BsGroup, type LandlordFloatSplit,
 } from '@/components/cfo/balanceSheetClassification';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
 import { format, endOfDay } from 'date-fns';
@@ -213,15 +214,22 @@ export default function BalanceSheetPanel() {
   const [loading, setLoading] = useState(false);
   const [showSources, setShowSources] = useState(false);
   const [exporting, setExporting] = useState(false);
+  /** Presentation-only breakdown of the existing Landlord Float. */
+  const [floatSplit, setFloatSplit] = useState<LandlordFloatSplit | null>(null);
 
   const load = useCallback(async (date: Date) => {
     setLoading(true);
     try {
+      const asAtIso = endOfDay(date).toISOString();
       const { data: res, error } = await (supabase as any).rpc('get_statement_of_financial_position', {
-        p_as_at: endOfDay(date).toISOString(),
+        p_as_at: asAtIso,
       });
       if (error) throw error;
       setData(res as StatementOfFinancialPosition);
+      const { data: split } = await (supabase as any).rpc('get_landlord_float_management_split', {
+        p_as_at: asAtIso,
+      });
+      setFloatSplit((split as LandlordFloatSplit) ?? null);
     } catch (e: any) {
       toast.error(e?.message ?? 'Failed to generate the statement of financial position');
     } finally {
@@ -239,6 +247,8 @@ export default function BalanceSheetPanel() {
     ? classifyLiabilities([...data.liabilities.current, ...data.liabilities.non_current])
     : null;
   const equityGroups = data ? classifyEquity(data.equity.lines) : null;
+  /** Landlord Float shown as Company Managed / Self Managed + subtotal. */
+  const marketplaceRows = expandLandlordFloat(liabilityGroups?.marketplace ?? [], floatSplit);
   /** Each section's groups must still sum to the RPC's own total. */
   const assetDrift = data && assetGroups ? Math.round(assetGroups.total - data.assets.total) : 0;
   const equityDrift = data && equityGroups ? Math.round(equityGroups.total - data.equity.total) : 0;
@@ -260,7 +270,7 @@ export default function BalanceSheetPanel() {
     rows.push(['LIABILITIES', '']);
     (liabilityGroups?.standalone ?? []).forEach(g => rows.push([g.label, g.value]));
     rows.push(['Market Place Liabilities', '']);
-    (liabilityGroups?.marketplace ?? []).forEach(g => rows.push(['   ' + g.label, g.value]));
+    marketplaceRows.forEach(g => rows.push(['   ' + g.label, g.value]));
     rows.push(['Subtotal — Market Place Liabilities', liabilityGroups?.marketplaceTotal ?? 0]);
     rows.push(['Partner and Agent Obligations', '']);
     (liabilityGroups?.partner ?? []).forEach(g => rows.push(['   ' + g.label, g.value]));
@@ -381,7 +391,7 @@ export default function BalanceSheetPanel() {
       heading('Liabilities');
       (liabilityGroups?.standalone ?? []).forEach(g => row(g.label, g.value));
       heading('Market Place Liabilities');
-      (liabilityGroups?.marketplace ?? []).forEach(g => row(g.label, g.value));
+      marketplaceRows.forEach(g => row(g.label, g.value, g.subtotal));
       row('Subtotal — Market Place Liabilities', liabilityGroups?.marketplaceTotal ?? 0, true);
       heading('Partner and Agent Obligations');
       (liabilityGroups?.partner ?? []).forEach(g => row(g.label, g.value));
@@ -539,7 +549,13 @@ export default function BalanceSheetPanel() {
               <SectionHeading>Liabilities</SectionHeading>
               <div>{liabilityGroups?.standalone.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
               <SubHeading>Market Place Liabilities</SubHeading>
-              <div>{liabilityGroups?.marketplace.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
+              <div>
+                {marketplaceRows.map(g => (
+                  g.subtotal
+                    ? <TotalRow key={g.label} label={g.label} value={g.value} />
+                    : <GroupRow key={g.label} group={g} showSources={showSources} />
+                ))}
+              </div>
               <TotalRow label="Subtotal — Market Place Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0} />
               <SubHeading>Partner and Agent Obligations</SubHeading>
               <div>{liabilityGroups?.partner.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
