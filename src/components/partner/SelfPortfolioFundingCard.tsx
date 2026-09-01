@@ -60,7 +60,7 @@ interface FundablePlan {
 
 /**
  * Self Portfolio Management — Phase Two
- * Partner funds approved rent plans straight from their withdrawable balance.
+ * Partner funds approved rent plans straight from their operational float.
  * Privacy: tenant first name only, landlord name shown, no contact details ever leave the server.
  */
 export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
@@ -240,7 +240,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
     [houses, houseSelected],
   );
 
-  // Both lists draw from the same withdrawable balance.
+  // Both lists draw from the same operational float.
   const remaining = Math.max(0, available - total - houseTotal);
   const overBudget = total + houseTotal > available;
 
@@ -287,7 +287,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
     const cost = Number(plan?.funding_amount || 0);
     if (cost > remaining) {
       toast.error(
-        `Not enough withdrawable balance. This plan needs ${formatDynamic(cost)} and you have ${formatDynamic(remaining)} left to fund.`,
+        `Not enough operational float. This plan needs ${formatDynamic(cost)} and you have ${formatDynamic(remaining)} left to fund.`,
       );
       return;
     }
@@ -307,7 +307,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
     const cost = Number(house?.monthly_rent || 0);
     if (cost > remaining) {
       toast.error(
-        `Not enough withdrawable balance. This house needs ${formatDynamic(cost)} and you have ${formatDynamic(remaining)} left to fund.`,
+        `Not enough operational float. This house needs ${formatDynamic(cost)} and you have ${formatDynamic(remaining)} left to fund.`,
       );
       return;
     }
@@ -322,7 +322,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
       return;
     }
     if (total > available) {
-      toast.error('Your withdrawable balance is not enough for this selection.');
+      toast.error('Your operational float is not enough for this selection.');
       return;
     }
     setDeployOpen(true);
@@ -353,7 +353,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
               Minimum {formatDynamic(MIN_FUNDING)} per plan
             </p>
             <p className="text-[10px] font-semibold text-muted-foreground mt-0.5">
-              You can only select plans up to your withdrawable balance —{' '}
+              You can only select plans up to your operational float —{' '}
               {formatDynamic(remaining)} left to fund
             </p>
           </div>
@@ -644,12 +644,12 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
 
           {overBudget ? (
             <p className="mt-2 text-[10px] font-semibold text-destructive">
-              This selection is {formatDynamic(total - available)} more than your withdrawable
-              balance of {formatDynamic(available)}. Remove a plan or add funds.
+              This selection is {formatDynamic(total - available)} more than your operational
+              float of {formatDynamic(available)}. Remove a plan or add funds.
             </p>
           ) : (
             <p className="mt-2 text-[10px] text-muted-foreground">
-              {formatDynamic(remaining)} of your withdrawable balance still unused · returns
+              {formatDynamic(remaining)} of your operational float still unused · returns
               start the day you deploy.
             </p>
           )}
