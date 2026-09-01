@@ -14,6 +14,9 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
+} from '@/components/ui/sheet';
 import { UserAvatar } from '@/components/UserAvatar';
 import { AgentProductDetailDialog } from './AgentProductDetailDialog';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -77,6 +80,25 @@ const PRODUCT_SUGGESTIONS = [
 ];
 
 export type AgentProductCategory = 'motor_bike' | 'smart_phone' | 'signage' | 'boutique';
+
+/** Which overview KPI card the drill-down sheet is showing. */
+type DrillKey = 'pending' | 'fleet' | 'portfolio' | 'recovery' | 'repaid';
+
+const DRILL_TITLES: Record<DrillKey, string> = {
+  pending: 'Pending applications',
+  fleet: 'Active field fleet',
+  portfolio: 'Outstanding portfolio',
+  recovery: 'Repayments received',
+  repaid: 'Repaid & fully paid off',
+};
+
+const DRILL_DESCRIPTIONS: Record<DrillKey, string> = {
+  pending: 'Orders awaiting approval.',
+  fleet: 'Every agent currently holding issued items.',
+  portfolio: 'Agents who still owe on issued items, largest balance first.',
+  recovery: 'Agents who have paid something back, largest repayment first.',
+  repaid: 'Agents who have repaid part or all of their merchandise. Fully paid orders are marked.',
+};
 
 const CATEGORY_LABELS: Record<AgentProductCategory, string> = {
   motor_bike: 'Motor bikes',
@@ -218,6 +240,36 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
   const breakdown = data?.breakdown ?? [];
   const activity = data?.activity ?? [];
   const isSmartphone = category === 'smart_phone';
+
+  // KPI drill-down. The lists come straight from the same overview payload the
+  // cards count, so a card and its sheet can never disagree.
+  const [drill, setDrill] = useState<DrillKey | null>(null);
+  const allRows = data?.rows ?? [];
+  const repaidRows = useMemo(
+    () => allRows.filter((r) => Number(r.repaid_amount || 0) > 0)
+      .sort((a, b) => Number(b.repaid_amount || 0) - Number(a.repaid_amount || 0)),
+    [allRows],
+  );
+  const fullyPaidRows = useMemo(
+    () => allRows.filter((r) => Number(r.held_amount || 0) > 0 && Number(r.outstanding_amount || 0) <= 0),
+    [allRows],
+  );
+  const drillRows = useMemo(() => {
+    switch (drill) {
+      case 'fleet':
+        return allRows.filter((r) => Number(r.items_held || 0) > 0);
+      case 'portfolio':
+        return allRows.filter((r) => Number(r.outstanding_amount || 0) > 0)
+          .sort((a, b) => Number(b.outstanding_amount || 0) - Number(a.outstanding_amount || 0));
+      case 'recovery':
+      case 'repaid':
+        return repaidRows;
+      default:
+        return [];
+    }
+  }, [drill, allRows, repaidRows]);
+
+
 
   const rows = useMemo(() => {
     const list = data?.rows ?? [];
@@ -426,12 +478,18 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
 
 
       {showOverview && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {isLoading || !kpis ? (
-            Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[110px] rounded-2xl" />)
+            Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-[110px] rounded-2xl" />)
           ) : (
             <>
-              <Card className="relative overflow-hidden">
+              <Card
+                role="button"
+                tabIndex={0}
+                onClick={() => setDrill('pending')}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDrill('pending'); } }}
+                className="relative overflow-hidden cursor-pointer transition hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 <CardContent className="p-3 flex flex-col justify-between h-full">
                   <div className="flex items-start justify-between">
                     <div>
@@ -448,7 +506,13 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                 </CardContent>
               </Card>
 
-              <Card className="relative overflow-hidden">
+              <Card
+                role="button"
+                tabIndex={0}
+                onClick={() => setDrill('fleet')}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDrill('fleet'); } }}
+                className="relative overflow-hidden cursor-pointer transition hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 <CardContent className="p-3 flex flex-col justify-between h-full">
                   <div className="flex items-start justify-between">
                     <div>
@@ -463,7 +527,13 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                 </CardContent>
               </Card>
 
-              <Card className="relative overflow-hidden">
+              <Card
+                role="button"
+                tabIndex={0}
+                onClick={() => setDrill('portfolio')}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDrill('portfolio'); } }}
+                className="relative overflow-hidden cursor-pointer transition hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 <CardContent className="p-3 flex flex-col justify-between h-full">
                   <div className="flex items-start justify-between">
                     <div>
@@ -487,7 +557,13 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                 </CardContent>
               </Card>
 
-              <Card className="relative overflow-hidden">
+              <Card
+                role="button"
+                tabIndex={0}
+                onClick={() => setDrill('recovery')}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDrill('recovery'); } }}
+                className="relative overflow-hidden cursor-pointer transition hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 <CardContent className="p-3 flex flex-col justify-between h-full">
                   <div className="flex items-start justify-between">
                     <div>
@@ -509,10 +585,91 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                   </div>
                 </CardContent>
               </Card>
+
+              <Card
+                role="button"
+                tabIndex={0}
+                onClick={() => setDrill('repaid')}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDrill('repaid'); } }}
+                className="relative overflow-hidden cursor-pointer transition hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <CardContent className="p-3 flex flex-col justify-between h-full">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Repaid</p>
+                      <p className="text-lg font-bold tabular-nums">{formatUGX(Number(kpis.in_field_repaid || 0))}</p>
+                    </div>
+                    <div className="rounded-lg bg-success/10 p-2 text-success">
+                      <Check className="h-4 w-4" />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    {repaidRows.length} paying • {fullyPaidRows.length} fully paid
+                  </p>
+                </CardContent>
+              </Card>
             </>
           )}
         </div>
       )}
+
+      {/* KPI drill-down: every overview card opens the exact list behind its number. */}
+      <Sheet open={drill !== null} onOpenChange={(o) => { if (!o) setDrill(null); }}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{drill ? DRILL_TITLES[drill] : ''}</SheetTitle>
+            <SheetDescription>{drill ? DRILL_DESCRIPTIONS[drill] : ''}</SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-4 space-y-2">
+            {drill === 'pending' ? (
+              pendingApps.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nothing awaiting approval right now.</p>
+              ) : (
+                pendingApps.map((p) => (
+                  <div key={p.sale_id} className="flex items-center justify-between gap-3 rounded-xl border p-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{p.full_name || 'Agent'}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {[p.brand, p.model_type].filter(Boolean).join(' ') || p.item_name || '—'} • {p.quantity} pc(s)
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-sm font-semibold tabular-nums">{formatUGX(Number(p.requested_amount || 0))}</p>
+                      <p className="text-[11px] text-muted-foreground">{format(new Date(p.created_at), 'dd MMM yyyy')}</p>
+                    </div>
+                  </div>
+                ))
+              )
+            ) : drillRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No records in this group yet.</p>
+            ) : (
+              drillRows.map((r) => (
+                <div key={r.agent_id} className="rounded-xl border p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{r.full_name || 'Agent'}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {(r.product_names || []).join(', ') || '—'}
+                        {r.location_name ? ` • ${r.location_name}` : ''}
+                      </p>
+                    </div>
+                    <Badge variant={Number(r.outstanding_amount || 0) <= 0 ? 'secondary' : 'outline'} className="shrink-0 text-[10px]">
+                      {Number(r.outstanding_amount || 0) <= 0 ? 'Fully paid' : 'Repaying'}
+                    </Badge>
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
+                    <span className="text-muted-foreground">Issued<br /><b className="text-foreground tabular-nums">{formatUGX(Number(r.held_amount || 0))}</b></span>
+                    <span className="text-muted-foreground">Repaid<br /><b className="text-success tabular-nums">{formatUGX(Number(r.repaid_amount || 0))}</b></span>
+                    <span className="text-muted-foreground">Outstanding<br /><b className="text-foreground tabular-nums">{formatUGX(Number(r.outstanding_amount || 0))}</b></span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
 
       {showApplications && (
         <Card>
