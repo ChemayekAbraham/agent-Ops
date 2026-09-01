@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -7,6 +7,17 @@ import { PeriodToggle, type TppoGranularity } from '@/components/tenant-ops/tppo
 import { HeadlineA1 } from '@/components/tenant-ops/tppo/HeadlineA1';
 import { VarianceA2 } from '@/components/tenant-ops/tppo/VarianceA2';
 import { ProjectionA3 } from '@/components/tenant-ops/tppo/ProjectionA3';
+import {
+  NarrativeCollections,
+  type DraftAction,
+} from '@/components/tenant-ops/tppo/NarrativeCollections';
+import {
+  CarriedActions,
+  type CarriedActionRow,
+  type CarriedCloseOut,
+} from '@/components/tenant-ops/tppo/CarriedActions';
+import { SubmitGate } from '@/components/tenant-ops/tppo/SubmitGate';
+
 
 interface ZoneAReport {
   period_start: string | null;
