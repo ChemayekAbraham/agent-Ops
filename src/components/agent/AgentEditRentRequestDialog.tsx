@@ -204,6 +204,16 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
     });
   };
 
+  /** Drop the photo already on file for this slot so it is not resubmitted. */
+  const toggleDropExisting = (slot: number) => {
+    setDroppedExisting((prev) => {
+      const next = [...prev];
+      next[slot] = !next[slot];
+      return next;
+    });
+  };
+
+
   const pickLcLetter = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
