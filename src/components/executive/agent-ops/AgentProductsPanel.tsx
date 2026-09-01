@@ -760,9 +760,13 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
         </DialogContent>
       </Dialog>
 
-
-
+      <AgentProductDetailDialog
+        agentId={detailAgentId}
+        category={category}
+        onClose={() => setDetailAgentId(null)}
+      />
     </div>
+
   );
 }
 
