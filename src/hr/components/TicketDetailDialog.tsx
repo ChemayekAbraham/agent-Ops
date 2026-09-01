@@ -237,24 +237,27 @@ export default function TicketDetailDialog({
 
               <Separator className="bg-border/60" />
               <div className="space-y-2">
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Attachments
-                </p>
+                <SectionLabel>Attachments</SectionLabel>
                 {attachments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">None attached</p>
+                  <p className="rounded-lg border border-dashed border-border/70 px-3 py-2.5 text-sm text-muted-foreground">
+                    None attached
+                  </p>
                 ) : (
-                  <ul className="space-y-1">
+                  <ul className="space-y-1.5">
                     {attachments.map((a) => (
-                      <li key={a.id} className="flex items-center gap-2 text-sm">
-                        <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                      <li
+                        key={a.id}
+                        className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm transition-colors hover:border-primary/30 hover:bg-primary/[0.05]"
+                      >
+                        <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         <button
                           type="button"
-                          className="truncate text-left underline-offset-2 hover:underline"
+                          className="truncate rounded text-left font-medium underline-offset-2 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           onClick={() => void openAttachment(a.storage_path)}
                         >
                           {a.file_name || a.storage_path.split('/').pop()}
                         </button>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
                           {sizeLabel(a.size_bytes)}
                         </span>
                       </li>
@@ -263,13 +266,18 @@ export default function TicketDetailDialog({
                 )}
               </div>
 
-              <div className="flex flex-wrap justify-end gap-2 pt-2">
-                {canClaim && onClaim ? (
-                  <Button size="sm" disabled={claiming} onClick={() => void onClaim()}>
+              {canClaim && onClaim ? (
+                <div className="flex flex-wrap justify-end gap-2 border-t border-border/60 pt-3">
+                  <Button
+                    size="sm"
+                    className="h-9 rounded-full px-5 font-semibold shadow-sm"
+                    disabled={claiming}
+                    onClick={() => void onClaim()}
+                  >
                     {claiming ? 'Claiming…' : 'Claim'}
                   </Button>
-                ) : null}
-              </div>
+                </div>
+              ) : null}
             </div>
           </>
         ) : null}
