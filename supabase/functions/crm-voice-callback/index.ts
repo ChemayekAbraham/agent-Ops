@@ -139,7 +139,12 @@ Deno.serve(async (req) => {
 
   const isActive = (p.isActive ?? '').trim() === '1';
   const dialStatus = (p.dialStatus ?? '').trim();
-  const alreadyBridged = ['bridged', 'bridge_failed'].includes((session.status ?? '').toLowerCase());
+  // A leg may only be dialled while it is still in a pre-bridge state. Anything
+  // else (already bridged, or already terminal) must never dial again — that is
+  // the redial loop.
+  const dialable = ['initiating', 'ringing_staff'].includes((session.status ?? '').toLowerCase());
+  const alreadyBridged = !dialable;
+
 
   // ---------------- terminal event ----------------
   if (!isActive) {
