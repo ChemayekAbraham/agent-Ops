@@ -69,7 +69,7 @@ export function OpenAttemptQueue({
                           { attemptId: a.id, outcome: o.value },
                           {
                             onSuccess: () => toast.success(`Recorded: ${o.label}`),
-                            onError: (e) => toast.error((e as Error).message),
+                            onError: (e) => toast.error(ccErrorText(e)),
                           },
                         )
                       }

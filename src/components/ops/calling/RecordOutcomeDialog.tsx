@@ -64,7 +64,7 @@ export function RecordOutcomeDialog({
           toast.success('Engaged call recorded and routed.');
           close();
         },
-        onError: (e) => toast.error((e as Error).message),
+        onError: (e) => toast.error(ccErrorText(e)),
       },
     );
   };
@@ -79,7 +79,7 @@ export function RecordOutcomeDialog({
           toast.success('Callback booked.');
           close();
         },
-        onError: (e) => toast.error((e as Error).message),
+        onError: (e) => toast.error(ccErrorText(e)),
       },
     );
   };

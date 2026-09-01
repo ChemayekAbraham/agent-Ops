@@ -74,7 +74,7 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
           setRevealed((r) => ({ ...r, [row.id]: phone }));
           toast.success(phone ? `Number revealed: ${phone}` : 'Attempt opened, but no number is on file.');
         },
-        onError: (e) => toast.error((e as Error).message),
+        onError: (e) => toast.error(ccErrorText(e)),
       },
     );
   };

@@ -49,7 +49,7 @@ export function CycleControls({ hub }: { hub: CcCallingHub }) {
                 { populationCode: population, limit: limit ? Number(limit) : null },
                 {
                   onSuccess: () => toast.success('Cycle opened.'),
-                  onError: (e) => toast.error((e as Error).message),
+                  onError: (e) => toast.error(ccErrorText(e)),
                 },
               )
             }
@@ -75,7 +75,7 @@ export function CycleControls({ hub }: { hub: CcCallingHub }) {
             onClick={() =>
               hub.closeCycle.mutate(hub.cycle!.id, {
                 onSuccess: () => toast.success('Cycle closed.'),
-                onError: (e) => toast.error((e as Error).message),
+                onError: (e) => toast.error(ccErrorText(e)),
               })
             }
           >
@@ -121,7 +121,7 @@ export function CycleControls({ hub }: { hub: CcCallingHub }) {
                             setAbandonOpen(false);
                             setAbandonReason('');
                           },
-                          onError: (e) => toast.error((e as Error).message),
+                          onError: (e) => toast.error(ccErrorText(e)),
                         },
                       );
                     }}

@@ -43,7 +43,7 @@ export function FollowupsDuePanel({ hub }: { hub: CcCallingHub }) {
                       { id: f.id, note: notes[f.id] ?? '' },
                       {
                         onSuccess: () => toast.success('Follow-up completed.'),
-                        onError: (e) => toast.error((e as Error).message),
+                        onError: (e) => toast.error(ccErrorText(e)),
                       },
                     )
                   }
