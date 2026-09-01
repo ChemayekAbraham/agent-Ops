@@ -40942,6 +40942,10 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: Json
       }
+      agent_ops_approve_merchandise_order: {
+        Args: { p_sale_id: string }
+        Returns: string
+      }
       agent_ops_approve_smartphone_order: {
         Args: { p_note?: string; p_sale_id: string }
         Returns: Json
