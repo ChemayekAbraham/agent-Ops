@@ -15,7 +15,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { CommitmentLines } from './pending-vetting/CommitmentLines';
 import {
   Check, X, RefreshCw, ShieldCheck, Clock, Users, Wallet,
-  ChevronDown, ChevronUp, Search, Loader2,
+  ChevronDown, ChevronUp, Search,
 } from 'lucide-react';
 
 interface PendingRow {
@@ -253,7 +253,7 @@ export function PendingPortfoliosQueue() {
                       onClick={() => setExpanded(open ? null : row.pending_id)}
                     >
                       {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                      {open ? 'Hide tenants' : 'Review tenants on this portfolio'}
+                      {open ? 'Hide detail' : 'Review what this partner is supporting'}
                     </Button>
                     {open && <CommitmentLines portfolioId={row.portfolio_id} />}
                   </div>
