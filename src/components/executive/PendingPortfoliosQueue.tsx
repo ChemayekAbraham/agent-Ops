@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { formatUGX } from '@/lib/rentCalculations';
+import { CommitmentLines } from './pending-vetting/CommitmentLines';
 import {
   Check, X, RefreshCw, ShieldCheck, Clock, Users, Wallet,
   ChevronDown, ChevronUp, Search, Loader2,
