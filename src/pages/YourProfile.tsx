@@ -116,7 +116,11 @@ export default function YourProfile() {
               </CardContent>
             </Card>
 
+            {/* Live tracker for any in-flight / active Business Advance */}
+            <BusinessAdvanceStatusHero />
+
             {profile?.is_frozen && (
+
               <Card className="rounded-2xl border-destructive/40 bg-destructive/5">
                 <CardContent className="p-4 flex gap-3">
                   <ShieldAlert className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
