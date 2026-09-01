@@ -71,9 +71,9 @@ export function useTenantOpsAcquisition(enabled: boolean = true) {
         applicationsRejectedRes,
         districtGeoRes,
         agentGeoRes,
-        assignmentsRes,
-        entriesRes,
+        serviceCentreRes,
       ] = await Promise.all([
+
         supabase.rpc('get_tenant_ops_acquisition'),
         supabase
           .from('rent_requests')
