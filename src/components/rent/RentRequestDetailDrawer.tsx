@@ -10,6 +10,7 @@ import { format, addDays } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
+import { TenantPaymentHistoryCard } from '@/components/executive/TenantPaymentHistoryCard';
 
 interface RentRequestDetailDrawerProps {
   requestId: string | null;
