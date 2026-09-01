@@ -89,14 +89,11 @@ export function useTenantOpsAcquisition(enabled: boolean = true) {
           .eq('status', 'rejected'),
         supabase.rpc('get_tenant_ops_geo_metrics', { p_level: 'district' }),
         supabase.rpc('get_tenant_ops_geo_metrics', { p_level: 'agent' }),
-        supabase
-          .from('service_centre_agent_assignments')
-          .select('service_centre_id, agent_id')
-          .is('unassigned_at', null),
-        supabase
-          .from('service_centre_entries')
-          .select('id, stationed_location'),
+        // Service centre roster + active tenants, computed server-side from the
+        // centre entries, approved centre managers and their sub-agents.
+        supabase.rpc('get_tenant_ops_service_centre_metrics' as any),
       ]);
+
       if (acquisitionRes.error) throw acquisitionRes.error;
 
       // Registration counts (existing tenant source, computed server-side)
