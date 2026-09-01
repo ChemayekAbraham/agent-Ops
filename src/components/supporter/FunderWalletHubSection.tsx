@@ -124,26 +124,27 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
               </div>
             ) : (
               <>
-                <UnifiedWalletHeroCard
-                  balance={data?.totalAvailable ?? 0}
-                  role="supporter"
-                  withdrawableBalance={data?.withdrawableAmount ?? 0}
-                  defaultCollapsed={false}
-                  collapsible={false}
-                  disableTap
-                  hideSupporterMetrics
-                  hideSecondaryRow
-                  hidePayrollGrowth
-                  hideFooter
-                  quickActions={
-                    <FunderQuickActions
-                      variant="hero"
-                      availableBalance={data?.withdrawableAmount ?? 0}
-                      roiBalance={data?.roiAmount ?? 0}
-                      onChanged={() => { refetch(); }}
-                    />
-                  }
-                />
+                  <UnifiedWalletHeroCard
+                    balance={data?.totalAvailable ?? 0}
+                    role="supporter"
+                    withdrawableBalance={data?.withdrawableAmount ?? 0}
+                    operationalFloatBalance={data?.floatAmount ?? 0}
+                    defaultCollapsed={false}
+                    collapsible={false}
+                    disableTap
+                    hideSupporterMetrics
+                    hideSecondaryRow
+                    hidePayrollGrowth
+                    hideFooter
+                    quickActions={
+                      <FunderQuickActions
+                        variant="hero"
+                        availableBalance={data?.withdrawableAmount ?? 0}
+                        roiBalance={data?.roiAmount ?? 0}
+                        onChanged={() => { refetch(); }}
+                      />
+                    }
+                  />
 
 
                 {/* Providers — wallet-card style, compact logos with names */}
