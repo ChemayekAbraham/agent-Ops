@@ -1218,7 +1218,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                       <p className="text-[11px] text-muted-foreground mt-0.5">
                         Ride green, earn faster — get your Spiro Electric Bike with flexible daily payments!
                       </p>
-
                     </div>
                     <Button size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => { setBikeAmount(''); setBikeOpen(true); }}>
                       Order
