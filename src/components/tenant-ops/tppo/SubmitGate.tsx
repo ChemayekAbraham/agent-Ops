@@ -76,22 +76,32 @@ export function SubmitGate({
   onSubmitted,
 }: SubmitGateProps) {
   const [busy, setBusy] = useState(false);
+  const [notifyFailed, setNotifyFailed] = useState(false);
   const failing = SUBMIT_CONDITIONS.filter((c) => !c.test(state));
   const canSubmit = failing.length === 0 && !submitted && Boolean(periodStart);
+
+  const notifyNotice = notifyFailed ? (
+    <p className="text-xs text-amber-600">
+      The reviewer notification did not send. The submission stands.
+    </p>
+  ) : null;
 
   if (submitted) {
     return (
       <Card>
-        <CardContent className="py-4 text-sm text-muted-foreground">
-          This report has been submitted and is read-only.
+        <CardContent className="space-y-2 py-4 text-sm text-muted-foreground">
+          <p>This report has been submitted and is read-only.</p>
+          {notifyNotice}
         </CardContent>
       </Card>
     );
   }
 
   const handleSubmit = async () => {
+    if (busy) return;
     if (!canSubmit || !periodStart || !periodEnd) return;
     setBusy(true);
+
     try {
       const { data: auth } = await supabase.auth.getUser();
       const userId = auth.user?.id;
