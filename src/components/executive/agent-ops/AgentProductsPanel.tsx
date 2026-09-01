@@ -238,6 +238,60 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
+  const canDecide = isSmartphone || isBoutique;
+
+  const renderPendingRow = (p: PendingApp) => {
+    const busy =
+      (approveApp.isPending && approveApp.variables?.sale_id === p.sale_id) ||
+      (rejectApp.isPending && rejectApp.variables?.row.sale_id === p.sale_id);
+    return (
+      <div key={p.sale_id} className="p-3 flex flex-wrap items-center gap-3">
+        <UserAvatar avatarUrl={p.avatar_url} fullName={p.full_name || undefined} size="sm" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold truncate">{p.full_name || 'Unknown agent'}</p>
+          <p className="text-xs text-muted-foreground truncate">
+            {[p.brand, p.model_type].filter(Boolean).join(' ') || p.item_name || '—'}
+            {p.quantity > 1 ? ` × ${p.quantity}` : ''} · {formatUGX(Number(p.requested_amount || 0))}
+            {p.phone ? ` · ${p.phone}` : ''}
+          </p>
+        </div>
+        <span className="hidden sm:block text-[11px] text-muted-foreground shrink-0">
+          {p.created_at ? format(new Date(p.created_at), 'dd MMM') : '—'}
+        </span>
+        {canDecide ? (
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1 text-success"
+              disabled={busy}
+              onClick={() => approveApp.mutate(p)}
+            >
+              {approveApp.isPending && approveApp.variables?.sale_id === p.sale_id
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <Check className="h-3.5 w-3.5" />}
+              Approve
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 gap-1 text-destructive hover:text-destructive"
+              disabled={busy}
+              onClick={() => { setRejectTarget(p); setRejectReason(''); }}
+            >
+              <X className="h-3.5 w-3.5" />
+              Reject
+            </Button>
+          </div>
+        ) : (
+          <Badge variant="outline" className="text-[10px] shrink-0">Awaiting review</Badge>
+        )}
+      </div>
+    );
+  };
+
+
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
