@@ -325,10 +325,14 @@ export function SmartphoneCatalogDialog() {
 
   const effectiveBrand = brandChoice === NEW_BRAND ? newBrand : brandChoice;
 
+  useEffect(() => {
+    setOsType(defaultOsForBrand(effectiveBrand));
+  }, [effectiveBrand]);
+
   const updateRow = (key: string, patch: Partial<ModelRow>) =>
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 
-  const addRow = () => setRows((prev) => [...prev, emptyRow()]);
+  const addRow = () => setRows((prev) => [...prev, emptyRow(osType)]);
   const removeRow = (key: string) =>
     setRows((prev) => (prev.length === 1 ? [emptyRow()] : prev.filter((r) => r.key !== key)));
 
