@@ -680,7 +680,16 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
             ) : (
               <div className="divide-y divide-border">
                 {rows.map((r) => (
-                  <div key={r.agent_id} className="p-3 flex items-start gap-3">
+                  <div
+                    key={r.agent_id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setDetailAgentId(r.agent_id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailAgentId(r.agent_id); }
+                    }}
+                    className="p-3 flex items-start gap-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                  >
                     <UserAvatar avatarUrl={r.avatar_url} fullName={r.full_name || undefined} size="md" />
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
