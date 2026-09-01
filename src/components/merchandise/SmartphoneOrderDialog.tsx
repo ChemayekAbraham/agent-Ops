@@ -90,7 +90,11 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const totalRepayable = schedule.total;
   const dailyAmount = schedule.daily;
 
-  const canSubmit = !!eligibility?.eligible && !!selected && price > 0 && docsReady;
+  // Applications are open to every agent — only a duplicate open application
+  // stops a submission. Portfolio and document checks are review inputs shown
+  // to the Agent Ops manager, never a block here.
+  const hasOpenApplication = !!eligibility?.has_open_application;
+  const canSubmit = !hasOpenApplication && !!selected && price > 0 && docsReady;
 
   const reset = () => {
     setCatalogId('');
