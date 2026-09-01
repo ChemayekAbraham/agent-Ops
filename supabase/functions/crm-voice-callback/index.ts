@@ -295,13 +295,29 @@ Deno.serve(async (req) => {
   // Authoritative: callSessionState = Completed / NotAnswered, or isActive = 0.
   if (!isActive) {
     const duration = numeric(p.durationInSeconds ?? p.callDuration) ?? 0;
-    const hangupCause = (p.hangupCause ?? '').trim().toUpperCase() || null;
     const rawState = (p.callSessionState ?? p.status ?? '').trim();
     const answered =
       Boolean(session.answered_at) ||
       duration > 0 ||
       dialStatus.toLowerCase() === 'completed';
     const mapped = mapState(rawState, answered);
+    // AT frequently omits `hangupCause` on the session-level terminal event.
+    // Leaving it null loses the reason in call history, so derive it from what
+    // the provider did tell us.
+    const hangupCause =
+      (p.hangupCause ?? '').trim().toUpperCase() ||
+      (session.cancel_requested_at
+        ? 'ORIGINATOR_CANCEL'
+        : dialStatus.toLowerCase() === 'busy'
+          ? 'USER_BUSY'
+          : answered
+            ? 'NORMAL_CLEARING'
+            : mapped === 'not_answered'
+              ? 'NO_ANSWER'
+              : mapped === 'failed'
+                ? 'SERVICE_UNAVAILABLE'
+                : null);
+
 
     console.log('[crm-voice-callback] terminal event', {
       callId: session.id,
