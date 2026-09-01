@@ -424,6 +424,29 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
         </div>
       )}
 
+      {showApplications && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Clock className="h-4 w-4 text-amber-500" />
+              Pending applications
+              <Badge variant="secondary" className="text-[10px]">{pendingApps.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {isLoading && pendingApps.length === 0 ? (
+              <div className="p-4 space-y-2">
+                {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+              </div>
+            ) : pendingApps.length === 0 ? (
+              <p className="p-6 text-sm text-muted-foreground text-center">Nothing awaiting approval right now.</p>
+            ) : (
+              <div className="divide-y divide-border">{pendingApps.map(renderPendingRow)}</div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {showOverview && (
         <div className="grid gap-4 lg:grid-cols-3">
           {/* Pending applications quick-action queue */}
@@ -443,59 +466,11 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
               ) : pendingApps.length === 0 ? (
                 <p className="p-6 text-sm text-muted-foreground text-center">Nothing awaiting approval right now.</p>
               ) : (
-                <div className="divide-y divide-border">
-                  {pendingApps.slice(0, 10).map((p) => {
-                    const busy =
-                      (approveApp.isPending && approveApp.variables?.sale_id === p.sale_id) ||
-                      (rejectApp.isPending && rejectApp.variables?.row.sale_id === p.sale_id);
-                    return (
-                      <div key={p.sale_id} className="p-3 flex items-center gap-3">
-                        <UserAvatar avatarUrl={p.avatar_url} fullName={p.full_name || undefined} size="sm" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold truncate">{p.full_name || 'Unknown agent'}</p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {[p.brand, p.model_type].filter(Boolean).join(' ') || p.item_name || '—'} ·{' '}
-                            {formatUGX(Number(p.requested_amount || 0))}
-                          </p>
-                        </div>
-                        <span className="hidden sm:block text-[11px] text-muted-foreground shrink-0">
-                          {p.created_at ? format(new Date(p.created_at), 'dd MMM') : '—'}
-                        </span>
-                        {isSmartphone ? (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 gap-1 text-success"
-                              disabled={busy}
-                              onClick={() => approveApp.mutate(p)}
-                            >
-                              {approveApp.isPending && approveApp.variables?.sale_id === p.sale_id
-                                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                : <Check className="h-3.5 w-3.5" />}
-                              Approve
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 gap-1 text-destructive hover:text-destructive"
-                              disabled={busy}
-                              onClick={() => { setRejectTarget(p); setRejectReason(''); }}
-                            >
-                              <X className="h-3.5 w-3.5" />
-                              Reject
-                            </Button>
-                          </div>
-                        ) : (
-                          <Badge variant="outline" className="text-[10px] shrink-0">Awaiting review</Badge>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                <div className="divide-y divide-border">{pendingApps.slice(0, 10).map(renderPendingRow)}</div>
               )}
             </CardContent>
           </Card>
+
 
           {/* Catalog & brand inventory breakdown */}
           <Card>
