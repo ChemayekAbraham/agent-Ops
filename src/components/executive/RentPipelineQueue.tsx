@@ -1042,23 +1042,98 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
     setProcessing(true);
     try {
       const ids = [...selectedIds];
+      const failures: string[] = [];
+      let approved = 0;
       for (const id of ids) {
+        const stampedAt = new Date().toISOString();
         const { error } = await supabase
           .from('rent_requests')
           .update({
             status: config.nextStatus,
             [config.reviewerColumn]: user.id,
-            [config.reviewerAtColumn]: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            [config.reviewerAtColumn]: stampedAt,
+            updated_at: stampedAt,
           })
           .eq('id', id);
-        if (error) throw error;
+        // One bad row must never abandon the rest of the batch — the operator
+        // would otherwise have no idea which of 200 requests actually moved.
+        if (error) failures.push(error.message);
+        else approved += 1;
       }
-      toast({ title: `✅ ${ids.length} requests approved` });
+      if (approved > 0) {
+        toast({ title: `✅ ${approved} request${approved === 1 ? '' : 's'} approved` });
+      }
+      if (failures.length > 0) {
+        toast({
+          title: `${failures.length} could not be approved`,
+          description: failures[0],
+          variant: 'destructive',
+        });
+      }
       setSelectedIds(new Set());
       queryClient.invalidateQueries({ queryKey: ['rent-pipeline'] });
     } catch (err: any) {
       toast({ title: 'Bulk approval error', description: err.message, variant: 'destructive' });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  /**
+   * Bulk return-for-correction. Uses the same
+   * `return_rent_request_for_correction` RPC as the single-request reject so the
+   * pipeline state machine, agent notification and audit trail stay identical —
+   * only the loop is new. One shared reason is stamped on every request.
+   */
+  const handleBulkReject = async () => {
+    if (!user || selectedIds.size === 0) return;
+    const reason = bulkRejectReason.trim();
+    if (reason.length < 10) {
+      toast({ title: 'Reason must be at least 10 characters', variant: 'destructive' });
+      return;
+    }
+    setProcessing(true);
+    try {
+      const ids = [...selectedIds];
+      const failures: string[] = [];
+      let rejected = 0;
+      for (const id of ids) {
+        const { error } = await supabase.rpc('return_rent_request_for_correction', {
+          p_request_id: id,
+          p_stage: stage,
+          p_reason: reason,
+        });
+        if (error) {
+          failures.push(error.message);
+          continue;
+        }
+        const reviewerPatch: any = {
+          [config.reviewerColumn]: user.id,
+          [config.reviewerAtColumn]: new Date().toISOString(),
+        };
+        if (config.commentColumn) reviewerPatch[config.commentColumn] = reason;
+        await supabase.from('rent_requests').update(reviewerPatch).eq('id', id);
+        rejected += 1;
+      }
+      if (rejected > 0) {
+        toast({
+          title: `🔁 ${rejected} request${rejected === 1 ? '' : 's'} returned for correction`,
+          description: 'The originating agents can now fix and resubmit them.',
+        });
+      }
+      if (failures.length > 0) {
+        toast({
+          title: `${failures.length} could not be returned`,
+          description: failures[0],
+          variant: 'destructive',
+        });
+      }
+      setSelectedIds(new Set());
+      setBulkRejectReason('');
+      setBulkRejectOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['rent-pipeline'] });
+    } catch (err: any) {
+      toast({ title: 'Bulk return error', description: err.message, variant: 'destructive' });
     } finally {
       setProcessing(false);
     }
@@ -1081,6 +1156,10 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   };
 
   const isCooStage = stage === 'partner_ops_approved';
+  // Agent Ops reviews the `pending` stage and clears the largest backlog, so it
+  // gets the same bulk controls as the COO — plus bulk return-for-correction.
+  const isAgentOpsStage = stage === 'pending';
+  const allowBulkActions = isCooStage || isAgentOpsStage;
 
   return (
     <Card className="border border-border">
