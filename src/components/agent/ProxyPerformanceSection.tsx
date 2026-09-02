@@ -116,32 +116,30 @@ export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading
         </div>
       )}
 
-      {/* How your score is worked out — the formula, always visible */}
+      {/* How you earn — three visual tiles, no reading required */}
       <Card className="border-primary/40 bg-primary/5">
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center gap-2 text-primary">
-            <Sparkles className="h-4 w-4 shrink-0" />
-            <p className="text-xs font-black uppercase tracking-wider">How your score is worked out</p>
+        <CardContent className="p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-black uppercase tracking-wider text-primary">How you earn</p>
+            <p className="text-[10px] font-semibold text-muted-foreground">Goal: {money(r.targets.monthly_pv_target)}/mo</p>
           </div>
-          <div className="space-y-2">
-            {[
-              ['Each verified commitment', `${money(r.rates.commitment_pv)} points`],
-              ['Each new partner investment', `${r.rates.investment_pct}% of the amount`],
-              ['Each partner top-up', `${r.rates.topup_pct}% of the amount`],
-            ].map(([what, earns]) => (
-              <div key={what} className="flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-background px-3 py-2.5">
-                <span className="text-xs font-medium">{what}</span>
-                <span className="text-xs font-black text-primary tabular-nums shrink-0">{earns}</span>
-              </div>
-            ))}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-xl bg-background border border-primary/20 p-2.5 text-center">
+              <ClipboardCheck className="mx-auto h-5 w-5 text-primary" />
+              <p className="mt-1 text-sm font-black tabular-nums">{money(r.rates.commitment_pv)}</p>
+              <p className="text-[9px] font-medium text-muted-foreground leading-tight">per verified deal</p>
+            </div>
+            <div className="rounded-xl bg-background border border-primary/20 p-2.5 text-center">
+              <TrendingUp className="mx-auto h-5 w-5 text-primary" />
+              <p className="mt-1 text-sm font-black tabular-nums">{r.rates.investment_pct}%</p>
+              <p className="text-[9px] font-medium text-muted-foreground leading-tight">of new money</p>
+            </div>
+            <div className="rounded-xl bg-background border border-primary/20 p-2.5 text-center">
+              <Sparkles className="mx-auto h-5 w-5 text-primary" />
+              <p className="mt-1 text-sm font-black tabular-nums">{r.rates.topup_pct}%</p>
+              <p className="text-[9px] font-medium text-muted-foreground leading-tight">of top-ups</p>
+            </div>
           </div>
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
-            <span className="font-semibold text-foreground">What the company expects:</span>{' '}
-            {money(r.targets.monthly_pv_target)} points per month, spread over{' '}
-            {r.targets.working_days} working days — about{' '}
-            <span className="font-semibold text-foreground">{money(r.today.target_pv)} points each working day</span>.
-            Only verified activity counts.
-          </p>
         </CardContent>
       </Card>
 
