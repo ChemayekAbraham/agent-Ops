@@ -28179,6 +28179,36 @@ export type Database = {
         }
         Relationships: []
       }
+      proxy_pv_targets: {
+        Row: {
+          created_at: string
+          monthly_pv_target: number
+          note: string | null
+          period_month: string
+          set_by: string | null
+          updated_at: string
+          working_days: number
+        }
+        Insert: {
+          created_at?: string
+          monthly_pv_target?: number
+          note?: string | null
+          period_month: string
+          set_by?: string | null
+          updated_at?: string
+          working_days?: number
+        }
+        Update: {
+          created_at?: string
+          monthly_pv_target?: number
+          note?: string | null
+          period_month?: string
+          set_by?: string | null
+          updated_at?: string
+          working_days?: number
+        }
+        Relationships: []
+      }
       proxy_target_mode_enrollments: {
         Row: {
           agent_id: string
@@ -45709,6 +45739,10 @@ export type Database = {
         Args: { p_agent_id?: string }
         Returns: Json
       }
+      get_proxy_agent_pv: {
+        Args: { p_agent_id?: string; p_month?: string }
+        Returns: Json
+      }
       get_proxy_commission_queue: {
         Args: { p_limit?: number; p_status?: string }
         Returns: Json
@@ -48289,6 +48323,17 @@ export type Database = {
         }
         Returns: Json
       }
+      partner_ops_proxy_agent_pv: {
+        Args: {
+          p_dir?: string
+          p_limit?: number
+          p_month?: string
+          p_offset?: number
+          p_search?: string
+          p_sort?: string
+        }
+        Returns: Json
+      }
       partner_ops_proxy_agent_target_overview: {
         Args: { p_month?: string }
         Returns: Json
@@ -48552,6 +48597,41 @@ export type Database = {
       }
       proxy_cc_resolve_agent: { Args: { p_agent_id: string }; Returns: string }
       proxy_earning_categories: { Args: never; Returns: string[] }
+      proxy_pv_agent_rows: {
+        Args: { p_month: string }
+        Returns: {
+          agent_user_id: string
+          avatar_url: string
+          commitment_pv: number
+          commitments: number
+          investment_pv: number
+          name: string
+          new_investment: number
+          phone: string
+          status: string
+          topup_pv: number
+          topups: number
+          total_pv: number
+        }[]
+      }
+      proxy_pv_daily: {
+        Args: { p_agent_id: string; p_month: string }
+        Returns: {
+          commitment_pv: number
+          commitments: number
+          day: string
+          investment_pv: number
+          new_investment: number
+          topup_pv: number
+          topups: number
+          total_pv: number
+        }[]
+      }
+      proxy_pv_target_for: { Args: { p_month: string }; Returns: Json }
+      proxy_pv_working_days_elapsed: {
+        Args: { p_month: string }
+        Returns: number
+      }
       psm_assert_no_foreign_booking: {
         Args: { p_partner: string; p_rent_request_ids: string[] }
         Returns: undefined
