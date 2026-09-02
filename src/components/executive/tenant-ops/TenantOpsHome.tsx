@@ -78,8 +78,8 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
       tone: 'bg-primary/10 text-primary',
     },
     {
-      label: 'New Tenants Today',
-      value: num(acquisition?.newToday),
+      label: `New Tenants ${phrase}`,
+      value: num(periodStats?.newTenants),
       hint: `${num(acquisition?.newThisWeek)} this week`,
       icon: UserPlus,
       view: 'all-tenants-hub',
