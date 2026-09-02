@@ -175,11 +175,19 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-base font-bold tracking-tight">Tenant Operations</h2>
-        <p className="text-xs text-muted-foreground">
-          Live position across requests, repayments and tenants. Every figure below opens the tool behind it.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="text-base font-bold tracking-tight">Tenant Operations</h2>
+          <p className="text-xs text-muted-foreground">
+            {format(start, 'dd MMM yyyy')} → {format(end, 'dd MMM yyyy')} · live position across requests, repayments and tenants.
+          </p>
+        </div>
+        <OpsDateRangeFilter
+          preset={preset}
+          custom={custom}
+          onPresetChange={setPreset}
+          onCustomChange={setCustom}
+        />
       </div>
 
       {/* Today's collection hero + KPI strip */}
