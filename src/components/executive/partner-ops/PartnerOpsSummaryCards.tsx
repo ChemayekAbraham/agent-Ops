@@ -114,15 +114,26 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
   const hasExpiring = expiringCount > 0;
   const soonest = derived?.soonestExpiry ?? null;
 
-  const { data: proxyAgentCount } = useQuery({
-    queryKey: ['partner-ops-active-proxy-agents-count'],
+  const { data: proxyStatus } = useQuery({
+    queryKey: ['partner-ops-proxy-agents-status-breakdown'],
     queryFn: async () => {
-      const { count, error } = await supabase
+      const { data, error } = await supabase
         .from('proxy_agent_identity')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'approved');
+        .select('status, updated_at');
       if (error) throw error;
-      return count || 0;
+      const counts = { approved: 0, pending: 0, rejected: 0, suspended: 0, other: 0 };
+      let lastUpdated: string | null = null;
+      for (const row of data ?? []) {
+        const s = String((row as any).status || '').toLowerCase();
+        if (s === 'approved') counts.approved += 1;
+        else if (s === 'pending') counts.pending += 1;
+        else if (s === 'rejected') counts.rejected += 1;
+        else if (s === 'suspended') counts.suspended += 1;
+        else counts.other += 1;
+        const u = (row as any).updated_at as string | null;
+        if (u && (!lastUpdated || u > lastUpdated)) lastUpdated = u;
+      }
+      return { counts, lastUpdated };
     },
     staleTime: 60_000,
   });
