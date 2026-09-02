@@ -59,6 +59,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const [osType, setOsType] = useState<SmartphoneOsType>('android');
   const [catalogId, setCatalogId] = useState('');
   const [months, setMonths] = useState<string>('12');
+  const [paymentMethod, setPaymentMethod] = useState<'full' | 'installments'>('installments');
   const [submitting, setSubmitting] = useState(false);
   const [docsReady, setDocsReady] = useState(false);
 
@@ -236,23 +237,65 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               </Select>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs">Repayment period</Label>
-              <Select value={months} onValueChange={setMonths} disabled={hasOpenApplication}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a period" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PERIODS.map((p) => (
-                    <SelectItem key={p.months} value={String(p.months)}>
-                      {p.months} months ({p.days} days)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-2">
+              <Label className="text-xs">Payment method</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={hasOpenApplication}
+                  onClick={() => setPaymentMethod('full')}
+                  className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
+                    paymentMethod === 'full'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-card hover:bg-muted'
+                  } disabled:opacity-50`}
+                >
+                  Full payment
+                </button>
+                <button
+                  type="button"
+                  disabled={hasOpenApplication}
+                  onClick={() => setPaymentMethod('installments')}
+                  className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
+                    paymentMethod === 'installments'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-card hover:bg-muted'
+                  } disabled:opacity-50`}
+                >
+                  Installments
+                </button>
+              </div>
             </div>
 
-            {dailyAmount > 0 && (
+            {paymentMethod === 'installments' && (
+              <div className="space-y-1">
+                <Label className="text-xs">Repayment period</Label>
+                <Select value={months} onValueChange={setMonths} disabled={hasOpenApplication}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a period" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PERIODS.map((p) => (
+                      <SelectItem key={p.months} value={String(p.months)}>
+                        {p.months} months ({p.days} days)
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {paymentMethod === 'full' && price > 0 && (
+              <div className="rounded-lg border border-border bg-muted/40 p-3 text-center space-y-1">
+                <p className="text-xs text-muted-foreground">Amount due in full</p>
+                <p className="text-2xl font-bold tabular-nums">{formatUGX(price)}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  The full amount is collected from your Welile Wallet. No daily deductions.
+                </p>
+              </div>
+            )}
+
+            {paymentMethod === 'installments' && dailyAmount > 0 && (
               <div className="rounded-lg border border-border bg-muted/40 p-3 text-center space-y-1">
                 <p className="text-xs text-muted-foreground">Daily repayment</p>
                 <p className="text-2xl font-bold tabular-nums">
