@@ -953,7 +953,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                                 : 'hover:bg-muted/40'
                             )}
                           >
-                            <td className="px-2 py-2.5 align-middle" aria-hidden />
+                            
 
                             <td className="px-2 py-2.5 align-middle">
                               <div className="flex items-center gap-1.5 min-w-0">
