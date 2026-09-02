@@ -56,7 +56,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
     setOpenSections((prev) => ({ ...prev, [key]: prev[key] === false }));
   const { user } = useAuth();
   const {
-    platformCash, liabilities, revenue, receivables, moneyFlow, position, positionError,
+    platformCash, liabilities, revenue, receivables, moneyFlow,
     todayCashFlow, isLoading
   } = useCFOOverviewData();
   const { data: sevenDayCashFlow } = useCFO7DayCashFlow();
@@ -133,29 +133,19 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
     );
   }
 
-  // The three headline cards read one authoritative source — the same
-  // get_statement_of_financial_position the Balance Sheet renders — so they
-  // share an as-at instant and reconcile to it by construction.
-  const totalCash = position?.totalCash ?? 0;
-  const totalLiabilities = position?.totalLiabilities ?? 0;
-  // Net position: cash less what the company is obligated to pay. Never clamped
-  // — a negative result is a real finding and is shown as negative.
-  const moneyWeCanUse = position?.moneyWeCanUse ?? 0;
-  const positionUnavailable = !!positionError;
-
+  const totalCash = platformCash?.totalCash ?? 0;
+  const treasuryPosition = (platformCash?.positions ?? []).find((p: any) => p.category === 'treasury_platform_cash');
+  const bankPosition = (platformCash?.positions ?? []).find((p: any) => p.category === 'bank_cash');
+  const totalLiabilities = liabilities?.totalLiabilities ?? 0;
   const walletTotal = liabilities?.tenantFunds ?? 0;
+  const moneyWeCanUse = Math.max(0, totalCash - walletTotal);
   const netToday = todayCashFlow?.netToday ?? 0;
 
   
 
 
-  // Wallet-cache figures, shown as an operational memo. These are wallet
-  // balances, not the company's liabilities — the liability figure is the
-  // Balance Sheet's own total on the "Money We Owe" card above.
   const liabilityItems = [
-    { label: 'Withdrawable User Wallets', value: liabilities?.withdrawable ?? 0, icon: <Wallet className="h-4 w-4" /> },
-    { label: 'Agent Float in Wallets', value: liabilities?.float ?? 0, icon: <Wallet className="h-4 w-4" /> },
-    { label: 'Total Wallet Balances', value: walletTotal, icon: <Wallet className="h-4 w-4" /> },
+    { label: 'Total Wallet Balances', value: liabilities?.tenantFunds ?? 0, icon: <Wallet className="h-4 w-4" /> },
   ];
 
   /* ── presentation-only derivations (no new data sources) ── */
@@ -222,16 +212,13 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               icon={<PiggyBank className="h-5 w-5 text-emerald-600" />}
               iconBg="bg-emerald-50 dark:bg-emerald-950/40"
               title="Money We Have"
-              value={positionUnavailable ? '—' : fmt(totalCash)}
-              valueColor={totalCash >= 0 ? 'text-emerald-600' : 'text-destructive'}
-              items={(position?.cashByAccount ?? []).map(a => ({
-                dot: 'bg-emerald-500',
-                label: `${a.label} (${a.code})`,
-                value: fmt(a.value),
-              }))}
-              footer={positionUnavailable
-                ? 'Could not load'
-                : 'Balance sheet cash — A1 + A2 + A5, ties to Cash and Bank Balances'}
+              value={fmt(totalCash)}
+              valueColor="text-emerald-600"
+              items={[
+                { dot: 'bg-emerald-500', label: 'Platform / Treasury Balance', value: fmt(platformCash?.a1 ?? 0) },
+                { dot: 'bg-emerald-500', label: 'Cash in Transit (A5)', value: fmt(platformCash?.a5 ?? 0) },
+              ]}
+              footer="Total available across all accounts"
               footerTone="bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400"
               onClick={() => setActiveBreakdown('cash')}
             />
@@ -239,21 +226,13 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               icon={<Package className="h-5 w-5 text-orange-600" />}
               iconBg="bg-orange-50 dark:bg-orange-950/40"
               title="Money We Owe"
-              value={positionUnavailable ? '—' : fmt(totalLiabilities)}
+              value={fmt(walletTotal)}
               valueColor="text-orange-600"
               items={[
-                ...(position?.liabilityBreakdown ?? []).map(l => ({
-                  dot: 'bg-orange-500',
-                  label: `${l.label} (${l.code})`,
-                  value: fmt(l.value),
-                })),
-                ...(Math.round(position?.otherLiabilities ?? 0) !== 0
-                  ? [{ dot: 'bg-orange-500', label: 'Other liabilities', value: fmt(position?.otherLiabilities ?? 0) }]
-                  : []),
+                { dot: 'bg-orange-500', label: 'Withdrawable User Wallets', value: fmt(walletTotal) },
+                { dot: 'bg-orange-500', label: 'All Recorded Liabilities', value: fmt(totalLiabilities) },
               ]}
-              footer={positionUnavailable
-                ? 'Could not load'
-                : 'Total Liabilities per the Balance Sheet — components sum to this figure'}
+              footer="Commitments not yet paid out"
               footerTone="bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400"
               onClick={() => setActiveBreakdown('wallets')}
             />
@@ -261,69 +240,46 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               icon={<BarChart3 className="h-5 w-5 text-blue-600" />}
               iconBg="bg-blue-50 dark:bg-blue-950/40"
               title="Money We Can Use"
-              value={positionUnavailable ? '—' : fmt(moneyWeCanUse)}
+              value={fmt(moneyWeCanUse)}
               valueColor={moneyWeCanUse >= 0 ? 'text-blue-600' : 'text-destructive'}
               items={[
-                { dot: 'bg-blue-500', label: 'Money We Have', value: fmt(totalCash) },
-                { dot: 'bg-blue-500', label: 'Less: Money We Owe', value: fmt(-totalLiabilities) },
+                { dot: 'bg-blue-500', label: 'Available for Operations', value: fmt(moneyWeCanUse) },
               ]}
-              footer={positionUnavailable
-                ? 'Could not load'
-                : moneyWeCanUse < 0
-                  ? 'Cash less obligations — negative: obligations exceed cash'
-                  : 'Cash less obligations'}
+              footer="After obligations and restrictions"
               footerTone="bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400"
               onClick={() => setActiveBreakdown('earnings')}
             />
           </div>
 
-          {/* Where that same cash sits. These are the three cash accounts that
-              make up Money We Have, read from the same statement, so they sum to
-              it exactly. They are a split of the headline, never an addition to
-              it. The bank-vs-treasury breakdown within A1 is category-level
-              detail and lives in the Cash Sources drill-down, which cannot be
-              derived from the statement without recomputing it here. */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {(position?.cashByAccount ?? []).map(a => {
-              // Business name for each cash account. The ledger label is kept on
-              // the first detail line so the mapping stays auditable.
-              const tone = a.code === 'A1'
-                ? {
-                    title: 'Money in Bank',
-                    note: 'Balance held in the company bank accounts',
-                    icon: <Landmark className="h-5 w-5 text-sky-600" />, bg: 'bg-sky-50 dark:bg-sky-950/40',
-                    color: 'text-sky-600', foot: 'bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic',
-                  }
-                : a.code === 'A2'
-                  ? {
-                      title: 'Money with Agents (Float)',
-                      note: 'Cash issued to agents as operational float',
-                      icon: <Wallet className="h-5 w-5 text-indigo-600" />, bg: 'bg-indigo-50 dark:bg-indigo-950/40',
-                      color: 'text-indigo-600', foot: 'bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic',
-                    }
-                  : {
-                      title: 'Money in Treasury / Platform',
-                      note: 'Collected and held by the platform, not yet banked',
-                      icon: <Vault className="h-5 w-5 text-teal-600" />, bg: 'bg-teal-50 dark:bg-teal-950/40',
-                      color: 'text-teal-600', foot: 'bg-teal-50/70 dark:bg-teal-950/30 text-teal-700 dark:text-teal-400 italic',
-                    };
-              return (
-                <HeroCard
-                  key={a.code}
-                  icon={tone.icon}
-                  iconBg={tone.bg}
-                  title={tone.title}
-                  value={positionUnavailable ? '—' : fmt(a.value)}
-                  valueColor={a.value >= 0 ? tone.color : 'text-destructive'}
-                  items={[
-                    { dot: 'bg-current', label: `${a.label} (${a.code})`, value: fmt(a.value) },
-                    { dot: 'bg-current', label: tone.note, value: '' },
-                  ]}
-                  footer="Position view — part of Money We Have, not added to it"
-                  footerTone={tone.foot}
-                />
-              );
-            })}
+          {/* Where that same cash sits — a split of "Money We Have", so it
+              belongs directly beneath it rather than further down the page. */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <HeroCard
+              icon={<Vault className="h-5 w-5 text-indigo-600" />}
+              iconBg="bg-indigo-50 dark:bg-indigo-950/40"
+              title="Money in Treasury / Platform"
+              value={fmt(treasuryPosition?.value ?? 0)}
+              valueColor="text-indigo-600"
+              items={[
+                { dot: 'bg-indigo-500', label: 'Cash held outside the bank', value: fmt(treasuryPosition?.value ?? 0) },
+                { dot: 'bg-indigo-500', label: 'Ledger entries', value: String(treasuryPosition?.count ?? 0) },
+              ]}
+              footer="Position view — part of Money We Have, not added to it"
+              footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic"
+            />
+            <HeroCard
+              icon={<Landmark className="h-5 w-5 text-sky-600" />}
+              iconBg="bg-sky-50 dark:bg-sky-950/40"
+              title="Money in Bank"
+              value={fmt(bankPosition?.value ?? 0)}
+              valueColor="text-sky-600"
+              items={[
+                { dot: 'bg-sky-500', label: 'Net banked cash', value: fmt(bankPosition?.value ?? 0) },
+                { dot: 'bg-sky-500', label: 'Ledger entries', value: String(bankPosition?.count ?? 0) },
+              ]}
+              footer="Position view — part of Money We Have, not added to it"
+              footerTone="bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic"
+            />
           </div>
         </Band>
 
