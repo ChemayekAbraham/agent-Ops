@@ -10,15 +10,26 @@ import {
   ChevronRight,
   ChevronUp,
   ClipboardCheck,
+  Clock3,
   FileCheck2,
   ListChecks,
   PiggyBank,
   Wallet,
 } from 'lucide-react';
 import type { ProxyPvActivityKind, ProxyPvReport } from '@/hooks/useProxyAgentPerformance';
+import { useProxyPvPendingFeed } from '@/hooks/useProxyAgentPerformance';
 import { ProxyActivityDrilldownDialog } from '@/components/agent/ProxyActivityDrilldownDialog';
 
 const money = (v: unknown) => formatDynamic(v);
+
+type StatusFilter = 'all' | 'verified' | 'pending';
+type KindFilter = 'all' | ProxyPvActivityKind;
+
+const KIND_META: Record<ProxyPvActivityKind, { label: string; icon: typeof FileCheck2; iconClass: string }> = {
+  commitments: { label: 'Commitments', icon: FileCheck2, iconClass: 'bg-success/10 text-success' },
+  investment: { label: 'Investments', icon: PiggyBank, iconClass: 'bg-primary/10 text-primary' },
+  topups: { label: 'Top-ups', icon: Wallet, iconClass: 'bg-warning/10 text-warning' },
+};
 
 interface ActivityEntry {
   key: string;
@@ -34,6 +45,8 @@ interface ActivityEntry {
   /** How it moved the score. */
   impact: string;
   pv: number;
+  /** Scored (verified/paid) vs awaiting verification. */
+  status: 'verified' | 'pending';
 }
 
 /**
