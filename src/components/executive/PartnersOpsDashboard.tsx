@@ -36,6 +36,7 @@ import { PendingPartnerRequests } from './PendingPartnerRequests';
 import { ProxyAgentManager } from '@/components/cfo/ProxyAgentManager';
 import { ProxyAgentApplicationsQueue } from '@/components/executive/ProxyAgentApplicationsQueue';
 import { ProxyAgentDirectory } from '@/components/executive/partner-ops/ProxyAgentDirectory.tsx';
+import { ProxyAgentPerformanceBoard } from '@/components/executive/partner-ops/ProxyAgentPerformanceBoard.tsx';
 import { ProxyCommissionsQueue } from '@/components/executive/partner-ops/ProxyCommissionsQueue';
 import { MaturityRequestsQueue } from './MaturityRequestsQueue';
 import { InvitedPortfoliosPanel } from './InvitedPortfoliosPanel';
@@ -344,6 +345,7 @@ export function PartnersOpsDashboard() {
       );
 
       case 'proxy.directory': return <ProxyAgentDirectory />;
+      case 'proxy.performance': return <ProxyAgentPerformanceBoard />;
       case 'proxy.commissions': return <ProxyCommissionsQueue />;
       case 'proxy.vetting': return <ProxyAgentApplicationsQueue />;
       case 'rent.requests': return <PartnerOpsRentRequestQueue />;

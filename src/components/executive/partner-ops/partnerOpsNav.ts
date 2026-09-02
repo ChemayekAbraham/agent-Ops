@@ -1,4 +1,5 @@
 import {
+  Activity,
   LayoutDashboard,
   Users,
   Wallet,
@@ -47,6 +48,7 @@ export type PartnerOpsViewKey =
   | 'proxy.vetting'
   | 'proxy.promissory'
   | 'proxy.commissions'
+  | 'proxy.performance'
   | 'proxy.followup'
   | 'maturity'
   | 'approvals'
@@ -162,6 +164,7 @@ export const PARTNER_OPS_NAV: PartnerOpsNavItem[] = [
       { key: 'proxy.vetting', label: 'Vetting', icon: ShieldCheck, keywords: ['applications', 'approve proxy'] },
       { key: 'proxy.promissory', label: 'Promissory Notes', icon: FileText, keywords: ['notes', 'commitments'] },
       { key: 'proxy.commissions', label: 'Commissions', icon: Percent, keywords: ['commission', '2%', '1%', 'portfolio', 'top-up', 'topup', 'marketing expense', 'approve'] },
+      { key: 'proxy.performance', label: 'Performance (PV)', icon: Activity, keywords: ['performance value', 'pv', 'target', 'mtd', 'productivity', 'scoreboard', 'bands'] },
       { key: 'proxy.followup', label: 'Followup', icon: PhoneCall, keywords: ['contact', 'chase'] },
     ],
   },

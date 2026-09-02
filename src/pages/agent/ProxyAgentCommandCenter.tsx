@@ -316,6 +316,7 @@ export default function ProxyAgentCommandCenter() {
 
           {/* ---------------- SHARE LINK TO ONBOARD ---------------- */}
           <TabsContent value="share" className="space-y-3 pt-3">
+            <ProxyPerformanceSection />
             <ProxyTargetModeCard agentId={agentId} />
             {summaryQ.isLoading ? (
 
