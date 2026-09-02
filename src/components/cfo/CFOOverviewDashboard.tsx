@@ -207,13 +207,12 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           open={isOpen('position')}
           onToggle={() => toggleSection('position')}
         >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <HeroCard
               icon={<PiggyBank className="h-5 w-5 text-emerald-50" />}
               iconBg="bg-emerald-600"
               title="Money We Have"
               value={fmt(totalCash)}
-              valueColor="text-emerald-600"
               items={[
                 { dot: 'bg-emerald-500', label: 'Platform / Treasury Balance', value: fmt(platformCash?.a1 ?? 0) },
                 { dot: 'bg-emerald-500', label: 'Cash in Transit (A5)', value: fmt(platformCash?.a5 ?? 0) },
@@ -227,7 +226,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               iconBg="bg-orange-500"
               title="Money We Owe"
               value={fmt(walletTotal)}
-              valueColor="text-orange-600"
               items={[
                 { dot: 'bg-orange-500', label: 'Withdrawable User Wallets', value: fmt(walletTotal) },
                 { dot: 'bg-orange-500', label: 'All Recorded Liabilities', value: fmt(totalLiabilities) },
@@ -241,7 +239,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               iconBg="bg-blue-600"
               title="Money We Can Use"
               value={fmt(moneyWeCanUse)}
-              valueColor={moneyWeCanUse >= 0 ? 'text-blue-600' : 'text-destructive'}
               items={[
                 { dot: 'bg-blue-500', label: 'Available for Operations', value: fmt(moneyWeCanUse) },
               ]}
@@ -253,13 +250,12 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
 
           {/* Where that same cash sits — a split of "Money We Have", so it
               belongs directly beneath it rather than further down the page. */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <HeroCard
               icon={<Vault className="h-5 w-5 text-indigo-50" />}
               iconBg="bg-indigo-600"
               title="Money in Treasury / Platform"
               value={fmt(treasuryPosition?.value ?? 0)}
-              valueColor="text-indigo-600"
               items={[
                 { dot: 'bg-indigo-500', label: 'Cash held outside the bank', value: fmt(treasuryPosition?.value ?? 0) },
                 { dot: 'bg-indigo-500', label: 'Ledger entries', value: String(treasuryPosition?.count ?? 0) },
@@ -272,7 +268,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               iconBg="bg-sky-500"
               title="Money in Bank"
               value={fmt(bankPosition?.value ?? 0)}
-              valueColor="text-sky-600"
               items={[
                 { dot: 'bg-sky-500', label: 'Net banked cash', value: fmt(bankPosition?.value ?? 0) },
                 { dot: 'bg-sky-500', label: 'Ledger entries', value: String(bankPosition?.count ?? 0) },
@@ -547,12 +542,11 @@ function Band({ title, subtitle, open, onToggle, children }: {
  * smoothly expands the existing breakdown rows; tapping again collapses them.
  * No figure is derived here: every value is passed in already computed.
  */
-function HeroCard({ icon, iconBg, title, value, valueColor, items, footer, footerTone, onClick }: {
+function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onClick }: {
   icon: React.ReactNode;
   iconBg: string;
   title: string;
   value: string;
-  valueColor: string;
   items: { dot: string; label: string; value: string }[];
   footer: string;
   footerTone: string;
@@ -560,26 +554,39 @@ function HeroCard({ icon, iconBg, title, value, valueColor, items, footer, foote
 }) {
   const [expanded, setExpanded] = useState(false);
   const panelId = `hero-card-${title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
+  // Colour carries meaning through the icon tile, as in the reference design;
+  // the amount stays foreground so the cards read as one set. A negative figure
+  // is the one case that still needs to shout, so it keeps the destructive tone.
+  const negative = value.trim().startsWith('-');
 
   return (
-    <div className="w-full rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
+    <div className="w-full rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
         aria-controls={panelId}
-        className="w-full text-left p-4 sm:p-5 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="w-full text-left p-5 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <div className="flex items-start justify-between gap-3">
           <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
-          <ChevronDown
-            className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
-          />
+          <span
+            className="flex h-6 w-6 items-center justify-center rounded-full bg-muted/60 shrink-0"
+            aria-hidden
+          >
+            <ChevronDown
+              className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
+            />
+          </span>
         </div>
 
         <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">{title}</p>
-        <p className={`mt-1 text-2xl font-bold tabular-nums tracking-tight ${valueColor}`}>{value}</p>
-        <p className="mt-2 text-[11px] text-muted-foreground line-clamp-2">{footer}</p>
+        <p
+          className={`mt-1.5 text-[26px] leading-none sm:text-3xl sm:leading-none font-bold tabular-nums tracking-tight ${negative ? 'text-destructive' : 'text-foreground'}`}
+        >
+          {value}
+        </p>
+        <p className="mt-2.5 text-[11px] text-muted-foreground line-clamp-2">{footer}</p>
       </button>
 
       <div
