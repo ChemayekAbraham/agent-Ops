@@ -438,7 +438,9 @@ export function useCcCallingHub(
   });
 
   const openCount = openAttemptsQ.data?.length ?? 0;
-  const wipBlocked = openCount >= OPEN_ATTEMPT_LIMIT;
+  /** Per-cycle work-in-progress cap, set by ops; falls back until the cycle loads. */
+  const wipLimit = cycleQ.data?.wip_limit ?? OPEN_ATTEMPT_LIMIT;
+  const wipBlocked = openCount >= wipLimit;
 
   /* ------------------------------------------------------------ reference */
   const categoriesQ = useQuery({
