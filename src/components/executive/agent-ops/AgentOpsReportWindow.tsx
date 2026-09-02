@@ -1350,8 +1350,10 @@ export function AgentOpsReportWindow() {
             <CardContent className="p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">A3 · Growth rate vs prior</p>
               <div className="mt-3">
-                {isDaily ? (
-                  priorSnapshot ? <DirectionValue value={growthVariancePp} kind="points" /> : <p className="text-xl font-medium text-muted-foreground">no prior period</p>
+                {!priorSnapshot ? (
+                  <p className="text-xl font-medium text-muted-foreground">no prior period</p>
+                ) : isDaily ? (
+                  <DirectionValue value={growthVariancePp} kind="points" />
                 ) : (
                   <p className={cn('text-3xl font-semibold tabular-nums', varianceDirection.className)}>
                     {rateText(currentGrowthRate)}
@@ -1359,11 +1361,11 @@ export function AgentOpsReportWindow() {
                 )}
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
-                {isDaily
-                  ? priorSnapshot
+                {!priorSnapshot
+                  ? 'No comparison available'
+                  : isDaily
                     ? `${priorPeriodLabel} ${rateText(computeGrowthRate(priorSnapshot))} → ${periodLabel} ${rateText(currentGrowthRate)}`
-                    : 'No comparison available'
-                  : <>net change {signedNumber(netChange)} · {priorSnapshot ? <DirectionValue value={growthVariancePp} kind="points" /> : 'no prior period'}</>}
+                    : <>net change {signedNumber(netChange)} · <DirectionValue value={growthVariancePp} kind="points" /></>}
               </p>
               {priorSnapshot && (
                 <p className="mt-3 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
@@ -1385,9 +1387,10 @@ export function AgentOpsReportWindow() {
 
       <ZoneC />
 
-      <ReportNarratives data={data} granularity={granularity} />
+      <ReportNarratives data={data} granularity={granularity} canEdit={canEdit} />
     </div>
   );
 }
+
 
 export default AgentOpsReportWindow;
