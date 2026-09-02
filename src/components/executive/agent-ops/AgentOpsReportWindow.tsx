@@ -644,7 +644,7 @@ function ReportNarratives({ data, granularity }: { data: AgentOpsReportWindowDat
         <h2 id="agent-ops-narratives" className="text-lg font-semibold">Explain the movement and commit the next actions</h2>
       </div>
       <NarrativeSection data={data} zone="growth" title="Zone A — WHY THESE NUMBERS" actionTitle={actionLabel(granularity)} granularity={granularity} />
-      <NarrativeSection data={data} zone="pipeline" title="Zone B — WHY THESE NUMBERS" actionTitle="Actions needed" granularity={granularity} />
+      <NarrativeSection data={data} zone="pipeline" title="Zone B — WHY THESE NUMBERS" actionTitle={actionLabel(granularity)} granularity={granularity} />
       <PriorPeriodCloseout data={data} granularity={granularity} />
       <Card aria-label="Submit Agent Operations report">
         <CardContent className="space-y-3 p-4">
