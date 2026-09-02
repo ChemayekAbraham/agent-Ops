@@ -327,16 +327,24 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
             const isNotPaying = notPayingIds.has(tenant.id);
             const hasDebt = balance > 0 && !isNotPaying;
             const isCompleted = !isNotPaying && balance <= 0 && completedTenantIds.has(tenant.id);
+            const latest = tenant.latest_status;
+            const isPendingReview = latest === 'pending';
+            const isApproved = latest === 'approved';
+            const isLiveRequest = latest === 'funded' || latest === 'disbursed' || latest === 'repaying';
             const statusBadge = isNotPaying
               ? { label: 'Not paying', cls: 'bg-amber-100 text-amber-700' }
-              : hasDebt
-                ? { label: 'Repaying', cls: 'bg-rose-100 text-rose-700' }
-                : isCompleted
-                  ? { label: 'Completed', cls: 'bg-emerald-100 text-emerald-700' }
-                  : { label: 'Paid up', cls: 'bg-emerald-100 text-emerald-700' };
-            const toneText = isNotPaying
+              : isPendingReview
+                ? { label: 'Pending review', cls: 'bg-amber-100 text-amber-700' }
+                : isApproved
+                  ? { label: 'Approved', cls: 'bg-emerald-100 text-emerald-700' }
+                  : hasDebt && isLiveRequest
+                    ? { label: 'Repaying', cls: 'bg-rose-100 text-rose-700' }
+                    : isCompleted
+                      ? { label: 'Completed', cls: 'bg-emerald-100 text-emerald-700' }
+                      : { label: 'Paid up', cls: 'bg-emerald-100 text-emerald-700' };
+            const toneText = isNotPaying || isPendingReview
               ? 'text-amber-600'
-              : hasDebt
+              : hasDebt && isLiveRequest
                 ? 'text-rose-600'
                 : 'text-emerald-600';
             const initial = (tenant.full_name?.trim()?.charAt(0) || tenant.phone?.charAt(0) || '?').toUpperCase();
