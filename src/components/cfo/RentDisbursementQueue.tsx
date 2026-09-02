@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils';
 import { TreasuryImpactBanner } from './TreasuryImpactBanner';
 import { useAuth } from '@/hooks/useAuth';
 import { UserDrilldownDrawer } from '@/components/ops/UserDrilldownDrawer';
+import { LandlordAgreementHistory } from '@/components/landlord/agreement';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(n);

@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { KPICard } from '../KPICard';
+import { LandlordAgreementHistory } from '@/components/landlord/agreement';
 import { downloadCsv } from '@/lib/csvExport';
 import { downloadXlsx } from '@/lib/xlsxExport';
 import {

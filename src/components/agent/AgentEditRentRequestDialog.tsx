@@ -606,6 +606,30 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
             <LandlordSearchSelect value={landlord} onChange={setLandlord} />
           </div>
 
+          {landlord && !hasSignedAgreement && (
+            <div className="space-y-3 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
+              <div className="flex items-start gap-2">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                <div>
+                  <p className="text-xs font-semibold text-amber-800">Landlord Agreement Not Attached</p>
+                  <p className="text-[10px] text-muted-foreground">Attach the signed agreement to this existing landlord record before resubmitting, if the reviewer requested it.</p>
+                </div>
+              </div>
+              <LandlordAgreementUploader
+                landlordId={landlord.id}
+                landlordName={landlordName}
+                landlordPhone={landlordPhone}
+                propertyAddress={landlordAddress}
+                monthlyRent={rentNum || landlord.monthly_rent}
+                uploadOnly
+                onSubmitted={() => {
+                  setAgreementAttached(true);
+                  queryClient.invalidateQueries({ queryKey: ['landlord-agreement-history', landlord.id] });
+                }}
+              />
+            </div>
+          )}
+
           {landlord && (
             <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">
               <p className="text-[10px] font-bold uppercase tracking-wide text-primary">

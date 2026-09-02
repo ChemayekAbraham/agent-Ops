@@ -24,6 +24,7 @@ import { toast as sonnerToast } from 'sonner';
 import { format } from 'date-fns';
 import { AgentProximitySelector } from './AgentProximitySelector';
 import { UserDrilldownDrawer } from '@/components/ops/UserDrilldownDrawer';
+import { LandlordAgreementHistory } from '@/components/landlord/agreement';
 import { PipelineAgentTransferDialog } from './PipelineAgentTransferDialog';
 import { TenantPaymentHistoryCard } from './TenantPaymentHistoryCard';
 import { RentApprovalConfirmDialog, type FunderVisibilityDecision } from './RentApprovalConfirmDialog';

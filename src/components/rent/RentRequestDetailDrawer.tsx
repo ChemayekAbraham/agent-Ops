@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import { TenantPaymentHistoryCard } from '@/components/executive/TenantPaymentHistoryCard';
+import { LandlordAgreementHistory } from '@/components/landlord/agreement';
 
 interface RentRequestDetailDrawerProps {
   requestId: string | null;
