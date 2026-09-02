@@ -882,7 +882,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                 <table className="w-full text-sm min-w-[64rem]">
                   <thead className="sticky top-0 z-10">
                     <tr className="border-b border-border/70 bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
-                      
+                      <th className="w-10 px-2 py-2 text-center font-semibold">#</th>
                       <th className="px-2 py-2 text-left font-semibold">Tenant</th>
                       <th className="px-2 py-2 text-left font-semibold">Landlord</th>
                       <th className="px-2 py-2 text-left font-semibold">Agent</th>
@@ -898,7 +898,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                   <tbody>
                     {visibleItems.length === 0 && (
                       <tr>
-                        <td colSpan={10} className="text-center py-6 text-xs text-muted-foreground">
+                        <td colSpan={11} className="text-center py-6 text-xs text-muted-foreground">
                           No tenants match the current filters.{' '}
                           <button
                             type="button"
@@ -910,11 +910,12 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                         </td>
                       </tr>
                     )}
-                    {visibleItems.map(item => {
+                    {visibleItems.map((item, index) => {
                       const isSel = selected.has(item.id);
                       const reserved = item.partner_reserved_stage;
                       const locationLabel = [item.request_city, item.request_country].filter(Boolean).join(', ');
                       const isNew = Date.now() - new Date(item.created_at).getTime() < 24 * 60 * 60 * 1000;
+                      const rowNumber = index + 1;
                       return (
                         <Fragment key={item.id}>
                           <tr
@@ -926,8 +927,11 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                                 : 'hover:bg-muted/40'
                             )}
                           >
-                            
-
+                            <td className="w-10 px-2 py-2.5 align-middle text-center">
+                              <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-muted/60 text-[10px] font-medium text-muted-foreground">
+                                {rowNumber}
+                              </span>
+                            </td>
                             <td className="px-2 py-2.5 align-middle">
                               <div className="flex items-center gap-1.5 min-w-0">
                                 <span className={cn('truncate', isSel ? 'font-bold' : 'font-semibold')}>{item.tenant_name}</span>
