@@ -348,6 +348,12 @@ export function SmartphoneCatalogDialog() {
     });
   }, [entries, search, fromDate, toDate]);
 
+  /** Render-safe: never throws. Returns 0 for empty/invalid input. */
+  const previewAmount = (raw: string): number => {
+    const n = parseInt((raw || '').trim(), 10);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+
   const parseAmount = (raw: string): number | null => {
     const t = raw.trim();
     if (!t) return null;
@@ -355,6 +361,7 @@ export function SmartphoneCatalogDialog() {
     if (n < 1000) throw new Error('Enter a default amount of at least UGX 1,000');
     return n;
   };
+
 
   const brands = useMemo(
     () => Array.from(new Set(entries.map((e) => e.brand.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
