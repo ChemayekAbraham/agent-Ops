@@ -103,55 +103,8 @@ function LoadingState() {
   );
 }
 
-function ZoneB({ data, granularity }: { data: AgentOpsReportWindowData; granularity: AgentOpsGranularity }) {
+function ZoneB({ data }: { data: AgentOpsReportWindowData; granularity: AgentOpsGranularity }) {
   const { snapshot, priorSnapshot } = data;
-  const [noteDraft, setNoteDraft] = useState(pipelineNote?.reason_note ?? '');
-  const [actionText, setActionText] = useState('');
-  const [actionOwner, setActionOwner] = useState('');
-  const [actionDue, setActionDue] = useState('');
-  const readOnly = report.status.toLowerCase() === 'submitted';
-
-  useEffect(() => {
-    setNoteDraft(pipelineNote?.reason_note ?? '');
-  }, [pipelineNote?.id, pipelineNote?.reason_note, report.id]);
-
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['agent-ops-report-window', granularity] });
-
-  const saveNote = useMutation({
-    mutationFn: async (value: string) => {
-      const { error } = await supabase
-        .from('agent_ops_report_notes')
-        .upsert({ report_id: report.id, zone: 'pipeline', reason_note: value.trim() }, { onConflict: 'report_id,zone' });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success('Pipeline reason note saved.');
-      invalidate();
-    },
-    onError: (mutationError: Error) => toast.error(mutationError.message),
-  });
-
-  const addAction = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase.from('agent_ops_report_actions').insert({
-        report_id: report.id,
-        zone: 'pipeline',
-        item_text: actionText.trim(),
-        owner_label: actionOwner.trim(),
-        due_date: actionDue || null,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      setActionText('');
-      setActionOwner('');
-      setActionDue('');
-      toast.success('Pipeline action added.');
-      invalidate();
-    },
-    onError: (mutationError: Error) => toast.error(mutationError.message),
-  });
-
   const conversionRate = computeConversionRate(snapshot);
   const closing = centresClosing(snapshot);
   const centresNet = snapshot.centres_opened - snapshot.centres_closed;
