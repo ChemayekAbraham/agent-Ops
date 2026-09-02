@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
-import { Activity, AlertTriangle, CalendarDays, ChevronDown, ChevronUp, ClipboardCheck, Inbox, Target, TrendingUp } from 'lucide-react';
+import { Activity, AlertTriangle, CalendarDays, ChevronDown, ChevronUp, ClipboardCheck, Inbox, Sparkles, Target, TrendingUp } from 'lucide-react';
 import { ProxyPerformanceActivities } from '@/components/agent/ProxyPerformanceActivities';
 import { ProxyPerformanceTrends } from '@/components/agent/ProxyPerformanceTrends';
 import { ProxyPerformanceWhatChanged } from '@/components/agent/ProxyPerformanceWhatChanged';
@@ -70,6 +70,7 @@ interface Props {
  */
 export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading, className }: Props) {
   const [showAllDays, setShowAllDays] = useState(false);
+  const [showMore, setShowMore] = useState(false);
   const [monthState, setMonthState] = useState(() => monthStartISO());
   const month = monthProp ?? monthState;
   const q = useProxyAgentPv(agentId ?? null, month);
@@ -108,12 +109,41 @@ export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading
       {!hideHeading && (
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-black">Performance Value (PV)</h2>
+          <h2 className="text-sm font-black">Your Performance Score</h2>
           <Badge variant="outline" className="ml-auto text-[10px]">
             {new Date(`${r.period_month}T00:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
           </Badge>
         </div>
       )}
+
+      {/* How your score is worked out — the formula, always visible */}
+      <Card className="border-primary/40 bg-primary/5">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-2 text-primary">
+            <Sparkles className="h-4 w-4 shrink-0" />
+            <p className="text-xs font-black uppercase tracking-wider">How your score is worked out</p>
+          </div>
+          <div className="space-y-2">
+            {[
+              ['Each verified commitment', `${money(r.rates.commitment_pv)} points`],
+              ['Each new partner investment', `${r.rates.investment_pct}% of the amount`],
+              ['Each partner top-up', `${r.rates.topup_pct}% of the amount`],
+            ].map(([what, earns]) => (
+              <div key={what} className="flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-background px-3 py-2.5">
+                <span className="text-xs font-medium">{what}</span>
+                <span className="text-xs font-black text-primary tabular-nums shrink-0">{earns}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            <span className="font-semibold text-foreground">What the company expects:</span>{' '}
+            {money(r.targets.monthly_pv_target)} points per month, spread over{' '}
+            {r.targets.working_days} working days — about{' '}
+            <span className="font-semibold text-foreground">{money(r.today.target_pv)} points each working day</span>.
+            Only verified activity counts.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Ambiguous attribution warning */}
       {dq && dq.is_approved_proxy === false && (
@@ -157,11 +187,11 @@ export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                Month-to-date PV
+                Your score so far this month
               </p>
               <p className="text-2xl font-black tabular-nums leading-tight break-words">{money(r.mtd.total_pv)}</p>
               <p className="text-[11px] text-muted-foreground">
-                Expected by today {money(r.mtd.expected_pv)} · target {money(r.targets.monthly_pv_target)}
+                Expected by today {money(r.mtd.expected_pv)} · monthly goal {money(r.targets.monthly_pv_target)}
               </p>
             </div>
             <BandBadge pct={mtdPct} />
@@ -170,7 +200,7 @@ export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading
           <div className="space-y-1">
             <div className="flex items-center justify-between text-[10px]">
               <span className={cn('font-bold', r.mtd.monthly_performance_pct >= 100 && 'text-success')}>
-                {r.mtd.monthly_performance_pct}% of monthly target
+                {r.mtd.monthly_performance_pct}% of your monthly goal
               </span>
               {r.mtd.monthly_performance_pct > 100 && (
                 <span className="font-bold text-success">+{money(r.mtd.above_target)} above target</span>
@@ -211,12 +241,12 @@ export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading
             <div className="flex items-center gap-2 min-w-0">
               <Target className="h-4 w-4 text-primary shrink-0" />
               <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Today's PV</p>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Today's score</p>
                 <p className="text-xl font-black tabular-nums leading-tight">{money(r.today.total_pv)}</p>
               </div>
             </div>
             <div className="text-right shrink-0">
-              <p className="text-[10px] text-muted-foreground">Daily target</p>
+              <p className="text-[10px] text-muted-foreground">Today's goal</p>
               <p className="text-xs font-bold tabular-nums">{money(r.today.target_pv)}</p>
               <div className="mt-1 flex justify-end">
                 {r.today.is_working_day === false ? (
@@ -244,6 +274,18 @@ export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading
         </CardContent>
       </Card>
 
+      {/* Everything else lives behind "More details" to keep the phone view light */}
+      <Button
+        variant="outline"
+        className="w-full gap-2 font-semibold"
+        onClick={() => { setShowMore((v) => !v); }}
+        aria-expanded={showMore}
+      >
+        {showMore ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        {showMore ? 'Show less' : 'More details — breakdown, charts & history'}
+      </Button>
+
+      {showMore && (<>
       {/* MTD breakdown */}
       <Card>
         <CardContent className="p-4 space-y-1.5">
@@ -311,6 +353,7 @@ export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading
 
       {/* Activities: which actions produced the PV and how each affects the score */}
       <ProxyPerformanceActivities report={r} />
+      </>)}
     </div>
   );
 }
