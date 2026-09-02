@@ -15,8 +15,11 @@ import {
   computeConversionRate,
   computeGrowthRate,
   computeGrowthVariancePp,
+  isIdenticalToPriorNote,
   type AgentOpsGranularity,
+  type AgentOpsReportAction,
   type AgentOpsReportWindowData,
+  type AgentOpsZone,
   useAgentOpsReportWindow,
 } from '@/hooks/useAgentOpsReportWindow';
 import { cn } from '@/lib/utils';
@@ -101,8 +104,7 @@ function LoadingState() {
 }
 
 function ZoneB({ data, granularity }: { data: AgentOpsReportWindowData; granularity: AgentOpsGranularity }) {
-  const queryClient = useQueryClient();
-  const { report, snapshot, priorSnapshot, pipelineNote, pipelineActions } = data;
+  const { snapshot, priorSnapshot } = data;
   const [noteDraft, setNoteDraft] = useState(pipelineNote?.reason_note ?? '');
   const [actionText, setActionText] = useState('');
   const [actionOwner, setActionOwner] = useState('');
@@ -297,81 +299,429 @@ function ZoneB({ data, granularity }: { data: AgentOpsReportWindowData; granular
         </CardContent>
       </Card>
 
-      <Card aria-label="Zone B narrative">
-        <CardContent className="space-y-4 p-4">
-          <div className="space-y-2">
-            <Label htmlFor="zone-b-reason-note">
-              Pipeline reason note <span className="text-destructive">*</span>
-            </Label>
-            <Textarea
-              id="zone-b-reason-note"
-              value={noteDraft}
-              onChange={(event) => setNoteDraft(event.target.value)}
-              rows={4}
-              disabled={readOnly}
-              placeholder="Explain what moved the onboarding pipeline this period (minimum 80 characters)."
-            />
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs text-muted-foreground">
-                {noteDraft.trim().length}/80 characters · separate from Zone A's growth note
+      </section>
+  );
+}
+
+function readableError(error: unknown): string {
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim()) return message;
+  }
+  if (error instanceof Error && error.message.trim()) return error.message;
+  if (typeof error === 'string' && error.trim()) return error;
+  return 'Something went wrong. Please try again.';
+}
+
+function todayIso(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Kampala',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+function nextPeriodDueDate(granularity: AgentOpsGranularity, periodEnd: string): string {
+  const [year, month, day] = periodEnd.split('-').map(Number);
+  const end = new Date(Date.UTC(year, month - 1, day));
+  if (granularity === 'daily') end.setUTCDate(end.getUTCDate() + 1);
+  if (granularity === 'weekly') end.setUTCDate(end.getUTCDate() + 7);
+  if (granularity === 'monthly') end.setUTCMonth(end.getUTCMonth() + 1);
+  return end.toISOString().slice(0, 10);
+}
+
+function formatTimestamp(value: string | null): string {
+  if (!value) return '—';
+  return new Intl.DateTimeFormat('en-GB', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Africa/Kampala',
+  }).format(new Date(value));
+}
+
+function actionLabel(granularity: AgentOpsGranularity): string {
+  if (granularity === 'daily') return 'Actions for tomorrow';
+  if (granularity === 'weekly') return 'Actions for next week';
+  return 'Actions for next month';
+}
+
+function hasActionPlan(actions: AgentOpsReportAction[]): boolean {
+  return actions.some((action) =>
+    action.item_text.trim().length >= 10 &&
+    Boolean(action.due_date) &&
+    Boolean(action.owner_staff_id || action.owner_label?.trim()),
+  );
+}
+
+function NarrativeSection({
+  data,
+  zone,
+  title,
+  actionTitle,
+  granularity,
+}: {
+  data: AgentOpsReportWindowData;
+  zone: AgentOpsZone;
+  title: string;
+  actionTitle: string;
+  granularity: AgentOpsGranularity;
+}) {
+  const queryClient = useQueryClient();
+  const note = data.notes[zone];
+  const actions = data.actions[zone];
+  const readOnly = data.report.status.toLowerCase() === 'submitted';
+  const [noteDraft, setNoteDraft] = useState(note?.reason_note ?? '');
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const [addendumDraft, setAddendumDraft] = useState('');
+  const [showAddendum, setShowAddendum] = useState(false);
+  const [actionText, setActionText] = useState('');
+  const [ownerStaffId, setOwnerStaffId] = useState('');
+  const [ownerLabel, setOwnerLabel] = useState('');
+  const [dueDate, setDueDate] = useState(() => nextPeriodDueDate(granularity, data.report.period_end));
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['agent-ops-report-window', granularity] });
+
+  useEffect(() => {
+    setNoteDraft(note?.reason_note ?? '');
+  }, [note?.id, note?.reason_note, data.report.id]);
+
+  const saveNote = useMutation({
+    mutationFn: async () => {
+      const value = noteDraft.trim();
+      if (value.length < 80) throw new Error('Write at least 80 characters explaining what happened and why.');
+      if (isIdenticalToPriorNote(value, data.priorNotes[zone])) {
+        throw new Error(`this is the same text as ${data.priorPeriodLabel ?? 'the prior period'}; write what actually happened this period`);
+      }
+      const { error } = await supabase
+        .from('agent_ops_report_notes')
+        .upsert({ report_id: data.report.id, zone, reason_note: value }, { onConflict: 'report_id,zone' });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setNoteError(null);
+      toast.success(`${title} saved.`);
+      invalidate();
+    },
+    onError: (error) => {
+      const message = readableError(error);
+      setNoteError(message);
+      toast.error(message);
+    },
+  });
+
+  const addendumMutation = useMutation({
+    mutationFn: async () => {
+      const value = addendumDraft.trim();
+      if (value.length < 1) throw new Error('Write an addendum before saving it.');
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!userData.user) throw new Error('Your session has expired. Sign in again to add a dated addendum.');
+      const { error } = await supabase.from('agent_ops_report_addenda').insert({
+        report_id: data.report.id,
+        zone,
+        addendum_text: value,
+        created_by: userData.user.id,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setAddendumDraft('');
+      setShowAddendum(false);
+      toast.success('Dated addendum added.');
+      invalidate();
+    },
+    onError: (error) => toast.error(readableError(error)),
+  });
+
+  const addAction = useMutation({
+    mutationFn: async () => {
+      const item = actionText.trim();
+      const selectedOwner = data.staffOptions.find((option) => option.staffId === ownerStaffId);
+      if (item.length < 10) throw new Error('Action text must be at least 10 characters.');
+      if (!ownerStaffId && ownerLabel.trim().length === 0) throw new Error('Choose a staff owner or enter a non-staff owner.');
+      if (!dueDate || dueDate < todayIso()) throw new Error('Due date cannot be in the past.');
+      const { error } = await supabase.from('agent_ops_report_actions').insert({
+        report_id: data.report.id,
+        zone,
+        item_text: item,
+        owner_staff_id: ownerStaffId || null,
+        owner_label: ownerStaffId ? selectedOwner?.label ?? null : ownerLabel.trim(),
+        due_date: dueDate,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setActionText('');
+      setOwnerStaffId('');
+      setOwnerLabel('');
+      setDueDate(nextPeriodDueDate(granularity, data.report.period_end));
+      toast.success('Action added.');
+      invalidate();
+    },
+    onError: (error) => toast.error(readableError(error)),
+  });
+
+  const noteIsValid = noteDraft.trim().length >= 80 && !isIdenticalToPriorNote(noteDraft, data.priorNotes[zone]);
+  return (
+    <Card aria-label={`${title} narrative`}>
+      <CardHeader className="p-4 pb-2">
+        <CardTitle className="text-base">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-5 p-4 pt-0">
+        <div className="space-y-2">
+          <Label htmlFor={`${zone}-reason-note`}>WHY THESE NUMBERS <span className="text-destructive">*</span></Label>
+          <Textarea
+            id={`${zone}-reason-note`}
+            value={noteDraft}
+            onChange={(event) => { setNoteDraft(event.target.value); setNoteError(null); }}
+            rows={4}
+            disabled={readOnly}
+            placeholder="Explain what happened this period and why."
+          />
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>{noteDraft.trim().length}/80 characters</span>
+            {!readOnly && <Button size="sm" onClick={() => saveNote.mutate()} disabled={!noteIsValid || saveNote.isPending}>Save explanation</Button>}
+          </div>
+          {noteError && <p className="text-sm text-destructive">{noteError}</p>}
+          {data.priorNotes[zone] && isIdenticalToPriorNote(noteDraft, data.priorNotes[zone]) && (
+            <p className="text-sm text-destructive">this is the same text as {data.priorPeriodLabel ?? 'the prior period'}; write what actually happened this period</p>
+          )}
+          {note && readOnly && (
+            <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+              <p className="text-xs text-muted-foreground">Original note · never edited after submission</p>
+              <p className="text-sm">{note.reason_note}</p>
+              {data.addenda[zone].map((addendum) => (
+                <div key={addendum.id} className="border-t border-border pt-2 text-sm">
+                  <p className="text-xs text-muted-foreground">Addendum · {formatTimestamp(addendum.created_at)} · {addendum.author_name ?? 'Officer'}</p>
+                  <p className="mt-1">{addendum.addendum_text}</p>
+                </div>
+              ))}
+              {!showAddendum ? (
+                <Button variant="outline" size="sm" onClick={() => setShowAddendum(true)}>Add dated addendum</Button>
+              ) : (
+                <div className="space-y-2">
+                  <Textarea value={addendumDraft} onChange={(event) => setAddendumDraft(event.target.value)} rows={3} placeholder="Record the correction or follow-up." />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => addendumMutation.mutate()} disabled={!addendumDraft.trim() || addendumMutation.isPending}>Save addendum</Button>
+                    <Button variant="ghost" size="sm" onClick={() => setShowAddendum(false)}>Cancel</Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <Label>{actionTitle} <span className="text-destructive">*</span></Label>
+          {actions.map((action) => (
+            <div key={action.id} className="rounded-lg border border-border p-3 text-sm">
+              <p>{action.item_text}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {action.owner_label ?? data.staffOptions.find((option) => option.staffId === action.owner_staff_id)?.label ?? 'Staff owner'} · due {action.due_date}
               </p>
-              <Button
-                size="sm"
-                disabled={readOnly || !noteValid || saveNote.isPending}
-                onClick={() => saveNote.mutate(noteDraft)}
+            </div>
+          ))}
+          {actions.length === 0 && <p className="text-xs text-muted-foreground">No actions added yet. At least one action is required.</p>}
+          {!readOnly && (
+            <div className="grid gap-2 md:grid-cols-2">
+              <Input value={actionText} onChange={(event) => setActionText(event.target.value)} placeholder="Action item (minimum 10 characters)" />
+              <select
+                aria-label={`${title} action staff owner`}
+                value={ownerStaffId}
+                onChange={(event) => { setOwnerStaffId(event.target.value); if (event.target.value) setOwnerLabel(''); }}
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
               >
-                Save note
+                <option value="">Non-staff owner / choose below</option>
+                {data.staffOptions.map((option) => <option key={option.staffId} value={option.staffId}>{option.label}</option>)}
+              </select>
+              {!ownerStaffId && <Input value={ownerLabel} onChange={(event) => setOwnerLabel(event.target.value)} placeholder="Non-staff owner label" />}
+              <Input type="date" min={todayIso()} value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+              <Button variant="outline" onClick={() => addAction.mutate()} disabled={addAction.isPending || actionText.trim().length < 10 || (!ownerStaffId && !ownerLabel.trim()) || !dueDate || dueDate < todayIso()}>
+                <Plus className="mr-1 h-3.5 w-3.5" /> Add action
               </Button>
             </div>
-          </div>
+          )}
+          <p className="text-xs text-muted-foreground">{actionTitle} · due dates must be today or later.</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
-          <div className="space-y-2">
-            <Label>
-              Pipeline action plan <span className="text-destructive">*</span>
-            </Label>
-            {pipelineActions.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No pipeline actions recorded yet — at least one is required.</p>
-            ) : (
-              <ul className="space-y-1.5">
-                {pipelineActions.map((action) => (
-                  <li key={action.id} className="rounded-lg border border-border p-2 text-sm">
-                    <p className="text-foreground">{action.item_text}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {action.owner_label ?? 'Unassigned'}
-                      {action.due_date ? ` · due ${action.due_date}` : ''}
-                      {action.outcome ? ` · ${action.outcome.replace('_', ' ')}` : ''}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {!readOnly && (
-              <div className="grid gap-2 md:grid-cols-[2fr_1fr_auto_auto]">
-                <Input
-                  value={actionText}
-                  onChange={(event) => setActionText(event.target.value)}
-                  placeholder="Action (min 10 characters)"
-                />
-                <Input value={actionOwner} onChange={(event) => setActionOwner(event.target.value)} placeholder="Owner" />
-                <Input type="date" value={actionDue} onChange={(event) => setActionDue(event.target.value)} />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={actionText.trim().length < 10 || actionOwner.trim().length === 0 || addAction.isPending}
-                  onClick={() => addAction.mutate()}
-                >
-                  <Plus className="mr-1 h-3.5 w-3.5" /> Add
-                </Button>
+function PriorPeriodCloseout({ data, granularity }: { data: AgentOpsReportWindowData; granularity: AgentOpsGranularity }) {
+  const queryClient = useQueryClient();
+  const [outcomes, setOutcomes] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [isCarrying, setIsCarrying] = useState(false);
+  const readOnly = data.report.status.toLowerCase() === 'submitted';
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['agent-ops-report-window', granularity] });
+
+  const updateOutcome = async (action: AgentOpsReportAction) => {
+    const outcome = outcomes[action.id] ?? action.outcome ?? '';
+    const outcomeNote = (notes[action.id] ?? action.outcome_note ?? '').trim();
+    if (!outcome || !outcomeNote) {
+      setError('Each prior-period action needs an outcome and a one-line result before submission.');
+      return;
+    }
+    try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!userData.user) throw new Error('Your session has expired. Sign in again to close out actions.');
+      const { error: updateError } = await supabase
+        .from('agent_ops_report_actions')
+        .update({ outcome, outcome_note: outcomeNote, closed_at: new Date().toISOString(), closed_by: userData.user.id })
+        .eq('id', action.id);
+      if (updateError) throw updateError;
+      toast.success('Prior-period action closed out.');
+      setError(null);
+      invalidate();
+    } catch (updateError) {
+      const message = readableError(updateError);
+      setError(message);
+      toast.error(message);
+    }
+  };
+
+  const carryActions = async () => {
+    setIsCarrying(true);
+    try {
+      const { error: carryError } = await supabase.rpc('agent_ops_carry_actions', { p_report_id: data.report.id });
+      if (carryError) throw carryError;
+      toast.success('Open prior-period actions carried into this report.');
+      invalidate();
+    } catch (carryError) {
+      const message = readableError(carryError);
+      setError(message);
+      toast.error(message);
+    } finally {
+      setIsCarrying(false);
+    }
+  };
+
+  if (!data.priorPeriodLabel) {
+    return <Card><CardContent className="p-4 text-sm text-muted-foreground">No prior period actions to close out.</CardContent></Card>;
+  }
+
+  return (
+    <Card aria-label="Prior period close-out">
+      <CardHeader className="p-4 pb-2">
+        <CardTitle className="text-base">Prior period close-out · {data.priorPeriodLabel}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 p-4 pt-0">
+        {data.priorActions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No actions were recorded in the prior period.</p>
+        ) : data.priorActions.map((action) => {
+          const outcome = outcomes[action.id] ?? action.outcome ?? '';
+          const outcomeNote = notes[action.id] ?? action.outcome_note ?? '';
+          const closed = Boolean(action.outcome && action.outcome_note?.trim());
+          return (
+            <div key={action.id} className="space-y-2 rounded-lg border border-border p-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-medium">{action.item_text}</p>
+                  <p className="text-xs text-muted-foreground">From {action.priorPeriodLabel}</p>
+                </div>
+                {action.flaggedToReviewer && <Badge variant="destructive">flagged to reviewer</Badge>}
               </div>
-            )}
-          </div>
+              <div className="grid gap-2 md:grid-cols-[180px_1fr_auto]">
+                <select
+                  aria-label={`Outcome for ${action.item_text}`}
+                  value={outcome}
+                  disabled={readOnly || closed}
+                  onChange={(event) => setOutcomes((current) => ({ ...current, [action.id]: event.target.value }))}
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="">Choose outcome</option>
+                  <option value="done">Done</option>
+                  <option value="partly_done">Partly done</option>
+                  <option value="not_done">Not done</option>
+                </select>
+                <Input value={outcomeNote} disabled={readOnly || closed} onChange={(event) => setNotes((current) => ({ ...current, [action.id]: event.target.value }))} placeholder="One-line result" />
+                {!readOnly && <Button size="sm" variant="outline" disabled={closed || !outcome || !outcomeNote.trim()} onClick={() => updateOutcome(action)}>Save outcome</Button>}
+              </div>
+              {closed && <p className="text-xs text-muted-foreground">Close-out recorded.</p>}
+            </div>
+          );
+        })}
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        {!readOnly && data.priorActions.some((action) => !action.outcome) && (
+          <Button variant="outline" size="sm" onClick={carryActions} disabled={isCarrying}>
+            {isCarrying ? 'Carrying actions…' : 'Carry open actions into this report'}
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function buildSubmitGateChecklist(data: AgentOpsReportWindowData): { label: string; complete: boolean }[] {
+  const noteCheck = (zone: AgentOpsZone) => data.notes[zone]?.reason_note?.trim().length >= 80;
+  const freshCheck = (zone: AgentOpsZone) => !isIdenticalToPriorNote(data.notes[zone]?.reason_note ?? '', data.priorNotes[zone]);
+  const priorCloseout = data.priorActions.every((action) => Boolean(action.outcome && action.outcome_note?.trim()));
+  return [
+    { label: 'Zone A explanation is at least 80 characters', complete: noteCheck('growth') },
+    { label: 'Zone A explanation is different from the prior period', complete: noteCheck('growth') && freshCheck('growth') },
+    { label: 'Zone A has at least one action with an owner and due date', complete: hasActionPlan(data.actions.growth) },
+    { label: 'Zone B explanation is at least 80 characters', complete: noteCheck('pipeline') },
+    { label: 'Zone B explanation is different from the prior period', complete: noteCheck('pipeline') && freshCheck('pipeline') },
+    { label: 'Zone B has at least one action with an owner and due date', complete: hasActionPlan(data.actions.pipeline) },
+    { label: 'Every prior-period action has an outcome and result note', complete: priorCloseout },
+  ];
+}
+
+function ReportNarratives({ data, granularity }: { data: AgentOpsReportWindowData; granularity: AgentOpsGranularity }) {
+  const queryClient = useQueryClient();
+  const checklist = buildSubmitGateChecklist(data);
+  const readOnly = data.report.status.toLowerCase() === 'submitted';
+  const submit = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('agent_ops_submit_report', { p_report_id: data.report.id });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Agent Operations report submitted.');
+      queryClient.invalidateQueries({ queryKey: ['agent-ops-report-window', granularity] });
+    },
+    onError: (error) => toast.error(readableError(error)),
+  });
+
+  return (
+    <section aria-labelledby="agent-ops-narratives" className="space-y-3">
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">Report narrative</p>
+        <h2 id="agent-ops-narratives" className="text-lg font-semibold">Explain the movement and commit the next actions</h2>
+      </div>
+      <NarrativeSection data={data} zone="growth" title="Zone A — WHY THESE NUMBERS" actionTitle={actionLabel(granularity)} granularity={granularity} />
+      <NarrativeSection data={data} zone="pipeline" title="Zone B — WHY THESE NUMBERS" actionTitle="Actions needed" granularity={granularity} />
+      <PriorPeriodCloseout data={data} granularity={granularity} />
+      <Card aria-label="Submit Agent Operations report">
+        <CardContent className="space-y-3 p-4">
+          {readOnly ? (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              <Badge>Submitted</Badge>
+              <span>by {data.submittedByName ?? 'the submitting officer'}</span>
+              <span className="text-muted-foreground">{formatTimestamp(data.submittedAt)}</span>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-1">
+                {checklist.map((item) => (
+                  <p key={item.label} className={cn('text-sm', item.complete ? 'text-success' : 'text-muted-foreground')}>
+                    {item.complete ? '✓' : '○'} {item.label}
+                  </p>
+                ))}
+              </div>
+              <Button onClick={() => submit.mutate()} disabled={submit.isPending || !checklist.every((item) => item.complete)}>
+                {submit.isPending ? 'Submitting…' : 'Submit report'}
+              </Button>
+            </>
+          )}
         </CardContent>
       </Card>
     </section>
   );
 }
-
-
 
 // ---------------------------------------------------------------------------
 // Zone C — district and area coverage.
@@ -978,6 +1328,8 @@ export function AgentOpsReportWindow() {
       <ZoneB data={data} granularity={granularity} />
 
       <ZoneC />
+
+      <ReportNarratives data={data} granularity={granularity} />
     </div>
   );
 }
