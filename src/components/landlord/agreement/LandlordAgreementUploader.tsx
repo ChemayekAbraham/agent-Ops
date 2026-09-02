@@ -34,6 +34,7 @@ export function LandlordAgreementUploader({
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(() => ({
+    landlord_name: landlordName, landlord_phone: landlordPhone,
     nin: '', agreement_date: isoDate(''), start_date: isoDate(''), end_date: '',
     property_address: propertyAddress ?? '', monthly_rent: monthlyRent ? String(monthlyRent) : '',
     payment_day: '1', house_number: '', house_category: '', number_of_rooms: '', payout_mode: '',

@@ -138,7 +138,12 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
       onSaved();
       onClose();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to update landlord');
+      if (err?.code === '23514' || /signed addendum|renewal/i.test(err?.message || '')) {
+        setShowAgreementUpload(true);
+        toast.error('Upload a signed addendum or renewal before changing these details.');
+      } else {
+        toast.error(err.message || 'Failed to update landlord');
+      }
     } finally {
       setSaving(false);
       setShowConfirm(false);
@@ -276,6 +281,27 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
                 <Save className="h-4 w-4 mr-2" />
                 Save Changes
               </Button>
+            </div>
+          )}
+
+          {showAgreementUpload && landlord && (
+            <div className="mt-4 border-t pt-4">
+              <p className="mb-2 text-xs text-muted-foreground">
+                Save the signed version first, then apply the matching landlord profile change.
+              </p>
+              <LandlordAgreementUploader
+                landlordId={landlord.id}
+                landlordName={form.name || landlord.name}
+                landlordPhone={form.phone || landlord.phone}
+                propertyAddress={form.property_address || landlord.property_address}
+                monthlyRent={form.monthly_rent ? Number(form.monthly_rent) : landlord.monthly_rent}
+                kind="addendum"
+                initialDetails={form}
+                onSubmitted={() => {
+                  setShowAgreementUpload(false);
+                  toast.success('Signed addendum saved. Apply the profile change again.');
+                }}
+              />
             </div>
           )}
         </DialogContent>
