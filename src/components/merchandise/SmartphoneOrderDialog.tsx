@@ -111,6 +111,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
     setOsType('android');
     setCatalogId('');
     setMonths('12');
+    setPaymentMethod('installments');
     setDocsReady(false);
   };
 
@@ -326,7 +327,9 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
             <p className="text-[11px] text-muted-foreground">
               Your application is reviewed internally, then the supplier is paid directly.
-              Nothing is deducted from your wallet before your phone is released.
+              {paymentMethod === 'full'
+                ? ' The full amount is collected from your Welile Wallet once your phone is released.'
+                : ' Nothing is deducted from your wallet before your phone is released.'}
             </p>
           </TabsContent>
 
