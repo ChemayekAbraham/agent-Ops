@@ -48411,6 +48411,10 @@ export type Database = {
           total_count: number
         }[]
       }
+      ops_tenant_repayment_forecast: {
+        Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
       ops_tps_report_authorized: { Args: never; Returns: boolean }
       ops_transfer_pipeline_request_agent: {
         Args: { p_reason: string; p_request_id: string; p_to_agent_id: string }

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { HubEntryCard } from '@/components/ops/HubEntryCard';
 import { RepaymentTrendChart } from '@/components/executive/RepaymentTrendChart';
+import { TenantRepaymentForecastPanel } from './TenantRepaymentForecastPanel';
 import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 import { useTenantRepaymentReliability } from '@/hooks/useTenantRepaymentReliability';
 import { useTenantOpsAcquisition } from '@/hooks/useTenantOpsAcquisition';
@@ -373,6 +374,9 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
           />
         </div>
       </div>
+
+      {/* Forward planning is separate from the existing dashboard charts. */}
+      <TenantRepaymentForecastPanel />
 
       {/* Charts */}
       <div className="grid gap-3 lg:grid-cols-3">
