@@ -187,11 +187,11 @@ export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                Month-to-date PV
+                Your score so far this month
               </p>
               <p className="text-2xl font-black tabular-nums leading-tight break-words">{money(r.mtd.total_pv)}</p>
               <p className="text-[11px] text-muted-foreground">
-                Expected by today {money(r.mtd.expected_pv)} · target {money(r.targets.monthly_pv_target)}
+                Expected by today {money(r.mtd.expected_pv)} · monthly goal {money(r.targets.monthly_pv_target)}
               </p>
             </div>
             <BandBadge pct={mtdPct} />
