@@ -579,7 +579,7 @@ function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onCli
 
           <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">{title}</p>
           <p
-            className={`mt-1.5 text-[26px] leading-none sm:text-3xl sm:leading-none font-bold tabular-nums tracking-tight ${negative ? 'text-destructive' : 'text-foreground'}`}
+            className={`mt-1.5 text-[22px] leading-none sm:text-[26px] sm:leading-none font-bold tabular-nums tracking-tight ${negative ? 'text-destructive' : 'text-foreground'}`}
           >
             {value}
           </p>
@@ -599,7 +599,7 @@ function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onCli
 
           <div className="rounded-xl border border-border bg-muted/30 px-4 py-3">
             <p className="text-[11px] font-medium text-muted-foreground">{title}</p>
-            <p className={`mt-1 text-2xl font-bold tabular-nums tracking-tight ${negative ? 'text-destructive' : 'text-foreground'}`}>
+            <p className={`mt-1 text-xl sm:text-2xl font-bold tabular-nums tracking-tight ${negative ? 'text-destructive' : 'text-foreground'}`}>
               {value}
             </p>
           </div>

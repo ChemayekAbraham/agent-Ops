@@ -41,7 +41,7 @@ export function ReceivablesCardDrilldown() {
           <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">
             Total Receivables — authoritative
           </p>
-          <p className="mt-1.5 text-[26px] leading-none sm:text-3xl sm:leading-none font-bold tabular-nums tracking-tight text-foreground">
+          <p className="mt-1.5 text-[22px] leading-none sm:text-[26px] sm:leading-none font-bold tabular-nums tracking-tight text-foreground">
             {total.isLoading ? '—' : formatUGX(total.data?.total ?? 0)}
           </p>
           <p className="mt-2.5 text-[11px] text-muted-foreground line-clamp-2">
