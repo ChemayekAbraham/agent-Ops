@@ -172,6 +172,7 @@ async function hydrateStaff(staff: StaffRow[]): Promise<Employee[]> {
       photo_url: p?.avatar_url ?? null,
       status: s.active ? 'active' : 'exited',
       joined_at: s.created_at,
+      ended_on: s.ended_on,
       current_assignment: currentByStaff[s.id] ?? null,
     } satisfies Employee;
   });
