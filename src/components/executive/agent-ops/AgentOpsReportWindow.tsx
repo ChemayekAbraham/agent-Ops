@@ -1,16 +1,26 @@
-import { useState } from 'react';
-import { ArrowDown, ArrowRight, ArrowUp, FileBarChart, Minus, RefreshCw } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { ArrowDown, ArrowRight, ArrowUp, Building2, FileBarChart, Minus, Plus, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import {
+  centresClosing,
+  computeConversionRate,
   computeGrowthRate,
   computeGrowthVariancePp,
   type AgentOpsGranularity,
+  type AgentOpsReportWindowData,
   useAgentOpsReportWindow,
 } from '@/hooks/useAgentOpsReportWindow';
 import { cn } from '@/lib/utils';
+
 
 const PERIODS: { value: AgentOpsGranularity; label: string }[] = [
   { value: 'daily', label: 'Daily' },
