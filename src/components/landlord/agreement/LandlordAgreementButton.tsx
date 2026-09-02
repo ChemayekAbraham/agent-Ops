@@ -65,9 +65,10 @@ export default function LandlordAgreementButton() {
               <FileText className="h-4 w-4" />
             </div>
             <div className="text-left">
-              <p className="font-medium text-sm">View Terms & Benefits</p>
-              <p className="text-xs opacity-90">Accept to list your property</p>
+              <p className="font-medium text-sm">View Terms &amp; Benefits</p>
+              <p className="text-xs opacity-90">A signed agreement is required to list your property</p>
             </div>
+
           </div>
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
