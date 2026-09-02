@@ -592,7 +592,7 @@ export default function BalanceSheetPanel() {
                   : 'BALANCE CHECK FAILED — Total Assets do not equal Total Liabilities + Equity'}
               </p>
               <p className="text-[10px] font-mono text-muted-foreground break-words">
-                {formatUGX(data.balance_check.total_assets)} vs {formatUGX(data.balance_check.total_liabilities_and_equity)} · Difference {formatUGX(data.balance_check.difference)}
+                {formatUGX(assetsTotal)} vs {formatUGX(totalLiabilitiesAndEquity)} · Difference {formatUGX(data.balance_check.difference)}
               </p>
               {!data.balance_check.balanced && (
                 <p className="text-[10px] text-destructive/90 break-words">
