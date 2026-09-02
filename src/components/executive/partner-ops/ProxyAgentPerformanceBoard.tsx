@@ -308,7 +308,8 @@ export function ProxyAgentPerformanceBoard() {
                     </p>
                   </div>
                 </button>
-              ))}
+                );
+              })}
             </>
           )}
         </CardContent>
