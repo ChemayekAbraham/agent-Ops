@@ -1678,6 +1678,17 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                 )}
               </div>
 
+              {selectedRequest.landlord_id && (
+                <LandlordAgreementHistory
+                  landlordId={selectedRequest.landlord_id}
+                  landlordName={selectedRequest.landlord_name || 'Landlord'}
+                  landlordPhone={selectedRequest.landlord_phone || ''}
+                  propertyAddress={selectedRequest.landlord_address}
+                  canAdd={false}
+                />
+              )}
+              </div>
+
 
 
 

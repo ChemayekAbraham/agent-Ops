@@ -1276,6 +1276,15 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
                   </div>
                 ))}
               </div>
+              {detail.landlord_id && (
+                <LandlordAgreementHistory
+                  landlordId={detail.landlord_id}
+                  landlordName={detail.landlord_name || 'Landlord'}
+                  landlordPhone={detail.landlord_phone || ''}
+                  propertyAddress={detail.house_address}
+                  canAdd={false}
+                />
+              )}
               <div className="rounded-lg border border-border p-3 space-y-1.5">
                 <p className="text-[11px] font-semibold">Financials</p>
                 {[

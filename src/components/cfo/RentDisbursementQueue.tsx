@@ -1093,6 +1093,14 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
 
               {/* Tenant status first: renewal vs new tenant, with existing payment history */}
               <TenantPaymentHistoryCard tenantId={reviewTarget.tenant_id} currentRequestId={reviewTarget.id} />
+              <LandlordAgreementHistory
+                landlordId={reviewTarget.landlord_id}
+                landlordName={reviewTarget.landlord_name}
+                landlordPhone=""
+                canAdd={false}
+              />
+
+            
 
 
 

@@ -262,6 +262,15 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
                 <DetailRow label="MoMo" value={`${landlord.mobile_money_name || ''} ${landlord.mobile_money_number}`} />
               )}
             </Section>
+            {request.landlord_id && (
+              <LandlordAgreementHistory
+                landlordId={request.landlord_id}
+                landlordName={landlord?.name || 'Landlord'}
+                landlordPhone={landlord?.phone || ''}
+                propertyAddress={landlord?.property_address}
+                canAdd={false}
+              />
+            )}
 
             <Separator />
 
