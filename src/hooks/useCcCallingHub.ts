@@ -218,7 +218,7 @@ export function useCcCallingHub(
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cc_call_cycles')
-        .select('id, cycle_no, opened_at, attempt_cap, retry_after_days')
+        .select('id, cycle_no, opened_at, attempt_cap, retry_after_days, wip_limit')
         .eq('subject_type', subjectType)
         .is('closed_at', null)
         .order('cycle_no', { ascending: false })
