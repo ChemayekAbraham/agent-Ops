@@ -840,7 +840,7 @@ export default function LandlordRegistrationForm({
             <LandlordAgreementUploader
               landlordId={registeredLandlordId}
               landlordName={landlordName}
-              landlordPhone={landlordPhoneClean}
+              landlordPhone={cleanPhoneNumber(landlordPhone)}
               propertyAddress={propertyAddress || (ugLoc ? ugLocationLabel(ugLoc) : '')}
               monthlyRent={null}
               onSubmitted={() => setAgreementSubmitted(true)}
