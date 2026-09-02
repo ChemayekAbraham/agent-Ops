@@ -160,7 +160,7 @@ export const PARTNER_OPS_NAV: PartnerOpsNavItem[] = [
     keywords: ['proxy', 'agents'],
     children: [
       { key: 'proxy.overview', label: 'Overview', icon: UserCog, keywords: ['manage proxies'] },
-      { key: 'proxy.directory', label: 'Proxy Agent', icon: Users, keywords: ['directory', 'proxy agents', 'bio data', 'earnings'] },
+      { key: 'proxy.directory', label: 'Manage Agents', icon: Users, keywords: ['directory', 'proxy agents', 'agent management', 'bio data', 'earnings'] },
       { key: 'proxy.vetting', label: 'Vetting', icon: ShieldCheck, keywords: ['applications', 'approve proxy'] },
       { key: 'proxy.promissory', label: 'Promissory Notes', icon: FileText, keywords: ['notes', 'commitments'] },
       { key: 'proxy.commissions', label: 'Commissions', icon: Percent, keywords: ['commission', '2%', '1%', 'portfolio', 'top-up', 'topup', 'marketing expense', 'approve'] },

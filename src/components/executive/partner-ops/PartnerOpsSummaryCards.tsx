@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { Users, Wallet, CalendarDays, Hourglass } from 'lucide-react';
+import { Users, Wallet, CalendarDays, Hourglass, UserCog, ArrowRight } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import { fetchSupporterSummary, fetchAllNearingPayoutPortfolios } from '@/lib/supabaseBatchUtils';
@@ -113,6 +114,19 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
   const hasExpiring = expiringCount > 0;
   const soonest = derived?.soonestExpiry ?? null;
 
+  const { data: proxyAgentCount } = useQuery({
+    queryKey: ['partner-ops-active-proxy-agents-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('proxy_agent_identity')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'approved');
+      if (error) throw error;
+      return count || 0;
+    },
+    staleTime: 60_000,
+  });
+
   return (
     <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
       <SummaryCard
@@ -194,6 +208,34 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
       </button>
 
       <PortfolioTopUpsCard />
+
+      {/* Proxy Agent Management — full-width entry point to the agent directory */}
+      <button
+        type="button"
+        onClick={() => onNavigate('proxy.directory')}
+        aria-label="Open Proxy Agent Management"
+        className="col-span-2 lg:col-span-3 group text-left w-full rounded-2xl border border-primary/30 bg-primary/5 p-4 transition-all hover:bg-primary/10 hover:shadow-md hover:ring-2 hover:ring-primary/20 active:scale-[0.98]"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
+              <UserCog className="h-6 w-6" />
+            </div>
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">Proxy Agent Management</span>
+              <p className="mt-0.5 text-sm font-medium text-muted-foreground">
+                {typeof proxyAgentCount === 'number'
+                  ? `${proxyAgentCount.toLocaleString()} approved agent${proxyAgentCount === 1 ? '' : 's'} · tap to manage`
+                  : 'Tap to open the agent directory'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-primary">
+            <span className="hidden text-xs font-semibold sm:inline">Open</span>
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </div>
+        </div>
+      </button>
     </div>
   );
 }
