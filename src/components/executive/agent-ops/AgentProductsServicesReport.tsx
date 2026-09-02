@@ -524,11 +524,11 @@ export function AgentProductsServicesReport() {
 
   /** Canonical operational agent population (main vs sub, active vs inactive). */
   const populationQuery = useQuery({
-    queryKey: ['agent-operational-population', todayKey],
+    queryKey: ['agent-operational-population', dayKey, todayKey],
     queryFn: async (): Promise<AgentPopulation> => {
       const { data, error } = await supabase.rpc('get_agent_operational_population' as any, {
         p_as_of: todayKey,
-        p_from: todayKey,
+        p_from: dayKey,
       });
       if (error) throw error;
       return data as unknown as AgentPopulation;
