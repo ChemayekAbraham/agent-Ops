@@ -486,6 +486,19 @@ export default function LandlordRegistrationForm({
       }
     }
 
+    // The signed agreement is part of the normal form, so it must be attached
+    // before the agent can move to the confirmation step.
+    if (registeredByRole === 'agent' && !minimal && !isLandlordAgreementInlineComplete(agreementDetails)) {
+      hapticWarning();
+      focusField('landlordAgreement');
+      toastFn({
+        title: 'Signed agreement required',
+        description: 'Download the contract, have it signed, then upload the signed copy to continue.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     hapticTap();
     setSubmitError('');
     setStep(2);
@@ -717,7 +730,7 @@ export default function LandlordRegistrationForm({
             landlord_signed_on: agreementDate,
             welile_signature_name: 'Welile Technologies Limited',
             welile_signed_on: agreementDate,
-            witness_name: 'Witness — see signed agreement',
+            witness_name: 'As named in the signed agreement',
             witness_signed_on: agreementDate,
             house_category: houseCategory || null,
             mobile_money_name: momoName.trim() || null,
@@ -1213,7 +1226,8 @@ export default function LandlordRegistrationForm({
             );
           })()}
 
-            {registeredByRole === 'agent' && !minimal && (
+          {registeredByRole === 'agent' && !minimal && (
+            <div data-field="landlordAgreement">
               <LandlordAgreementInlineFields
                 value={agreementDetails}
                 onChange={setAgreementDetails}
@@ -1221,7 +1235,8 @@ export default function LandlordRegistrationForm({
                 landlordPhone={cleanPhoneNumber(landlordPhone)}
                 propertyAddress={propertyAddress || (ugLoc ? ugLocationLabel(ugLoc) : '')}
               />
-            )}
+            </div>
+          )}
 
           {/* Next — advance to the confirmation step once essentials are valid */}
           <div className="sticky bottom-0 -mx-1 px-1 pt-2 pb-1 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-t border-border/60 z-10">
