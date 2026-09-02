@@ -204,7 +204,7 @@ export function ProxyPerformanceSection({ agentId, month, hideHeading, className
         <CardContent className="p-4">
           <div className="flex items-center gap-2 pb-1">
             <CalendarDays className="h-4 w-4 text-primary" />
-            <p className="text-xs font-black">Daily history</p>
+            <p className="text-xs font-black">Daily history (working days)</p>
           </div>
           {days.length === 0 ? (
             <p className="py-3 text-[11px] text-muted-foreground">No PV recorded this month yet.</p>
