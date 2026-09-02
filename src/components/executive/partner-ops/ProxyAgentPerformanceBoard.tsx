@@ -223,9 +223,23 @@ export function ProxyAgentPerformanceBoard() {
                   <div className="mt-1.5 space-y-1.5 md:hidden">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-black tabular-nums">{money(r.total_pv)} PV</span>
-                      <BandChip pct={r.performance_pct} />
+                      <div className="flex items-center gap-1.5">
+                        {r.monthly_performance_pct > 100 && (
+                          <span className="text-[10px] font-bold text-success">{r.monthly_performance_pct}%</span>
+                        )}
+                        <BandChip pct={r.performance_pct} />
+                      </div>
                     </div>
-                    <Progress value={Math.min(r.monthly_performance_pct, 100)} className="h-1.5" />
+                    <Progress
+                      value={Math.min(r.monthly_performance_pct, 100)}
+                      variant={r.monthly_performance_pct >= 100 ? 'success' : 'default'}
+                      className="h-1.5"
+                    />
+                    {r.monthly_performance_pct > 100 && (
+                      <p className="text-[10px] font-semibold text-success">
+                        Target exceeded — {r.monthly_performance_pct}% achieved
+                      </p>
+                    )}
                     <p className="text-[10px] text-muted-foreground">
                       {r.commitments} commitments · {money(r.new_investment)} new · {money(r.topups)} top-ups · expected {money(r.expected_pv)}
                     </p>
