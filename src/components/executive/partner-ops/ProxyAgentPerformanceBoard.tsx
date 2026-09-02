@@ -240,15 +240,21 @@ export function ProxyAgentPerformanceBoard() {
                 <span className="text-right">Expected PV</span>
                 <span className="text-right">Pace</span>
               </div>
-              {rows.map((r) => (
+              {rows.map((r) => {
+                const why = explainProxyPv(r, { teamAveragePv, workingDaysRemaining: daysRemaining });
+                const rank = rankOf(r.agent_user_id);
+                return (
                 <button
                   key={r.agent_user_id}
                   type="button"
                   onClick={() => setDrill(r)}
-                  className="w-full border-b border-border/60 px-3 py-2.5 text-left last:border-0 hover:bg-muted/40 md:grid md:grid-cols-[1.6fr_repeat(5,1fr)_auto] md:items-center md:gap-3"
+                  className="w-full border-b border-border/60 px-3 py-2.5 text-left last:border-0 hover:bg-muted/40 md:grid md:grid-cols-[1.6fr_repeat(5,1fr)_auto] md:items-start md:gap-3"
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
+                      {rank !== null && (
+                        <span className="shrink-0 text-[10px] font-black tabular-nums text-muted-foreground">#{rank}</span>
+                      )}
                       <p className="truncate text-sm font-bold">{r.name}</p>
                       {r.total_pv === 0 && r.commitments === 0 && (
                         <Badge variant="outline" className="shrink-0 border-warning/40 bg-warning/10 text-[9px] font-bold text-warning">
@@ -258,6 +264,11 @@ export function ProxyAgentPerformanceBoard() {
                     </div>
                     <p className="truncate text-[10px] text-muted-foreground">
                       {r.phone || 'No phone'}{r.status ? ` · ${r.status}` : ''}
+                    </p>
+                    <p className="mt-1 text-[10px] leading-snug text-muted-foreground break-words">
+                      <span className="font-semibold text-foreground">Why: </span>
+                      {why.headline}
+                      {why.leadSource ? ` Mostly from ${why.leadSource.toLowerCase()} (${why.mix[0].pct}%).` : ''}
                     </p>
                   </div>
                   <span className="hidden text-right text-xs font-semibold tabular-nums md:block">
