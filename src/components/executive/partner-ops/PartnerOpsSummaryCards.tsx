@@ -235,8 +235,8 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-primary">Proxy Agent Management</span>
               <p className="mt-0.5 text-sm font-medium text-muted-foreground">
-                {typeof proxyAgentCount === 'number'
-                  ? `${proxyAgentCount.toLocaleString()} approved agent${proxyAgentCount === 1 ? '' : 's'} · tap to manage`
+                {proxyStatus
+                  ? `${(proxyStatus.counts.approved + proxyStatus.counts.pending + proxyStatus.counts.rejected + proxyStatus.counts.suspended + proxyStatus.counts.other).toLocaleString()} agent${(proxyStatus.counts.approved + proxyStatus.counts.pending + proxyStatus.counts.rejected + proxyStatus.counts.suspended + proxyStatus.counts.other) === 1 ? '' : 's'} on record · tap to manage`
                   : 'Tap to open the agent directory'}
               </p>
             </div>
@@ -245,6 +245,28 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
             <span className="hidden text-xs font-semibold sm:inline">Open</span>
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </div>
+        </div>
+
+        {/* Status breakdown */}
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {([
+            ['Approved', proxyStatus?.counts.approved, 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'],
+            ['Pending', proxyStatus?.counts.pending, 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'],
+            ['Rejected', proxyStatus?.counts.rejected, 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30'],
+            ['Suspended', proxyStatus?.counts.suspended, 'bg-muted text-muted-foreground border-border'],
+          ] as const).map(([label, count, cls]) => (
+            <span
+              key={label}
+              className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold tabular-nums', cls)}
+            >
+              {label}: {typeof count === 'number' ? count.toLocaleString() : '—'}
+            </span>
+          ))}
+          <span className="ml-auto text-[10px] text-muted-foreground">
+            {proxyStatus?.lastUpdated
+              ? `Last updated ${new Date(proxyStatus.lastUpdated).toLocaleDateString('en-UG', { day: 'numeric', month: 'short' })}, ${new Date(proxyStatus.lastUpdated).toLocaleTimeString('en-UG', { hour: '2-digit', minute: '2-digit' })}`
+              : 'Last updated —'}
+          </span>
         </div>
       </button>
     </div>
