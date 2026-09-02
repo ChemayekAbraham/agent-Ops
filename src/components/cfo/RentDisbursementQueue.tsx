@@ -1021,33 +1021,6 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                               </Button>
                             </td>
                           </tr>
-                          {/* Step 2 renders inline, directly under the selected tenant */}
-                          {item.id === firstSelectedId && (
-                            <tr key={`${item.id}-step2`}>
-                              <td colSpan={11} className="p-0">
-                                <div
-                                  ref={step2Ref}
-                                  className="scroll-mt-4 border-t-2 border-primary/30 bg-primary/[0.05] px-3.5 py-3 space-y-2"
-                                >
-                                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                                    <p className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2">
-                                      <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/15">
-                                        <Banknote className="h-3.5 w-3.5" />
-                                      </span>
-                                      Step 2 · Fund the selected float payouts
-                                    </p>
-                                    <Badge variant="outline" className="text-[11px] rounded-full px-2.5 bg-primary/10 text-primary border-primary/30">
-                                      {selected.size} ticked · {fmt(totalRent)}
-                                    </Badge>
-                                  </div>
-                                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                    Enter a batch reference below and use the funding button to run the unchanged
-                                    Fund Agent Landlord Payout Float process on every ticked tenant.
-                                  </p>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
                         </Fragment>
                       );
                     })}
@@ -1056,26 +1029,6 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
               </div>
             </div>
 
-            {/* Batch actions */}
-            {selected.size > 0 && (
-              <div className="sticky bottom-0 z-10 flex flex-col sm:flex-row sm:items-center gap-2 p-3 mt-1 rounded-xl border border-primary/25 bg-primary/[0.04] backdrop-blur">
-                <Input
-                  placeholder="Batch ref (e.g. MoMo-2024-01)"
-                  value={batchRef}
-                  onChange={e => setBatchRef(e.target.value)}
-                  className="h-11 rounded-xl text-sm flex-1 bg-background border-border/70"
-                />
-                <Button
-                  size="sm"
-                  className="h-11 rounded-xl px-5 font-semibold w-full sm:w-auto"
-                  onClick={() => batchDisburse.mutate()}
-                  disabled={batchDisburse.isPending || !batchRef.trim()}
-                >
-                  {batchDisburse.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Banknote className="h-3 w-3 mr-1" />}
-                  Fund {selected.size} Agent Float{selected.size === 1 ? '' : 's'}
-                </Button>
-              </div>
-            )}
           </div>
         )}
       </CardContent>
