@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
-import { Activity, CalendarDays, ChevronDown, ChevronUp, Target, TrendingUp } from 'lucide-react';
+import { Activity, AlertTriangle, CalendarDays, ChevronDown, ChevronUp, ClipboardCheck, Inbox, Target, TrendingUp } from 'lucide-react';
 import {
   PROXY_PV_BAND_META,
   proxyPvBand,
@@ -77,12 +77,22 @@ export function ProxyPerformanceSection({ agentId, month, hideHeading, className
   if (q.isLoading) return <Skeleton className={cn('h-64 rounded-2xl', className)} />;
   if (q.error) {
     return (
-      <Card className={className}>
-        <CardContent className="p-4 text-sm text-destructive">{(q.error as Error).message}</CardContent>
+      <Card className={cn('border-destructive/40', className)}>
+        <CardContent className="flex items-start gap-3 p-4">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+          <div className="min-w-0 space-y-0.5">
+            <p className="text-sm font-bold">Performance data unavailable</p>
+            <p className="text-xs text-muted-foreground break-words">{(q.error as Error).message}</p>
+          </div>
+        </CardContent>
       </Card>
     );
   }
   if (!r) return null;
+
+  const dq = r.data_quality;
+  const noVerifiedActivity = r.mtd.total_pv === 0 && r.mtd.commitments === 0;
+  const pendingCount = (dq?.pending_commitments ?? 0) + (dq?.unpaid_commission_events ?? 0);
 
   const mtdPct = r.mtd.performance_pct;
   const meta = PROXY_PV_BAND_META[proxyPvBand(mtdPct)];
@@ -97,6 +107,42 @@ export function ProxyPerformanceSection({ agentId, month, hideHeading, className
             {new Date(`${r.period_month}T00:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
           </Badge>
         </div>
+      )}
+
+      {/* Ambiguous attribution warning */}
+      {dq && dq.is_approved_proxy === false && (
+        <Card className="border-warning/40 bg-warning/5">
+          <CardContent className="flex items-start gap-3 p-3">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+            <p className="text-[11px] text-muted-foreground">
+              This account is not an approved proxy agent, so some activity may not be attributed here.
+              Figures below only include activity confirmed against a proxy identity.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* No verified commitments / activity yet */}
+      {noVerifiedActivity && (
+        <Card className="border-dashed">
+          <CardContent className="flex items-start gap-3 p-4">
+            <Inbox className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 space-y-1">
+              <p className="text-xs font-bold">No verified activity this month yet</p>
+              <p className="text-[11px] text-muted-foreground">
+                PV only counts <span className="font-semibold">verified commitments</span> and{' '}
+                <span className="font-semibold">paid investment / top-up commissions</span> attributed to
+                this agent.
+              </p>
+              {pendingCount > 0 && (
+                <p className="flex items-start gap-1.5 text-[11px] font-semibold text-primary">
+                  <ClipboardCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  {pendingCount} item{pendingCount === 1 ? '' : 's'} awaiting verification — not counted yet.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* MTD hero */}
@@ -216,6 +262,12 @@ export function ProxyPerformanceSection({ agentId, month, hideHeading, className
               <span className="text-xs font-bold text-right break-words tabular-nums">{v}</span>
             </div>
           ))}
+          {pendingCount > 0 && !noVerifiedActivity && (
+            <p className="flex items-center gap-1.5 pt-1 text-[10px] font-semibold text-primary">
+              <ClipboardCheck className="h-3 w-3 shrink-0" />
+              +{pendingCount} item{pendingCount === 1 ? '' : 's'} awaiting verification — not counted yet.
+            </p>
+          )}
         </CardContent>
       </Card>
 

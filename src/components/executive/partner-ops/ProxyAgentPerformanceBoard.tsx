@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
 import {
+  AlertTriangle,
   ArrowDown,
   ArrowUp,
   ChevronLeft,
@@ -188,10 +189,20 @@ export function ProxyAgentPerformanceBoard() {
         <CardContent className="p-0">
           {q.isLoading ? (
             <div className="space-y-2 p-3">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-12 rounded-xl" />)}</div>
+          ) : q.error ? (
+            <div className="flex flex-col items-center gap-2 p-8 text-center">
+              <AlertTriangle className="h-6 w-6 text-destructive" />
+              <p className="text-sm font-bold">Couldn't load the performance table</p>
+              <p className="max-w-md text-xs text-muted-foreground break-words">{(q.error as Error).message}</p>
+            </div>
           ) : rows.length === 0 ? (
             <div className="flex flex-col items-center gap-2 p-8 text-center">
               <Users className="h-6 w-6 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">No proxy agents match this view.</p>
+              <p className="text-sm font-bold">No proxy agents match this view</p>
+              <p className="max-w-md text-xs text-muted-foreground">
+                Try a different month or clear the search. Agents appear here even with zero PV — only verified
+                commitments and paid investment/top-up commissions count.
+              </p>
             </div>
           ) : (
             <>
@@ -213,7 +224,14 @@ export function ProxyAgentPerformanceBoard() {
                   className="w-full border-b border-border/60 px-3 py-2.5 text-left last:border-0 hover:bg-muted/40 md:grid md:grid-cols-[1.6fr_repeat(5,1fr)_auto] md:items-center md:gap-3"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold">{r.name}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-sm font-bold">{r.name}</p>
+                      {r.total_pv === 0 && r.commitments === 0 && (
+                        <Badge variant="outline" className="shrink-0 border-warning/40 bg-warning/10 text-[9px] font-bold text-warning">
+                          No verified activity
+                        </Badge>
+                      )}
+                    </div>
                     <p className="truncate text-[10px] text-muted-foreground">
                       {r.phone || 'No phone'}{r.status ? ` · ${r.status}` : ''}
                     </p>
