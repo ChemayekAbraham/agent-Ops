@@ -172,7 +172,8 @@ const DEFINITIONS: CategoryDef[] = [
     tabId: 'employee-requisitions',
     table: 'employee_requisitions',
     fetchCount: () =>
-      supabase.from('employee_requisitions').select('id', HEAD).eq('status', 'pending'),
+      supabase.from('employee_requisitions').select('id', HEAD).in('status', ['pending', 'pending_cfo']),
+
   },
   {
     // Staff requisitions (My Space -> department head -> COO -> CFO). Counts only
