@@ -201,29 +201,14 @@ export function AgentOpsReportWindow() {
             <CardContent className="p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">A2 · Movement this period</p>
               <div className="mt-3">
-                {isDaily ? (
-                  <>
-                    <p className={cn('text-3xl font-semibold tabular-nums', currentDirection.className)}>
-                      <span title={`${currentDirection.label}: ${signedNumber(netChange)}`} aria-label={`${currentDirection.label}: ${signedNumber(netChange)}`}>
-                        {netChange > 0 ? '▲' : netChange < 0 ? '▼' : '–'} {signedNumber(netChange)}
-                      </span>
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {snapshot.new_agents} new − {snapshot.removed_agents} removed · growth {signedRate(currentGrowthRate)}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className={cn('text-3xl font-semibold tabular-nums', currentDirection.className)}>
-                      <span title={`${currentDirection.label}: ${signedNumber(netChange)}`} aria-label={`${currentDirection.label}: ${signedNumber(netChange)}`}>
-                        {netChange > 0 ? '▲' : netChange < 0 ? '▼' : '–'} {signedNumber(netChange)}
-                      </span>
-                    </p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      growth {signedRate(currentGrowthRate)} · {snapshot.new_agents} new − {snapshot.removed_agents} removed
-                    </p>
-                  </>
-                )}
+                <p className={cn(isDaily ? 'text-3xl' : 'text-xl', 'font-semibold tabular-nums', currentDirection.className)}>
+                  <span title={`${currentDirection.label}: ${signedNumber(netChange)}`} aria-label={`${currentDirection.label}: ${signedNumber(netChange)}`}>
+                    {netChange > 0 ? '▲' : netChange < 0 ? '▼' : '–'} {signedNumber(netChange)}
+                  </span>
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {snapshot.new_agents} new − {snapshot.removed_agents} removed · growth {signedRate(currentGrowthRate)}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -231,27 +216,22 @@ export function AgentOpsReportWindow() {
           <Card aria-label="A3 growth rate versus prior">
             <CardContent className="p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">A3 · Growth rate vs prior</p>
-              {isDaily ? (
-                <>
-                  <div className="mt-3">
-                    <DirectionValue value={growthVariancePp} kind="points" />
-                  </div>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {priorSnapshot
-                      ? `${priorPeriodLabel} ${rateText(computeGrowthRate(priorSnapshot))} → ${periodLabel} ${rateText(currentGrowthRate)}`
-                      : 'no prior period'}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className={cn('mt-3 text-3xl font-semibold tabular-nums', varianceDirection.className)}>
+              <div className="mt-3">
+                {isDaily ? (
+                  <DirectionValue value={growthVariancePp} kind="points" />
+                ) : (
+                  <p className={cn('text-3xl font-semibold tabular-nums', varianceDirection.className)}>
                     {rateText(currentGrowthRate)}
                   </p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    net change {signedNumber(netChange)} · variance {signedPoints(growthVariancePp)}
-                  </p>
-                </>
-              )}
+                )}
+              </div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {isDaily
+                  ? priorSnapshot
+                    ? `${priorPeriodLabel} ${rateText(computeGrowthRate(priorSnapshot))} → ${periodLabel} ${rateText(currentGrowthRate)}`
+                    : 'no prior period'
+                  : `net change ${signedNumber(netChange)} · variance ${signedPoints(growthVariancePp)}`}
+              </p>
               {priorSnapshot && (
                 <p className="mt-3 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                   <span>{priorPeriodLabel} {rateText(computeGrowthRate(priorSnapshot))}</span>
