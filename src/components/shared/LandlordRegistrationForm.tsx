@@ -727,7 +727,7 @@ export default function LandlordRegistrationForm({
       }
 
       setSuccess(true);
-      toastFn({ title: 'Landlord Registered!', description: 'Share the activation link.' });
+      toastFn({ title: 'Landlord Registered!', description: 'Upload the signed agreement before verification.' });
       onSuccess?.(newLandlord ? {
         id: newLandlord.id,
         name: newLandlord.name,
