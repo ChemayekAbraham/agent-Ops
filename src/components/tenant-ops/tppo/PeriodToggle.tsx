@@ -18,7 +18,7 @@ export function PeriodToggle({ value, onChange }: PeriodToggleProps) {
     <div
       role="radiogroup"
       aria-label="Reporting period"
-      className="inline-flex w-full max-w-md items-center rounded-lg border border-border bg-muted p-1"
+      className="flex w-full max-w-md items-stretch rounded-lg border border-border bg-muted p-1 sm:inline-flex sm:items-center"
     >
       {OPTIONS.map((option) => {
         const selected = option.value === value;
@@ -30,7 +30,7 @@ export function PeriodToggle({ value, onChange }: PeriodToggleProps) {
             aria-checked={selected}
             onClick={() => onChange(option.value)}
             className={cn(
-              'flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors',
+              'min-h-[44px] flex-1 basis-0 rounded-md px-2 py-2 text-sm font-medium transition-colors sm:min-h-0 sm:px-4',
               selected
                 ? 'bg-background text-foreground shadow-sm ring-1 ring-border'
                 : 'bg-transparent text-muted-foreground hover:text-foreground',
