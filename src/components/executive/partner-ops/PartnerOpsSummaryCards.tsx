@@ -117,7 +117,7 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
   const soonest = derived?.soonestExpiry ?? null;
   const [inviteOpen, setInviteOpen] = useState(false);
 
-  const { data: proxyStatus } = useQuery({
+  const { data: proxyStatus, isLoading: proxyStatusLoading } = useQuery({
     queryKey: ['partner-ops-proxy-agents-status-breakdown'],
     queryFn: async () => {
       const { data, error } = await supabase
