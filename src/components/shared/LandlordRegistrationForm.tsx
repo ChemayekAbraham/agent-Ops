@@ -728,18 +728,24 @@ export default function LandlordRegistrationForm({
 
       setSuccess(true);
       toastFn({ title: 'Landlord Registered!', description: 'Upload the signed agreement before verification.' });
-      onSuccess?.(newLandlord ? {
-        id: newLandlord.id,
-        name: newLandlord.name,
-        phone: newLandlord.phone,
-        property_address: (newLandlord as any).property_address ?? null,
-        district: ugLoc?.district ?? null,
-        county: ugLoc?.county ?? null,
-        village: ugLoc?.village ?? null,
-        house_category: (newLandlord as any).house_category ?? null,
-        latitude: (newLandlord as any).latitude ?? null,
-        longitude: (newLandlord as any).longitude ?? null,
-      } : undefined);
+      // Agents must upload the signed agreement before the newly registered
+      // landlord is returned to the next workflow step. Tenant residence
+      // capture keeps its existing callback timing because it links the new
+      // landlord to the tenant profile from this callback.
+      if (registeredByRole !== 'agent') {
+        onSuccess?.(newLandlord ? {
+          id: newLandlord.id,
+          name: newLandlord.name,
+          phone: newLandlord.phone,
+          property_address: (newLandlord as any).property_address ?? null,
+          district: ugLoc?.district ?? null,
+          county: ugLoc?.county ?? null,
+          village: ugLoc?.village ?? null,
+          house_category: (newLandlord as any).house_category ?? null,
+          latitude: (newLandlord as any).latitude ?? null,
+          longitude: (newLandlord as any).longitude ?? null,
+        } : undefined);
+      }
     } catch (err: any) {
       let msg = err?.message || 'Something went wrong while saving. Please try again.';
       // An RLS violation here means the request reached the server without a
@@ -843,7 +849,23 @@ export default function LandlordRegistrationForm({
               landlordPhone={cleanPhoneNumber(landlordPhone)}
               propertyAddress={propertyAddress || (ugLoc ? ugLocationLabel(ugLoc) : '')}
               monthlyRent={null}
-              onSubmitted={() => setAgreementSubmitted(true)}
+              onSubmitted={() => {
+                setAgreementSubmitted(true);
+                if (registeredByRole === 'agent' && registeredLandlordId) {
+                  onSuccess?.({
+                    id: registeredLandlordId,
+                    name: landlordName,
+                    phone: cleanPhoneNumber(landlordPhone),
+                    property_address: propertyAddress || (ugLoc ? ugLocationLabel(ugLoc) : null),
+                    district: ugLoc?.district ?? null,
+                    county: ugLoc?.county ?? null,
+                    village: ugLoc?.village ?? null,
+                    house_category: houseCategory || null,
+                    latitude: location?.latitude ?? null,
+                    longitude: location?.longitude ?? null,
+                  });
+                }
+              }}
             />
           )}
 
@@ -892,12 +914,14 @@ export default function LandlordRegistrationForm({
             </div>
           )}
 
-          <Button
-            onClick={() => { hapticTap(); resetForm(); }}
-            className="w-full h-14 text-base font-semibold gap-2 touch-manipulation select-none transition-transform active:scale-[0.98]"
-          >
-            <Building2 className="h-5 w-5" /> Register Another Landlord
-          </Button>
+          {agreementSubmitted && (
+            <Button
+              onClick={() => { hapticTap(); resetForm(); }}
+              className="w-full h-14 text-base font-semibold gap-2 touch-manipulation select-none transition-transform active:scale-[0.98]"
+            >
+              <Building2 className="h-5 w-5" /> Register Another Landlord
+            </Button>
+          )}
 
           {registeredByRole === 'agent' && registeredLandlordId && (() => {
             const recordLink = `${window.location.origin}/dashboard/agent?submission=${registeredLandlordId}&type=landlord`;
@@ -928,7 +952,7 @@ export default function LandlordRegistrationForm({
             );
           })()}
 
-          {registeredByRole === 'agent' && (
+          {agreementSubmitted && registeredByRole === 'agent' && (
             <Button
               variant="secondary"
               onClick={() => {
@@ -942,13 +966,15 @@ export default function LandlordRegistrationForm({
             </Button>
           )}
 
-          <Button
-            variant="outline"
-            onClick={() => { hapticTap(); onClose(); }}
-            className="w-full h-12 touch-manipulation select-none transition-transform active:scale-[0.98]"
-          >
-            Done
-          </Button>
+          {agreementSubmitted && (
+            <Button
+              variant="outline"
+              onClick={() => { hapticTap(); onClose(); }}
+              className="w-full h-12 touch-manipulation select-none transition-transform active:scale-[0.98]"
+            >
+              Done
+            </Button>
+          )}
         </motion.div>
       ) : (
         <motion.form
