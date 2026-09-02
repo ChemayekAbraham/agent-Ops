@@ -18,6 +18,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { LedgerEntryDetailDrawer } from './LedgerEntryDetailDrawer';
+import { requisitionEntryLabel } from '@/lib/walletRequisitionLabel';
 
 type LedgerEntry = WalletTxRow;
 
@@ -49,7 +50,13 @@ const CATEGORY_LABELS: Record<string, string> = {
   wallet_transfer: 'Wallet Transfer',
 };
 
-function labelFor(category: string): string {
+function labelFor(category: string, description?: string | null): string {
+  // Requisition payouts post their wallet leg under the generic `wallet_deposit`
+  // category — recover the real reason (the requisition code) from the
+  // description before falling back to the category label. See
+  // walletRequisitionLabel.ts for why the category alone can't tell us this.
+  const requisitionLabel = requisitionEntryLabel(description);
+  if (requisitionLabel) return requisitionLabel;
   return (
     CATEGORY_LABELS[category] ||
     category.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
@@ -302,7 +309,7 @@ export function WalletLedgerStatement() {
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-bold text-foreground">
-                                {labelFor(entry.category)}
+                                {labelFor(entry.category, entry.description)}
                               </p>
                               <p className="mt-0.5 text-[11px] text-muted-foreground">
                                 {format(parseISO(entry.transaction_date), 'd MMM yyyy')}

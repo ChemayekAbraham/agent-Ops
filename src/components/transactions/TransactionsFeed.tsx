@@ -84,9 +84,22 @@ export interface TransactionsFeedProps {
   /** Hide the date / service / method filter row. */
   showFilters?: boolean;
   className?: string;
+  /**
+   * Wallet balance immediately after each row's transaction, keyed by row id.
+   * Computed by the caller over the full unfiltered ledger history (a running
+   * balance is only coherent there — this feed's own query is paginated and
+   * filterable). Optional: undefined on surfaces (e.g. /transactions) that
+   * don't supply it.
+   */
+  balanceAfterById?: Record<string, number>;
 }
 
-export function TransactionsFeed({ userId, showFilters = true, className }: TransactionsFeedProps) {
+export function TransactionsFeed({
+  userId,
+  showFilters = true,
+  className,
+  balanceAfterById,
+}: TransactionsFeedProps) {
   const [date, setDate] = useState<TxDateFilter>("all");
   const [service, setService] = useState<TxServiceFilter>("all");
   const [method, setMethod] = useState<TxMethodFilter>("all");
@@ -162,12 +175,13 @@ export function TransactionsFeed({ userId, showFilters = true, className }: Tran
             const masked = txMaskedNumber(row);
             const tone = txTone(row);
             const Icon = txIcon(row);
+            const balanceAfter = balanceAfterById?.[row.id] ?? row.balanceAfter;
             return (
               <button
                 key={row.id}
                 type="button"
-                onClick={() => setSelected(row)}
-                className="flex w-full items-center gap-3 sm:gap-4 rounded-2xl bg-background p-3 sm:p-4 text-left shadow-sm transition-transform active:scale-[0.98]"
+                onClick={() => setSelected({ ...row, balanceAfter })}
+                className="flex w-full items-center gap-3 sm:gap-4 rounded-2xl bg-background p-3.5 sm:p-4 text-left shadow-sm transition-transform active:scale-[0.98] border border-border/40 hover:border-border"
               >
                 <span
                   className={cn(
@@ -178,12 +192,26 @@ export function TransactionsFeed({ userId, showFilters = true, className }: Tran
                   <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5", tone.icon)} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm sm:text-base font-bold">{txLabel(row)}</span>
-                  <span className="block truncate text-xs sm:text-sm font-semibold uppercase text-muted-foreground">
+                  <span className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                    <span className="truncate text-sm sm:text-base font-bold text-foreground">
+                      {txLabel(row)}
+                    </span>
+                    <span
+                      className={cn(
+                        "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
+                        isIn
+                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                          : "bg-rose-500/10 text-rose-700 dark:text-rose-400",
+                      )}
+                    >
+                      {isIn ? "Money In" : "Money Out"}
+                    </span>
+                  </span>
+                  <span className="block truncate text-xs sm:text-sm font-semibold uppercase text-muted-foreground mt-0.5">
                     {txCounterparty(row) ?? "—"}
                   </span>
-                  <span className="mt-1 flex items-center gap-2">
-                    <Badge variant="secondary" className="text-[10px] font-bold">
+                  <span className="mt-1 flex items-center gap-2 flex-wrap">
+                    <Badge variant="secondary" className="text-[10px] font-bold px-1.5 py-0">
                       {txMethodLabel(row)}
                     </Badge>
                     {masked && (
@@ -191,12 +219,17 @@ export function TransactionsFeed({ userId, showFilters = true, className }: Tran
                     )}
                   </span>
                 </span>
-                <span className="shrink-0 text-right">
+                <span className="shrink-0 text-right space-y-0.5">
                   <span className={cn("block text-base sm:text-lg font-bold tabular-nums", tone.amount)}>
                     {isIn ? "+" : "−"}
                     {formatUGX(Number(row.amount)).replace(/^UGX\s*/, "")}
                   </span>
-                  <span className="text-xs font-medium text-muted-foreground">UGX</span>
+                  <span className="block text-[10px] font-semibold text-muted-foreground uppercase">UGX</span>
+                  {balanceAfter !== undefined && (
+                    <span className="block text-[11px] font-medium text-muted-foreground tabular-nums pt-0.5">
+                      Bal: <span className="font-bold text-foreground/90">{formatUGX(balanceAfter)}</span>
+                    </span>
+                  )}
                 </span>
               </button>
             );

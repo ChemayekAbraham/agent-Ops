@@ -16,6 +16,7 @@ import {
   ArrowUpFromLine,
   Briefcase,
   CreditCard,
+  FileText,
   Home,
   Percent,
   Receipt,
@@ -27,6 +28,7 @@ import {
   applyCustomerWalletLedgerFilters,
   isCustomerWalletLedgerEntryVisible,
 } from "@/lib/customerWalletHistory";
+import { requisitionEntryLabel } from "@/lib/walletRequisitionLabel";
 
 export const TX_PAGE_SIZE = 15;
 
@@ -38,6 +40,7 @@ export type TxServiceFilter =
   | "withdraw"
   | "commission"
   | "payroll"
+  | "requisition"
   | "transfer"
   | "rent"
   | "returns";
@@ -55,6 +58,13 @@ export interface TxFeedRow {
   source_table: string | null;
   classification?: string | null;
   source_id?: string | null;
+  /**
+   * Wallet balance immediately after this entry posted. Not fetched by
+   * `fetchTxFeedPage` (a running balance is only coherent over the FULL,
+   * unfiltered history — see WalletStatement's `balanceAfterById`, which
+   * callers merge onto rows by `id` before rendering).
+   */
+  balanceAfter?: number;
 }
 
 export const TX_DATE_OPTIONS: { value: TxDateFilter; label: string }[] = [
@@ -71,6 +81,7 @@ export const TX_SERVICE_OPTIONS: { value: TxServiceFilter; label: string }[] = [
   { value: "withdraw", label: "Withdraw" },
   { value: "commission", label: "Commission" },
   { value: "payroll", label: "Payroll" },
+  { value: "requisition", label: "Requisition" },
   { value: "transfer", label: "Transfer" },
   { value: "rent", label: "Rent" },
   { value: "returns", label: "Returns" },
@@ -93,7 +104,11 @@ const SERVICE_CATEGORIES: Record<Exclude<TxServiceFilter, "all">, string[]> = {
     "agent_commission_used_for_rent",
     "partner_commission",
   ],
-  payroll: ["payroll_expense"],
+  payroll: ["payroll_expense", "salary_payout"],
+  // Requisition payouts aren't identified by category (see txService) — they
+  // all share the generic `wallet_deposit` category, detected instead from
+  // the description via requisitionEntryLabel().
+  requisition: [],
   transfer: ["wallet_transfer"],
   rent: [
     "rent_disbursement",
@@ -128,6 +143,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   agent_commission_used_for_rent: "Commission Used For Rent",
   partner_commission: "Partner Commission",
   payroll_expense: "Payroll",
+  salary_payout: "Payroll",
   rent_disbursement: "Rent Disbursement",
   rent_principal_collected: "Rent Collected",
   tenant_repayment: "Rent Repayment",
@@ -150,6 +166,11 @@ export function txLabel(row: TxFeedRow): string {
   ) {
     return "Penalty Interest";
   }
+  // Requisition payouts post their wallet leg as the generic `wallet_deposit`
+  // category (see walletRequisitionLabel.ts for why) — recover the real
+  // reason from the description before falling back to the category label.
+  const requisitionLabel = requisitionEntryLabel(row.description);
+  if (requisitionLabel) return requisitionLabel;
   return (
     CATEGORY_LABELS[row.category] ??
 
@@ -161,6 +182,7 @@ export function txLabel(row: TxFeedRow): string {
 }
 
 export function txService(row: TxFeedRow): Exclude<TxServiceFilter, "all"> | null {
+  if (requisitionEntryLabel(row.description)) return "requisition";
   return CATEGORY_TO_SERVICE.get(row.category) ?? null;
 }
 
@@ -177,6 +199,7 @@ const SERVICE_ICONS: Record<Exclude<TxServiceFilter, "all">, LucideIcon> = {
   withdraw: ArrowUpFromLine,
   commission: Percent,
   payroll: Briefcase,
+  requisition: FileText,
   transfer: ArrowLeftRight,
   rent: Home,
   returns: TrendingUp,

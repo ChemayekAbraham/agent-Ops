@@ -298,6 +298,12 @@ export function WalletStatement() {
   const [exporting, setExporting] = useState(false);
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [totals, setTotals] = useState({ totalIn: 0, totalOut: 0 });
+  // Wallet balance immediately after each entry, keyed by ledger row id — computed
+  // once here (over the FULL unfiltered history) and merged onto TransactionsFeed's
+  // independently-paginated/filtered rows by id, so "why did my balance change"
+  // stays traceable (e.g. a payroll credit followed by a withdrawal) no matter
+  // which filter/page the feed is currently showing.
+  const [balanceAfterById, setBalanceAfterById] = useState<Record<string, number>>({});
   const [breakdown, setBreakdown] = useState<Record<string, number>>({});
   const [userName, setUserName] = useState('');
   const [subAgentEarnings, setSubAgentEarnings] = useState<SubAgentEarningRow[]>([]);
@@ -395,10 +401,12 @@ export function WalletStatement() {
       }
 
       let runningBalance = 0;
+      const balanceMap: Record<string, number> = {};
       for (const entry of allEntries) {
         if (entry.type === 'credit') runningBalance += entry.amount;
         else runningBalance -= entry.amount;
         entry.balance_after = Math.max(0, runningBalance);
+        balanceMap[entry.id] = entry.balance_after;
       }
 
       const displayEntries = [...allEntries].reverse();
@@ -413,6 +421,7 @@ export function WalletStatement() {
       setEntries(displayEntries);
       setTotals({ totalIn, totalOut });
       setBreakdown(bk);
+      setBalanceAfterById(balanceMap);
     } catch (error) {
       console.error('[WalletStatement] Error:', error);
     } finally {
@@ -1031,7 +1040,7 @@ export function WalletStatement() {
               <h3 id="ws-tx-history" className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 Transaction History
               </h3>
-              <TransactionsFeed userId={user?.id} />
+              <TransactionsFeed userId={user?.id} balanceAfterById={balanceAfterById} />
             </section>
 
           </ScrollArea>

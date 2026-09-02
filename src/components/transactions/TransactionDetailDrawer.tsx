@@ -78,9 +78,22 @@ export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
                 {Icon && <Icon className={cn("h-7 w-7", tone?.icon)} />}
               </div>
               <h2 className="mt-3 text-xl font-bold text-foreground">{txLabel(row)}</h2>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {txServiceLabel(row)} / {isIn ? "Credit" : "Debit"}
-              </p>
+              <div className="mt-1 flex items-center gap-1.5">
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-[10px] font-bold uppercase tracking-wider",
+                    isIn
+                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                      : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30",
+                  )}
+                >
+                  {isIn ? "Money In · Credit" : "Money Out · Debit"}
+                </Badge>
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {txServiceLabel(row)}
+                </span>
+              </div>
               <p
                 className={cn("mt-3 text-3xl font-extrabold tabular-nums", tone?.amount)}
               >
@@ -97,6 +110,13 @@ export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
               <DetailRow label="Transaction Date">
                 {format(new Date(row.transaction_date), "dd MMM yyyy, HH:mm")}
               </DetailRow>
+              {row.balanceAfter !== undefined && (
+                <DetailRow label="Balance After">
+                  <span className="font-bold text-foreground font-mono">
+                    {formatUGX(row.balanceAfter)}
+                  </span>
+                </DetailRow>
+              )}
               <DetailRow label="Reference ID">
                 <span className="inline-flex items-center gap-2">
                   <span className="max-w-[190px] truncate font-mono text-xs">
