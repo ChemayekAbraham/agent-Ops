@@ -100,7 +100,7 @@ function formatSnapshotDate(value: string) {
 }
 
 export function BacklogAnalysis() {
-  const { data, isLoading, isFetching, refetch, error } = useTenantRepaymentReliability(800);
+  const { data, isLoading, isFetching, refetch, error } = useTenantRepaymentReliability(2000);
   const rows = data?.rows ?? [];
   const tenantIds = useMemo(() => rows.map((row) => row.tenant_id), [rows]);
   const { data: locations = new Map(), isLoading: locationsLoading } = useTenantLocations(tenantIds);
@@ -222,7 +222,7 @@ export function BacklogAnalysis() {
 
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
         <KPICard title="Overdue backlog" value={formatUGX(metrics.backlog)} icon={AlertTriangle} color="bg-destructive/10 text-destructive" subtitle="Outstanding on behind plans" />
-        <KPICard title="Affected tenants / plans" value={metrics.affected.toLocaleString()} icon={Users} color="bg-amber-500/10 text-amber-600" subtitle={`${metrics.activeBook.toLocaleString()} active plans on book`} />
+        <KPICard title="Affected tenants / primary plans" value={metrics.affected.toLocaleString()} icon={Users} color="bg-amber-500/10 text-amber-600" subtitle={`${metrics.activeBook.toLocaleString()} active plans on book`} />
         <KPICard title="Missed repayment days" value={metrics.missedDays.toLocaleString()} icon={CalendarDays} color="bg-primary/10 text-primary" subtitle="Cumulative across affected plans" />
         <KPICard title="Collection gap trend" value={compactUgx(latestGap)} icon={trendDirection === 'reducing' ? TrendingDown : TrendingUp} color={trendDirection === 'reducing' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-destructive/10 text-destructive'} subtitle={`Daily portfolio gap is ${trendDirection}`} />
       </div>
@@ -266,7 +266,7 @@ export function BacklogAnalysis() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between p-3 pb-2"><div><CardTitle className="text-xs font-bold">Recovery queue</CardTitle><p className="mt-0.5 text-[10px] text-muted-foreground">Largest outstanding balances first. Select a row for the recovery context.</p></div><Badge variant="outline" className="text-[10px]">{filteredRows.length.toLocaleString()} overdue</Badge></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between p-3 pb-2"><div><CardTitle className="text-xs font-bold">Recovery queue</CardTitle><p className="mt-0.5 text-[10px] text-muted-foreground">Highest outstanding balances among the loaded active plans. Select a row for the recovery context.</p></div><Badge variant="outline" className="text-[10px]">{filteredRows.length.toLocaleString()} overdue</Badge></CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-xs">
