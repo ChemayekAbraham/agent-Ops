@@ -11,6 +11,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import { buildAgentOpsComprehensiveReportHtml } from './_lib/report.ts';
+import { buildComprehensiveReportPdf } from './_lib/pdf.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,7 +21,8 @@ const corsHeaders = {
 
 const TZ = 'Africa/Kampala';
 const DEFAULT_FROM = 'Welile Reports <reports@welile.com>';
-const DEFAULT_RECIPIENTS = ['benjamin@welile.com', 'paphra.me@gmail.com'];
+const DEFAULT_RECIPIENTS = ['benjamin@welile.com', 'pexpert46@gmail.com'];
+
 
 const eatToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date());
 const shiftDays = (dateStr: string, days: number) => {
