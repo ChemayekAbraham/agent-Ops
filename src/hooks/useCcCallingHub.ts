@@ -31,7 +31,13 @@ export const QUICK_OUTCOMES: { value: Exclude<CcOutcome, 'engaged' | 'callback_b
   { value: 'refused', label: 'Refused' },
 ];
 
-export const OPEN_ATTEMPT_LIMIT = 3;
+/**
+ * Fallback only. The real limit lives on cc_call_cycles.wip_limit so ops can
+ * tune it per cycle; the DB guard reads the same column.
+ */
+export const OPEN_ATTEMPT_LIMIT = 10;
+/** Minimum characters the engaged note must carry (mirrors the DB guard). */
+export const CC_NOTE_MIN_LENGTH = 20;
 export const CC_PAGE_SIZE = 50;
 
 export interface CcRow {
