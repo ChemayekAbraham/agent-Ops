@@ -1,5 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
-import { LandlordAgreementUploader } from '@/components/landlord/agreement/LandlordAgreementUploader';
+import {
+  emptyLandlordAgreementInline,
+  isLandlordAgreementInlineComplete,
+  LandlordAgreementInlineFields,
+  type LandlordAgreementInlineValue,
+} from '@/components/landlord/agreement/LandlordAgreementInlineFields';
+import { submitLandlordAgreementFile, twelveMonthEndDate } from '@/lib/landlordAgreementSubmit';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -106,7 +112,7 @@ export default function LandlordRegistrationForm({
   const [activationLink, setActivationLink] = useState('');
   // Id of the landlord just created, used to deep-link to its record.
   const [registeredLandlordId, setRegisteredLandlordId] = useState<string | null>(null);
-  const [agreementSubmitted, setAgreementSubmitted] = useState(false);
+  const [agreementDetails, setAgreementDetails] = useState<LandlordAgreementInlineValue>(emptyLandlordAgreementInline);
   const [locationCaptured, setLocationCaptured] = useState(false);
   // Optional details are tucked away so the core flow is just Name + Phone.
   const [showMore, setShowMore] = useState(false);
@@ -413,6 +419,7 @@ export default function LandlordRegistrationForm({
     setNwscMeter(''); setUedclMeter('');
     setTempPassword(''); setShowPassword(false);
     setSuccess(false); setActivationLink(''); setRegisteredLandlordId(null); setLocationCaptured(false);
+    setAgreementDetails(emptyLandlordAgreementInline);
     setStep(1);
   };
 
@@ -518,6 +525,17 @@ export default function LandlordRegistrationForm({
       toastFn({
         title: 'Please fix the errors',
         description: 'Some required fields are missing or invalid.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (registeredByRole === 'agent' && !minimal && !isLandlordAgreementInlineComplete(agreementDetails)) {
+      setStep(2);
+      hapticWarning();
+      toastFn({
+        title: 'Signed agreement required',
+        description: 'Download, complete, sign, and upload the landlord agreement before registering.',
         variant: 'destructive',
       });
       return;
@@ -672,6 +690,41 @@ export default function LandlordRegistrationForm({
       if (error) throw error;
       setRegisteredLandlordId(newLandlord?.id ?? null);
 
+      if (registeredByRole === 'agent' && !minimal) {
+        const signedFile = agreementDetails.file;
+        if (!signedFile) throw new Error('Upload the signed landlord agreement before registering.');
+        setProgressMsg('Saving the signed agreement…');
+        const agreementDate = new Date().toISOString().slice(0, 10);
+        await submitLandlordAgreementFile({
+          landlordId: newLandlord.id,
+          file: signedFile,
+          details: {
+            landlord_name: landlordName.trim(),
+            landlord_phone: landlordPhoneClean,
+            agreement_date: agreementDate,
+            start_date: agreementDate,
+            end_date: twelveMonthEndDate(agreementDate),
+            property_address: addressToUse,
+            // The approved contract does not collect separate rent terms.
+            // Keep the existing RPC contract satisfied without adding fields
+            // to the normal landlord registration form.
+            monthly_rent: '0',
+            payment_day: '1',
+            landlord_signature_name: landlordName.trim(),
+            landlord_signed_on: agreementDate,
+            welile_signature_name: 'Welile Technologies Limited',
+            welile_signed_on: agreementDate,
+            witness_name: 'Witness — see signed agreement',
+            witness_signed_on: agreementDate,
+            house_category: houseCategory || null,
+            mobile_money_name: momoName.trim() || null,
+            mobile_money_number: momoNumberClean || null,
+            water_meter_number: nwscMeter.trim() || null,
+            electricity_meter_number: uedclMeter.trim() || null,
+          },
+        });
+      }
+
       // Persist LC1 chairperson when collected (minimal/outstanding flow).
       if (minimal && lc1Name.trim() && lc1PhoneClean) {
         // Reuse an existing chairperson matched on the normalised phone —
@@ -727,25 +780,19 @@ export default function LandlordRegistrationForm({
       }
 
       setSuccess(true);
-      toastFn({ title: 'Landlord Registered!', description: 'Upload the signed agreement before verification.' });
-      // Agents must upload the signed agreement before the newly registered
-      // landlord is returned to the next workflow step. Tenant residence
-      // capture keeps its existing callback timing because it links the new
-      // landlord to the tenant profile from this callback.
-      if (registeredByRole !== 'agent') {
-        onSuccess?.(newLandlord ? {
-          id: newLandlord.id,
-          name: newLandlord.name,
-          phone: newLandlord.phone,
-          property_address: (newLandlord as any).property_address ?? null,
-          district: ugLoc?.district ?? null,
-          county: ugLoc?.county ?? null,
-          village: ugLoc?.village ?? null,
-          house_category: (newLandlord as any).house_category ?? null,
-          latitude: (newLandlord as any).latitude ?? null,
-          longitude: (newLandlord as any).longitude ?? null,
-        } : undefined);
-      }
+      toastFn({ title: 'Landlord Registered!', description: 'The signed agreement is attached and ready for verification.' });
+      onSuccess?.(newLandlord ? {
+        id: newLandlord.id,
+        name: newLandlord.name,
+        phone: newLandlord.phone,
+        property_address: (newLandlord as any).property_address ?? null,
+        district: ugLoc?.district ?? null,
+        county: ugLoc?.county ?? null,
+        village: ugLoc?.village ?? null,
+        house_category: (newLandlord as any).house_category ?? null,
+        latitude: (newLandlord as any).latitude ?? null,
+        longitude: (newLandlord as any).longitude ?? null,
+      } : undefined);
     } catch (err: any) {
       let msg = err?.message || 'Something went wrong while saving. Please try again.';
       // An RLS violation here means the request reached the server without a
@@ -839,37 +886,12 @@ export default function LandlordRegistrationForm({
           </motion.div>
           <h3 className="text-lg font-semibold">Landlord Registered!</h3>
           <p className="text-muted-foreground text-sm">
-            Upload the signed 12-month agreement for <strong>{landlordName}</strong> before verification.
+            {registeredByRole === 'agent'
+              ? 'The signed landlord agreement was uploaded and preserved in agreement history.'
+              : 'The landlord has been registered successfully.'}
           </p>
 
-          {registeredLandlordId && !agreementSubmitted && (
-            <LandlordAgreementUploader
-              landlordId={registeredLandlordId}
-              landlordName={landlordName}
-              landlordPhone={cleanPhoneNumber(landlordPhone)}
-              propertyAddress={propertyAddress || (ugLoc ? ugLocationLabel(ugLoc) : '')}
-              monthlyRent={null}
-              onSubmitted={() => {
-                setAgreementSubmitted(true);
-                if (registeredByRole === 'agent' && registeredLandlordId) {
-                  onSuccess?.({
-                    id: registeredLandlordId,
-                    name: landlordName,
-                    phone: cleanPhoneNumber(landlordPhone),
-                    property_address: propertyAddress || (ugLoc ? ugLocationLabel(ugLoc) : null),
-                    district: ugLoc?.district ?? null,
-                    county: ugLoc?.county ?? null,
-                    village: ugLoc?.village ?? null,
-                    house_category: houseCategory || null,
-                    latitude: location?.latitude ?? null,
-                    longitude: location?.longitude ?? null,
-                  });
-                }
-              }}
-            />
-          )}
-
-          {agreementSubmitted && (
+          {registeredByRole === 'agent' && (
             <div className="flex items-center justify-center gap-2 rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success">
               <CheckCircle2 className="h-4 w-4" /> Signed agreement uploaded and preserved in history.
             </div>
@@ -914,7 +936,7 @@ export default function LandlordRegistrationForm({
             </div>
           )}
 
-          {agreementSubmitted && (
+          {success && (
             <Button
               onClick={() => { hapticTap(); resetForm(); }}
               className="w-full h-14 text-base font-semibold gap-2 touch-manipulation select-none transition-transform active:scale-[0.98]"
@@ -952,7 +974,7 @@ export default function LandlordRegistrationForm({
             );
           })()}
 
-          {agreementSubmitted && registeredByRole === 'agent' && (
+          {success && registeredByRole === 'agent' && (
             <Button
               variant="secondary"
               onClick={() => {
@@ -966,7 +988,7 @@ export default function LandlordRegistrationForm({
             </Button>
           )}
 
-          {agreementSubmitted && (
+          {success && (
             <Button
               variant="outline"
               onClick={() => { hapticTap(); onClose(); }}
@@ -1187,6 +1209,16 @@ export default function LandlordRegistrationForm({
               </motion.div>
             );
           })()}
+
+            {registeredByRole === 'agent' && !minimal && (
+              <LandlordAgreementInlineFields
+                value={agreementDetails}
+                onChange={setAgreementDetails}
+                landlordName={landlordName}
+                landlordPhone={cleanPhoneNumber(landlordPhone)}
+                propertyAddress={propertyAddress || (ugLoc ? ugLocationLabel(ugLoc) : '')}
+              />
+            )}
 
           {/* Next — advance to the confirmation step once essentials are valid */}
           <div className="sticky bottom-0 -mx-1 px-1 pt-2 pb-1 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-t border-border/60 z-10">
