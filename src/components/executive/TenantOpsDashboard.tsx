@@ -50,6 +50,7 @@ import { DailyRentReport } from '@/components/reports/DailyRentReport';
 import { AgentRentCapacityPanel } from './AgentRentCapacityPanel';
 import { TenantProductsServicesReport } from './tenant-ops/TenantProductsServicesReport';
 import { TenantRepaymentReliabilityPanel } from './tenant-ops/TenantRepaymentReliabilityPanel';
+import { BacklogAnalysis } from './tenant-ops/BacklogAnalysis';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -68,7 +69,7 @@ import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Gauge } from 'lucide-react';
 
-type ActiveView = 'overview' | 'pipeline' | 'pipeline-hub' | 'daily' | 'missed' | 'behavior' | 'history' | 'all-requests' | 'link-agent' | 'transfer-audit' | 'collect-rent' | 'agent-tenants' | 'tenant-detail' | 'registration-review' | 'advance-requests' | 'agent-allocations' | 'daily-collections' | 'landlord-float' | 'landlord-float-timeline' | 'location-browser' | 'tenant-location-browser' | 'global-verification' | 'welile-operations' | 'daily-repayments-report' | 'agent-capacity-hub' | 'all-tenants-hub' | 'reports-hub' | 'tenant-products-report' | 'reliability-hub';
+type ActiveView = 'overview' | 'pipeline' | 'pipeline-hub' | 'daily' | 'missed' | 'backlog-analysis' | 'behavior' | 'history' | 'all-requests' | 'link-agent' | 'transfer-audit' | 'collect-rent' | 'agent-tenants' | 'tenant-detail' | 'registration-review' | 'advance-requests' | 'agent-allocations' | 'daily-collections' | 'landlord-float' | 'landlord-float-timeline' | 'location-browser' | 'tenant-location-browser' | 'global-verification' | 'welile-operations' | 'daily-repayments-report' | 'agent-capacity-hub' | 'all-tenants-hub' | 'reports-hub' | 'tenant-products-report' | 'reliability-hub';
 
 /** Public alias so the sidebar shell can type its nav keys against the exact
  *  same view union Classic already routes on. */
@@ -1316,6 +1317,8 @@ export function TenantOpsDashboard({
         return <DailyPaymentTracker />;
       case 'missed':
         return <MissedDaysTracker />;
+      case 'backlog-analysis':
+        return <BacklogAnalysis />;
       case 'behavior':
         return <TenantBehaviorDashboard />;
       case 'history':

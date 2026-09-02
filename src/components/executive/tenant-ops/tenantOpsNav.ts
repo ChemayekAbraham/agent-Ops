@@ -23,6 +23,7 @@ import {
   Home,
   FileText,
   PhoneCall,
+  AlertTriangle,
   type LucideIcon,
 } from 'lucide-react';
 import type { TenantOpsClassicView } from '../TenantOpsDashboard';
@@ -83,6 +84,7 @@ export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
       { key: 'daily', label: 'Daily Payments', icon: CalendarCheck, keywords: ['today', 'paid', 'unpaid'] },
       { key: 'calling-hub', label: 'Calling Hub', icon: PhoneCall, keywords: ['call', 'calls', 'phone', 'follow up', 'pending', 'closed', 'missed calls'] },
       { key: 'missed', label: 'Missed Days', icon: CalendarX2, keywords: ['behind', 'arrears', 'late'] },
+      { key: 'backlog-analysis', label: 'Backlog Analysis', icon: AlertTriangle, keywords: ['overdue', 'backlog', 'arrears', 'recovery', 'ageing', 'aging'] },
       { key: 'behavior', label: 'Tenant Behavior', icon: Activity, keywords: ['risk', 'score', 'patterns'] },
       { key: 'history', label: 'Approval History', icon: History, keywords: ['log', 'approvals', 'rejections'] },
       { key: 'all-requests', label: 'All Requests', icon: Table2, keywords: ['table', 'every request'] },
