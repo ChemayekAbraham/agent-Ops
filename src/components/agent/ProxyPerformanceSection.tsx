@@ -143,40 +143,23 @@ export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading
         </CardContent>
       </Card>
 
-      {/* Ambiguous attribution warning */}
+      {/* Ambiguous attribution warning — one line */}
       {dq && dq.is_approved_proxy === false && (
-        <Card className="border-warning/40 bg-warning/5">
-          <CardContent className="flex items-start gap-3 p-3">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-            <p className="text-[11px] text-muted-foreground">
-              This account is not an approved proxy agent, so some activity may not be attributed here.
-              Figures below only include activity confirmed against a proxy identity.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-2 rounded-xl border border-warning/40 bg-warning/5 px-3 py-2">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
+          <p className="text-[11px] font-semibold">Some activity may be missing — your account isn't confirmed as a proxy yet.</p>
+        </div>
       )}
 
-      {/* No verified commitments / activity yet */}
+      {/* No verified activity yet — one line */}
       {noVerifiedActivity && (
-        <Card className="border-dashed">
-          <CardContent className="flex items-start gap-3 p-4">
-            <Inbox className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-            <div className="min-w-0 space-y-1">
-              <p className="text-xs font-bold">No verified activity this month yet</p>
-              <p className="text-[11px] text-muted-foreground">
-                PV only counts <span className="font-semibold">verified commitments</span> and{' '}
-                <span className="font-semibold">paid investment / top-up commissions</span> attributed to
-                this agent.
-              </p>
-              {pendingCount > 0 && (
-                <p className="flex items-start gap-1.5 text-[11px] font-semibold text-primary">
-                  <ClipboardCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  {pendingCount} item{pendingCount === 1 ? '' : 's'} awaiting verification — not counted yet.
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-2 rounded-xl border border-dashed px-3 py-2">
+          <Inbox className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <p className="text-[11px] font-semibold text-muted-foreground">
+            Nothing verified yet this month.
+            {pendingCount > 0 && ` ${pendingCount} waiting for verification.`}
+          </p>
+        </div>
       )}
 
       {/* MTD hero */}
