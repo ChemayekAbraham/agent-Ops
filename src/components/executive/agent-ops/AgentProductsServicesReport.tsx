@@ -528,6 +528,7 @@ export function AgentProductsServicesReport() {
     queryFn: async (): Promise<AgentPopulation> => {
       const { data, error } = await supabase.rpc('get_agent_operational_population' as any, {
         p_as_of: todayKey,
+        p_from: todayKey,
       });
       if (error) throw error;
       return data as unknown as AgentPopulation;
