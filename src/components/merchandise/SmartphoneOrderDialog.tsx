@@ -32,7 +32,7 @@ interface Eligibility {
   user_id: string;
   rank: number | null;
   collected_30d: number;
-  max_amount: number;
+  
   active_tenant_count?: number;
   required_active_tenants?: number;
   has_national_id: boolean;
@@ -49,7 +49,7 @@ interface Props {
 
 /**
  * Agent Smartphone Advance application. Open to agents and sub-agents with at
- * least 3 active tenants on the Welile network, up to the programme ceiling.
+ * least 3 active tenants on the Welile network. Every active catalog phone is selectable.
  * Every active, priced model is offered; Agent Ops assigns the supplier to the
  * order after submission. The applicant sees the daily
  * amount, the chosen period and the terms — never the internal programme charge.
@@ -74,8 +74,6 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
   const { data: catalog = [], isLoading: catalogLoading } = useSmartphoneCatalog();
 
-  const cap = Number(eligibility?.max_amount || 0);
-
   const isIOSDevice = (c: SmartphoneCatalogEntry) =>
     c.os_type === 'ios' ||
     c.brand.trim().toLowerCase() === 'apple' ||
@@ -85,9 +83,8 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
     () =>
       catalog
         .filter((c) => c.is_active && Number(c.default_amount || 0) > 0)
-        .filter((c) => isIOSDevice(c) || cap <= 0 || Number(c.default_amount) <= cap)
         .filter((c) => (osType === 'ios' ? isIOSDevice(c) : !isIOSDevice(c))),
-    [catalog, cap, osType],
+    [catalog, osType],
   );
 
 
@@ -225,7 +222,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                         ? 'Loading phones…'
                         : options.length
                           ? 'Select a phone'
-                          : `No ${osType === 'ios' ? 'iPhone' : 'Android'} phones available for your limit`
+                          : `No ${osType === 'ios' ? 'iPhone' : 'Android'} phones available`
                     }
                   />
                 </SelectTrigger>
@@ -302,10 +299,6 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                   <span className="font-medium text-foreground">Collection day:</span> you must present your
                   National ID and a workplace photo. Both are captured and verified before the phone is released
                   to you — no documents, no phone.
-                </li>
-                <li>
-                  <span className="font-medium text-foreground">Limit:</span> the phone price must be within the
-                  programme ceiling of UGX 1,000,000.
                 </li>
                 <li>
                   <span className="font-medium text-foreground">Supplier:</span> Welile pays the registered
