@@ -71,3 +71,6 @@
 
 - ~~WELILE-CC-CYCLEDESC21~~ — cycle title (required) + description on `cc_call_cycles`, `cc_open_cycle`, `v_cc_cycle_progress`, cycle controls UI.
 - WELILE-CC-MOBILE22 — mobile-first calling hub: sticky bottom bar, reveal sheet with tel: dialing, record/follow-ups sheet, filter sheet. No migration, no data-layer change.
+
+## 2026-09-02
+- [ ] Agent/sub-agent overall system counts — answered from dashboard KPI vs activity-union definitions (see user message).
