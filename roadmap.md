@@ -74,4 +74,4 @@
 
 ## 2026-09-02
 - [x] Agent/sub-agent overall system counts — answered from dashboard KPI vs activity-union definitions (see user message).
-- [ ] Fix typecheck build errors surfaced in `/tmp/observability/build-errors.log`.
+- [x] Fix typecheck build errors surfaced in `/tmp/observability/build-errors.log`.
