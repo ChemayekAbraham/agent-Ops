@@ -218,7 +218,7 @@ export function AgentOpsReportWindow() {
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">A3 · Growth rate vs prior</p>
               <div className="mt-3">
                 {isDaily ? (
-                  <DirectionValue value={growthVariancePp} kind="points" />
+                  priorSnapshot ? <DirectionValue value={growthVariancePp} kind="points" /> : <p className="text-xl font-medium text-muted-foreground">no prior period</p>
                 ) : (
                   <p className={cn('text-3xl font-semibold tabular-nums', varianceDirection.className)}>
                     {rateText(currentGrowthRate)}
@@ -229,8 +229,8 @@ export function AgentOpsReportWindow() {
                 {isDaily
                   ? priorSnapshot
                     ? `${priorPeriodLabel} ${rateText(computeGrowthRate(priorSnapshot))} → ${periodLabel} ${rateText(currentGrowthRate)}`
-                    : 'no prior period'
-                  : `net change ${signedNumber(netChange)} · variance ${signedPoints(growthVariancePp)}`}
+                    : 'No comparison available'
+                  : <>net change {signedNumber(netChange)} · {priorSnapshot ? <DirectionValue value={growthVariancePp} kind="points" /> : 'no prior period'}</>}
               </p>
               {priorSnapshot && (
                 <p className="mt-3 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
