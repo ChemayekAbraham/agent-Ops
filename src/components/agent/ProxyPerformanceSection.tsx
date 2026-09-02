@@ -77,12 +77,22 @@ export function ProxyPerformanceSection({ agentId, month, hideHeading, className
   if (q.isLoading) return <Skeleton className={cn('h-64 rounded-2xl', className)} />;
   if (q.error) {
     return (
-      <Card className={className}>
-        <CardContent className="p-4 text-sm text-destructive">{(q.error as Error).message}</CardContent>
+      <Card className={cn('border-destructive/40', className)}>
+        <CardContent className="flex items-start gap-3 p-4">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+          <div className="min-w-0 space-y-0.5">
+            <p className="text-sm font-bold">Performance data unavailable</p>
+            <p className="text-xs text-muted-foreground break-words">{(q.error as Error).message}</p>
+          </div>
+        </CardContent>
       </Card>
     );
   }
   if (!r) return null;
+
+  const dq = r.data_quality;
+  const noVerifiedActivity = r.mtd.total_pv === 0 && r.mtd.commitments === 0;
+  const pendingCount = (dq?.pending_commitments ?? 0) + (dq?.unpaid_commission_events ?? 0);
 
   const mtdPct = r.mtd.performance_pct;
   const meta = PROXY_PV_BAND_META[proxyPvBand(mtdPct)];
