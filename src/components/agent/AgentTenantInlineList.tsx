@@ -13,6 +13,7 @@ interface Tenant {
   phone: string;
   email: string;
   created_at: string;
+  latest_status: string | null;
 }
 
 interface AgentTenantInlineListProps {
