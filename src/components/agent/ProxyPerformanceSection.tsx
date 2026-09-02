@@ -43,7 +43,7 @@ function DayRow({ d }: { d: ProxyPvDay }) {
           {d.is_working_day ? (
             <BandBadge pct={d.performance_pct} />
           ) : (
-            <span className="text-[10px] text-muted-foreground">Weekend</span>
+            <span className="text-[10px] text-muted-foreground">Rest day</span>
           )}
         </div>
       </div>
