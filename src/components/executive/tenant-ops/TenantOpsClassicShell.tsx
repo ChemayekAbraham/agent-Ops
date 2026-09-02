@@ -37,7 +37,9 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
   const { data: counts } = useTenantOpsToolCounts();
 
   const raw = params.get('view') || 'home';
-  const active = (isTenantOpsViewKey(raw) ? raw : 'home') as TenantOpsViewKey;
+  const active = (
+    raw === 'action.portfolio-performance' || isTenantOpsViewKey(raw) ? raw : 'home'
+  ) as TenantOpsViewKey | TenantOpsActionKey;
 
   const badges = useMemo<Partial<Record<string, number>>>(() => ({
     pipeline: counts?.review_requests ?? 0,
@@ -49,7 +51,7 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
   const goTo = useCallback((key: TenantOpsViewKey | TenantOpsActionKey) => {
     const next = new URLSearchParams(params);
     if (key === 'action.portfolio-performance') {
-      next.set('view', 'portfolio-performance');
+      next.set('view', key);
     } else if (isTenantOpsAction(key)) {
       if (key === 'action.locations') onOpenLocations();
       if (key === 'action.welile-homes') onOpenWelileHomes();
@@ -72,7 +74,7 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
 
   const body = () => {
     if (active === 'home') return <TenantOpsHome onNavigate={goTo} />;
-    if (active === 'portfolio-performance') {
+    if (active === 'action.portfolio-performance') {
       return (
         <Suspense fallback={<div className="flex min-h-64 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}>
           <PortfolioPerformanceReport />
