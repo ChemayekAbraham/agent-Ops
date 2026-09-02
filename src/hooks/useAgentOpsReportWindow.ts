@@ -123,6 +123,20 @@ export function computeGrowthVariancePp(
   return currentRate - priorRate;
 }
 
+/**
+ * Zone B conversion rate. Guarded: a zero (or missing) qualified-at-open base
+ * yields null rather than a division by zero.
+ */
+export function computeConversionRate(snapshot: AgentOpsSnapshot | null): number | null {
+  if (!snapshot || snapshot.qualified_at_open === 0) return null;
+  return (snapshot.converted_in_period / snapshot.qualified_at_open) * 100;
+}
+
+export function centresClosing(snapshot: AgentOpsSnapshot | null): number {
+  if (!snapshot) return 0;
+  return snapshot.centres_opening + snapshot.centres_opened - snapshot.centres_closed;
+}
+
 export function useAgentOpsReportWindow(granularity: AgentOpsGranularity) {
   const periodStart = periodStartFor(granularity);
 
@@ -147,7 +161,7 @@ export function useAgentOpsReportWindow(granularity: AgentOpsGranularity) {
       const snapshotIds = [report.snapshot_id, report.prior_snapshot_id].filter(Boolean);
       const { data: snapshots, error: snapshotsError } = await supabase
         .from('agent_ops_period_snapshots')
-        .select('id, granularity, period_start, period_end, opening_agents, new_agents, removed_agents, closing_agents, active_agents_30d, qualified_at_open, converted_in_period, provisional')
+        .select('id, granularity, period_start, period_end, opening_agents, new_agents, removed_agents, closing_agents, active_agents_30d, qualified_at_open, converted_in_period, stage_onboarded, stage_training, stage_qualified, centres_opening, centres_opened, centres_closed, provisional')
         .in('id', snapshotIds);
       if (snapshotsError) throw snapshotsError;
 
@@ -155,13 +169,30 @@ export function useAgentOpsReportWindow(granularity: AgentOpsGranularity) {
       const snapshot = rows.find((row) => row.id === report.snapshot_id);
       if (!snapshot) throw new Error('The Agent Operations snapshot is unavailable.');
 
+      const [{ data: noteRows }, { data: actionRows }] = await Promise.all([
+        supabase
+          .from('agent_ops_report_notes')
+          .select('id, zone, reason_note')
+          .eq('report_id', report.id)
+          .eq('zone', 'pipeline'),
+        supabase
+          .from('agent_ops_report_actions')
+          .select('id, zone, item_text, owner_label, due_date, outcome')
+          .eq('report_id', report.id)
+          .eq('zone', 'pipeline')
+          .order('created_at', { ascending: true }),
+      ]);
+
       return {
         report,
         snapshot,
         priorSnapshot: rows.find((row) => row.id === report.prior_snapshot_id) ?? null,
         periodLabel: periodLabel(report),
+        pipelineNote: ((noteRows ?? []) as AgentOpsReportNote[])[0] ?? null,
+        pipelineActions: (actionRows ?? []) as AgentOpsReportAction[],
       };
     },
+
     staleTime: 60_000,
     refetchOnWindowFocus: true,
   });
