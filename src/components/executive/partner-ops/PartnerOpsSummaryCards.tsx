@@ -114,6 +114,19 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
   const hasExpiring = expiringCount > 0;
   const soonest = derived?.soonestExpiry ?? null;
 
+  const { data: proxyAgentCount } = useQuery({
+    queryKey: ['partner-ops-active-proxy-agents-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('proxy_agent_identity')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'approved');
+      if (error) throw error;
+      return count || 0;
+    },
+    staleTime: 60_000,
+  });
+
   return (
     <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
       <SummaryCard
