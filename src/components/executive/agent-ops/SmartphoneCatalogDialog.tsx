@@ -348,6 +348,12 @@ export function SmartphoneCatalogDialog() {
     });
   }, [entries, search, fromDate, toDate]);
 
+  /** Render-safe: never throws. Returns 0 for empty/invalid input. */
+  const previewAmount = (raw: string): number => {
+    const n = parseInt((raw || '').trim(), 10);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+
   const parseAmount = (raw: string): number | null => {
     const t = raw.trim();
     if (!t) return null;
@@ -355,6 +361,7 @@ export function SmartphoneCatalogDialog() {
     if (n < 1000) throw new Error('Enter a default amount of at least UGX 1,000');
     return n;
   };
+
 
   const brands = useMemo(
     () => Array.from(new Set(entries.map((e) => e.brand.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
@@ -609,13 +616,14 @@ export function SmartphoneCatalogDialog() {
                       />
                     </div>
                   </div>
-                  {Number(parseAmount(row.amount) || 0) > 0 && (
+                  {previewAmount(row.amount) > 0 && (
                     <div className="rounded-md border border-border bg-background/60 p-2">
                       <p className="text-[11px] font-medium text-muted-foreground mb-1.5">
                         Receivables preview — internal, not shown to agents
                       </p>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                        {smartphoneScheduleGrid(Number(parseAmount(row.amount) || 0)).map((s) => (
+                        {smartphoneScheduleGrid(previewAmount(row.amount)).map((s) => (
+
                           <div key={s.months} className="rounded-md bg-muted/60 p-1.5 text-center">
                             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
                               {s.months} months
