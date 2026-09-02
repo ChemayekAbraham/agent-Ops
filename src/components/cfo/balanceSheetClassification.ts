@@ -378,3 +378,71 @@ export const visibleFlaggedLines = (g: BsGroup) =>
 export const hasFlagged = (g: BsGroup) =>
   visibleFlaggedLines(g).length > 0 && Math.round(g.value) !== 0;
 
+
+/* ── Legacy balances presented under Intangible Assets ─────────────────── */
+
+export const INTANGIBLE_ASSETS_LABEL = 'Intangible Assets';
+export const INTANGIBLE_ASSETS_TOTAL_LABEL = 'Total Intangible Assets';
+
+/**
+ * The two legacy accounts that used to print inside Shareholders' Equity and
+ * are now reported as component lines of Intangible Assets. Classification /
+ * presentation only: the ledger accounts, account types, balances, journal
+ * entries, mappings and posting logic are unchanged.
+ */
+export const LEGACY_INTANGIBLE_ACCOUNTS: { code: string; label: string }[] = [
+  { code: 'E3', label: 'Legacy Opening Balance Adjustments' },
+  { code: 'E4', label: 'Legacy One-Sided Posting Counterparts' },
+];
+
+/** Splits the equity lines into the two reclassified accounts and the rest. */
+export function splitLegacyEquityLines(lines: PositionLine[]) {
+  const codes = new Set(LEGACY_INTANGIBLE_ACCOUNTS.map(a => a.code));
+  const isLegacy = (l: PositionLine) => {
+    const code = accountCodeOf(l);
+    return code !== null && codes.has(code);
+  };
+  return { legacy: lines.filter(isLegacy), equity: lines.filter(l => !isLegacy(l)) };
+}
+
+/**
+ * Asset-side presentation of the two legacy balances. A credit (equity) balance
+ * shown on the asset side prints with the opposite sign, which is what keeps the
+ * statement reconciled: total assets and total equity both move by the same
+ * amount, so the balance-check difference is untouched.
+ *
+ * Both lines always render, even at zero, so a nil balance reads as nil rather
+ * than as an omission.
+ */
+export function legacyIntangibleComponents(legacy: PositionLine[]): PositionLine[] {
+  return LEGACY_INTANGIBLE_ACCOUNTS.map(({ code, label }) => {
+    const line = legacy.find(l => accountCodeOf(l) === code);
+    return { label, value: line ? -line.value : 0, source: line?.source };
+  });
+}
+
+/** Net amount the reclassification adds to the asset side (and to equity). */
+export const legacyIntangibleTotal = (legacy: PositionLine[]) =>
+  legacyIntangibleComponents(legacy).reduce((t, c) => t + c.value, 0);
+
+/**
+ * Renders Intangible Assets as a heading with the two legacy component lines
+ * beneath it, followed by a Total Intangible Assets subtotal that includes those
+ * balances. Every other asset category is returned untouched, and each balance
+ * still appears exactly once.
+ */
+export function expandIntangibleAssets(
+  groups: BsGroup[],
+  legacy: PositionLine[],
+): MarketplaceRow[] {
+  const components = legacyIntangibleComponents(legacy);
+  const added = components.reduce((t, c) => t + c.value, 0);
+  return groups.flatMap((g): MarketplaceRow[] => {
+    if (g.label !== INTANGIBLE_ASSETS_LABEL) return [g];
+    const value = g.value + added;
+    return [
+      { ...g, value, lines: [...g.lines, ...legacy], components, heading: true, depth: 0 },
+      { label: INTANGIBLE_ASSETS_TOTAL_LABEL, value, lines: [], subtotal: true, depth: 0 },
+    ];
+  });
+}
