@@ -1074,15 +1074,15 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
               </div>
 
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-lg bg-muted/40 py-2.5">
+                <div className="rounded-lg bg-muted/40 py-2">
                   <p className="text-[10px] text-muted-foreground">Rent out</p>
                   <p className="font-bold text-sm text-orange-600">{fmt(reviewTarget.rent_amount)}</p>
                 </div>
-                <div className="rounded-lg bg-muted/40 py-2.5">
+                <div className="rounded-lg bg-muted/40 py-2">
                   <p className="text-[10px] text-muted-foreground">Fees</p>
                   <p className="font-bold text-sm text-emerald-600">{fmt(reviewTarget.access_fee + reviewTarget.request_fee)}</p>
                 </div>
-                <div className="rounded-lg bg-muted/40 py-2.5">
+                <div className="rounded-lg bg-muted/40 py-2">
                   <p className="text-[10px] text-muted-foreground">Repayment</p>
                   <p className="font-bold text-sm text-primary">{fmt(reviewTarget.total_repayment)}</p>
                 </div>
@@ -1096,7 +1096,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
 
               <div className="flex flex-col sm:flex-row gap-2">
                 <Button
-                  className="flex-1 h-11 rounded-xl font-semibold"
+                  className="flex-1 h-10 rounded-xl font-semibold"
                   onClick={() => {
                     singleDisburse.mutate(reviewTarget.id);
                     setReviewTarget(null);
@@ -1113,7 +1113,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                 </Button>
                 <Button
                   variant="outline"
-                  className="flex-1 h-11 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
+                  className="flex-1 h-10 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
                   onClick={() => {
                     setRejectTarget(reviewTarget);
                     setRejectReason('');
