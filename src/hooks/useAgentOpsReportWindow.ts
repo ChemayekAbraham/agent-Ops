@@ -79,6 +79,7 @@ export interface AgentOpsStaffOption {
 
 export interface AgentOpsReportWindowData {
   ready: true;
+  periodStart: string;
   report: AgentOpsReport;
   snapshot: AgentOpsSnapshot;
   priorSnapshot: AgentOpsSnapshot | null;
