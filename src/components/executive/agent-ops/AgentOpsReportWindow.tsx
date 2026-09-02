@@ -22,7 +22,9 @@ import {
   type AgentOpsZone,
   useAgentOpsReportWindow,
 } from '@/hooks/useAgentOpsReportWindow';
+import { useAgentOpsReportPermissions } from '@/components/executive/agent-ops/agentOpsReportPermissions';
 import { cn } from '@/lib/utils';
+
 
 
 const PERIODS: { value: AgentOpsGranularity; label: string }[] = [
