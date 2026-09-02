@@ -35,7 +35,11 @@ export type TenantOpsShellOnlyView = 'home' | 'phone-duplicates' | 'calling-hub'
 export type TenantOpsViewKey = TenantOpsShellOnlyView | TenantOpsClassicView;
 
 /** Actions that are not views — they open a sheet or leave the dashboard. */
-export type TenantOpsActionKey = 'action.word-report' | 'action.locations' | 'action.welile-homes';
+export type TenantOpsActionKey =
+  | 'action.word-report'
+  | 'action.locations'
+  | 'action.welile-homes'
+  | 'action.portfolio-performance';
 
 export interface TenantOpsNavChild {
   key: TenantOpsViewKey | TenantOpsActionKey;
@@ -113,6 +117,7 @@ export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
     keywords: ['reports', 'exports'],
     children: [
       { key: 'reports-hub', label: 'Reports & Exports', icon: Download, keywords: ['extract', 'csv', 'pdf', 'date range'] },
+      { key: 'action.portfolio-performance', label: 'Portfolio Performance', icon: TrendingUp, keywords: ['portfolio', 'performance', 'collections', 'requests', 'report'] },
       { key: 'action.word-report', label: 'Word Report', icon: FileText, keywords: ['docx', 'operations report'] },
       { key: 'action.welile-homes', label: 'Welile Homes', icon: Home, keywords: ['agent managed', 'subscriptions'] },
       { key: 'action.locations', label: 'Locations', icon: MapPin, keywords: ['location management', 'districts'] },
