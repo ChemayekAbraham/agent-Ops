@@ -1319,9 +1319,14 @@ export function AgentOpsReportWindow() {
               <p className="mt-3 text-3xl font-semibold tabular-nums text-foreground">{snapshot.closing_agents}</p>
               <p className="mt-2 text-sm text-muted-foreground">
                 Active share {oneDecimalPercent(snapshot.active_agents_30d, snapshot.closing_agents)}
-                <span className="mx-1.5" aria-hidden="true">|</span>
-                {targetLabel.toLowerCase()}
+                {hasTarget && (
+                  <>
+                    <span className="mx-1.5" aria-hidden="true">|</span>
+                    {targetLabel.toLowerCase()}
+                  </>
+                )}
               </p>
+
             </CardContent>
           </Card>
 
