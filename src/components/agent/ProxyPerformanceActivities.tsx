@@ -7,6 +7,7 @@ import { formatDynamic } from '@/lib/currencyFormat';
 import {
   Banknote,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   ClipboardCheck,
   FileCheck2,
@@ -14,13 +15,17 @@ import {
   PiggyBank,
   Wallet,
 } from 'lucide-react';
-import type { ProxyPvReport } from '@/hooks/useProxyAgentPerformance';
+import type { ProxyPvActivityKind, ProxyPvReport } from '@/hooks/useProxyAgentPerformance';
+import { ProxyActivityDrilldownDialog } from '@/components/agent/ProxyActivityDrilldownDialog';
 
 const money = (v: unknown) => formatDynamic(v);
 
 interface ActivityEntry {
   key: string;
   day: string;
+  /** ISO date of the posting, for the drilldown query. */
+  rawDay: string;
+  kind: ProxyPvActivityKind;
   icon: typeof FileCheck2;
   iconClass: string;
   title: string;
@@ -39,6 +44,7 @@ interface ActivityEntry {
  */
 export function ProxyPerformanceActivities({ report }: { report: ProxyPvReport }) {
   const [showAll, setShowAll] = useState(false);
+  const [drill, setDrill] = useState<{ day: string; kind: ProxyPvActivityKind } | null>(null);
   const { rates } = report;
 
   const entries = useMemo<ActivityEntry[]>(() => {
@@ -51,6 +57,8 @@ export function ProxyPerformanceActivities({ report }: { report: ProxyPvReport }
         out.push({
           key: `${d.day}-c`,
           day: dayLabel,
+          rawDay: d.day,
+          kind: 'commitments',
           icon: FileCheck2,
           iconClass: 'bg-success/10 text-success',
           title: `${d.commitments} verified commitment${d.commitments === 1 ? '' : 's'}`,
@@ -63,6 +71,8 @@ export function ProxyPerformanceActivities({ report }: { report: ProxyPvReport }
         out.push({
           key: `${d.day}-i`,
           day: dayLabel,
+          rawDay: d.day,
+          kind: 'investment',
           icon: PiggyBank,
           iconClass: 'bg-primary/10 text-primary',
           title: `New partner investment — ${money(d.new_investment)}`,
@@ -75,6 +85,8 @@ export function ProxyPerformanceActivities({ report }: { report: ProxyPvReport }
         out.push({
           key: `${d.day}-t`,
           day: dayLabel,
+          rawDay: d.day,
+          kind: 'topups',
           icon: Wallet,
           iconClass: 'bg-warning/10 text-warning',
           title: `Partner top-up — ${money(d.topups)}`,
@@ -171,7 +183,12 @@ export function ProxyPerformanceActivities({ report }: { report: ProxyPvReport }
             </div>
           ) : (
             visible.map((e) => (
-              <div key={e.key} className="flex items-start gap-3 border-b border-border/50 py-2.5 last:border-0">
+              <button
+                key={e.key}
+                type="button"
+                onClick={() => setDrill({ day: e.rawDay, kind: e.kind })}
+                className="flex w-full items-start gap-3 border-b border-border/50 py-2.5 text-left last:border-0 hover:bg-muted/40"
+              >
                 <span className={cn('mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', e.iconClass)}>
                   <e.icon className="h-3.5 w-3.5" />
                 </span>
@@ -184,11 +201,12 @@ export function ProxyPerformanceActivities({ report }: { report: ProxyPvReport }
                   </div>
                   <p className="text-[10px] text-muted-foreground leading-snug">{e.detail}</p>
                   <p className="text-[10px] text-muted-foreground/80 italic leading-snug">{e.impact}</p>
-                  <p className="pt-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                    {e.day}
+                  <p className="flex items-center gap-1 pt-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    {e.day} · view transactions
+                    <ChevronRight className="h-3 w-3" />
                   </p>
                 </div>
-              </div>
+              </button>
             ))
           )}
 
@@ -200,6 +218,14 @@ export function ProxyPerformanceActivities({ report }: { report: ProxyPvReport }
           )}
         </CardContent>
       </Card>
+
+      <ProxyActivityDrilldownDialog
+        open={!!drill}
+        onOpenChange={(o) => { if (!o) setDrill(null); }}
+        agentId={report.agent_id}
+        day={drill?.day ?? null}
+        kind={drill?.kind ?? null}
+      />
     </div>
   );
 }
