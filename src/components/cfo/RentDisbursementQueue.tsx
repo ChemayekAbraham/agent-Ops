@@ -910,11 +910,12 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                         </td>
                       </tr>
                     )}
-                    {visibleItems.map(item => {
+                    {visibleItems.map((item, index) => {
                       const isSel = selected.has(item.id);
                       const reserved = item.partner_reserved_stage;
                       const locationLabel = [item.request_city, item.request_country].filter(Boolean).join(', ');
                       const isNew = Date.now() - new Date(item.created_at).getTime() < 24 * 60 * 60 * 1000;
+                      const rowNumber = index + 1;
                       return (
                         <Fragment key={item.id}>
                           <tr
@@ -926,8 +927,11 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                                 : 'hover:bg-muted/40'
                             )}
                           >
-                            
-
+                            <td className="w-10 px-2 py-2.5 align-middle text-center">
+                              <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-muted/60 text-[10px] font-medium text-muted-foreground">
+                                {rowNumber}
+                              </span>
+                            </td>
                             <td className="px-2 py-2.5 align-middle">
                               <div className="flex items-center gap-1.5 min-w-0">
                                 <span className={cn('truncate', isSel ? 'font-bold' : 'font-semibold')}>{item.tenant_name}</span>
