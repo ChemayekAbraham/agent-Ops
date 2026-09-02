@@ -47,7 +47,7 @@ export function PayablesCardDrilldown() {
           <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">
             Total Payables — authoritative
           </p>
-          <p className="mt-1.5 text-[26px] leading-none sm:text-3xl sm:leading-none font-bold tabular-nums tracking-tight text-foreground break-words">
+          <p className="mt-1.5 text-[22px] leading-none sm:text-[26px] sm:leading-none font-bold tabular-nums tracking-tight text-foreground break-words">
             {money(t?.total)}
           </p>
           {failed ? (
