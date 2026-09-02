@@ -39,11 +39,10 @@ import type { TenantOpsViewKey } from './tenantOpsNav';
 /**
  * Landing page for Tenant Ops → Classic.
  *
- * Read-only. Live counts come from the same `ops_tenant_ops_tool_counts` RPC the
- * Classic cards already use, the 7-day trend reuses the shared
- * `RepaymentTrendChart`, and the reliability mix reuses
- * `get_tenant_repayment_reliability`. Every number on this page is a link into an
- * existing Classic view — no new logic, no new backend.
+ * Read-only. Period-scoped summary values come from the range helper while the
+ * 7-day trend reuses the shared `RepaymentTrendChart`, and the reliability mix
+ * reuses `get_tenant_repayment_reliability`. Every number on this page is a link
+ * into an existing Classic view — no client-side business rules are re-derived.
  */
 export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsViewKey) => void }) {
   const navigate = useNavigate();
@@ -207,20 +206,20 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
         />
       </div>
 
-      {/* Today's collection hero + KPI strip */}
-      <div className="grid gap-3 lg:grid-cols-3">
-        <Card className="lg:col-span-1 border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <div className="rounded-xl bg-primary/15 p-2">
-                <Wallet className="h-4 w-4 text-primary" />
-              </div>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+       {/* Selected-period collection hero + KPI strip */}
+       <div className="grid gap-3 lg:grid-cols-3">
+         <Card className="lg:col-span-1 border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card shadow-sm">
+           <CardContent className="p-4">
+             <div className="flex items-center gap-2">
+               <div className="rounded-xl bg-primary/15 p-2">
+                 <Wallet className="h-4 w-4 text-primary" />
+               </div>
+               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                  Collected {phrase}
                </p>
-            </div>
-            <p className="mt-3 text-2xl font-bold tabular-nums leading-none">
-                 {loadingHomeRange ? '—' : formatUGX(collected)}
+             </div>
+             <p className="mt-3 text-2xl font-bold tabular-nums leading-none">
+               {loadingHomeRange ? '—' : formatUGX(collected)}
              </p>
              <p className="mt-1 text-xs text-muted-foreground">
                of {formatUGX(expected)} expected {phrase}
@@ -462,14 +461,14 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
         </CardContent>
       </Card>
 
-      {/* Quick actions */}
-      <div className="space-y-2">
+       {/* Quick actions */}
+       <div className="space-y-2">
          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Quick actions · {phrase}</p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <HubEntryCard
-            title="Review Requests"
-            description="Vet, approve or return incoming rent requests"
-            icon={ClipboardList}
+         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+           <HubEntryCard
+             title="Review Requests"
+             description="Vet, approve or return incoming rent requests"
+             icon={ClipboardList}
              stats={[{ label: 'in review', value: homeRange?.review_requests ?? 0 }]}
              onClick={() => onNavigate('pipeline')}
            />
@@ -486,7 +485,7 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
              icon={CalendarX2}
              stats={[{ label: 'tenants', value: homeRange?.missed_days_tenants ?? 0 }]}
              onClick={() => onNavigate('missed')}
-          />
+           />
           <HubEntryCard
             title="Reports & Exports"
             description="Extracts, statements and date-ranged reports"
