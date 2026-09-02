@@ -54,11 +54,15 @@ Deno.serve(async (req) => {
     if (slotError) throw slotError;
     const link = Array.isArray(slot) ? slot[0] : slot;
     if (!link) return json({ error: 'exhausted' }, 403);
+    // `consume_requisition_link_slot` returns the id as `link_id`; keep the
+    // legacy `id` fallback so the requisition is always tied to its link.
+    const linkId = (link.link_id ?? link.id) as string | undefined;
+    if (!linkId) return json({ error: 'invalid_token' }, 400);
 
     const { data: inserted, error: insertError } = await admin
       .from('employee_requisitions')
       .insert({
-        link_id: link.id,
+        link_id: linkId,
         employee_name: employeeName,
         employee_id: typeof body?.employee_id === 'string' ? body.employee_id.trim().slice(0, 100) || null : null,
         department: typeof body?.department === 'string' ? body.department.trim().slice(0, 160) || link.department : link.department,
@@ -87,7 +91,7 @@ Deno.serve(async (req) => {
       table_name: 'employee_requisitions',
       record_id: inserted.id,
       reason: `Manual requisition submitted for ${employeeName} (${fmtUGX(amount)})`,
-      metadata: { link_id: link.id, workflow_stage: 'coo', employee_email: employeeEmail },
+      metadata: { link_id: linkId, workflow_stage: 'coo', employee_email: employeeEmail },
     });
     await admin.from('system_events').insert({
       event_type: 'requisition_created',
