@@ -655,7 +655,7 @@ export default function Auth() {
                       />
                       <span className="text-sm text-muted-foreground">Remember me</span>
                     </label>
-                    <button type="button" onClick={() => setIsForgotPassword(true)} className="text-sm font-semibold text-primary hover:underline py-1">
+                    <button type="button" onClick={() => { if (phone) setResetPhone(phone); setIsForgotPassword(true); }} className="text-sm font-semibold text-primary hover:underline py-1">
                       Forgot password?
                     </button>
                   </div>
@@ -664,7 +664,7 @@ export default function Auth() {
                   {failedAttempts >= 1 && (
                     <button
                       type="button"
-                      onClick={() => setIsForgotPassword(true)}
+                      onClick={() => { if (phone) setResetPhone(phone); setIsForgotPassword(true); }}
                       className="w-full flex items-center gap-2 p-3 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm font-medium hover:bg-primary/15 transition-colors"
                     >
                       <Key className="h-4 w-4 shrink-0" />

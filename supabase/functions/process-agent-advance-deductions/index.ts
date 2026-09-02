@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
+import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
 
 const fmtUGX = (n: number) => `UGX ${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 
@@ -77,11 +78,24 @@ Deno.serve(async (req) => {
       const info = phoneMap.get(agentId);
       if (!info?.phone) return;
       try {
-        await attemptYoolaPrimary(info.phone, message, {
+        const yoolaOk = await attemptYoolaPrimary(info.phone, message, {
           source,
           recipientUserId: agentId,
           recipientName: info.name ?? undefined,
         });
+        // attemptYoolaPrimary's own contract: on `false` (rejection, e.g. a
+        // provider-side rate limit under this cron's serial fan-out) the
+        // caller must fall through to another provider — this loop used to
+        // just swallow that failure, silently dropping the notification.
+        if (!yoolaOk) {
+          await sendSMS(info.phone, message, {
+            admin: supabase,
+            source,
+            recipient_user_id: agentId,
+            recipient_name: info.name ?? undefined,
+            idempotencyKey: `${source}-${agentId}-${todayEAT}`,
+          });
+        }
       } catch (_e) { /* SMS failure never blocks deductions */ }
     };
 
