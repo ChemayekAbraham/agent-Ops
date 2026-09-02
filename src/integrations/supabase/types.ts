@@ -44380,6 +44380,7 @@ export type Database = {
           landlord_name: string
           last_paid_amount: number
           last_paid_at: string
+          latest_status: string
           latitude: number
           longitude: number
           monthly_rent: number
