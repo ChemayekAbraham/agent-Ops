@@ -33,10 +33,19 @@ const PAGE_SIZE = 25;
 
 const SORTS: { key: ProxyPvSort; label: string }[] = [
   { key: 'total_pv', label: 'Total PV' },
+  { key: 'performance_pct', label: 'Pace %' },
   { key: 'commitments', label: 'Commitments' },
   { key: 'new_investment', label: 'New investment' },
   { key: 'topups', label: 'Top-ups' },
+  { key: 'name', label: 'Name' },
 ];
+
+const BAND_RANGE: Record<keyof typeof PROXY_PV_BAND_META, string> = {
+  on_track: '100%+',
+  near: '80–99%',
+  lagging: '50–79%',
+  critical: 'Below 50%',
+};
 
 function monthOptions(count = 6): string[] {
   const out: string[] = [];
@@ -50,11 +59,12 @@ function monthLabel(iso: string) {
 }
 
 function BandChip({ pct }: { pct: number }) {
-  const meta = PROXY_PV_BAND_META[proxyPvBand(pct)];
+  const band = proxyPvBand(pct);
+  const meta = PROXY_PV_BAND_META[band];
   return (
-    <Badge variant="outline" className={cn('gap-1 text-[10px] font-bold', meta.className)}>
-      <span className={cn('h-1.5 w-1.5 rounded-full', meta.dot)} />
-      {pct}%
+    <Badge variant="outline" className={cn('gap-1 whitespace-nowrap text-[10px] font-bold', meta.className)}>
+      <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', meta.dot)} />
+      {meta.label} · {pct}%
     </Badge>
   );
 }
