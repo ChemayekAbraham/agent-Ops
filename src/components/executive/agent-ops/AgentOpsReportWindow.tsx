@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, Building2, ChevronDown, ChevronRight, FileBarChart, MapPin, Minus, Plus, RefreshCw, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -526,7 +526,9 @@ function useZoneCCoverage() {
       }
 
       for (const bucket of buckets.values()) {
-        bucket.areas.sort(zoneCSortComparator as unknown as (a: ZoneCArea, b: ZoneCArea) => number);
+        bucket.areas.sort((a, b) =>
+          b.netChange !== a.netChange ? b.netChange - a.netChange : b.agentCount - a.agentCount,
+        );
       }
 
       const unassigned = buckets.get('unassigned') ?? null;
@@ -659,8 +661,8 @@ function ZoneC() {
                       </tr>
                     )}
                     {visible.map((district) => (
-                      <>
-                        <tr key={district.key} className="border-t border-border">
+                      <Fragment key={district.key}>
+                        <tr className="border-t border-border">
                           <td className="px-3 py-2">
                             <button
                               type="button"
@@ -683,13 +685,13 @@ function ZoneC() {
                           </td>
                         </tr>
                         {expanded[district.key] && (
-                          <tr key={`${district.key}-areas`} className="border-t border-border bg-muted/30">
+                          <tr className="border-t border-border bg-muted/30">
                             <td colSpan={4} className="p-0">
                               <ZoneCAreaTable areas={district.areas} />
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     ))}
                     {unassignedVisible && (
                       <tr className="border-t border-dashed border-amber-500/50 bg-amber-500/5">
