@@ -10,15 +10,26 @@ import {
   ChevronRight,
   ChevronUp,
   ClipboardCheck,
+  Clock3,
   FileCheck2,
   ListChecks,
   PiggyBank,
   Wallet,
 } from 'lucide-react';
 import type { ProxyPvActivityKind, ProxyPvReport } from '@/hooks/useProxyAgentPerformance';
+import { useProxyPvPendingFeed } from '@/hooks/useProxyAgentPerformance';
 import { ProxyActivityDrilldownDialog } from '@/components/agent/ProxyActivityDrilldownDialog';
 
 const money = (v: unknown) => formatDynamic(v);
+
+type StatusFilter = 'all' | 'verified' | 'pending';
+type KindFilter = 'all' | ProxyPvActivityKind;
+
+const KIND_META: Record<ProxyPvActivityKind, { label: string; icon: typeof FileCheck2; iconClass: string }> = {
+  commitments: { label: 'Commitments', icon: FileCheck2, iconClass: 'bg-success/10 text-success' },
+  investment: { label: 'Investments', icon: PiggyBank, iconClass: 'bg-primary/10 text-primary' },
+  topups: { label: 'Top-ups', icon: Wallet, iconClass: 'bg-warning/10 text-warning' },
+};
 
 interface ActivityEntry {
   key: string;
@@ -34,6 +45,8 @@ interface ActivityEntry {
   /** How it moved the score. */
   impact: string;
   pv: number;
+  /** Scored (verified/paid) vs awaiting verification. */
+  status: 'verified' | 'pending';
 }
 
 /**
@@ -45,9 +58,12 @@ interface ActivityEntry {
 export function ProxyPerformanceActivities({ report }: { report: ProxyPvReport }) {
   const [showAll, setShowAll] = useState(false);
   const [drill, setDrill] = useState<{ day: string; kind: ProxyPvActivityKind } | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const { rates } = report;
+  const pendingFeed = useProxyPvPendingFeed(report.agent_id, report.period_month);
 
-  const entries = useMemo<ActivityEntry[]>(() => {
+  const verifiedEntries = useMemo<ActivityEntry[]>(() => {
     const out: ActivityEntry[] = [];
     // daily arrives ascending; show newest first.
     for (const d of [...report.daily].reverse()) {
@@ -65,6 +81,7 @@ export function ProxyPerformanceActivities({ report }: { report: ProxyPvReport }
           detail: `A promissory note you recorded was verified and activated by Partner Ops.`,
           impact: `Each verified commitment adds ${money(rates.commitment_pv)} PV.`,
           pv: d.commitment_pv,
+          status: 'verified',
         });
       }
       if (d.new_investment > 0) {
@@ -79,6 +96,7 @@ export function ProxyPerformanceActivities({ report }: { report: ProxyPvReport }
           detail: `A new partner you brought in funded a portfolio, and the commission was paid.`,
           impact: `New investments add ${rates.investment_pct}% of the amount as PV.`,
           pv: d.investment_pv,
+          status: 'verified',
         });
       }
       if (d.topups > 0) {
@@ -93,12 +111,42 @@ export function ProxyPerformanceActivities({ report }: { report: ProxyPvReport }
           detail: `An existing partner added more money to their portfolio.`,
           impact: `Top-ups add ${rates.topup_pct}% of the amount as PV.`,
           pv: d.topup_pv,
+          status: 'verified',
         });
       }
     }
     return out;
   }, [report.daily, rates]);
 
+  const pendingEntries = useMemo<ActivityEntry[]>(() => {
+    const items = pendingFeed.data?.items ?? [];
+    return items.map((it, idx) => {
+      const date = new Date(`${it.day}T00:00:00`);
+      const meta = KIND_META[it.kind];
+      return {
+        key: `pending-${it.reference}-${idx}`,
+        day: date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', weekday: 'short' }),
+        rawDay: it.day,
+        kind: it.kind,
+        icon: meta.icon,
+        iconClass: meta.iconClass,
+        title: it.kind === 'commitments' ? `Commitment — ${it.label}` : `${it.label} — ${money(it.amount)}`,
+        detail: `${it.gate}. Current status: ${it.status.replace(/_/g, ' ')}.`,
+        impact: `Worth ${money(it.potential_pv)} PV once cleared.`,
+        pv: it.potential_pv,
+        status: 'pending' as const,
+      };
+    });
+  }, [pendingFeed.data]);
+
+  const entries = useMemo<ActivityEntry[]>(() => {
+    const all = [...verifiedEntries, ...pendingEntries];
+    return all.filter(
+      (e) => (statusFilter === 'all' || e.status === statusFilter) && (kindFilter === 'all' || e.kind === kindFilter),
+    );
+  }, [verifiedEntries, pendingEntries, statusFilter, kindFilter]);
+
+  const pendingCount = pendingEntries.length;
   const visible = showAll ? entries : entries.slice(0, 8);
 
   return (
@@ -163,52 +211,133 @@ export function ProxyPerformanceActivities({ report }: { report: ProxyPvReport }
           <div className="flex items-center gap-2 pb-1">
             <Banknote className="h-4 w-4 text-primary" />
             <p className="text-xs font-black">Your activities this month</p>
-            {entries.length > 0 && (
-              <Badge variant="outline" className="ml-auto text-[10px]">
-                {entries.length} action{entries.length === 1 ? '' : 's'}
-              </Badge>
-            )}
+            <Badge variant="outline" className="ml-auto shrink-0 text-[10px]">
+              {entries.length} action{entries.length === 1 ? '' : 's'}
+            </Badge>
           </div>
 
-          {entries.length === 0 ? (
-            <div className="flex items-start gap-3 rounded-xl border border-dashed border-border p-3">
-              <ClipboardCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-              <div className="space-y-0.5">
-                <p className="text-[11px] font-bold">No scored activities yet</p>
-                <p className="text-[10px] text-muted-foreground">
-                  Record a promissory note or bring in a partner investment — once verified or paid, it shows up here
-                  with the PV it earned.
-                </p>
-              </div>
+          {/* Filters — fixed two rows so the list below never shifts */}
+          <div className="space-y-1.5 pb-2">
+            <div className="flex h-7 items-center gap-1.5 overflow-x-auto no-scrollbar">
+              {([
+                { id: 'all' as StatusFilter, label: 'All', count: verifiedEntries.length + pendingCount },
+                { id: 'verified' as StatusFilter, label: 'Verified', count: verifiedEntries.length },
+                { id: 'pending' as StatusFilter, label: 'Awaiting verification', count: pendingCount },
+              ]).map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => { setStatusFilter(f.id); setShowAll(false); }}
+                  className={cn(
+                    'shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-bold transition-colors',
+                    statusFilter === f.id
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border/70 text-muted-foreground hover:bg-muted/60',
+                  )}
+                >
+                  {f.label} ({f.count})
+                </button>
+              ))}
             </div>
-          ) : (
-            visible.map((e) => (
-              <button
-                key={e.key}
-                type="button"
-                onClick={() => setDrill({ day: e.rawDay, kind: e.kind })}
-                className="flex w-full items-start gap-3 border-b border-border/50 py-2.5 text-left last:border-0 hover:bg-muted/40"
-              >
-                <span className={cn('mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', e.iconClass)}>
-                  <e.icon className="h-3.5 w-3.5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-[11px] font-bold leading-snug">{e.title}</p>
-                    <span className="shrink-0 text-[11px] font-black tabular-nums text-success">
-                      +{money(e.pv)} PV
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground leading-snug">{e.detail}</p>
-                  <p className="text-[10px] text-muted-foreground/80 italic leading-snug">{e.impact}</p>
-                  <p className="flex items-center gap-1 pt-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                    {e.day} · view transactions
-                    <ChevronRight className="h-3 w-3" />
+            <div className="flex h-7 items-center gap-1.5 overflow-x-auto no-scrollbar">
+              {([
+                { id: 'all' as KindFilter, label: 'All types' },
+                { id: 'commitments' as KindFilter, label: KIND_META.commitments.label },
+                { id: 'investment' as KindFilter, label: KIND_META.investment.label },
+                { id: 'topups' as KindFilter, label: KIND_META.topups.label },
+              ]).map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => { setKindFilter(f.id); setShowAll(false); }}
+                  className={cn(
+                    'shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold transition-colors',
+                    kindFilter === f.id
+                      ? 'border-foreground/30 bg-muted text-foreground'
+                      : 'border-border/70 text-muted-foreground hover:bg-muted/60',
+                  )}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="min-h-[120px]">
+            {pendingFeed.isLoading && statusFilter !== 'verified' && entries.length === 0 ? (
+              <div className="space-y-2 py-2">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-10 animate-pulse rounded-lg bg-muted/60" />
+                ))}
+              </div>
+            ) : entries.length === 0 ? (
+              <div className="flex items-start gap-3 rounded-xl border border-dashed border-border p-3">
+                <ClipboardCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="space-y-0.5">
+                  <p className="text-[11px] font-bold">
+                    {statusFilter === 'pending'
+                      ? 'Nothing awaiting verification'
+                      : statusFilter === 'verified'
+                        ? 'No verified activities yet'
+                        : 'No activities match these filters'}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {statusFilter === 'pending'
+                      ? 'Everything you have recorded this month has already been verified or paid.'
+                      : 'Record a promissory note or bring in a partner investment — once verified or paid, it shows up here with the PV it earned.'}
                   </p>
                 </div>
-              </button>
-            ))
-          )}
+              </div>
+            ) : (
+              visible.map((e) => {
+                const isPending = e.status === 'pending';
+                return (
+                  <button
+                    key={e.key}
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => { if (!isPending) setDrill({ day: e.rawDay, kind: e.kind }); }}
+                    className={cn(
+                      'flex w-full items-start gap-3 border-b border-border/50 py-2.5 text-left last:border-0',
+                      isPending ? 'cursor-default' : 'hover:bg-muted/40',
+                    )}
+                  >
+                    <span className={cn('mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', e.iconClass)}>
+                      <e.icon className="h-3.5 w-3.5" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-[11px] font-bold leading-snug">{e.title}</p>
+                        <span
+                          className={cn(
+                            'shrink-0 text-[11px] font-black tabular-nums',
+                            isPending ? 'text-muted-foreground' : 'text-success',
+                          )}
+                        >
+                          {isPending ? money(e.pv) : `+${money(e.pv)}`} PV
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground leading-snug">{e.detail}</p>
+                      <p className="text-[10px] text-muted-foreground/80 italic leading-snug">{e.impact}</p>
+                      <p className="flex items-center gap-1 pt-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                        {isPending ? (
+                          <>
+                            <Clock3 className="h-3 w-3" />
+                            {e.day} · not counted yet
+                          </>
+                        ) : (
+                          <>
+                            {e.day} · view transactions
+                            <ChevronRight className="h-3 w-3" />
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
 
           {entries.length > 8 && (
             <Button variant="ghost" size="sm" className="mt-1 w-full gap-1" onClick={() => setShowAll((v) => !v)}>
