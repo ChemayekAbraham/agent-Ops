@@ -114,57 +114,62 @@ export function LandlordAgreementUploader({
   const submit = async () => {
     if (!user) return toast.error('Please sign in again before uploading.');
     if (!file) return toast.error('Upload the signed agreement file first.');
-    if (
+
+    // Upload-only is used from an agent resubmission. It intentionally does not
+    // ask the agent to recreate the contract metadata: the existing landlord
+    // and rent-request records remain the source of truth.
+    if (!uploadOnly && (
       !form.landlord_name.trim() || !form.landlord_phone.trim() || !form.property_address.trim()
       || !form.monthly_rent.trim() || !form.payment_day.trim() || !form.agreement_date
       || !form.start_date || !form.landlord_signature_name.trim() || !form.welile_signature_name.trim()
       || !form.witness_name.trim()
-    ) {
+    )) {
       return toast.error('Complete the agreement details marked in the contract before uploading.');
     }
 
+    const start = form.start_date || today();
     const end = form.end_date || (() => {
-      const date = new Date(`${form.start_date}T00:00:00`);
+      const date = new Date(`${start}T00:00:00`);
       date.setFullYear(date.getFullYear() + 1);
       date.setDate(date.getDate() - 1);
       return date.toISOString().slice(0, 10);
     })();
+    const details = {
+      landlord_name: form.landlord_name.trim() || landlordName.trim(),
+      landlord_phone: form.landlord_phone.trim() || landlordPhone.trim(),
+      nin: form.nin,
+      agreement_date: form.agreement_date || today(),
+      start_date: start,
+      end_date: end,
+      property_address: form.property_address.trim() || propertyAddress?.trim() || '',
+      house_number: form.house_number,
+      house_category: form.house_category,
+      monthly_rent: form.monthly_rent || (monthlyRent != null ? String(monthlyRent) : ''),
+      payment_day: form.payment_day || '1',
+      payout_mode: form.payout_mode,
+      bank_name: form.bank_name,
+      account_number: form.account_number,
+      mobile_money_name: form.mobile_money_name,
+      mobile_money_number: form.mobile_money_number,
+      water_meter_number: form.water_meter_number,
+      water_registered_name: form.water_registered_name,
+      electricity_meter_number: form.electricity_meter_number,
+      electricity_registered_name: form.electricity_registered_name,
+      landlord_signature_name: form.landlord_signature_name.trim() || landlordName.trim() || 'As named in the signed agreement',
+      landlord_signed_on: form.landlord_signed_on,
+      welile_signature_name: form.welile_signature_name.trim() || 'Welile Technologies Limited',
+      welile_signed_on: form.welile_signed_on,
+      witness_name: form.witness_name.trim() || 'As named in the signed agreement',
+      witness_signed_on: form.witness_signed_on,
+    };
+
+    if (!details.landlord_name || !details.landlord_phone || !details.property_address || !details.monthly_rent) {
+      return toast.error('The existing landlord record is missing required agreement details.');
+    }
 
     setSaving(true);
     try {
-      await submitLandlordAgreementFile({
-        landlordId,
-        file,
-        kind,
-        details: {
-          landlord_name: form.landlord_name,
-          landlord_phone: form.landlord_phone,
-          nin: form.nin,
-          agreement_date: form.agreement_date,
-          start_date: form.start_date,
-          end_date: end,
-          property_address: form.property_address,
-          house_number: form.house_number,
-          house_category: form.house_category,
-          monthly_rent: form.monthly_rent,
-          payment_day: form.payment_day,
-          payout_mode: form.payout_mode,
-          bank_name: form.bank_name,
-          account_number: form.account_number,
-          mobile_money_name: form.mobile_money_name,
-          mobile_money_number: form.mobile_money_number,
-          water_meter_number: form.water_meter_number,
-          water_registered_name: form.water_registered_name,
-          electricity_meter_number: form.electricity_meter_number,
-          electricity_registered_name: form.electricity_registered_name,
-          landlord_signature_name: form.landlord_signature_name,
-          landlord_signed_on: form.landlord_signed_on,
-          welile_signature_name: form.welile_signature_name,
-          welile_signed_on: form.welile_signed_on,
-          witness_name: form.witness_name,
-          witness_signed_on: form.witness_signed_on,
-        },
-      });
+      await submitLandlordAgreementFile({ landlordId, file, kind, details });
       toast.success(kind === 'original' ? 'Signed agreement uploaded' : 'Signed addendum uploaded');
       setFile(null);
       onSubmitted?.();

@@ -1995,7 +1995,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
               )}
 
               {/* Comment */}
-              <div>
+              <div className="space-y-1.5">
                 <label className="text-xs text-muted-foreground mb-1 block">
                   {stage === 'coo_approved' ? 'Notes' : 'Review Comment'}
                 </label>
@@ -2005,6 +2005,18 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                   onChange={e => setComment(e.target.value)}
                   rows={2}
                 />
+                {/* Fills the SAME review comment used by the existing
+                    return-for-correction action — no new workflow. */}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 text-[11px]"
+                  onClick={() => setComment('Signed landlord agreement is not attached. Please attach the landlord\'s signed agreement to this landlord record, then resubmit this request.')}
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Use "signed agreement missing" reason
+                </Button>
               </div>
 
               <div className="flex gap-2 pt-2">

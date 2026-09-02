@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { LandlordSearchSelect, type LandlordOption } from '@/components/agent/LandlordSearchSelect';
 import PersonNameFields from '@/components/shared/PersonNameFields';
-import LandlordAgreementUploader from '@/components/landlord/agreement/LandlordAgreementUploader';
+import { LandlordAgreementUploader } from '@/components/landlord/agreement/LandlordAgreementUploader';
 import { joinPersonName, splitPersonName, type PersonNameParts } from '@/lib/authValidation';
 import { toast, toast as sonnerToast } from 'sonner';
 import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
