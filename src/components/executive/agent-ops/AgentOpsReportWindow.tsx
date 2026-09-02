@@ -662,10 +662,10 @@ function buildSubmitGateChecklist(data: AgentOpsReportWindowData): { label: stri
   ];
 }
 
-function ReportNarratives({ data, granularity }: { data: AgentOpsReportWindowData; granularity: AgentOpsGranularity }) {
+function ReportNarratives({ data, granularity, canEdit }: { data: AgentOpsReportWindowData; granularity: AgentOpsGranularity; canEdit: boolean }) {
   const queryClient = useQueryClient();
   const checklist = buildSubmitGateChecklist(data);
-  const readOnly = data.report.status.toLowerCase() === 'submitted';
+  const submitted = data.report.status.toLowerCase() === 'submitted';
   const submit = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.rpc('agent_ops_submit_report', { p_report_id: data.report.id });
@@ -682,35 +682,41 @@ function ReportNarratives({ data, granularity }: { data: AgentOpsReportWindowDat
     <section aria-labelledby="agent-ops-narratives" className="space-y-3">
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">Report narrative</p>
-        <h2 id="agent-ops-narratives" className="text-lg font-semibold">Explain the movement and commit the next actions</h2>
+        <h2 id="agent-ops-narratives" className="text-lg font-semibold">
+          {canEdit ? 'Explain the movement and commit the next actions' : 'Officer narrative and committed actions'}
+        </h2>
       </div>
-      <NarrativeSection data={data} zone="growth" title="Zone A — WHY THESE NUMBERS" actionTitle={actionLabel(granularity)} granularity={granularity} />
-      <NarrativeSection data={data} zone="pipeline" title="Zone B — WHY THESE NUMBERS" actionTitle={actionLabel(granularity)} granularity={granularity} />
-      <PriorPeriodCloseout data={data} granularity={granularity} />
-      <Card aria-label="Submit Agent Operations report">
-        <CardContent className="space-y-3 p-4">
-          {readOnly ? (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-              <Badge>Submitted</Badge>
-              <span>by {data.submittedByName ?? 'the submitting officer'}</span>
-              <span className="text-muted-foreground">{formatTimestamp(data.submittedAt)}</span>
-            </div>
-          ) : (
-            <>
-              <div className="space-y-1">
-                {checklist.map((item) => (
-                  <p key={item.label} className={cn('text-sm', item.complete ? 'text-success' : 'text-muted-foreground')}>
-                    {item.complete ? '✓' : '○'} {item.label}
-                  </p>
-                ))}
+      <NarrativeSection data={data} zone="growth" title="Zone A — WHY THESE NUMBERS" actionTitle={actionLabel(granularity)} granularity={granularity} canEdit={canEdit} />
+      <NarrativeSection data={data} zone="pipeline" title="Zone B — WHY THESE NUMBERS" actionTitle={actionLabel(granularity)} granularity={granularity} canEdit={canEdit} />
+      <PriorPeriodCloseout data={data} granularity={granularity} canEdit={canEdit} />
+      {(submitted || canEdit) && (
+        <Card aria-label="Submit Agent Operations report">
+          <CardContent className="space-y-3 p-4">
+            {submitted ? (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                <Badge>Submitted</Badge>
+                <span>by {data.submittedByName ?? 'the submitting officer'}</span>
+                <span className="text-muted-foreground">{formatTimestamp(data.submittedAt)}</span>
               </div>
-              <Button onClick={() => submit.mutate()} disabled={submit.isPending || !checklist.every((item) => item.complete)}>
-                {submit.isPending ? 'Submitting…' : 'Submit report'}
-              </Button>
-            </>
-          )}
-        </CardContent>
-      </Card>
+            ) : (
+              <>
+                <div className="space-y-1">
+                  {checklist.map((item) => (
+                    <p key={item.label} className={cn('text-sm', item.complete ? 'text-success' : 'text-muted-foreground')}>
+                      {item.complete ? '✓' : '○'} {item.label}
+                    </p>
+                  ))}
+                </div>
+                <Button onClick={() => submit.mutate()} disabled={submit.isPending || !checklist.every((item) => item.complete)}>
+                  {submit.isPending ? 'Submitting…' : 'Submit report'}
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </section>
+
     </section>
   );
 }
