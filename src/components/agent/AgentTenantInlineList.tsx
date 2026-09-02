@@ -95,6 +95,7 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
         phone: row.phone || '',
         email: row.email || '',
         created_at: row.created_at,
+        latest_status: row.latest_status || null,
       })));
 
       // Fetch passport / avatar photos for the tenant list (fallback to initials on missing/broken).
