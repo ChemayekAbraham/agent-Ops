@@ -324,7 +324,9 @@ export function useAgentOpsReportWindow(granularity: AgentOpsGranularity) {
       const zonedAddenda = byZone(addendumRows);
 
       return {
+        ready: true,
         report,
+
         snapshot,
         priorSnapshot: rows.find((row) => row.id === report.prior_snapshot_id) ?? null,
         periodLabel: periodLabel(report),
