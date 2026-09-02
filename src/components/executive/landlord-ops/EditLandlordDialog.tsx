@@ -82,6 +82,7 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
             village: data.village || '',
             district: data.district || '',
             region: data.region || '',
+            property_address: data.property_address || '',
           });
         }
       } catch (err: any) {
