@@ -7468,6 +7468,7 @@ export type Database = {
           retry_after_days: number
           subject_type: Database["public"]["Enums"]["cc_subject_type"]
           title: string | null
+          wip_limit: number
         }
         Insert: {
           abandoned_reason?: string | null
@@ -7481,6 +7482,7 @@ export type Database = {
           retry_after_days?: number
           subject_type: Database["public"]["Enums"]["cc_subject_type"]
           title?: string | null
+          wip_limit?: number
         }
         Update: {
           abandoned_reason?: string | null
@@ -7494,6 +7496,7 @@ export type Database = {
           retry_after_days?: number
           subject_type?: Database["public"]["Enums"]["cc_subject_type"]
           title?: string | null
+          wip_limit?: number
         }
         Relationships: []
       }
