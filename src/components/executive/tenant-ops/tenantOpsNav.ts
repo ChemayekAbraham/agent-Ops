@@ -60,6 +60,7 @@ export interface TenantOpsNavItem {
 
 export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
   { key: 'home', label: 'Home', icon: LayoutDashboard, view: 'home', keywords: ['overview', 'summary', 'landing', 'start'] },
+  { key: 'action.portfolio-performance', label: 'Portfolio Performance', icon: TrendingUp, keywords: ['portfolio', 'performance', 'collections', 'requests', 'report'] },
   {
     key: 'verification',
     label: 'Verification & Users',
@@ -118,7 +119,6 @@ export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
     keywords: ['reports', 'exports'],
     children: [
       { key: 'reports-hub', label: 'Reports & Exports', icon: Download, keywords: ['extract', 'csv', 'pdf', 'date range'] },
-      { key: 'action.portfolio-performance', label: 'Portfolio Performance', icon: TrendingUp, keywords: ['portfolio', 'performance', 'collections', 'requests', 'report'] },
       { key: 'action.word-report', label: 'Word Report', icon: FileText, keywords: ['docx', 'operations report'] },
       { key: 'action.welile-homes', label: 'Welile Homes', icon: Home, keywords: ['agent managed', 'subscriptions'] },
       { key: 'action.locations', label: 'Locations', icon: MapPin, keywords: ['location management', 'districts'] },
