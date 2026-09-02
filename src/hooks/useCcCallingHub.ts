@@ -32,10 +32,11 @@ export const QUICK_OUTCOMES: { value: Exclude<CcOutcome, 'engaged' | 'callback_b
 ];
 
 /**
- * Fallback only. The real limit lives on cc_call_cycles.wip_limit so ops can
- * tune it per cycle; the DB guard reads the same column.
+ * The open-attempt limit is never hardcoded on the client. It lives on
+ * cc_call_cycles.wip_limit, which the DB guard reads too. Until it loads the
+ * client must not block reveals — the DB guard is the authority.
  */
-export const OPEN_ATTEMPT_LIMIT = 10;
+
 /** Minimum characters the engaged note must carry (mirrors the DB guard). */
 export const CC_NOTE_MIN_LENGTH = 20;
 export const CC_PAGE_SIZE = 50;
