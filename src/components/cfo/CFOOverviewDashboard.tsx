@@ -56,7 +56,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
     setOpenSections((prev) => ({ ...prev, [key]: prev[key] === false }));
   const { user } = useAuth();
   const {
-    platformCash, liabilities, revenue, receivables, moneyFlow,
+    platformCash, liabilities, revenue, receivables, moneyFlow, position, positionError,
     todayCashFlow, isLoading
   } = useCFOOverviewData();
   const { data: sevenDayCashFlow } = useCFO7DayCashFlow();
@@ -133,19 +133,31 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
     );
   }
 
-  const totalCash = platformCash?.totalCash ?? 0;
+  // The three headline cards read one authoritative source — the same
+  // get_statement_of_financial_position the Balance Sheet renders — so they
+  // share an as-at instant and reconcile to it by construction.
+  const totalCash = position?.totalCash ?? 0;
+  const totalLiabilities = position?.totalLiabilities ?? 0;
+  // Net position: cash less what the company is obligated to pay. Never clamped
+  // — a negative result is a real finding and is shown as negative.
+  const moneyWeCanUse = position?.moneyWeCanUse ?? 0;
+  const positionUnavailable = !!positionError;
+
   const treasuryPosition = (platformCash?.positions ?? []).find((p: any) => p.category === 'treasury_platform_cash');
   const bankPosition = (platformCash?.positions ?? []).find((p: any) => p.category === 'bank_cash');
-  const totalLiabilities = liabilities?.totalLiabilities ?? 0;
   const walletTotal = liabilities?.tenantFunds ?? 0;
-  const moneyWeCanUse = Math.max(0, totalCash - walletTotal);
   const netToday = todayCashFlow?.netToday ?? 0;
 
   
 
 
+  // Wallet-cache figures, shown as an operational memo. These are wallet
+  // balances, not the company's liabilities — the liability figure is the
+  // Balance Sheet's own total on the "Money We Owe" card above.
   const liabilityItems = [
-    { label: 'Total Wallet Balances', value: liabilities?.tenantFunds ?? 0, icon: <Wallet className="h-4 w-4" /> },
+    { label: 'Withdrawable User Wallets', value: liabilities?.withdrawable ?? 0, icon: <Wallet className="h-4 w-4" /> },
+    { label: 'Agent Float in Wallets', value: liabilities?.float ?? 0, icon: <Wallet className="h-4 w-4" /> },
+    { label: 'Total Wallet Balances', value: walletTotal, icon: <Wallet className="h-4 w-4" /> },
   ];
 
   /* ── presentation-only derivations (no new data sources) ── */
@@ -212,13 +224,16 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               icon={<PiggyBank className="h-5 w-5 text-emerald-600" />}
               iconBg="bg-emerald-50 dark:bg-emerald-950/40"
               title="Money We Have"
-              value={fmt(totalCash)}
-              valueColor="text-emerald-600"
-              items={[
-                { dot: 'bg-emerald-500', label: 'Platform / Treasury Balance', value: fmt(platformCash?.a1 ?? 0) },
-                { dot: 'bg-emerald-500', label: 'Cash in Transit (A5)', value: fmt(platformCash?.a5 ?? 0) },
-              ]}
-              footer="Total available across all accounts"
+              value={positionUnavailable ? '—' : fmt(totalCash)}
+              valueColor={totalCash >= 0 ? 'text-emerald-600' : 'text-destructive'}
+              items={(position?.cashByAccount ?? []).map(a => ({
+                dot: 'bg-emerald-500',
+                label: `${a.label} (${a.code})`,
+                value: fmt(a.value),
+              }))}
+              footer={positionUnavailable
+                ? 'Could not load'
+                : 'Balance sheet cash — A1 + A2 + A5, ties to Cash and Bank Balances'}
               footerTone="bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400"
               onClick={() => setActiveBreakdown('cash')}
             />
@@ -226,13 +241,21 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               icon={<Package className="h-5 w-5 text-orange-600" />}
               iconBg="bg-orange-50 dark:bg-orange-950/40"
               title="Money We Owe"
-              value={fmt(walletTotal)}
+              value={positionUnavailable ? '—' : fmt(totalLiabilities)}
               valueColor="text-orange-600"
               items={[
-                { dot: 'bg-orange-500', label: 'Withdrawable User Wallets', value: fmt(walletTotal) },
-                { dot: 'bg-orange-500', label: 'All Recorded Liabilities', value: fmt(totalLiabilities) },
+                ...(position?.liabilityBreakdown ?? []).map(l => ({
+                  dot: 'bg-orange-500',
+                  label: `${l.label} (${l.code})`,
+                  value: fmt(l.value),
+                })),
+                ...(Math.round(position?.otherLiabilities ?? 0) !== 0
+                  ? [{ dot: 'bg-orange-500', label: 'Other liabilities', value: fmt(position?.otherLiabilities ?? 0) }]
+                  : []),
               ]}
-              footer="Commitments not yet paid out"
+              footer={positionUnavailable
+                ? 'Could not load'
+                : 'Total Liabilities per the Balance Sheet — components sum to this figure'}
               footerTone="bg-orange-50/70 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400"
               onClick={() => setActiveBreakdown('wallets')}
             />
@@ -240,12 +263,17 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               icon={<BarChart3 className="h-5 w-5 text-blue-600" />}
               iconBg="bg-blue-50 dark:bg-blue-950/40"
               title="Money We Can Use"
-              value={fmt(moneyWeCanUse)}
+              value={positionUnavailable ? '—' : fmt(moneyWeCanUse)}
               valueColor={moneyWeCanUse >= 0 ? 'text-blue-600' : 'text-destructive'}
               items={[
-                { dot: 'bg-blue-500', label: 'Available for Operations', value: fmt(moneyWeCanUse) },
+                { dot: 'bg-blue-500', label: 'Money We Have', value: fmt(totalCash) },
+                { dot: 'bg-blue-500', label: 'Less: Money We Owe', value: fmt(-totalLiabilities) },
               ]}
-              footer="After obligations and restrictions"
+              footer={positionUnavailable
+                ? 'Could not load'
+                : moneyWeCanUse < 0
+                  ? 'Cash less obligations — negative: obligations exceed cash'
+                  : 'Cash less obligations'}
               footerTone="bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400"
               onClick={() => setActiveBreakdown('earnings')}
             />

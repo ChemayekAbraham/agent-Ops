@@ -1,9 +1,37 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { LEDGER_SCOPE, FINAL_WITHDRAWAL_STATUSES } from '@/lib/ledgerConstants';
+import { accountCodeOf, type PositionLine } from '@/components/cfo/balanceSheetClassification';
 
 const STALE_TIME = 300_000; // 5 minutes
 
+/**
+ * Cash on the balance sheet. A1 Cash and Bank, A2 Cash at Hand — Float with
+ * Agents and A5 Cash in Transit are all cash: this is the same set
+ * balanceSheetClassification maps to "Cash and Bank Balances", so the headline
+ * ties to the Balance Sheet asset line exactly.
+ *
+ * The dashboard previously used A1 + A5 only. Because issuing agent float
+ * credits A1 and debits A2, excluding A2 made every float issuance reduce the
+ * figure with no offset — which is what drove it to roughly -UGX 46.5bn while
+ * A1 + A2 + A5 nets to a small positive. Nothing is hidden by including A2: the
+ * negative A1 balance is still reported on its own line beneath the headline.
+ */
+const CASH_ACCOUNTS = ['A1', 'A2', 'A5'] as const;
+
+/** Reporting labels for the liability accounts, in presentation order. */
+const LIABILITY_ACCOUNT_LABELS: { code: string; label: string }[] = [
+  { code: 'L1', label: 'User Wallet Custody (withdrawable + locked)' },
+  { code: 'L4', label: 'Landlord Float / Rent Payable' },
+  { code: 'L2', label: 'Partner Portfolio Capital Held' },
+  { code: 'L6', label: 'Partner Top-Ups Awaiting Application' },
+  { code: 'L3', label: 'Partner Returns Payable' },
+  { code: 'L5', label: 'Agent Commission Payable' },
+  { code: 'L9', label: 'Suspense — Unresolved Postings' },
+];
+
+const lineValue = (lines: PositionLine[], code: string) =>
+  lines.filter(l => accountCodeOf(l) === code).reduce((t, l) => t + Number(l.value || 0), 0);
 
 export function useCFOOverviewData() {
   // Platform cash from ledger RPCs (source-based, not channel-based)
@@ -416,11 +444,81 @@ export function useCFOOverviewData() {
       const { data, error } = await supabase.rpc('get_wallet_totals');
       if (error) throw error;
       const d = data as any;
-      const totalWalletBalance = Number(d.total_balance ?? 0);
+
+      // Wallet cache figures only. These are operational wallet balances, NOT
+      // the company's liabilities — the headline liability figure comes from
+      // the Balance Sheet (see `position` below). Kept for the wallet drill-down.
+      return {
+        tenantFunds: Number(d.total_balance ?? 0),
+        withdrawable: Number(d.total_withdrawable ?? 0),
+        float: Number(d.total_float ?? 0),
+        computedAt: d.computed_at ?? null,
+      };
+    },
+    staleTime: STALE_TIME,
+  });
+
+  /**
+   * Single authoritative source for the three headline cards.
+   *
+   * Everything below is read straight from get_statement_of_financial_position —
+   * the same RPC the Balance Sheet renders — so the cards cannot drift from it,
+   * share one as-at instant, and no financial logic is recomputed client-side.
+   */
+  const position = useQuery({
+    queryKey: ['cfo-overview-position'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        'get_statement_of_financial_position' as any,
+        {} as any,
+      );
+      if (error) throw error;
+      const d = data as any;
+
+      const assetLines: PositionLine[] = [
+        ...((d?.assets?.current ?? []) as PositionLine[]),
+        ...((d?.assets?.non_current ?? []) as PositionLine[]),
+      ];
+      const liabilityLines: PositionLine[] = [
+        ...((d?.liabilities?.current ?? []) as PositionLine[]),
+        ...((d?.liabilities?.non_current ?? []) as PositionLine[]),
+      ];
+
+      // Money We Have — balance sheet cash (A1 + A2 + A5).
+      const cashByAccount = CASH_ACCOUNTS.map(code => ({
+        code,
+        label:
+          assetLines.find(l => accountCodeOf(l) === code)?.label ?? code,
+        value: lineValue(assetLines, code),
+      }));
+      const totalCash = cashByAccount.reduce((t, a) => t + a.value, 0);
+
+      // Money We Owe — the Balance Sheet's own liability total, not a wallet cache.
+      const totalLiabilities = Number(d?.liabilities?.total ?? 0);
+      const liabilityBreakdown = LIABILITY_ACCOUNT_LABELS
+        .map(({ code, label }) => ({ code, label, value: lineValue(liabilityLines, code) }))
+        .filter(l => Math.round(l.value) !== 0);
+      // Any liability account not named above still has to reach the total, so
+      // the remainder is surfaced rather than silently dropped.
+      const namedTotal = liabilityBreakdown.reduce((t, l) => t + l.value, 0);
+      const otherLiabilities = totalLiabilities - namedTotal;
+
+      // Money We Can Use — cash less what the company is obligated to pay.
+      // Deliberately unclamped: a negative net position is reported as negative.
+      const moneyWeCanUse = totalCash - totalLiabilities;
 
       return {
-        tenantFunds: totalWalletBalance,
-        totalLiabilities: totalWalletBalance,
+        asAt: d?.as_at ?? null,
+        generatedAt: d?.generated_at ?? null,
+        totalCash,
+        cashByAccount,
+        totalLiabilities,
+        liabilityBreakdown,
+        otherLiabilities,
+        moneyWeCanUse,
+        totalAssets: Number(d?.assets?.total ?? 0),
+        totalEquity: Number(d?.equity?.total ?? 0),
+        balanceCheck: d?.balance_check ?? null,
       };
     },
     staleTime: STALE_TIME,
@@ -681,11 +779,14 @@ export function useCFOOverviewData() {
   });
 
   const isLoading =
-    platformCash.isLoading || liabilities.isLoading || revenue.isLoading || moneyFlow.isLoading || receivables.isLoading || cashFlowByPurpose.isLoading;
+    platformCash.isLoading || liabilities.isLoading || revenue.isLoading || moneyFlow.isLoading || receivables.isLoading || cashFlowByPurpose.isLoading || position.isLoading;
 
   return {
     platformCash: platformCash.data,
     liabilities: liabilities.data,
+    /** Authoritative Balance Sheet position behind the three headline cards. */
+    position: position.data,
+    positionError: position.error,
     revenue: revenue.data,
     moneyFlow: moneyFlow.data,
     receivables: receivables.data,
