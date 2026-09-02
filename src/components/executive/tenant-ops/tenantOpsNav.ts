@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  TrendingUp,
   Shield,
   Landmark,
   FileSearch,
