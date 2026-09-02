@@ -218,6 +218,17 @@ export const LANDLORD_FLOAT_LABEL = 'Landlord Float';
 export const LANDLORD_FLOAT_COMPANY_LABEL = 'Landlord Float — Company Managed';
 export const LANDLORD_FLOAT_SELF_LABEL = 'Landlord Float — Self Managed';
 export const LANDLORD_FLOAT_TOTAL_LABEL = 'Total Landlord Float';
+export const LANDLORD_FLOAT_COMPANY_TOTAL_LABEL = 'Total Landlord Float — Company Managed';
+export const LANDLORD_FLOAT_SELF_TOTAL_LABEL = 'Total Landlord Float — Self Managed';
+
+/**
+ * The landlord rent payable (L4) is the only account in the group that carries
+ * a company/self split, so it appears as a line in both blocks. Naming it
+ * explicitly is what lets each block's items foot to its own total — listing
+ * only the partner/agent components would leave the company block short by this
+ * amount.
+ */
+export const LANDLORD_RENT_PAYABLE_LABEL = 'Landlord Rent Payable';
 
 export interface LandlordFloatSplit {
   total: number;
@@ -246,6 +257,14 @@ export const LANDLORD_FLOAT_COMPONENT_ACCOUNTS: { code: string; label: string }[
 /** A marketplace row for rendering: a normal group, or a subtotal line. */
 export type MarketplaceRow = BsGroup & {
   subtotal?: boolean;
+  /**
+   * A parent/sub-heading that names the block below it. Its own amount is not
+   * printed — the block's own total line carries the figure, so no balance is
+   * shown twice.
+   */
+  heading?: boolean;
+  /** Nesting depth for indentation: 0 = top level, 1 = nested block. */
+  depth?: number;
   /** Indented component lines printed under this row. */
   components?: PositionLine[];
 };
@@ -297,16 +316,52 @@ export function expandLandlordFloat(
       return { label, value: line?.value ?? 0, source: line?.source };
     });
 
+    // The landlord payable is the only split account, so it heads each block and
+    // makes the block's items foot to the block's own total.
+    const floatSource = floatLines[0]?.source;
+    const companyItems: PositionLine[] = [
+      { label: LANDLORD_RENT_PAYABLE_LABEL, value: floatValue - self, source: floatSource },
+      ...components,
+    ];
+    const selfItems: PositionLine[] = [
+      { label: LANDLORD_RENT_PAYABLE_LABEL, value: self, source: floatSource },
+    ];
+
     return [
+      { label: LANDLORD_FLOAT_LABEL, value: g.value, lines: [], heading: true, depth: 0 },
       {
         ...g,
         label: LANDLORD_FLOAT_COMPANY_LABEL,
         value: company,
         lines: [...floatLines, ...componentLines],
-        components,
+        components: companyItems,
+        heading: true,
+        depth: 1,
       },
-      { ...g, label: LANDLORD_FLOAT_SELF_LABEL, value: self, lines: [] },
-      { label: LANDLORD_FLOAT_TOTAL_LABEL, value: g.value, lines: [], subtotal: true },
+      {
+        label: LANDLORD_FLOAT_COMPANY_TOTAL_LABEL,
+        value: company,
+        lines: [],
+        subtotal: true,
+        depth: 1,
+      },
+      {
+        ...g,
+        label: LANDLORD_FLOAT_SELF_LABEL,
+        value: self,
+        lines: [],
+        components: selfItems,
+        heading: true,
+        depth: 1,
+      },
+      {
+        label: LANDLORD_FLOAT_SELF_TOTAL_LABEL,
+        value: self,
+        lines: [],
+        subtotal: true,
+        depth: 1,
+      },
+      { label: LANDLORD_FLOAT_TOTAL_LABEL, value: g.value, lines: [], subtotal: true, depth: 0 },
     ];
   });
 }
