@@ -447,9 +447,13 @@ export default function BalanceSheetPanel() {
       };
 
       heading('Assets');
-      (assetGroups?.groups ?? []).forEach(g => row(g.label, g.value));
+      assetRows.forEach(g => {
+        if (g.heading) blockHeading(g.label);
+        else row(g.label, g.value, g.subtotal);
+        (g.components ?? []).forEach(c => row('   ' + c.label, c.value));
+      });
       flaggedRows(assetGroups?.flagged);
-      row('TOTAL ASSETS', data.assets.total, true);
+      row('TOTAL ASSETS', assetsTotal, true);
 
       heading('Liabilities');
       (liabilityGroups?.standalone ?? []).forEach(g => row(g.label, g.value));
@@ -467,11 +471,11 @@ export default function BalanceSheetPanel() {
       heading("Shareholders' Equity");
       (equityGroups?.groups ?? []).forEach(g => row(g.label, g.value));
       flaggedRows(equityGroups?.flagged);
-      row("TOTAL SHAREHOLDERS' EQUITY", data.equity.total, true);
+      row("TOTAL SHAREHOLDERS' EQUITY", equityTotal, true);
 
       heading('Balance Check');
-      row('Total Assets', data.balance_check.total_assets);
-      row('Total Liabilities and Equity', data.balance_check.total_liabilities_and_equity);
+      row('Total Assets', assetsTotal);
+      row('Total Liabilities and Equity', totalLiabilitiesAndEquity);
       row('Difference', data.balance_check.difference, true);
       if (data.trial_balance) {
         heading('Trial Balance');
