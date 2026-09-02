@@ -31,7 +31,13 @@ export const QUICK_OUTCOMES: { value: Exclude<CcOutcome, 'engaged' | 'callback_b
   { value: 'refused', label: 'Refused' },
 ];
 
-export const OPEN_ATTEMPT_LIMIT = 3;
+/**
+ * Fallback only. The real limit lives on cc_call_cycles.wip_limit so ops can
+ * tune it per cycle; the DB guard reads the same column.
+ */
+export const OPEN_ATTEMPT_LIMIT = 10;
+/** Minimum characters the engaged note must carry (mirrors the DB guard). */
+export const CC_NOTE_MIN_LENGTH = 20;
 export const CC_PAGE_SIZE = 50;
 
 export interface CcRow {
@@ -212,7 +218,7 @@ export function useCcCallingHub(
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cc_call_cycles')
-        .select('id, cycle_no, opened_at, attempt_cap, retry_after_days')
+        .select('id, cycle_no, opened_at, attempt_cap, retry_after_days, wip_limit')
         .eq('subject_type', subjectType)
         .is('closed_at', null)
         .order('cycle_no', { ascending: false })
@@ -432,7 +438,9 @@ export function useCcCallingHub(
   });
 
   const openCount = openAttemptsQ.data?.length ?? 0;
-  const wipBlocked = openCount >= OPEN_ATTEMPT_LIMIT;
+  /** Per-cycle work-in-progress cap, set by ops; falls back until the cycle loads. */
+  const wipLimit = cycleQ.data?.wip_limit ?? OPEN_ATTEMPT_LIMIT;
+  const wipBlocked = openCount >= wipLimit;
 
   /* ------------------------------------------------------------ reference */
   const categoriesQ = useQuery({
@@ -690,6 +698,7 @@ export function useCcCallingHub(
     openAttempts: openAttemptsQ.data ?? [],
     openCount,
     wipBlocked,
+    wipLimit,
     categories: categoriesQ.data ?? [],
     staffOptions: staffQ.data ?? [],
     followups: followupsQ.data ?? [],

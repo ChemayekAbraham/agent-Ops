@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Lock } from 'lucide-react';
 import { toast } from 'sonner';
-import { ccErrorText, type CcCallingHub, type CcSeverity } from '@/hooks/useCcCallingHub';
+import { ccErrorText, CC_NOTE_MIN_LENGTH, type CcCallingHub, type CcSeverity } from '@/hooks/useCcCallingHub';
 
 const SEVERITIES: CcSeverity[] = ['normal', 'high', 'critical'];
 
@@ -50,6 +50,9 @@ export function RecordOutcomeDialog({
     if (!attempt) return;
     if (!categoryId) return toast.error('Choose a feedback category.');
     if (!note.trim()) return toast.error('A note is required for an engaged call.');
+    if (note.trim().length < CC_NOTE_MIN_LENGTH) {
+      return toast.error(`Please write at least ${CC_NOTE_MIN_LENGTH} characters describing what the customer said.`);
+    }
     hub.recordEngaged.mutate(
       {
         attemptId: attempt.id,
@@ -125,7 +128,9 @@ export function RecordOutcomeDialog({
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs">Note (required)</Label>
+              <Label className="text-xs">
+                Note (required, min {CC_NOTE_MIN_LENGTH} characters)
+              </Label>
               <Textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
@@ -133,6 +138,9 @@ export function RecordOutcomeDialog({
                 className="max-h-40"
                 placeholder="What did they say, in their words?"
               />
+              <p className={`text-[11px] font-medium ${note.trim().length >= CC_NOTE_MIN_LENGTH ? 'text-muted-foreground' : 'text-amber-600'}`}>
+                {note.trim().length}/{CC_NOTE_MIN_LENGTH} characters
+              </p>
             </div>
 
             {locked ? (
