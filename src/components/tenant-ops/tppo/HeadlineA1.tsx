@@ -37,7 +37,7 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
           {hasRate ? `${rate.toFixed(1)}%` : '—'}
         </span>
 
-        <span className="flex items-center gap-2">
+        <span className="flex items-center gap-2 sm:contents">
           <span
             aria-hidden="true"
             className={
