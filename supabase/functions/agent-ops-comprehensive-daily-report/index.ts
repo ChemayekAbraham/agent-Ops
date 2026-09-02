@@ -11,7 +11,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import { buildAgentOpsComprehensiveReportHtml } from './_lib/report.ts';
-import { buildComprehensiveReportPdf } from './_lib/pdf.ts';
+import { renderReportHtmlToPdf } from './_lib/htmlPdf.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
