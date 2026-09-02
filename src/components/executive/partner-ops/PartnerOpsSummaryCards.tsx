@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Users, Wallet, CalendarDays, Hourglass, UserCog, ArrowRight } from 'lucide-react';
+import { Users, Wallet, CalendarDays, Hourglass, UserCog, ArrowRight, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
@@ -7,6 +8,7 @@ import { fetchSupporterSummary, fetchAllNearingPayoutPortfolios } from '@/lib/su
 import { dateOnlyToLocalDate, extractDateOnly, formatLocalDateOnly } from '@/lib/portfolioDates';
 import { PendingPortfoliosCard } from '@/components/executive/PendingPortfoliosCard';
 import { PortfolioTopUpsCard } from '@/components/coo/PortfolioTopUpsCard';
+import { OnboardProxyAgentDialog } from './OnboardProxyAgentDialog';
 import type { PartnerOpsViewKey } from './partnerOpsNav';
 
 /* ─── Card shell (mirrors the Partner Directory summary cards) ─── */
@@ -113,6 +115,7 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
   const expiringCount = derived?.expiringCount ?? 0;
   const hasExpiring = expiringCount > 0;
   const soonest = derived?.soonestExpiry ?? null;
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   const { data: proxyStatus } = useQuery({
     queryKey: ['partner-ops-proxy-agents-status-breakdown'],
@@ -242,6 +245,17 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
             </div>
           </div>
           <div className="flex items-center gap-2 text-primary">
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label="Invite proxy agent"
+              onClick={(e) => { e.stopPropagation(); setInviteOpen(true); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setInviteOpen(true); } }}
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+              Invite
+            </span>
             <span className="hidden text-xs font-semibold sm:inline">Open</span>
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </div>
@@ -269,6 +283,8 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
           </span>
         </div>
       </button>
+
+      <OnboardProxyAgentDialog open={inviteOpen} onOpenChange={setInviteOpen} />
     </div>
   );
 }
