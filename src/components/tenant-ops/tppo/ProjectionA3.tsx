@@ -89,7 +89,31 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
             </p>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Mobile: date and amount on one line per row, Total last and distinct. */}
+          <div className="sm:hidden">
+            <div className="divide-y divide-border/60">
+              {periods.map((period) => (
+                <div
+                  key={period.period_index}
+                  className="flex items-baseline justify-between gap-3 py-2 text-sm"
+                >
+                  <span className="text-foreground">{period.label ?? '—'}</span>
+                  <span className="shrink-0 tabular-nums text-foreground">
+                    {available && period.projected_ugx !== null && period.projected_ugx !== undefined
+                      ? formatUGX(period.projected_ugx)
+                      : '—'}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 flex items-baseline justify-between gap-3 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-semibold">
+              <span>Total</span>
+              <span className="shrink-0 tabular-nums">{available ? formatUGX(rowSum) : '—'}</span>
+            </div>
+          </div>
+
+          <div className="hidden overflow-x-auto sm:block">
+
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
