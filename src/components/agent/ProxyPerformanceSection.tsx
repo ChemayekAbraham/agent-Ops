@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { Activity, AlertTriangle, CalendarDays, ChevronDown, ChevronUp, ClipboardCheck, Inbox, Target, TrendingUp } from 'lucide-react';
+import { ProxyPerformanceActivities } from '@/components/agent/ProxyPerformanceActivities';
 import {
   PROXY_PV_BAND_META,
   proxyPvBand,
@@ -291,6 +292,9 @@ export function ProxyPerformanceSection({ agentId, month, hideHeading, className
           )}
         </CardContent>
       </Card>
+
+      {/* Activities: which actions produced the PV and how each affects the score */}
+      <ProxyPerformanceActivities report={r} />
     </div>
   );
 }
