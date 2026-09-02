@@ -1031,7 +1031,16 @@ export function WalletStatement() {
               <h3 id="ws-tx-history" className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 Transaction History
               </h3>
-              <TransactionsFeed userId={user?.id} />
+              <TransactionsFeed
+                userId={user?.id}
+                balanceAfterById={useMemo(() => {
+                  const map: Record<string, number> = {};
+                  for (const e of entries) {
+                    if (e.balance_after != null) map[e.id] = e.balance_after;
+                  }
+                  return map;
+                }, [entries])}
+              />
             </section>
 
           </ScrollArea>
