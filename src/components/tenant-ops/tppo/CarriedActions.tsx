@@ -60,8 +60,8 @@ export function CarriedActions({ submitted, rows, closeOuts, onChange }: Carried
               row.repeatNotDone ||
               (closeOut.outcome === 'not_done' && row.repeatNotDone === true);
             return (
-              <div key={row.id} className="space-y-2 rounded-md border border-border p-3">
-                <p className="text-sm text-foreground">{row.item_text}</p>
+              <div key={row.id} className="space-y-2 rounded-md border border-border p-3 shadow-sm sm:shadow-none">
+                <p className="break-words text-sm text-foreground">{row.item_text}</p>
                 <p className="text-xs text-muted-foreground">
                   {row.owner} · due {row.due_date}
                 </p>
@@ -71,7 +71,7 @@ export function CarriedActions({ submitted, rows, closeOuts, onChange }: Carried
                   </p>
                 )}
                 {submitted ? (
-                  <p className="text-sm text-foreground">
+                  <p className="break-words text-sm text-foreground">
                     {closeOut.outcome ? OUTCOME_LABEL[closeOut.outcome] : '—'}
                     {closeOut.result ? ` · ${closeOut.result}` : ''}
                   </p>
@@ -83,7 +83,7 @@ export function CarriedActions({ submitted, rows, closeOuts, onChange }: Carried
                         onChange(row.id, { outcome: value as CarriedOutcome })
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger className="h-11 w-full sm:h-10">
                         <SelectValue placeholder="Outcome" />
                       </SelectTrigger>
                       <SelectContent>
@@ -96,6 +96,7 @@ export function CarriedActions({ submitted, rows, closeOuts, onChange }: Carried
                       value={closeOut.result}
                       onChange={(e) => onChange(row.id, { result: e.target.value })}
                       placeholder="Result, one line"
+                      className="h-11 w-full sm:h-10"
                     />
                   </div>
                 )}

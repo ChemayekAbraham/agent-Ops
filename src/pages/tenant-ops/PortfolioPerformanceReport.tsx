@@ -218,7 +218,7 @@ export default function PortfolioPerformanceReport() {
 
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6 p-4 md:p-8">
+    <div className="mx-auto w-full max-w-5xl space-y-6 overflow-x-hidden px-3 pb-28 pt-4 sm:p-4 md:p-8">
       <PeriodToggle value={granularity} onChange={setGranularity} />
 
       <Card>
