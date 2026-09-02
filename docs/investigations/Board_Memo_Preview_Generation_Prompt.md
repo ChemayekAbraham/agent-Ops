@@ -183,6 +183,28 @@ SELECT count(DISTINCT session_trace_id) AS sessions_tried,
 FROM att;
 ```
 
+### Gate D — is the named failing automation actually failing?
+
+Never name a job in the "Financial Controls Automation" pillar, the headline, or a board decision unless it appears in this closing day's `jobs.failing` array (Section 1's payload) or in the raw run history:
+
+```sql
+SELECT j.jobname, count(*) AS n, max(left(coalesce(d.return_message,''),140)) AS last_error
+FROM cron.job_run_details d JOIN cron.job j USING (jobid)
+WHERE d.start_time >= '<CLOSING_DATE> 23:59:59+03'::timestamptz - interval '24 hours'
+  AND d.start_time <  '<CLOSING_DATE> 23:59:59+03'::timestamptz
+  AND d.status <> 'succeeded'
+GROUP BY 1 ORDER BY n DESC;
+```
+
+On 2026-09-01 this returned only `snapshot-receivables-forecast` (a `receivables_guard()` permissions error, 0 of 7 daily runs succeeded all week). A draft of that day's memo instead named four unrelated jobs (`email-auto-create-deposits-24h`, `refresh-wallet-totals-cache`, `repair-wallet-cache-drift-15m`, `wallet-projection-drift`) that had zero failures for the entire reporting period — plausible-sounding financial-guardrail names that were never checked against this query before being written into the board decision item.
+
+Two failure modes to check for, every time:
+
+1. **A job is named that isn't in the query result at all.** Delete it from the narrative; it did not fail.
+2. **A job that IS in the query result doesn't get named**, because `daily-cto-report`'s `GUARDRAIL_RE` keyword filter (`/advance|recover|guardrail|bonus|trust|wallet|ledger|payout|commission|deposit|solvency|drift|receivable/i`) doesn't match its name. Treat the query result as authoritative over the keyword filter — a financial-control automation can have a name the regex doesn't anticipate (e.g. `receivables`, fixed 2026-09-02).
+
+If it trips: name only the job(s) the query actually returns, with their real failure count for the period, and drop any job the query does not return from the "Financial Controls Automation" pillar, the headline sentence, and the board decision list.
+
 ## 5. Report structure
 
 Seven sections, in this order:

@@ -1571,7 +1571,7 @@ Deno.serve(async (req) => {
     const wLedgerNote = weeklyMode ? `${fmt(P.active_7d)} active customers over the week` : `${fmt(P.active_24h)} active customers today`;
     const periodWord = weeklyMode ? 'this week' : 'today';
 
-    const GUARDRAIL_RE = /advance|recover|guardrail|bonus|trust|wallet|ledger|payout|commission|deposit|solvency|drift/i;
+    const GUARDRAIL_RE = /advance|recover|guardrail|bonus|trust|wallet|ledger|payout|commission|deposit|solvency|drift|receivable/i;
     const guardrailJobs = failingJobs.filter((j: any) => GUARDRAIL_RE.test(String(j.jobname || '')));
     // Name up to four failing jobs, then count the remainder. Naming three of
     // eleven silently understated the problem in earlier memos.
