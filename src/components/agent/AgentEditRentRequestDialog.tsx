@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -7,11 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw, Send, Camera, FileImage, X } from 'lucide-react';
+import { Loader2, RefreshCw, Send, Camera, FileImage, X, ShieldCheck } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { LandlordSearchSelect, type LandlordOption } from '@/components/agent/LandlordSearchSelect';
 import PersonNameFields from '@/components/shared/PersonNameFields';
+import LandlordAgreementUploader from '@/components/landlord/agreement/LandlordAgreementUploader';
 import { joinPersonName, splitPersonName, type PersonNameParts } from '@/lib/authValidation';
 import { toast, toast as sonnerToast } from 'sonner';
 import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
@@ -90,6 +91,7 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
   const [existingLcUrl, setExistingLcUrl] = useState<string | null>(null);
   const [newLcLetter, setNewLcLetter] = useState<{ file: File; preview: string } | null>(null);
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
+  const [agreementAttached, setAgreementAttached] = useState(false);
   // Toasts sit outside the dialog and are routinely missed on small screens —
   // every blocking reason is ALSO rendered inline right above the Resubmit
   // button so the agent always sees why nothing happened.
@@ -100,6 +102,17 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
     setFormError({ title, description });
     toast.error(title, description ? { description } : undefined);
   };
+
+  const { data: agreementHistory = [] } = useQuery({
+    queryKey: ['landlord-agreement-history', landlord?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('landlord_agreement_history', { p_landlord_id: landlord!.id });
+      if (error) throw error;
+      return (data ?? []) as Array<{ is_current?: boolean; status?: string }>;
+    },
+    enabled: !!landlord?.id,
+  });
+  const hasSignedAgreement = agreementAttached || agreementHistory.some((row) => row.is_current && row.status === 'active');
 
   useEffect(() => {
     if (request) {
@@ -126,6 +139,7 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
       setDroppedExisting(HOUSE_PHOTO_SLOTS.map(() => false));
 
       setNewLcLetter(null);
+      setAgreementAttached(false);
       setExistingLcPath(request.lc_letter_path ?? null);
       setExistingLcUrl(null);
       if (request.lc_letter_path) {
@@ -591,6 +605,30 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
             <Label>Landlord</Label>
             <LandlordSearchSelect value={landlord} onChange={setLandlord} />
           </div>
+
+          {landlord && !hasSignedAgreement && (
+            <div className="space-y-3 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
+              <div className="flex items-start gap-2">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                <div>
+                  <p className="text-xs font-semibold text-amber-800">Landlord Agreement Not Attached</p>
+                  <p className="text-[10px] text-muted-foreground">Attach the signed agreement to this existing landlord record before resubmitting, if the reviewer requested it.</p>
+                </div>
+              </div>
+              <LandlordAgreementUploader
+                landlordId={landlord.id}
+                landlordName={landlordName}
+                landlordPhone={landlordPhone}
+                propertyAddress={landlordAddress}
+                monthlyRent={rentNum || landlord.monthly_rent}
+                uploadOnly
+                onSubmitted={() => {
+                  setAgreementAttached(true);
+                  queryClient.invalidateQueries({ queryKey: ['landlord-agreement-history', landlord.id] });
+                }}
+              />
+            </div>
+          )}
 
           {landlord && (
             <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">

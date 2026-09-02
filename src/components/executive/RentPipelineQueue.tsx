@@ -24,6 +24,7 @@ import { toast as sonnerToast } from 'sonner';
 import { format } from 'date-fns';
 import { AgentProximitySelector } from './AgentProximitySelector';
 import { UserDrilldownDrawer } from '@/components/ops/UserDrilldownDrawer';
+import { LandlordAgreementHistory } from '@/components/landlord/agreement';
 import { PipelineAgentTransferDialog } from './PipelineAgentTransferDialog';
 import { TenantPaymentHistoryCard } from './TenantPaymentHistoryCard';
 import { RentApprovalConfirmDialog, type FunderVisibilityDecision } from './RentApprovalConfirmDialog';
@@ -1676,6 +1677,16 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                   </div>
                 )}
               </div>
+
+              {selectedRequest.landlord_id && (
+                <LandlordAgreementHistory
+                  landlordId={selectedRequest.landlord_id}
+                  landlordName={selectedRequest.landlord_name || 'Landlord'}
+                  landlordPhone={selectedRequest.landlord_phone || ''}
+                  propertyAddress={selectedRequest.landlord_address}
+                  canAdd={false}
+                />
+              )}
 
 
 

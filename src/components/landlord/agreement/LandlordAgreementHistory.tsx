@@ -52,7 +52,7 @@ export function LandlordAgreementHistory({
     {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : current ? (
       <p className="flex items-center gap-1.5 text-[11px] text-emerald-700"><ShieldCheck className="h-3.5 w-3.5" /> Signed agreement on file ({current.agreement_no}, valid to {fmt(current.end_date)})</p>
     ) : (
-      <p className="flex items-center gap-1.5 text-[11px] text-amber-700"><ShieldAlert className="h-3.5 w-3.5" /> No signed agreement on file — verification cannot be completed until one is uploaded.</p>
+      <p className="flex items-center gap-1.5 text-[11px] text-amber-700"><ShieldAlert className="h-3.5 w-3.5" /> Landlord Agreement Not Attached</p>
     )}
 
     {data.length > 0 && <ul className="space-y-1.5">
