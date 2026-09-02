@@ -70,6 +70,17 @@ export interface ProxyPvReport {
     above_target: number;
   };
   daily: ProxyPvDay[];
+  /**
+   * Server-computed data-quality signals for empty / attribution states.
+   * Missing on responses cached before the block was added — treat as unknown.
+   */
+  data_quality?: {
+    is_approved_proxy: boolean;
+    /** This month's commitments not yet verified/activated — not counted in PV. */
+    pending_commitments: number;
+    /** This month's investment/top-up commission events not yet paid — not counted in PV. */
+    unpaid_commission_events: number;
+  };
 }
 
 export interface ProxyPvTeamRow {

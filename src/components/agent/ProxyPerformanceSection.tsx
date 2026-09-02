@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
-import { Activity, CalendarDays, ChevronDown, ChevronUp, Target, TrendingUp } from 'lucide-react';
+import { Activity, AlertTriangle, CalendarDays, ChevronDown, ChevronUp, ClipboardCheck, Inbox, Target, TrendingUp } from 'lucide-react';
 import {
   PROXY_PV_BAND_META,
   proxyPvBand,
