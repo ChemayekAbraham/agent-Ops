@@ -238,9 +238,11 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-primary">Proxy Agent Management</span>
               <p className="mt-0.5 text-sm font-medium text-muted-foreground">
-                {proxyStatus
-                  ? `${(proxyStatus.counts.approved + proxyStatus.counts.pending + proxyStatus.counts.rejected + proxyStatus.counts.suspended + proxyStatus.counts.other).toLocaleString()} agent${(proxyStatus.counts.approved + proxyStatus.counts.pending + proxyStatus.counts.rejected + proxyStatus.counts.suspended + proxyStatus.counts.other) === 1 ? '' : 's'} on record · tap to manage`
-                  : 'Tap to open the agent directory'}
+                {proxyStatusLoading
+                  ? 'Checking agent records…'
+                  : proxyTotal > 0
+                    ? `${proxyTotal.toLocaleString()} agent${proxyTotal === 1 ? '' : 's'} on record · tap to manage`
+                    : 'No proxy agents yet · invite the first one'}
               </p>
             </div>
           </div>
