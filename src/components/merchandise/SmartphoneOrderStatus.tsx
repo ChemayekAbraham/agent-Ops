@@ -49,6 +49,8 @@ interface SmartphoneOrder {
   client_phone: string | null;
   tracking_reference: string | null;
   access_accepted_at: string | null;
+  rejection_reason: string | null;
+  rejected_at: string | null;
 }
 
 const STATUS_META: Record<OrderStatus, { label: string; icon: typeof Clock; className: string }> = {
@@ -134,7 +136,7 @@ export default function SmartphoneOrderStatus({
     queryFn: async () => {
       const { data, error } = await db
         .from('merchandise_sales')
-        .select('id, unit_price, amount_outstanding, order_status, created_at, client_name, client_phone, tracking_reference, access_accepted_at')
+        .select('id, unit_price, amount_outstanding, order_status, created_at, client_name, client_phone, tracking_reference, access_accepted_at, rejection_reason, rejected_at')
         .eq('customer_id', userId)
         .in('item_name', itemNames)
         .order('created_at', { ascending: false });
