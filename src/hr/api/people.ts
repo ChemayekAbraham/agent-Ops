@@ -129,6 +129,7 @@ type StaffRow = {
   staff_ref: string;
   active: boolean;
   created_at: string;
+  ended_on: string | null;
 };
 
 async function hydrateStaff(staff: StaffRow[]): Promise<Employee[]> {
