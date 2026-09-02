@@ -750,29 +750,11 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
               </div>
             )}
 
-            {/* Select all + agent filter */}
-            <div className="flex items-center justify-between gap-2 flex-wrap rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
-              <label className="flex items-center gap-2.5 text-sm cursor-pointer font-semibold">
-                <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
-                Select all ({visibleItems.length}
-                {agentFilter !== 'all' && items.length !== visibleItems.length
-                  ? ` of ${items.length}`
-                  : ''}
-                )
-              </label>
-              <div className="flex items-center gap-2">
-                {selected.size > 0 && (
-                  <Badge className="rounded-full px-3 py-1 bg-primary/10 text-primary border-primary/30">
-                    {selected.size} selected · {fmt(totalRent)}
-                  </Badge>
-                )}
-              </div>
-            </div>
-
             {/* Helper hint */}
             <p className="text-[11px] text-muted-foreground px-1">
-              Tip: tick one tenant, a few, or use an agent's group toggle to fund a subset. The batch button funds only what's ticked.
+              Tip: open a tenant with the Review button to approve and fund the payout.
             </p>
+
 
             {/* Grouped list (by agent) */}
             <div className="flex items-center justify-between gap-2">
@@ -909,7 +891,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                 <table className="w-full text-sm min-w-[64rem]">
                   <thead className="sticky top-0 z-10">
                     <tr className="border-b border-border/70 bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
-                      <th className="w-9 px-2 py-2" aria-hidden />
+                      
                       <th className="px-2 py-2 text-left font-semibold">Tenant</th>
                       <th className="px-2 py-2 text-left font-semibold">Landlord</th>
                       <th className="px-2 py-2 text-left font-semibold">Agent</th>
@@ -925,7 +907,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                   <tbody>
                     {visibleItems.length === 0 && (
                       <tr>
-                        <td colSpan={11} className="text-center py-6 text-xs text-muted-foreground">
+                        <td colSpan={10} className="text-center py-6 text-xs text-muted-foreground">
                           No tenants match the current filters.{' '}
                           <button
                             type="button"
@@ -953,13 +935,8 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                                 : 'hover:bg-muted/40'
                             )}
                           >
-                            <td className="px-2 py-2.5 align-middle" onClick={e => e.stopPropagation()}>
-                              <Checkbox
-                                checked={!reserved && selected.has(item.id)}
-                                disabled={!!reserved}
-                                onCheckedChange={() => toggle(item.id)}
-                              />
-                            </td>
+                            
+
                             <td className="px-2 py-2.5 align-middle">
                               <div className="flex items-center gap-1.5 min-w-0">
                                 <span className={cn('truncate', isSel ? 'font-bold' : 'font-semibold')}>{item.tenant_name}</span>
@@ -1021,33 +998,6 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                               </Button>
                             </td>
                           </tr>
-                          {/* Step 2 renders inline, directly under the selected tenant */}
-                          {item.id === firstSelectedId && (
-                            <tr key={`${item.id}-step2`}>
-                              <td colSpan={11} className="p-0">
-                                <div
-                                  ref={step2Ref}
-                                  className="scroll-mt-4 border-t-2 border-primary/30 bg-primary/[0.05] px-3.5 py-3 space-y-2"
-                                >
-                                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                                    <p className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2">
-                                      <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/15">
-                                        <Banknote className="h-3.5 w-3.5" />
-                                      </span>
-                                      Step 2 · Fund the selected float payouts
-                                    </p>
-                                    <Badge variant="outline" className="text-[11px] rounded-full px-2.5 bg-primary/10 text-primary border-primary/30">
-                                      {selected.size} ticked · {fmt(totalRent)}
-                                    </Badge>
-                                  </div>
-                                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                    Enter a batch reference below and use the funding button to run the unchanged
-                                    Fund Agent Landlord Payout Float process on every ticked tenant.
-                                  </p>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
                         </Fragment>
                       );
                     })}
@@ -1056,26 +1006,6 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
               </div>
             </div>
 
-            {/* Batch actions */}
-            {selected.size > 0 && (
-              <div className="sticky bottom-0 z-10 flex flex-col sm:flex-row sm:items-center gap-2 p-3 mt-1 rounded-xl border border-primary/25 bg-primary/[0.04] backdrop-blur">
-                <Input
-                  placeholder="Batch ref (e.g. MoMo-2024-01)"
-                  value={batchRef}
-                  onChange={e => setBatchRef(e.target.value)}
-                  className="h-11 rounded-xl text-sm flex-1 bg-background border-border/70"
-                />
-                <Button
-                  size="sm"
-                  className="h-11 rounded-xl px-5 font-semibold w-full sm:w-auto"
-                  onClick={() => batchDisburse.mutate()}
-                  disabled={batchDisburse.isPending || !batchRef.trim()}
-                >
-                  {batchDisburse.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Banknote className="h-3 w-3 mr-1" />}
-                  Fund {selected.size} Agent Float{selected.size === 1 ? '' : 's'}
-                </Button>
-              </div>
-            )}
           </div>
         )}
       </CardContent>
