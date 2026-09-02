@@ -9,6 +9,7 @@ import { formatDynamic } from '@/lib/currencyFormat';
 import { Activity, AlertTriangle, CalendarDays, ChevronDown, ChevronUp, ClipboardCheck, Inbox, Target, TrendingUp } from 'lucide-react';
 import { ProxyPerformanceActivities } from '@/components/agent/ProxyPerformanceActivities';
 import { ProxyPerformanceTrends } from '@/components/agent/ProxyPerformanceTrends';
+import { ProxyPerformanceWhatChanged } from '@/components/agent/ProxyPerformanceWhatChanged';
 import {
   PROXY_PV_BAND_META,
   monthStartISO,
@@ -304,6 +305,9 @@ export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading
           )}
         </CardContent>
       </Card>
+
+      {/* What changed since yesterday, and which activities moved it */}
+      <ProxyPerformanceWhatChanged report={r} />
 
       {/* Activities: which actions produced the PV and how each affects the score */}
       <ProxyPerformanceActivities report={r} />
