@@ -36392,7 +36392,6 @@ export type Database = {
           longitude: number | null
           name: string
           phone: string | null
-          pin: string | null
           pin_hash: string | null
         }
         Insert: {
@@ -36406,7 +36405,6 @@ export type Database = {
           longitude?: number | null
           name: string
           phone?: string | null
-          pin?: string | null
           pin_hash?: string | null
         }
         Update: {
@@ -36420,7 +36418,6 @@ export type Database = {
           longitude?: number | null
           name?: string
           phone?: string | null
-          pin?: string | null
           pin_hash?: string | null
         }
         Relationships: []
