@@ -22,7 +22,9 @@ import {
   type AgentOpsZone,
   useAgentOpsReportWindow,
 } from '@/hooks/useAgentOpsReportWindow';
+import { useAgentOpsReportPermissions } from '@/components/executive/agent-ops/agentOpsReportPermissions';
 import { cn } from '@/lib/utils';
+
 
 
 const PERIODS: { value: AgentOpsGranularity; label: string }[] = [
@@ -311,17 +313,22 @@ function NarrativeSection({
   title,
   actionTitle,
   granularity,
+  canEdit,
 }: {
   data: AgentOpsReportWindowData;
   zone: AgentOpsZone;
   title: string;
   actionTitle: string;
   granularity: AgentOpsGranularity;
+  canEdit: boolean;
 }) {
   const queryClient = useQueryClient();
   const note = data.notes[zone];
   const actions = data.actions[zone];
-  const readOnly = data.report.status.toLowerCase() === 'submitted';
+  const submitted = data.report.status.toLowerCase() === 'submitted';
+  // Read-only covers both a submitted report and a viewer without edit rights.
+  const readOnly = submitted || !canEdit;
+
   const [noteDraft, setNoteDraft] = useState(note?.reason_note ?? '');
   const [noteError, setNoteError] = useState<string | null>(null);
   const [addendumDraft, setAddendumDraft] = useState('');
@@ -420,50 +427,67 @@ function NarrativeSection({
       </CardHeader>
       <CardContent className="space-y-5 p-4 pt-0">
         <div className="space-y-2">
-          <Label htmlFor={`${zone}-reason-note`}>WHY THESE NUMBERS <span className="text-destructive">*</span></Label>
-          <Textarea
-            id={`${zone}-reason-note`}
-            value={noteDraft}
-            onChange={(event) => { setNoteDraft(event.target.value); setNoteError(null); }}
-            rows={4}
-            disabled={readOnly}
-            placeholder="Explain what happened this period and why."
-          />
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-            <span>{noteDraft.trim().length}/80 characters</span>
-            {!readOnly && <Button size="sm" onClick={() => saveNote.mutate()} disabled={!noteIsValid || saveNote.isPending}>Save explanation</Button>}
-          </div>
-          {noteError && <p className="text-sm text-destructive">{noteError}</p>}
-          {data.priorNotes[zone] && isIdenticalToPriorNote(noteDraft, data.priorNotes[zone]) && (
-            <p className="text-sm text-destructive">this is the same text as {data.priorPeriodLabel ?? 'the prior period'}; write what actually happened this period</p>
-          )}
-          {note && readOnly && (
+          <Label htmlFor={readOnly ? undefined : `${zone}-reason-note`}>
+            WHY THESE NUMBERS {!readOnly && <span className="text-destructive">*</span>}
+          </Label>
+          {readOnly ? (
+            /* READ-ONLY RENDER BRANCH — rendered text, never a disabled input. */
             <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
-              <p className="text-xs text-muted-foreground">Original note · never edited after submission</p>
-              <p className="text-sm">{note.reason_note}</p>
+              {note ? (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    {submitted ? 'Original note · never edited after submission' : 'Recorded explanation'}
+                  </p>
+                  <p className="whitespace-pre-wrap text-sm">{note.reason_note}</p>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">No explanation recorded for this period yet.</p>
+              )}
               {data.addenda[zone].map((addendum) => (
                 <div key={addendum.id} className="border-t border-border pt-2 text-sm">
-                  <p className="text-xs text-muted-foreground">Addendum · {formatTimestamp(addendum.created_at)} · {addendum.author_name ?? 'Officer'}</p>
-                  <p className="mt-1">{addendum.addendum_text}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Addendum · {formatTimestamp(addendum.created_at)} · {addendum.author_name ?? 'Officer'}
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap">{addendum.addendum_text}</p>
                 </div>
               ))}
-              {!showAddendum ? (
-                <Button variant="outline" size="sm" onClick={() => setShowAddendum(true)}>Add dated addendum</Button>
-              ) : (
-                <div className="space-y-2">
-                  <Textarea value={addendumDraft} onChange={(event) => setAddendumDraft(event.target.value)} rows={3} placeholder="Record the correction or follow-up." />
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={() => addendumMutation.mutate()} disabled={!addendumDraft.trim() || addendumMutation.isPending}>Save addendum</Button>
-                    <Button variant="ghost" size="sm" onClick={() => setShowAddendum(false)}>Cancel</Button>
+              {submitted && canEdit && (
+                !showAddendum ? (
+                  <Button variant="outline" size="sm" onClick={() => setShowAddendum(true)}>Add dated addendum</Button>
+                ) : (
+                  <div className="space-y-2">
+                    <Textarea value={addendumDraft} onChange={(event) => setAddendumDraft(event.target.value)} rows={3} placeholder="Record the correction or follow-up." />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => addendumMutation.mutate()} disabled={!addendumDraft.trim() || addendumMutation.isPending}>Save addendum</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setShowAddendum(false)}>Cancel</Button>
+                    </div>
                   </div>
-                </div>
+                )
               )}
             </div>
+          ) : (
+            <>
+              <Textarea
+                id={`${zone}-reason-note`}
+                value={noteDraft}
+                onChange={(event) => { setNoteDraft(event.target.value); setNoteError(null); }}
+                rows={4}
+                placeholder="Explain what happened this period and why."
+              />
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>{noteDraft.trim().length}/80 characters</span>
+                <Button size="sm" onClick={() => saveNote.mutate()} disabled={!noteIsValid || saveNote.isPending}>Save explanation</Button>
+              </div>
+              {noteError && <p className="text-sm text-destructive">{noteError}</p>}
+              {data.priorNotes[zone] && isIdenticalToPriorNote(noteDraft, data.priorNotes[zone]) && (
+                <p className="text-sm text-destructive">this is the same text as {data.priorPeriodLabel ?? 'the prior period'}; write what actually happened this period</p>
+              )}
+            </>
           )}
         </div>
 
         <div className="space-y-2">
-          <Label>{actionTitle} <span className="text-destructive">*</span></Label>
+          <Label>{actionTitle} {!readOnly && <span className="text-destructive">*</span>}</Label>
           {actions.map((action) => (
             <div key={action.id} className="rounded-lg border border-border p-3 text-sm">
               <p>{action.item_text}</p>
@@ -472,7 +496,11 @@ function NarrativeSection({
               </p>
             </div>
           ))}
-          {actions.length === 0 && <p className="text-xs text-muted-foreground">No actions added yet. At least one action is required.</p>}
+          {actions.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              {readOnly ? 'No actions were recorded for this period.' : 'No actions added yet. At least one action is required.'}
+            </p>
+          )}
           {!readOnly && (
             <div className="grid gap-2 md:grid-cols-2">
               <Input value={actionText} onChange={(event) => setActionText(event.target.value)} placeholder="Action item (minimum 10 characters)" />
@@ -492,20 +520,22 @@ function NarrativeSection({
               </Button>
             </div>
           )}
-          <p className="text-xs text-muted-foreground">{actionTitle} · due dates must be today or later.</p>
+          {!readOnly && <p className="text-xs text-muted-foreground">{actionTitle} · due dates must be today or later.</p>}
         </div>
       </CardContent>
     </Card>
   );
 }
 
-function PriorPeriodCloseout({ data, granularity }: { data: AgentOpsReportWindowData; granularity: AgentOpsGranularity }) {
+
+function PriorPeriodCloseout({ data, granularity, canEdit }: { data: AgentOpsReportWindowData; granularity: AgentOpsGranularity; canEdit: boolean }) {
   const queryClient = useQueryClient();
   const [outcomes, setOutcomes] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [isCarrying, setIsCarrying] = useState(false);
-  const readOnly = data.report.status.toLowerCase() === 'submitted';
+  const readOnly = data.report.status.toLowerCase() === 'submitted' || !canEdit;
+
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['agent-ops-report-window', granularity] });
 
   const updateOutcome = async (action: AgentOpsReportAction) => {
@@ -575,22 +605,35 @@ function PriorPeriodCloseout({ data, granularity }: { data: AgentOpsReportWindow
                 </div>
                 {action.flaggedToReviewer && <Badge variant="destructive">flagged to reviewer</Badge>}
               </div>
-              <div className="grid gap-2 md:grid-cols-[180px_1fr_auto]">
-                <select
-                  aria-label={`Outcome for ${action.item_text}`}
-                  value={outcome}
-                  disabled={readOnly || closed}
-                  onChange={(event) => setOutcomes((current) => ({ ...current, [action.id]: event.target.value }))}
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="">Choose outcome</option>
-                  <option value="done">Done</option>
-                  <option value="partly_done">Partly done</option>
-                  <option value="not_done">Not done</option>
-                </select>
-                <Input value={outcomeNote} disabled={readOnly || closed} onChange={(event) => setNotes((current) => ({ ...current, [action.id]: event.target.value }))} placeholder="One-line result" />
-                {!readOnly && <Button size="sm" variant="outline" disabled={closed || !outcome || !outcomeNote.trim()} onClick={() => updateOutcome(action)}>Save outcome</Button>}
-              </div>
+              {readOnly ? (
+                <div className="text-sm">
+                  <p>
+                    Outcome:{' '}
+                    <span className="font-medium">
+                      {outcome === 'done' ? 'Done' : outcome === 'partly_done' ? 'Partly done' : outcome === 'not_done' ? 'Not done' : 'Not closed out'}
+                    </span>
+                  </p>
+                  <p className="text-muted-foreground">{outcomeNote.trim() || 'No result recorded.'}</p>
+                </div>
+              ) : (
+                <div className="grid gap-2 md:grid-cols-[180px_1fr_auto]">
+                  <select
+                    aria-label={`Outcome for ${action.item_text}`}
+                    value={outcome}
+                    disabled={closed}
+                    onChange={(event) => setOutcomes((current) => ({ ...current, [action.id]: event.target.value }))}
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">Choose outcome</option>
+                    <option value="done">Done</option>
+                    <option value="partly_done">Partly done</option>
+                    <option value="not_done">Not done</option>
+                  </select>
+                  <Input value={outcomeNote} disabled={closed} onChange={(event) => setNotes((current) => ({ ...current, [action.id]: event.target.value }))} placeholder="One-line result" />
+                  <Button size="sm" variant="outline" disabled={closed || !outcome || !outcomeNote.trim()} onClick={() => updateOutcome(action)}>Save outcome</Button>
+                </div>
+              )}
+
               {closed && <p className="text-xs text-muted-foreground">Close-out recorded.</p>}
             </div>
           );
@@ -621,10 +664,10 @@ function buildSubmitGateChecklist(data: AgentOpsReportWindowData): { label: stri
   ];
 }
 
-function ReportNarratives({ data, granularity }: { data: AgentOpsReportWindowData; granularity: AgentOpsGranularity }) {
+function ReportNarratives({ data, granularity, canEdit }: { data: AgentOpsReportWindowData; granularity: AgentOpsGranularity; canEdit: boolean }) {
   const queryClient = useQueryClient();
   const checklist = buildSubmitGateChecklist(data);
-  const readOnly = data.report.status.toLowerCase() === 'submitted';
+  const submitted = data.report.status.toLowerCase() === 'submitted';
   const submit = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.rpc('agent_ops_submit_report', { p_report_id: data.report.id });
@@ -641,35 +684,41 @@ function ReportNarratives({ data, granularity }: { data: AgentOpsReportWindowDat
     <section aria-labelledby="agent-ops-narratives" className="space-y-3">
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">Report narrative</p>
-        <h2 id="agent-ops-narratives" className="text-lg font-semibold">Explain the movement and commit the next actions</h2>
+        <h2 id="agent-ops-narratives" className="text-lg font-semibold">
+          {canEdit ? 'Explain the movement and commit the next actions' : 'Officer narrative and committed actions'}
+        </h2>
       </div>
-      <NarrativeSection data={data} zone="growth" title="Zone A — WHY THESE NUMBERS" actionTitle={actionLabel(granularity)} granularity={granularity} />
-      <NarrativeSection data={data} zone="pipeline" title="Zone B — WHY THESE NUMBERS" actionTitle={actionLabel(granularity)} granularity={granularity} />
-      <PriorPeriodCloseout data={data} granularity={granularity} />
-      <Card aria-label="Submit Agent Operations report">
-        <CardContent className="space-y-3 p-4">
-          {readOnly ? (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-              <Badge>Submitted</Badge>
-              <span>by {data.submittedByName ?? 'the submitting officer'}</span>
-              <span className="text-muted-foreground">{formatTimestamp(data.submittedAt)}</span>
-            </div>
-          ) : (
-            <>
-              <div className="space-y-1">
-                {checklist.map((item) => (
-                  <p key={item.label} className={cn('text-sm', item.complete ? 'text-success' : 'text-muted-foreground')}>
-                    {item.complete ? '✓' : '○'} {item.label}
-                  </p>
-                ))}
+      <NarrativeSection data={data} zone="growth" title="Zone A — WHY THESE NUMBERS" actionTitle={actionLabel(granularity)} granularity={granularity} canEdit={canEdit} />
+      <NarrativeSection data={data} zone="pipeline" title="Zone B — WHY THESE NUMBERS" actionTitle={actionLabel(granularity)} granularity={granularity} canEdit={canEdit} />
+      <PriorPeriodCloseout data={data} granularity={granularity} canEdit={canEdit} />
+      {(submitted || canEdit) && (
+        <Card aria-label="Submit Agent Operations report">
+          <CardContent className="space-y-3 p-4">
+            {submitted ? (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                <Badge>Submitted</Badge>
+                <span>by {data.submittedByName ?? 'the submitting officer'}</span>
+                <span className="text-muted-foreground">{formatTimestamp(data.submittedAt)}</span>
               </div>
-              <Button onClick={() => submit.mutate()} disabled={submit.isPending || !checklist.every((item) => item.complete)}>
-                {submit.isPending ? 'Submitting…' : 'Submit report'}
-              </Button>
-            </>
-          )}
-        </CardContent>
-      </Card>
+            ) : (
+              <>
+                <div className="space-y-1">
+                  {checklist.map((item) => (
+                    <p key={item.label} className={cn('text-sm', item.complete ? 'text-success' : 'text-muted-foreground')}>
+                      {item.complete ? '✓' : '○'} {item.label}
+                    </p>
+                  ))}
+                </div>
+                <Button onClick={() => submit.mutate()} disabled={submit.isPending || !checklist.every((item) => item.complete)}>
+                  {submit.isPending ? 'Submitting…' : 'Submit report'}
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </section>
+
     </section>
   );
 }
@@ -1121,7 +1170,26 @@ function ZoneC() {
 export function AgentOpsReportWindow() {
   const [granularity, setGranularity] = useState<AgentOpsGranularity>('daily');
   const [dirtyDraft] = useState(false);
+  const queryClient = useQueryClient();
+  // VISIBILITY: read access is NOT gated here — anyone who can reach the Agent
+  // Operations dashboard sees this window. Only editing is role-limited.
+  const { canEdit, canManageSettings } = useAgentOpsReportPermissions();
   const { data, isLoading, isFetching, isError, error, refetch } = useAgentOpsReportWindow(granularity);
+
+  const computeSnapshot = useMutation({
+    mutationFn: async (periodStart: string) => {
+      const { error: rpcError } = await supabase.rpc('agent_ops_compute_snapshot', {
+        p_granularity: granularity,
+        p_period_start: periodStart,
+      });
+      if (rpcError) throw rpcError;
+    },
+    onSuccess: () => {
+      toast.success('Snapshot computed.');
+      queryClient.invalidateQueries({ queryKey: ['agent-ops-report-window', granularity] });
+    },
+    onError: (err) => toast.error(readableError(err)),
+  });
 
   const handlePeriodChange = (next: AgentOpsGranularity) => {
     if (next === granularity) return;
@@ -1145,6 +1213,26 @@ export function AgentOpsReportWindow() {
     );
   }
 
+  if (!data.ready) {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardContent className="space-y-3 p-8 text-center">
+            <p className="text-sm font-medium">not yet computed</p>
+            <p className="text-xs text-muted-foreground">
+              No snapshot exists for the selected {granularity} period starting {data.periodStart}.
+            </p>
+            {canManageSettings && (
+              <Button size="sm" onClick={() => computeSnapshot.mutate(data.periodStart)} disabled={computeSnapshot.isPending}>
+                {computeSnapshot.isPending ? 'Computing…' : 'Compute now'}
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const { report, snapshot, priorSnapshot, periodLabel } = data;
   const currentGrowthRate = computeGrowthRate(snapshot);
   const growthVariancePp = computeGrowthVariancePp(snapshot, priorSnapshot);
@@ -1152,7 +1240,8 @@ export function AgentOpsReportWindow() {
   const currentDirection = direction(netChange);
   const varianceDirection = direction(growthVariancePp);
   const isDaily = granularity === 'daily';
-  const targetLabel = report.target_net_agents === null ? 'No target set' : `Target ${signedNumber(report.target_net_agents)}`;
+  const hasTarget = report.target_net_agents !== null;
+  const targetLabel = hasTarget ? `Target ${signedNumber(report.target_net_agents)}` : 'No target set';
   const statusLabel = report.status.toLowerCase() === 'submitted' ? 'Submitted' : 'Draft';
   const priorPeriodLabel = priorSnapshot
     ? `${priorSnapshot.period_start} to ${priorSnapshot.period_end}`
@@ -1173,11 +1262,24 @@ export function AgentOpsReportWindow() {
                 <span aria-hidden="true">·</span>
                 <span>{periodLabel}</span>
                 <span aria-hidden="true">·</span>
-                <Badge variant={report.target_net_agents === null ? 'secondary' : 'outline'}>{targetLabel}</Badge>
+                <Badge variant={hasTarget ? 'outline' : 'secondary'}>{targetLabel}</Badge>
                 <span aria-hidden="true">·</span>
                 <Badge variant={statusLabel === 'Submitted' ? 'default' : 'secondary'}>{statusLabel}</Badge>
+                {snapshot.provisional && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <Badge variant="secondary">provisional, recomputes at 03:10</Badge>
+                  </>
+                )}
+                {!canEdit && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <Badge variant="outline">View only</Badge>
+                  </>
+                )}
               </div>
             </div>
+
             <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
               <RefreshCw className={cn('mr-1.5 h-3.5 w-3.5', isFetching && 'animate-spin')} />
               Refresh
@@ -1219,9 +1321,14 @@ export function AgentOpsReportWindow() {
               <p className="mt-3 text-3xl font-semibold tabular-nums text-foreground">{snapshot.closing_agents}</p>
               <p className="mt-2 text-sm text-muted-foreground">
                 Active share {oneDecimalPercent(snapshot.active_agents_30d, snapshot.closing_agents)}
-                <span className="mx-1.5" aria-hidden="true">|</span>
-                {targetLabel.toLowerCase()}
+                {hasTarget && (
+                  <>
+                    <span className="mx-1.5" aria-hidden="true">|</span>
+                    {targetLabel.toLowerCase()}
+                  </>
+                )}
               </p>
+
             </CardContent>
           </Card>
 
@@ -1245,8 +1352,10 @@ export function AgentOpsReportWindow() {
             <CardContent className="p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">A3 · Growth rate vs prior</p>
               <div className="mt-3">
-                {isDaily ? (
-                  priorSnapshot ? <DirectionValue value={growthVariancePp} kind="points" /> : <p className="text-xl font-medium text-muted-foreground">no prior period</p>
+                {!priorSnapshot ? (
+                  <p className="text-xl font-medium text-muted-foreground">no prior period</p>
+                ) : isDaily ? (
+                  <DirectionValue value={growthVariancePp} kind="points" />
                 ) : (
                   <p className={cn('text-3xl font-semibold tabular-nums', varianceDirection.className)}>
                     {rateText(currentGrowthRate)}
@@ -1254,11 +1363,11 @@ export function AgentOpsReportWindow() {
                 )}
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
-                {isDaily
-                  ? priorSnapshot
+                {!priorSnapshot
+                  ? 'No comparison available'
+                  : isDaily
                     ? `${priorPeriodLabel} ${rateText(computeGrowthRate(priorSnapshot))} → ${periodLabel} ${rateText(currentGrowthRate)}`
-                    : 'No comparison available'
-                  : <>net change {signedNumber(netChange)} · {priorSnapshot ? <DirectionValue value={growthVariancePp} kind="points" /> : 'no prior period'}</>}
+                    : <>net change {signedNumber(netChange)} · <DirectionValue value={growthVariancePp} kind="points" /></>}
               </p>
               {priorSnapshot && (
                 <p className="mt-3 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
@@ -1280,9 +1389,10 @@ export function AgentOpsReportWindow() {
 
       <ZoneC />
 
-      <ReportNarratives data={data} granularity={granularity} />
+      <ReportNarratives data={data} granularity={granularity} canEdit={canEdit} />
     </div>
   );
 }
+
 
 export default AgentOpsReportWindow;
