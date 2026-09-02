@@ -165,6 +165,7 @@ export function NarrativeCollections({
             value={note}
             onChange={(e) => onNoteChange(e.target.value)}
             rows={5}
+            className="min-h-[180px] w-full sm:min-h-0"
             placeholder="Explain what drove the collected figure in this period."
           />
           <p className="text-xs text-muted-foreground">
