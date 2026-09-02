@@ -34,6 +34,7 @@ interface Req {
 
 const STATUS_TONES: Record<string, string> = {
   pending: 'bg-amber-500/15 text-amber-700',
+  pending_cfo: 'bg-amber-500/15 text-amber-700',
   approved: 'bg-emerald-500/15 text-emerald-700',
   rejected: 'bg-destructive/15 text-destructive',
   paid: 'bg-primary/15 text-primary',
@@ -82,7 +83,8 @@ export function EmployeeRequisitionQueuePanel() {
   const load = async () => {
     setLoading(true);
     let q = supabase.from('employee_requisitions').select('*').order('submitted_at', { ascending: false }).limit(200);
-    if (statusFilter !== 'all') q = q.eq('status', statusFilter);
+    if (statusFilter === 'pending') q = q.in('status', ['pending', 'pending_cfo']);
+    else if (statusFilter !== 'all') q = q.eq('status', statusFilter);
     const { data, error } = await q;
     if (error) toast.error(error.message);
     setRows((data as Req[]) ?? []);
@@ -293,7 +295,7 @@ export function EmployeeRequisitionQueuePanel() {
                       </div>
                     )}
 
-                    {r.status === 'pending' && (
+                    {(r.status === 'pending' || r.status === 'pending_cfo') && (
                       <div className="space-y-2">
                         <div className="space-y-1">
                           <Label className="text-xs text-muted-foreground">Approved amount ({r.currency})</Label>
