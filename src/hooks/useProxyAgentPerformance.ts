@@ -117,7 +117,7 @@ export interface ProxyPvTeamResult {
   rows: ProxyPvTeamRow[];
 }
 
-export type ProxyPvSort = 'total_pv' | 'commitments' | 'new_investment' | 'topups';
+export type ProxyPvSort = 'total_pv' | 'commitments' | 'new_investment' | 'topups' | 'performance_pct' | 'name';
 
 /** Performance bands used across both the agent and ops views. */
 export type ProxyPvBand = 'on_track' | 'near' | 'lagging' | 'critical';
@@ -130,10 +130,10 @@ export function proxyPvBand(pct: number): ProxyPvBand {
 }
 
 export const PROXY_PV_BAND_META: Record<ProxyPvBand, { label: string; className: string; dot: string }> = {
-  on_track: { label: '100%+', className: 'bg-success/10 text-success border-success/30', dot: 'bg-success' },
-  near: { label: '80–99%', className: 'bg-primary/10 text-primary border-primary/30', dot: 'bg-primary' },
-  lagging: { label: '50–79%', className: 'bg-warning/10 text-warning border-warning/30', dot: 'bg-warning' },
-  critical: { label: 'Below 50%', className: 'bg-destructive/10 text-destructive border-destructive/30', dot: 'bg-destructive' },
+  on_track: { label: 'Ahead', className: 'bg-success/10 text-success border-success/30', dot: 'bg-success' },
+  near: { label: 'Near', className: 'bg-primary/10 text-primary border-primary/30', dot: 'bg-primary' },
+  lagging: { label: 'Below', className: 'bg-warning/10 text-warning border-warning/30', dot: 'bg-warning' },
+  critical: { label: 'Significantly Below', className: 'bg-destructive/10 text-destructive border-destructive/30', dot: 'bg-destructive' },
 };
 
 /** First day of the month, as the RPCs expect it. */
