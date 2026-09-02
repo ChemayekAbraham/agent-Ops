@@ -58,6 +58,7 @@ import { AgentListingCampaignPanel } from './AgentListingCampaignPanel';
 import { DailyRentReport } from '@/components/reports/DailyRentReport';
 import { AgentDailyCollectionsView } from '@/components/executive/agent-ops/AgentDailyCollectionsView';
 import { AgentOpsComprehensiveReport } from '@/components/executive/agent-ops/AgentOpsComprehensiveReport';
+import { AgentOpsReportWindow } from '@/components/executive/agent-ops/AgentOpsReportWindow';
 import { usePendingAdvanceCount } from '@/hooks/usePendingAdvanceCount';
 import { AgentOpsOverview, AtRiskAgentsPreview } from './agent-ops-v2/AgentOpsOverview';
 import { CallingHub } from '@/components/ops/calling';
