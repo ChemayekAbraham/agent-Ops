@@ -103,7 +103,7 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
       tone: 'bg-success/10 text-success',
     },
     {
-      label: `New Tenants ${phrase}`,
+      label: `Registrations ${phrase}`,
       value: num(periodStats?.newTenants),
       hint: `Growth ${growthLabel}`,
       icon: CalendarDays,
@@ -216,8 +216,8 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
                 <Wallet className="h-4 w-4 text-primary" />
               </div>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Collected today
-              </p>
+                 Collected {phrase}
+               </p>
             </div>
             <p className="mt-3 text-2xl font-bold tabular-nums leading-none">
                  {loadingHomeRange ? '—' : formatUGX(collected)}
@@ -475,7 +475,7 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
            />
            <HubEntryCard
              title="Daily Payments"
-             description="Who paid today and who still owes"
+             description={`Who paid ${phrase} and who still owes`}
              icon={CalendarCheck}
              stats={[{ label: 'unpaid', value: homeRange?.unpaid_tenants ?? 0 }]}
              onClick={() => onNavigate('daily')}
