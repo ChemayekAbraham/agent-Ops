@@ -718,8 +718,6 @@ function ReportNarratives({ data, granularity, canEdit }: { data: AgentOpsReport
         </Card>
       )}
     </section>
-
-    </section>
   );
 }
 

@@ -625,15 +625,6 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
         </div>
       </CardHeader>
       <CardContent className="space-y-4 p-5">
-        {filteredItems.length > 0 && (
-          <div className="flex items-start gap-3 rounded-xl bg-primary/[0.06] border border-primary/15 px-4 py-3">
-            <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary text-xs font-bold">i</span>
-            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              Funding lands in the assigned agent's <b className="text-foreground">Landlord Payout Float</b> — the agent then pays the landlord via MoMo + OTP.
-              Revenue earned: <span className="font-bold text-emerald-600">{fmt(queueTotalRevenue)}</span>
-            </p>
-          </div>
-        )}
         {/* Location scope chip — the same table below is simply filtered. */}
         {locationScoped && (
           <div className="flex items-center gap-2 flex-wrap">
