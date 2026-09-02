@@ -199,13 +199,25 @@ export function useAgentOpsReportWindow(granularity: AgentOpsGranularity) {
 
   return useQuery({
     queryKey: ['agent-ops-report-window', granularity, periodStart],
-    queryFn: async (): Promise<AgentOpsReportWindowData> => {
+    queryFn: async (): Promise<AgentOpsReportWindowResult> => {
+      const missing: AgentOpsReportWindowMissing = {
+        ready: false,
+        reason: 'no_snapshot',
+        granularity,
+        periodStart,
+      };
+
       const { data: reportId, error: openError } = await supabase.rpc('agent_ops_open_report', {
         p_granularity: granularity,
         p_period_start: periodStart,
       });
-      if (openError) throw openError;
-      if (!reportId) throw new Error('The Agent Operations report could not be opened.');
+      // A period with no computed snapshot is an expected, recoverable state —
+      // it renders "not yet computed", never an error card.
+      if (openError) {
+        if (/snapshot/i.test(openError.message ?? '')) return missing;
+        throw openError;
+      }
+      if (!reportId) return missing;
 
       const { data: reportData, error: reportError } = await supabase
         .from('agent_ops_reports')
@@ -224,7 +236,8 @@ export function useAgentOpsReportWindow(granularity: AgentOpsGranularity) {
 
       const rows = (snapshots ?? []) as AgentOpsSnapshot[];
       const snapshot = rows.find((row) => row.id === report.snapshot_id);
-      if (!snapshot) throw new Error('The Agent Operations snapshot is unavailable.');
+      if (!snapshot) return missing;
+
 
       const [notesRes, actionsRes, addendaRes, priorReportRes, staffRes, submitterRes] = await Promise.all([
         supabase.from('agent_ops_report_notes').select('id, zone, reason_note').eq('report_id', report.id),
