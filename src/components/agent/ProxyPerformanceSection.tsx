@@ -246,7 +246,7 @@ export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading
               </div>
             </div>
             <div className="text-right shrink-0">
-              <p className="text-[10px] text-muted-foreground">Daily target</p>
+              <p className="text-[10px] text-muted-foreground">Today's goal</p>
               <p className="text-xs font-bold tabular-nums">{money(r.today.target_pv)}</p>
               <div className="mt-1 flex justify-end">
                 {r.today.is_working_day === false ? (
