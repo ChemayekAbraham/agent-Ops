@@ -262,8 +262,10 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
     setLandlordAcknowledged(cl.acknowledged || !!req.landlord_acknowledged);
     setSelectedRequest(req);
   };
-  // COO bulk approval state
+  // Bulk review selection state for Agent Ops and COO queues.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
+  const [bulkRejectReason, setBulkRejectReason] = useState('');
   // Agent profile drilldown
   const [drilldownAgentId, setDrilldownAgentId] = useState<string | null>(null);
   // Landlord profile drilldown — full location, contacts, houses
