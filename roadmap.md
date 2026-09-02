@@ -6,4 +6,5 @@
 - [ ] Daily comprehensive report email: attached PDF must be the report HTML rendered as-is (no redesigned PDF layout).
 - [x] WELILE-CC-TICKETFIX24: hr_tickets external-origin constraint fix (origin internal, length guards), 20-char note guard in cc_record_engaged + client-side counter, cc_call_cycles.wip_limit (default 10) driving guard + UI, repair parked rows without tickets.
 - [x] WELILE-CC-WIPUI26: open-attempt badge/guard read cc_call_cycles.wip_limit only; no client fallback number; reveals stay enabled while the limit is loading.
+- [ ] Fix typecheck build errors in AgentOpsReportWindow.tsx (`periodStart` narrowing on `AgentOpsReportWindowResult`).
 
