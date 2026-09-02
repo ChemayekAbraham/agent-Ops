@@ -143,8 +143,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
   const moneyWeCanUse = position?.moneyWeCanUse ?? 0;
   const positionUnavailable = !!positionError;
 
-  const treasuryPosition = (platformCash?.positions ?? []).find((p: any) => p.category === 'treasury_platform_cash');
-  const bankPosition = (platformCash?.positions ?? []).find((p: any) => p.category === 'bank_cash');
   const walletTotal = liabilities?.tenantFunds ?? 0;
   const netToday = todayCashFlow?.netToday ?? 0;
 
@@ -279,35 +277,37 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
             />
           </div>
 
-          {/* Where that same cash sits — a split of "Money We Have", so it
-              belongs directly beneath it rather than further down the page. */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <HeroCard
-              icon={<Vault className="h-5 w-5 text-indigo-600" />}
-              iconBg="bg-indigo-50 dark:bg-indigo-950/40"
-              title="Money in Treasury / Platform"
-              value={fmt(treasuryPosition?.value ?? 0)}
-              valueColor="text-indigo-600"
-              items={[
-                { dot: 'bg-indigo-500', label: 'Cash held outside the bank', value: fmt(treasuryPosition?.value ?? 0) },
-                { dot: 'bg-indigo-500', label: 'Ledger entries', value: String(treasuryPosition?.count ?? 0) },
-              ]}
-              footer="Position view — part of Money We Have, not added to it"
-              footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic"
-            />
-            <HeroCard
-              icon={<Landmark className="h-5 w-5 text-sky-600" />}
-              iconBg="bg-sky-50 dark:bg-sky-950/40"
-              title="Money in Bank"
-              value={fmt(bankPosition?.value ?? 0)}
-              valueColor="text-sky-600"
-              items={[
-                { dot: 'bg-sky-500', label: 'Net banked cash', value: fmt(bankPosition?.value ?? 0) },
-                { dot: 'bg-sky-500', label: 'Ledger entries', value: String(bankPosition?.count ?? 0) },
-              ]}
-              footer="Position view — part of Money We Have, not added to it"
-              footerTone="bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic"
-            />
+          {/* Where that same cash sits. These are the three cash accounts that
+              make up Money We Have, read from the same statement, so they sum to
+              it exactly. They are a split of the headline, never an addition to
+              it. The bank-vs-treasury breakdown within A1 is category-level
+              detail and lives in the Cash Sources drill-down, which cannot be
+              derived from the statement without recomputing it here. */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {(position?.cashByAccount ?? []).map(a => {
+              const tone = a.code === 'A1'
+                ? { icon: <Landmark className="h-5 w-5 text-sky-600" />, bg: 'bg-sky-50 dark:bg-sky-950/40', color: 'text-sky-600', foot: 'bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic' }
+                : a.code === 'A2'
+                  ? { icon: <Wallet className="h-5 w-5 text-indigo-600" />, bg: 'bg-indigo-50 dark:bg-indigo-950/40', color: 'text-indigo-600', foot: 'bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic' }
+                  : { icon: <Vault className="h-5 w-5 text-teal-600" />, bg: 'bg-teal-50 dark:bg-teal-950/40', color: 'text-teal-600', foot: 'bg-teal-50/70 dark:bg-teal-950/30 text-teal-700 dark:text-teal-400 italic' };
+              const share = totalCash !== 0 ? (a.value / totalCash) * 100 : 0;
+              return (
+                <HeroCard
+                  key={a.code}
+                  icon={tone.icon}
+                  iconBg={tone.bg}
+                  title={a.label}
+                  value={positionUnavailable ? '—' : fmt(a.value)}
+                  valueColor={a.value >= 0 ? tone.color : 'text-destructive'}
+                  items={[
+                    { dot: 'bg-current', label: `Ledger account ${a.code}`, value: fmt(a.value) },
+                    { dot: 'bg-current', label: 'Share of Money We Have', value: `${share.toFixed(1)}%` },
+                  ]}
+                  footer="Position view — part of Money We Have, not added to it"
+                  footerTone={tone.foot}
+                />
+              );
+            })}
           </div>
         </Band>
 
