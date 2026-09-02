@@ -90,13 +90,7 @@ Deno.serve(async (req) => {
       actor: 'Automated daily report',
     } as never);
 
-    const pdf = buildComprehensiveReportPdf({
-      report,
-      population,
-      fromDate,
-      toDate,
-      periodLabel: fromDate === toDate ? 'Daily (previous day)' : 'Custom range',
-    });
+    const pdf = renderReportHtmlToPdf(html);
     const filename = fromDate === toDate
       ? `Welile_Agent_Ops_Comprehensive_${toDate}.pdf`
       : `Welile_Agent_Ops_Comprehensive_${fromDate}_to_${toDate}.pdf`;
