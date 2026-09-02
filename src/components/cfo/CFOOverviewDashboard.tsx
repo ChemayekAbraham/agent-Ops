@@ -209,8 +209,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <HeroCard
-              icon={<PiggyBank className="h-5 w-5 text-emerald-600" />}
-              iconBg="bg-emerald-50 dark:bg-emerald-950/40"
+              icon={<PiggyBank className="h-5 w-5 text-emerald-50" />}
+              iconBg="bg-emerald-600"
               title="Money We Have"
               value={fmt(totalCash)}
               valueColor="text-emerald-600"
@@ -223,8 +223,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               onClick={() => setActiveBreakdown('cash')}
             />
             <HeroCard
-              icon={<Package className="h-5 w-5 text-orange-600" />}
-              iconBg="bg-orange-50 dark:bg-orange-950/40"
+              icon={<Package className="h-5 w-5 text-orange-50" />}
+              iconBg="bg-orange-500"
               title="Money We Owe"
               value={fmt(walletTotal)}
               valueColor="text-orange-600"
@@ -237,8 +237,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               onClick={() => setActiveBreakdown('wallets')}
             />
             <HeroCard
-              icon={<BarChart3 className="h-5 w-5 text-blue-600" />}
-              iconBg="bg-blue-50 dark:bg-blue-950/40"
+              icon={<BarChart3 className="h-5 w-5 text-blue-50" />}
+              iconBg="bg-blue-600"
               title="Money We Can Use"
               value={fmt(moneyWeCanUse)}
               valueColor={moneyWeCanUse >= 0 ? 'text-blue-600' : 'text-destructive'}
@@ -255,8 +255,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               belongs directly beneath it rather than further down the page. */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <HeroCard
-              icon={<Vault className="h-5 w-5 text-indigo-600" />}
-              iconBg="bg-indigo-50 dark:bg-indigo-950/40"
+              icon={<Vault className="h-5 w-5 text-indigo-50" />}
+              iconBg="bg-indigo-600"
               title="Money in Treasury / Platform"
               value={fmt(treasuryPosition?.value ?? 0)}
               valueColor="text-indigo-600"
@@ -268,8 +268,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic"
             />
             <HeroCard
-              icon={<Landmark className="h-5 w-5 text-sky-600" />}
-              iconBg="bg-sky-50 dark:bg-sky-950/40"
+              icon={<Landmark className="h-5 w-5 text-sky-50" />}
+              iconBg="bg-sky-500"
               title="Money in Bank"
               value={fmt(bankPosition?.value ?? 0)}
               valueColor="text-sky-600"
