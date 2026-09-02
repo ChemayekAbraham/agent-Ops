@@ -58,9 +58,12 @@ interface ActivityEntry {
 export function ProxyPerformanceActivities({ report }: { report: ProxyPvReport }) {
   const [showAll, setShowAll] = useState(false);
   const [drill, setDrill] = useState<{ day: string; kind: ProxyPvActivityKind } | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const { rates } = report;
+  const pendingFeed = useProxyPvPendingFeed(report.agent_id, report.period_month);
 
-  const entries = useMemo<ActivityEntry[]>(() => {
+  const verifiedEntries = useMemo<ActivityEntry[]>(() => {
     const out: ActivityEntry[] = [];
     // daily arrives ascending; show newest first.
     for (const d of [...report.daily].reverse()) {
