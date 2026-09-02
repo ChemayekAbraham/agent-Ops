@@ -1,6 +1,7 @@
 # Roadmap
 
-- [x] Add "Portfolio Performance" entry to Tenant Ops and Agent Ops dashboard sidebars
-- [x] Make comprehensive Agent Ops report agent counts match the baseline definitions
-- [x] Surface employee exit date (`ended_on`) in HR Staff Directory and CSV export
-- [x] Update tenant-self-repayment investigation v3: route deposits through operational float, not withdrawable
+- [x] Add a Financial Ops sidebar section for manual requisition links and management.
+- [x] Route public manual requisition submissions through COO review, then CFO final approval.
+- [x] Preserve the existing My Space requisition path and validate with guards/build.
+- [ ] Daily comprehensive report email: attached PDF must be the report HTML rendered as-is (no redesigned PDF layout).
+- [ ] WELILE-CC-TICKETFIX24: hr_tickets external-origin constraint fix (origin internal, length guards), 20-char note guard in cc_record_engaged + client-side counter, cc_call_cycles.wip_limit (default 10) driving guard + UI, repair parked rows without tickets.

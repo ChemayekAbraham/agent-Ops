@@ -7468,6 +7468,7 @@ export type Database = {
           retry_after_days: number
           subject_type: Database["public"]["Enums"]["cc_subject_type"]
           title: string | null
+          wip_limit: number
         }
         Insert: {
           abandoned_reason?: string | null
@@ -7481,6 +7482,7 @@ export type Database = {
           retry_after_days?: number
           subject_type: Database["public"]["Enums"]["cc_subject_type"]
           title?: string | null
+          wip_limit?: number
         }
         Update: {
           abandoned_reason?: string | null
@@ -7494,6 +7496,7 @@ export type Database = {
           retry_after_days?: number
           subject_type?: Database["public"]["Enums"]["cc_subject_type"]
           title?: string | null
+          wip_limit?: number
         }
         Relationships: []
       }
@@ -10941,14 +10944,19 @@ export type Database = {
       employee_requisitions: {
         Row: {
           amount: number
+          approved_amount: number | null
           approved_at: string | null
           approved_by: string | null
           attachment_urls: string[]
           category: string
+          coo_decided_at: string | null
+          coo_decided_by: string | null
+          coo_note: string | null
           created_at: string
           credited_at: string | null
           credited_by: string | null
           currency: string
+          current_approver_role: string | null
           department: string | null
           description: string | null
           employee_email: string
@@ -10967,17 +10975,23 @@ export type Database = {
           updated_at: string
           wallet_credit_status: string | null
           wallet_transaction_id: string | null
+          workflow_stage: string
         }
         Insert: {
           amount: number
+          approved_amount?: number | null
           approved_at?: string | null
           approved_by?: string | null
           attachment_urls?: string[]
           category: string
+          coo_decided_at?: string | null
+          coo_decided_by?: string | null
+          coo_note?: string | null
           created_at?: string
           credited_at?: string | null
           credited_by?: string | null
           currency?: string
+          current_approver_role?: string | null
           department?: string | null
           description?: string | null
           employee_email: string
@@ -10996,17 +11010,23 @@ export type Database = {
           updated_at?: string
           wallet_credit_status?: string | null
           wallet_transaction_id?: string | null
+          workflow_stage?: string
         }
         Update: {
           amount?: number
+          approved_amount?: number | null
           approved_at?: string | null
           approved_by?: string | null
           attachment_urls?: string[]
           category?: string
+          coo_decided_at?: string | null
+          coo_decided_by?: string | null
+          coo_note?: string | null
           created_at?: string
           credited_at?: string | null
           credited_by?: string | null
           currency?: string
+          current_approver_role?: string | null
           department?: string | null
           description?: string | null
           employee_email?: string
@@ -11025,6 +11045,7 @@ export type Database = {
           updated_at?: string
           wallet_credit_status?: string | null
           wallet_transaction_id?: string | null
+          workflow_stage?: string
         }
         Relationships: [
           {
@@ -17220,12 +17241,12 @@ export type Database = {
           landlord_phone: string
           landlord_signature_name: string
           landlord_signature_path: string
-          landlord_signed_on: string
+          landlord_signed_on: string | null
           metadata: Json
           mobile_money_name: string | null
           mobile_money_number: string | null
           monthly_rent: number
-          nin: string
+          nin: string | null
           number_of_rooms: number | null
           payment_day: number
           payout_mode: string | null
@@ -17250,10 +17271,10 @@ export type Database = {
           water_registered_name: string | null
           welile_signature_name: string
           welile_signature_path: string
-          welile_signed_on: string
+          welile_signed_on: string | null
           witness_name: string
           witness_signature_path: string
-          witness_signed_on: string
+          witness_signed_on: string | null
         }
         Insert: {
           account_number?: string | null
@@ -17275,12 +17296,12 @@ export type Database = {
           landlord_phone: string
           landlord_signature_name: string
           landlord_signature_path: string
-          landlord_signed_on: string
+          landlord_signed_on?: string | null
           metadata?: Json
           mobile_money_name?: string | null
           mobile_money_number?: string | null
           monthly_rent: number
-          nin: string
+          nin?: string | null
           number_of_rooms?: number | null
           payment_day: number
           payout_mode?: string | null
@@ -17305,10 +17326,10 @@ export type Database = {
           water_registered_name?: string | null
           welile_signature_name: string
           welile_signature_path: string
-          welile_signed_on: string
+          welile_signed_on?: string | null
           witness_name: string
           witness_signature_path: string
-          witness_signed_on: string
+          witness_signed_on?: string | null
         }
         Update: {
           account_number?: string | null
@@ -17330,12 +17351,12 @@ export type Database = {
           landlord_phone?: string
           landlord_signature_name?: string
           landlord_signature_path?: string
-          landlord_signed_on?: string
+          landlord_signed_on?: string | null
           metadata?: Json
           mobile_money_name?: string | null
           mobile_money_number?: string | null
           monthly_rent?: number
-          nin?: string
+          nin?: string | null
           number_of_rooms?: number | null
           payment_day?: number
           payout_mode?: string | null
@@ -17360,10 +17381,10 @@ export type Database = {
           water_registered_name?: string | null
           welile_signature_name?: string
           welile_signature_path?: string
-          welile_signed_on?: string
+          welile_signed_on?: string | null
           witness_name?: string
           witness_signature_path?: string
-          witness_signed_on?: string
+          witness_signed_on?: string | null
         }
         Relationships: [
           {
@@ -43136,6 +43157,14 @@ export type Database = {
         Args: { _amount: number; _user_id: string }
         Returns: number
       }
+      consume_requisition_link_slot: {
+        Args: { p_token: string }
+        Returns: {
+          department: string
+          label: string
+          link_id: string
+        }[]
+      }
       continent_for_country: { Args: { p_country: string }; Returns: string }
       coo_approve_bike_lease: {
         Args: {
@@ -48322,6 +48351,10 @@ export type Database = {
           trust_tier: string
         }[]
       }
+      ops_tenant_ops_home_range: {
+        Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
       ops_tenant_ops_tool_counts: { Args: never; Returns: Json }
       ops_tenant_ops_tool_report: {
         Args: {
@@ -48380,6 +48413,10 @@ export type Database = {
           tenant_phone: string
           total_count: number
         }[]
+      }
+      ops_tenant_repayment_forecast: {
+        Args: { p_end: string; p_start: string }
+        Returns: Json
       }
       ops_tps_report_authorized: { Args: never; Returns: boolean }
       ops_transfer_pipeline_request_agent: {

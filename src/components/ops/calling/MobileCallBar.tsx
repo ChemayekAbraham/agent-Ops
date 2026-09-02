@@ -3,7 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CalendarClock, ClipboardList } from 'lucide-react';
-import { OPEN_ATTEMPT_LIMIT, type CcCallingHub } from '@/hooks/useCcCallingHub';
+import { type CcCallingHub } from '@/hooks/useCcCallingHub';
 import { OpenAttemptList, type OpenFormAttempt } from './OpenAttemptList';
 import { FollowupsDuePanel } from './FollowupsDuePanel';
 
@@ -54,7 +54,7 @@ export function MobileCallBar({
               </Badge>
             )}
             <Badge variant={hub.wipBlocked ? 'destructive' : 'secondary'}>
-              {hub.openCount} of {OPEN_ATTEMPT_LIMIT} open
+              {hub.openCount} of {hub.wipLimit} open
             </Badge>
           </span>
         </button>

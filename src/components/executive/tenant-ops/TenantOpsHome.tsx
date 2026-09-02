@@ -24,10 +24,12 @@ import {
 } from 'lucide-react';
 import { HubEntryCard } from '@/components/ops/HubEntryCard';
 import { RepaymentTrendChart } from '@/components/executive/RepaymentTrendChart';
+import { TenantRepaymentForecastPanel } from './TenantRepaymentForecastPanel';
 import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 import { useTenantRepaymentReliability } from '@/hooks/useTenantRepaymentReliability';
 import { useTenantOpsAcquisition } from '@/hooks/useTenantOpsAcquisition';
 import { useTenantOpsAcquisitionRange } from '@/hooks/useTenantOpsAcquisitionRange';
+import { useTenantOpsHomeRange } from '@/hooks/useTenantOpsHomeRange';
 import { OpsDateRangeFilter, resolveRange, rangePhrase, type PresetKey } from '@/components/executive/shared/OpsDateRangeFilter';
 import type { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
@@ -38,11 +40,10 @@ import type { TenantOpsViewKey } from './tenantOpsNav';
 /**
  * Landing page for Tenant Ops → Classic.
  *
- * Read-only. Live counts come from the same `ops_tenant_ops_tool_counts` RPC the
- * Classic cards already use, the 7-day trend reuses the shared
- * `RepaymentTrendChart`, and the reliability mix reuses
- * `get_tenant_repayment_reliability`. Every number on this page is a link into an
- * existing Classic view — no new logic, no new backend.
+ * Read-only. Period-scoped summary values come from the range helper while the
+ * 7-day trend reuses the shared `RepaymentTrendChart`, and the reliability mix
+ * reuses `get_tenant_repayment_reliability`. Every number on this page is a link
+ * into an existing Classic view — no client-side business rules are re-derived.
  */
 export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsViewKey) => void }) {
   const navigate = useNavigate();
@@ -53,14 +54,18 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
   const endIso = end.toISOString();
   const phrase = useMemo(() => rangePhrase(preset, start, end), [preset, start, end]);
 
-  const { data: counts, isLoading } = useTenantOpsToolCounts();
+  const { data: counts } = useTenantOpsToolCounts();
   const { data: reliability, isLoading: loadingReliability } = useTenantRepaymentReliability(800);
   const { data: acquisition, isLoading: loadingAcquisition } = useTenantOpsAcquisition();
   const { data: periodStats, isLoading: loadingPeriod } = useTenantOpsAcquisitionRange(startIso, endIso);
+  const { data: homeRange, isLoading: loadingHomeRange } = useTenantOpsHomeRange(startIso, endIso);
   const c = counts;
 
-  const expected = c?.expected_today ?? 0;
-  const collected = c?.collected_today ?? 0;
+  // The selected-period values drive every non-chart card. The existing live
+  // expected amount remains dedicated to the unchanged repayment trend chart.
+  const expected = homeRange?.expected ?? 0;
+  const collected = homeRange?.collected ?? 0;
+  const chartExpected = c?.expected_today ?? 0;
   const coverage = expected > 0 ? Math.min(100, Math.round((collected / expected) * 100)) : 0;
   const shortfall = Math.max(0, expected - collected);
 
@@ -75,7 +80,7 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
   }, [reliability]);
 
   const num = (v: number | undefined) => (v ?? 0).toLocaleString('en-US');
-  const inactiveTenants = Math.max(0, (c?.tenant_count ?? 0) - (c?.active_tenants ?? 0));
+  const inactiveTenants = Math.max(0, (homeRange?.tenant_count ?? 0) - (homeRange?.active_tenants ?? 0));
   const growthPct = acquisition?.growthPct;
   const growthLabel =
     growthPct == null ? '—' : `${growthPct >= 0 ? '+' : ''}${growthPct.toFixed(1)}%`;
@@ -83,8 +88,8 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
   const stats: { label: string; value: string; hint: string; icon: typeof Users; view: TenantOpsViewKey; tone?: string }[] = [
     {
       label: 'Total Tenants',
-      value: num(c?.tenant_count),
-      hint: `${num(c?.active_tenants)} active`,
+      value: num(homeRange?.tenant_count),
+      hint: `${num(homeRange?.active_tenants)} active ${phrase}`,
       icon: Users,
       view: 'all-tenants-hub',
       tone: 'bg-primary/10 text-primary',
@@ -92,14 +97,14 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
     {
       label: `New Tenants ${phrase}`,
       value: num(periodStats?.newTenants),
-      hint: `${num(acquisition?.newThisWeek)} this week`,
+      hint: 'Registrations in selected period',
       icon: UserPlus,
       view: 'all-tenants-hub',
       tone: 'bg-success/10 text-success',
     },
     {
-      label: 'New Tenants This Month',
-      value: num(acquisition?.newThisMonth),
+      label: `Registrations ${phrase}`,
+      value: num(periodStats?.newTenants),
       hint: `Growth ${growthLabel}`,
       icon: CalendarDays,
       view: 'all-tenants-hub',
@@ -107,8 +112,8 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
     },
     {
       label: 'Active Tenants',
-      value: num(c?.active_tenants),
-      hint: `${num(c?.paid_today_tenants)} paid today`,
+      value: num(homeRange?.active_tenants),
+      hint: `${num(homeRange?.paid_tenants)} paid ${phrase}`,
       icon: UserCheck,
       view: 'all-tenants-hub',
       tone: 'bg-primary/10 text-primary',
@@ -116,7 +121,7 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
     {
       label: 'Inactive Tenants',
       value: num(inactiveTenants),
-      hint: 'No active rent plan',
+      hint: `No active rent plan ${phrase}`,
       icon: UserX,
       view: 'all-tenants-hub',
       tone: 'bg-muted text-muted-foreground',
@@ -124,7 +129,7 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
     {
       label: `Applications ${phrase}`,
       value: num(periodStats?.applications),
-      hint: `${num(c?.review_requests)} awaiting review`,
+      hint: `${num(homeRange?.review_requests)} awaiting review ${phrase}`,
       icon: ClipboardList,
       view: 'pipeline',
       tone: 'bg-warning/10 text-warning',
@@ -132,7 +137,7 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
     {
       label: `Applications Approved ${phrase}`,
       value: num(periodStats?.applicationsApproved),
-      hint: `${num(c?.approvals_today)} approved today`,
+      hint: `${num(homeRange?.approvals)} approved ${phrase}`,
       icon: CheckCircle2,
       view: 'pipeline-hub',
       tone: 'bg-success/10 text-success',
@@ -140,7 +145,7 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
     {
       label: `Applications Rejected ${phrase}`,
       value: num(periodStats?.applicationsRejected),
-      hint: `${num(c?.rejected_30d)} in last 30 days`,
+      hint: `${num(homeRange?.rejected)} rejected ${phrase}`,
       icon: XCircle,
       view: 'pipeline',
       tone: 'bg-destructive/10 text-destructive',
@@ -149,37 +154,37 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
 
   const attention: { label: string; description: string; value: number; view: TenantOpsViewKey; tone: string }[] = [
     {
-      label: 'Requests in review',
+      label: `Requests in review ${phrase}`,
       description: 'Vet, approve or return incoming rent requests',
-      value: c?.review_requests ?? 0,
+      value: homeRange?.review_requests ?? 0,
       view: 'pipeline',
       tone: 'text-warning',
     },
     {
-      label: 'Unpaid today',
-      description: 'Tenants with no payment recorded for today',
-      value: c?.unpaid_today_tenants ?? 0,
+      label: `Unpaid tenants ${phrase}`,
+      description: 'Tenants with no payment recorded in the selected period',
+      value: homeRange?.unpaid_tenants ?? 0,
       view: 'daily',
       tone: 'text-warning',
     },
     {
-      label: 'Tenants with missed days',
+      label: `Tenants with missed days ${phrase}`,
       description: 'Behind on the daily repayment schedule',
-      value: c?.missed_days_tenants ?? 0,
+      value: homeRange?.missed_days_tenants ?? 0,
       view: 'missed',
       tone: 'text-destructive',
     },
     {
-      label: 'Critical behaviour',
-      description: `${c?.behavior_warning ?? 0} on warning`,
-      value: c?.behavior_critical ?? 0,
+      label: `Critical behaviour ${phrase}`,
+      description: `${num(homeRange?.warning_behaviour)} on warning`,
+      value: homeRange?.critical_behaviour ?? 0,
       view: 'behavior',
       tone: 'text-destructive',
     },
     {
-      label: 'Service centre review',
+      label: `Service centre review ${phrase}`,
       description: 'Requests parked with the service centre',
-      value: c?.service_center_review ?? 0,
+      value: homeRange?.service_center_review ?? 0,
       view: 'pipeline-hub',
       tone: 'text-muted-foreground',
     },
@@ -202,24 +207,24 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
         />
       </div>
 
-      {/* Today's collection hero + KPI strip */}
-      <div className="grid gap-3 lg:grid-cols-3">
-        <Card className="lg:col-span-1 border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <div className="rounded-xl bg-primary/15 p-2">
-                <Wallet className="h-4 w-4 text-primary" />
-              </div>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Collected today
-              </p>
-            </div>
-            <p className="mt-3 text-2xl font-bold tabular-nums leading-none">
-              {isLoading ? '—' : formatUGX(collected)}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              of {formatUGX(expected)} expected
-            </p>
+       {/* Selected-period collection hero + KPI strip */}
+       <div className="grid gap-3 lg:grid-cols-3">
+         <Card className="lg:col-span-1 border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card shadow-sm">
+           <CardContent className="p-4">
+             <div className="flex items-center gap-2">
+               <div className="rounded-xl bg-primary/15 p-2">
+                 <Wallet className="h-4 w-4 text-primary" />
+               </div>
+               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                 Collected {phrase}
+               </p>
+             </div>
+             <p className="mt-3 text-2xl font-bold tabular-nums leading-none">
+               {loadingHomeRange ? '—' : formatUGX(collected)}
+             </p>
+             <p className="mt-1 text-xs text-muted-foreground">
+               of {formatUGX(expected)} expected {phrase}
+             </p>
             <Progress value={coverage} className="mt-3 h-2" />
             <div className="mt-2 flex items-center justify-between text-[11px]">
               <span className="font-semibold text-foreground">{coverage}% covered</span>
@@ -259,8 +264,8 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
                   </p>
                 </div>
                 <p className="mt-2 text-xl font-bold tabular-nums leading-none">
-                  {isLoading || loadingAcquisition || loadingPeriod ? '—' : s.value}
-                </p>
+                   {loadingHomeRange || loadingPeriod ? '—' : s.value}
+                 </p>
                 <p className="mt-1 text-[11px] leading-snug text-muted-foreground break-words line-clamp-2">{s.hint}</p>
               </button>
             ))}
@@ -370,10 +375,13 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
         </div>
       </div>
 
+      {/* Forward planning is separate from the existing dashboard charts. */}
+      <TenantRepaymentForecastPanel />
+
       {/* Charts */}
       <div className="grid gap-3 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <RepaymentTrendChart dailyExpected={expected} />
+           <RepaymentTrendChart dailyExpected={chartExpected} />
         </div>
         <Card className="border shadow-sm">
           <CardHeader className="pb-2 px-3 sm:px-4">
@@ -442,8 +450,8 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
                 className="group flex w-full items-center gap-2.5 rounded-lg px-2 py-2.5 sm:gap-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
               >
                 <span className={cn('w-10 shrink-0 text-base font-bold tabular-nums sm:w-12 sm:text-lg', a.tone)}>
-                  {isLoading ? '—' : a.value}
-                </span>
+                   {loadingHomeRange ? '—' : a.value}
+                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-xs font-bold leading-snug text-foreground break-words">{a.label}</span>
                   <span className="block text-[11px] leading-snug text-muted-foreground break-words line-clamp-2">
@@ -457,31 +465,31 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
         </CardContent>
       </Card>
 
-      {/* Quick actions */}
-      <div className="space-y-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Quick actions</p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <HubEntryCard
-            title="Review Requests"
-            description="Vet, approve or return incoming rent requests"
-            icon={ClipboardList}
-            stats={[{ label: 'in review', value: c?.review_requests ?? 0 }]}
-            onClick={() => onNavigate('pipeline')}
-          />
-          <HubEntryCard
-            title="Daily Payments"
-            description="Who paid today and who still owes"
-            icon={CalendarCheck}
-            stats={[{ label: 'unpaid', value: c?.unpaid_today_tenants ?? 0 }]}
-            onClick={() => onNavigate('daily')}
-          />
-          <HubEntryCard
-            title="Missed Days"
-            description="Tenants behind on their daily repayment"
-            icon={CalendarX2}
-            stats={[{ label: 'tenants', value: c?.missed_days_tenants ?? 0 }]}
-            onClick={() => onNavigate('missed')}
-          />
+       {/* Quick actions */}
+       <div className="space-y-2">
+         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Quick actions · {phrase}</p>
+         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+           <HubEntryCard
+             title="Review Requests"
+             description="Vet, approve or return incoming rent requests"
+             icon={ClipboardList}
+             stats={[{ label: 'in review', value: homeRange?.review_requests ?? 0 }]}
+             onClick={() => onNavigate('pipeline')}
+           />
+           <HubEntryCard
+             title="Daily Payments"
+             description={`Who paid ${phrase} and who still owes`}
+             icon={CalendarCheck}
+             stats={[{ label: 'unpaid', value: homeRange?.unpaid_tenants ?? 0 }]}
+             onClick={() => onNavigate('daily')}
+           />
+           <HubEntryCard
+             title="Missed Days"
+             description="Tenants behind on their daily repayment"
+             icon={CalendarX2}
+             stats={[{ label: 'tenants', value: homeRange?.missed_days_tenants ?? 0 }]}
+             onClick={() => onNavigate('missed')}
+           />
           <HubEntryCard
             title="Reports & Exports"
             description="Extracts, statements and date-ranged reports"

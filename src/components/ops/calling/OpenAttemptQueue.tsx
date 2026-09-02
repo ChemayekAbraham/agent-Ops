@@ -1,7 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Clock } from 'lucide-react';
-import { OPEN_ATTEMPT_LIMIT, type CcCallingHub } from '@/hooks/useCcCallingHub';
+import { type CcCallingHub } from '@/hooks/useCcCallingHub';
 import { OpenAttemptList, type OpenFormAttempt } from './OpenAttemptList';
 
 /**
@@ -17,7 +17,7 @@ export function OpenAttemptQueue({
   hub: CcCallingHub;
   onOpenForm: (attempt: OpenFormAttempt) => void;
 }) {
-  const { openCount, wipBlocked } = hub;
+  const { openCount, wipBlocked, wipLimit } = hub;
 
   return (
     <Card className="rounded-2xl border-border/60 p-3 sm:p-4">
@@ -27,7 +27,7 @@ export function OpenAttemptQueue({
           Open attempts
         </h3>
         <Badge variant={wipBlocked ? 'destructive' : 'secondary'}>
-          {openCount}/{OPEN_ATTEMPT_LIMIT} open
+          {openCount}/{wipLimit} open
         </Badge>
       </div>
 

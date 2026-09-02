@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { submitLandlordAgreementFile } from '@/lib/landlordAgreementSubmit';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,6 @@ import { toast } from 'sonner';
 import { downloadLandlordAgreementTemplate } from '@/lib/landlordAgreementTemplatePdf';
 
 const ACCEPTED = '.pdf,.jpg,.jpeg,.png';
-const MAX_BYTES = 20 * 1024 * 1024;
 
 type AgreementForm = {
   landlord_name: string;
@@ -112,15 +112,6 @@ export function LandlordAgreementUploader({
   const submit = async () => {
     if (!user) return toast.error('Please sign in again before uploading.');
     if (!file) return toast.error('Upload the signed agreement file first.');
-    if (file.size > MAX_BYTES) return toast.error('The agreement must be 20 MB or smaller.');
-
-    const end = form.end_date || (() => {
-      const date = new Date(`${form.start_date}T00:00:00`);
-      date.setFullYear(date.getFullYear() + 1);
-      date.setDate(date.getDate() - 1);
-      return date.toISOString().slice(0, 10);
-    })();
-
     if (
       !form.landlord_name.trim() || !form.landlord_phone.trim() || !form.property_address.trim()
       || !form.monthly_rent.trim() || !form.payment_day.trim() || !form.agreement_date
@@ -130,57 +121,48 @@ export function LandlordAgreementUploader({
       return toast.error('Complete the agreement details marked in the contract before uploading.');
     }
 
+    const end = form.end_date || (() => {
+      const date = new Date(`${form.start_date}T00:00:00`);
+      date.setFullYear(date.getFullYear() + 1);
+      date.setDate(date.getDate() - 1);
+      return date.toISOString().slice(0, 10);
+    })();
+
     setSaving(true);
     try {
-      const path = `${landlordId}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-      const upload = await supabase.storage.from('landlord-agreements').upload(path, file, {
-        upsert: false,
-        contentType: file.type,
+      await submitLandlordAgreementFile({
+        landlordId,
+        file,
+        kind,
+        details: {
+          landlord_name: form.landlord_name,
+          landlord_phone: form.landlord_phone,
+          nin: form.nin,
+          agreement_date: form.agreement_date,
+          start_date: form.start_date,
+          end_date: end,
+          property_address: form.property_address,
+          house_number: form.house_number,
+          house_category: form.house_category,
+          monthly_rent: form.monthly_rent,
+          payment_day: form.payment_day,
+          payout_mode: form.payout_mode,
+          bank_name: form.bank_name,
+          account_number: form.account_number,
+          mobile_money_name: form.mobile_money_name,
+          mobile_money_number: form.mobile_money_number,
+          water_meter_number: form.water_meter_number,
+          water_registered_name: form.water_registered_name,
+          electricity_meter_number: form.electricity_meter_number,
+          electricity_registered_name: form.electricity_registered_name,
+          landlord_signature_name: form.landlord_signature_name,
+          landlord_signed_on: form.landlord_signed_on,
+          welile_signature_name: form.welile_signature_name,
+          welile_signed_on: form.welile_signed_on,
+          witness_name: form.witness_name,
+          witness_signed_on: form.witness_signed_on,
+        },
       });
-      if (upload.error) throw upload.error;
-
-      const bytes = await file.arrayBuffer();
-      const digest = await crypto.subtle.digest('SHA-256', bytes);
-      const sha256 = Array.from(new Uint8Array(digest))
-        .map((byte) => byte.toString(16).padStart(2, '0')).join('');
-      const agreementDetails = {
-        landlord_name: form.landlord_name,
-        landlord_phone: form.landlord_phone,
-        nin: form.nin,
-        agreement_date: form.agreement_date,
-        start_date: form.start_date,
-        end_date: end,
-        property_address: form.property_address,
-        house_number: form.house_number,
-        house_category: form.house_category,
-        monthly_rent: form.monthly_rent,
-        payment_day: form.payment_day,
-        payout_mode: form.payout_mode,
-        bank_name: form.bank_name,
-        account_number: form.account_number,
-        mobile_money_name: form.mobile_money_name,
-        mobile_money_number: form.mobile_money_number,
-        water_meter_number: form.water_meter_number,
-        water_registered_name: form.water_registered_name,
-        electricity_meter_number: form.electricity_meter_number,
-        electricity_registered_name: form.electricity_registered_name,
-        landlord_signature_name: form.landlord_signature_name,
-        landlord_signed_on: form.landlord_signed_on,
-        welile_signature_name: form.welile_signature_name,
-        welile_signed_on: form.welile_signed_on,
-        witness_name: form.witness_name,
-        witness_signed_on: form.witness_signed_on,
-      };
-      const { error } = await supabase.rpc('submit_landlord_agreement', {
-        p_landlord_id: landlordId,
-        p_kind: kind,
-        p_file_path: path,
-        p_file_name: file.name,
-        p_file_sha256: sha256,
-        p_file_mime_type: file.type,
-        p_details: agreementDetails,
-      });
-      if (error) throw error;
       toast.success(kind === 'original' ? 'Signed agreement uploaded' : 'Signed addendum uploaded');
       setFile(null);
       onSubmitted?.();

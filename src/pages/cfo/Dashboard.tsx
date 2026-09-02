@@ -187,7 +187,8 @@ export default function CFODashboardPage() {
   const renderContent = () => {
     switch (activeTab) {
       case 'requisitions':
-        return <RequisitionsWorkspace />;
+        return <RequisitionsWorkspace manualStage="cfo" />;
+
       case 'wallet-payout':
         return (
           <div className="space-y-5">

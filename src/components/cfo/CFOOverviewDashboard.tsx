@@ -209,8 +209,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <HeroCard
-              icon={<PiggyBank className="h-5 w-5 text-emerald-600" />}
-              iconBg="bg-emerald-50 dark:bg-emerald-950/40"
+              icon={<PiggyBank className="h-5 w-5 text-emerald-50" />}
+              iconBg="bg-emerald-600"
               title="Money We Have"
               value={fmt(totalCash)}
               valueColor="text-emerald-600"
@@ -223,8 +223,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               onClick={() => setActiveBreakdown('cash')}
             />
             <HeroCard
-              icon={<Package className="h-5 w-5 text-orange-600" />}
-              iconBg="bg-orange-50 dark:bg-orange-950/40"
+              icon={<Package className="h-5 w-5 text-orange-50" />}
+              iconBg="bg-orange-500"
               title="Money We Owe"
               value={fmt(walletTotal)}
               valueColor="text-orange-600"
@@ -237,8 +237,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               onClick={() => setActiveBreakdown('wallets')}
             />
             <HeroCard
-              icon={<BarChart3 className="h-5 w-5 text-blue-600" />}
-              iconBg="bg-blue-50 dark:bg-blue-950/40"
+              icon={<BarChart3 className="h-5 w-5 text-blue-50" />}
+              iconBg="bg-blue-600"
               title="Money We Can Use"
               value={fmt(moneyWeCanUse)}
               valueColor={moneyWeCanUse >= 0 ? 'text-blue-600' : 'text-destructive'}
@@ -255,8 +255,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               belongs directly beneath it rather than further down the page. */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <HeroCard
-              icon={<Vault className="h-5 w-5 text-indigo-600" />}
-              iconBg="bg-indigo-50 dark:bg-indigo-950/40"
+              icon={<Vault className="h-5 w-5 text-indigo-50" />}
+              iconBg="bg-indigo-600"
               title="Money in Treasury / Platform"
               value={fmt(treasuryPosition?.value ?? 0)}
               valueColor="text-indigo-600"
@@ -268,8 +268,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic"
             />
             <HeroCard
-              icon={<Landmark className="h-5 w-5 text-sky-600" />}
-              iconBg="bg-sky-50 dark:bg-sky-950/40"
+              icon={<Landmark className="h-5 w-5 text-sky-50" />}
+              iconBg="bg-sky-500"
               title="Money in Bank"
               value={fmt(bankPosition?.value ?? 0)}
               valueColor="text-sky-600"
@@ -539,6 +539,14 @@ function Band({ title, subtitle, open, onToggle, children }: {
 }
 
 
+/**
+ * Compact financial summary card.
+ *
+ * Default state shows only the icon chip, label, the primary amount and one
+ * line of essential context — matching the reference layout. Tapping the card
+ * smoothly expands the existing breakdown rows; tapping again collapses them.
+ * No figure is derived here: every value is passed in already computed.
+ */
 function HeroCard({ icon, iconBg, title, value, valueColor, items, footer, footerTone, onClick }: {
   icon: React.ReactNode;
   iconBg: string;
@@ -550,54 +558,68 @@ function HeroCard({ icon, iconBg, title, value, valueColor, items, footer, foote
   footerTone: string;
   onClick?: () => void;
 }) {
-  const content = (
-    <>
-      <div className="p-3 sm:p-4">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
-            <p className="font-semibold text-sm truncate">{title}</p>
-          </div>
-          {onClick && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
-        </div>
-        <p className={`mt-2 text-xl font-bold tabular-nums tracking-tight ${valueColor}`}>{value}</p>
-        <div className="mt-2 pt-2 border-t border-border space-y-1">
-          {items.map((it) => (
-            <div key={it.label} className="flex items-center justify-between gap-2 text-[11px]">
-              <span className="flex items-center gap-1.5 min-w-0 text-muted-foreground">
-                <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${it.dot}`} />
-                <span className="truncate">{it.label}</span>
-              </span>
-              <span className="tabular-nums font-medium shrink-0 text-right">{it.value}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-2 text-[10px] font-medium ${footerTone}`}>
-        <span className="truncate">{footer}</span>
-        <Info className="h-3 w-3 shrink-0 opacity-70" />
-      </div>
-    </>
-  );
-
-  if (onClick) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className="w-full text-left rounded-xl border border-border bg-card overflow-hidden shadow-sm hover:shadow-md active:scale-[0.995] transition-all"
-      >
-        {content}
-      </button>
-    );
-  }
+  const [expanded, setExpanded] = useState(false);
+  const panelId = `hero-card-${title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
 
   return (
-    <div className="w-full rounded-xl border border-border bg-card overflow-hidden shadow-sm">
-      {content}
+    <div className="w-full rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        className="w-full text-left p-4 sm:p-5 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
+          <ChevronDown
+            className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
+          />
+        </div>
+
+        <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">{title}</p>
+        <p className={`mt-1 text-2xl font-bold tabular-nums tracking-tight ${valueColor}`}>{value}</p>
+        <p className="mt-2 text-[11px] text-muted-foreground line-clamp-2">{footer}</p>
+      </button>
+
+      <div
+        id={panelId}
+        className={`grid transition-all duration-300 ease-out ${expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+      >
+        <div className="overflow-hidden">
+          <div className="px-4 sm:px-5 pb-4 sm:pb-5">
+            <div className="pt-3 border-t border-border space-y-1.5">
+              {items.map((it) => (
+                <div key={it.label} className="flex items-center justify-between gap-2 text-[11px]">
+                  <span className="flex items-center gap-1.5 min-w-0 text-muted-foreground">
+                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${it.dot}`} />
+                    <span className="truncate">{it.label}</span>
+                  </span>
+                  <span className="tabular-nums font-medium shrink-0 text-right">{it.value}</span>
+                </div>
+              ))}
+              <div className={`mt-2 flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-[10px] font-medium ${footerTone}`}>
+                <span className="truncate">{footer}</span>
+                <Info className="h-3 w-3 shrink-0 opacity-70" />
+              </div>
+              {onClick && (
+                <button
+                  type="button"
+                  onClick={onClick}
+                  className="mt-1 w-full flex items-center justify-between gap-2 rounded-lg border border-border px-2.5 py-2 text-[11px] font-medium hover:bg-muted/50 transition-colors"
+                >
+                  <span>View full breakdown</span>
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
+
 
 
 

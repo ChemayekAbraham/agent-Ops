@@ -167,7 +167,7 @@ const DepositBridgeHealthPanel = lz(() => import('@/components/bridge/DepositBri
 const OpportunitySummaryForm = lz(() => import('@/components/manager/OpportunitySummaryForm'), 'OpportunitySummaryForm');
 const AgentRequisitionForm = lz(() => import('./AgentRequisitionForm'), 'AgentRequisitionForm');
 const EmployeeRequisitionLinksPanel = lz(() => import('./EmployeeRequisitionLinksPanel'), 'EmployeeRequisitionLinksPanel');
-const EmployeeRequisitionQueuePanel = lz(() => import('./EmployeeRequisitionQueuePanel'), 'EmployeeRequisitionQueuePanel');
+const ManualRequisitionQueuePanel = lz(() => import('./ManualRequisitionQueuePanel'), 'ManualRequisitionQueuePanel');
 const FinancialOpsPulseStrip = lz(() => import('./FinancialOpsPulseStrip'), 'FinancialOpsPulseStrip');
 const LiquidityForecastPanel = lz(() => import('./LiquidityForecastPanel'), 'LiquidityForecastPanel');
 const DailyWalletReportsPanel = lz(() => import('./DailyWalletReportsPanel'), 'DailyWalletReportsPanel');
@@ -247,8 +247,8 @@ const moreActions: MoreAction[] = [
   { kind: 'tool', id: 'audit', label: 'Audit Trail', desc: 'Action history', icon: Shield },
   { kind: 'tool', id: 'opportunities', label: 'Capital Opportunities', desc: 'Investment summaries', icon: TrendingUp },
   { kind: 'tool', id: 'requisitions', label: 'Fund Requisitions', desc: 'Agent fund requests', icon: FileText },
-  { kind: 'tool', id: 'employee_requisition_queue', label: 'Employee Requisitions', desc: 'Review pending employee requisitions (public link submissions)', icon: ClipboardList },
-  { kind: 'tool', id: 'employee_requisition_links', label: 'Requisition Links', desc: 'Generate & share secure links so employees can submit requisitions without an account', icon: FileText },
+  { kind: 'tool', id: 'employee_requisition_queue', label: 'Manual Requisition Review', desc: 'Review shareable-link requisitions through COO and CFO approval stages', icon: ClipboardList },
+  { kind: 'tool', id: 'employee_requisition_links', label: 'Manual Requisition Links', desc: 'Generate and share secure links for requisitions outside My Space', icon: FileText },
   { kind: 'tool', id: 'mismatch_metrics', label: 'Mismatch Metrics', desc: 'Operator provider-mismatch attempts', icon: AlertTriangle },
   { kind: 'tool', id: 'proxy_diagnostics', label: 'Proxy Withdrawal Diagnostics', desc: 'Why each pending proxy withdrawal isn\u2019t auto-settling', icon: AlertCircle },
   { kind: 'tool', id: 'float_to_withdrawable', label: 'Float \u2192 Withdrawable', desc: 'Reclassify a user\u2019s Operational Float into their Withdrawable balance', icon: ArrowRightLeft },
@@ -462,19 +462,18 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
           <div className="space-y-2">
             <h2 className="text-lg font-bold">Employee Requisition Links</h2>
             <p className="text-sm text-muted-foreground">
-              Share secure links so employees can submit requisitions without a Welile account.
-              Every submission is routed straight into your approval queue.
+              Generate secure links for requisitions outside My Space. Each submission starts with COO review and then moves to CFO for final approval.
             </p>
             <EmployeeRequisitionLinksPanel />
           </div>
         )}
         {activeTool === 'employee_requisition_queue' && (
           <div className="space-y-2">
-            <h2 className="text-lg font-bold">Employee Requisitions</h2>
+            <h2 className="text-lg font-bold">Manual Requisition Review</h2>
             <p className="text-sm text-muted-foreground">
-              Approve or reject requisitions submitted through your public links.
+              Manual-link submissions move from COO review to CFO final approval. CFO approval is the only stage that can credit a wallet.
             </p>
-            <EmployeeRequisitionQueuePanel />
+            <ManualRequisitionQueuePanel stage="cfo" />
           </div>
         )}
         {activeTool === 'mismatch_metrics' && <MismatchMetricsPanel />}
