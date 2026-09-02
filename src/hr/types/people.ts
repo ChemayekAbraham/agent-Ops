@@ -39,6 +39,8 @@ export interface Employee {
   photo_url: string | null;
   status: EmployeeStatus;
   joined_at: string;
+  /** Date the staff member exited (hr_staff.ended_on). */
+  ended_on: string | null;
   /** Denormalised for fast display and filtering ONLY. Never the source of truth. */
   current_assignment: Assignment | null;
 }
