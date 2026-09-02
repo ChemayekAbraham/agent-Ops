@@ -42,9 +42,17 @@ import type { TenantOpsViewKey } from './tenantOpsNav';
  */
 export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsViewKey) => void }) {
   const navigate = useNavigate();
+  const [preset, setPreset] = useState<PresetKey>('today');
+  const [custom, setCustom] = useState<DateRange | undefined>();
+  const { start, end } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
+  const startIso = start.toISOString();
+  const endIso = end.toISOString();
+  const phrase = useMemo(() => rangePhrase(preset, start, end), [preset, start, end]);
+
   const { data: counts, isLoading } = useTenantOpsToolCounts();
   const { data: reliability, isLoading: loadingReliability } = useTenantRepaymentReliability(800);
   const { data: acquisition, isLoading: loadingAcquisition } = useTenantOpsAcquisition();
+  const { data: periodStats, isLoading: loadingPeriod } = useTenantOpsAcquisitionRange(startIso, endIso);
   const c = counts;
 
   const expected = c?.expected_today ?? 0;
