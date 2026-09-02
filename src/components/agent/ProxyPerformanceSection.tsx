@@ -146,8 +146,15 @@ export function ProxyPerformanceSection({ agentId, month, hideHeading, className
             <div className="text-right shrink-0">
               <p className="text-[10px] text-muted-foreground">Daily target</p>
               <p className="text-xs font-bold tabular-nums">{money(r.today.target_pv)}</p>
-              <div className="mt-1 flex justify-end"><BandBadge pct={r.today.performance_pct} /></div>
+              <div className="mt-1 flex justify-end">
+                {r.today.is_working_day === false ? (
+                  <span className="text-[10px] text-muted-foreground">Rest day</span>
+                ) : (
+                  <BandBadge pct={r.today.performance_pct} />
+                )}
+              </div>
             </div>
+
           </div>
           <div className="grid grid-cols-3 gap-2 pt-1">
             {[
