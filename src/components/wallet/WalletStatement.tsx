@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useEasyReadMode } from '@/hooks/useEasyReadMode';
@@ -444,6 +444,14 @@ export function WalletStatement() {
     },
     { totalIn: 0, totalOut: 0 }
   );
+
+  const balanceAfterById = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const e of entries) {
+      if (e.balance_after != null) map[e.id] = e.balance_after;
+    }
+    return map;
+  }, [entries]);
 
   const rangeLabel =
     rangePreset === 'all' ? 'All time' :
@@ -1031,7 +1039,7 @@ export function WalletStatement() {
               <h3 id="ws-tx-history" className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 Transaction History
               </h3>
-              <TransactionsFeed userId={user?.id} />
+              <TransactionsFeed userId={user?.id} balanceAfterById={balanceAfterById} />
             </section>
 
           </ScrollArea>

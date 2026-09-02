@@ -84,9 +84,11 @@ export interface TransactionsFeedProps {
   /** Hide the date / service / method filter row. */
   showFilters?: boolean;
   className?: string;
+  /** Optional running-balance map (id -> balance after). Used by the Wallet Statement sheet. */
+  balanceAfterById?: Record<string, number>;
 }
 
-export function TransactionsFeed({ userId, showFilters = true, className }: TransactionsFeedProps) {
+export function TransactionsFeed({ userId, showFilters = true, className, balanceAfterById }: TransactionsFeedProps) {
   const [date, setDate] = useState<TxDateFilter>("all");
   const [service, setService] = useState<TxServiceFilter>("all");
   const [method, setMethod] = useState<TxMethodFilter>("all");
@@ -162,11 +164,12 @@ export function TransactionsFeed({ userId, showFilters = true, className }: Tran
             const masked = txMaskedNumber(row);
             const tone = txTone(row);
             const Icon = txIcon(row);
+            const balanceAfter = balanceAfterById?.[row.id];
             return (
               <button
                 key={row.id}
                 type="button"
-                onClick={() => setSelected(row)}
+                onClick={() => setSelected({ ...row, balanceAfter: balanceAfter ?? row.balanceAfter })}
                 className="flex w-full items-center gap-3 sm:gap-4 rounded-2xl bg-background p-3 sm:p-4 text-left shadow-sm transition-transform active:scale-[0.98]"
               >
                 <span
@@ -178,7 +181,18 @@ export function TransactionsFeed({ userId, showFilters = true, className }: Tran
                   <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5", tone.icon)} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm sm:text-base font-bold">{txLabel(row)}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="block truncate text-sm sm:text-base font-bold">{txLabel(row)}</span>
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "text-[9px] font-bold uppercase tracking-wide",
+                        isIn ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
+                      )}
+                    >
+                      {isIn ? "Money In" : "Money Out"}
+                    </Badge>
+                  </span>
                   <span className="block truncate text-xs sm:text-sm font-semibold uppercase text-muted-foreground">
                     {txCounterparty(row) ?? "—"}
                   </span>
@@ -196,6 +210,11 @@ export function TransactionsFeed({ userId, showFilters = true, className }: Tran
                     {isIn ? "+" : "−"}
                     {formatUGX(Number(row.amount)).replace(/^UGX\s*/, "")}
                   </span>
+                  {balanceAfter != null && (
+                    <span className="block text-xs font-medium tabular-nums text-muted-foreground">
+                      Bal: {formatUGX(Number(balanceAfter))}
+                    </span>
+                  )}
                   <span className="text-xs font-medium text-muted-foreground">UGX</span>
                 </span>
               </button>
