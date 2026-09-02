@@ -19,9 +19,15 @@ import type { ApsReport } from './agentProductsServicesPdf';
 
 export interface AgentPopulation {
   as_of?: string;
+  /** Reporting window the activity figures were derived from. */
+  window_from?: string;
+  window_to?: string;
   total: number;
+  /** Agents that recorded a collection inside the reporting window. */
   active: number;
   inactive: number;
+  /** Agents that have ever collected (cumulative position, not window-scoped). */
+  active_ever?: number;
   primary_total: number;
   primary_active: number;
   primary_inactive: number;
@@ -29,11 +35,13 @@ export interface AgentPopulation {
   sub_active: number;
   sub_inactive: number;
   ever_collected: number;
+  collected_in_period?: number;
   live_plan_agents: number;
   collected_last_30d: number;
   live_plan_no_collection: number;
   verified_subagent_links: number;
 }
+
 
 export interface AgentOpsReportInput {
   report: ApsReport;
