@@ -15,6 +15,12 @@ export interface AgentOpsSnapshot {
   active_agents_30d: number;
   qualified_at_open: number;
   converted_in_period: number;
+  stage_onboarded: number;
+  stage_training: number;
+  stage_qualified: number;
+  centres_opening: number;
+  centres_opened: number;
+  centres_closed: number;
   provisional: boolean;
 }
 
@@ -29,12 +35,30 @@ export interface AgentOpsReport {
   status: string;
 }
 
+export interface AgentOpsReportNote {
+  id: string;
+  zone: string;
+  reason_note: string;
+}
+
+export interface AgentOpsReportAction {
+  id: string;
+  zone: string;
+  item_text: string;
+  owner_label: string | null;
+  due_date: string | null;
+  outcome: string | null;
+}
+
 export interface AgentOpsReportWindowData {
   report: AgentOpsReport;
   snapshot: AgentOpsSnapshot;
   priorSnapshot: AgentOpsSnapshot | null;
   periodLabel: string;
+  pipelineNote: AgentOpsReportNote | null;
+  pipelineActions: AgentOpsReportAction[];
 }
+
 
 export function kampalaToday(): string {
   return new Intl.DateTimeFormat('en-CA', {
