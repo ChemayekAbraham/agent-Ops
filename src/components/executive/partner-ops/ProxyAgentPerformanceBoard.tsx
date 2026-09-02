@@ -158,11 +158,11 @@ export function ProxyAgentPerformanceBoard() {
 
       {/* Band legend */}
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Bands</span>
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Pace bands</span>
         {(Object.keys(PROXY_PV_BAND_META) as (keyof typeof PROXY_PV_BAND_META)[]).map((b) => (
-          <Badge key={b} variant="outline" className={cn('gap-1 text-[10px]', PROXY_PV_BAND_META[b].className)}>
-            <span className={cn('h-1.5 w-1.5 rounded-full', PROXY_PV_BAND_META[b].dot)} />
-            {PROXY_PV_BAND_META[b].label}
+          <Badge key={b} variant="outline" className={cn('gap-1 whitespace-nowrap text-[10px]', PROXY_PV_BAND_META[b].className)}>
+            <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', PROXY_PV_BAND_META[b].dot)} />
+            {PROXY_PV_BAND_META[b].label} ({BAND_RANGE[b]})
           </Badge>
         ))}
       </div>
