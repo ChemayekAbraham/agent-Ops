@@ -67,32 +67,43 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
         <p>{threshold === null ? 'threshold —' : `threshold ${threshold.toFixed(1)}%`}</p>
       </div>
 
-      <div className="mt-4 space-y-1 border-t border-border pt-3 text-sm text-muted-foreground">
+      <div className="mt-4 space-y-2 border-t border-border pt-3 text-sm text-muted-foreground sm:space-y-1">
         <p>
-          <span className="text-foreground">total rent recovered this period</span>
-          {' — '}
-          {collectedTotal === null ? '—' : formatUGX(collectedTotal)}
+          <span className="block text-foreground sm:inline">total rent recovered this period</span>
+          <span className="hidden sm:inline">{' — '}</span>
+          <span className="block break-words tabular-nums sm:inline">
+            {collectedTotal === null ? '—' : formatUGX(collectedTotal)}
+          </span>
         </p>
         <p>
-          <span className="text-foreground">of which counted in the rate</span>
-          {' — '}
-          {collected === null ? '—' : formatUGX(collected)}
-          {cohortCount !== null && ` across ${cohortCount} funded tenancies within term`}
+          <span className="block text-foreground sm:inline">of which counted in the rate</span>
+          <span className="hidden sm:inline">{' — '}</span>
+          <span className="block break-words sm:inline">
+            <span className="tabular-nums">{collected === null ? '—' : formatUGX(collected)}</span>
+            {cohortCount !== null && ` across ${cohortCount} funded tenancies within term`}
+          </span>
         </p>
         <p>
-          <span className="text-foreground">arrears recovered on completed terms</span>
-          {' — '}
-          {arrearsRecovered === null ? '—' : formatUGX(arrearsRecovered)}
-          {arrearsCount !== null && ` across ${arrearsCount} funded tenancies past term`}
+          <span className="block text-foreground sm:inline">arrears recovered on completed terms</span>
+          <span className="hidden sm:inline">{' — '}</span>
+          <span className="block break-words sm:inline">
+            <span className="tabular-nums">
+              {arrearsRecovered === null ? '—' : formatUGX(arrearsRecovered)}
+            </span>
+            {arrearsCount !== null && ` across ${arrearsCount} funded tenancies past term`}
+          </span>
         </p>
         {unallocated !== null && unallocated > 0 && (
           <p>
-            <span className="text-foreground">unattributed</span>
-            {' — '}
-            {formatUGX(unallocated)}
-            <span className="ml-1">not matched to a funded tenancy</span>
+            <span className="block text-foreground sm:inline">unattributed</span>
+            <span className="hidden sm:inline">{' — '}</span>
+            <span className="block break-words sm:inline">
+              <span className="tabular-nums">{formatUGX(unallocated)}</span>
+              <span className="ml-1">not matched to a funded tenancy</span>
+            </span>
           </p>
         )}
+
         <p className="pt-2 text-xs italic">
           The headline rate is measured only on rent scheduled and recovered within term; arrears
           recovery is reported beside it, not inside it.
