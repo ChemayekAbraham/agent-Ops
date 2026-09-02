@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronRight, TrendingUp } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useReceivablesBreakdown, useReceivablesTotal } from '@/hooks/useReceivables';
