@@ -359,9 +359,9 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
               >
                 <div
                   className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center shrink-0 text-sm sm:text-base font-bold ${
-                    isNotPaying
+                    isNotPaying || isPendingReview
                       ? 'bg-amber-100 text-amber-700'
-                      : hasDebt
+                      : hasDebt && isLiveRequest
                         ? 'bg-rose-100 text-rose-700'
                         : 'bg-emerald-100 text-emerald-700'
                   } overflow-hidden`}
