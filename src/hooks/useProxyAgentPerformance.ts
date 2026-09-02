@@ -255,3 +255,75 @@ export function useProxyTeamPv(params: {
     },
   });
 }
+
+export type ProxyPvActivityKind = 'commitments' | 'investment' | 'topups';
+
+export interface ProxyPvActivityItem {
+  id: string;
+  reference: string;
+  party: string;
+  contact?: string | null;
+  amount: number;
+  rate?: number | null;
+  status: string;
+  verified: boolean;
+  /** True when this transaction actually contributed PV. */
+  counted: boolean;
+  verification_label: string;
+  verified_at?: string | null;
+  verified_by?: string | null;
+  recorded_at?: string | null;
+  occurred_at?: string | null;
+  contribution_type?: string | null;
+  source?: string | null;
+  ledger_group_id?: string | null;
+  pv: number;
+  pv_formula: string;
+}
+
+export interface ProxyPvActivityDetail {
+  agent_id: string;
+  day: string;
+  kind: ProxyPvActivityKind;
+  generated_at: string;
+  scoring: {
+    commitment_pv_rate: number | null;
+    percentage_rate: number | null;
+    counted_items: number;
+    pending_items: number;
+    counted_basis: number;
+    counted_pv: number;
+    pending_pv: number;
+    formula: string;
+    gate: string;
+  };
+  items: ProxyPvActivityItem[];
+}
+
+/**
+ * Underlying transactions, verification status and scoring inputs behind one
+ * day's PV for one action type. Server-side only — the RPC mirrors
+ * `proxy_pv_daily`'s predicates so the drilldown can't disagree with the score.
+ */
+export function useProxyPvActivityDetail(params: {
+  agentId?: string | null;
+  day: string | null;
+  kind: ProxyPvActivityKind | null;
+  enabled?: boolean;
+}) {
+  const { agentId, day, kind, enabled = true } = params;
+  return useQuery({
+    queryKey: ['proxy-pv-activity', agentId ?? 'self', day, kind],
+    enabled: enabled && !!day && !!kind,
+    staleTime: 30_000,
+    queryFn: async (): Promise<ProxyPvActivityDetail> => {
+      const { data, error } = await supabase.rpc('get_proxy_agent_pv_activity', {
+        p_agent_id: agentId ?? null,
+        p_day: day,
+        p_kind: kind,
+      });
+      if (error) throw new Error(error.message);
+      return data as unknown as ProxyPvActivityDetail;
+    },
+  });
+}

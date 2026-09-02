@@ -45743,6 +45743,10 @@ export type Database = {
         Args: { p_agent_id?: string; p_month?: string }
         Returns: Json
       }
+      get_proxy_agent_pv_activity: {
+        Args: { p_agent_id?: string; p_day?: string; p_kind?: string }
+        Returns: Json
+      }
       get_proxy_commission_queue: {
         Args: { p_limit?: number; p_status?: string }
         Returns: Json
@@ -48627,6 +48631,7 @@ export type Database = {
           total_pv: number
         }[]
       }
+      proxy_pv_fmt_pct: { Args: { p_rate: number }; Returns: string }
       proxy_pv_is_working_day: { Args: { p_day: string }; Returns: boolean }
       proxy_pv_target_for: { Args: { p_month: string }; Returns: Json }
       proxy_pv_working_days_elapsed: {
