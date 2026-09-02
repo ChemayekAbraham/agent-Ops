@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, ArrowRight, ArrowUp, Building2, FileBarChart, Minus, Plus, RefreshCw } from 'lucide-react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, Building2, ChevronDown, ChevronRight, FileBarChart, MapPin, Minus, Plus, RefreshCw, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -372,6 +372,451 @@ function ZoneB({ data, granularity }: { data: AgentOpsReportWindowData; granular
 }
 
 
+
+// ---------------------------------------------------------------------------
+// Zone C — district and area coverage.
+// Always reads the CURRENT DAILY snapshot; the Daily/Weekly/Monthly toggle
+// does not affect it. District and area names resolve only through the ug_*
+// reference tables (never profiles.district or any free-text location field).
+// ---------------------------------------------------------------------------
+
+interface ZoneCArea {
+  id: string;
+  name: string;
+  agentCount: number;
+  netChange: number;
+  activeAgents: number;
+}
+
+interface ZoneCDistrict {
+  key: string;
+  districtId: number | null;
+  name: string;
+  aliases: string[];
+  agentCount: number;
+  netChange: number;
+  activeAgents: number;
+  areas: ZoneCArea[];
+}
+
+interface ZoneCData {
+  districts: ZoneCDistrict[];
+  unassigned: ZoneCDistrict | null;
+  snapshotDate: string | null;
+  closingAgents: number | null;
+}
+
+function activePercent(activeAgents: number, agentCount: number): string {
+  if (agentCount <= 0) return '—';
+  return `${((activeAgents / agentCount) * 100).toFixed(1)}%`;
+}
+
+/** Sorted by net_change descending, then by agent_count descending as tie-break. */
+function zoneCSortComparator(a: ZoneCDistrict, b: ZoneCDistrict): number {
+  if (b.netChange !== a.netChange) return b.netChange - a.netChange;
+  return b.agentCount - a.agentCount;
+}
+
+/** Case-insensitive match on district name, its ug_district_aliases, and any subcounty name. */
+function zoneCMatchesSearch(district: ZoneCDistrict, term: string): boolean {
+  const needle = term.trim().toLowerCase();
+  if (needle.length === 0) return true;
+  if (district.name.toLowerCase().includes(needle)) return true;
+  if (district.aliases.some((alias) => alias.toLowerCase().includes(needle))) return true;
+  return district.areas.some((area) => area.name.toLowerCase().includes(needle));
+}
+
+function useZoneCCoverage() {
+  return useQuery({
+    queryKey: ['agent-ops-zone-c-coverage'],
+    queryFn: async (): Promise<ZoneCData> => {
+      const { data: dailyRows, error: dailyError } = await supabase
+        .from('agent_ops_period_snapshots')
+        .select('id, period_start, closing_agents')
+        .eq('granularity', 'daily')
+        .order('period_start', { ascending: false })
+        .limit(1);
+      if (dailyError) throw dailyError;
+
+      const daily = (dailyRows ?? [])[0] as { id: string; period_start: string; closing_agents: number } | undefined;
+      if (!daily) return { districts: [], unassigned: null, snapshotDate: null, closingAgents: null };
+
+      const { data: rows, error: rowsError } = await supabase
+        .from('agent_ops_district_snapshots')
+        .select('id, district_id, subcounty_id, agent_count, net_change, active_agents_30d')
+        .eq('snapshot_id', daily.id);
+      if (rowsError) throw rowsError;
+
+      const snapshotRows = (rows ?? []) as {
+        id: string;
+        district_id: number | null;
+        subcounty_id: number | null;
+        agent_count: number;
+        net_change: number;
+        active_agents_30d: number;
+      }[];
+
+      const districtIds = Array.from(
+        new Set(snapshotRows.map((row) => row.district_id).filter((value): value is number => value !== null)),
+      );
+      const subcountyIds = Array.from(
+        new Set(snapshotRows.map((row) => row.subcounty_id).filter((value): value is number => value !== null)),
+      );
+
+      const [districtRes, subcountyRes, aliasRes] = await Promise.all([
+        districtIds.length
+          ? supabase.from('ug_districts').select('id, name').in('id', districtIds)
+          : Promise.resolve({ data: [], error: null }),
+        subcountyIds.length
+          ? supabase.from('ug_subcounties').select('id, name').in('id', subcountyIds)
+          : Promise.resolve({ data: [], error: null }),
+        districtIds.length
+          ? supabase.from('ug_district_aliases').select('district_id, alias').in('district_id', districtIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (districtRes.error) throw districtRes.error;
+      if (subcountyRes.error) throw subcountyRes.error;
+      if (aliasRes.error) throw aliasRes.error;
+
+      const districtNames = new Map<number, string>(
+        ((districtRes.data ?? []) as { id: number; name: string }[]).map((row) => [row.id, row.name]),
+      );
+      const subcountyNames = new Map<number, string>(
+        ((subcountyRes.data ?? []) as { id: number; name: string }[]).map((row) => [row.id, row.name]),
+      );
+      const aliasMap = new Map<number, string[]>();
+      for (const row of (aliasRes.data ?? []) as { district_id: number; alias: string }[]) {
+        aliasMap.set(row.district_id, [...(aliasMap.get(row.district_id) ?? []), row.alias]);
+      }
+
+      const buckets = new Map<string, ZoneCDistrict>();
+      const ensure = (districtId: number | null): ZoneCDistrict => {
+        const key = districtId === null ? 'unassigned' : String(districtId);
+        const existing = buckets.get(key);
+        if (existing) return existing;
+        const created: ZoneCDistrict = {
+          key,
+          districtId,
+          name: districtId === null ? 'Unassigned district' : districtNames.get(districtId) ?? `District ${districtId}`,
+          aliases: districtId === null ? [] : aliasMap.get(districtId) ?? [],
+          agentCount: 0,
+          netChange: 0,
+          activeAgents: 0,
+          areas: [],
+        };
+        buckets.set(key, created);
+        return created;
+      };
+
+      for (const row of snapshotRows) {
+        const bucket = ensure(row.district_id);
+        if (row.subcounty_id === null) {
+          bucket.agentCount += row.agent_count;
+          bucket.netChange += row.net_change;
+          bucket.activeAgents += row.active_agents_30d;
+        } else {
+          bucket.areas.push({
+            id: row.id,
+            name: subcountyNames.get(row.subcounty_id) ?? `Area ${row.subcounty_id}`,
+            agentCount: row.agent_count,
+            netChange: row.net_change,
+            activeAgents: row.active_agents_30d,
+          });
+        }
+      }
+
+      for (const bucket of buckets.values()) {
+        bucket.areas.sort((a, b) =>
+          b.netChange !== a.netChange ? b.netChange - a.netChange : b.agentCount - a.agentCount,
+        );
+      }
+
+      const unassigned = buckets.get('unassigned') ?? null;
+      const districts = Array.from(buckets.values())
+        .filter((bucket) => bucket.districtId !== null && bucket.agentCount > 0)
+        .sort(zoneCSortComparator);
+
+      return {
+        districts,
+        unassigned: unassigned && unassigned.agentCount > 0 ? unassigned : null,
+        snapshotDate: daily.period_start,
+        closingAgents: daily.closing_agents,
+      };
+    },
+  });
+}
+
+function ZoneCNet({ value }: { value: number }) {
+  const info = direction(value);
+  const Icon = info.Icon;
+  return (
+    <span className={cn('inline-flex items-center gap-0.5 tabular-nums', info.className)}>
+      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      {signedNumber(value)}
+    </span>
+  );
+}
+
+function ZoneCAreaTable({ areas }: { areas: ZoneCArea[] }) {
+  if (areas.length === 0) {
+    return <p className="px-3 py-2 text-xs text-muted-foreground">No area breakdown recorded for this district.</p>;
+  }
+  return (
+    <ul className="divide-y divide-border">
+      {areas.map((area) => (
+        <li key={area.id} className="flex items-center gap-2 px-3 py-1.5 text-xs">
+          <span className="min-w-0 flex-1 truncate" title={area.name}>{area.name}</span>
+          <span className="w-14 shrink-0 text-right tabular-nums">{area.agentCount}</span>
+          <span className="w-16 shrink-0 text-right"><ZoneCNet value={area.netChange} /></span>
+          <span className="w-16 shrink-0 text-right tabular-nums">{activePercent(area.activeAgents, area.agentCount)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ZoneC() {
+  const { data, isLoading, isError, error } = useZoneCCoverage();
+  const [search, setSearch] = useState('');
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  const toggle = (key: string) => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const visible = useMemo(
+    () => (data?.districts ?? []).filter((district) => zoneCMatchesSearch(district, search)),
+    [data?.districts, search],
+  );
+  const unassigned = data?.unassigned ?? null;
+  const unassignedVisible = unassigned && zoneCMatchesSearch(unassigned, search) ? unassigned : null;
+
+  const totals = useMemo(() => {
+    const all = [...(data?.districts ?? []), ...(unassigned ? [unassigned] : [])];
+    return all.reduce(
+      (acc, row) => ({
+        agentCount: acc.agentCount + row.agentCount,
+        netChange: acc.netChange + row.netChange,
+        activeAgents: acc.activeAgents + row.activeAgents,
+      }),
+      { agentCount: 0, netChange: 0, activeAgents: 0 },
+    );
+  }, [data?.districts, unassigned]);
+
+  /** The pinned total must equal A1's closing_agents, or we warn instead of showing a wrong total. */
+  const reconciles = data?.closingAgents === null || data?.closingAgents === undefined
+    ? true
+    : totals.agentCount === data.closingAgents;
+
+  return (
+    <section aria-labelledby="agent-ops-zone-c" className="space-y-3">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">Zone C</p>
+          <h2 id="agent-ops-zone-c" className="text-lg font-semibold">District and area coverage</h2>
+          <p className="text-xs text-muted-foreground">
+            Always current daily snapshot{data?.snapshotDate ? ` (${data.snapshotDate})` : ''} — not affected by the
+            Daily/Weekly/Monthly toggle.
+          </p>
+        </div>
+        <div className="relative w-full sm:w-64">
+          <Search className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search district or area"
+            className="pl-8"
+            aria-label="Search district or area"
+          />
+        </div>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="space-y-2 p-4">
+              <Skeleton className="h-5 w-full" />
+              <Skeleton className="h-5 w-full" />
+              <Skeleton className="h-5 w-2/3" />
+            </div>
+          ) : isError ? (
+            <p className="p-4 text-sm text-destructive">{(error as Error)?.message ?? 'Coverage could not be loaded.'}</p>
+          ) : (
+            <>
+              {/* Desktop: fixed-width columns, truncation with tooltip, no overflow */}
+              <div className="hidden md:block">
+                <table className="w-full table-fixed text-sm">
+                  <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium">District / area</th>
+                      <th className="w-24 px-3 py-2 text-right font-medium">Agents</th>
+                      <th className="w-24 px-3 py-2 text-right font-medium">Net</th>
+                      <th className="w-24 px-3 py-2 text-right font-medium">Active</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visible.length === 0 && !unassignedVisible && (
+                      <tr>
+                        <td colSpan={4} className="px-3 py-4 text-center text-sm text-muted-foreground">
+                          No districts match this search.
+                        </td>
+                      </tr>
+                    )}
+                    {visible.map((district) => (
+                      <Fragment key={district.key}>
+                        <tr className="border-t border-border">
+                          <td className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => toggle(district.key)}
+                              aria-expanded={Boolean(expanded[district.key])}
+                              className="flex w-full min-w-0 items-center gap-1.5 text-left"
+                            >
+                              {expanded[district.key] ? (
+                                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                              ) : (
+                                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                              )}
+                              <span className="truncate" title={district.name}>{district.name}</span>
+                            </button>
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums">{district.agentCount}</td>
+                          <td className="px-3 py-2 text-right"><ZoneCNet value={district.netChange} /></td>
+                          <td className="px-3 py-2 text-right tabular-nums">
+                            {activePercent(district.activeAgents, district.agentCount)}
+                          </td>
+                        </tr>
+                        {expanded[district.key] && (
+                          <tr className="border-t border-border bg-muted/30">
+                            <td colSpan={4} className="p-0">
+                              <ZoneCAreaTable areas={district.areas} />
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    ))}
+                    {unassignedVisible && (
+                      <tr className="border-t border-dashed border-amber-500/50 bg-amber-500/5">
+                        <td className="px-3 py-2">
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            <MapPin className="h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden="true" />
+                            <span className="truncate font-medium text-amber-700 dark:text-amber-400" title={unassignedVisible.name}>
+                              {unassignedVisible.name}
+                            </span>
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums">{unassignedVisible.agentCount}</td>
+                        <td className="px-3 py-2 text-right"><ZoneCNet value={unassignedVisible.netChange} /></td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {activePercent(unassignedVisible.activeAgents, unassignedVisible.agentCount)}
+                        </td>
+                      </tr>
+                    )}
+                    <tr className="border-t-2 border-border bg-muted/50 font-semibold">
+                      <td className="px-3 py-2">
+                        All districts
+                        {!reconciles && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-destructive">
+                            <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                            Does not reconcile with A1 closing agents ({data?.closingAgents})
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">{totals.agentCount}</td>
+                      <td className="px-3 py-2 text-right"><ZoneCNet value={totals.netChange} /></td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {activePercent(totals.activeAgents, totals.agentCount)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Below 768px: stacked cards, areas in an expander, never a horizontal scroller */}
+              <div className="space-y-2 p-3 md:hidden">
+                {visible.length === 0 && !unassignedVisible && (
+                  <p className="py-2 text-center text-sm text-muted-foreground">No districts match this search.</p>
+                )}
+                {[...visible, ...(unassignedVisible ? [unassignedVisible] : [])].map((district) => (
+                  <div
+                    key={district.key}
+                    className={cn(
+                      'rounded-xl border border-border p-3',
+                      district.districtId === null && 'border-dashed border-amber-500/50 bg-amber-500/5',
+                    )}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => toggle(district.key)}
+                      aria-expanded={Boolean(expanded[district.key])}
+                      className="flex w-full items-center justify-between gap-2 text-left"
+                    >
+                      <span
+                        className={cn(
+                          'min-w-0 truncate text-sm font-medium',
+                          district.districtId === null && 'text-amber-700 dark:text-amber-400',
+                        )}
+                        title={district.name}
+                      >
+                        {district.name}
+                      </span>
+                      {expanded[district.key] ? (
+                        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      )}
+                    </button>
+                    <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                      <div>
+                        <p className="text-muted-foreground">Agents</p>
+                        <p className="tabular-nums font-semibold">{district.agentCount}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Net</p>
+                        <p className="font-semibold"><ZoneCNet value={district.netChange} /></p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Active</p>
+                        <p className="tabular-nums font-semibold">{activePercent(district.activeAgents, district.agentCount)}</p>
+                      </div>
+                    </div>
+                    {expanded[district.key] && (
+                      <div className="mt-2 rounded-lg border border-border">
+                        <ZoneCAreaTable areas={district.areas} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <div className="rounded-xl border-2 border-border bg-muted/50 p-3">
+                  <p className="text-sm font-semibold">All districts</p>
+                  {!reconciles && (
+                    <p className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-destructive">
+                      <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                      Does not reconcile with A1 closing agents ({data?.closingAgents})
+                    </p>
+                  )}
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+                    <div>
+                      <p className="text-muted-foreground">Agents</p>
+                      <p className="tabular-nums font-semibold">{totals.agentCount}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Net</p>
+                      <p className="font-semibold"><ZoneCNet value={totals.netChange} /></p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground">Active</p>
+                      <p className="tabular-nums font-semibold">{activePercent(totals.activeAgents, totals.agentCount)}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </section>
+  );
+}
+
 export function AgentOpsReportWindow() {
   const [granularity, setGranularity] = useState<AgentOpsGranularity>('daily');
   const [dirtyDraft] = useState(false);
@@ -531,6 +976,8 @@ export function AgentOpsReportWindow() {
       </section>
 
       <ZoneB data={data} granularity={granularity} />
+
+      <ZoneC />
     </div>
   );
 }
