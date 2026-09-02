@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import {
-  Loader2, Plus, Clock, CheckCircle2, XCircle, HelpCircle, Building2, Wallet,
+  Loader2, Plus, Clock, CheckCircle2, XCircle, HelpCircle, Building2, Wallet, Paperclip, Upload,
 } from 'lucide-react';
 
 interface Requisition {
@@ -33,6 +33,7 @@ interface Requisition {
   wallet_credit_status: string | null;
   credited_at: string | null;
   created_at: string;
+  attachment_urls: string[] | null;
 }
 
 interface ReqEvent {
@@ -114,6 +115,8 @@ const MyRequisitions = () => {
   const [form, setForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [resubmitId, setResubmitId] = useState<string | null>(null);
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [viewingPath, setViewingPath] = useState<string | null>(null);
 
   const fetchRows = useCallback(async () => {
     const { data: userRes } = await supabase.auth.getUser();
@@ -220,6 +223,32 @@ const MyRequisitions = () => {
       setResubmitId(null);
       await fetchRows();
     }
+  };
+
+  const uploadReceipt = async (row: Requisition, file: File) => {
+    setUploadingId(row.id);
+    const form = new FormData();
+    form.append('requisition_id', row.id);
+    form.append('file', file);
+    const { error } = await invokeEdgeFunction('staff-requisition-add-attachment', {
+      body: form,
+      errorTitle: 'Could not attach receipt',
+    });
+    setUploadingId(null);
+    if (!error) {
+      toast.success('Receipt attached');
+      await fetchRows();
+    }
+  };
+
+  const viewAttachment = async (row: Requisition, path: string) => {
+    setViewingPath(path);
+    const { data, error } = await invokeEdgeFunction<{ url: string }>('staff-requisition-attachment-url', {
+      body: { requisition_id: row.id, path },
+      errorTitle: 'Could not open receipt',
+    });
+    setViewingPath(null);
+    if (!error && data?.url) window.open(data.url, '_blank');
   };
 
   return (
@@ -363,7 +392,26 @@ const MyRequisitions = () => {
                   </p>
                 )}
 
-                <div className="mt-3 flex flex-wrap gap-2">
+                {(row.attachment_urls?.length ?? 0) > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {row.attachment_urls!.map((path) => (
+                      <Button
+                        key={path}
+                        size="sm"
+                        variant="outline"
+                        disabled={viewingPath === path}
+                        onClick={() => void viewAttachment(row, path)}
+                      >
+                        {viewingPath === path
+                          ? <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                          : <Paperclip className="mr-2 h-3 w-3" />}
+                        Receipt {row.attachment_urls!.indexOf(path) + 1}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   <Button size="sm" variant="ghost" onClick={() => void loadEvents(row.id)}>
                     View progress
                   </Button>
@@ -372,6 +420,22 @@ const MyRequisitions = () => {
                       Update and resubmit
                     </Button>
                   )}
+                  <span className="inline-flex items-center gap-2 text-sm">
+                    {uploadingId === row.id
+                      ? <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                      : <Upload className="h-3 w-3 text-muted-foreground" />}
+                    <input
+                      type="file"
+                      accept="application/pdf,image/*"
+                      className="text-xs"
+                      disabled={uploadingId === row.id || (row.attachment_urls?.length ?? 0) >= 10}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.currentTarget.value = '';
+                        if (file) void uploadReceipt(row, file);
+                      }}
+                    />
+                  </span>
                 </div>
 
                 {(events[row.id]?.length ?? 0) > 0 && (
