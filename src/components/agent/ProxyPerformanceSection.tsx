@@ -8,8 +8,10 @@ import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { Activity, AlertTriangle, CalendarDays, ChevronDown, ChevronUp, ClipboardCheck, Inbox, Target, TrendingUp } from 'lucide-react';
 import { ProxyPerformanceActivities } from '@/components/agent/ProxyPerformanceActivities';
+import { ProxyPerformanceTrends } from '@/components/agent/ProxyPerformanceTrends';
 import {
   PROXY_PV_BAND_META,
+  monthStartISO,
   proxyPvBand,
   useProxyAgentPv,
   type ProxyPvDay,
@@ -65,8 +67,10 @@ interface Props {
  * Performance Value (PV) tracker for a single proxy agent:
  * today's PV, month-to-date expected vs actual, and the daily history.
  */
-export function ProxyPerformanceSection({ agentId, month, hideHeading, className }: Props) {
+export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading, className }: Props) {
   const [showAllDays, setShowAllDays] = useState(false);
+  const [monthState, setMonthState] = useState(() => monthStartISO());
+  const month = monthProp ?? monthState;
   const q = useProxyAgentPv(agentId ?? null, month);
   const r = q.data;
 
@@ -271,6 +275,14 @@ export function ProxyPerformanceSection({ agentId, month, hideHeading, className
           )}
         </CardContent>
       </Card>
+
+      {/* Trends: daily vs monthly drilldown with month-range toggles */}
+      <ProxyPerformanceTrends
+        report={r}
+        agentId={agentId ?? null}
+        month={month}
+        onMonthChange={setMonthState}
+      />
 
       {/* Daily history */}
       <Card>
