@@ -698,6 +698,7 @@ export function useCcCallingHub(
     openAttempts: openAttemptsQ.data ?? [],
     openCount,
     wipBlocked,
+    wipLimit,
     categories: categoriesQ.data ?? [],
     staffOptions: staffQ.data ?? [],
     followups: followupsQ.data ?? [],
