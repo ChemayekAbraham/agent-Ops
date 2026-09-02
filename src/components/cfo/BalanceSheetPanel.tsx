@@ -307,12 +307,15 @@ export default function BalanceSheetPanel() {
     if (!data) return;
     const rows: (string | number)[][] = [[title], []];
     rows.push(['ASSETS', '']);
-    (assetGroups?.groups ?? []).forEach(g => rows.push([g.label, g.value]));
+    assetRows.forEach(g => {
+      rows.push([g.label, g.heading ? '' : g.value]);
+      (g.components ?? []).forEach(c => rows.push(['   ' + c.label, c.value]));
+    });
     if (assetGroups && hasFlagged(assetGroups.flagged)) {
       rows.push([assetGroups.flagged.label, assetGroups.flagged.value]);
       visibleFlaggedLines(assetGroups.flagged).forEach(l => rows.push(['   ' + l.label, l.value]));
     }
-    rows.push(['TOTAL ASSETS', data.assets.total]);
+    rows.push(['TOTAL ASSETS', assetsTotal]);
     rows.push([]);
     rows.push(['LIABILITIES', '']);
     (liabilityGroups?.standalone ?? []).forEach(g => rows.push([g.label, g.value]));
