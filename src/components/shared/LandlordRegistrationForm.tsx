@@ -833,8 +833,25 @@ export default function LandlordRegistrationForm({
           </motion.div>
           <h3 className="text-lg font-semibold">Landlord Registered!</h3>
           <p className="text-muted-foreground text-sm">
-            Share the link with <strong>{landlordName}</strong> — they just tap to activate.
+            Upload the signed 12-month agreement for <strong>{landlordName}</strong> before verification.
           </p>
+
+          {registeredLandlordId && !agreementSubmitted && (
+            <LandlordAgreementUploader
+              landlordId={registeredLandlordId}
+              landlordName={landlordName}
+              landlordPhone={landlordPhoneClean}
+              propertyAddress={propertyAddress || (ugLoc ? ugLocationLabel(ugLoc) : '')}
+              monthlyRent={null}
+              onSubmitted={() => setAgreementSubmitted(true)}
+            />
+          )}
+
+          {agreementSubmitted && (
+            <div className="flex items-center justify-center gap-2 rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success">
+              <CheckCircle2 className="h-4 w-4" /> Signed agreement uploaded and preserved in history.
+            </div>
+          )}
 
           {/* Qualification Score */}
           <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
