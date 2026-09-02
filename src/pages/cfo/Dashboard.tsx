@@ -555,6 +555,8 @@ export default function CFODashboardPage() {
         return <RentDisbursementReportPanel />;
       case 'merchant-requisition-report':
         return <MerchantFloatRequisitionReportPanel />;
+      case 'employee-requisition-report':
+        return <EmployeeRequisitionReportPanel />;
       case 'expense-report':
         return <ExpenseReportPanel />;
       case 'payout-reports':
