@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { TenantOpsDashboard, type TenantOpsClassicView } from '../TenantOpsDashboard';
 import { TenantOpsSidebar } from './TenantOpsSidebar';
 import { TenantOpsTopBar } from './TenantOpsTopBar';
@@ -30,6 +30,7 @@ interface Props {
  */
 export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGenerateWordReport }: Props) {
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   const { data: counts } = useTenantOpsToolCounts();
 
   const raw = params.get('view') || 'home';
@@ -47,6 +48,7 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
       if (key === 'action.locations') onOpenLocations();
       if (key === 'action.welile-homes') onOpenWelileHomes();
       if (key === 'action.word-report') onGenerateWordReport();
+      if (key === 'action.portfolio-performance') navigate('/agent-ops/reports/tenant-portfolio-performance');
       return;
     }
     const next = new URLSearchParams(params);
