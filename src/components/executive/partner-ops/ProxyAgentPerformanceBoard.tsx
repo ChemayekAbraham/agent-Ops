@@ -28,9 +28,12 @@ import {
   type ProxyPvTeamRow,
 } from '@/hooks/useProxyAgentPerformance';
 import { ProxyPerformanceSection } from '@/components/agent/ProxyPerformanceSection';
+import { ProxyPvStandouts } from './ProxyPvStandouts';
+import { explainProxyPv } from './proxyPvExplain';
 
 const money = (v: unknown) => formatDynamic(v);
 const PAGE_SIZE = 25;
+const ROSTER_SIZE = 200;
 
 const SORTS: { key: ProxyPvSort; label: string }[] = [
   { key: 'total_pv', label: 'Total PV' },
