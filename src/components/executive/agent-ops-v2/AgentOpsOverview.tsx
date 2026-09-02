@@ -15,12 +15,12 @@ import {
 import {
   Users, UserPlus, Activity, FileText, Home, Wallet, Banknote, TrendingDown,
   TrendingUp, ArrowRight, UsersRound, Network, Coins, Hourglass, Receipt, Trophy,
-  CalendarIcon, RefreshCw,
+  RefreshCw,
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
+
 import { AgentRentCapacityPanel } from '../AgentRentCapacityPanel';
 import type { DateRange } from 'react-day-picker';
 import { OpsDateRangeFilter, resolveRange, rangePhrase, type PresetKey } from '@/components/executive/shared/OpsDateRangeFilter';
