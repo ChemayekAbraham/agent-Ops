@@ -281,6 +281,48 @@ export interface ProxyPvActivityItem {
   pv_formula: string;
 }
 
+export interface ProxyPvPendingItem {
+  kind: ProxyPvActivityKind;
+  /** ISO date (Kampala) the pending item was last touched. */
+  day: string;
+  reference: string;
+  label: string;
+  amount: number;
+  status: string;
+  /** PV the item would earn once it clears its gate. */
+  potential_pv: number;
+  /** Plain-language reason it is not counted yet. */
+  gate: string;
+}
+
+export interface ProxyPvPendingFeed {
+  agent_id: string;
+  period_month: string;
+  generated_at: string;
+  items: ProxyPvPendingItem[];
+}
+
+/**
+ * Month-to-date items awaiting verification/payment — the mirror image of the
+ * scored feed. Uses the same predicates as `get_proxy_agent_pv`'s data_quality
+ * block so the two can never disagree.
+ */
+export function useProxyPvPendingFeed(agentId?: string | null, month?: string, enabled = true) {
+  return useQuery({
+    queryKey: ['proxy-pv-pending-feed', agentId ?? 'self', month ?? 'current'],
+    enabled: enabled && agentId !== undefined,
+    staleTime: 30_000,
+    queryFn: async (): Promise<ProxyPvPendingFeed> => {
+      const { data, error } = await supabase.rpc('get_proxy_agent_pv_pending_feed', {
+        p_agent_id: agentId ?? null,
+        p_month: month ?? null,
+      });
+      if (error) throw new Error(error.message);
+      return data as unknown as ProxyPvPendingFeed;
+    },
+  });
+}
+
 export interface ProxyPvActivityDetail {
   agent_id: string;
   day: string;
