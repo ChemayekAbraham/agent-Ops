@@ -1006,9 +1006,9 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
       </CardContent>
 
       <Sheet open={!!reviewTarget} onOpenChange={(o) => { if (!o) setReviewTarget(null); }}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetContent side="center" className="max-h-[80vh] w-[92vw] sm:max-w-md overflow-y-auto rounded-xl p-5">
           {reviewTarget && (
-            <div className="space-y-5">
+            <div className="space-y-4">
               <SheetHeader>
                 <SheetTitle>Rent disbursement review</SheetTitle>
                 <SheetDescription>
