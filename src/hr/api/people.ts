@@ -277,6 +277,7 @@ export async function enrollStaff(input: {
     photo_url: null,
     status: staff.active ? 'active' : 'exited',
     joined_at: staff.created_at,
+    ended_on: staff.ended_on ?? null,
     current_assignment: null,
   } satisfies Employee;
 }
