@@ -197,7 +197,7 @@ export async function getEmployee(employeeId: string): Promise<Employee | null> 
   const rows = unwrap(
     await supabase
       .from('hr_staff')
-      .select('id, user_id, staff_ref, active, created_at')
+      .select('id, user_id, staff_ref, active, created_at, ended_on')
       .eq('id', employeeId)
       .limit(1),
   ) as StaffRow[];
