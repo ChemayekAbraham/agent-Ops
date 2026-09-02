@@ -78,6 +78,7 @@ export interface AgentOpsStaffOption {
 }
 
 export interface AgentOpsReportWindowData {
+  ready: true;
   report: AgentOpsReport;
   snapshot: AgentOpsSnapshot;
   priorSnapshot: AgentOpsSnapshot | null;
@@ -92,6 +93,17 @@ export interface AgentOpsReportWindowData {
   submittedByName: string | null;
   submittedAt: string | null;
 }
+
+/** No snapshot has been computed yet for the selected period. */
+export interface AgentOpsReportWindowMissing {
+  ready: false;
+  reason: 'no_snapshot';
+  granularity: AgentOpsGranularity;
+  periodStart: string;
+}
+
+export type AgentOpsReportWindowResult = AgentOpsReportWindowData | AgentOpsReportWindowMissing;
+
 
 const MISS_OUTCOMES = new Set(['partly_done', 'not_done', 'partly', 'missed']);
 
