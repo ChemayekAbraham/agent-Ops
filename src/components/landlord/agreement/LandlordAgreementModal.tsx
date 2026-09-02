@@ -189,7 +189,7 @@ const LandlordAgreementModal = forwardRef<HTMLDivElement, LandlordAgreementModal
                 {/* Agreement Checkbox & Accept Button */}
                 {!viewOnly ? (
                   <>
-                    <label className="flex items-start gap-3 cursor-pointer p-3 rounded-lg bg-background border hover:bg-muted/50 transition-colors">
+                    <label className="flex items-start gap-3 p-3 rounded-lg bg-background border">
                       <Checkbox
                         checked={isAgreed}
                         onCheckedChange={(checked) => setIsAgreed(checked === true)}
@@ -197,34 +197,25 @@ const LandlordAgreementModal = forwardRef<HTMLDivElement, LandlordAgreementModal
                         className="mt-0.5"
                       />
                       <span className="text-sm leading-relaxed">
-                        I have read and understood the Landlord Terms & Benefits. I agree to list my property with Welile and accept all terms stated above.
+                        I have read and understood the Landlord Terms &amp; Benefits.
                       </span>
                     </label>
 
-                    <Button
-                      onClick={handleAccept}
-                      disabled={!canAccept}
-                      className="w-full h-12 text-base font-semibold bg-gradient-to-r from-primary to-success hover:opacity-90"
-                    >
-                      {isAccepting ? (
-                        <span className="flex items-center gap-2">
-                          <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
-                          Processing...
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-2">
-                          <CheckCircle2 className="h-5 w-5" />
-                          I Agree to Landlord Terms
-                        </span>
-                      )}
-                    </Button>
+                    <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
+                      <p className="font-semibold">A signed agreement is required</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Reading these terms is not the agreement itself. The signed 12-month Landlord Rent Agreement
+                        must be completed with your Welile agent and uploaded before verification can be completed.
+                      </p>
+                    </div>
                   </>
                 ) : (
                   <div className="flex items-center justify-center gap-2 p-3 rounded-lg bg-success/10 text-success">
                     <CheckCircle2 className="h-5 w-5" />
-                    <span className="font-medium">Terms Accepted</span>
+                    <span className="font-medium">Signed agreement on file</span>
                   </div>
                 )}
+
               </div>
             </motion.div>
           </motion.div>
