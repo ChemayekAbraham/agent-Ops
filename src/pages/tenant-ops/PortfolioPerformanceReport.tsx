@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { BarChart3, CalendarRange, CheckCircle2, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PeriodToggle, type TppoGranularity } from '@/components/tenant-ops/tppo/PeriodToggle';
 import { HeadlineA1 } from '@/components/tenant-ops/tppo/HeadlineA1';
