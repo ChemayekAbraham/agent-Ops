@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -27,6 +27,10 @@ import { RepaymentTrendChart } from '@/components/executive/RepaymentTrendChart'
 import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 import { useTenantRepaymentReliability } from '@/hooks/useTenantRepaymentReliability';
 import { useTenantOpsAcquisition } from '@/hooks/useTenantOpsAcquisition';
+import { useTenantOpsAcquisitionRange } from '@/hooks/useTenantOpsAcquisitionRange';
+import { OpsDateRangeFilter, resolveRange, rangePhrase, type PresetKey } from '@/components/executive/shared/OpsDateRangeFilter';
+import type { DateRange } from 'react-day-picker';
+import { format } from 'date-fns';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import type { TenantOpsViewKey } from './tenantOpsNav';
@@ -255,7 +259,7 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
                   </p>
                 </div>
                 <p className="mt-2 text-xl font-bold tabular-nums leading-none">
-                  {isLoading || loadingAcquisition ? '—' : s.value}
+                  {isLoading || loadingAcquisition || loadingPeriod ? '—' : s.value}
                 </p>
                 <p className="mt-1 text-[11px] leading-snug text-muted-foreground break-words line-clamp-2">{s.hint}</p>
               </button>
