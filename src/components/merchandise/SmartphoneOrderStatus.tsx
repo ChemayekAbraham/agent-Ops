@@ -385,6 +385,22 @@ export default function SmartphoneOrderStatus({
                     {meta.label}
                   </Badge>
                 </div>
+                {status === 'rejected' && (
+                  <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-2">
+                    <XCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-destructive">Why it was rejected</p>
+                      <p className="text-xs text-foreground">
+                        {o.rejection_reason?.trim() || 'No reason was recorded. Please contact support or place a new order.'}
+                      </p>
+                      {o.rejected_at && (
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Rejected on {format(new Date(o.rejected_at), 'd MMM yyyy, HH:mm')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {status === 'approved' && !o.access_accepted_at && (
                   <Button
                     size="sm"
