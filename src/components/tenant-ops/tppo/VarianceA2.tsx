@@ -71,7 +71,7 @@ export function VarianceA2({ report }: VarianceA2Props) {
   const priorLabel = periodLabel(report?.prior?.period_start, report?.prior?.period_end);
 
   return (
-    <section aria-label="A2 variance on prior period" className="rounded-lg border border-border bg-card p-4">
+    <section aria-label="A2 variance on prior period" className="rounded-xl border border-border bg-card p-4 shadow-sm">
       <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         Variance on prior period
       </h3>

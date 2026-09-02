@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -35,7 +34,7 @@ import type { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
-import type { TenantOpsViewKey } from './tenantOpsNav';
+import type { TenantOpsActionKey, TenantOpsViewKey } from './tenantOpsNav';
 
 /**
  * Landing page for Tenant Ops → Classic.
@@ -45,8 +44,7 @@ import type { TenantOpsViewKey } from './tenantOpsNav';
  * reuses `get_tenant_repayment_reliability`. Every number on this page is a link
  * into an existing Classic view — no client-side business rules are re-derived.
  */
-export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsViewKey) => void }) {
-  const navigate = useNavigate();
+export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsViewKey | TenantOpsActionKey) => void }) {
   const [preset, setPreset] = useState<PresetKey>('today');
   const [custom, setCustom] = useState<DateRange | undefined>();
   const { start, end } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
@@ -496,12 +494,12 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
             icon={Download}
             onClick={() => onNavigate('reports-hub')}
           />
-          <HubEntryCard
-            title="Portfolio Performance"
-            description="Rent collections and rent requests, daily, weekly and monthly."
-            icon={TrendingUp}
-            onClick={() => navigate('/agent-ops/reports/tenant-portfolio-performance')}
-          />
+           <HubEntryCard
+             title="Portfolio Performance"
+             description="Rent collections and rent requests, daily, weekly and monthly."
+             icon={TrendingUp}
+             onClick={() => onNavigate('action.portfolio-performance')}
+           />
         </div>
       </div>
     </div>

@@ -12,7 +12,7 @@ import { TenantOpsSidebar } from './TenantOpsSidebar';
 import { searchTenantOpsNav, type TenantOpsActionKey, type TenantOpsViewKey } from './tenantOpsNav';
 
 interface Props {
-  active: TenantOpsViewKey;
+  active: TenantOpsViewKey | TenantOpsActionKey;
   onSelect: (key: TenantOpsViewKey | TenantOpsActionKey) => void;
   badges?: Partial<Record<string, number>>;
   actions?: React.ReactNode;
