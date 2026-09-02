@@ -76,14 +76,20 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
   const cap = Number(eligibility?.max_amount || 0);
 
+  const isIOSDevice = (c: SmartphoneCatalogEntry) =>
+    c.os_type === 'ios' ||
+    c.brand.trim().toLowerCase() === 'apple' ||
+    c.brand.trim().toLowerCase().startsWith('iphone');
+
   const options = useMemo(
     () =>
       catalog
         .filter((c) => c.is_active && Number(c.default_amount || 0) > 0)
-        .filter((c) => c.os_type === 'ios' || cap <= 0 || Number(c.default_amount) <= cap)
-        .filter((c) => c.os_type === osType),
+        .filter((c) => isIOSDevice(c) || cap <= 0 || Number(c.default_amount) <= cap)
+        .filter((c) => (osType === 'ios' ? isIOSDevice(c) : !isIOSDevice(c))),
     [catalog, cap, osType],
   );
+
 
   const selected = options.find((c) => c.id === catalogId);
   const price = Math.max(0, Math.round(Number(selected?.default_amount ?? 0)));
