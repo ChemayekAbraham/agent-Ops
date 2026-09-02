@@ -42113,6 +42113,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      agent_ops_carry_actions: {
+        Args: { p_report_id: string }
+        Returns: number
+      }
       agent_ops_collection_agents: {
         Args: never
         Returns: {
@@ -42122,6 +42126,10 @@ export type Database = {
           last_collection: string
           live_plan: boolean
         }[]
+      }
+      agent_ops_compute_snapshot: {
+        Args: { p_granularity: string; p_period_start: string }
+        Returns: string
       }
       agent_ops_directory_guard: { Args: never; Returns: string }
       agent_ops_issue_agent_product: {
@@ -42155,12 +42163,24 @@ export type Database = {
           whitelisted: boolean
         }[]
       }
+      agent_ops_open_report: {
+        Args: { p_granularity: string; p_period_start: string }
+        Returns: string
+      }
       agent_ops_partial_collection_report:
         | { Args: { p_days?: number }; Returns: Json }
         | {
             Args: { p_days?: number; p_limit?: number; p_offset?: number }
             Returns: Json
           }
+      agent_ops_prior_period_start: {
+        Args: { p_granularity: string; p_period_start: string }
+        Returns: string
+      }
+      agent_ops_prior_report: {
+        Args: { p_granularity: string; p_period_start: string }
+        Returns: string
+      }
       agent_ops_qualifying_agent_ids: {
         Args: never
         Returns: {
@@ -42176,6 +42196,7 @@ export type Database = {
         Returns: Json
       }
       agent_ops_report_authorized: { Args: never; Returns: boolean }
+      agent_ops_run_snapshot_cycle: { Args: never; Returns: undefined }
       agent_ops_set_agent_frozen: {
         Args: { p_agent_id: string; p_frozen: boolean; p_reason?: string }
         Returns: Json
@@ -42193,6 +42214,10 @@ export type Database = {
         Returns: {
           agent_id: string
         }[]
+      }
+      agent_ops_submit_report: {
+        Args: { p_report_id: string }
+        Returns: undefined
       }
       agent_ops_whitelist_admin: {
         Args: { _user_id: string }
