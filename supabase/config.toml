@@ -147,6 +147,9 @@ verify_jwt = false
 [functions.agent-ops-daily-report]
 verify_jwt = false
 
+[functions.agent-ops-comprehensive-daily-report]
+verify_jwt = false
+
 [functions.agent-growth-daily-report]
 verify_jwt = false
 
