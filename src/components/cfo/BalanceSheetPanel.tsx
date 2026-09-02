@@ -7,7 +7,7 @@ import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import {
   classifyAssets, classifyLiabilities, classifyEquity, hasFlagged, visibleFlaggedLines,
-  expandLandlordFloat,
+  expandLandlordFloat, expandIntangibleAssets, splitLegacyEquityLines, legacyIntangibleTotal,
   type BsGroup, type LandlordFloatSplit,
 } from '@/components/cfo/balanceSheetClassification';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
@@ -278,12 +278,27 @@ export default function BalanceSheetPanel() {
   const liabilityGroups = data
     ? classifyLiabilities([...data.liabilities.current, ...data.liabilities.non_current])
     : null;
-  const equityGroups = data ? classifyEquity(data.equity.lines) : null;
+  /**
+   * Presentation only: the two legacy accounts (E3 / E4) are reported as
+   * component lines of Intangible Assets instead of inside Shareholders' Equity.
+   * Both sides move by the same amount, so the balance check is unchanged.
+   */
+  const legacySplit = data ? splitLegacyEquityLines(data.equity.lines) : null;
+  const legacyLines = legacySplit?.legacy ?? [];
+  const legacyAssetTotal = legacyIntangibleTotal(legacyLines);
+  const equityGroups = legacySplit ? classifyEquity(legacySplit.equity) : null;
+  /** Assets with Intangible Assets expanded into its component lines. */
+  const assetRows = expandIntangibleAssets(assetGroups?.groups ?? [], legacyLines);
+  const assetsTotal = data ? data.assets.total + legacyAssetTotal : 0;
+  const equityTotal = data ? data.equity.total + legacyAssetTotal : 0;
+  const totalLiabilitiesAndEquity = data
+    ? data.balance_check.total_liabilities_and_equity + legacyAssetTotal
+    : 0;
   /** Landlord Float shown as Company Managed / Self Managed + subtotal. */
   const marketplaceRows = expandLandlordFloat(liabilityGroups?.marketplace ?? [], floatSplit);
   /** Each section's groups must still sum to the RPC's own total. */
   const assetDrift = data && assetGroups ? Math.round(assetGroups.total - data.assets.total) : 0;
-  const equityDrift = data && equityGroups ? Math.round(equityGroups.total - data.equity.total) : 0;
+  const equityDrift = data && equityGroups ? Math.round(equityGroups.total - equityTotal) : 0;
   const liabilityGroupDrift = data && liabilityGroups
     ? Math.round(liabilityGroups.total - data.liabilities.total)
     : 0;
@@ -292,12 +307,15 @@ export default function BalanceSheetPanel() {
     if (!data) return;
     const rows: (string | number)[][] = [[title], []];
     rows.push(['ASSETS', '']);
-    (assetGroups?.groups ?? []).forEach(g => rows.push([g.label, g.value]));
+    assetRows.forEach(g => {
+      rows.push([g.label, g.heading ? '' : g.value]);
+      (g.components ?? []).forEach(c => rows.push(['   ' + c.label, c.value]));
+    });
     if (assetGroups && hasFlagged(assetGroups.flagged)) {
       rows.push([assetGroups.flagged.label, assetGroups.flagged.value]);
       visibleFlaggedLines(assetGroups.flagged).forEach(l => rows.push(['   ' + l.label, l.value]));
     }
-    rows.push(['TOTAL ASSETS', data.assets.total]);
+    rows.push(['TOTAL ASSETS', assetsTotal]);
     rows.push([]);
     rows.push(['LIABILITIES', '']);
     (liabilityGroups?.standalone ?? []).forEach(g => rows.push([g.label, g.value]));
@@ -321,9 +339,9 @@ export default function BalanceSheetPanel() {
       rows.push([equityGroups.flagged.label, equityGroups.flagged.value]);
       visibleFlaggedLines(equityGroups.flagged).forEach(l => rows.push(['   ' + l.label, l.value]));
     }
-    rows.push(["TOTAL SHAREHOLDERS' EQUITY", data.equity.total]);
+    rows.push(["TOTAL SHAREHOLDERS' EQUITY", equityTotal]);
     rows.push([]);
-    rows.push(['TOTAL LIABILITIES AND EQUITY', data.balance_check.total_liabilities_and_equity]);
+    rows.push(['TOTAL LIABILITIES AND EQUITY', totalLiabilitiesAndEquity]);
     rows.push(['Balance check difference', data.balance_check.difference]);
     rows.push(['Balanced', data.balance_check.balanced ? 'YES' : 'NO']);
     if (data.trial_balance) {
@@ -429,9 +447,13 @@ export default function BalanceSheetPanel() {
       };
 
       heading('Assets');
-      (assetGroups?.groups ?? []).forEach(g => row(g.label, g.value));
+      assetRows.forEach(g => {
+        if (g.heading) blockHeading(g.label);
+        else row(g.label, g.value, g.subtotal);
+        (g.components ?? []).forEach(c => row('   ' + c.label, c.value));
+      });
       flaggedRows(assetGroups?.flagged);
-      row('TOTAL ASSETS', data.assets.total, true);
+      row('TOTAL ASSETS', assetsTotal, true);
 
       heading('Liabilities');
       (liabilityGroups?.standalone ?? []).forEach(g => row(g.label, g.value));
@@ -449,11 +471,11 @@ export default function BalanceSheetPanel() {
       heading("Shareholders' Equity");
       (equityGroups?.groups ?? []).forEach(g => row(g.label, g.value));
       flaggedRows(equityGroups?.flagged);
-      row("TOTAL SHAREHOLDERS' EQUITY", data.equity.total, true);
+      row("TOTAL SHAREHOLDERS' EQUITY", equityTotal, true);
 
       heading('Balance Check');
-      row('Total Assets', data.balance_check.total_assets);
-      row('Total Liabilities and Equity', data.balance_check.total_liabilities_and_equity);
+      row('Total Assets', assetsTotal);
+      row('Total Liabilities and Equity', totalLiabilitiesAndEquity);
       row('Difference', data.balance_check.difference, true);
       if (data.trial_balance) {
         heading('Trial Balance');
@@ -570,7 +592,7 @@ export default function BalanceSheetPanel() {
                   : 'BALANCE CHECK FAILED — Total Assets do not equal Total Liabilities + Equity'}
               </p>
               <p className="text-[10px] font-mono text-muted-foreground break-words">
-                {formatUGX(data.balance_check.total_assets)} vs {formatUGX(data.balance_check.total_liabilities_and_equity)} · Difference {formatUGX(data.balance_check.difference)}
+                {formatUGX(assetsTotal)} vs {formatUGX(totalLiabilitiesAndEquity)} · Difference {formatUGX(data.balance_check.difference)}
               </p>
               {!data.balance_check.balanced && (
                 <p className="text-[10px] text-destructive/90 break-words">
@@ -585,9 +607,18 @@ export default function BalanceSheetPanel() {
             <div>
               <Badge variant="outline" className="text-[10px]">Assets</Badge>
               <SectionHeading>Assets</SectionHeading>
-              <div>{assetGroups?.groups.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
+              <div>
+                {assetRows.map(g => (
+                  g.subtotal
+                    ? <TotalRow key={g.label} label={g.label} value={g.value} depth={g.depth} />
+                    : <GroupRow
+                        key={g.label} group={g} components={g.components}
+                        heading={g.heading} depth={g.depth} showSources={showSources}
+                      />
+                ))}
+              </div>
               <FlaggedBlock group={assetGroups?.flagged} showSources={showSources} />
-              <TotalRow label="Total Assets" value={data.assets.total} emphasis />
+              <TotalRow label="Total Assets" value={assetsTotal} emphasis />
               <DriftNote drift={assetDrift} of="Total Assets" />
             </div>
 
@@ -613,9 +644,9 @@ export default function BalanceSheetPanel() {
               <SectionHeading>Shareholders&apos; Equity</SectionHeading>
               <div>{equityGroups?.groups.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
               <FlaggedBlock group={equityGroups?.flagged} showSources={showSources} />
-              <TotalRow label="Total Shareholders&apos; Equity" value={data.equity.total} />
+              <TotalRow label="Total Shareholders&apos; Equity" value={equityTotal} />
               <DriftNote drift={equityDrift} of="Total Shareholders&apos; Equity" />
-              <TotalRow label="Total Liabilities and Shareholders&apos; Equity" value={data.balance_check.total_liabilities_and_equity} emphasis />
+              <TotalRow label="Total Liabilities and Shareholders&apos; Equity" value={totalLiabilitiesAndEquity} emphasis />
             </div>
           </div>
 
