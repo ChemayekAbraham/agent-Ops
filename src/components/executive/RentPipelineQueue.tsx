@@ -1172,27 +1172,72 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
             {rows.length} pending
           </Badge>
         </div>
-        {/* COO Bulk Approve Controls */}
-        {isCooStage && filtered.length > 0 && (
-          <div className="flex items-center justify-between gap-2 mt-2 p-2 rounded-lg bg-muted/50 border">
+        {/* Bulk review controls for Agent Ops and COO */}
+        {allowBulkActions && filtered.length > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-2 p-2 rounded-lg bg-muted/50 border">
             <label className="flex items-center gap-2 cursor-pointer text-sm">
               <Checkbox
                 checked={selectedIds.size === filtered.length && filtered.length > 0}
                 onCheckedChange={toggleSelectAll}
               />
-              Select All ({filtered.length})
+              Select all ({filtered.length})
             </label>
             {selectedIds.size > 0 && (
-              <Button
-                size="sm"
-                className="h-8 text-xs gap-1"
-                disabled={processing}
-                onClick={handleBulkApprove}
-              >
-                {processing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                Approve Selected ({selectedIds.size})
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs gap-1"
+                  disabled={processing}
+                  onClick={() => setBulkRejectOpen(true)}
+                >
+                  <XCircle className="h-3 w-3" />
+                  Return selected ({selectedIds.size})
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-8 text-xs gap-1"
+                  disabled={processing}
+                  onClick={handleBulkApprove}
+                >
+                  {processing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                  Approve selected ({selectedIds.size})
+                </Button>
+              </div>
             )}
+          </div>
+        )}
+        {bulkRejectOpen && (
+          <div className="mt-2 space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+            <p className="text-sm font-semibold">Return {selectedIds.size} selected request{selectedIds.size === 1 ? '' : 's'} for correction</p>
+            <Textarea
+              value={bulkRejectReason}
+              onChange={e => setBulkRejectReason(e.target.value)}
+              placeholder="Explain what the agent must correct (at least 10 characters)"
+              rows={3}
+              disabled={processing}
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={processing}
+                onClick={() => { setBulkRejectOpen(false); setBulkRejectReason(''); }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={processing || bulkRejectReason.trim().length < 10}
+                onClick={handleBulkReject}
+              >
+                {processing ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
+                Return selected
+              </Button>
+            </div>
           </div>
         )}
         <div className="flex flex-col sm:flex-row gap-2 mt-2 items-stretch sm:items-start">
