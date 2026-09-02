@@ -74,8 +74,6 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
   const { data: catalog = [], isLoading: catalogLoading } = useSmartphoneCatalog();
 
-  const cap = Number(eligibility?.max_amount || 0);
-
   const isIOSDevice = (c: SmartphoneCatalogEntry) =>
     c.os_type === 'ios' ||
     c.brand.trim().toLowerCase() === 'apple' ||
@@ -85,9 +83,8 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
     () =>
       catalog
         .filter((c) => c.is_active && Number(c.default_amount || 0) > 0)
-        .filter((c) => isIOSDevice(c) || cap <= 0 || Number(c.default_amount) <= cap)
         .filter((c) => (osType === 'ios' ? isIOSDevice(c) : !isIOSDevice(c))),
-    [catalog, cap, osType],
+    [catalog, osType],
   );
 
 
