@@ -100,6 +100,279 @@ function LoadingState() {
   );
 }
 
+function ZoneB({ data, granularity }: { data: AgentOpsReportWindowData; granularity: AgentOpsGranularity }) {
+  const queryClient = useQueryClient();
+  const { report, snapshot, priorSnapshot, pipelineNote, pipelineActions } = data;
+  const [noteDraft, setNoteDraft] = useState(pipelineNote?.reason_note ?? '');
+  const [actionText, setActionText] = useState('');
+  const [actionOwner, setActionOwner] = useState('');
+  const [actionDue, setActionDue] = useState('');
+  const readOnly = report.status.toLowerCase() === 'submitted';
+
+  useEffect(() => {
+    setNoteDraft(pipelineNote?.reason_note ?? '');
+  }, [pipelineNote?.id, pipelineNote?.reason_note, report.id]);
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['agent-ops-report-window', granularity] });
+
+  const saveNote = useMutation({
+    mutationFn: async (value: string) => {
+      const { error } = await supabase
+        .from('agent_ops_report_notes')
+        .upsert({ report_id: report.id, zone: 'pipeline', reason_note: value.trim() }, { onConflict: 'report_id,zone' });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Pipeline reason note saved.');
+      invalidate();
+    },
+    onError: (mutationError: Error) => toast.error(mutationError.message),
+  });
+
+  const addAction = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('agent_ops_report_actions').insert({
+        report_id: report.id,
+        zone: 'pipeline',
+        item_text: actionText.trim(),
+        owner_label: actionOwner.trim(),
+        due_date: actionDue || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setActionText('');
+      setActionOwner('');
+      setActionDue('');
+      toast.success('Pipeline action added.');
+      invalidate();
+    },
+    onError: (mutationError: Error) => toast.error(mutationError.message),
+  });
+
+  const conversionRate = computeConversionRate(snapshot);
+  const closing = centresClosing(snapshot);
+  const centresNet = snapshot.centres_opened - snapshot.centres_closed;
+  const centresDirection = direction(centresNet);
+  const CentresIcon = centresDirection.Icon;
+  const inPipeline = snapshot.stage_onboarded + snapshot.stage_training + snapshot.stage_qualified;
+
+  const stageNet = (current: number, prior: number | undefined) =>
+    prior === undefined ? null : current - prior;
+
+  const stages = [
+    {
+      key: 'onboarded',
+      label: 'Onboarded',
+      count: snapshot.stage_onboarded,
+      net: stageNet(snapshot.stage_onboarded, priorSnapshot?.stage_onboarded),
+      caption: null as string | null,
+    },
+    {
+      key: 'training',
+      label: 'Under training',
+      count: snapshot.stage_training,
+      net: stageNet(snapshot.stage_training, priorSnapshot?.stage_training),
+      caption: null as string | null,
+    },
+    {
+      key: 'qualified',
+      label: 'Qualified, awaiting first request',
+      count: snapshot.stage_qualified,
+      net: stageNet(snapshot.stage_qualified, priorSnapshot?.stage_qualified),
+      caption: 'Only this stage feeds new_agents.',
+    },
+  ];
+
+  const noteValid = noteDraft.trim().length >= 80;
+
+  return (
+    <section aria-labelledby="agent-ops-zone-b" className="space-y-3">
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">Zone B</p>
+        <h2 id="agent-ops-zone-b" className="text-lg font-semibold">Onboarding pipeline and service centres</h2>
+      </div>
+
+      <Card aria-label="B1 onboarding pipeline">
+        <CardHeader className="p-4 pb-2">
+          <CardTitle className="text-base">{inPipeline} IN TRAIN</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 p-4 pt-0">
+          {/* B1 responsive stacking: single row from 768px up, stacked column below it, never horizontally scrollable */}
+          <div className="flex flex-col gap-3 md:flex-row md:items-stretch md:gap-2">
+            {stages.map((stage, index) => (
+              <div key={stage.key} className="flex flex-1 flex-col gap-3 md:flex-row md:items-center">
+                <div className="min-w-0 flex-1 rounded-xl border border-border bg-muted/40 p-3">
+                  <p className="text-xs font-medium text-muted-foreground">{stage.label}</p>
+                  <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{stage.count}</p>
+                  {stage.caption && <p className="mt-1 text-[11px] text-muted-foreground">{stage.caption}</p>}
+                </div>
+                <ArrowRight className="hidden h-4 w-4 shrink-0 text-muted-foreground md:block" aria-hidden="true" />
+                <ArrowDown className="h-4 w-4 shrink-0 self-center text-muted-foreground md:hidden" aria-hidden="true" />
+                {index === -1 && null}
+              </div>
+            ))}
+            <div className="min-w-0 flex-1 rounded-xl border border-primary/30 bg-primary/5 p-3">
+              <p className="text-xs font-medium text-muted-foreground">Converted this period</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{snapshot.converted_in_period}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                conversion {conversionRate === null ? '—' : `${conversionRate.toFixed(1)}%`}
+              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {snapshot.converted_in_period} converted ÷ {snapshot.qualified_at_open} qualified at open ={' '}
+                {conversionRate === null ? '—' : `${conversionRate.toFixed(1)}%`}
+              </p>
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-xl border border-border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 text-left font-medium">Stage</th>
+                  <th className="px-3 py-2 text-right font-medium">Count</th>
+                  <th className="px-3 py-2 text-right font-medium">Net movement</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stages.map((stage) => (
+                  <tr key={stage.key} className="border-t border-border">
+                    <td className="px-3 py-2">{stage.label}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{stage.count}</td>
+                    <td className={cn('px-3 py-2 text-right tabular-nums', direction(stage.net).className)}>
+                      {stage.net === null ? '—' : signedNumber(stage.net)}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="border-t border-border bg-muted/40 font-semibold">
+                  <td className="px-3 py-2">In pipeline</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{inPipeline}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {stages.some((stage) => stage.net === null)
+                      ? '—'
+                      : signedNumber(stages.reduce((total, stage) => total + (stage.net ?? 0), 0))}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card aria-label="B2 service centres">
+        <CardContent className="space-y-3 p-4">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            <Building2 className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" />
+            Secondary metric · no target
+          </p>
+          <p className="flex items-baseline gap-2 text-base font-semibold text-foreground">
+            <span className="tabular-nums">Service centres {closing}</span>
+            <span className={cn('inline-flex items-center text-sm', centresDirection.className)} aria-label={`${centresDirection.label} this period`}>
+              <CentresIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="tabular-nums">{signedNumber(centresNet)}</span>
+            </span>
+            <span className="text-xs font-normal text-muted-foreground">this period</span>
+          </p>
+          <div className="overflow-hidden rounded-lg border border-border">
+            <table className="w-full text-xs">
+              <tbody>
+                <tr className="border-b border-border">
+                  <td className="px-3 py-1.5 text-muted-foreground">Opening</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{snapshot.centres_opening}</td>
+                </tr>
+                <tr className="border-b border-border">
+                  <td className="px-3 py-1.5 text-muted-foreground">Opened this period</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{snapshot.centres_opened}</td>
+                </tr>
+                <tr className="border-b border-border">
+                  <td className="px-3 py-1.5 text-muted-foreground">Closed this period</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{snapshot.centres_closed}</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-1.5 text-muted-foreground">Closing</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums font-semibold">{closing}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card aria-label="Zone B narrative">
+        <CardContent className="space-y-4 p-4">
+          <div className="space-y-2">
+            <Label htmlFor="zone-b-reason-note">
+              Pipeline reason note <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              id="zone-b-reason-note"
+              value={noteDraft}
+              onChange={(event) => setNoteDraft(event.target.value)}
+              rows={4}
+              disabled={readOnly}
+              placeholder="Explain what moved the onboarding pipeline this period (minimum 80 characters)."
+            />
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                {noteDraft.trim().length}/80 characters · separate from Zone A's growth note
+              </p>
+              <Button
+                size="sm"
+                disabled={readOnly || !noteValid || saveNote.isPending}
+                onClick={() => saveNote.mutate(noteDraft)}
+              >
+                Save note
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>
+              Pipeline action plan <span className="text-destructive">*</span>
+            </Label>
+            {pipelineActions.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No pipeline actions recorded yet — at least one is required.</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {pipelineActions.map((action) => (
+                  <li key={action.id} className="rounded-lg border border-border p-2 text-sm">
+                    <p className="text-foreground">{action.item_text}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {action.owner_label ?? 'Unassigned'}
+                      {action.due_date ? ` · due ${action.due_date}` : ''}
+                      {action.outcome ? ` · ${action.outcome.replace('_', ' ')}` : ''}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {!readOnly && (
+              <div className="grid gap-2 md:grid-cols-[2fr_1fr_auto_auto]">
+                <Input
+                  value={actionText}
+                  onChange={(event) => setActionText(event.target.value)}
+                  placeholder="Action (min 10 characters)"
+                />
+                <Input value={actionOwner} onChange={(event) => setActionOwner(event.target.value)} placeholder="Owner" />
+                <Input type="date" value={actionDue} onChange={(event) => setActionDue(event.target.value)} />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={actionText.trim().length < 10 || actionOwner.trim().length === 0 || addAction.isPending}
+                  onClick={() => addAction.mutate()}
+                >
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Add
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </section>
+  );
+}
+
+
 export function AgentOpsReportWindow() {
   const [granularity, setGranularity] = useState<AgentOpsGranularity>('daily');
   const [dirtyDraft] = useState(false);
