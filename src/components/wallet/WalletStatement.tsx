@@ -445,6 +445,14 @@ export function WalletStatement() {
     { totalIn: 0, totalOut: 0 }
   );
 
+  const balanceAfterById = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const e of entries) {
+      if (e.balance_after != null) map[e.id] = e.balance_after;
+    }
+    return map;
+  }, [entries]);
+
   const rangeLabel =
     rangePreset === 'all' ? 'All time' :
     rangePreset === '7d' ? 'Last 7 days' :
@@ -1031,16 +1039,7 @@ export function WalletStatement() {
               <h3 id="ws-tx-history" className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 Transaction History
               </h3>
-              <TransactionsFeed
-                userId={user?.id}
-                balanceAfterById={useMemo(() => {
-                  const map: Record<string, number> = {};
-                  for (const e of entries) {
-                    if (e.balance_after != null) map[e.id] = e.balance_after;
-                  }
-                  return map;
-                }, [entries])}
-              />
+              <TransactionsFeed userId={user?.id} balanceAfterById={balanceAfterById} />
             </section>
 
           </ScrollArea>
