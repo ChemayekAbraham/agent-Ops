@@ -48325,12 +48325,12 @@ export type Database = {
       }
       partner_ops_proxy_agent_pv: {
         Args: {
-          p_dir?: string
-          p_limit?: number
-          p_month?: string
-          p_offset?: number
-          p_search?: string
-          p_sort?: string
+          p_dir: string
+          p_limit: number
+          p_month: string
+          p_offset: number
+          p_search: string
+          p_sort: string
         }
         Returns: Json
       }
