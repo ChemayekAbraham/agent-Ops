@@ -92,7 +92,7 @@ export function AgentOpsComprehensiveReport() {
     const prodCollected = productSummary.reduce((t, x) => t + x.collected, 0);
     return [
       { title: 'Overview - the window', note: 'What the operating system recorded for the selected window.', tiles: [
-        { label: 'All agents', value: String(o.all_agents), hint: `${n(o.agents)} rent-active · ${n(o.sub_agents)} sub-agents` },
+        { label: 'Total agents', value: String(o.all_agents), hint: `${n(o.agents)} active · ${n(o.sub_agents)} sub-agents (never added)` },
         { label: 'Rent collected', value: ugx(o.collected), hint: `${n(o.tenants_paid)} tenants collected`, tone: 'positive' as const },
         { label: 'Pending active book', value: ugx(o.pending), hint: `${n(o.tenants_not_collected)} tenants not collected`, tone: 'negative' as const },
       ] },
