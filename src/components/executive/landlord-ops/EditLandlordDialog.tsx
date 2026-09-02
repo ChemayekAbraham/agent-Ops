@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { Loader2, Save } from 'lucide-react';
+import { LandlordAgreementUploader } from '@/components/landlord/agreement/LandlordAgreementUploader';
 
 interface LandlordData {
   id: string;
@@ -46,6 +47,7 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({});
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showAgreementUpload, setShowAgreementUpload] = useState(false);
 
   // Fetch fresh data from DB whenever landlord changes or dialog opens
   useEffect(() => {

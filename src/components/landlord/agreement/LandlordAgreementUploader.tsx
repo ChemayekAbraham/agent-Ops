@@ -17,6 +17,7 @@ type Props = {
   landlordPhone: string;
   propertyAddress?: string | null;
   monthlyRent?: number | null;
+  initialDetails?: Record<string, string | number | null | undefined>;
   onSubmitted?: () => void;
   kind?: 'original' | 'addendum' | 'renewal';
 };
@@ -26,13 +27,13 @@ function isoDate(value: string) {
 }
 
 export function LandlordAgreementUploader({
-  landlordId, landlordName, landlordPhone, propertyAddress, monthlyRent,
+  landlordId, landlordName, landlordPhone, propertyAddress, monthlyRent, initialDetails,
   onSubmitted, kind = 'original',
 }: Props) {
   const { user } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(() => ({
     nin: '', agreement_date: isoDate(''), start_date: isoDate(''), end_date: '',
     property_address: propertyAddress ?? '', monthly_rent: monthlyRent ? String(monthlyRent) : '',
     payment_day: '1', house_number: '', house_category: '', number_of_rooms: '', payout_mode: '',
@@ -41,7 +42,11 @@ export function LandlordAgreementUploader({
     electricity_registered_name: '', landlord_signature_name: landlordName,
     landlord_signed_on: isoDate(''), welile_signature_name: 'Welile Technologies Limited',
     welile_signed_on: isoDate(''), witness_name: '', witness_signed_on: isoDate(''),
-  });
+    ...Object.fromEntries(
+      Object.entries(initialDetails ?? {}).filter(([, value]) => value !== null && value !== undefined)
+        .map(([key, value]) => [key, String(value)]),
+    ),
+  }));
 
   const set = (key: string, value: string) => setForm((current) => ({ ...current, [key]: value }));
   const submit = async () => {
