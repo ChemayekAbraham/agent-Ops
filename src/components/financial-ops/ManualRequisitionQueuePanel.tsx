@@ -63,7 +63,9 @@ export function ManualRequisitionQueuePanel({ stage }: { stage: ReviewStage }) {
     const { data, error } = await supabase
       .from('employee_requisitions')
       .select('*')
-      .not('link_id', 'is', null)
+      // The staged workflow (`coo` / `cfo`) only ever applies to manual
+      // requisitions, so stage alone identifies them — filtering on link_id
+      // here hid rows whose link reference failed to save.
       .eq('workflow_stage', stage)
       .eq('status', stageCopy[stage].status)
       .order('submitted_at', { ascending: false })
