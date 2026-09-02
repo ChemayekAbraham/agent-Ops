@@ -116,6 +116,9 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
   const hasExpiring = expiringCount > 0;
   const soonest = derived?.soonestExpiry ?? null;
   const [inviteOpen, setInviteOpen] = useState(false);
+  const proxyTotal = proxyStatus
+    ? proxyStatus.counts.approved + proxyStatus.counts.pending + proxyStatus.counts.rejected + proxyStatus.counts.suspended + proxyStatus.counts.other
+    : 0;
 
   const { data: proxyStatus, isLoading: proxyStatusLoading } = useQuery({
     queryKey: ['partner-ops-proxy-agents-status-breakdown'],
@@ -263,27 +266,43 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
           </div>
         </div>
 
-        {/* Status breakdown */}
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          {([
-            ['Approved', proxyStatus?.counts.approved, 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'],
-            ['Pending', proxyStatus?.counts.pending, 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'],
-            ['Rejected', proxyStatus?.counts.rejected, 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30'],
-            ['Suspended', proxyStatus?.counts.suspended, 'bg-muted text-muted-foreground border-border'],
-          ] as const).map(([label, count, cls]) => (
-            <span
-              key={label}
-              className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold tabular-nums', cls)}
-            >
-              {label}: {typeof count === 'number' ? count.toLocaleString() : '—'}
+        {/* Status breakdown — skeleton while loading, empty state when no agents */}
+        {proxyStatusLoading ? (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5" aria-busy="true" aria-label="Loading proxy agent status">
+            {[72, 64, 64, 76].map((w, i) => (
+              <span key={i} className="h-7 animate-pulse rounded-full bg-primary/10" style={{ width: w }} />
+            ))}
+            <span className="ml-auto h-3.5 w-28 animate-pulse rounded bg-primary/10" />
+          </div>
+        ) : proxyTotal === 0 ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-primary/30 bg-background/60 px-3 py-2.5">
+            <UserPlus className="h-4 w-4 text-primary" />
+            <p className="text-xs text-muted-foreground">
+              Nothing here yet — use <span className="font-semibold text-foreground">Invite</span> above to onboard the first proxy agent.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            {([
+              ['Approved', proxyStatus?.counts.approved, 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'],
+              ['Pending', proxyStatus?.counts.pending, 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'],
+              ['Rejected', proxyStatus?.counts.rejected, 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30'],
+              ['Suspended', proxyStatus?.counts.suspended, 'bg-muted text-muted-foreground border-border'],
+            ] as const).map(([label, count, cls]) => (
+              <span
+                key={label}
+                className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold tabular-nums', cls)}
+              >
+                {label}: {typeof count === 'number' ? count.toLocaleString() : '—'}
+              </span>
+            ))}
+            <span className="ml-auto text-[10px] text-muted-foreground">
+              {proxyStatus?.lastUpdated
+                ? `Last updated ${new Date(proxyStatus.lastUpdated).toLocaleDateString('en-UG', { day: 'numeric', month: 'short' })}, ${new Date(proxyStatus.lastUpdated).toLocaleTimeString('en-UG', { hour: '2-digit', minute: '2-digit' })}`
+                : 'Last updated —'}
             </span>
-          ))}
-          <span className="ml-auto text-[10px] text-muted-foreground">
-            {proxyStatus?.lastUpdated
-              ? `Last updated ${new Date(proxyStatus.lastUpdated).toLocaleDateString('en-UG', { day: 'numeric', month: 'short' })}, ${new Date(proxyStatus.lastUpdated).toLocaleTimeString('en-UG', { hour: '2-digit', minute: '2-digit' })}`
-              : 'Last updated —'}
-          </span>
-        </div>
+          </div>
+        )}
       </button>
 
       <OnboardProxyAgentDialog open={inviteOpen} onOpenChange={setInviteOpen} />
