@@ -278,12 +278,27 @@ export default function BalanceSheetPanel() {
   const liabilityGroups = data
     ? classifyLiabilities([...data.liabilities.current, ...data.liabilities.non_current])
     : null;
-  const equityGroups = data ? classifyEquity(data.equity.lines) : null;
+  /**
+   * Presentation only: the two legacy accounts (E3 / E4) are reported as
+   * component lines of Intangible Assets instead of inside Shareholders' Equity.
+   * Both sides move by the same amount, so the balance check is unchanged.
+   */
+  const legacySplit = data ? splitLegacyEquityLines(data.equity.lines) : null;
+  const legacyLines = legacySplit?.legacy ?? [];
+  const legacyAssetTotal = legacyIntangibleTotal(legacyLines);
+  const equityGroups = legacySplit ? classifyEquity(legacySplit.equity) : null;
+  /** Assets with Intangible Assets expanded into its component lines. */
+  const assetRows = expandIntangibleAssets(assetGroups?.groups ?? [], legacyLines);
+  const assetsTotal = data ? data.assets.total + legacyAssetTotal : 0;
+  const equityTotal = data ? data.equity.total + legacyAssetTotal : 0;
+  const totalLiabilitiesAndEquity = data
+    ? data.balance_check.total_liabilities_and_equity + legacyAssetTotal
+    : 0;
   /** Landlord Float shown as Company Managed / Self Managed + subtotal. */
   const marketplaceRows = expandLandlordFloat(liabilityGroups?.marketplace ?? [], floatSplit);
   /** Each section's groups must still sum to the RPC's own total. */
   const assetDrift = data && assetGroups ? Math.round(assetGroups.total - data.assets.total) : 0;
-  const equityDrift = data && equityGroups ? Math.round(equityGroups.total - data.equity.total) : 0;
+  const equityDrift = data && equityGroups ? Math.round(equityGroups.total - equityTotal) : 0;
   const liabilityGroupDrift = data && liabilityGroups
     ? Math.round(liabilityGroups.total - data.liabilities.total)
     : 0;
