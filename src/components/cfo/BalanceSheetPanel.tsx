@@ -607,9 +607,18 @@ export default function BalanceSheetPanel() {
             <div>
               <Badge variant="outline" className="text-[10px]">Assets</Badge>
               <SectionHeading>Assets</SectionHeading>
-              <div>{assetGroups?.groups.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
+              <div>
+                {assetRows.map(g => (
+                  g.subtotal
+                    ? <TotalRow key={g.label} label={g.label} value={g.value} depth={g.depth} />
+                    : <GroupRow
+                        key={g.label} group={g} components={g.components}
+                        heading={g.heading} depth={g.depth} showSources={showSources}
+                      />
+                ))}
+              </div>
               <FlaggedBlock group={assetGroups?.flagged} showSources={showSources} />
-              <TotalRow label="Total Assets" value={data.assets.total} emphasis />
+              <TotalRow label="Total Assets" value={assetsTotal} emphasis />
               <DriftNote drift={assetDrift} of="Total Assets" />
             </div>
 
