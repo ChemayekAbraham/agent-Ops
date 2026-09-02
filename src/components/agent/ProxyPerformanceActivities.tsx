@@ -81,6 +81,7 @@ export function ProxyPerformanceActivities({ report }: { report: ProxyPvReport }
           detail: `A promissory note you recorded was verified and activated by Partner Ops.`,
           impact: `Each verified commitment adds ${money(rates.commitment_pv)} PV.`,
           pv: d.commitment_pv,
+          status: 'verified',
         });
       }
       if (d.new_investment > 0) {
@@ -95,6 +96,7 @@ export function ProxyPerformanceActivities({ report }: { report: ProxyPvReport }
           detail: `A new partner you brought in funded a portfolio, and the commission was paid.`,
           impact: `New investments add ${rates.investment_pct}% of the amount as PV.`,
           pv: d.investment_pv,
+          status: 'verified',
         });
       }
       if (d.topups > 0) {
@@ -109,12 +111,42 @@ export function ProxyPerformanceActivities({ report }: { report: ProxyPvReport }
           detail: `An existing partner added more money to their portfolio.`,
           impact: `Top-ups add ${rates.topup_pct}% of the amount as PV.`,
           pv: d.topup_pv,
+          status: 'verified',
         });
       }
     }
     return out;
   }, [report.daily, rates]);
 
+  const pendingEntries = useMemo<ActivityEntry[]>(() => {
+    const items = pendingFeed.data?.items ?? [];
+    return items.map((it, idx) => {
+      const date = new Date(`${it.day}T00:00:00`);
+      const meta = KIND_META[it.kind];
+      return {
+        key: `pending-${it.reference}-${idx}`,
+        day: date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', weekday: 'short' }),
+        rawDay: it.day,
+        kind: it.kind,
+        icon: meta.icon,
+        iconClass: meta.iconClass,
+        title: it.kind === 'commitments' ? `Commitment — ${it.label}` : `${it.label} — ${money(it.amount)}`,
+        detail: `${it.gate}. Current status: ${it.status.replace(/_/g, ' ')}.`,
+        impact: `Worth ${money(it.potential_pv)} PV once cleared.`,
+        pv: it.potential_pv,
+        status: 'pending' as const,
+      };
+    });
+  }, [pendingFeed.data]);
+
+  const entries = useMemo<ActivityEntry[]>(() => {
+    const all = [...verifiedEntries, ...pendingEntries];
+    return all.filter(
+      (e) => (statusFilter === 'all' || e.status === statusFilter) && (kindFilter === 'all' || e.kind === kindFilter),
+    );
+  }, [verifiedEntries, pendingEntries, statusFilter, kindFilter]);
+
+  const pendingCount = pendingEntries.length;
   const visible = showAll ? entries : entries.slice(0, 8);
 
   return (
