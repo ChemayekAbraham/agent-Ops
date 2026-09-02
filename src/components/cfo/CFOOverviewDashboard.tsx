@@ -285,23 +285,39 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               derived from the statement without recomputing it here. */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {(position?.cashByAccount ?? []).map(a => {
+              // Business name for each cash account. The ledger label is kept on
+              // the first detail line so the mapping stays auditable.
               const tone = a.code === 'A1'
-                ? { icon: <Landmark className="h-5 w-5 text-sky-600" />, bg: 'bg-sky-50 dark:bg-sky-950/40', color: 'text-sky-600', foot: 'bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic' }
+                ? {
+                    title: 'Money in Bank',
+                    note: 'Balance held in the company bank accounts',
+                    icon: <Landmark className="h-5 w-5 text-sky-600" />, bg: 'bg-sky-50 dark:bg-sky-950/40',
+                    color: 'text-sky-600', foot: 'bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic',
+                  }
                 : a.code === 'A2'
-                  ? { icon: <Wallet className="h-5 w-5 text-indigo-600" />, bg: 'bg-indigo-50 dark:bg-indigo-950/40', color: 'text-indigo-600', foot: 'bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic' }
-                  : { icon: <Vault className="h-5 w-5 text-teal-600" />, bg: 'bg-teal-50 dark:bg-teal-950/40', color: 'text-teal-600', foot: 'bg-teal-50/70 dark:bg-teal-950/30 text-teal-700 dark:text-teal-400 italic' };
-              const share = totalCash !== 0 ? (a.value / totalCash) * 100 : 0;
+                  ? {
+                      title: 'Money with Agents (Float)',
+                      note: 'Cash issued to agents as operational float',
+                      icon: <Wallet className="h-5 w-5 text-indigo-600" />, bg: 'bg-indigo-50 dark:bg-indigo-950/40',
+                      color: 'text-indigo-600', foot: 'bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic',
+                    }
+                  : {
+                      title: 'Money in Treasury / Platform',
+                      note: 'Collected and held by the platform, not yet banked',
+                      icon: <Vault className="h-5 w-5 text-teal-600" />, bg: 'bg-teal-50 dark:bg-teal-950/40',
+                      color: 'text-teal-600', foot: 'bg-teal-50/70 dark:bg-teal-950/30 text-teal-700 dark:text-teal-400 italic',
+                    };
               return (
                 <HeroCard
                   key={a.code}
                   icon={tone.icon}
                   iconBg={tone.bg}
-                  title={a.label}
+                  title={tone.title}
                   value={positionUnavailable ? '—' : fmt(a.value)}
                   valueColor={a.value >= 0 ? tone.color : 'text-destructive'}
                   items={[
-                    { dot: 'bg-current', label: `Ledger account ${a.code}`, value: fmt(a.value) },
-                    { dot: 'bg-current', label: 'Share of Money We Have', value: `${share.toFixed(1)}%` },
+                    { dot: 'bg-current', label: `${a.label} (${a.code})`, value: fmt(a.value) },
+                    { dot: 'bg-current', label: tone.note, value: '' },
                   ]}
                   footer="Position view — part of Money We Have, not added to it"
                   footerTone={tone.foot}
