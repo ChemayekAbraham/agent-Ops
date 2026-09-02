@@ -1,14 +1,17 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ChevronDown, ChevronUp, Archive } from 'lucide-react';
 import { StaffRequisitionQueue } from './StaffRequisitionQueue';
 import { DirectorRequisitionsPanel } from './DirectorRequisitionsPanel';
 
+const ManualRequisitionQueuePanel = lazy(() => import('@/components/financial-ops/ManualRequisitionQueuePanel').then((module) => ({ default: module.ManualRequisitionQueuePanel })));
+
 /**
  * The single requisitions surface for every reviewing dashboard.
  *
  * Live flow: `StaffRequisitionQueue` (My Space -> department head -> COO -> CFO).
+ * Manual public-link requests use a separate COO -> CFO queue.
  * Legacy director requisitions stay available read-only for history.
  */
 export function RequisitionsWorkspace() {
@@ -16,6 +19,9 @@ export function RequisitionsWorkspace() {
 
   return (
     <div className="space-y-5">
+      <Suspense fallback={<Card className="p-4 text-sm text-muted-foreground">Loading manual requisitions…</Card>}>
+        <ManualRequisitionQueuePanel stage="coo" />
+      </Suspense>
       <StaffRequisitionQueue />
 
       <Card className="rounded-2xl p-4">

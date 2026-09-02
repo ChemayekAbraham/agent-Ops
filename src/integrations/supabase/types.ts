@@ -10941,14 +10941,19 @@ export type Database = {
       employee_requisitions: {
         Row: {
           amount: number
+          approved_amount: number | null
           approved_at: string | null
           approved_by: string | null
           attachment_urls: string[]
           category: string
+          coo_decided_at: string | null
+          coo_decided_by: string | null
+          coo_note: string | null
           created_at: string
           credited_at: string | null
           credited_by: string | null
           currency: string
+          current_approver_role: string | null
           department: string | null
           description: string | null
           employee_email: string
@@ -10967,17 +10972,23 @@ export type Database = {
           updated_at: string
           wallet_credit_status: string | null
           wallet_transaction_id: string | null
+          workflow_stage: string
         }
         Insert: {
           amount: number
+          approved_amount?: number | null
           approved_at?: string | null
           approved_by?: string | null
           attachment_urls?: string[]
           category: string
+          coo_decided_at?: string | null
+          coo_decided_by?: string | null
+          coo_note?: string | null
           created_at?: string
           credited_at?: string | null
           credited_by?: string | null
           currency?: string
+          current_approver_role?: string | null
           department?: string | null
           description?: string | null
           employee_email: string
@@ -10996,17 +11007,23 @@ export type Database = {
           updated_at?: string
           wallet_credit_status?: string | null
           wallet_transaction_id?: string | null
+          workflow_stage?: string
         }
         Update: {
           amount?: number
+          approved_amount?: number | null
           approved_at?: string | null
           approved_by?: string | null
           attachment_urls?: string[]
           category?: string
+          coo_decided_at?: string | null
+          coo_decided_by?: string | null
+          coo_note?: string | null
           created_at?: string
           credited_at?: string | null
           credited_by?: string | null
           currency?: string
+          current_approver_role?: string | null
           department?: string | null
           description?: string | null
           employee_email?: string
@@ -11025,6 +11042,7 @@ export type Database = {
           updated_at?: string
           wallet_credit_status?: string | null
           wallet_transaction_id?: string | null
+          workflow_stage?: string
         }
         Relationships: [
           {
@@ -43135,6 +43153,14 @@ export type Database = {
       consume_payroll_growth: {
         Args: { _amount: number; _user_id: string }
         Returns: number
+      }
+      consume_requisition_link_slot: {
+        Args: { p_token: string }
+        Returns: {
+          department: string
+          label: string
+          link_id: string
+        }[]
       }
       continent_for_country: { Args: { p_country: string }; Returns: string }
       coo_approve_bike_lease: {

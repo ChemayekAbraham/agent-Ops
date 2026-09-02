@@ -1,6 +1,5 @@
 # Roadmap
 
-- [x] Add "Portfolio Performance" entry to Tenant Ops and Agent Ops dashboard sidebars
-- [x] Make comprehensive Agent Ops report agent counts match the baseline definitions
-- [x] Surface employee exit date (`ended_on`) in HR Staff Directory and CSV export
-- [x] Update tenant-self-repayment investigation v3: route deposits through operational float, not withdrawable
+- [ ] Add a Financial Ops sidebar section for manual requisition links and management.
+- [ ] Route public manual requisition submissions through COO review, then CFO final approval.
+- [ ] Preserve the existing My Space requisition path and validate with guards/build.

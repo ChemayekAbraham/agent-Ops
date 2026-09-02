@@ -189,8 +189,7 @@ export default function PublicRequisitionForm() {
           <CheckCircle2 className="h-10 w-10 text-emerald-600 mx-auto" />
           <h1 className="text-lg font-bold">Requisition submitted</h1>
           <p className="text-sm text-muted-foreground">
-            Your requisition has been sent to Finance for review. You will be
-            notified by email once a decision is made.
+            Your requisition has been sent to the COO for review first, then to the CFO for final approval. You will be notified by email as it moves through the process.
           </p>
         </Card>
       </div>
@@ -203,7 +202,7 @@ export default function PublicRequisitionForm() {
         <div>
           <h1 className="text-2xl font-bold">Submit a Requisition</h1>
           <p className="text-sm text-muted-foreground">
-            {validation.label ? `${validation.label} — ` : ''}Fill in the details below. All requests are reviewed by the CFO.
+            {validation.label ? `${validation.label} — ` : ''}Fill in the details below. Your request will go to the COO first, then the CFO.
           </p>
         </div>
 
