@@ -412,6 +412,16 @@ export default function StaffDirectory() {
                             <div className="font-mono text-xs text-muted-foreground">
                               {s.staff_number || '—'}
                             </div>
+                            {s.ended_on && (
+                              <div className="text-xs text-destructive mt-0.5">
+                                Exited on{' '}
+                                {new Date(s.ended_on).toLocaleDateString('en-GB', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric',
+                                })}
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell>
                             <div>{rows.find((a) => a.is_primary)?.position_title || rows[0]?.position_title || '—'}</div>
