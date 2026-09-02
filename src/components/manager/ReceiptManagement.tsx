@@ -91,7 +91,7 @@ function VendorCard({ vendor, onPinSet }: { vendor: Vendor; onPinSet: () => void
     setSaving(true);
     const { error } = await supabase
       .from('vendors')
-      .update({ pin: newPin })
+      .update({ pin_hash: newPin })
       .eq('id', vendor.id);
 
     if (error) {
