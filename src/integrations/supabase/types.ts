@@ -45743,6 +45743,10 @@ export type Database = {
         Args: { p_agent_id?: string; p_month?: string }
         Returns: Json
       }
+      get_proxy_agent_pv_activity: {
+        Args: { p_agent_id?: string; p_day?: string; p_kind?: string }
+        Returns: Json
+      }
       get_proxy_commission_queue: {
         Args: { p_limit?: number; p_status?: string }
         Returns: Json
