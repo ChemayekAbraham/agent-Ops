@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -27,6 +27,10 @@ import { RepaymentTrendChart } from '@/components/executive/RepaymentTrendChart'
 import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 import { useTenantRepaymentReliability } from '@/hooks/useTenantRepaymentReliability';
 import { useTenantOpsAcquisition } from '@/hooks/useTenantOpsAcquisition';
+import { useTenantOpsAcquisitionRange } from '@/hooks/useTenantOpsAcquisitionRange';
+import { OpsDateRangeFilter, resolveRange, rangePhrase, type PresetKey } from '@/components/executive/shared/OpsDateRangeFilter';
+import type { DateRange } from 'react-day-picker';
+import { format } from 'date-fns';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import type { TenantOpsViewKey } from './tenantOpsNav';
@@ -42,9 +46,17 @@ import type { TenantOpsViewKey } from './tenantOpsNav';
  */
 export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsViewKey) => void }) {
   const navigate = useNavigate();
+  const [preset, setPreset] = useState<PresetKey>('today');
+  const [custom, setCustom] = useState<DateRange | undefined>();
+  const { start, end } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
+  const startIso = start.toISOString();
+  const endIso = end.toISOString();
+  const phrase = useMemo(() => rangePhrase(preset, start, end), [preset, start, end]);
+
   const { data: counts, isLoading } = useTenantOpsToolCounts();
   const { data: reliability, isLoading: loadingReliability } = useTenantRepaymentReliability(800);
   const { data: acquisition, isLoading: loadingAcquisition } = useTenantOpsAcquisition();
+  const { data: periodStats, isLoading: loadingPeriod } = useTenantOpsAcquisitionRange(startIso, endIso);
   const c = counts;
 
   const expected = c?.expected_today ?? 0;
@@ -78,8 +90,8 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
       tone: 'bg-primary/10 text-primary',
     },
     {
-      label: 'New Tenants Today',
-      value: num(acquisition?.newToday),
+      label: `New Tenants ${phrase}`,
+      value: num(periodStats?.newTenants),
       hint: `${num(acquisition?.newThisWeek)} this week`,
       icon: UserPlus,
       view: 'all-tenants-hub',
@@ -110,24 +122,24 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
       tone: 'bg-muted text-muted-foreground',
     },
     {
-      label: 'Applications Today',
-      value: num(acquisition?.applicationsToday),
+      label: `Applications ${phrase}`,
+      value: num(periodStats?.applications),
       hint: `${num(c?.review_requests)} awaiting review`,
       icon: ClipboardList,
       view: 'pipeline',
       tone: 'bg-warning/10 text-warning',
     },
     {
-      label: 'Applications Approved',
-      value: num(acquisition?.applicationsApproved),
+      label: `Applications Approved ${phrase}`,
+      value: num(periodStats?.applicationsApproved),
       hint: `${num(c?.approvals_today)} approved today`,
       icon: CheckCircle2,
       view: 'pipeline-hub',
       tone: 'bg-success/10 text-success',
     },
     {
-      label: 'Applications Rejected',
-      value: num(acquisition?.applicationsRejected),
+      label: `Applications Rejected ${phrase}`,
+      value: num(periodStats?.applicationsRejected),
       hint: `${num(c?.rejected_30d)} in last 30 days`,
       icon: XCircle,
       view: 'pipeline',
@@ -175,11 +187,19 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-base font-bold tracking-tight">Tenant Operations</h2>
-        <p className="text-xs text-muted-foreground">
-          Live position across requests, repayments and tenants. Every figure below opens the tool behind it.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="text-base font-bold tracking-tight">Tenant Operations</h2>
+          <p className="text-xs text-muted-foreground">
+            {format(start, 'dd MMM yyyy')} → {format(end, 'dd MMM yyyy')} · live position across requests, repayments and tenants.
+          </p>
+        </div>
+        <OpsDateRangeFilter
+          preset={preset}
+          custom={custom}
+          onPresetChange={setPreset}
+          onCustomChange={setCustom}
+        />
       </div>
 
       {/* Today's collection hero + KPI strip */}
@@ -239,7 +259,7 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
                   </p>
                 </div>
                 <p className="mt-2 text-xl font-bold tabular-nums leading-none">
-                  {isLoading || loadingAcquisition ? '—' : s.value}
+                  {isLoading || loadingAcquisition || loadingPeriod ? '—' : s.value}
                 </p>
                 <p className="mt-1 text-[11px] leading-snug text-muted-foreground break-words line-clamp-2">{s.hint}</p>
               </button>

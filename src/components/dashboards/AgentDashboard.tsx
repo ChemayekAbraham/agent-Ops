@@ -330,10 +330,40 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       }
     } catch { /* ignore */ }
   }, []);
+
   const [subAgentLinkOpen, setSubAgentLinkOpen] = useState(false);
   const { isMerchantAgent: isMerchantAgentEarly } = useIsMerchantAgent();
   // Weekly Listing Mission promo dialog removed — campaign expired.
   const [rentRequestOpen, setRentRequestOpen] = useState(false);
+
+  // Deep link & event support for opening the Post Rent Request modal
+  useEffect(() => {
+    const handler = () => setRentRequestOpen(true);
+    window.addEventListener('open-rent-request', handler);
+    return () => window.removeEventListener('open-rent-request', handler);
+  }, []);
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (
+        params.get('action') === 'rent-request' ||
+        params.get('action') === 'post-rent-request' ||
+        params.get('rent_request') === '1' ||
+        params.get('rent-request') === '1'
+      ) {
+        setRentRequestOpen(true);
+        params.delete('action');
+        params.delete('rent_request');
+        params.delete('rent-request');
+        const qs = params.toString();
+        window.history.replaceState(
+          {},
+          '',
+          window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash,
+        );
+      }
+    } catch { /* ignore */ }
+  }, []);
   const [showWallet, setShowWallet] = useState(false);
   const [parentAgentOpen, setParentAgentOpen] = useState(false);
   const { data: parentAgentInfo } = useMyParentAgent(user?.id);
