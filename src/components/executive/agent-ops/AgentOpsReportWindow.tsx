@@ -311,17 +311,22 @@ function NarrativeSection({
   title,
   actionTitle,
   granularity,
+  canEdit,
 }: {
   data: AgentOpsReportWindowData;
   zone: AgentOpsZone;
   title: string;
   actionTitle: string;
   granularity: AgentOpsGranularity;
+  canEdit: boolean;
 }) {
   const queryClient = useQueryClient();
   const note = data.notes[zone];
   const actions = data.actions[zone];
-  const readOnly = data.report.status.toLowerCase() === 'submitted';
+  const submitted = data.report.status.toLowerCase() === 'submitted';
+  // Read-only covers both a submitted report and a viewer without edit rights.
+  const readOnly = submitted || !canEdit;
+
   const [noteDraft, setNoteDraft] = useState(note?.reason_note ?? '');
   const [noteError, setNoteError] = useState<string | null>(null);
   const [addendumDraft, setAddendumDraft] = useState('');
