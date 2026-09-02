@@ -88,6 +88,16 @@ export function ProxyAgentPerformanceBoard() {
   const total = q.data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  /** Whole-roster snapshot (unfiltered) so comparisons span every proxy agent, not just this page. */
+  const roster = useProxyTeamPv({ month, sort: 'total_pv', dir: 'desc', page: 0, pageSize: ROSTER_SIZE });
+  const rosterRows = roster.data?.rows ?? [];
+  const teamAveragePv = rosterRows.length ? (roster.data?.kpis.team_total_pv ?? 0) / rosterRows.length : 0;
+  const daysRemaining = k?.working_days_remaining ?? roster.data?.kpis.working_days_remaining;
+  const rankOf = (id: string) => {
+    const i = rosterRows.findIndex((r) => r.agent_user_id === id);
+    return i >= 0 ? i + 1 : null;
+  };
+
   const toggleSort = (key: ProxyPvSort) => {
     if (sort === key) setDir((d) => (d === 'desc' ? 'asc' : 'desc'));
     else { setSort(key); setDir(key === 'name' ? 'asc' : 'desc'); }
