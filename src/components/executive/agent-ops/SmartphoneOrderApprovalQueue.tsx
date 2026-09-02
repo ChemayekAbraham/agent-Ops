@@ -79,7 +79,7 @@ const isOpen = (s: string) => isPending(s) || isAwaitingCfo(s);
  * agent's wallet float, activates the order and starts the 33% recovery plan.
  * Rejecting at either stage requires a 10+ character reason.
  */
-export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingOnly?: boolean } = {}) {
+export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly = false }: { pendingOnly?: boolean; rejectedOnly?: boolean } = {}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [rejectTarget, setRejectTarget] = useState<SmartphoneOrderRow | null>(null);
@@ -259,8 +259,8 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
   });
 
   const scoped = useMemo(
-    () => (pendingOnly ? orders.filter((o) => isOpen(o.order_status)) : orders),
-    [orders, pendingOnly],
+    () => (rejectedOnly ? orders.filter((o) => o.order_status === 'rejected') : pendingOnly ? orders.filter((o) => isOpen(o.order_status)) : orders),
+    [orders, pendingOnly, rejectedOnly],
   );
 
 
@@ -286,16 +286,24 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
       <CardHeader className="pb-3">
         <CardTitle className="flex flex-wrap items-center gap-2 text-base">
           <Smartphone className="h-4 w-4 text-primary" />
-          {pendingOnly ? 'Pending applications' : 'Smartphone applications'}
-          <Badge variant="secondary">{pendingCount} awaiting COO</Badge>
-          <Badge variant="outline" className={STATUS_TONE.coo_approved}>
-            {awaitingCfoCount} awaiting CFO
-          </Badge>
+          {rejectedOnly ? 'Rejected applications' : pendingOnly ? 'Pending applications' : 'Smartphone applications'}
+          {rejectedOnly ? (
+            <Badge variant="outline" className={STATUS_TONE.rejected}>{scoped.length} rejected</Badge>
+          ) : (
+            <>
+              <Badge variant="secondary">{pendingCount} awaiting COO</Badge>
+              <Badge variant="outline" className={STATUS_TONE.coo_approved}>
+                {awaitingCfoCount} awaiting CFO
+              </Badge>
+            </>
+          )}
         </CardTitle>
-        <p className="text-[11px] text-muted-foreground">
-          Stage 1 — COO approves the official amount and forwards to the CFO. Stage 2 — CFO releases the
-          amount into the agent's wallet float and activates the 33% recovery plan.
-        </p>
+        {!rejectedOnly && (
+          <p className="text-[11px] text-muted-foreground">
+            Stage 1 — COO approves the official amount and forwards to the CFO. Stage 2 — CFO releases the
+            amount into the agent's wallet float and activates the 33% recovery plan.
+          </p>
+        )}
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -311,7 +319,7 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false }: { pendingO
           </p>
         ) : filtered.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {pendingOnly ? 'No applications awaiting approval.' : 'No smartphone orders yet.'}
+            {rejectedOnly ? 'No rejected applications.' : pendingOnly ? 'No applications awaiting approval.' : 'No smartphone orders yet.'}
           </p>
         ) : (
           filtered.map((o) => {
