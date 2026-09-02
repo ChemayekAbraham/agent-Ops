@@ -188,10 +188,20 @@ export function ProxyAgentPerformanceBoard() {
         <CardContent className="p-0">
           {q.isLoading ? (
             <div className="space-y-2 p-3">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-12 rounded-xl" />)}</div>
+          ) : q.error ? (
+            <div className="flex flex-col items-center gap-2 p-8 text-center">
+              <AlertTriangle className="h-6 w-6 text-destructive" />
+              <p className="text-sm font-bold">Couldn't load the performance table</p>
+              <p className="max-w-md text-xs text-muted-foreground break-words">{(q.error as Error).message}</p>
+            </div>
           ) : rows.length === 0 ? (
             <div className="flex flex-col items-center gap-2 p-8 text-center">
               <Users className="h-6 w-6 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">No proxy agents match this view.</p>
+              <p className="text-sm font-bold">No proxy agents match this view</p>
+              <p className="max-w-md text-xs text-muted-foreground">
+                Try a different month or clear the search. Agents appear here even with zero PV — only verified
+                commitments and paid investment/top-up commissions count.
+              </p>
             </div>
           ) : (
             <>
