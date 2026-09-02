@@ -530,12 +530,15 @@ export default function LandlordRegistrationForm({
       return;
     }
 
+    // Agents must attach the signed agreement on the form itself before the
+    // landlord can be registered.
     if (registeredByRole === 'agent' && !minimal && !isLandlordAgreementInlineComplete(agreementDetails)) {
-      setStep(2);
+      setStep(1);
       hapticWarning();
+      focusField('landlordAgreement');
       toastFn({
         title: 'Signed agreement required',
-        description: 'Download, complete, sign, and upload the landlord agreement before registering.',
+        description: 'Download the contract, have it signed, then upload the signed copy before registering.',
         variant: 'destructive',
       });
       return;
