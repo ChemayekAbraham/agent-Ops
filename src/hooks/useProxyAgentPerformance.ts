@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -166,6 +166,65 @@ export function useProxyAgentPv(agentId?: string | null, month?: string) {
       return data as unknown as ProxyPvReport;
     },
   });
+}
+
+/** ISO month starts for the last `count` months, newest first. */
+export function recentMonths(count: number): string[] {
+  const now = new Date();
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    out.push(monthStartISO(d));
+  }
+  return out;
+}
+
+export interface ProxyPvMonthPoint {
+  month: string;
+  label: string;
+  total_pv: number;
+  monthly_target: number;
+  monthly_performance_pct: number;
+}
+
+/**
+ * Monthly PV totals across the last `count` months for trend charts.
+ * One cached `get_proxy_agent_pv` call per month; failed months are skipped.
+ */
+export function useProxyAgentPvMonthly(agentId: string | null, count = 6) {
+  const months = recentMonths(count);
+  const queries = useQueries({
+    queries: months.map((m) => ({
+      queryKey: ['proxy-agent-pv', agentId ?? 'self', m],
+      staleTime: 60_000,
+      queryFn: async (): Promise<ProxyPvReport> => {
+        const { data, error } = await supabase.rpc('get_proxy_agent_pv', {
+          p_agent_id: agentId ?? null,
+          p_month: m,
+        });
+        if (error) throw new Error(error.message);
+        return data as unknown as ProxyPvReport;
+      },
+    })),
+  });
+
+  const isLoading = queries.some((q) => q.isLoading);
+  const points: ProxyPvMonthPoint[] = queries
+    .map((q, i) => {
+      const r = q.data;
+      if (!r) return null;
+      return {
+        month: months[i],
+        label: new Date(`${months[i]}T00:00:00`).toLocaleDateString('en-GB', { month: 'short' }),
+        total_pv: r.mtd.total_pv,
+        monthly_target: r.targets.monthly_pv_target,
+        monthly_performance_pct: r.mtd.monthly_performance_pct,
+      } satisfies ProxyPvMonthPoint;
+    })
+    .filter((p): p is ProxyPvMonthPoint => p !== null)
+    .reverse(); // oldest → newest for charts
+
+  return { isLoading, points };
 }
 
 export function useProxyTeamPv(params: {
