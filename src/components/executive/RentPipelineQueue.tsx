@@ -1325,8 +1325,8 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                 className="w-full text-left px-4 py-3 hover:bg-muted/40 transition-colors"
               >
               <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                {/* COO bulk select checkbox */}
-                {isCooStage && (
+                {/* Bulk review selection checkbox */}
+                {allowBulkActions && (
                   <Checkbox
                     checked={selectedIds.has(req.id)}
                     onCheckedChange={() => toggleSelect(req.id)}
