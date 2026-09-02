@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Lock } from 'lucide-react';
 import { toast } from 'sonner';
-import { ccErrorText, type CcCallingHub, type CcSeverity } from '@/hooks/useCcCallingHub';
+import { ccErrorText, CC_NOTE_MIN_LENGTH, type CcCallingHub, type CcSeverity } from '@/hooks/useCcCallingHub';
 
 const SEVERITIES: CcSeverity[] = ['normal', 'high', 'critical'];
 
