@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { KPIBreakdownSheet } from '@/components/cfo/KPIBreakdownSheet';
 import { CashSourcesSheet } from '@/components/cfo/CashSourcesSheet';
 
@@ -537,10 +538,10 @@ function Band({ title, subtitle, open, onToggle, children }: {
 /**
  * Compact financial summary card.
  *
- * Default state shows only the icon chip, label, the primary amount and one
- * line of essential context — matching the reference layout. Tapping the card
- * smoothly expands the existing breakdown rows; tapping again collapses them.
- * No figure is derived here: every value is passed in already computed.
+ * The card shows the icon chip, label, the primary amount and one line of
+ * essential context. Tapping the card opens a modal with the same breakdown
+ * rows and a reconciling total. No figure is derived here: every value is
+ * passed in already computed.
  */
 function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onClick }: {
   icon: React.ReactNode;
@@ -552,80 +553,96 @@ function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onCli
   footerTone: string;
   onClick?: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-  const panelId = `hero-card-${title.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
+  const [open, setOpen] = useState(false);
   // Colour carries meaning through the icon tile, as in the reference design;
   // the amount stays foreground so the cards read as one set. A negative figure
   // is the one case that still needs to shout, so it keeps the destructive tone.
   const negative = value.trim().startsWith('-');
 
   return (
-    <div className="w-full rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md">
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        aria-expanded={expanded}
-        aria-controls={panelId}
-        className="w-full text-left p-5 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
-          <span
-            className="flex h-6 w-6 items-center justify-center rounded-full bg-muted/60 shrink-0"
-            aria-hidden
-          >
-            <ChevronDown
-              className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
-            />
-          </span>
-        </div>
-
-        <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">{title}</p>
-        <p
-          className={`mt-1.5 text-[26px] leading-none sm:text-3xl sm:leading-none font-bold tabular-nums tracking-tight ${negative ? 'text-destructive' : 'text-foreground'}`}
+    <>
+      <div className="w-full rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="w-full text-left p-5 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {value}
-        </p>
-        <p className="mt-2.5 text-[11px] text-muted-foreground line-clamp-2">{footer}</p>
-      </button>
+          <div className="flex items-start justify-between gap-3">
+            <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
+            <span
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-muted/60 shrink-0"
+              aria-hidden
+            >
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+            </span>
+          </div>
 
-      <div
-        id={panelId}
-        className={`grid transition-all duration-300 ease-out ${expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
-      >
-        <div className="overflow-hidden">
-          <div className="px-4 sm:px-5 pb-4 sm:pb-5">
-            <div className="pt-3 border-t border-border space-y-1.5">
-              {items.map((it) => (
-                <div key={it.label} className="flex items-center justify-between gap-2 text-[11px]">
-                  <span className="flex items-center gap-1.5 min-w-0 text-muted-foreground">
-                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${it.dot}`} />
-                    <span className="truncate">{it.label}</span>
-                  </span>
-                  <span className="tabular-nums font-medium shrink-0 text-right">{it.value}</span>
-                </div>
-              ))}
-              <div className={`mt-2 flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-[10px] font-medium ${footerTone}`}>
-                <span className="truncate">{footer}</span>
-                <Info className="h-3 w-3 shrink-0 opacity-70" />
+          <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">{title}</p>
+          <p
+            className={`mt-1.5 text-[26px] leading-none sm:text-3xl sm:leading-none font-bold tabular-nums tracking-tight ${negative ? 'text-destructive' : 'text-foreground'}`}
+          >
+            {value}
+          </p>
+          <p className="mt-2.5 text-[11px] text-muted-foreground line-clamp-2">{footer}</p>
+        </button>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2.5 text-base">
+              <span className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</span>
+              {title}
+            </DialogTitle>
+            <DialogDescription className="text-xs">{footer}</DialogDescription>
+          </DialogHeader>
+
+          <div className="rounded-xl border border-border bg-muted/30 px-4 py-3">
+            <p className="text-[11px] font-medium text-muted-foreground">{title}</p>
+            <p className={`mt-1 text-2xl font-bold tabular-nums tracking-tight ${negative ? 'text-destructive' : 'text-foreground'}`}>
+              {value}
+            </p>
+          </div>
+
+          <div className="space-y-1">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Where it comes from</p>
+            {items.map((it) => (
+              <div key={it.label} className="flex items-center justify-between gap-3 py-2 border-b border-border/60 text-xs">
+                <span className="flex items-center gap-2 min-w-0 text-muted-foreground">
+                  <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${it.dot}`} />
+                  <span className="truncate">{it.label}</span>
+                </span>
+                <span className="tabular-nums font-medium shrink-0 text-right text-foreground">{it.value}</span>
               </div>
-              {onClick && (
-                <button
-                  type="button"
-                  onClick={onClick}
-                  className="mt-1 w-full flex items-center justify-between gap-2 rounded-lg border border-border px-2.5 py-2 text-[11px] font-medium hover:bg-muted/50 transition-colors"
-                >
-                  <span>View full breakdown</span>
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-              )}
+            ))}
+            <div className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
+              <span className="text-xs font-semibold">Total {title}</span>
+              <span className={`text-sm font-bold tabular-nums ${negative ? 'text-destructive' : 'text-foreground'}`}>{value}</span>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+
+          <div className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-[11px] font-medium ${footerTone}`}>
+            <span className="truncate">{footer}</span>
+            <Info className="h-3 w-3 shrink-0 opacity-70" />
+          </div>
+
+          {onClick && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-between"
+              onClick={() => { setOpen(false); onClick(); }}
+            >
+              <span>View full breakdown</span>
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
+
 
 
 
