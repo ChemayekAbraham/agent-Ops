@@ -56,7 +56,7 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
     else next.set('view', key);
     setParams(next);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [params, setParams, onOpenLocations, onOpenWelileHomes, onGenerateWordReport]);
+  }, [params, setParams, onOpenLocations, onOpenWelileHomes, onGenerateWordReport, navigate]);
 
   const handleClassicViewChange = useCallback((view: TenantOpsClassicView) => {
     // Classic can navigate itself (e.g. opening a tenant detail); mirror it into
