@@ -353,6 +353,7 @@ export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading
 
       {/* Activities: which actions produced the PV and how each affects the score */}
       <ProxyPerformanceActivities report={r} />
+      </>)}
     </div>
   );
 }
