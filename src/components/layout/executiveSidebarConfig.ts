@@ -375,7 +375,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'User Management', icon: Users, id: 'users' },
         { label: 'Deposits', icon: Banknote, id: 'deposits' },
         { label: 'Financial Ops', icon: Wallet, id: 'financial-ops' },
-        
+        { label: 'Portfolio Performance', icon: BarChart3, id: 'portfolio-performance', route: '/agent-ops/reports/tenant-portfolio-performance' },
         { label: 'Audit Log', icon: ClipboardList, id: 'audit' },
       ],
     },
