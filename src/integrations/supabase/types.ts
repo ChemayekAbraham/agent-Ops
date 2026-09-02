@@ -17241,12 +17241,12 @@ export type Database = {
           landlord_phone: string
           landlord_signature_name: string
           landlord_signature_path: string
-          landlord_signed_on: string
+          landlord_signed_on: string | null
           metadata: Json
           mobile_money_name: string | null
           mobile_money_number: string | null
           monthly_rent: number
-          nin: string
+          nin: string | null
           number_of_rooms: number | null
           payment_day: number
           payout_mode: string | null
@@ -17271,10 +17271,10 @@ export type Database = {
           water_registered_name: string | null
           welile_signature_name: string
           welile_signature_path: string
-          welile_signed_on: string
+          welile_signed_on: string | null
           witness_name: string
           witness_signature_path: string
-          witness_signed_on: string
+          witness_signed_on: string | null
         }
         Insert: {
           account_number?: string | null
@@ -17296,12 +17296,12 @@ export type Database = {
           landlord_phone: string
           landlord_signature_name: string
           landlord_signature_path: string
-          landlord_signed_on: string
+          landlord_signed_on?: string | null
           metadata?: Json
           mobile_money_name?: string | null
           mobile_money_number?: string | null
           monthly_rent: number
-          nin: string
+          nin?: string | null
           number_of_rooms?: number | null
           payment_day: number
           payout_mode?: string | null
@@ -17326,10 +17326,10 @@ export type Database = {
           water_registered_name?: string | null
           welile_signature_name: string
           welile_signature_path: string
-          welile_signed_on: string
+          welile_signed_on?: string | null
           witness_name: string
           witness_signature_path: string
-          witness_signed_on: string
+          witness_signed_on?: string | null
         }
         Update: {
           account_number?: string | null
@@ -17351,12 +17351,12 @@ export type Database = {
           landlord_phone?: string
           landlord_signature_name?: string
           landlord_signature_path?: string
-          landlord_signed_on?: string
+          landlord_signed_on?: string | null
           metadata?: Json
           mobile_money_name?: string | null
           mobile_money_number?: string | null
           monthly_rent?: number
-          nin?: string
+          nin?: string | null
           number_of_rooms?: number | null
           payment_day?: number
           payout_mode?: string | null
@@ -17381,10 +17381,10 @@ export type Database = {
           water_registered_name?: string | null
           welile_signature_name?: string
           welile_signature_path?: string
-          welile_signed_on?: string
+          welile_signed_on?: string | null
           witness_name?: string
           witness_signature_path?: string
-          witness_signed_on?: string
+          witness_signed_on?: string | null
         }
         Relationships: [
           {
