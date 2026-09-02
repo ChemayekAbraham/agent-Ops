@@ -28,8 +28,8 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
 
   return (
     <section aria-label="A1 headline" className="rounded-lg border border-border bg-card p-4">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="text-2xl font-semibold tabular-nums text-foreground">
+      <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3 sm:gap-y-1">
+        <span className="break-words text-2xl font-semibold tabular-nums text-foreground">
           {collected === null ? '—' : formatUGX(collected)}
         </span>
 
@@ -37,22 +37,25 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
           {hasRate ? `${rate.toFixed(1)}%` : '—'}
         </span>
 
-        <span
-          aria-hidden="true"
-          className={
-            'inline-block h-2.5 w-2.5 shrink-0 rounded-full ' +
-            (!hasRate ? 'bg-muted-foreground' : atOrAbove ? 'bg-emerald-600' : 'bg-destructive')
-          }
-        />
+        <span className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className={
+              'inline-block h-2.5 w-2.5 shrink-0 rounded-full ' +
+              (!hasRate ? 'bg-muted-foreground' : atOrAbove ? 'bg-emerald-600' : 'bg-destructive')
+            }
+          />
 
-        <span className="text-sm font-medium text-foreground">
-          {!hasRate
-            ? 'no rent scheduled in this period'
-            : atOrAbove
-              ? 'at or above threshold'
-              : 'below threshold'}
+          <span className="text-sm font-medium text-foreground">
+            {!hasRate
+              ? 'no rent scheduled in this period'
+              : atOrAbove
+                ? 'at or above threshold'
+                : 'below threshold'}
+          </span>
         </span>
       </div>
+
 
       <div className="mt-2 space-y-1 text-sm text-muted-foreground">
         <p>
