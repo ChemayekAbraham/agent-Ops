@@ -644,9 +644,9 @@ export default function BalanceSheetPanel() {
               <SectionHeading>Shareholders&apos; Equity</SectionHeading>
               <div>{equityGroups?.groups.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
               <FlaggedBlock group={equityGroups?.flagged} showSources={showSources} />
-              <TotalRow label="Total Shareholders&apos; Equity" value={data.equity.total} />
+              <TotalRow label="Total Shareholders&apos; Equity" value={equityTotal} />
               <DriftNote drift={equityDrift} of="Total Shareholders&apos; Equity" />
-              <TotalRow label="Total Liabilities and Shareholders&apos; Equity" value={data.balance_check.total_liabilities_and_equity} emphasis />
+              <TotalRow label="Total Liabilities and Shareholders&apos; Equity" value={totalLiabilitiesAndEquity} emphasis />
             </div>
           </div>
 
