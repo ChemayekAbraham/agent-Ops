@@ -32,7 +32,7 @@ interface Eligibility {
   user_id: string;
   rank: number | null;
   collected_30d: number;
-  max_amount: number;
+  
   active_tenant_count?: number;
   required_active_tenants?: number;
   has_national_id: boolean;
