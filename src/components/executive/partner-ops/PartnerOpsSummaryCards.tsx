@@ -114,15 +114,26 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
   const hasExpiring = expiringCount > 0;
   const soonest = derived?.soonestExpiry ?? null;
 
-  const { data: proxyAgentCount } = useQuery({
-    queryKey: ['partner-ops-active-proxy-agents-count'],
+  const { data: proxyStatus } = useQuery({
+    queryKey: ['partner-ops-proxy-agents-status-breakdown'],
     queryFn: async () => {
-      const { count, error } = await supabase
+      const { data, error } = await supabase
         .from('proxy_agent_identity')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'approved');
+        .select('status, updated_at');
       if (error) throw error;
-      return count || 0;
+      const counts = { approved: 0, pending: 0, rejected: 0, suspended: 0, other: 0 };
+      let lastUpdated: string | null = null;
+      for (const row of data ?? []) {
+        const s = String((row as any).status || '').toLowerCase();
+        if (s === 'approved') counts.approved += 1;
+        else if (s === 'pending') counts.pending += 1;
+        else if (s === 'rejected') counts.rejected += 1;
+        else if (s === 'suspended') counts.suspended += 1;
+        else counts.other += 1;
+        const u = (row as any).updated_at as string | null;
+        if (u && (!lastUpdated || u > lastUpdated)) lastUpdated = u;
+      }
+      return { counts, lastUpdated };
     },
     staleTime: 60_000,
   });
@@ -224,8 +235,8 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-primary">Proxy Agent Management</span>
               <p className="mt-0.5 text-sm font-medium text-muted-foreground">
-                {typeof proxyAgentCount === 'number'
-                  ? `${proxyAgentCount.toLocaleString()} approved agent${proxyAgentCount === 1 ? '' : 's'} · tap to manage`
+                {proxyStatus
+                  ? `${(proxyStatus.counts.approved + proxyStatus.counts.pending + proxyStatus.counts.rejected + proxyStatus.counts.suspended + proxyStatus.counts.other).toLocaleString()} agent${(proxyStatus.counts.approved + proxyStatus.counts.pending + proxyStatus.counts.rejected + proxyStatus.counts.suspended + proxyStatus.counts.other) === 1 ? '' : 's'} on record · tap to manage`
                   : 'Tap to open the agent directory'}
               </p>
             </div>
@@ -234,6 +245,28 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
             <span className="hidden text-xs font-semibold sm:inline">Open</span>
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </div>
+        </div>
+
+        {/* Status breakdown */}
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {([
+            ['Approved', proxyStatus?.counts.approved, 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'],
+            ['Pending', proxyStatus?.counts.pending, 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'],
+            ['Rejected', proxyStatus?.counts.rejected, 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30'],
+            ['Suspended', proxyStatus?.counts.suspended, 'bg-muted text-muted-foreground border-border'],
+          ] as const).map(([label, count, cls]) => (
+            <span
+              key={label}
+              className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold tabular-nums', cls)}
+            >
+              {label}: {typeof count === 'number' ? count.toLocaleString() : '—'}
+            </span>
+          ))}
+          <span className="ml-auto text-[10px] text-muted-foreground">
+            {proxyStatus?.lastUpdated
+              ? `Last updated ${new Date(proxyStatus.lastUpdated).toLocaleDateString('en-UG', { day: 'numeric', month: 'short' })}, ${new Date(proxyStatus.lastUpdated).toLocaleTimeString('en-UG', { hour: '2-digit', minute: '2-digit' })}`
+              : 'Last updated —'}
+          </span>
         </div>
       </button>
     </div>
