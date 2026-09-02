@@ -97,6 +97,11 @@ export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
               <DetailRow label="Transaction Date">
                 {format(new Date(row.transaction_date), "dd MMM yyyy, HH:mm")}
               </DetailRow>
+              <DetailRow label="Type">
+                <Badge variant="secondary" className={cn("font-semibold", isIn ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive")}>
+                  {isIn ? "Money In" : "Money Out"}
+                </Badge>
+              </DetailRow>
               <DetailRow label="Reference ID">
                 <span className="inline-flex items-center gap-2">
                   <span className="max-w-[190px] truncate font-mono text-xs">
@@ -120,6 +125,13 @@ export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
                   {txMethodLabel(row)}
                 </Badge>
               </DetailRow>
+              {row.balanceAfter != null && (
+                <DetailRow label="Balance After">
+                  <span className={cn("font-bold tabular-nums", isIn ? "text-success" : "text-foreground")}>
+                    {formatUGX(Number(row.balanceAfter))}
+                  </span>
+                </DetailRow>
+              )}
               <DetailRow label="Beneficiary / Source" last={!row.description}>
                 {txCounterparty(row) ?? "—"}
               </DetailRow>

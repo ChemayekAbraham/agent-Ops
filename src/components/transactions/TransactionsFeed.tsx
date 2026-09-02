@@ -84,9 +84,11 @@ export interface TransactionsFeedProps {
   /** Hide the date / service / method filter row. */
   showFilters?: boolean;
   className?: string;
+  /** Optional running-balance map (id -> balance after). Used by the Wallet Statement sheet. */
+  balanceAfterById?: Record<string, number>;
 }
 
-export function TransactionsFeed({ userId, showFilters = true, className }: TransactionsFeedProps) {
+export function TransactionsFeed({ userId, showFilters = true, className, balanceAfterById }: TransactionsFeedProps) {
   const [date, setDate] = useState<TxDateFilter>("all");
   const [service, setService] = useState<TxServiceFilter>("all");
   const [method, setMethod] = useState<TxMethodFilter>("all");

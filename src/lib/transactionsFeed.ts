@@ -55,6 +55,8 @@ export interface TxFeedRow {
   source_table: string | null;
   classification?: string | null;
   source_id?: string | null;
+  /** Wallet balance after this transaction (populated by the statement sheet). */
+  balanceAfter?: number | null;
 }
 
 export const TX_DATE_OPTIONS: { value: TxDateFilter; label: string }[] = [
