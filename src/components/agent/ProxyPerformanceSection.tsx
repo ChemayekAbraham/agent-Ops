@@ -200,7 +200,7 @@ export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading
           <div className="space-y-1">
             <div className="flex items-center justify-between text-[10px]">
               <span className={cn('font-bold', r.mtd.monthly_performance_pct >= 100 && 'text-success')}>
-                {r.mtd.monthly_performance_pct}% of monthly target
+                {r.mtd.monthly_performance_pct}% of your monthly goal
               </span>
               {r.mtd.monthly_performance_pct > 100 && (
                 <span className="font-bold text-success">+{money(r.mtd.above_target)} above target</span>
@@ -241,7 +241,7 @@ export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading
             <div className="flex items-center gap-2 min-w-0">
               <Target className="h-4 w-4 text-primary shrink-0" />
               <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Today's PV</p>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Today's score</p>
                 <p className="text-xl font-black tabular-nums leading-tight">{money(r.today.total_pv)}</p>
               </div>
             </div>
