@@ -48348,6 +48348,10 @@ export type Database = {
           trust_tier: string
         }[]
       }
+      ops_tenant_ops_home_range: {
+        Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
       ops_tenant_ops_tool_counts: { Args: never; Returns: Json }
       ops_tenant_ops_tool_report: {
         Args: {
