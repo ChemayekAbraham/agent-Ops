@@ -1687,7 +1687,6 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                   canAdd={false}
                 />
               )}
-              </div>
 
 
 
