@@ -121,8 +121,6 @@ export const EQUITY_CATEGORIES = [
   'Angel Pool Shares',
   'Retained Earnings',
   'Proposed Dividends',
-  'Legacy Opening Balance Adjustments',
-  'Legacy One-Sided Posting Counterparts',
 ] as const;
 
 /**
@@ -135,10 +133,11 @@ export const EQUITY_CATEGORIES = [
  * pool contributions rather than being split — the account is materially the
  * angel pool.
  *
- * E3 carries opening-balance and system balance corrections; E4 is the equity
- * counterpart raised for historic one-sided postings. Both are legitimate
- * equity movements with their own meaning, so each gets its own line instead of
- * being flagged as unexplained.
+ * E3 (opening-balance / system balance corrections) and E4 (the counterpart
+ * raised for historic one-sided postings) are no longer presented in equity at
+ * all: they are reported as component lines of Intangible Assets on the asset
+ * side (see LEGACY_INTANGIBLE_ACCOUNTS). Presentation only — their ledger
+ * accounts, balances and posting logic are untouched.
  */
 const EQUITY_LABEL_MAP: Record<string, string> = {
   'Retained Earnings / (Accumulated Deficit)': 'Retained Earnings',
@@ -147,9 +146,8 @@ const EQUITY_LABEL_MAP: Record<string, string> = {
 
 const EQUITY_ACCOUNT_MAP: Record<string, string> = {
   E1: 'Angel Pool Shares',
-  E3: 'Legacy Opening Balance Adjustments',
-  E4: 'Legacy One-Sided Posting Counterparts',
 };
+
 
 
 /* ── Grouping ──────────────────────────────────────────────────────────── */
