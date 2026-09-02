@@ -111,14 +111,11 @@ function LineRow({ line, showSources }: { line: PositionLine; showSources: boole
   );
 }
 
-function TotalRow({ label, value, emphasis, depth = 0 }: {
-  label: string; value: number; emphasis?: boolean; depth?: number;
-}) {
+function TotalRow({ label, value, emphasis }: { label: string; value: number; emphasis?: boolean }) {
   return (
     <div className={cn(
       'flex items-center justify-between gap-3 py-2 border-t',
       emphasis ? 'border-primary/50 mt-1' : 'border-border',
-      depth > 0 && 'pl-3',
     )}>
       <span className={cn('text-xs', emphasis ? 'font-bold uppercase tracking-wide' : 'font-semibold')}>{label}</span>
       <span className={cn('font-mono', emphasis ? 'text-sm font-bold' : 'text-xs font-semibold')}>
@@ -151,43 +148,31 @@ function SubHeading({ children }: { children: React.ReactNode }) {
  * so no balance can silently disappear from the statement.
  */
 function GroupRow({
-  group, showSources, components, heading, depth = 0,
-}: {
-  group: BsGroup; showSources: boolean; components?: PositionLine[];
-  heading?: boolean; depth?: number;
-}) {
+  group, showSources, components,
+}: { group: BsGroup; showSources: boolean; components?: PositionLine[] }) {
   const [open, setOpen] = useState(false);
   const expandable = showSources && group.lines.length > 0;
   return (
-    <div className={cn('last:border-0', heading ? '' : 'border-b border-border/40')}>
+    <div className="border-b border-border/40 last:border-0">
       <button
         type="button"
         onClick={() => expandable && setOpen(o => !o)}
-        className={cn('w-full flex items-start justify-between gap-3 py-1.5 text-left', depth > 0 && 'pl-3')}
+        className="w-full flex items-start justify-between gap-3 py-1.5 text-left"
       >
-        <span
-          className={cn(
-            'flex items-start gap-1 min-w-0 text-xs',
-            heading ? 'font-medium text-foreground' : 'text-muted-foreground',
-          )}
-        >
+        <span className="flex items-start gap-1 min-w-0 text-xs text-muted-foreground">
           {expandable
             ? (open ? <ChevronDown className="h-3 w-3 mt-0.5 shrink-0" /> : <ChevronRight className="h-3 w-3 mt-0.5 shrink-0" />)
             : null}
           <span className="truncate">{group.label}</span>
         </span>
-        {/* A heading names the block below it; its own total line carries the
-            figure, so the amount is not printed twice. */}
-        {!heading && (
-          <span className={cn('font-mono text-xs shrink-0 text-right', group.value < 0 ? 'text-destructive' : 'text-foreground')}>
-            {group.value < 0 ? `(${formatUGX(Math.abs(group.value))})` : formatUGX(group.value)}
-          </span>
-        )}
+        <span className={cn('font-mono text-xs shrink-0 text-right', group.value < 0 ? 'text-destructive' : 'text-foreground')}>
+          {group.value < 0 ? `(${formatUGX(Math.abs(group.value))})` : formatUGX(group.value)}
+        </span>
       </button>
       {/* Component lines are part of the row's own presentation, so they show
           regardless of the source toggle or the expand state. */}
       {components && components.length > 0 && (
-        <div className={cn('pb-1.5 space-y-0.5', depth > 0 ? 'pl-7' : 'pl-4')}>
+        <div className="pb-1.5 pl-4 space-y-0.5">
           {components.map(c => (
             <p key={c.label} className="text-[11px] text-muted-foreground flex justify-between gap-3">
               <span className="truncate">{c.label}</span>
@@ -303,10 +288,8 @@ export default function BalanceSheetPanel() {
     (liabilityGroups?.standalone ?? []).forEach(g => rows.push([g.label, g.value]));
     rows.push(['Market Place Liabilities', '']);
     marketplaceRows.forEach(g => {
-      const pad = '   '.repeat(1 + (g.depth ?? 0));
-      // A heading names the block below it; its figure is on the block's total.
-      rows.push([pad + g.label, g.heading ? '' : g.value]);
-      (g.components ?? []).forEach(c => rows.push([pad + '   ' + c.label, c.value]));
+      rows.push(['   ' + g.label, g.value]);
+      (g.components ?? []).forEach(c => rows.push(['      ' + c.label, c.value]));
     });
     rows.push(['Subtotal — Market Place Liabilities', liabilityGroups?.marketplaceTotal ?? 0]);
     if (liabilityGroups && hasFlagged(liabilityGroups.flagged)) {
@@ -411,17 +394,6 @@ export default function BalanceSheetPanel() {
         y += bold ? 7 : 5;
       };
 
-      /** A block heading: names the rows beneath it and carries no amount. */
-      const blockHeading = (label: string) => {
-        if (y > ph - 20) { pdf.addPage(); y = 20; }
-        pdf.setFontSize(8);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setTextColor(60, 60, 60);
-        pdf.text(label, margin + 2, y);
-        pdf.setTextColor(0, 0, 0);
-        y += 5;
-      };
-
       const flaggedRows = (g?: BsGroup) => {
         if (!g || !hasFlagged(g)) return;
         row(g.label, g.value, true);
@@ -437,10 +409,8 @@ export default function BalanceSheetPanel() {
       (liabilityGroups?.standalone ?? []).forEach(g => row(g.label, g.value));
       heading('Market Place Liabilities');
       marketplaceRows.forEach(g => {
-        const pad = '   '.repeat(g.depth ?? 0);
-        if (g.heading) blockHeading(pad + g.label);
-        else row(pad + g.label, g.value, g.subtotal);
-        (g.components ?? []).forEach(c => row(pad + '   ' + c.label, c.value));
+        row(g.label, g.value, g.subtotal);
+        (g.components ?? []).forEach(c => row('   ' + c.label, c.value));
       });
       row('Subtotal — Market Place Liabilities', liabilityGroups?.marketplaceTotal ?? 0, true);
       flaggedRows(liabilityGroups?.flagged);
@@ -599,11 +569,8 @@ export default function BalanceSheetPanel() {
               <div>
                 {marketplaceRows.map(g => (
                   g.subtotal
-                    ? <TotalRow key={g.label} label={g.label} value={g.value} depth={g.depth} />
-                    : <GroupRow
-                        key={g.label} group={g} components={g.components}
-                        heading={g.heading} depth={g.depth} showSources={showSources}
-                      />
+                    ? <TotalRow key={g.label} label={g.label} value={g.value} />
+                    : <GroupRow key={g.label} group={g} components={g.components} showSources={showSources} />
                 ))}
               </div>
               <TotalRow label="Subtotal — Market Place Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0} />

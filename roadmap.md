@@ -73,4 +73,5 @@
 - WELILE-CC-MOBILE22 — mobile-first calling hub: sticky bottom bar, reveal sheet with tel: dialing, record/follow-ups sheet, filter sheet. No migration, no data-layer change.
 
 ## 2026-09-02
-- [ ] Agent/sub-agent overall system counts — answered from dashboard KPI vs activity-union definitions (see user message).
+- [x] Agent/sub-agent overall system counts — answered from dashboard KPI vs activity-union definitions (see user message).
+- [x] Fix typecheck build errors surfaced in `/tmp/observability/build-errors.log`.
