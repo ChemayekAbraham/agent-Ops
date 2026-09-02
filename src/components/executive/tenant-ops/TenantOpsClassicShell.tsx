@@ -34,7 +34,6 @@ interface Props {
  */
 export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGenerateWordReport }: Props) {
   const [params, setParams] = useSearchParams();
-  const navigate = useNavigate();
   const { data: counts } = useTenantOpsToolCounts();
 
   const raw = params.get('view') || 'home';
@@ -48,19 +47,22 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
   }), [counts]);
 
   const goTo = useCallback((key: TenantOpsViewKey | TenantOpsActionKey) => {
-    if (isTenantOpsAction(key)) {
+    const next = new URLSearchParams(params);
+    if (key === 'action.portfolio-performance') {
+      next.set('view', 'portfolio-performance');
+    } else if (isTenantOpsAction(key)) {
       if (key === 'action.locations') onOpenLocations();
       if (key === 'action.welile-homes') onOpenWelileHomes();
       if (key === 'action.word-report') onGenerateWordReport();
-      if (key === 'action.portfolio-performance') navigate('/agent-ops/reports/tenant-portfolio-performance');
       return;
+    } else if (key === 'home') {
+      next.delete('view');
+    } else {
+      next.set('view', key);
     }
-    const next = new URLSearchParams(params);
-    if (key === 'home') next.delete('view');
-    else next.set('view', key);
     setParams(next);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [params, setParams, onOpenLocations, onOpenWelileHomes, onGenerateWordReport, navigate]);
+  }, [params, setParams, onOpenLocations, onOpenWelileHomes, onGenerateWordReport]);
 
   const handleClassicViewChange = useCallback((view: TenantOpsClassicView) => {
     // Classic can navigate itself (e.g. opening a tenant detail); mirror it into
@@ -70,6 +72,13 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
 
   const body = () => {
     if (active === 'home') return <TenantOpsHome onNavigate={goTo} />;
+    if (active === 'portfolio-performance') {
+      return (
+        <Suspense fallback={<div className="flex min-h-64 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}>
+          <PortfolioPerformanceReport />
+        </Suspense>
+      );
+    }
     if (active === 'calling-hub') return <CallingHub subjectType="tenant" />;
     if (active === 'phone-duplicates') return <TenantPhoneDuplicatePanel variant="full" />;
     return (
