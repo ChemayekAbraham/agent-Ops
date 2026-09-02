@@ -20,53 +20,56 @@ export function ReceivablesCardDrilldown() {
 
   return (
     <>
-      <Card
-        role="button"
-        tabIndex={0}
-        onClick={() => setOpen(true)}
-        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setOpen(true)}
-        className="border-primary/20 bg-primary/5 cursor-pointer transition-colors hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-ring"
-      >
-        <CardContent className="p-4 space-y-2">
+      <div className="w-full rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="w-full text-left p-5 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                Total Receivables — authoritative
-              </p>
-              <p className="text-2xl font-bold font-mono">
-                {total.isLoading ? '—' : formatUGX(total.data?.total ?? 0)}
-              </p>
-              <p className="text-[10px] text-muted-foreground">
-                {total.data?.item_count ?? 0} open items · tap for breakdown &amp; forecast
-              </p>
+            <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 bg-emerald-600">
+              <TrendingUp className="h-5 w-5 text-emerald-50" />
             </div>
-            <span className="flex items-center gap-1 shrink-0">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <span
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-muted/60 shrink-0"
+              aria-hidden
+            >
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
             </span>
           </div>
 
+          <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">
+            Total Receivables — authoritative
+          </p>
+          <p className="mt-1.5 text-[26px] leading-none sm:text-3xl sm:leading-none font-bold tabular-nums tracking-tight text-foreground">
+            {total.isLoading ? '—' : formatUGX(total.data?.total ?? 0)}
+          </p>
+          <p className="mt-2.5 text-[11px] text-muted-foreground line-clamp-2">
+            {total.data?.item_count ?? 0} open items · tap for breakdown &amp; forecast
+          </p>
+
           {validation && (
-            <div className="flex items-center gap-1.5 text-[10px]">
+            <p className="mt-2 flex items-center gap-1.5 text-[11px]">
               {validation.ties_out ? (
                 <>
-                  <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                  <span className="text-emerald-700">
+                  <CheckCircle2 className="h-3 w-3 shrink-0 text-emerald-600" />
+                  <span className="text-muted-foreground">
                     Categories tie out exactly to the authoritative total
                   </span>
                 </>
               ) : (
                 <>
-                  <AlertTriangle className="h-3 w-3 text-destructive" />
+                  <AlertTriangle className="h-3 w-3 shrink-0 text-destructive" />
                   <span className="text-destructive">
                     Category sum differs by {formatUGX(validation.difference)}
                   </span>
                 </>
               )}
-            </div>
+            </p>
           )}
-        </CardContent>
-      </Card>
+        </button>
+      </div>
+
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
