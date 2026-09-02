@@ -49,7 +49,7 @@ interface Props {
 
 /**
  * Agent Smartphone Advance application. Open to agents and sub-agents with at
- * least 3 active tenants on the Welile network, up to the programme ceiling.
+ * least 3 active tenants on the Welile network. Every active catalog phone is selectable.
  * Every active, priced model is offered; Agent Ops assigns the supplier to the
  * order after submission. The applicant sees the daily
  * amount, the chosen period and the terms — never the internal programme charge.
@@ -222,7 +222,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                         ? 'Loading phones…'
                         : options.length
                           ? 'Select a phone'
-                          : `No ${osType === 'ios' ? 'iPhone' : 'Android'} phones available for your limit`
+                          : `No ${osType === 'ios' ? 'iPhone' : 'Android'} phones available`
                     }
                   />
                 </SelectTrigger>
