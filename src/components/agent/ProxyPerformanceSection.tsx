@@ -274,6 +274,18 @@ export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading
         </CardContent>
       </Card>
 
+      {/* Everything else lives behind "More details" to keep the phone view light */}
+      <Button
+        variant="outline"
+        className="w-full gap-2 font-semibold"
+        onClick={() => { setShowMore((v) => !v); }}
+        aria-expanded={showMore}
+      >
+        {showMore ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        {showMore ? 'Show less' : 'More details — breakdown, charts & history'}
+      </Button>
+
+      {showMore && (<>
       {/* MTD breakdown */}
       <Card>
         <CardContent className="p-4 space-y-1.5">
