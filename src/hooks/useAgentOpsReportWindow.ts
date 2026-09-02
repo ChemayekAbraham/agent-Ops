@@ -79,6 +79,7 @@ export interface AgentOpsStaffOption {
 
 export interface AgentOpsReportWindowData {
   ready: true;
+  periodStart: string;
   report: AgentOpsReport;
   snapshot: AgentOpsSnapshot;
   priorSnapshot: AgentOpsSnapshot | null;
@@ -325,6 +326,7 @@ export function useAgentOpsReportWindow(granularity: AgentOpsGranularity) {
 
       return {
         ready: true,
+        periodStart,
         report,
 
         snapshot,

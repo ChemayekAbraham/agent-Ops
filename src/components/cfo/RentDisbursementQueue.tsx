@@ -1006,9 +1006,9 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
       </CardContent>
 
       <Sheet open={!!reviewTarget} onOpenChange={(o) => { if (!o) setReviewTarget(null); }}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetContent side="center" className="max-h-[80vh] w-[92vw] sm:max-w-md overflow-y-auto rounded-xl p-5">
           {reviewTarget && (
-            <div className="space-y-5">
+            <div className="space-y-4">
               <SheetHeader>
                 <SheetTitle>Rent disbursement review</SheetTitle>
                 <SheetDescription>
@@ -1044,12 +1044,12 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                   { label: 'Approved', value: format(new Date(reviewTarget.created_at), 'dd MMM yyyy') },
                   { label: 'Request reference', value: reviewTarget.id },
                 ].map(row => (
-                  <div key={row.label} className="flex items-start justify-between gap-3 px-3.5 py-2.5">
+                  <div key={row.label} className="flex items-start justify-between gap-3 px-3 py-2">
                     <span className="text-xs text-muted-foreground shrink-0">{row.label}</span>
                     <span className="font-medium text-right break-all">{row.value}</span>
                   </div>
                 ))}
-                <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                <div className="flex items-center justify-between gap-3 px-3 py-2">
                   <span className="text-xs text-muted-foreground">Payout to</span>
                   {reviewTarget.payout_target === 'landlord_wallet' ? (
                     <Badge className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border-emerald-200">
@@ -1064,7 +1064,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                   )}
                 </div>
                 {reviewTarget.partner_reserved_stage && (
-                  <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                  <div className="flex items-center justify-between gap-3 px-3 py-2">
                     <span className="text-xs text-muted-foreground">Partner status</span>
                     <Badge className="text-[10px] px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border-violet-200">
                       {PARTNER_RESERVED_LABEL[reviewTarget.partner_reserved_stage]}
@@ -1074,15 +1074,15 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
               </div>
 
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-lg bg-muted/40 py-2.5">
+                <div className="rounded-lg bg-muted/40 py-2">
                   <p className="text-[10px] text-muted-foreground">Rent out</p>
                   <p className="font-bold text-sm text-orange-600">{fmt(reviewTarget.rent_amount)}</p>
                 </div>
-                <div className="rounded-lg bg-muted/40 py-2.5">
+                <div className="rounded-lg bg-muted/40 py-2">
                   <p className="text-[10px] text-muted-foreground">Fees</p>
                   <p className="font-bold text-sm text-emerald-600">{fmt(reviewTarget.access_fee + reviewTarget.request_fee)}</p>
                 </div>
-                <div className="rounded-lg bg-muted/40 py-2.5">
+                <div className="rounded-lg bg-muted/40 py-2">
                   <p className="text-[10px] text-muted-foreground">Repayment</p>
                   <p className="font-bold text-sm text-primary">{fmt(reviewTarget.total_repayment)}</p>
                 </div>
@@ -1096,7 +1096,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
 
               <div className="flex flex-col sm:flex-row gap-2">
                 <Button
-                  className="flex-1 h-11 rounded-xl font-semibold"
+                  className="flex-1 h-10 rounded-xl font-semibold"
                   onClick={() => {
                     singleDisburse.mutate(reviewTarget.id);
                     setReviewTarget(null);
@@ -1113,7 +1113,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                 </Button>
                 <Button
                   variant="outline"
-                  className="flex-1 h-11 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
+                  className="flex-1 h-10 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
                   onClick={() => {
                     setRejectTarget(reviewTarget);
                     setRejectReason('');
