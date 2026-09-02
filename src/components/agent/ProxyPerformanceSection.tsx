@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
-import { Activity, AlertTriangle, CalendarDays, ChevronDown, ChevronUp, ClipboardCheck, Inbox, Sparkles, Target, TrendingUp } from 'lucide-react';
+import { Activity, AlertTriangle, CalendarDays, ChevronDown, ChevronUp, ClipboardCheck, Inbox, Sparkles, TrendingUp } from 'lucide-react';
 import { ProxyPerformanceActivities } from '@/components/agent/ProxyPerformanceActivities';
 import { ProxyPerformanceTrends } from '@/components/agent/ProxyPerformanceTrends';
 import { ProxyPerformanceWhatChanged } from '@/components/agent/ProxyPerformanceWhatChanged';
@@ -116,69 +116,50 @@ export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading
         </div>
       )}
 
-      {/* How your score is worked out — the formula, always visible */}
+      {/* How you earn — three visual tiles, no reading required */}
       <Card className="border-primary/40 bg-primary/5">
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center gap-2 text-primary">
-            <Sparkles className="h-4 w-4 shrink-0" />
-            <p className="text-xs font-black uppercase tracking-wider">How your score is worked out</p>
+        <CardContent className="p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-black uppercase tracking-wider text-primary">How you earn</p>
+            <p className="text-[10px] font-semibold text-muted-foreground">Goal: {money(r.targets.monthly_pv_target)}/mo</p>
           </div>
-          <div className="space-y-2">
-            {[
-              ['Each verified commitment', `${money(r.rates.commitment_pv)} points`],
-              ['Each new partner investment', `${r.rates.investment_pct}% of the amount`],
-              ['Each partner top-up', `${r.rates.topup_pct}% of the amount`],
-            ].map(([what, earns]) => (
-              <div key={what} className="flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-background px-3 py-2.5">
-                <span className="text-xs font-medium">{what}</span>
-                <span className="text-xs font-black text-primary tabular-nums shrink-0">{earns}</span>
-              </div>
-            ))}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-xl bg-background border border-primary/20 p-2.5 text-center">
+              <ClipboardCheck className="mx-auto h-5 w-5 text-primary" />
+              <p className="mt-1 text-sm font-black tabular-nums">{money(r.rates.commitment_pv)}</p>
+              <p className="text-[9px] font-medium text-muted-foreground leading-tight">per verified deal</p>
+            </div>
+            <div className="rounded-xl bg-background border border-primary/20 p-2.5 text-center">
+              <TrendingUp className="mx-auto h-5 w-5 text-primary" />
+              <p className="mt-1 text-sm font-black tabular-nums">{r.rates.investment_pct}%</p>
+              <p className="text-[9px] font-medium text-muted-foreground leading-tight">of new money</p>
+            </div>
+            <div className="rounded-xl bg-background border border-primary/20 p-2.5 text-center">
+              <Sparkles className="mx-auto h-5 w-5 text-primary" />
+              <p className="mt-1 text-sm font-black tabular-nums">{r.rates.topup_pct}%</p>
+              <p className="text-[9px] font-medium text-muted-foreground leading-tight">of top-ups</p>
+            </div>
           </div>
-          <p className="text-[11px] leading-relaxed text-muted-foreground">
-            <span className="font-semibold text-foreground">What the company expects:</span>{' '}
-            {money(r.targets.monthly_pv_target)} points per month, spread over{' '}
-            {r.targets.working_days} working days — about{' '}
-            <span className="font-semibold text-foreground">{money(r.today.target_pv)} points each working day</span>.
-            Only verified activity counts.
-          </p>
         </CardContent>
       </Card>
 
-      {/* Ambiguous attribution warning */}
+      {/* Ambiguous attribution warning — one line */}
       {dq && dq.is_approved_proxy === false && (
-        <Card className="border-warning/40 bg-warning/5">
-          <CardContent className="flex items-start gap-3 p-3">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-            <p className="text-[11px] text-muted-foreground">
-              This account is not an approved proxy agent, so some activity may not be attributed here.
-              Figures below only include activity confirmed against a proxy identity.
-            </p>
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-2 rounded-xl border border-warning/40 bg-warning/5 px-3 py-2">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
+          <p className="text-[11px] font-semibold">Some activity may be missing — your account isn't confirmed as a proxy yet.</p>
+        </div>
       )}
 
-      {/* No verified commitments / activity yet */}
+      {/* No verified activity yet — one line */}
       {noVerifiedActivity && (
-        <Card className="border-dashed">
-          <CardContent className="flex items-start gap-3 p-4">
-            <Inbox className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-            <div className="min-w-0 space-y-1">
-              <p className="text-xs font-bold">No verified activity this month yet</p>
-              <p className="text-[11px] text-muted-foreground">
-                PV only counts <span className="font-semibold">verified commitments</span> and{' '}
-                <span className="font-semibold">paid investment / top-up commissions</span> attributed to
-                this agent.
-              </p>
-              {pendingCount > 0 && (
-                <p className="flex items-start gap-1.5 text-[11px] font-semibold text-primary">
-                  <ClipboardCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  {pendingCount} item{pendingCount === 1 ? '' : 's'} awaiting verification — not counted yet.
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-2 rounded-xl border border-dashed px-3 py-2">
+          <Inbox className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <p className="text-[11px] font-semibold text-muted-foreground">
+            Nothing verified yet this month.
+            {pendingCount > 0 && ` ${pendingCount} waiting for verification.`}
+          </p>
+        </div>
       )}
 
       {/* MTD hero */}
@@ -234,45 +215,51 @@ export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading
         </CardContent>
       </Card>
 
-      {/* Today */}
-      <Card>
-        <CardContent className="p-4 space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <Target className="h-4 w-4 text-primary shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Today's score</p>
-                <p className="text-xl font-black tabular-nums leading-tight">{money(r.today.total_pv)}</p>
+      {/* Today — giant number, color-coded, one glance */}
+      {r.today.is_working_day === false ? (
+        <Card>
+          <CardContent className="flex items-center justify-between gap-3 p-4">
+            <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">Today</p>
+            <Badge variant="secondary">Rest day</Badge>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className={cn(
+          r.today.performance_pct >= 100
+            ? 'border-emerald-500/60 bg-emerald-50/60 dark:bg-emerald-950/30'
+            : r.today.performance_pct >= 50
+              ? 'border-primary/30'
+              : 'border-red-300/60 bg-red-50/50 dark:bg-red-950/20',
+        )}>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">Today</p>
+                <p className="mt-1 text-4xl font-black tabular-nums leading-none">{money(r.today.total_pv)}</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className={cn(
+                  'text-2xl font-black tabular-nums',
+                  r.today.performance_pct >= 100 ? 'text-emerald-600' : r.today.performance_pct >= 50 ? 'text-primary' : 'text-red-600',
+                )}>
+                  {r.today.performance_pct}%
+                </p>
+                <p className="text-[10px] text-muted-foreground">of {money(r.today.target_pv)} goal</p>
               </div>
             </div>
-            <div className="text-right shrink-0">
-              <p className="text-[10px] text-muted-foreground">Today's goal</p>
-              <p className="text-xs font-bold tabular-nums">{money(r.today.target_pv)}</p>
-              <div className="mt-1 flex justify-end">
-                {r.today.is_working_day === false ? (
-                  <span className="text-[10px] text-muted-foreground">Rest day</span>
-                ) : (
-                  <BandBadge pct={r.today.performance_pct} />
-                )}
-              </div>
-            </div>
-
-          </div>
-          <div className="grid grid-cols-3 gap-2 pt-1">
-            {[
-              ['Commitments', `${r.today.commitments}`, money(r.today.commitment_pv)],
-              [`New (${r.rates.investment_pct}%)`, money(r.today.new_investment), money(r.today.investment_pv)],
-              [`Top-ups (${r.rates.topup_pct}%)`, money(r.today.topups), money(r.today.topup_pv)],
-            ].map(([label, raw, pv]) => (
-              <div key={label} className="rounded-xl border border-border/60 p-2 min-w-0">
-                <p className="text-[10px] text-muted-foreground truncate">{label}</p>
-                <p className="text-[11px] font-bold tabular-nums break-words">{raw}</p>
-                <p className="text-[10px] text-primary font-semibold tabular-nums break-words">{pv} PV</p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            <Progress
+              value={Math.min(r.today.performance_pct, 100)}
+              variant={r.today.performance_pct >= 100 ? 'success' : 'default'}
+              className="h-3"
+            />
+            <p className="text-center text-xs font-bold">
+              {r.today.performance_pct >= 100
+                ? '✓ Goal reached today'
+                : `${money(Math.max(0, r.today.target_pv - r.today.total_pv))} to go`}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Everything else lives behind "More details" to keep the phone view light */}
       <Button
