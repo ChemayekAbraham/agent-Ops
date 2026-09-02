@@ -37,6 +37,7 @@ import {
 
 
 import { WithdrawRequestDialog } from '@/components/wallet/WithdrawRequestDialog';
+import { ProxyPerformanceSection } from '@/components/agent/ProxyPerformanceSection';
 import {
   useProxyCommandCenterSummary,
   useProxyPartnerList,
