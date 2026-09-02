@@ -262,8 +262,10 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
     setLandlordAcknowledged(cl.acknowledged || !!req.landlord_acknowledged);
     setSelectedRequest(req);
   };
-  // COO bulk approval state
+  // Bulk review selection state for Agent Ops and COO queues.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
+  const [bulkRejectReason, setBulkRejectReason] = useState('');
   // Agent profile drilldown
   const [drilldownAgentId, setDrilldownAgentId] = useState<string | null>(null);
   // Landlord profile drilldown — full location, contacts, houses
@@ -1042,23 +1044,98 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
     setProcessing(true);
     try {
       const ids = [...selectedIds];
+      const failures: string[] = [];
+      let approved = 0;
       for (const id of ids) {
+        const stampedAt = new Date().toISOString();
         const { error } = await supabase
           .from('rent_requests')
           .update({
             status: config.nextStatus,
             [config.reviewerColumn]: user.id,
-            [config.reviewerAtColumn]: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            [config.reviewerAtColumn]: stampedAt,
+            updated_at: stampedAt,
           })
           .eq('id', id);
-        if (error) throw error;
+        // One bad row must never abandon the rest of the batch — the operator
+        // would otherwise have no idea which of 200 requests actually moved.
+        if (error) failures.push(error.message);
+        else approved += 1;
       }
-      toast({ title: `✅ ${ids.length} requests approved` });
+      if (approved > 0) {
+        toast({ title: `✅ ${approved} request${approved === 1 ? '' : 's'} approved` });
+      }
+      if (failures.length > 0) {
+        toast({
+          title: `${failures.length} could not be approved`,
+          description: failures[0],
+          variant: 'destructive',
+        });
+      }
       setSelectedIds(new Set());
       queryClient.invalidateQueries({ queryKey: ['rent-pipeline'] });
     } catch (err: any) {
       toast({ title: 'Bulk approval error', description: err.message, variant: 'destructive' });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  /**
+   * Bulk return-for-correction. Uses the same
+   * `return_rent_request_for_correction` RPC as the single-request reject so the
+   * pipeline state machine, agent notification and audit trail stay identical —
+   * only the loop is new. One shared reason is stamped on every request.
+   */
+  const handleBulkReject = async () => {
+    if (!user || selectedIds.size === 0) return;
+    const reason = bulkRejectReason.trim();
+    if (reason.length < 10) {
+      toast({ title: 'Reason must be at least 10 characters', variant: 'destructive' });
+      return;
+    }
+    setProcessing(true);
+    try {
+      const ids = [...selectedIds];
+      const failures: string[] = [];
+      let rejected = 0;
+      for (const id of ids) {
+        const { error } = await supabase.rpc('return_rent_request_for_correction', {
+          p_request_id: id,
+          p_stage: stage,
+          p_reason: reason,
+        });
+        if (error) {
+          failures.push(error.message);
+          continue;
+        }
+        const reviewerPatch: any = {
+          [config.reviewerColumn]: user.id,
+          [config.reviewerAtColumn]: new Date().toISOString(),
+        };
+        if (config.commentColumn) reviewerPatch[config.commentColumn] = reason;
+        await supabase.from('rent_requests').update(reviewerPatch).eq('id', id);
+        rejected += 1;
+      }
+      if (rejected > 0) {
+        toast({
+          title: `🔁 ${rejected} request${rejected === 1 ? '' : 's'} returned for correction`,
+          description: 'The originating agents can now fix and resubmit them.',
+        });
+      }
+      if (failures.length > 0) {
+        toast({
+          title: `${failures.length} could not be returned`,
+          description: failures[0],
+          variant: 'destructive',
+        });
+      }
+      setSelectedIds(new Set());
+      setBulkRejectReason('');
+      setBulkRejectOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['rent-pipeline'] });
+    } catch (err: any) {
+      toast({ title: 'Bulk return error', description: err.message, variant: 'destructive' });
     } finally {
       setProcessing(false);
     }
@@ -1081,6 +1158,10 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   };
 
   const isCooStage = stage === 'partner_ops_approved';
+  // Agent Ops reviews the `pending` stage and clears the largest backlog, so it
+  // gets the same bulk controls as the COO — plus bulk return-for-correction.
+  const isAgentOpsStage = stage === 'pending';
+  const allowBulkActions = isCooStage || isAgentOpsStage;
 
   return (
     <Card className="border border-border">
@@ -1091,27 +1172,72 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
             {rows.length} pending
           </Badge>
         </div>
-        {/* COO Bulk Approve Controls */}
-        {isCooStage && filtered.length > 0 && (
-          <div className="flex items-center justify-between gap-2 mt-2 p-2 rounded-lg bg-muted/50 border">
+        {/* Bulk review controls for Agent Ops and COO */}
+        {allowBulkActions && filtered.length > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-2 p-2 rounded-lg bg-muted/50 border">
             <label className="flex items-center gap-2 cursor-pointer text-sm">
               <Checkbox
                 checked={selectedIds.size === filtered.length && filtered.length > 0}
                 onCheckedChange={toggleSelectAll}
               />
-              Select All ({filtered.length})
+              Select all ({filtered.length})
             </label>
             {selectedIds.size > 0 && (
-              <Button
-                size="sm"
-                className="h-8 text-xs gap-1"
-                disabled={processing}
-                onClick={handleBulkApprove}
-              >
-                {processing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-                Approve Selected ({selectedIds.size})
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs gap-1"
+                  disabled={processing}
+                  onClick={() => setBulkRejectOpen(true)}
+                >
+                  <XCircle className="h-3 w-3" />
+                  Return selected ({selectedIds.size})
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-8 text-xs gap-1"
+                  disabled={processing}
+                  onClick={handleBulkApprove}
+                >
+                  {processing ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                  Approve selected ({selectedIds.size})
+                </Button>
+              </div>
             )}
+          </div>
+        )}
+        {bulkRejectOpen && (
+          <div className="mt-2 space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+            <p className="text-sm font-semibold">Return {selectedIds.size} selected request{selectedIds.size === 1 ? '' : 's'} for correction</p>
+            <Textarea
+              value={bulkRejectReason}
+              onChange={e => setBulkRejectReason(e.target.value)}
+              placeholder="Explain what the agent must correct (at least 10 characters)"
+              rows={3}
+              disabled={processing}
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={processing}
+                onClick={() => { setBulkRejectOpen(false); setBulkRejectReason(''); }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                disabled={processing || bulkRejectReason.trim().length < 10}
+                onClick={handleBulkReject}
+              >
+                {processing ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
+                Return selected
+              </Button>
+            </div>
           </div>
         )}
         <div className="flex flex-col sm:flex-row gap-2 mt-2 items-stretch sm:items-start">
@@ -1199,8 +1325,8 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                 className="w-full text-left px-4 py-3 hover:bg-muted/40 transition-colors"
               >
               <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                {/* COO bulk select checkbox */}
-                {isCooStage && (
+                {/* Bulk review selection checkbox */}
+                {allowBulkActions && (
                   <Checkbox
                     checked={selectedIds.has(req.id)}
                     onCheckedChange={() => toggleSelect(req.id)}
