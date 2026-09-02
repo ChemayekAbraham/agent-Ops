@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  TrendingUp,
   Shield,
   Landmark,
   FileSearch,
@@ -35,7 +36,11 @@ export type TenantOpsShellOnlyView = 'home' | 'phone-duplicates' | 'calling-hub'
 export type TenantOpsViewKey = TenantOpsShellOnlyView | TenantOpsClassicView;
 
 /** Actions that are not views — they open a sheet or leave the dashboard. */
-export type TenantOpsActionKey = 'action.word-report' | 'action.locations' | 'action.welile-homes';
+export type TenantOpsActionKey =
+  | 'action.word-report'
+  | 'action.locations'
+  | 'action.welile-homes'
+  | 'action.portfolio-performance';
 
 export interface TenantOpsNavChild {
   key: TenantOpsViewKey | TenantOpsActionKey;
@@ -55,6 +60,7 @@ export interface TenantOpsNavItem {
 
 export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
   { key: 'home', label: 'Home', icon: LayoutDashboard, view: 'home', keywords: ['overview', 'summary', 'landing', 'start'] },
+  { key: 'action.portfolio-performance', label: 'Portfolio Performance', icon: TrendingUp, keywords: ['portfolio', 'performance', 'collections', 'requests', 'report'] },
   {
     key: 'verification',
     label: 'Verification & Users',

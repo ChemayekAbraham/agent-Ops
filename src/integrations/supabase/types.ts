@@ -17166,6 +17166,257 @@ export type Database = {
         }
         Relationships: []
       }
+      landlord_agreement_versions: {
+        Row: {
+          body_text: string
+          created_at: string
+          effective_from: string
+          id: string
+          retired_at: string | null
+          term_months: number
+          title: string
+          version_code: string
+        }
+        Insert: {
+          body_text: string
+          created_at?: string
+          effective_from?: string
+          id?: string
+          retired_at?: string | null
+          term_months?: number
+          title?: string
+          version_code: string
+        }
+        Update: {
+          body_text?: string
+          created_at?: string
+          effective_from?: string
+          id?: string
+          retired_at?: string | null
+          term_months?: number
+          title?: string
+          version_code?: string
+        }
+        Relationships: []
+      }
+      landlord_agreements: {
+        Row: {
+          account_number: string | null
+          agreement_date: string
+          agreement_no: string
+          bank_name: string | null
+          bucket: string
+          created_at: string
+          electricity_meter_number: string | null
+          electricity_registered_name: string | null
+          end_date: string
+          house_category: string | null
+          house_number: string | null
+          id: string
+          is_current: boolean
+          kind: string
+          landlord_id: string
+          landlord_name: string
+          landlord_phone: string
+          landlord_signature_name: string
+          landlord_signature_path: string
+          landlord_signed_on: string
+          metadata: Json
+          mobile_money_name: string | null
+          mobile_money_number: string | null
+          monthly_rent: number
+          nin: string
+          number_of_rooms: number | null
+          payment_day: number
+          payout_mode: string | null
+          property_address: string
+          sequence_no: number
+          signed_file_mime_type: string | null
+          signed_file_name: string | null
+          signed_file_path: string
+          signed_file_sha256: string | null
+          start_date: string
+          status: string
+          supersedes_id: string | null
+          termination_effective_date: string | null
+          termination_notice_date: string | null
+          termination_party: string | null
+          updated_at: string
+          uploaded_by: string
+          verified_at: string | null
+          verified_by: string | null
+          version_id: string
+          water_meter_number: string | null
+          water_registered_name: string | null
+          welile_signature_name: string
+          welile_signature_path: string
+          welile_signed_on: string
+          witness_name: string
+          witness_signature_path: string
+          witness_signed_on: string
+        }
+        Insert: {
+          account_number?: string | null
+          agreement_date: string
+          agreement_no: string
+          bank_name?: string | null
+          bucket?: string
+          created_at?: string
+          electricity_meter_number?: string | null
+          electricity_registered_name?: string | null
+          end_date: string
+          house_category?: string | null
+          house_number?: string | null
+          id?: string
+          is_current?: boolean
+          kind: string
+          landlord_id: string
+          landlord_name: string
+          landlord_phone: string
+          landlord_signature_name: string
+          landlord_signature_path: string
+          landlord_signed_on: string
+          metadata?: Json
+          mobile_money_name?: string | null
+          mobile_money_number?: string | null
+          monthly_rent: number
+          nin: string
+          number_of_rooms?: number | null
+          payment_day: number
+          payout_mode?: string | null
+          property_address: string
+          sequence_no: number
+          signed_file_mime_type?: string | null
+          signed_file_name?: string | null
+          signed_file_path: string
+          signed_file_sha256?: string | null
+          start_date: string
+          status?: string
+          supersedes_id?: string | null
+          termination_effective_date?: string | null
+          termination_notice_date?: string | null
+          termination_party?: string | null
+          updated_at?: string
+          uploaded_by: string
+          verified_at?: string | null
+          verified_by?: string | null
+          version_id: string
+          water_meter_number?: string | null
+          water_registered_name?: string | null
+          welile_signature_name: string
+          welile_signature_path: string
+          welile_signed_on: string
+          witness_name: string
+          witness_signature_path: string
+          witness_signed_on: string
+        }
+        Update: {
+          account_number?: string | null
+          agreement_date?: string
+          agreement_no?: string
+          bank_name?: string | null
+          bucket?: string
+          created_at?: string
+          electricity_meter_number?: string | null
+          electricity_registered_name?: string | null
+          end_date?: string
+          house_category?: string | null
+          house_number?: string | null
+          id?: string
+          is_current?: boolean
+          kind?: string
+          landlord_id?: string
+          landlord_name?: string
+          landlord_phone?: string
+          landlord_signature_name?: string
+          landlord_signature_path?: string
+          landlord_signed_on?: string
+          metadata?: Json
+          mobile_money_name?: string | null
+          mobile_money_number?: string | null
+          monthly_rent?: number
+          nin?: string
+          number_of_rooms?: number | null
+          payment_day?: number
+          payout_mode?: string | null
+          property_address?: string
+          sequence_no?: number
+          signed_file_mime_type?: string | null
+          signed_file_name?: string | null
+          signed_file_path?: string
+          signed_file_sha256?: string | null
+          start_date?: string
+          status?: string
+          supersedes_id?: string | null
+          termination_effective_date?: string | null
+          termination_notice_date?: string | null
+          termination_party?: string | null
+          updated_at?: string
+          uploaded_by?: string
+          verified_at?: string | null
+          verified_by?: string | null
+          version_id?: string
+          water_meter_number?: string | null
+          water_registered_name?: string | null
+          welile_signature_name?: string
+          welile_signature_path?: string
+          welile_signed_on?: string
+          witness_name?: string
+          witness_signature_path?: string
+          witness_signed_on?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_agreements_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "landlords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_agreements_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "landlords_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_agreements_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "landlord_agreements_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_ops_status"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "landlord_agreements_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_landlord_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "landlord_agreements_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_agreements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_agreements_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_agreement_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       landlord_ambassador_referrals: {
         Row: {
           commission_earned: number
@@ -28179,6 +28430,36 @@ export type Database = {
         }
         Relationships: []
       }
+      proxy_pv_targets: {
+        Row: {
+          created_at: string
+          monthly_pv_target: number
+          note: string | null
+          period_month: string
+          set_by: string | null
+          updated_at: string
+          working_days: number
+        }
+        Insert: {
+          created_at?: string
+          monthly_pv_target?: number
+          note?: string | null
+          period_month: string
+          set_by?: string | null
+          updated_at?: string
+          working_days?: number
+        }
+        Update: {
+          created_at?: string
+          monthly_pv_target?: number
+          note?: string | null
+          period_month?: string
+          set_by?: string | null
+          updated_at?: string
+          working_days?: number
+        }
+        Relationships: []
+      }
       proxy_target_mode_enrollments: {
         Row: {
           agent_id: string
@@ -36362,7 +36643,6 @@ export type Database = {
           longitude: number | null
           name: string
           phone: string | null
-          pin: string | null
           pin_hash: string | null
         }
         Insert: {
@@ -36376,7 +36656,6 @@ export type Database = {
           longitude?: number | null
           name: string
           phone?: string | null
-          pin?: string | null
           pin_hash?: string | null
         }
         Update: {
@@ -36390,7 +36669,6 @@ export type Database = {
           longitude?: number | null
           name?: string
           phone?: string | null
-          pin?: string | null
           pin_hash?: string | null
         }
         Relationships: []
@@ -44150,7 +44428,7 @@ export type Database = {
       get_agent_mission_stats: { Args: { p_agent_id?: string }; Returns: Json }
       get_agent_network_summary: { Args: { p_agent_id: string }; Returns: Json }
       get_agent_operational_population: {
-        Args: { p_as_of?: string }
+        Args: { p_as_of?: string; p_from?: string }
         Returns: Json
       }
       get_agent_ops_agent_stats: { Args: { p_days?: number }; Returns: Json }
@@ -44350,6 +44628,7 @@ export type Database = {
           landlord_name: string
           last_paid_amount: number
           last_paid_at: string
+          latest_status: string
           latitude: number
           longitude: number
           monthly_rent: number
@@ -45709,6 +45988,18 @@ export type Database = {
         Args: { p_agent_id?: string }
         Returns: Json
       }
+      get_proxy_agent_pv: {
+        Args: { p_agent_id?: string; p_month?: string }
+        Returns: Json
+      }
+      get_proxy_agent_pv_activity: {
+        Args: { p_agent_id?: string; p_day?: string; p_kind?: string }
+        Returns: Json
+      }
+      get_proxy_agent_pv_pending_feed: {
+        Args: { p_agent_id?: string; p_month?: string }
+        Returns: Json
+      }
       get_proxy_commission_queue: {
         Args: { p_limit?: number; p_status?: string }
         Returns: Json
@@ -46871,6 +47162,56 @@ export type Database = {
       issue_landlord_payout_receipt: {
         Args: { p_payout_id: string; p_processed_by?: string }
         Returns: Json
+      }
+      landlord_agreement_actor_can_view: {
+        Args: { p_landlord_id: string }
+        Returns: boolean
+      }
+      landlord_agreement_history: {
+        Args: { p_landlord_id: string }
+        Returns: {
+          account_number: string
+          agreement_date: string
+          agreement_no: string
+          bank_name: string
+          bucket: string
+          created_at: string
+          electricity_meter_number: string
+          end_date: string
+          house_category: string
+          house_number: string
+          id: string
+          is_current: boolean
+          kind: string
+          landlord_name: string
+          landlord_phone: string
+          landlord_signature_name: string
+          landlord_signed_on: string
+          mobile_money_name: string
+          mobile_money_number: string
+          monthly_rent: number
+          nin: string
+          number_of_rooms: number
+          payment_day: number
+          payout_mode: string
+          property_address: string
+          sequence_no: number
+          signed_file_name: string
+          signed_file_path: string
+          start_date: string
+          status: string
+          uploaded_by: string
+          uploaded_by_name: string
+          water_meter_number: string
+          welile_signature_name: string
+          welile_signed_on: string
+          witness_name: string
+          witness_signed_on: string
+        }[]
+      }
+      landlord_has_current_agreement: {
+        Args: { p_landlord_id: string }
+        Returns: boolean
       }
       landlord_ops_bind_tenant_to_house: {
         Args: {
@@ -48289,6 +48630,17 @@ export type Database = {
         }
         Returns: Json
       }
+      partner_ops_proxy_agent_pv: {
+        Args: {
+          p_dir: string
+          p_limit: number
+          p_month: string
+          p_offset: number
+          p_search: string
+          p_sort: string
+        }
+        Returns: Json
+      }
       partner_ops_proxy_agent_target_overview: {
         Args: { p_month?: string }
         Returns: Json
@@ -48552,6 +48904,43 @@ export type Database = {
       }
       proxy_cc_resolve_agent: { Args: { p_agent_id: string }; Returns: string }
       proxy_earning_categories: { Args: never; Returns: string[] }
+      proxy_pv_agent_rows: {
+        Args: { p_month: string }
+        Returns: {
+          agent_user_id: string
+          avatar_url: string
+          commitment_pv: number
+          commitments: number
+          investment_pv: number
+          name: string
+          new_investment: number
+          phone: string
+          status: string
+          topup_pv: number
+          topups: number
+          total_pv: number
+        }[]
+      }
+      proxy_pv_daily: {
+        Args: { p_agent_id: string; p_month: string }
+        Returns: {
+          commitment_pv: number
+          commitments: number
+          day: string
+          investment_pv: number
+          new_investment: number
+          topup_pv: number
+          topups: number
+          total_pv: number
+        }[]
+      }
+      proxy_pv_fmt_pct: { Args: { p_rate: number }; Returns: string }
+      proxy_pv_is_working_day: { Args: { p_day: string }; Returns: boolean }
+      proxy_pv_target_for: { Args: { p_month: string }; Returns: Json }
+      proxy_pv_working_days_elapsed: {
+        Args: { p_month?: string }
+        Returns: number
+      }
       psm_assert_no_foreign_booking: {
         Args: { p_partner: string; p_rent_request_ids: string[] }
         Returns: undefined
@@ -49652,6 +50041,18 @@ export type Database = {
         Args: { p_sub_agent_id: string }
         Returns: number
       }
+      submit_landlord_agreement: {
+        Args: {
+          p_details: Json
+          p_file_mime_type: string
+          p_file_name: string
+          p_file_path: string
+          p_file_sha256: string
+          p_kind: string
+          p_landlord_id: string
+        }
+        Returns: Json
+      }
       submit_service_center_request: {
         Args: {
           p_agent_location: string
@@ -50607,12 +51008,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -50636,11 +51037,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -50661,11 +51062,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -50686,11 +51087,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -50703,11 +51104,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

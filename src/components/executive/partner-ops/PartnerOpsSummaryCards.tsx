@@ -1,11 +1,14 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Users, Wallet, CalendarDays, Hourglass } from 'lucide-react';
+import { Users, Wallet, CalendarDays, Hourglass, UserCog, ArrowRight, UserPlus } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import { fetchSupporterSummary, fetchAllNearingPayoutPortfolios } from '@/lib/supabaseBatchUtils';
 import { dateOnlyToLocalDate, extractDateOnly, formatLocalDateOnly } from '@/lib/portfolioDates';
 import { PendingPortfoliosCard } from '@/components/executive/PendingPortfoliosCard';
 import { PortfolioTopUpsCard } from '@/components/coo/PortfolioTopUpsCard';
+import { OnboardProxyAgentDialog } from './OnboardProxyAgentDialog';
 import type { PartnerOpsViewKey } from './partnerOpsNav';
 
 /* ─── Card shell (mirrors the Partner Directory summary cards) ─── */
@@ -112,6 +115,35 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
   const expiringCount = derived?.expiringCount ?? 0;
   const hasExpiring = expiringCount > 0;
   const soonest = derived?.soonestExpiry ?? null;
+  const [inviteOpen, setInviteOpen] = useState(false);
+
+  const { data: proxyStatus, isLoading: proxyStatusLoading } = useQuery({
+    queryKey: ['partner-ops-proxy-agents-status-breakdown'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('proxy_agent_identity')
+        .select('status, updated_at');
+      if (error) throw error;
+      const counts = { approved: 0, pending: 0, rejected: 0, suspended: 0, other: 0 };
+      let lastUpdated: string | null = null;
+      for (const row of data ?? []) {
+        const s = String((row as any).status || '').toLowerCase();
+        if (s === 'approved') counts.approved += 1;
+        else if (s === 'pending') counts.pending += 1;
+        else if (s === 'rejected') counts.rejected += 1;
+        else if (s === 'suspended') counts.suspended += 1;
+        else counts.other += 1;
+        const u = (row as any).updated_at as string | null;
+        if (u && (!lastUpdated || u > lastUpdated)) lastUpdated = u;
+      }
+      return { counts, lastUpdated };
+    },
+    staleTime: 60_000,
+  });
+
+  const proxyTotal = proxyStatus
+    ? proxyStatus.counts.approved + proxyStatus.counts.pending + proxyStatus.counts.rejected + proxyStatus.counts.suspended + proxyStatus.counts.other
+    : 0;
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
@@ -194,6 +226,87 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
       </button>
 
       <PortfolioTopUpsCard />
+
+      {/* Proxy Agent Management — full-width entry point to the agent directory */}
+      <button
+        type="button"
+        onClick={() => onNavigate('proxy.directory')}
+        aria-label="Open Proxy Agent Management"
+        className="col-span-2 lg:col-span-3 group text-left w-full rounded-2xl border border-primary/30 bg-primary/5 p-4 transition-all hover:bg-primary/10 hover:shadow-md hover:ring-2 hover:ring-primary/20 active:scale-[0.98]"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
+              <UserCog className="h-6 w-6" />
+            </div>
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">Proxy Agent Management</span>
+              <p className="mt-0.5 text-sm font-medium text-muted-foreground">
+                {proxyStatusLoading
+                  ? 'Checking agent records…'
+                  : proxyTotal > 0
+                    ? `${proxyTotal.toLocaleString()} agent${proxyTotal === 1 ? '' : 's'} on record · tap to manage`
+                    : 'No proxy agents yet · invite the first one'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-primary">
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label="Invite proxy agent"
+              onClick={(e) => { e.stopPropagation(); setInviteOpen(true); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setInviteOpen(true); } }}
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+              Invite
+            </span>
+            <span className="hidden text-xs font-semibold sm:inline">Open</span>
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </div>
+        </div>
+
+        {/* Status breakdown — skeleton while loading, empty state when no agents */}
+        {proxyStatusLoading ? (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5" aria-busy="true" aria-label="Loading proxy agent status">
+            {[72, 64, 64, 76].map((w, i) => (
+              <span key={i} className="h-7 animate-pulse rounded-full bg-primary/10" style={{ width: w }} />
+            ))}
+            <span className="ml-auto h-3.5 w-28 animate-pulse rounded bg-primary/10" />
+          </div>
+        ) : proxyTotal === 0 ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-primary/30 bg-background/60 px-3 py-2.5">
+            <UserPlus className="h-4 w-4 text-primary" />
+            <p className="text-xs text-muted-foreground">
+              Nothing here yet — use <span className="font-semibold text-foreground">Invite</span> above to onboard the first proxy agent.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            {([
+              ['Approved', proxyStatus?.counts.approved, 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'],
+              ['Pending', proxyStatus?.counts.pending, 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'],
+              ['Rejected', proxyStatus?.counts.rejected, 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30'],
+              ['Suspended', proxyStatus?.counts.suspended, 'bg-muted text-muted-foreground border-border'],
+            ] as const).map(([label, count, cls]) => (
+              <span
+                key={label}
+                className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold tabular-nums', cls)}
+              >
+                {label}: {typeof count === 'number' ? count.toLocaleString() : '—'}
+              </span>
+            ))}
+            <span className="ml-auto text-[10px] text-muted-foreground">
+              {proxyStatus?.lastUpdated
+                ? `Last updated ${new Date(proxyStatus.lastUpdated).toLocaleDateString('en-UG', { day: 'numeric', month: 'short' })}, ${new Date(proxyStatus.lastUpdated).toLocaleTimeString('en-UG', { hour: '2-digit', minute: '2-digit' })}`
+                : 'Last updated —'}
+            </span>
+          </div>
+        )}
+      </button>
+
+      <OnboardProxyAgentDialog open={inviteOpen} onOpenChange={setInviteOpen} />
     </div>
   );
 }

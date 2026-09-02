@@ -102,9 +102,10 @@ export function ComprehensiveReportButton() {
    * report so network size is never inferred from role records or from
    * recruited-but-never-operational sub-agent links.
    */
-  const fetchPopulation = async (to: string): Promise<AgentPopulation | null> => {
+  const fetchPopulation = async (from: string, to: string): Promise<AgentPopulation | null> => {
     const { data, error } = await supabase.rpc('get_agent_operational_population' as any, {
       p_as_of: to,
+      p_from: from,
     });
     if (error) return null;
     return (data as unknown as AgentPopulation) ?? null;
@@ -125,7 +126,7 @@ export function ComprehensiveReportButton() {
       const [report, prev, population] = await Promise.all([
         fetchReport(from, to),
         fetchReport(prevFrom, prevTo).catch(() => null),
-        fetchPopulation(to).catch(() => null),
+        fetchPopulation(from, to).catch(() => null),
       ]);
 
       const html = buildAgentOpsComprehensiveReportHtml({

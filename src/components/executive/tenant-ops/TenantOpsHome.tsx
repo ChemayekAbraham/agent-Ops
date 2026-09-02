@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -40,6 +41,7 @@ import type { TenantOpsViewKey } from './tenantOpsNav';
  * existing Classic view — no new logic, no new backend.
  */
 export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsViewKey) => void }) {
+  const navigate = useNavigate();
   const { data: counts, isLoading } = useTenantOpsToolCounts();
   const { data: reliability, isLoading: loadingReliability } = useTenantRepaymentReliability(800);
   const { data: acquisition, isLoading: loadingAcquisition } = useTenantOpsAcquisition();
@@ -465,6 +467,12 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
             description="Extracts, statements and date-ranged reports"
             icon={Download}
             onClick={() => onNavigate('reports-hub')}
+          />
+          <HubEntryCard
+            title="Portfolio Performance"
+            description="Rent collections and rent requests, daily, weekly and monthly."
+            icon={TrendingUp}
+            onClick={() => navigate('/agent-ops/reports/tenant-portfolio-performance')}
           />
         </div>
       </div>

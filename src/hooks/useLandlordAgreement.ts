@@ -1,81 +1,78 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { LANDLORD_AGREEMENT_VERSION } from '@/components/landlord/agreement/LandlordAgreementContent';
 
+/**
+ * Single source of truth for a landlord's agreement status.
+ *
+ * The canonical record is the immutable, signed `landlord_agreements` register.
+ * This hook only reads it — there is no in-app "accept" that can stand in for a
+ * signed document, so no competing acceptance record is ever created.
+ */
 export function useLandlordAgreement() {
   const { user } = useAuth();
   const [isAccepted, setIsAccepted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [acceptedAt, setAcceptedAt] = useState<string | null>(null);
+  const [landlordId, setLandlordId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (user) {
-      checkAgreementStatus();
-    } else {
+  const checkAgreementStatus = useCallback(async () => {
+    if (!user) {
       setIsLoading(false);
+      return;
     }
-  }, [user]);
-
-  const checkAgreementStatus = async () => {
-    if (!user) return;
-
+    setIsLoading(true);
     try {
-      const { data, error } = await (supabase
-        .from('landlord_agreement_acceptance' as any)
-        .select('id, accepted_at, agreement_version')
-        .eq('landlord_id', user.id)
-        .eq('agreement_version', LANDLORD_AGREEMENT_VERSION)
-        .order('accepted_at', { ascending: false })
-        .limit(1)
-        .maybeSingle() as any);
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('borrower_landlord_id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      const id = (profile as any)?.borrower_landlord_id ?? null;
+      setLandlordId(id);
+      if (!id) {
+        setIsAccepted(false);
+        setAcceptedAt(null);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('landlord_agreements')
+        .select('id, agreement_date, created_at, status, is_current')
+        .eq('landlord_id', id)
+        .eq('is_current', true)
+        .eq('status', 'active')
+        .maybeSingle();
 
       if (error) {
         console.error('[useLandlordAgreement] Error checking status:', error);
-      } else if (data) {
-        setIsAccepted(true);
-        setAcceptedAt(data.accepted_at);
+        return;
       }
+      setIsAccepted(!!data);
+      setAcceptedAt(data?.agreement_date ?? data?.created_at ?? null);
     } catch (err) {
       console.error('[useLandlordAgreement] Exception:', err);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
-  const acceptAgreement = async (): Promise<boolean> => {
-    if (!user) return false;
+  useEffect(() => {
+    void checkAgreementStatus();
+  }, [checkAgreementStatus]);
 
-    try {
-      const deviceInfo = `${navigator.userAgent.substring(0, 100)}`;
-      
-      const { error } = await (supabase
-        .from('landlord_agreement_acceptance' as any)
-        .insert({
-          landlord_id: user.id,
-          agreement_version: LANDLORD_AGREEMENT_VERSION,
-          status: 'accepted',
-          device_info: deviceInfo,
-        }) as any);
-
-      if (error) {
-        console.error('[useLandlordAgreement] Error accepting:', error);
-        return false;
-      }
-
-      setIsAccepted(true);
-      setAcceptedAt(new Date().toISOString());
-      return true;
-    } catch (err) {
-      console.error('[useLandlordAgreement] Exception accepting:', err);
-      return false;
-    }
-  };
+  /**
+   * Kept for the existing terms viewer. A signed agreement is the only record
+   * that counts, so this never writes a parallel acceptance row.
+   */
+  const acceptAgreement = async (): Promise<boolean> => false;
 
   return {
     isAccepted,
     isLoading,
     acceptedAt,
+    landlordId,
     acceptAgreement,
     refetch: checkAgreementStatus,
   };

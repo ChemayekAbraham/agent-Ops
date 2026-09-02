@@ -93,7 +93,81 @@ export function VarianceA2({ report }: VarianceA2Props) {
         <p className="text-xs text-muted-foreground">each on its own period&apos;s schedule</p>
       </div>
 
-      <div className="mt-4 overflow-x-auto">
+      {/* Mobile: the same three rows stacked, so nothing is clipped at 360px. */}
+      <div className="mt-4 space-y-3 sm:hidden">
+        <div className="rounded-md border border-border/60 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{priorLabel}</p>
+          <div className="mt-2 space-y-1 text-sm">
+            <p className="flex items-baseline justify-between gap-3">
+              <span className="text-muted-foreground">Scheduled due (own period)</span>
+              <span className="shrink-0 tabular-nums">
+                {report?.prior?.scheduled_due_ugx === null || report?.prior?.scheduled_due_ugx === undefined
+                  ? '—'
+                  : formatUGX(report.prior.scheduled_due_ugx)}
+              </span>
+            </p>
+            <p className="flex items-baseline justify-between gap-3">
+              <span className="text-muted-foreground">Collected</span>
+              <span className="shrink-0 tabular-nums">
+                {report?.prior?.collected_ugx === null || report?.prior?.collected_ugx === undefined
+                  ? '—'
+                  : formatUGX(report.prior.collected_ugx)}
+              </span>
+            </p>
+            <p className="flex items-baseline justify-between gap-3">
+              <span className="text-muted-foreground">Rate</span>
+              <span className="shrink-0 tabular-nums">{rateText(report?.prior?.collection_rate_pct)}</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-md border border-border/60 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{currentLabel}</p>
+          <div className="mt-2 space-y-1 text-sm">
+            <p className="flex items-baseline justify-between gap-3">
+              <span className="text-muted-foreground">Scheduled due (own period)</span>
+              <span className="shrink-0 tabular-nums">
+                {report?.scheduled_due_ugx === null || report?.scheduled_due_ugx === undefined
+                  ? '—'
+                  : formatUGX(report.scheduled_due_ugx)}
+              </span>
+            </p>
+            <p className="flex items-baseline justify-between gap-3">
+              <span className="text-muted-foreground">Collected</span>
+              <span className="shrink-0 tabular-nums">
+                {report?.collected_ugx === null || report?.collected_ugx === undefined
+                  ? '—'
+                  : formatUGX(report.collected_ugx)}
+              </span>
+            </p>
+            <p className="flex items-baseline justify-between gap-3">
+              <span className="text-muted-foreground">Rate</span>
+              <span className="shrink-0 tabular-nums">{rateText(report?.collection_rate_pct)}</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-md border border-border p-3 font-medium">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Increase / decrease</p>
+          <div className="mt-2 space-y-1 text-sm">
+            <p className="flex items-baseline justify-between gap-3">
+              <span className="text-muted-foreground">Scheduled due (own period)</span>
+              <span className="shrink-0 tabular-nums">{signedMoney(report?.scheduled_delta_ugx)}</span>
+            </p>
+            <p className="flex items-baseline justify-between gap-3">
+              <span className="text-muted-foreground">Collected</span>
+              <span className="shrink-0 tabular-nums">{signedMoney(report?.collected_delta_ugx)}</span>
+            </p>
+            <p className="flex items-baseline justify-between gap-3">
+              <span className="text-muted-foreground">Rate</span>
+              <span className="shrink-0 tabular-nums">{signedPp(variance)}</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 hidden overflow-x-auto sm:block">
+
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">

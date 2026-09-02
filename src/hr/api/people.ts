@@ -129,6 +129,7 @@ type StaffRow = {
   staff_ref: string;
   active: boolean;
   created_at: string;
+  ended_on: string | null;
 };
 
 async function hydrateStaff(staff: StaffRow[]): Promise<Employee[]> {
@@ -171,6 +172,7 @@ async function hydrateStaff(staff: StaffRow[]): Promise<Employee[]> {
       photo_url: p?.avatar_url ?? null,
       status: s.active ? 'active' : 'exited',
       joined_at: s.created_at,
+      ended_on: s.ended_on,
       current_assignment: currentByStaff[s.id] ?? null,
     } satisfies Employee;
   });
@@ -180,7 +182,7 @@ export async function getEmployees(): Promise<Employee[]> {
   const staff = unwrap(
     await supabase
       .from('hr_staff')
-      .select('id, user_id, staff_ref, active, created_at')
+      .select('id, user_id, staff_ref, active, created_at, ended_on')
       .order('created_at', { ascending: true }),
   ) as StaffRow[];
   return hydrateStaff(staff);
@@ -195,7 +197,7 @@ export async function getEmployee(employeeId: string): Promise<Employee | null> 
   const rows = unwrap(
     await supabase
       .from('hr_staff')
-      .select('id, user_id, staff_ref, active, created_at')
+      .select('id, user_id, staff_ref, active, created_at, ended_on')
       .eq('id', employeeId)
       .limit(1),
   ) as StaffRow[];
@@ -209,7 +211,7 @@ export async function getMyStaff(): Promise<Employee | null> {
   const rows = unwrap(
     await supabase
       .from('hr_staff')
-      .select('id, user_id, staff_ref, active, created_at')
+      .select('id, user_id, staff_ref, active, created_at, ended_on')
       .eq('user_id', userId)
       .limit(1),
   ) as StaffRow[];
@@ -275,6 +277,7 @@ export async function enrollStaff(input: {
     photo_url: null,
     status: staff.active ? 'active' : 'exited',
     joined_at: staff.created_at,
+    ended_on: staff.ended_on ?? null,
     current_assignment: null,
   } satisfies Employee;
 }

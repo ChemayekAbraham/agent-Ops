@@ -91,16 +91,19 @@ export default function AgentProductCategoryPage() {
 const PENDING_STATUSES = ['pending_approval', 'submitted'];
 
 function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
-  const { data: pendingCount = 0 } = useQuery({
-    queryKey: ['smartphone-order-pending-count'],
+  const { data: orderCounts = { pending: 0, rejected: 0 } } = useQuery({
+    queryKey: ['smartphone-order-counts'],
     queryFn: async () => {
       const { data, error } = await db.rpc('list_smartphone_orders', { p_status: null });
       if (error) throw error;
-      return ((data || []) as { order_status: string }[]).filter((o) =>
-        PENDING_STATUSES.includes(o.order_status),
-      ).length;
+      const rows = (data || []) as { order_status: string }[];
+      return {
+        pending: rows.filter((o) => PENDING_STATUSES.includes(o.order_status)).length,
+        rejected: rows.filter((o) => o.order_status === 'rejected').length,
+      };
     },
   });
+  const pendingCount = orderCounts.pending;
 
   return (
     <Tabs defaultValue="overview" className="space-y-4">
@@ -111,6 +114,10 @@ function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
           {pendingCount > 0 && <Badge variant="secondary">{pendingCount}</Badge>}
         </TabsTrigger>
         <TabsTrigger value="issued">Issued Devices</TabsTrigger>
+        <TabsTrigger value="rejected" className="gap-2">
+          Rejected Applications
+          {orderCounts.rejected > 0 && <Badge variant="secondary">{orderCounts.rejected}</Badge>}
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="overview" className="space-y-6">
@@ -123,6 +130,10 @@ function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
 
       <TabsContent value="issued" className="space-y-6">
         <AgentProductsPanel category={category} mode="issued" />
+      </TabsContent>
+
+      <TabsContent value="rejected" className="space-y-6">
+        <SmartphoneOrderApprovalQueue rejectedOnly />
       </TabsContent>
     </Tabs>
   );

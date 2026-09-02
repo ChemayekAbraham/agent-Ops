@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, Navigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { AgentOpsHomeView, type DateRange } from './agent-ops-v2/AgentOpsHomeView';
 import { AgentOpsBottomNav, type BottomTab } from './agent-ops-v2/AgentOpsBottomNav';
 import { AdvanceRequestsQueue } from '@/components/ops/AdvanceRequestsQueue';
@@ -84,9 +84,10 @@ import {
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-type ActiveView = null | 'comprehensive-report' | 'products-services-report' | 'sc-products' | 'pipeline' | 'directory' | 'rent-capacity' | 'connector' | 'performance' | 'lifecycle' | 'tasks' | 'escalations' | 'service-centres' | 'sc-overview' | 'sc-directory' | 'sc-payouts' | 'sc-requests' | 'sc-operating-model' | 'sub-agents' | 'promote-tenant' | 'float-payouts' | 'leaderboard' | 'earnings' | 'transfers' | 'locked-transfers' | 'advances-analytics' | 'advance-requests' | 'active-advances' | 'advance-potential' | 'advance-limits' | 'advance-repayments' | 'balances' | 'lending-agents' | 'trust-capture' | 'feature-flags' | 'bulk-ops' | 'listing-campaign' | 'daily-collections-report' | 'advance-activity-correlation' | 'agent-service-centres' | 'agent-products-services' | 'guarantor-float' | 'rent-behaviour' | 'subagent-commission-whitelist' | 'partial-collections' | 'calling-hub';
+type ActiveView = null | 'comprehensive-report' | 'products-services-report' | 'sc-products' | 'pipeline' | 'directory' | 'rent-capacity' | 'connector' | 'performance' | 'lifecycle' | 'tasks' | 'escalations' | 'service-centres' | 'sc-overview' | 'sc-directory' | 'sc-payouts' | 'sc-requests' | 'sc-operating-model' | 'sub-agents' | 'promote-tenant' | 'float-payouts' | 'leaderboard' | 'earnings' | 'transfers' | 'locked-transfers' | 'advances-analytics' | 'advance-requests' | 'active-advances' | 'advance-potential' | 'advance-limits' | 'advance-repayments' | 'balances' | 'lending-agents' | 'trust-capture' | 'feature-flags' | 'bulk-ops' | 'listing-campaign' | 'daily-collections-report' | 'advance-activity-correlation' | 'agent-service-centres' | 'agent-products-services' | 'guarantor-float' | 'rent-behaviour' | 'subagent-commission-whitelist' | 'partial-collections' | 'calling-hub' | 'portfolio-performance';
 
 const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; priority?: boolean }[] = [
+  { key: 'portfolio-performance', icon: BarChart3, label: 'Portfolio Performance', color: 'bg-emerald-700', priority: true },
   { key: 'comprehensive-report', icon: FileBarChart, label: 'Comprehensive Report', color: 'bg-emerald-800', priority: true },
   { key: 'guarantor-float', icon: AlertTriangle, label: 'Guarantor Float Tracker', color: 'bg-rose-800', priority: true },
   { key: 'products-services-report', icon: FileBarChart, label: 'Products & Services Report', color: 'bg-purple-900', priority: true },
@@ -141,6 +142,7 @@ export function AgentOpsDashboard() {
   const [productSection, setProductSection] = useState<null | 'motor_bike' | 'smart_phone' | 'boutique' | 'signage' | 'advances'>(null);
   const [dateRange, setDateRange] = useState<DateRange>('24h');
   const pendingAdvanceCount = usePendingAdvanceCount();
+  const navigate = useNavigate();
 
   // Deep-linkable sections: /executive-hub?tab=agent-ops&section=products
   useEffect(() => {
@@ -393,7 +395,20 @@ export function AgentOpsDashboard() {
     setActiveView(null);
   };
 
+  // 'portfolio-performance' is a route, not an in-dashboard sub-view.
+  const selectView = (key: ActiveView) => {
+    if (key === 'portfolio-performance') {
+      navigate('/agent-ops/reports/tenant-portfolio-performance');
+      return;
+    }
+    setActiveView(key);
+  };
+
   const handleOpenSection = (key: string) => {
+    if (key === 'portfolio-performance') {
+      navigate('/agent-ops/reports/tenant-portfolio-performance');
+      return;
+    }
     const next = NAV_ITEMS.some((item) => item.key === key) ? key as ActiveView : null;
     setActiveView(next);
   };
@@ -406,7 +421,7 @@ export function AgentOpsDashboard() {
     { title: 'Agent Products & Services', keys: ['agent-products-services'] },
     { title: 'Financials', keys: ['balances', 'float-payouts', 'earnings', 'locked-transfers'] },
     { title: 'Advances', keys: ['advances-analytics', 'advance-requests', 'active-advances', 'advance-potential', 'advance-limits', 'advance-repayments', 'advance-activity-correlation'] },
-    { title: 'Reports', keys: ['comprehensive-report', 'products-services-report'] },
+    { title: 'Reports', keys: ['portfolio-performance', 'comprehensive-report', 'products-services-report'] },
   ];
 
   // Main content region — sub-view when one is active, else the overview / more-grid.
@@ -441,7 +456,7 @@ export function AgentOpsDashboard() {
               return (
                 <button
                   key={item.key}
-                  onClick={() => setActiveView(item.key)}
+                  onClick={() => selectView(item.key)}
                   className={cn(
                     'flex flex-col items-center gap-2 p-3 rounded-2xl border border-border bg-card',
                     'active:scale-95 transition-all touch-manipulation min-h-[84px]',
@@ -508,7 +523,7 @@ export function AgentOpsDashboard() {
                     return (
                       <DropdownMenuItem
                         key={item.key as string}
-                        onClick={() => setActiveView(item.key)}
+                        onClick={() => selectView(item.key)}
                         className="gap-2.5 cursor-pointer"
                       >
                         <span className={cn('p-1.5 rounded-md shrink-0', item.color)}>
@@ -534,7 +549,7 @@ export function AgentOpsDashboard() {
       <div className="lg:flex lg:gap-5 lg:items-start">
         <AgentOpsSideNav
           activeView={activeView}
-          onSelect={(k) => setActiveView(k)}
+          onSelect={(k) => selectView(k)}
           onHome={() => { setBottomTab('home'); setActiveView(null); }}
         />
         <div className="flex-1 min-w-0">{contentRegion}</div>
@@ -573,7 +588,7 @@ function AgentOpsSideNav({
     { title: 'Agent Products & Services', keys: ['agent-products-services'] },
     { title: 'Financials', keys: ['balances', 'float-payouts', 'earnings', 'locked-transfers'] },
     { title: 'Advances', keys: ['advances-analytics', 'advance-requests', 'active-advances', 'advance-potential', 'advance-limits', 'advance-repayments', 'advance-activity-correlation'] },
-    { title: 'Reports', defaultOpen: true, keys: ['comprehensive-report', 'products-services-report'] },
+    { title: 'Reports', defaultOpen: true, keys: ['portfolio-performance', 'comprehensive-report', 'products-services-report'] },
   ];
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {

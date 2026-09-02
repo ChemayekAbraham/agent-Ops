@@ -43,6 +43,7 @@ import { ImagePlus } from 'lucide-react';
 import { ContactActions } from './ContactActions';
 import { LandlordEditCard } from './LandlordEditCard';
 import { TenantLandlordPayoutsEditor } from './TenantLandlordPayoutsEditor';
+import LandlordAgreementHistory from '@/components/landlord/agreement/LandlordAgreementHistory';
 
 type UserBrief = { id: string; full_name: string | null; phone: string | null };
 
@@ -2478,6 +2479,15 @@ function LandlordPane({ landlordId, isOps }: { landlordId: string; isOps: boolea
         <LandlordSmartphoneToggle landlordId={landlordId} initial={landlord?.has_smartphone ?? true} canEdit={isOps} />
         <LandlordEditCard landlordId={landlordId} landlord={landlord} canEdit={isOps} />
       </Card>
+
+      <LandlordAgreementHistory
+        landlordId={landlordId}
+        landlordName={landlord?.name ?? ''}
+        landlordPhone={landlord?.phone ?? ''}
+        propertyAddress={landlord?.property_address}
+        monthlyRent={landlord?.monthly_rent}
+        canAdd={isOps}
+      />
 
       {/* Landlord Account (Annual) — admin-side payable & receivable */}
       <Card className="p-3 space-y-2">

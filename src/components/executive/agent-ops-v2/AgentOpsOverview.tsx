@@ -347,21 +347,21 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
             </div>
             <div>
               <h3 className="text-sm font-semibold">Agent Status</h3>
-              <p className="text-[11px] text-muted-foreground">Verified vs unverified across the network</p>
+              <p className="text-[11px] text-muted-foreground">Agents vs sub-agents across the network</p>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-4 sm:gap-8">
             <div>
-              <p className="text-[11px] text-muted-foreground">Unverified Agents</p>
-              <p className="text-lg sm:text-xl font-bold tabular-nums">2,247</p>
+              <p className="text-[11px] text-muted-foreground">Sub-Agents</p>
+              <p className="text-lg sm:text-xl font-bold tabular-nums">{fmtNum(k.total_subagents || 0)}</p>
             </div>
             <div>
-              <p className="text-[11px] text-muted-foreground">Verified Operational</p>
-              <p className="text-lg sm:text-xl font-bold tabular-nums">682</p>
+              <p className="text-[11px] text-muted-foreground">Agents</p>
+              <p className="text-lg sm:text-xl font-bold tabular-nums">{fmtNum(k.total_agents || 0)}</p>
             </div>
             <div>
               <p className="text-[11px] text-muted-foreground">Total Combined</p>
-              <p className="text-lg sm:text-xl font-bold tabular-nums">2,929</p>
+              <p className="text-lg sm:text-xl font-bold tabular-nums">{fmtNum((k.total_subagents || 0) + (k.total_agents || 0))}</p>
             </div>
           </div>
         </div>

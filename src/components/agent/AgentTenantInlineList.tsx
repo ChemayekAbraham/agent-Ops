@@ -13,6 +13,7 @@ interface Tenant {
   phone: string;
   email: string;
   created_at: string;
+  latest_status: string | null;
 }
 
 interface AgentTenantInlineListProps {
@@ -94,6 +95,7 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
         phone: row.phone || '',
         email: row.email || '',
         created_at: row.created_at,
+        latest_status: row.latest_status || null,
       })));
 
       // Fetch passport / avatar photos for the tenant list (fallback to initials on missing/broken).
@@ -325,16 +327,24 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
             const isNotPaying = notPayingIds.has(tenant.id);
             const hasDebt = balance > 0 && !isNotPaying;
             const isCompleted = !isNotPaying && balance <= 0 && completedTenantIds.has(tenant.id);
+            const latest = tenant.latest_status;
+            const isPendingReview = latest === 'pending';
+            const isApproved = latest === 'approved';
+            const isLiveRequest = latest === 'funded' || latest === 'disbursed' || latest === 'repaying';
             const statusBadge = isNotPaying
               ? { label: 'Not paying', cls: 'bg-amber-100 text-amber-700' }
-              : hasDebt
-                ? { label: 'Repaying', cls: 'bg-rose-100 text-rose-700' }
-                : isCompleted
-                  ? { label: 'Completed', cls: 'bg-emerald-100 text-emerald-700' }
-                  : { label: 'Paid up', cls: 'bg-emerald-100 text-emerald-700' };
-            const toneText = isNotPaying
+              : isPendingReview
+                ? { label: 'Pending review', cls: 'bg-amber-100 text-amber-700' }
+                : isApproved
+                  ? { label: 'Approved', cls: 'bg-emerald-100 text-emerald-700' }
+                  : hasDebt && isLiveRequest
+                    ? { label: 'Repaying', cls: 'bg-rose-100 text-rose-700' }
+                    : isCompleted
+                      ? { label: 'Completed', cls: 'bg-emerald-100 text-emerald-700' }
+                      : { label: 'Paid up', cls: 'bg-emerald-100 text-emerald-700' };
+            const toneText = isNotPaying || isPendingReview
               ? 'text-amber-600'
-              : hasDebt
+              : hasDebt && isLiveRequest
                 ? 'text-rose-600'
                 : 'text-emerald-600';
             const initial = (tenant.full_name?.trim()?.charAt(0) || tenant.phone?.charAt(0) || '?').toUpperCase();
@@ -349,9 +359,9 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
               >
                 <div
                   className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center shrink-0 text-sm sm:text-base font-bold ${
-                    isNotPaying
+                    isNotPaying || isPendingReview
                       ? 'bg-amber-100 text-amber-700'
-                      : hasDebt
+                      : hasDebt && isLiveRequest
                         ? 'bg-rose-100 text-rose-700'
                         : 'bg-emerald-100 text-emerald-700'
                   } overflow-hidden`}
@@ -393,7 +403,7 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
                 </div>
                 <div className="text-right shrink-0 flex flex-col items-end min-w-0 max-w-[38%] sm:max-w-[40%]">
                   <p className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wide ${toneText}`}>
-                    {hasDebt ? 'Owing' : isNotPaying ? 'On hold' : 'Cleared'}
+                    {hasDebt && isLiveRequest ? 'Owing' : isNotPaying ? 'On hold' : isPendingReview ? 'Awaiting' : isApproved ? 'Approved' : 'Cleared'}
                   </p>
                   <p className={`font-bold font-mono text-[11px] sm:text-sm ${toneText} truncate`}>
                     {balance > 0 ? formatUGX(balance) : 'UGX 0'}

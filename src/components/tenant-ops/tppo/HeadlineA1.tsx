@@ -28,8 +28,8 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
 
   return (
     <section aria-label="A1 headline" className="rounded-lg border border-border bg-card p-4">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="text-2xl font-semibold tabular-nums text-foreground">
+      <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3 sm:gap-y-1">
+        <span className="break-words text-2xl font-semibold tabular-nums text-foreground">
           {collected === null ? '—' : formatUGX(collected)}
         </span>
 
@@ -37,22 +37,25 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
           {hasRate ? `${rate.toFixed(1)}%` : '—'}
         </span>
 
-        <span
-          aria-hidden="true"
-          className={
-            'inline-block h-2.5 w-2.5 shrink-0 rounded-full ' +
-            (!hasRate ? 'bg-muted-foreground' : atOrAbove ? 'bg-emerald-600' : 'bg-destructive')
-          }
-        />
+        <span className="flex items-center gap-2 sm:contents">
+          <span
+            aria-hidden="true"
+            className={
+              'inline-block h-2.5 w-2.5 shrink-0 rounded-full ' +
+              (!hasRate ? 'bg-muted-foreground' : atOrAbove ? 'bg-emerald-600' : 'bg-destructive')
+            }
+          />
 
-        <span className="text-sm font-medium text-foreground">
-          {!hasRate
-            ? 'no rent scheduled in this period'
-            : atOrAbove
-              ? 'at or above threshold'
-              : 'below threshold'}
+          <span className="text-sm font-medium text-foreground">
+            {!hasRate
+              ? 'no rent scheduled in this period'
+              : atOrAbove
+                ? 'at or above threshold'
+                : 'below threshold'}
+          </span>
         </span>
       </div>
+
 
       <div className="mt-2 space-y-1 text-sm text-muted-foreground">
         <p>
@@ -64,32 +67,43 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
         <p>{threshold === null ? 'threshold —' : `threshold ${threshold.toFixed(1)}%`}</p>
       </div>
 
-      <div className="mt-4 space-y-1 border-t border-border pt-3 text-sm text-muted-foreground">
+      <div className="mt-4 space-y-2 border-t border-border pt-3 text-sm text-muted-foreground sm:space-y-1">
         <p>
-          <span className="text-foreground">total rent recovered this period</span>
-          {' — '}
-          {collectedTotal === null ? '—' : formatUGX(collectedTotal)}
+          <span className="block text-foreground sm:inline">total rent recovered this period</span>
+          <span className="hidden sm:inline">{' — '}</span>
+          <span className="block break-words tabular-nums sm:inline">
+            {collectedTotal === null ? '—' : formatUGX(collectedTotal)}
+          </span>
         </p>
         <p>
-          <span className="text-foreground">of which counted in the rate</span>
-          {' — '}
-          {collected === null ? '—' : formatUGX(collected)}
-          {cohortCount !== null && ` across ${cohortCount} funded tenancies within term`}
+          <span className="block text-foreground sm:inline">of which counted in the rate</span>
+          <span className="hidden sm:inline">{' — '}</span>
+          <span className="block break-words sm:inline">
+            <span className="tabular-nums">{collected === null ? '—' : formatUGX(collected)}</span>
+            {cohortCount !== null && ` across ${cohortCount} funded tenancies within term`}
+          </span>
         </p>
         <p>
-          <span className="text-foreground">arrears recovered on completed terms</span>
-          {' — '}
-          {arrearsRecovered === null ? '—' : formatUGX(arrearsRecovered)}
-          {arrearsCount !== null && ` across ${arrearsCount} funded tenancies past term`}
+          <span className="block text-foreground sm:inline">arrears recovered on completed terms</span>
+          <span className="hidden sm:inline">{' — '}</span>
+          <span className="block break-words sm:inline">
+            <span className="tabular-nums">
+              {arrearsRecovered === null ? '—' : formatUGX(arrearsRecovered)}
+            </span>
+            {arrearsCount !== null && ` across ${arrearsCount} funded tenancies past term`}
+          </span>
         </p>
         {unallocated !== null && unallocated > 0 && (
           <p>
-            <span className="text-foreground">unattributed</span>
-            {' — '}
-            {formatUGX(unallocated)}
-            <span className="ml-1">not matched to a funded tenancy</span>
+            <span className="block text-foreground sm:inline">unattributed</span>
+            <span className="hidden sm:inline">{' — '}</span>
+            <span className="block break-words sm:inline">
+              <span className="tabular-nums">{formatUGX(unallocated)}</span>
+              <span className="ml-1">not matched to a funded tenancy</span>
+            </span>
           </p>
         )}
+
         <p className="pt-2 text-xs italic">
           The headline rate is measured only on rent scheduled and recovered within term; arrears
           recovery is reported beside it, not inside it.

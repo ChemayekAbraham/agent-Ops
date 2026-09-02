@@ -165,6 +165,7 @@ export function NarrativeCollections({
             value={note}
             onChange={(e) => onNoteChange(e.target.value)}
             rows={5}
+            className="min-h-[180px] w-full sm:min-h-0"
             placeholder="Explain what drove the collected figure in this period."
           />
           <p className="text-xs text-muted-foreground">
@@ -214,6 +215,7 @@ export function NarrativeCollections({
                 value={action.item_text}
                 onChange={(e) => updateAction(action.key, { item_text: e.target.value })}
                 placeholder="What will be done"
+                className="h-11 w-full sm:h-10"
               />
               <div className="grid gap-2 md:grid-cols-2">
                 <Select
@@ -224,7 +226,7 @@ export function NarrativeCollections({
                     })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11 w-full sm:h-10">
                     <SelectValue placeholder="Owner" />
                   </SelectTrigger>
                   <SelectContent>
@@ -240,6 +242,7 @@ export function NarrativeCollections({
                   type="date"
                   value={action.due_date}
                   onChange={(e) => updateAction(action.key, { due_date: e.target.value })}
+                  className="h-11 w-full sm:h-10"
                 />
               </div>
               {!action.owner_staff_id && (
@@ -247,6 +250,7 @@ export function NarrativeCollections({
                   value={action.owner_label}
                   onChange={(e) => updateAction(action.key, { owner_label: e.target.value })}
                   placeholder="Owner name"
+                  className="h-11 w-full sm:h-10"
                 />
               )}
               <div className="flex justify-end">

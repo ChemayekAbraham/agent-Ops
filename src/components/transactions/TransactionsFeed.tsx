@@ -181,7 +181,7 @@ export function TransactionsFeed({
                 key={row.id}
                 type="button"
                 onClick={() => setSelected({ ...row, balanceAfter })}
-                className="flex w-full items-center gap-3 sm:gap-4 rounded-2xl bg-background p-3.5 sm:p-4 text-left shadow-sm transition-transform active:scale-[0.98] border border-border/40 hover:border-border"
+                className="flex w-full items-center gap-3 sm:gap-4 rounded-2xl bg-background p-3 sm:p-4 text-left shadow-sm transition-transform active:scale-[0.98]"
               >
                 <span
                   className={cn(
@@ -192,22 +192,19 @@ export function TransactionsFeed({
                   <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5", tone.icon)} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                    <span className="truncate text-sm sm:text-base font-bold text-foreground">
-                      {txLabel(row)}
-                    </span>
-                    <span
+                  <span className="flex items-center gap-2">
+                    <span className="block truncate text-sm sm:text-base font-bold">{txLabel(row)}</span>
+                    <Badge
+                      variant="secondary"
                       className={cn(
-                        "inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
-                        isIn
-                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                          : "bg-rose-500/10 text-rose-700 dark:text-rose-400",
+                        "text-[9px] font-bold uppercase tracking-wide",
+                        isIn ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
                       )}
                     >
                       {isIn ? "Money In" : "Money Out"}
-                    </span>
+                    </Badge>
                   </span>
-                  <span className="block truncate text-xs sm:text-sm font-semibold uppercase text-muted-foreground mt-0.5">
+                  <span className="block truncate text-xs sm:text-sm font-semibold uppercase text-muted-foreground">
                     {txCounterparty(row) ?? "—"}
                   </span>
                   <span className="mt-1 flex items-center gap-2 flex-wrap">
@@ -224,12 +221,12 @@ export function TransactionsFeed({
                     {isIn ? "+" : "−"}
                     {formatUGX(Number(row.amount)).replace(/^UGX\s*/, "")}
                   </span>
-                  <span className="block text-[10px] font-semibold text-muted-foreground uppercase">UGX</span>
-                  {balanceAfter !== undefined && (
-                    <span className="block text-[11px] font-medium text-muted-foreground tabular-nums pt-0.5">
-                      Bal: <span className="font-bold text-foreground/90">{formatUGX(balanceAfter)}</span>
+                  {balanceAfter != null && (
+                    <span className="block text-xs font-medium tabular-nums text-muted-foreground">
+                      Bal: {formatUGX(Number(balanceAfter))}
                     </span>
                   )}
+                  <span className="text-xs font-medium text-muted-foreground">UGX</span>
                 </span>
               </button>
             );

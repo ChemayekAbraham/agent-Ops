@@ -64,7 +64,7 @@ export interface TxFeedRow {
    * unfiltered history — see WalletStatement's `balanceAfterById`, which
    * callers merge onto rows by `id` before rendering).
    */
-  balanceAfter?: number;
+  balanceAfter?: number | null;
 }
 
 export const TX_DATE_OPTIONS: { value: TxDateFilter; label: string }[] = [
