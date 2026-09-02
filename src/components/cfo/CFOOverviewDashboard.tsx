@@ -594,7 +594,7 @@ function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onCli
               <span className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</span>
               {title}
             </DialogTitle>
-            <DialogDescription className="text-xs">{footer}</DialogDescription>
+            {title !== 'Money We Have' && <DialogDescription className="text-xs">{footer}</DialogDescription>}
           </DialogHeader>
 
           <div className="rounded-xl border border-border bg-muted/30 px-4 py-3">
@@ -615,16 +615,20 @@ function HeroCard({ icon, iconBg, title, value, items, footer, footerTone, onCli
                 <span className="tabular-nums font-medium shrink-0 text-right text-foreground">{it.value}</span>
               </div>
             ))}
-            <div className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
-              <span className="text-xs font-semibold">Total {title}</span>
-              <span className={`text-sm font-bold tabular-nums ${negative ? 'text-destructive' : 'text-foreground'}`}>{value}</span>
-            </div>
+            {title !== 'Money We Have' && (
+              <div className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
+                <span className="text-xs font-semibold">Total {title}</span>
+                <span className={`text-sm font-bold tabular-nums ${negative ? 'text-destructive' : 'text-foreground'}`}>{value}</span>
+              </div>
+            )}
           </div>
 
-          <div className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-[11px] font-medium ${footerTone}`}>
-            <span className="truncate">{footer}</span>
-            <Info className="h-3 w-3 shrink-0 opacity-70" />
-          </div>
+          {title !== 'Money We Have' && (
+            <div className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-[11px] font-medium ${footerTone}`}>
+              <span className="truncate">{footer}</span>
+              <Info className="h-3 w-3 shrink-0 opacity-70" />
+            </div>
+          )}
 
           {onClick && (
             <Button
