@@ -170,6 +170,17 @@ export function ProxyAgentPerformanceBoard() {
         </div>
       ) : null}
 
+      {/* Strongest vs falling behind, across the whole roster */}
+      {!roster.error && (
+        <ProxyPvStandouts
+          rows={rosterRows}
+          isLoading={roster.isLoading}
+          teamAveragePv={teamAveragePv}
+          workingDaysRemaining={daysRemaining}
+          onSelect={setDrill}
+        />
+      )}
+
       {/* Band legend */}
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Pace bands</span>
