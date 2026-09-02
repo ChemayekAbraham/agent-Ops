@@ -619,6 +619,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
             )}
           </div>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   );
