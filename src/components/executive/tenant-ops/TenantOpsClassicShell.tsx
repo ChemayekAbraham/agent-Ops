@@ -1,5 +1,6 @@
-import { useCallback, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { lazy, Suspense, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import { TenantOpsDashboard, type TenantOpsClassicView } from '../TenantOpsDashboard';
 import { TenantOpsSidebar } from './TenantOpsSidebar';
 import { TenantOpsTopBar } from './TenantOpsTopBar';
@@ -7,6 +8,9 @@ import { TenantOpsHome } from './TenantOpsHome';
 import { CallingHub } from '@/components/ops/calling';
 import { TenantPhoneDuplicatePanel } from '@/components/ops/TenantPhoneDuplicatePanel';
 import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
+
+/** Portfolio Performance renders inside the shell so the sidebar stays visible. */
+const PortfolioPerformanceReport = lazy(() => import('@/pages/tenant-ops/PortfolioPerformanceReport'));
 import {
   isTenantOpsAction,
   tenantOpsLabelFor,
