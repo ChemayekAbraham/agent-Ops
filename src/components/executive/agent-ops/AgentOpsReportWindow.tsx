@@ -425,50 +425,67 @@ function NarrativeSection({
       </CardHeader>
       <CardContent className="space-y-5 p-4 pt-0">
         <div className="space-y-2">
-          <Label htmlFor={`${zone}-reason-note`}>WHY THESE NUMBERS <span className="text-destructive">*</span></Label>
-          <Textarea
-            id={`${zone}-reason-note`}
-            value={noteDraft}
-            onChange={(event) => { setNoteDraft(event.target.value); setNoteError(null); }}
-            rows={4}
-            disabled={readOnly}
-            placeholder="Explain what happened this period and why."
-          />
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-            <span>{noteDraft.trim().length}/80 characters</span>
-            {!readOnly && <Button size="sm" onClick={() => saveNote.mutate()} disabled={!noteIsValid || saveNote.isPending}>Save explanation</Button>}
-          </div>
-          {noteError && <p className="text-sm text-destructive">{noteError}</p>}
-          {data.priorNotes[zone] && isIdenticalToPriorNote(noteDraft, data.priorNotes[zone]) && (
-            <p className="text-sm text-destructive">this is the same text as {data.priorPeriodLabel ?? 'the prior period'}; write what actually happened this period</p>
-          )}
-          {note && readOnly && (
+          <Label htmlFor={readOnly ? undefined : `${zone}-reason-note`}>
+            WHY THESE NUMBERS {!readOnly && <span className="text-destructive">*</span>}
+          </Label>
+          {readOnly ? (
+            /* READ-ONLY RENDER BRANCH — rendered text, never a disabled input. */
             <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
-              <p className="text-xs text-muted-foreground">Original note · never edited after submission</p>
-              <p className="text-sm">{note.reason_note}</p>
+              {note ? (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    {submitted ? 'Original note · never edited after submission' : 'Recorded explanation'}
+                  </p>
+                  <p className="whitespace-pre-wrap text-sm">{note.reason_note}</p>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">No explanation recorded for this period yet.</p>
+              )}
               {data.addenda[zone].map((addendum) => (
                 <div key={addendum.id} className="border-t border-border pt-2 text-sm">
-                  <p className="text-xs text-muted-foreground">Addendum · {formatTimestamp(addendum.created_at)} · {addendum.author_name ?? 'Officer'}</p>
-                  <p className="mt-1">{addendum.addendum_text}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Addendum · {formatTimestamp(addendum.created_at)} · {addendum.author_name ?? 'Officer'}
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap">{addendum.addendum_text}</p>
                 </div>
               ))}
-              {!showAddendum ? (
-                <Button variant="outline" size="sm" onClick={() => setShowAddendum(true)}>Add dated addendum</Button>
-              ) : (
-                <div className="space-y-2">
-                  <Textarea value={addendumDraft} onChange={(event) => setAddendumDraft(event.target.value)} rows={3} placeholder="Record the correction or follow-up." />
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={() => addendumMutation.mutate()} disabled={!addendumDraft.trim() || addendumMutation.isPending}>Save addendum</Button>
-                    <Button variant="ghost" size="sm" onClick={() => setShowAddendum(false)}>Cancel</Button>
+              {submitted && canEdit && (
+                !showAddendum ? (
+                  <Button variant="outline" size="sm" onClick={() => setShowAddendum(true)}>Add dated addendum</Button>
+                ) : (
+                  <div className="space-y-2">
+                    <Textarea value={addendumDraft} onChange={(event) => setAddendumDraft(event.target.value)} rows={3} placeholder="Record the correction or follow-up." />
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => addendumMutation.mutate()} disabled={!addendumDraft.trim() || addendumMutation.isPending}>Save addendum</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setShowAddendum(false)}>Cancel</Button>
+                    </div>
                   </div>
-                </div>
+                )
               )}
             </div>
+          ) : (
+            <>
+              <Textarea
+                id={`${zone}-reason-note`}
+                value={noteDraft}
+                onChange={(event) => { setNoteDraft(event.target.value); setNoteError(null); }}
+                rows={4}
+                placeholder="Explain what happened this period and why."
+              />
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>{noteDraft.trim().length}/80 characters</span>
+                <Button size="sm" onClick={() => saveNote.mutate()} disabled={!noteIsValid || saveNote.isPending}>Save explanation</Button>
+              </div>
+              {noteError && <p className="text-sm text-destructive">{noteError}</p>}
+              {data.priorNotes[zone] && isIdenticalToPriorNote(noteDraft, data.priorNotes[zone]) && (
+                <p className="text-sm text-destructive">this is the same text as {data.priorPeriodLabel ?? 'the prior period'}; write what actually happened this period</p>
+              )}
+            </>
           )}
         </div>
 
         <div className="space-y-2">
-          <Label>{actionTitle} <span className="text-destructive">*</span></Label>
+          <Label>{actionTitle} {!readOnly && <span className="text-destructive">*</span>}</Label>
           {actions.map((action) => (
             <div key={action.id} className="rounded-lg border border-border p-3 text-sm">
               <p>{action.item_text}</p>
@@ -477,7 +494,11 @@ function NarrativeSection({
               </p>
             </div>
           ))}
-          {actions.length === 0 && <p className="text-xs text-muted-foreground">No actions added yet. At least one action is required.</p>}
+          {actions.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              {readOnly ? 'No actions were recorded for this period.' : 'No actions added yet. At least one action is required.'}
+            </p>
+          )}
           {!readOnly && (
             <div className="grid gap-2 md:grid-cols-2">
               <Input value={actionText} onChange={(event) => setActionText(event.target.value)} placeholder="Action item (minimum 10 characters)" />
@@ -497,12 +518,13 @@ function NarrativeSection({
               </Button>
             </div>
           )}
-          <p className="text-xs text-muted-foreground">{actionTitle} · due dates must be today or later.</p>
+          {!readOnly && <p className="text-xs text-muted-foreground">{actionTitle} · due dates must be today or later.</p>}
         </div>
       </CardContent>
     </Card>
   );
 }
+
 
 function PriorPeriodCloseout({ data, granularity }: { data: AgentOpsReportWindowData; granularity: AgentOpsGranularity }) {
   const queryClient = useQueryClient();
