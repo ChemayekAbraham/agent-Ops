@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { KPIBreakdownSheet } from '@/components/cfo/KPIBreakdownSheet';
 import { CashSourcesSheet } from '@/components/cfo/CashSourcesSheet';
 
