@@ -338,7 +338,57 @@ export function ProxyAgentPerformanceBoard() {
               {monthLabel(month)} Performance Value · {drill?.phone || 'No phone'}
             </SheetDescription>
           </SheetHeader>
-          <div className="pt-3">
+          <div className="space-y-3 pt-3">
+            {drill && (() => {
+              const why = explainProxyPv(drill, { teamAveragePv, workingDaysRemaining: daysRemaining });
+              const rank = rankOf(drill.agent_user_id);
+              return (
+                <Card>
+                  <CardContent className="space-y-2.5 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                        Why this score
+                      </p>
+                      {rank !== null && (
+                        <Badge variant="outline" className="text-[10px] font-bold">
+                          Rank #{rank} of {rosterRows.length}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs font-semibold leading-snug break-words">{why.headline}</p>
+                    {why.mix.some((m) => m.pv > 0) && (
+                      <div className="space-y-1">
+                        {why.mix.filter((m) => m.pv > 0).map((m) => (
+                          <div key={m.key} className="space-y-0.5">
+                            <div className="flex items-center justify-between gap-2 text-[10px]">
+                              <span className="text-muted-foreground">{m.label}</span>
+                              <span className="font-bold tabular-nums">{money(m.pv)} · {m.pct}%</span>
+                            </div>
+                            <Progress value={m.pct} className="h-1" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {why.drivers.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-success">What is working</p>
+                        <ul className="space-y-0.5 text-[11px] text-muted-foreground">
+                          {why.drivers.map((d) => <li key={d} className="break-words">• {d}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {why.gaps.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-warning">What is holding it back</p>
+                        <ul className="space-y-0.5 text-[11px] text-muted-foreground">
+                          {why.gaps.map((g) => <li key={g} className="break-words">• {g}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })()}
             {drill && <ProxyPerformanceSection agentId={drill.agent_user_id} month={month} hideHeading />}
           </div>
         </SheetContent>
