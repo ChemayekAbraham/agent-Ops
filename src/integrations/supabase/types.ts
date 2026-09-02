@@ -42123,6 +42123,10 @@ export type Database = {
           live_plan: boolean
         }[]
       }
+      agent_ops_compute_snapshot: {
+        Args: { p_granularity: string; p_period_start: string }
+        Returns: string
+      }
       agent_ops_directory_guard: { Args: never; Returns: string }
       agent_ops_issue_agent_product: {
         Args: {
@@ -42176,6 +42180,7 @@ export type Database = {
         Returns: Json
       }
       agent_ops_report_authorized: { Args: never; Returns: boolean }
+      agent_ops_run_snapshot_cycle: { Args: never; Returns: undefined }
       agent_ops_set_agent_frozen: {
         Args: { p_agent_id: string; p_frozen: boolean; p_reason?: string }
         Returns: Json
