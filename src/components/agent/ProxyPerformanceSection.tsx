@@ -70,6 +70,7 @@ interface Props {
  */
 export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading, className }: Props) {
   const [showAllDays, setShowAllDays] = useState(false);
+  const [showMore, setShowMore] = useState(false);
   const [monthState, setMonthState] = useState(() => monthStartISO());
   const month = monthProp ?? monthState;
   const q = useProxyAgentPv(agentId ?? null, month);
