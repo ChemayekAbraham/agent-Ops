@@ -262,6 +262,12 @@ export function ProxyPerformanceSection({ agentId, month, hideHeading, className
               <span className="text-xs font-bold text-right break-words tabular-nums">{v}</span>
             </div>
           ))}
+          {pendingCount > 0 && !noVerifiedActivity && (
+            <p className="flex items-center gap-1.5 pt-1 text-[10px] font-semibold text-primary">
+              <ClipboardCheck className="h-3 w-3 shrink-0" />
+              +{pendingCount} item{pendingCount === 1 ? '' : 's'} awaiting verification — not counted yet.
+            </p>
+          )}
         </CardContent>
       </Card>
 
