@@ -1168,7 +1168,26 @@ function ZoneC() {
 export function AgentOpsReportWindow() {
   const [granularity, setGranularity] = useState<AgentOpsGranularity>('daily');
   const [dirtyDraft] = useState(false);
+  const queryClient = useQueryClient();
+  // VISIBILITY: read access is NOT gated here — anyone who can reach the Agent
+  // Operations dashboard sees this window. Only editing is role-limited.
+  const { canEdit, canManageSettings } = useAgentOpsReportPermissions();
   const { data, isLoading, isFetching, isError, error, refetch } = useAgentOpsReportWindow(granularity);
+
+  const computeSnapshot = useMutation({
+    mutationFn: async (periodStart: string) => {
+      const { error: rpcError } = await supabase.rpc('agent_ops_compute_snapshot', {
+        p_granularity: granularity,
+        p_period_start: periodStart,
+      });
+      if (rpcError) throw rpcError;
+    },
+    onSuccess: () => {
+      toast.success('Snapshot computed.');
+      queryClient.invalidateQueries({ queryKey: ['agent-ops-report-window', granularity] });
+    },
+    onError: (err) => toast.error(readableError(err)),
+  });
 
   const handlePeriodChange = (next: AgentOpsGranularity) => {
     if (next === granularity) return;
@@ -1192,6 +1211,26 @@ export function AgentOpsReportWindow() {
     );
   }
 
+  if (!data.ready) {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardContent className="space-y-3 p-8 text-center">
+            <p className="text-sm font-medium">not yet computed</p>
+            <p className="text-xs text-muted-foreground">
+              No snapshot exists for the selected {granularity} period starting {data.periodStart}.
+            </p>
+            {canManageSettings && (
+              <Button size="sm" onClick={() => computeSnapshot.mutate(data.periodStart)} disabled={computeSnapshot.isPending}>
+                {computeSnapshot.isPending ? 'Computing…' : 'Compute now'}
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const { report, snapshot, priorSnapshot, periodLabel } = data;
   const currentGrowthRate = computeGrowthRate(snapshot);
   const growthVariancePp = computeGrowthVariancePp(snapshot, priorSnapshot);
@@ -1199,7 +1238,8 @@ export function AgentOpsReportWindow() {
   const currentDirection = direction(netChange);
   const varianceDirection = direction(growthVariancePp);
   const isDaily = granularity === 'daily';
-  const targetLabel = report.target_net_agents === null ? 'No target set' : `Target ${signedNumber(report.target_net_agents)}`;
+  const hasTarget = report.target_net_agents !== null;
+  const targetLabel = hasTarget ? `Target ${signedNumber(report.target_net_agents)}` : 'No target set';
   const statusLabel = report.status.toLowerCase() === 'submitted' ? 'Submitted' : 'Draft';
   const priorPeriodLabel = priorSnapshot
     ? `${priorSnapshot.period_start} to ${priorSnapshot.period_end}`
@@ -1220,11 +1260,24 @@ export function AgentOpsReportWindow() {
                 <span aria-hidden="true">·</span>
                 <span>{periodLabel}</span>
                 <span aria-hidden="true">·</span>
-                <Badge variant={report.target_net_agents === null ? 'secondary' : 'outline'}>{targetLabel}</Badge>
+                <Badge variant={hasTarget ? 'outline' : 'secondary'}>{targetLabel}</Badge>
                 <span aria-hidden="true">·</span>
                 <Badge variant={statusLabel === 'Submitted' ? 'default' : 'secondary'}>{statusLabel}</Badge>
+                {snapshot.provisional && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <Badge variant="secondary">provisional, recomputes at 03:10</Badge>
+                  </>
+                )}
+                {!canEdit && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <Badge variant="outline">View only</Badge>
+                  </>
+                )}
               </div>
             </div>
+
             <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
               <RefreshCw className={cn('mr-1.5 h-3.5 w-3.5', isFetching && 'animate-spin')} />
               Refresh
