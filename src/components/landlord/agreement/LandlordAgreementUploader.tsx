@@ -5,8 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle2, FileUp, Loader2, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, Download, FileUp, Loader2, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { downloadLandlordAgreementTemplate } from '@/lib/landlordAgreementTemplatePdf';
+
 
 const ACCEPTED = '.pdf,.jpg,.jpeg,.png';
 const MAX_BYTES = 20 * 1024 * 1024;
