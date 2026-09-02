@@ -35,8 +35,10 @@ export function LandlordAgreementHistory({
     enabled: !!landlordId,
   });
 
-  const open = async (row: Row) => {
-    const { data, error } = await supabase.storage.from(row.bucket || 'landlord-agreements').createSignedUrl(row.signed_file_path, 600);
+  const open = async (row: Row, download = false) => {
+    const { data, error } = await supabase.storage
+      .from(row.bucket || 'landlord-agreements')
+      .createSignedUrl(row.signed_file_path, 600, download ? { download: row.signed_file_name || true } : undefined);
     if (error || !data?.signedUrl) return toast.error('Could not open the signed agreement');
     window.open(data.signedUrl, '_blank', 'noopener');
   };
@@ -68,7 +70,14 @@ export function LandlordAgreementHistory({
           {fmt(row.start_date)} → {fmt(row.end_date)} · rent {row.monthly_rent != null ? `UGX ${Number(row.monthly_rent).toLocaleString()}` : '—'} · pay day {row.payment_day ?? '—'}
         </p>
         <p className="text-[10px] text-muted-foreground">Signed {fmt(row.agreement_date)} · uploaded by {row.uploaded_by_name ?? 'staff'} on {fmt(row.created_at)}</p>
-        <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => open(row)}>View signed document</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => open(row)}>
+            <FileText className="mr-1.5 h-3.5 w-3.5" /> View signed document
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => open(row, true)}>
+            Download
+          </Button>
+        </div>
       </li>)}
     </ul>}
 
