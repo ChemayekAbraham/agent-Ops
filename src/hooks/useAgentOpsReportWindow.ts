@@ -33,7 +33,11 @@ export interface AgentOpsReport {
   prior_snapshot_id: string | null;
   target_net_agents: number | null;
   status: string;
+  submitted_at?: string | null;
+  submitted_by?: string | null;
 }
+
+export type AgentOpsZone = 'growth' | 'pipeline';
 
 export interface AgentOpsReportNote {
   id: string;
@@ -45,9 +49,32 @@ export interface AgentOpsReportAction {
   id: string;
   zone: string;
   item_text: string;
+  owner_staff_id: string | null;
   owner_label: string | null;
   due_date: string | null;
   outcome: string | null;
+  outcome_note: string | null;
+  carried_from_action_id: string | null;
+  created_at: string;
+}
+
+export interface AgentOpsAddendum {
+  id: string;
+  zone: string;
+  addendum_text: string;
+  created_at: string;
+  created_by: string;
+  author_name: string | null;
+}
+
+export interface AgentOpsPriorAction extends AgentOpsReportAction {
+  priorPeriodLabel: string;
+  flaggedToReviewer: boolean;
+}
+
+export interface AgentOpsStaffOption {
+  staffId: string;
+  label: string;
 }
 
 export interface AgentOpsReportWindowData {
@@ -55,8 +82,26 @@ export interface AgentOpsReportWindowData {
   snapshot: AgentOpsSnapshot;
   priorSnapshot: AgentOpsSnapshot | null;
   periodLabel: string;
-  pipelineNote: AgentOpsReportNote | null;
-  pipelineActions: AgentOpsReportAction[];
+  notes: Record<AgentOpsZone, AgentOpsReportNote | null>;
+  actions: Record<AgentOpsZone, AgentOpsReportAction[]>;
+  addenda: Record<AgentOpsZone, AgentOpsAddendum[]>;
+  priorNotes: Record<AgentOpsZone, string | null>;
+  priorPeriodLabel: string | null;
+  priorActions: AgentOpsPriorAction[];
+  staffOptions: AgentOpsStaffOption[];
+  submittedByName: string | null;
+  submittedAt: string | null;
+}
+
+const MISS_OUTCOMES = new Set(['partly_done', 'not_done', 'partly', 'missed']);
+
+/**
+ * Rejected if byte-identical to the same zone's note on the prior report of the
+ * same granularity. Compared after trimming only — the text itself is untouched.
+ */
+export function isIdenticalToPriorNote(draft: string, priorNote: string | null): boolean {
+  if (!priorNote) return false;
+  return draft.trim() === priorNote.trim();
 }
 
 
@@ -152,7 +197,7 @@ export function useAgentOpsReportWindow(granularity: AgentOpsGranularity) {
 
       const { data: reportData, error: reportError } = await supabase
         .from('agent_ops_reports')
-        .select('id, granularity, period_start, period_end, snapshot_id, prior_snapshot_id, target_net_agents, status')
+        .select('id, granularity, period_start, period_end, snapshot_id, prior_snapshot_id, target_net_agents, status, submitted_at, submitted_by')
         .eq('id', reportId)
         .single();
       if (reportError) throw reportError;
@@ -169,27 +214,112 @@ export function useAgentOpsReportWindow(granularity: AgentOpsGranularity) {
       const snapshot = rows.find((row) => row.id === report.snapshot_id);
       if (!snapshot) throw new Error('The Agent Operations snapshot is unavailable.');
 
-      const [{ data: noteRows }, { data: actionRows }] = await Promise.all([
-        supabase
-          .from('agent_ops_report_notes')
-          .select('id, zone, reason_note')
-          .eq('report_id', report.id)
-          .eq('zone', 'pipeline'),
+      const [notesRes, actionsRes, addendaRes, priorReportRes, staffRes, submitterRes] = await Promise.all([
+        supabase.from('agent_ops_report_notes').select('id, zone, reason_note').eq('report_id', report.id),
         supabase
           .from('agent_ops_report_actions')
-          .select('id, zone, item_text, owner_label, due_date, outcome')
+          .select('id, zone, item_text, owner_staff_id, owner_label, due_date, outcome, outcome_note, carried_from_action_id, created_at')
           .eq('report_id', report.id)
-          .eq('zone', 'pipeline')
           .order('created_at', { ascending: true }),
+        supabase
+          .from('agent_ops_report_addenda')
+          .select('id, zone, addendum_text, created_at, created_by')
+          .eq('report_id', report.id)
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('agent_ops_reports')
+          .select('id, period_start, period_end, granularity, snapshot_id, prior_snapshot_id, target_net_agents, status')
+          .eq('granularity', granularity)
+          .lt('period_start', report.period_start)
+          .order('period_start', { ascending: false })
+          .limit(1),
+        supabase.from('hr_staff').select('id, user_id, active').eq('active', true).limit(500),
+        report.submitted_by
+          ? supabase.from('profiles').select('id, full_name').eq('id', report.submitted_by).maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
       ]);
+
+      const noteRows = (notesRes.data ?? []) as AgentOpsReportNote[];
+      const actionRows = (actionsRes.data ?? []) as AgentOpsReportAction[];
+      const addendumRows = (addendaRes.data ?? []) as Omit<AgentOpsAddendum, 'author_name'>[];
+      const priorReport = ((priorReportRes.data ?? [])[0] ?? null) as AgentOpsReport | null;
+      const staffRows = (staffRes.data ?? []) as { id: string; user_id: string | null }[];
+
+      const authorIds = Array.from(new Set(addendumRows.map((row) => row.created_by)));
+      const staffUserIds = staffRows.map((row) => row.user_id).filter((value): value is string => Boolean(value));
+      const nameIds = Array.from(new Set([...authorIds, ...staffUserIds]));
+      const { data: nameRows } = nameIds.length
+        ? await supabase.from('profiles').select('id, full_name').in('id', nameIds)
+        : { data: [] as { id: string; full_name: string | null }[] };
+      const names = new Map<string, string | null>(
+        ((nameRows ?? []) as { id: string; full_name: string | null }[]).map((row) => [row.id, row.full_name]),
+      );
+
+      let priorNotes: Record<AgentOpsZone, string | null> = { growth: null, pipeline: null };
+      let priorActions: AgentOpsPriorAction[] = [];
+      let priorLabel: string | null = null;
+
+      if (priorReport) {
+        priorLabel = periodLabel(priorReport);
+        const [priorNotesRes, priorActionsRes] = await Promise.all([
+          supabase.from('agent_ops_report_notes').select('id, zone, reason_note').eq('report_id', priorReport.id),
+          supabase
+            .from('agent_ops_report_actions')
+            .select('id, zone, item_text, owner_staff_id, owner_label, due_date, outcome, outcome_note, carried_from_action_id, created_at')
+            .eq('report_id', priorReport.id)
+            .order('created_at', { ascending: true }),
+        ]);
+        for (const row of (priorNotesRes.data ?? []) as AgentOpsReportNote[]) {
+          if (row.zone === 'growth' || row.zone === 'pipeline') priorNotes[row.zone] = row.reason_note;
+        }
+        const rowsPrior = (priorActionsRes.data ?? []) as AgentOpsReportAction[];
+        const parentIds = rowsPrior
+          .map((row) => row.carried_from_action_id)
+          .filter((value): value is string => Boolean(value));
+        const { data: parentRows } = parentIds.length
+          ? await supabase.from('agent_ops_report_actions').select('id, outcome').in('id', parentIds)
+          : { data: [] as { id: string; outcome: string | null }[] };
+        const parentOutcomes = new Map<string, string | null>(
+          ((parentRows ?? []) as { id: string; outcome: string | null }[]).map((row) => [row.id, row.outcome]),
+        );
+        priorActions = rowsPrior.map((row) => {
+          const ownMiss = row.outcome ? MISS_OUTCOMES.has(row.outcome) : false;
+          const parentOutcome = row.carried_from_action_id ? parentOutcomes.get(row.carried_from_action_id) ?? null : null;
+          const parentMiss = parentOutcome ? MISS_OUTCOMES.has(parentOutcome) : false;
+          return { ...row, priorPeriodLabel: priorLabel as string, flaggedToReviewer: ownMiss && parentMiss };
+        });
+      }
+
+      const byZone = <T extends { zone: string }>(rows: T[]) => ({
+        growth: rows.filter((row) => row.zone === 'growth'),
+        pipeline: rows.filter((row) => row.zone === 'pipeline'),
+      });
+
+      const zonedActions = byZone(actionRows);
+      const zonedAddenda = byZone(addendumRows);
 
       return {
         report,
         snapshot,
         priorSnapshot: rows.find((row) => row.id === report.prior_snapshot_id) ?? null,
         periodLabel: periodLabel(report),
-        pipelineNote: ((noteRows ?? []) as AgentOpsReportNote[])[0] ?? null,
-        pipelineActions: (actionRows ?? []) as AgentOpsReportAction[],
+        notes: {
+          growth: noteRows.find((row) => row.zone === 'growth') ?? null,
+          pipeline: noteRows.find((row) => row.zone === 'pipeline') ?? null,
+        },
+        actions: zonedActions,
+        addenda: {
+          growth: zonedAddenda.growth.map((row) => ({ ...row, author_name: names.get(row.created_by) ?? null })),
+          pipeline: zonedAddenda.pipeline.map((row) => ({ ...row, author_name: names.get(row.created_by) ?? null })),
+        },
+        priorNotes,
+        priorPeriodLabel: priorLabel,
+        priorActions,
+        staffOptions: staffRows
+          .map((row) => ({ staffId: row.id, label: (row.user_id ? names.get(row.user_id) : null) ?? 'Staff member' }))
+          .sort((a, b) => a.label.localeCompare(b.label)),
+        submittedByName: (submitterRes.data as { full_name: string | null } | null)?.full_name ?? null,
+        submittedAt: report.submitted_at ?? null,
       };
     },
 
