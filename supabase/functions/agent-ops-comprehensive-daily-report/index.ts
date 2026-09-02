@@ -90,8 +90,25 @@ Deno.serve(async (req) => {
       actor: 'Automated daily report',
     } as never);
 
+    const pdf = buildComprehensiveReportPdf({
+      report,
+      population,
+      fromDate,
+      toDate,
+      periodLabel: fromDate === toDate ? 'Daily (previous day)' : 'Custom range',
+    });
+    const filename = fromDate === toDate
+      ? `Welile_Agent_Ops_Comprehensive_${toDate}.pdf`
+      : `Welile_Agent_Ops_Comprehensive_${fromDate}_to_${toDate}.pdf`;
+
+    if (body.pdf === true) {
+      return new Response(pdf, {
+        headers: { ...corsHeaders, 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${filename}"` },
+      });
+    }
+
     if (dryRun) {
-      return new Response(JSON.stringify({ ok: true, dry_run: true, from: fromDate, to: toDate, html_length: html.length }), {
+      return new Response(JSON.stringify({ ok: true, dry_run: true, from: fromDate, to: toDate, html_length: html.length, pdf_bytes: pdf.length }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -104,9 +121,11 @@ Deno.serve(async (req) => {
     form.set('from', DEFAULT_FROM);
     recipients.forEach((r) => form.append('to', r));
     form.set('subject', subject);
-    form.set('text', `${subject}\n\nOpen the HTML version of this email for the full report.`);
+    form.set('text', `${subject}\n\nThe full report is attached as a PDF.`);
     form.set('html', html);
     form.set('o:tag', 'agent-ops-comprehensive-daily');
+    form.append('attachment', new Blob([pdf], { type: 'application/pdf' }), filename);
+
 
     const mgRes = await fetch(`${mailgunBaseUrl}/v3/${mailgunDomain}/messages`, {
       method: 'POST',
