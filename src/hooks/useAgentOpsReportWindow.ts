@@ -326,6 +326,7 @@ export function useAgentOpsReportWindow(granularity: AgentOpsGranularity) {
 
       return {
         ready: true,
+        periodStart,
         report,
 
         snapshot,
