@@ -115,7 +115,27 @@ export function ProxyPerformanceSection({ agentId, month, hideHeading, className
             <BandBadge pct={mtdPct} />
           </div>
 
-          <Progress value={Math.min(r.mtd.monthly_performance_pct, 100)} className="h-2" />
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[10px]">
+              <span className={cn('font-bold', r.mtd.monthly_performance_pct >= 100 && 'text-success')}>
+                {r.mtd.monthly_performance_pct}% of monthly target
+              </span>
+              {r.mtd.monthly_performance_pct > 100 && (
+                <span className="font-bold text-success">+{money(r.mtd.above_target)} above target</span>
+              )}
+            </div>
+            <Progress
+              value={Math.min(r.mtd.monthly_performance_pct, 100)}
+              variant={r.mtd.monthly_performance_pct >= 100 ? 'success' : 'default'}
+              className="h-2"
+            />
+          </div>
+
+          {r.mtd.monthly_performance_pct > 100 && (
+            <p className="text-[11px] font-semibold text-success">
+              Target exceeded — {r.mtd.monthly_performance_pct}% achieved
+            </p>
+          )}
 
           <div className="grid grid-cols-2 gap-2 text-[11px]">
             <div className="rounded-xl border border-border/60 p-2">
