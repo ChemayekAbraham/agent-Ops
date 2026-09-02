@@ -339,9 +339,9 @@ export default function BalanceSheetPanel() {
       rows.push([equityGroups.flagged.label, equityGroups.flagged.value]);
       visibleFlaggedLines(equityGroups.flagged).forEach(l => rows.push(['   ' + l.label, l.value]));
     }
-    rows.push(["TOTAL SHAREHOLDERS' EQUITY", data.equity.total]);
+    rows.push(["TOTAL SHAREHOLDERS' EQUITY", equityTotal]);
     rows.push([]);
-    rows.push(['TOTAL LIABILITIES AND EQUITY', data.balance_check.total_liabilities_and_equity]);
+    rows.push(['TOTAL LIABILITIES AND EQUITY', totalLiabilitiesAndEquity]);
     rows.push(['Balance check difference', data.balance_check.difference]);
     rows.push(['Balanced', data.balance_check.balanced ? 'YES' : 'NO']);
     if (data.trial_balance) {
