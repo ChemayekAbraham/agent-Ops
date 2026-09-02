@@ -191,8 +191,8 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="w-[calc(100%-2rem)] max-w-[640px] max-h-[75vh] overflow-y-auto rounded-2xl p-5 sm:p-6 shadow-2xl">
-        <DialogHeader className="pb-3">
+      <DialogContent className="w-[95vw] sm:w-[90vw] lg:w-[85vw] max-w-[1400px] h-[92vh] sm:h-[90vh] lg:h-[88vh] max-h-[90vh] rounded-2xl p-0 shadow-2xl overflow-hidden flex flex-col">
+        <DialogHeader className="shrink-0 px-5 sm:px-6 pt-5 sm:pt-6 pb-3 bg-background">
           <DialogTitle className="text-base sm:text-lg flex items-center gap-3">
             {selected && (
               <button
@@ -210,6 +210,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
           </DialogTitle>
         </DialogHeader>
 
+        <div className="flex-1 overflow-y-auto px-5 sm:px-6 pb-5 sm:pb-6">
         {!selected && (
           <div className="space-y-3 pb-3">
             {/* Where the money sits — position cards (A1 split + in-transit) */}
@@ -618,6 +619,7 @@ export function CashSourcesSheet({ open, onOpenChange, totalCash, a1, a5, increa
             )}
           </div>
         )}
+        </div>
       </DialogContent>
     </Dialog>
   );
