@@ -603,22 +603,35 @@ function PriorPeriodCloseout({ data, granularity, canEdit }: { data: AgentOpsRep
                 </div>
                 {action.flaggedToReviewer && <Badge variant="destructive">flagged to reviewer</Badge>}
               </div>
-              <div className="grid gap-2 md:grid-cols-[180px_1fr_auto]">
-                <select
-                  aria-label={`Outcome for ${action.item_text}`}
-                  value={outcome}
-                  disabled={readOnly || closed}
-                  onChange={(event) => setOutcomes((current) => ({ ...current, [action.id]: event.target.value }))}
-                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="">Choose outcome</option>
-                  <option value="done">Done</option>
-                  <option value="partly_done">Partly done</option>
-                  <option value="not_done">Not done</option>
-                </select>
-                <Input value={outcomeNote} disabled={readOnly || closed} onChange={(event) => setNotes((current) => ({ ...current, [action.id]: event.target.value }))} placeholder="One-line result" />
-                {!readOnly && <Button size="sm" variant="outline" disabled={closed || !outcome || !outcomeNote.trim()} onClick={() => updateOutcome(action)}>Save outcome</Button>}
-              </div>
+              {readOnly ? (
+                <div className="text-sm">
+                  <p>
+                    Outcome:{' '}
+                    <span className="font-medium">
+                      {outcome === 'done' ? 'Done' : outcome === 'partly_done' ? 'Partly done' : outcome === 'not_done' ? 'Not done' : 'Not closed out'}
+                    </span>
+                  </p>
+                  <p className="text-muted-foreground">{outcomeNote.trim() || 'No result recorded.'}</p>
+                </div>
+              ) : (
+                <div className="grid gap-2 md:grid-cols-[180px_1fr_auto]">
+                  <select
+                    aria-label={`Outcome for ${action.item_text}`}
+                    value={outcome}
+                    disabled={closed}
+                    onChange={(event) => setOutcomes((current) => ({ ...current, [action.id]: event.target.value }))}
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">Choose outcome</option>
+                    <option value="done">Done</option>
+                    <option value="partly_done">Partly done</option>
+                    <option value="not_done">Not done</option>
+                  </select>
+                  <Input value={outcomeNote} disabled={closed} onChange={(event) => setNotes((current) => ({ ...current, [action.id]: event.target.value }))} placeholder="One-line result" />
+                  <Button size="sm" variant="outline" disabled={closed || !outcome || !outcomeNote.trim()} onClick={() => updateOutcome(action)}>Save outcome</Button>
+                </div>
+              )}
+
               {closed && <p className="text-xs text-muted-foreground">Close-out recorded.</p>}
             </div>
           );
