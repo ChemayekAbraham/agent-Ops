@@ -925,7 +925,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                   <tbody>
                     {visibleItems.length === 0 && (
                       <tr>
-                        <td colSpan={11} className="text-center py-6 text-xs text-muted-foreground">
+                        <td colSpan={10} className="text-center py-6 text-xs text-muted-foreground">
                           No tenants match the current filters.{' '}
                           <button
                             type="button"
