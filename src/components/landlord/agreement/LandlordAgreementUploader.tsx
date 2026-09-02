@@ -89,6 +89,17 @@ export function LandlordAgreementUploader({
   return <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
     <div className="flex items-start gap-2"><ShieldCheck className="h-4 w-4 text-primary mt-0.5" /><div><p className="text-sm font-semibold">{kind === 'original' ? 'Signed 12-month agreement' : 'Signed agreement change'}</p><p className="text-[11px] text-muted-foreground">Each upload is saved as a permanent, separate version. Old documents are never overwritten.</p></div></div>
     <Alert><AlertDescription className="text-xs">The signed file must contain the landlord, Welile, and witness signatures, dates, rent/payment terms, property details, and required identity information.</AlertDescription></Alert>
+    <div className="rounded-md border border-dashed bg-background p-2">
+      <p className="text-[11px] text-muted-foreground mb-2">No signed paper yet? Download the ready-made template, print it, have the landlord and a witness sign, then upload it below.</p>
+      <Button type="button" variant="outline" size="sm" className="w-full gap-2" onClick={() => downloadLandlordAgreementTemplate({
+        landlordName: form.landlord_name, landlordPhone: form.landlord_phone, nin: form.nin,
+        propertyAddress: form.property_address, monthlyRent: form.monthly_rent ? Number(form.monthly_rent) : null,
+        houseNumber: form.house_number, paymentDay: form.payment_day,
+      })}>
+        <Download className="h-4 w-4" /> Download agreement template (PDF)
+      </Button>
+    </div>
+
     <div className="grid grid-cols-2 gap-2">
       {field('nin', 'Landlord NIN', true)}{field('agreement_date', 'Agreement date', true, 'date')}
       {field('start_date', 'Start date', true, 'date')}{field('end_date', 'End date (optional)', false, 'date')}
