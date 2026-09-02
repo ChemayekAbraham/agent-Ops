@@ -298,7 +298,7 @@ export function EmployeeRequisitionQueuePanel() {
                       </div>
                     )}
 
-                    {r.status === 'pending' && (
+                    {(r.status === 'pending' || r.status === 'pending_cfo') && (
                       <div className="space-y-2">
                         <div className="space-y-1">
                           <Label className="text-xs text-muted-foreground">Approved amount ({r.currency})</Label>
