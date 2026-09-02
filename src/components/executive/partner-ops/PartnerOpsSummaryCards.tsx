@@ -208,6 +208,34 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
       </button>
 
       <PortfolioTopUpsCard />
+
+      {/* Proxy Agent Management — full-width entry point to the agent directory */}
+      <button
+        type="button"
+        onClick={() => onNavigate('proxy.directory')}
+        aria-label="Open Proxy Agent Management"
+        className="col-span-2 lg:col-span-3 group text-left w-full rounded-2xl border border-primary/30 bg-primary/5 p-4 transition-all hover:bg-primary/10 hover:shadow-md hover:ring-2 hover:ring-primary/20 active:scale-[0.98]"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-primary/10 p-2.5 text-primary">
+              <UserCog className="h-6 w-6" />
+            </div>
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-primary">Proxy Agent Management</span>
+              <p className="mt-0.5 text-sm font-medium text-muted-foreground">
+                {typeof proxyAgentCount === 'number'
+                  ? `${proxyAgentCount.toLocaleString()} approved agent${proxyAgentCount === 1 ? '' : 's'} · tap to manage`
+                  : 'Tap to open the agent directory'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-primary">
+            <span className="hidden text-xs font-semibold sm:inline">Open</span>
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </div>
+        </div>
+      </button>
     </div>
   );
 }
