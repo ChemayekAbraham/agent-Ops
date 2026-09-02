@@ -9,6 +9,7 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
 import {
+  AlertTriangle,
   ArrowDown,
   ArrowUp,
   ChevronLeft,
@@ -223,7 +224,14 @@ export function ProxyAgentPerformanceBoard() {
                   className="w-full border-b border-border/60 px-3 py-2.5 text-left last:border-0 hover:bg-muted/40 md:grid md:grid-cols-[1.6fr_repeat(5,1fr)_auto] md:items-center md:gap-3"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold">{r.name}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-sm font-bold">{r.name}</p>
+                      {r.total_pv === 0 && r.commitments === 0 && (
+                        <Badge variant="outline" className="shrink-0 border-warning/40 bg-warning/10 text-[9px] font-bold text-warning">
+                          No verified activity
+                        </Badge>
+                      )}
+                    </div>
                     <p className="truncate text-[10px] text-muted-foreground">
                       {r.phone || 'No phone'}{r.status ? ` · ${r.status}` : ''}
                     </p>
