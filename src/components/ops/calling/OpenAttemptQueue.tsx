@@ -27,8 +27,9 @@ export function OpenAttemptQueue({
           Open attempts
         </h3>
         <Badge variant={wipBlocked ? 'destructive' : 'secondary'}>
-          {openCount}/{wipLimit} open
+          {wipLimit == null ? `${openCount} open` : `${openCount} of ${wipLimit} open`}
         </Badge>
+
       </div>
 
       {wipBlocked && (
