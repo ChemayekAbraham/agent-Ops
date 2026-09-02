@@ -301,10 +301,6 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                   to you — no documents, no phone.
                 </li>
                 <li>
-                  <span className="font-medium text-foreground">Limit:</span> the phone price must be within the
-                  programme ceiling of UGX 1,000,000.
-                </li>
-                <li>
                   <span className="font-medium text-foreground">Supplier:</span> Welile pays the registered
                   supplier directly; you receive the phone, not cash.
                 </li>
