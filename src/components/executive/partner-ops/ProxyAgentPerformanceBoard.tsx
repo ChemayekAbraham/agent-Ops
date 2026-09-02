@@ -86,7 +86,7 @@ export function ProxyAgentPerformanceBoard() {
 
   const toggleSort = (key: ProxyPvSort) => {
     if (sort === key) setDir((d) => (d === 'desc' ? 'asc' : 'desc'));
-    else { setSort(key); setDir('desc'); }
+    else { setSort(key); setDir(key === 'name' ? 'asc' : 'desc'); }
     setPage(0);
   };
 
