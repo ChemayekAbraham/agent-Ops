@@ -724,11 +724,3 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
 </body></html>`;
 }
 
-/** Opens the report in a new tab and triggers the browser's print-to-PDF dialog. */
-export function openAgentOpsComprehensiveReport(html: string) {
-  const win = window.open('', '_blank');
-  if (!win) throw new Error('Pop-up blocked — allow pop-ups to open the report.');
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
-}
