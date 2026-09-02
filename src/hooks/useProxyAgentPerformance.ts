@@ -42,7 +42,10 @@ export interface ProxyPvReport {
   };
   today: {
     date: string;
+    /** False on rest days (Sunday) — daily target is zero then. */
+    is_working_day?: boolean;
     commitments: number;
+
     new_investment: number;
     topups: number;
     commitment_pv: number;

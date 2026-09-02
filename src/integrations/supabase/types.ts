@@ -48627,9 +48627,10 @@ export type Database = {
           total_pv: number
         }[]
       }
+      proxy_pv_is_working_day: { Args: { p_day: string }; Returns: boolean }
       proxy_pv_target_for: { Args: { p_month: string }; Returns: Json }
       proxy_pv_working_days_elapsed: {
-        Args: { p_month: string }
+        Args: { p_month?: string }
         Returns: number
       }
       psm_assert_no_foreign_booking: {

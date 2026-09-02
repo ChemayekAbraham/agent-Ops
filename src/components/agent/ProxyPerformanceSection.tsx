@@ -43,7 +43,7 @@ function DayRow({ d }: { d: ProxyPvDay }) {
           {d.is_working_day ? (
             <BandBadge pct={d.performance_pct} />
           ) : (
-            <span className="text-[10px] text-muted-foreground">Weekend</span>
+            <span className="text-[10px] text-muted-foreground">Rest day</span>
           )}
         </div>
       </div>
@@ -146,8 +146,15 @@ export function ProxyPerformanceSection({ agentId, month, hideHeading, className
             <div className="text-right shrink-0">
               <p className="text-[10px] text-muted-foreground">Daily target</p>
               <p className="text-xs font-bold tabular-nums">{money(r.today.target_pv)}</p>
-              <div className="mt-1 flex justify-end"><BandBadge pct={r.today.performance_pct} /></div>
+              <div className="mt-1 flex justify-end">
+                {r.today.is_working_day === false ? (
+                  <span className="text-[10px] text-muted-foreground">Rest day</span>
+                ) : (
+                  <BandBadge pct={r.today.performance_pct} />
+                )}
+              </div>
             </div>
+
           </div>
           <div className="grid grid-cols-3 gap-2 pt-1">
             {[
@@ -197,7 +204,7 @@ export function ProxyPerformanceSection({ agentId, month, hideHeading, className
         <CardContent className="p-4">
           <div className="flex items-center gap-2 pb-1">
             <CalendarDays className="h-4 w-4 text-primary" />
-            <p className="text-xs font-black">Daily history</p>
+            <p className="text-xs font-black">Daily history (working days)</p>
           </div>
           {days.length === 0 ? (
             <p className="py-3 text-[11px] text-muted-foreground">No PV recorded this month yet.</p>
