@@ -46324,6 +46324,10 @@ export type Database = {
         }[]
       }
       get_tenant_ops_acquisition: { Args: never; Returns: Json }
+      get_tenant_ops_acquisition_range: {
+        Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
       get_tenant_ops_agent_360: { Args: { p_agent_id: string }; Returns: Json }
       get_tenant_ops_geo_metrics: {
         Args: {
