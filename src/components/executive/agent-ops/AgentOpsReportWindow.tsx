@@ -526,13 +526,14 @@ function NarrativeSection({
 }
 
 
-function PriorPeriodCloseout({ data, granularity }: { data: AgentOpsReportWindowData; granularity: AgentOpsGranularity }) {
+function PriorPeriodCloseout({ data, granularity, canEdit }: { data: AgentOpsReportWindowData; granularity: AgentOpsGranularity; canEdit: boolean }) {
   const queryClient = useQueryClient();
   const [outcomes, setOutcomes] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [isCarrying, setIsCarrying] = useState(false);
-  const readOnly = data.report.status.toLowerCase() === 'submitted';
+  const readOnly = data.report.status.toLowerCase() === 'submitted' || !canEdit;
+
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['agent-ops-report-window', granularity] });
 
   const updateOutcome = async (action: AgentOpsReportAction) => {
