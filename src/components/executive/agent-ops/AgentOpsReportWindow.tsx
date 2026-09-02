@@ -139,8 +139,6 @@ function ZoneB({ data }: { data: AgentOpsReportWindowData; granularity: AgentOps
     },
   ];
 
-  const noteValid = noteDraft.trim().length >= 80;
-
   return (
     <section aria-labelledby="agent-ops-zone-b" className="space-y-3">
       <div>
