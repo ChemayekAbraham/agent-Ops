@@ -47167,6 +47167,48 @@ export type Database = {
         Args: { p_landlord_id: string }
         Returns: boolean
       }
+      landlord_agreement_history: {
+        Args: { p_landlord_id: string }
+        Returns: {
+          account_number: string
+          agreement_date: string
+          agreement_no: string
+          bank_name: string
+          bucket: string
+          created_at: string
+          electricity_meter_number: string
+          end_date: string
+          house_category: string
+          house_number: string
+          id: string
+          is_current: boolean
+          kind: string
+          landlord_name: string
+          landlord_phone: string
+          landlord_signature_name: string
+          landlord_signed_on: string
+          mobile_money_name: string
+          mobile_money_number: string
+          monthly_rent: number
+          nin: string
+          number_of_rooms: number
+          payment_day: number
+          payout_mode: string
+          property_address: string
+          sequence_no: number
+          signed_file_name: string
+          signed_file_path: string
+          start_date: string
+          status: string
+          uploaded_by: string
+          uploaded_by_name: string
+          water_meter_number: string
+          welile_signature_name: string
+          welile_signed_on: string
+          witness_name: string
+          witness_signed_on: string
+        }[]
+      }
       landlord_has_current_agreement: {
         Args: { p_landlord_id: string }
         Returns: boolean
