@@ -1044,12 +1044,12 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                   { label: 'Approved', value: format(new Date(reviewTarget.created_at), 'dd MMM yyyy') },
                   { label: 'Request reference', value: reviewTarget.id },
                 ].map(row => (
-                  <div key={row.label} className="flex items-start justify-between gap-3 px-3.5 py-2.5">
+                  <div key={row.label} className="flex items-start justify-between gap-3 px-3 py-2">
                     <span className="text-xs text-muted-foreground shrink-0">{row.label}</span>
                     <span className="font-medium text-right break-all">{row.value}</span>
                   </div>
                 ))}
-                <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                <div className="flex items-center justify-between gap-3 px-3 py-2">
                   <span className="text-xs text-muted-foreground">Payout to</span>
                   {reviewTarget.payout_target === 'landlord_wallet' ? (
                     <Badge className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border-emerald-200">
@@ -1064,7 +1064,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                   )}
                 </div>
                 {reviewTarget.partner_reserved_stage && (
-                  <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
+                  <div className="flex items-center justify-between gap-3 px-3 py-2">
                     <span className="text-xs text-muted-foreground">Partner status</span>
                     <Badge className="text-[10px] px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border-violet-200">
                       {PARTNER_RESERVED_LABEL[reviewTarget.partner_reserved_stage]}
