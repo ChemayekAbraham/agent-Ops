@@ -182,7 +182,7 @@ export async function getEmployees(): Promise<Employee[]> {
   const staff = unwrap(
     await supabase
       .from('hr_staff')
-      .select('id, user_id, staff_ref, active, created_at')
+      .select('id, user_id, staff_ref, active, created_at, ended_on')
       .order('created_at', { ascending: true }),
   ) as StaffRow[];
   return hydrateStaff(staff);
