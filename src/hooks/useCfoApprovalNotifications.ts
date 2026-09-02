@@ -17,7 +17,8 @@ import { supabase } from '@/integrations/supabase/client';
  *  - Merchant Float Requests: float_requests status 'pending'
  *  - Agent Requisitions: pending_wallet_operations category 'agent_requisition', status 'pending'
  *  - Partner Top-ups: pending_wallet_operations operation_type 'portfolio_topup', status 'pending'
- *  - Director / Employee Requisitions: status 'pending'
+ *  - Director Requisitions: status 'pending'
+ *  - Employee Requisitions: status 'pending' or 'pending_cfo' (COO-cleared)
  *  - Wallet Withdrawals: withdrawal_requests status 'pending'
  *
  * Each category is fetched as its own independent query: if one queue fails
@@ -171,8 +172,10 @@ const DEFINITIONS: CategoryDef[] = [
     title: 'Employee Requisitions Awaiting Approval',
     tabId: 'employee-requisitions',
     table: 'employee_requisitions',
+    // 'pending' = legacy single-stage flow; 'pending_cfo' = a COO-cleared row
+    // under the newer COO -> CFO flow. Both are awaiting a CFO decision.
     fetchCount: () =>
-      supabase.from('employee_requisitions').select('id', HEAD).eq('status', 'pending'),
+      supabase.from('employee_requisitions').select('id', HEAD).in('status', ['pending', 'pending_cfo']),
   },
   {
     // Staff requisitions (My Space -> department head -> COO -> CFO). Counts only
