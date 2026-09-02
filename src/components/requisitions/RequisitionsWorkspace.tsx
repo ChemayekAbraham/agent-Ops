@@ -14,15 +14,16 @@ const ManualRequisitionQueuePanel = lazy(() => import('@/components/financial-op
  * Manual public-link requests use a separate COO -> CFO queue.
  * Legacy director requisitions stay available read-only for history.
  */
-export function RequisitionsWorkspace() {
+export function RequisitionsWorkspace({ manualStage = 'coo' }: { manualStage?: 'coo' | 'cfo' } = {}) {
   const [showLegacy, setShowLegacy] = useState(false);
 
   return (
     <div className="space-y-5">
       <Suspense fallback={<Card className="p-4 text-sm text-muted-foreground">Loading manual requisitions…</Card>}>
-        <ManualRequisitionQueuePanel stage="coo" />
+        <ManualRequisitionQueuePanel stage={manualStage} />
       </Suspense>
       <StaffRequisitionQueue />
+
 
       <Card className="rounded-2xl p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
