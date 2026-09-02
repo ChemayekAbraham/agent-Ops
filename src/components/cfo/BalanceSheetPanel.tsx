@@ -147,7 +147,9 @@ function SubHeading({ children }: { children: React.ReactNode }) {
  * Any liability account not explicitly named falls through to "Other Payables"
  * so no balance can silently disappear from the statement.
  */
-function GroupRow({ group, showSources }: { group: BsGroup; showSources: boolean }) {
+function GroupRow({
+  group, showSources, components,
+}: { group: BsGroup; showSources: boolean; components?: PositionLine[] }) {
   const [open, setOpen] = useState(false);
   const expandable = showSources && group.lines.length > 0;
   return (
@@ -167,6 +169,20 @@ function GroupRow({ group, showSources }: { group: BsGroup; showSources: boolean
           {group.value < 0 ? `(${formatUGX(Math.abs(group.value))})` : formatUGX(group.value)}
         </span>
       </button>
+      {/* Component lines are part of the row's own presentation, so they show
+          regardless of the source toggle or the expand state. */}
+      {components && components.length > 0 && (
+        <div className="pb-1.5 pl-4 space-y-0.5">
+          {components.map(c => (
+            <p key={c.label} className="text-[11px] text-muted-foreground flex justify-between gap-3">
+              <span className="truncate">{c.label}</span>
+              <span className={cn('font-mono shrink-0', c.value < 0 ? 'text-destructive' : '')}>
+                {c.value < 0 ? `(${formatUGX(Math.abs(c.value))})` : formatUGX(c.value)}
+              </span>
+            </p>
+          ))}
+        </div>
+      )}
       {expandable && open && (
         <div className="pb-2 pl-4 space-y-0.5">
           {group.lines.map(l => (
@@ -271,11 +287,11 @@ export default function BalanceSheetPanel() {
     rows.push(['LIABILITIES', '']);
     (liabilityGroups?.standalone ?? []).forEach(g => rows.push([g.label, g.value]));
     rows.push(['Market Place Liabilities', '']);
-    marketplaceRows.forEach(g => rows.push(['   ' + g.label, g.value]));
+    marketplaceRows.forEach(g => {
+      rows.push(['   ' + g.label, g.value]);
+      (g.components ?? []).forEach(c => rows.push(['      ' + c.label, c.value]));
+    });
     rows.push(['Subtotal — Market Place Liabilities', liabilityGroups?.marketplaceTotal ?? 0]);
-    rows.push(['Partner and Agent Obligations', '']);
-    (liabilityGroups?.partner ?? []).forEach(g => rows.push(['   ' + g.label, g.value]));
-    rows.push(['Subtotal — Partner and Agent Obligations', liabilityGroups?.partnerTotal ?? 0]);
     if (liabilityGroups && hasFlagged(liabilityGroups.flagged)) {
       rows.push([liabilityGroups.flagged.label, liabilityGroups.flagged.value]);
       visibleFlaggedLines(liabilityGroups.flagged).forEach(l => rows.push(['   ' + l.label, l.value]));
@@ -392,11 +408,11 @@ export default function BalanceSheetPanel() {
       heading('Liabilities');
       (liabilityGroups?.standalone ?? []).forEach(g => row(g.label, g.value));
       heading('Market Place Liabilities');
-      marketplaceRows.forEach(g => row(g.label, g.value, g.subtotal));
+      marketplaceRows.forEach(g => {
+        row(g.label, g.value, g.subtotal);
+        (g.components ?? []).forEach(c => row('   ' + c.label, c.value));
+      });
       row('Subtotal — Market Place Liabilities', liabilityGroups?.marketplaceTotal ?? 0, true);
-      heading('Partner and Agent Obligations');
-      (liabilityGroups?.partner ?? []).forEach(g => row(g.label, g.value));
-      row('Subtotal — Partner and Agent Obligations', liabilityGroups?.partnerTotal ?? 0, true);
       flaggedRows(liabilityGroups?.flagged);
       row('TOTAL LIABILITIES', data.liabilities.total, true);
 
@@ -554,13 +570,10 @@ export default function BalanceSheetPanel() {
                 {marketplaceRows.map(g => (
                   g.subtotal
                     ? <TotalRow key={g.label} label={g.label} value={g.value} />
-                    : <GroupRow key={g.label} group={g} showSources={showSources} />
+                    : <GroupRow key={g.label} group={g} components={g.components} showSources={showSources} />
                 ))}
               </div>
               <TotalRow label="Subtotal — Market Place Liabilities" value={liabilityGroups?.marketplaceTotal ?? 0} />
-              <SubHeading>Partner and Agent Obligations</SubHeading>
-              <div>{liabilityGroups?.partner.map(g => <GroupRow key={g.label} group={g} showSources={showSources} />)}</div>
-              <TotalRow label="Subtotal — Partner and Agent Obligations" value={liabilityGroups?.partnerTotal ?? 0} />
               <FlaggedBlock group={liabilityGroups?.flagged} showSources={showSources} />
               <TotalRow label="Total Liabilities" value={data.liabilities.total} />
               <DriftNote drift={liabilityGroupDrift} of="Total Liabilities" />

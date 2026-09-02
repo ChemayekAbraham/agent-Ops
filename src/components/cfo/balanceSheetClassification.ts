@@ -97,26 +97,6 @@ export const STANDALONE_LIABILITY_CATEGORIES = [
 ] as const;
 
 /**
- * Obligations owed to partners and agents. These are real payables that do not
- * belong in Marketplace float, so they get their own block instead of being
- * left unclassified.
- *
- * L2 is partner capital held under rent-plan portfolios (partner_funding,
- * roi_reinvestment, supporter_facilitation_capital) — capital the company holds
- * and must eventually return, i.e. a non-current partner obligation.
- * L6 is money received from partners that has not yet been applied to a
- * portfolio (pending_portfolio_topup) — a short-term custody obligation.
- * L3 partner returns payable and L5 agent commission payable are accrued
- * payouts.
- */
-export const PARTNER_LIABILITY_CATEGORIES = [
-  'Partner Portfolio Capital Held',
-  'Partner Top-Ups Awaiting Application',
-  'Partner Returns Payable',
-  'Agent Commission Payable',
-] as const;
-
-/**
  * L4 is the landlord payable and L1 is withdrawable user wallet custody.
  *
  * L9 (suspense) stays unmapped by design — unresolved postings must remain
@@ -125,10 +105,14 @@ export const PARTNER_LIABILITY_CATEGORIES = [
 const LIABILITY_ACCOUNT_MAP: Record<string, string> = {
   L4: 'Landlord Float',
   L1: 'Withdrawal Balances',
-  L2: 'Partner Portfolio Capital Held',
-  L6: 'Partner Top-Ups Awaiting Application',
-  L3: 'Partner Returns Payable',
-  L5: 'Agent Commission Payable',
+  // Reported as component lines inside Landlord Float rather than as their own
+  // section. Their ledger accounts, balances and classifications are unchanged;
+  // only the heading they print under moves, and each still appears exactly
+  // once because a line can only land in one group.
+  L2: 'Landlord Float',
+  L6: 'Landlord Float',
+  L3: 'Landlord Float',
+  L5: 'Landlord Float',
 };
 
 /* ── Equity ────────────────────────────────────────────────────────────── */
@@ -211,7 +195,6 @@ export function classifyLiabilities(lines: PositionLine[]) {
   const all = [
     ...MARKETPLACE_LIABILITY_CATEGORIES,
     ...STANDALONE_LIABILITY_CATEGORIES,
-    ...PARTNER_LIABILITY_CATEGORIES,
   ];
   const { groups, flagged, total } = build(lines, all, l => {
     const code = accountCodeOf(l);
@@ -220,13 +203,10 @@ export function classifyLiabilities(lines: PositionLine[]) {
   const inList = (list: readonly string[], g: BsGroup) => list.includes(g.label);
   const marketplace = groups.filter(g => inList(MARKETPLACE_LIABILITY_CATEGORIES, g));
   const standalone = groups.filter(g => inList(STANDALONE_LIABILITY_CATEGORIES, g));
-  const partner = groups.filter(g => inList(PARTNER_LIABILITY_CATEGORIES, g));
   return {
     marketplace,
     marketplaceTotal: marketplace.reduce((t, g) => t + g.value, 0),
     standalone,
-    partner,
-    partnerTotal: partner.reduce((t, g) => t + g.value, 0),
     flagged,
     total,
   };
@@ -245,8 +225,30 @@ export interface LandlordFloatSplit {
   company_managed: number;
 }
 
+/**
+ * The four partner/agent obligation accounts, presented as component lines
+ * inside Landlord Float — Company Managed instead of under a section of their
+ * own. Presentation only: the ledger accounts, balances, classifications and
+ * posting logic are untouched, and each balance is still reported exactly once
+ * because a line can only land in one group.
+ *
+ * Labels are the reporting names for these accounts; the catalog names them
+ * "Partner Portfolios — Capital Held" (L2) and "Partner Returns / Rewards
+ * Payable" (L3).
+ */
+export const LANDLORD_FLOAT_COMPONENT_ACCOUNTS: { code: string; label: string }[] = [
+  { code: 'L2', label: 'Partner Portfolio Capital Held' },
+  { code: 'L6', label: 'Partner Top-Ups Awaiting Application' },
+  { code: 'L3', label: 'Partner Returns Payable' },
+  { code: 'L5', label: 'Agent Commission Payable' },
+];
+
 /** A marketplace row for rendering: a normal group, or a subtotal line. */
-export type MarketplaceRow = BsGroup & { subtotal?: boolean };
+export type MarketplaceRow = BsGroup & {
+  subtotal?: boolean;
+  /** Indented component lines printed under this row. */
+  components?: PositionLine[];
+};
 
 /**
  * Presentation only: shows the existing Landlord Float as Company Managed vs
@@ -257,18 +259,52 @@ export type MarketplaceRow = BsGroup & { subtotal?: boolean };
  * measured on the ledger is applied proportionally to it and the company figure
  * is the residual, so the two lines always foot to the existing total exactly.
  * With no split available the original single line is returned untouched.
+ *
+ * The partner/agent obligation accounts (see LANDLORD_FLOAT_COMPONENT_ACCOUNTS)
+ * are company-managed by definition, so they attach whole to the company line
+ * and are excluded from the self-managed proportion — applying a landlord
+ * management ratio to partner capital would allocate it to landlords who do not
+ * hold it. Company + Self still foot to the group total exactly.
  */
 export function expandLandlordFloat(
   marketplace: BsGroup[],
   split: LandlordFloatSplit | null | undefined,
 ): MarketplaceRow[] {
+  const componentCodes = new Set(LANDLORD_FLOAT_COMPONENT_ACCOUNTS.map(c => c.code));
+
   return marketplace.flatMap((g): MarketplaceRow[] => {
     if (g.label !== LANDLORD_FLOAT_LABEL) return [g];
+
+    const isComponent = (l: PositionLine) => {
+      const code = accountCodeOf(l);
+      return code !== null && componentCodes.has(code);
+    };
+    const componentLines = g.lines.filter(isComponent);
+    const floatLines = g.lines.filter(l => !isComponent(l));
+
+    // Only the landlord payable itself carries a company/self split; the
+    // component accounts sit wholly on the company side.
+    const componentTotal = componentLines.reduce((t, l) => t + l.value, 0);
+    const floatValue = g.value - componentTotal;
     const share = split && split.total !== 0 ? split.self_managed / split.total : 0;
-    const self = Math.round(g.value * share);
+    const self = Math.round(floatValue * share);
     const company = g.value - self;
+
+    // Every requested component renders even with no ledger balance behind it,
+    // so a zero reads as zero rather than as an omission.
+    const components: PositionLine[] = LANDLORD_FLOAT_COMPONENT_ACCOUNTS.map(({ code, label }) => {
+      const line = componentLines.find(l => accountCodeOf(l) === code);
+      return { label, value: line?.value ?? 0, source: line?.source };
+    });
+
     return [
-      { ...g, label: LANDLORD_FLOAT_COMPANY_LABEL, value: company },
+      {
+        ...g,
+        label: LANDLORD_FLOAT_COMPANY_LABEL,
+        value: company,
+        lines: [...floatLines, ...componentLines],
+        components,
+      },
       { ...g, label: LANDLORD_FLOAT_SELF_LABEL, value: self, lines: [] },
       { label: LANDLORD_FLOAT_TOTAL_LABEL, value: g.value, lines: [], subtotal: true },
     ];
