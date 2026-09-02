@@ -200,7 +200,7 @@ function ZoneB({ data, granularity }: { data: AgentOpsReportWindowData; granular
         <CardContent className="space-y-4 p-4 pt-0">
           {/* B1 responsive stacking: single row from 768px up, stacked column below it, never horizontally scrollable */}
           <div className="flex flex-col gap-3 md:flex-row md:items-stretch md:gap-2">
-            {stages.map((stage, index) => (
+            {stages.map((stage) => (
               <div key={stage.key} className="flex flex-1 flex-col gap-3 md:flex-row md:items-center">
                 <div className="min-w-0 flex-1 rounded-xl border border-border bg-muted/40 p-3">
                   <p className="text-xs font-medium text-muted-foreground">{stage.label}</p>
@@ -209,7 +209,6 @@ function ZoneB({ data, granularity }: { data: AgentOpsReportWindowData; granular
                 </div>
                 <ArrowRight className="hidden h-4 w-4 shrink-0 text-muted-foreground md:block" aria-hidden="true" />
                 <ArrowDown className="h-4 w-4 shrink-0 self-center text-muted-foreground md:hidden" aria-hidden="true" />
-                {index === -1 && null}
               </div>
             ))}
             <div className="min-w-0 flex-1 rounded-xl border border-primary/30 bg-primary/5 p-3">
@@ -530,6 +529,8 @@ export function AgentOpsReportWindow() {
           </Card>
         </div>
       </section>
+
+      <ZoneB data={data} granularity={granularity} />
     </div>
   );
 }
