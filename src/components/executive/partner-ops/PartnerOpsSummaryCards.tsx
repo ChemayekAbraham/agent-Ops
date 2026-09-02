@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { Users, Wallet, CalendarDays, Hourglass } from 'lucide-react';
+import { Users, Wallet, CalendarDays, Hourglass, UserCog, ArrowRight } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import { fetchSupporterSummary, fetchAllNearingPayoutPortfolios } from '@/lib/supabaseBatchUtils';
