@@ -32,10 +32,11 @@ export const QUICK_OUTCOMES: { value: Exclude<CcOutcome, 'engaged' | 'callback_b
 ];
 
 /**
- * Fallback only. The real limit lives on cc_call_cycles.wip_limit so ops can
- * tune it per cycle; the DB guard reads the same column.
+ * The open-attempt limit is never hardcoded on the client. It lives on
+ * cc_call_cycles.wip_limit, which the DB guard reads too. Until it loads the
+ * client must not block reveals — the DB guard is the authority.
  */
-export const OPEN_ATTEMPT_LIMIT = 10;
+
 /** Minimum characters the engaged note must carry (mirrors the DB guard). */
 export const CC_NOTE_MIN_LENGTH = 20;
 export const CC_PAGE_SIZE = 50;
@@ -438,9 +439,12 @@ export function useCcCallingHub(
   });
 
   const openCount = openAttemptsQ.data?.length ?? 0;
-  /** Per-cycle work-in-progress cap, set by ops; falls back until the cycle loads. */
-  const wipLimit = cycleQ.data?.wip_limit ?? OPEN_ATTEMPT_LIMIT;
-  const wipBlocked = openCount >= wipLimit;
+  /** Per-cycle work-in-progress cap, set by ops. Null until the cycle loads. */
+  const wipLimit: number | null =
+    typeof cycleQ.data?.wip_limit === 'number' ? cycleQ.data.wip_limit : null;
+  /** Never block while the limit is unknown — the DB guard refuses if needed. */
+  const wipBlocked = wipLimit != null && openCount >= wipLimit;
+
 
   /* ------------------------------------------------------------ reference */
   const categoriesQ = useQuery({

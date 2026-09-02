@@ -54,8 +54,9 @@ export function MobileCallBar({
               </Badge>
             )}
             <Badge variant={hub.wipBlocked ? 'destructive' : 'secondary'}>
-              {hub.openCount} of {hub.wipLimit} open
+              {hub.wipLimit == null ? `${hub.openCount} open` : `${hub.openCount} of ${hub.wipLimit} open`}
             </Badge>
+
           </span>
         </button>
       </div>

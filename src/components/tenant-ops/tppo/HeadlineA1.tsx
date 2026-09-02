@@ -27,7 +27,7 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
   const atOrAbove = hasRate && below === false;
 
   return (
-    <section aria-label="A1 headline" className="rounded-lg border border-border bg-card p-4">
+    <section aria-label="A1 headline" className="rounded-xl border border-primary/25 bg-primary/5 p-4 shadow-sm">
       <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3 sm:gap-y-1">
         <span className="break-words text-2xl font-semibold tabular-nums text-foreground">
           {collected === null ? '—' : formatUGX(collected)}

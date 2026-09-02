@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils';
 import { TreasuryImpactBanner } from './TreasuryImpactBanner';
 import { useAuth } from '@/hooks/useAuth';
 import { UserDrilldownDrawer } from '@/components/ops/UserDrilldownDrawer';
+import { LandlordAgreementHistory } from '@/components/landlord/agreement';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(n);
@@ -1092,6 +1093,14 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
 
               {/* Tenant status first: renewal vs new tenant, with existing payment history */}
               <TenantPaymentHistoryCard tenantId={reviewTarget.tenant_id} currentRequestId={reviewTarget.id} />
+              <LandlordAgreementHistory
+                landlordId={reviewTarget.landlord_id}
+                landlordName={reviewTarget.landlord_name}
+                landlordPhone=""
+                canAdd={false}
+              />
+
+            
 
 
 

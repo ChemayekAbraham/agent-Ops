@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { BarChart3, CalendarRange, CheckCircle2, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PeriodToggle, type TppoGranularity } from '@/components/tenant-ops/tppo/PeriodToggle';
 import { HeadlineA1 } from '@/components/tenant-ops/tppo/HeadlineA1';
@@ -218,85 +219,108 @@ export default function PortfolioPerformanceReport() {
 
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-6 overflow-x-hidden px-3 pb-28 pt-4 sm:p-4 md:p-8">
-      <PeriodToggle value={granularity} onChange={setGranularity} />
+    <div className="w-full space-y-4 overflow-x-hidden pb-28 pt-1 sm:space-y-5">
+      <div className="flex flex-col gap-3 border-b border-border/60 pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-primary">
+            <BarChart3 className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <p className="text-[11px] font-semibold uppercase tracking-wider">Portfolio reporting</p>
+          </div>
+          <h1 className="mt-1 text-xl font-bold tracking-tight text-foreground sm:text-2xl">Portfolio Performance</h1>
+          <p className="mt-1 max-w-2xl text-xs text-muted-foreground sm:text-sm">
+            Collections and rent requests across the selected reporting period.
+          </p>
+        </div>
+        <PeriodToggle value={granularity} onChange={setGranularity} />
+      </div>
 
-      <Card>
-        <CardHeader className="space-y-2">
-          <CardTitle className="text-xl font-semibold tracking-wide">
-            PERFORMANCE REPORT
-          </CardTitle>
-          {isLoading ? (
-            <Skeleton className="h-5 w-72" />
-          ) : (
-            <div className="space-y-1 text-sm">
-              <p className="text-foreground">
-                {periodInWords(granularity, data?.period_start ?? null, data?.period_end ?? null)}
-              </p>
-              <p className="font-medium text-foreground">{verdict}</p>
-              <p className="text-muted-foreground">{status}</p>
+      <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5" aria-labelledby="portfolio-period-heading">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="rounded-lg bg-primary/10 p-2 text-primary">
+              <CalendarRange className="h-5 w-5" aria-hidden="true" />
             </div>
-          )}
-          {isError && (
-            <p className="text-sm text-destructive">
-              Could not load this period: {(error as Error)?.message ?? 'unknown error'}
-            </p>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <HeadlineA1 report={data} />
-          <VarianceA2 report={data} />
-          <ProjectionA3 granularity={granularity} anchor={anchor} />
-          <NarrativeCollections
-            granularity={granularity}
-            submitted={submitted}
-            note={note}
-            onNoteChange={(value) => setNoteDrafts((prev) => ({ ...prev, [draftKey]: value }))}
-            priorNote={narrative.data?.priorNote ?? null}
-            submittedNote={narrative.data?.submittedNote ?? null}
-            actions={actions}
-            onActionsChange={(next) =>
-              setActionDrafts((prev) => ({ ...prev, [draftKey]: next }))
-            }
-            submittedActions={narrative.data?.submittedActions ?? []}
-          />
-          <CarriedActions
-            submitted={submitted}
-            rows={carriedRows}
-            closeOuts={closeOuts}
-            onChange={(id, patch) =>
-              setCloseOutDrafts((prev) => {
-                const forPeriod = prev[draftKey] ?? {};
-                const existing = forPeriod[id] ?? { outcome: null, result: '' };
-                return {
-                  ...prev,
-                  [draftKey]: { ...forPeriod, [id]: { ...existing, ...patch } },
-                };
-              })
-            }
-          />
-          <SubmitGate
-            granularity={granularity}
-            anchor={anchor}
-            periodStart={periodStart}
-            periodEnd={periodEnd}
-            reportId={reportId}
-            submitted={submitted}
-            state={{
-              note,
-              priorNote: narrative.data?.priorNote ?? null,
-              actions,
-              carriedRows,
-              closeOuts,
-            }}
-            onSubmitted={() => {
-              void queryClient.invalidateQueries({ queryKey: ['tppo-report-zone-a'] });
-              void queryClient.invalidateQueries({ queryKey: ['tppo-narrative-collections'] });
-            }}
-          />
+            <div className="min-w-0">
+              <h2 id="portfolio-period-heading" className="text-sm font-semibold text-foreground">Reporting period</h2>
+              {isLoading ? (
+                <Skeleton className="mt-2 h-5 w-72 max-w-full" />
+              ) : (
+                <p className="mt-1 break-words text-sm text-foreground">
+                  {periodInWords(granularity, data?.period_start ?? null, data?.period_end ?? null)}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <Badge variant={verdict === 'BELOW THRESHOLD' ? 'destructive' : 'secondary'}>{verdict}</Badge>
+            <span className="inline-flex items-center gap-1 text-muted-foreground">
+              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> {status}
+            </span>
+          </div>
+        </div>
+        {isError && (
+          <p className="mt-3 text-sm text-destructive">
+            Could not load this period: {(error as Error)?.message ?? 'unknown error'}
+          </p>
+        )}
+      </section>
 
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <HeadlineA1 report={data} />
+        <VarianceA2 report={data} />
+      </div>
+
+      <ProjectionA3 granularity={granularity} anchor={anchor} />
+
+      <div className="flex items-center gap-2 border-b border-border/60 pb-2 pt-1">
+        <FileText className="h-4 w-4 text-primary" aria-hidden="true" />
+        <h2 className="text-sm font-bold text-foreground">Management narrative and actions</h2>
+      </div>
+      <NarrativeCollections
+        granularity={granularity}
+        submitted={submitted}
+        note={note}
+        onNoteChange={(value) => setNoteDrafts((prev) => ({ ...prev, [draftKey]: value }))}
+        priorNote={narrative.data?.priorNote ?? null}
+        submittedNote={narrative.data?.submittedNote ?? null}
+        actions={actions}
+        onActionsChange={(next) => setActionDrafts((prev) => ({ ...prev, [draftKey]: next }))}
+        submittedActions={narrative.data?.submittedActions ?? []}
+      />
+      <CarriedActions
+        submitted={submitted}
+        rows={carriedRows}
+        closeOuts={closeOuts}
+        onChange={(id, patch) =>
+          setCloseOutDrafts((prev) => {
+            const forPeriod = prev[draftKey] ?? {};
+            const existing = forPeriod[id] ?? { outcome: null, result: '' };
+            return {
+              ...prev,
+              [draftKey]: { ...forPeriod, [id]: { ...existing, ...patch } },
+            };
+          })
+        }
+      />
+      <SubmitGate
+        granularity={granularity}
+        anchor={anchor}
+        periodStart={periodStart}
+        periodEnd={periodEnd}
+        reportId={reportId}
+        submitted={submitted}
+        state={{
+          note,
+          priorNote: narrative.data?.priorNote ?? null,
+          actions,
+          carriedRows,
+          closeOuts,
+        }}
+        onSubmitted={() => {
+          void queryClient.invalidateQueries({ queryKey: ['tppo-report-zone-a'] });
+          void queryClient.invalidateQueries({ queryKey: ['tppo-narrative-collections'] });
+        }}
+      />
     </div>
   );
 }

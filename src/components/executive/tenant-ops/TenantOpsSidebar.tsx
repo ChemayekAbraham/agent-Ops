@@ -10,7 +10,7 @@ import {
 } from './tenantOpsNav';
 
 interface Props {
-  active: TenantOpsViewKey;
+  active: TenantOpsViewKey | TenantOpsActionKey;
   onSelect: (key: TenantOpsViewKey | TenantOpsActionKey) => void;
   badges?: Partial<Record<string, number>>;
   className?: string;

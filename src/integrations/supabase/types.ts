@@ -4052,6 +4052,478 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_ops_district_snapshots: {
+        Row: {
+          active_agents_30d: number
+          agent_count: number
+          created_at: string
+          district_id: number | null
+          id: string
+          net_change: number
+          snapshot_id: string
+          subcounty_id: number | null
+        }
+        Insert: {
+          active_agents_30d?: number
+          agent_count?: number
+          created_at?: string
+          district_id?: number | null
+          id?: string
+          net_change?: number
+          snapshot_id: string
+          subcounty_id?: number | null
+        }
+        Update: {
+          active_agents_30d?: number
+          agent_count?: number
+          created_at?: string
+          district_id?: number | null
+          id?: string
+          net_change?: number
+          snapshot_id?: string
+          subcounty_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_ops_district_snapshots_district_id_fkey"
+            columns: ["district_id"]
+            isOneToOne: false
+            referencedRelation: "mv_ug_district_alias"
+            referencedColumns: ["district_id"]
+          },
+          {
+            foreignKeyName: "agent_ops_district_snapshots_district_id_fkey"
+            columns: ["district_id"]
+            isOneToOne: false
+            referencedRelation: "mv_ug_subcounty_alias"
+            referencedColumns: ["district_id"]
+          },
+          {
+            foreignKeyName: "agent_ops_district_snapshots_district_id_fkey"
+            columns: ["district_id"]
+            isOneToOne: false
+            referencedRelation: "mv_ug_village_geo"
+            referencedColumns: ["district_id"]
+          },
+          {
+            foreignKeyName: "agent_ops_district_snapshots_district_id_fkey"
+            columns: ["district_id"]
+            isOneToOne: false
+            referencedRelation: "ug_districts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_ops_district_snapshots_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "agent_ops_period_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_ops_district_snapshots_subcounty_id_fkey"
+            columns: ["subcounty_id"]
+            isOneToOne: false
+            referencedRelation: "mv_ug_subcounty_alias"
+            referencedColumns: ["subcounty_id"]
+          },
+          {
+            foreignKeyName: "agent_ops_district_snapshots_subcounty_id_fkey"
+            columns: ["subcounty_id"]
+            isOneToOne: false
+            referencedRelation: "mv_ug_village_geo"
+            referencedColumns: ["subcounty_id"]
+          },
+          {
+            foreignKeyName: "agent_ops_district_snapshots_subcounty_id_fkey"
+            columns: ["subcounty_id"]
+            isOneToOne: false
+            referencedRelation: "ug_subcounties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_ops_district_snapshots_subcounty_id_fkey"
+            columns: ["subcounty_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_landlord_base"
+            referencedColumns: ["subcounty_id"]
+          },
+          {
+            foreignKeyName: "agent_ops_district_snapshots_subcounty_id_fkey"
+            columns: ["subcounty_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["subcounty_id"]
+          },
+        ]
+      }
+      agent_ops_period_snapshots: {
+        Row: {
+          active_agents_30d: number
+          basis: Json
+          centres_closed: number
+          centres_opened: number
+          centres_opening: number
+          closing_agents: number
+          computed_at: string
+          converted_in_period: number
+          created_at: string
+          frozen_at: string | null
+          granularity: string
+          id: string
+          new_agents: number
+          opening_agents: number
+          period_end: string
+          period_start: string
+          provisional: boolean
+          qualified_at_open: number
+          removed_agents: number
+          stage_onboarded: number
+          stage_qualified: number
+          stage_training: number
+        }
+        Insert: {
+          active_agents_30d?: number
+          basis?: Json
+          centres_closed?: number
+          centres_opened?: number
+          centres_opening?: number
+          closing_agents?: number
+          computed_at?: string
+          converted_in_period?: number
+          created_at?: string
+          frozen_at?: string | null
+          granularity: string
+          id?: string
+          new_agents?: number
+          opening_agents?: number
+          period_end: string
+          period_start: string
+          provisional?: boolean
+          qualified_at_open?: number
+          removed_agents?: number
+          stage_onboarded?: number
+          stage_qualified?: number
+          stage_training?: number
+        }
+        Update: {
+          active_agents_30d?: number
+          basis?: Json
+          centres_closed?: number
+          centres_opened?: number
+          centres_opening?: number
+          closing_agents?: number
+          computed_at?: string
+          converted_in_period?: number
+          created_at?: string
+          frozen_at?: string | null
+          granularity?: string
+          id?: string
+          new_agents?: number
+          opening_agents?: number
+          period_end?: string
+          period_start?: string
+          provisional?: boolean
+          qualified_at_open?: number
+          removed_agents?: number
+          stage_onboarded?: number
+          stage_qualified?: number
+          stage_training?: number
+        }
+        Relationships: []
+      }
+      agent_ops_period_targets: {
+        Row: {
+          created_at: string
+          granularity: string
+          id: string
+          note: string | null
+          period_start: string
+          set_by: string | null
+          target_net_agents: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          granularity: string
+          id?: string
+          note?: string | null
+          period_start: string
+          set_by?: string | null
+          target_net_agents?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          granularity?: string
+          id?: string
+          note?: string | null
+          period_start?: string
+          set_by?: string | null
+          target_net_agents?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      agent_ops_pipeline_stage_events: {
+        Row: {
+          agent_profile_id: string
+          created_at: string
+          entered_at: string
+          id: string
+          note: string | null
+          set_by: string
+          stage: string
+        }
+        Insert: {
+          agent_profile_id: string
+          created_at?: string
+          entered_at?: string
+          id?: string
+          note?: string | null
+          set_by?: string
+          stage: string
+        }
+        Update: {
+          agent_profile_id?: string
+          created_at?: string
+          entered_at?: string
+          id?: string
+          note?: string | null
+          set_by?: string
+          stage?: string
+        }
+        Relationships: []
+      }
+      agent_ops_recruiter_exclusions: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          profile_id: string
+          reason: string | null
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          profile_id: string
+          reason?: string | null
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          profile_id?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
+      agent_ops_report_actions: {
+        Row: {
+          carried_from_action_id: string | null
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          created_by: string
+          due_date: string
+          id: string
+          item_text: string
+          outcome: string | null
+          outcome_note: string | null
+          owner_label: string | null
+          owner_staff_id: string | null
+          report_id: string
+          reviewer_notified_at: string | null
+          zone: string
+        }
+        Insert: {
+          carried_from_action_id?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          created_by?: string
+          due_date: string
+          id?: string
+          item_text: string
+          outcome?: string | null
+          outcome_note?: string | null
+          owner_label?: string | null
+          owner_staff_id?: string | null
+          report_id: string
+          reviewer_notified_at?: string | null
+          zone: string
+        }
+        Update: {
+          carried_from_action_id?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          created_by?: string
+          due_date?: string
+          id?: string
+          item_text?: string
+          outcome?: string | null
+          outcome_note?: string | null
+          owner_label?: string | null
+          owner_staff_id?: string | null
+          report_id?: string
+          reviewer_notified_at?: string | null
+          zone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_ops_report_actions_carried_from_action_id_fkey"
+            columns: ["carried_from_action_id"]
+            isOneToOne: false
+            referencedRelation: "agent_ops_report_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_ops_report_actions_owner_staff_id_fkey"
+            columns: ["owner_staff_id"]
+            isOneToOne: false
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_ops_report_actions_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "agent_ops_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_ops_report_addenda: {
+        Row: {
+          addendum_text: string
+          created_at: string
+          created_by: string
+          id: string
+          report_id: string
+          zone: string
+        }
+        Insert: {
+          addendum_text: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          report_id: string
+          zone: string
+        }
+        Update: {
+          addendum_text?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          report_id?: string
+          zone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_ops_report_addenda_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "agent_ops_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_ops_report_notes: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          reason_note: string
+          report_id: string
+          zone: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          reason_note: string
+          report_id: string
+          zone: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          reason_note?: string
+          report_id?: string
+          zone?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_ops_report_notes_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "agent_ops_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_ops_reports: {
+        Row: {
+          created_at: string
+          created_by: string
+          granularity: string
+          id: string
+          period_end: string
+          period_start: string
+          prior_snapshot_id: string | null
+          snapshot_id: string
+          status: string
+          submitted_at: string | null
+          submitted_by: string | null
+          target_net_agents: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          granularity: string
+          id?: string
+          period_end: string
+          period_start: string
+          prior_snapshot_id?: string | null
+          snapshot_id: string
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          target_net_agents?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          granularity?: string
+          id?: string
+          period_end?: string
+          period_start?: string
+          prior_snapshot_id?: string | null
+          snapshot_id?: string
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string | null
+          target_net_agents?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_ops_reports_prior_snapshot_id_fkey"
+            columns: ["prior_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "agent_ops_period_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_ops_reports_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "agent_ops_period_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_ops_service_centre_targets: {
         Row: {
           created_at: string

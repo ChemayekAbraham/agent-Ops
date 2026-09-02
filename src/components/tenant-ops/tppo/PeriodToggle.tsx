@@ -18,7 +18,7 @@ export function PeriodToggle({ value, onChange }: PeriodToggleProps) {
     <div
       role="radiogroup"
       aria-label="Reporting period"
-      className="flex w-full max-w-md items-stretch rounded-lg border border-border bg-muted p-1 sm:inline-flex sm:items-center"
+      className="flex w-full max-w-md items-stretch rounded-xl border border-border bg-muted/70 p-1 shadow-sm sm:inline-flex sm:items-center"
     >
       {OPTIONS.map((option) => {
         const selected = option.value === value;

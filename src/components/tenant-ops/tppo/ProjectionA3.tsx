@@ -52,7 +52,7 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
   const rowSum = periods.reduce((sum, period) => sum + (period.projected_ugx ?? 0), 0);
 
   return (
-    <section aria-label="A3 projection" className="rounded-lg border border-border bg-card p-4">
+    <section aria-label="A3 projection" className="rounded-xl border border-border bg-card p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Projection
