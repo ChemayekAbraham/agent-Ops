@@ -109,12 +109,41 @@ export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading
       {!hideHeading && (
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-black">Performance Value (PV)</h2>
+          <h2 className="text-sm font-black">Your Performance Score</h2>
           <Badge variant="outline" className="ml-auto text-[10px]">
             {new Date(`${r.period_month}T00:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
           </Badge>
         </div>
       )}
+
+      {/* How your score is worked out — the formula, always visible */}
+      <Card className="border-primary/40 bg-primary/5">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-2 text-primary">
+            <Sparkles className="h-4 w-4 shrink-0" />
+            <p className="text-xs font-black uppercase tracking-wider">How your score is worked out</p>
+          </div>
+          <div className="space-y-2">
+            {[
+              ['Each verified commitment', `${money(r.rates.commitment_pv)} points`],
+              ['Each new partner investment', `${r.rates.investment_pct}% of the amount`],
+              ['Each partner top-up', `${r.rates.topup_pct}% of the amount`],
+            ].map(([what, earns]) => (
+              <div key={what} className="flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-background px-3 py-2.5">
+                <span className="text-xs font-medium">{what}</span>
+                <span className="text-xs font-black text-primary tabular-nums shrink-0">{earns}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            <span className="font-semibold text-foreground">What the company expects:</span>{' '}
+            {money(r.targets.monthly_pv_target)} points per month, spread over{' '}
+            {r.targets.working_days} working days — about{' '}
+            <span className="font-semibold text-foreground">{money(r.today.target_pv)} points each working day</span>.
+            Only verified activity counts.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Ambiguous attribution warning */}
       {dq && dq.is_approved_proxy === false && (
