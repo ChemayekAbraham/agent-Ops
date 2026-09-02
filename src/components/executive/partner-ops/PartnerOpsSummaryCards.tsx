@@ -116,9 +116,6 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
   const hasExpiring = expiringCount > 0;
   const soonest = derived?.soonestExpiry ?? null;
   const [inviteOpen, setInviteOpen] = useState(false);
-  const proxyTotal = proxyStatus
-    ? proxyStatus.counts.approved + proxyStatus.counts.pending + proxyStatus.counts.rejected + proxyStatus.counts.suspended + proxyStatus.counts.other
-    : 0;
 
   const { data: proxyStatus, isLoading: proxyStatusLoading } = useQuery({
     queryKey: ['partner-ops-proxy-agents-status-breakdown'],
@@ -143,6 +140,10 @@ export function PartnerOpsSummaryCards({ onNavigate }: { onNavigate: (v: Partner
     },
     staleTime: 60_000,
   });
+
+  const proxyTotal = proxyStatus
+    ? proxyStatus.counts.approved + proxyStatus.counts.pending + proxyStatus.counts.rejected + proxyStatus.counts.suspended + proxyStatus.counts.other
+    : 0;
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
