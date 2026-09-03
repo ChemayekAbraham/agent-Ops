@@ -203,6 +203,8 @@ const APPROVED_STATUS_LIST = [
 export function AgentOpsPipelineHub() {
   const { data: counts } = useQuery({
     queryKey: ['pipeline-counts'],
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async () => {
       const [tenants, notes, landlordsData, approved, rejected] = await Promise.all([
         supabase.from('rent_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
@@ -211,7 +213,7 @@ export function AgentOpsPipelineHub() {
         supabase
           .from('rent_requests')
           .select('id', { count: 'exact', head: true })
-          .or(`agent_verified.eq.true,agent_verified_at.not.is.null,agent_ops_reviewed_at.not.is.null,status.in.(${APPROVED_STATUS_LIST.map((s) => `"${s}"`).join(',')})`)
+          .or('status.neq.pending,agent_verified.eq.true,agent_verified_at.not.is.null,agent_ops_reviewed_at.not.is.null')
           .neq('status', 'rejected')
           .neq('status', 'cancelled'),
         supabase.from('rent_requests').select('id', { count: 'exact', head: true }).eq('status', 'rejected'),

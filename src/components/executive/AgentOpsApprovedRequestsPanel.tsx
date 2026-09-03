@@ -111,6 +111,8 @@ export function AgentOpsApprovedRequestsPanel() {
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ['agent-ops-approved-requests'],
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async (): Promise<ApprovedRow[]> => {
       // Pull requests from the unified pipeline using Tenant Ops data sources
       const PAGE = 1000;
@@ -121,7 +123,7 @@ export function AgentOpsApprovedRequestsPanel() {
           .select(
             'id, status, tenancy_status, registration_type, rent_amount, daily_repayment, duration_days, total_repayment, amount_repaid, access_fee, request_fee, created_at, approved_at, funded_at, disbursed_at, resubmitted_at, returned_at, agent_verified, agent_verified_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, partner_ops_reviewed_at, coo_reviewed_at, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, approval_comment, payout_transaction_reference, tenant_id, agent_id, assigned_agent_id, landlord_id, house_listing_id, request_city',
           )
-          .or(`agent_verified.eq.true,agent_verified_at.not.is.null,agent_ops_reviewed_at.not.is.null,status.in.(${APPROVED_STATUSES.join(',')})`)
+          .or('status.neq.pending,agent_verified.eq.true,agent_verified_at.not.is.null,agent_ops_reviewed_at.not.is.null')
           .neq('status', 'rejected')
           .neq('status', 'cancelled')
           .order('created_at', { ascending: false })
@@ -377,7 +379,7 @@ export function AgentOpsApprovedRequestsPanel() {
                 </div>
               )}
 
-              <div className="flex items-center gap-3 pt-1 border-t text-[11px] text-muted-foreground font-mono">
+              <div className="flex items-center gap-3 pt-1 border-t text-[11px] text-muted-foreground font-mono flex-wrap">
                 <span className="inline-flex items-center gap-1 font-sans">
                   <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
                   Approved{' '}
@@ -386,6 +388,10 @@ export function AgentOpsApprovedRequestsPanel() {
                 <span className="inline-flex items-center gap-1 font-sans">
                   <Calendar className="h-3 w-3 shrink-0" />
                   Submitted <span className="font-mono">{format(new Date(r.created_at), 'dd MMM yyyy, HH:mm')}</span>
+                </span>
+                <span className="inline-flex items-center gap-1 font-sans text-muted-foreground">
+                  <Clock className="h-3 w-3 shrink-0" />
+                  Expiry Date <span className="font-mono">{format(new Date(new Date(r.created_at).getTime() + 30 * 24 * 60 * 60 * 1000), 'dd MMM yyyy, HH:mm')}</span>
                 </span>
               </div>
             </CardContent>
