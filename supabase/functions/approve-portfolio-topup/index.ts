@@ -399,8 +399,10 @@ Deno.serve(async (req) => {
     // Partnership Top-Up email — target = partner (not the FinOps actor)
     if (partnerId) {
       try {
-        const { data: partnerEmailRow } = await supabase
-          .from("profiles").select("email, full_name").eq("id", partnerId).maybeSingle();
+        const [{ data: partnerEmailRow }, { data: reviewerProfile }] = await Promise.all([
+          supabase.from("profiles").select("email, full_name").eq("id", partnerId).maybeSingle(),
+          supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
+        ]);
         if (partnerEmailRow?.email) {
           // Use the portfolio's ACTUAL capital (which includes any compounded
           // returns) as the "previous value" so the email total matches the
@@ -419,6 +421,12 @@ Deno.serve(async (req) => {
               previousPortfolioValue: previousValue,
               newTotalPartnershipValue: previousValue + totalAmount,
               roiPercentage: Number((portfolio as any).roi_percentage) || undefined,
+              portfolioId: portfolio.id,
+              portfolioName: accountLabel,
+              reviewedBy: reviewerProfile?.full_name || user.id,
+              portfoliosToppedUpCount: 1,
+              effectiveAt: now,
+              createdAt: now,
             }),
             "approve-portfolio-topup",
           );

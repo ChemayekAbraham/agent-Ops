@@ -89,10 +89,16 @@ async function sendViaMailgun(
     html?: string
     text?: string
     idempotency_key?: string
+    attachment?: {
+      filename: string
+      content_base64: string
+      content_type?: string
+    }
   },
   cfg: MailgunConfig
 ): Promise<void> {
-  const form = new URLSearchParams()
+  const hasAttachment = Boolean(payload.attachment?.content_base64 && payload.attachment.filename)
+  const form = hasAttachment ? new FormData() : new URLSearchParams()
   form.set('from', payload.from)
   form.set('to', payload.to)
   form.set('subject', payload.subject ?? '')
@@ -100,14 +106,24 @@ async function sendViaMailgun(
   if (payload.text) form.set('text', payload.text)
   if (payload.reply_to) form.set('h:Reply-To', payload.reply_to)
   if (payload.bcc) form.set('bcc', payload.bcc)
+  if (hasAttachment && payload.attachment) {
+    const binary = atob(payload.attachment.content_base64)
+    const bytes = new Uint8Array(binary.length)
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+    form.set(
+      'attachment',
+      new File([bytes], payload.attachment.filename, { type: payload.attachment.content_type || 'application/pdf' }),
+      payload.attachment.filename,
+    )
+  }
 
   const res = await fetch(`${cfg.baseUrl}/v3/${cfg.domain}/messages`, {
     method: 'POST',
     headers: {
       Authorization: `Basic ${btoa(`api:${cfg.apiKey}`)}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
+      ...(hasAttachment ? {} : { 'Content-Type': 'application/x-www-form-urlencoded' }),
     },
-    body: form.toString(),
+    body: form,
   })
 
   if (!res.ok) {
@@ -400,6 +416,11 @@ Deno.serve(async (req) => {
             html: payload.html,
             text: payload.text,
             idempotency_key: payload.idempotency_key,
+            attachment: payload.attachment as {
+              filename: string
+              content_base64: string
+              content_type?: string
+            } | undefined,
           },
           mailgunConfig
         )

@@ -434,8 +434,10 @@ Deno.serve(async (req) => {
 
     // Partnership Top-Up email — target = partner (not the manager actor)
     try {
-      const { data: partnerEmailRow } = await supabase
-        .from("profiles").select("email, full_name").eq("id", partnerId).maybeSingle();
+      const [{ data: partnerEmailRow }, { data: reviewerProfile }] = await Promise.all([
+        supabase.from("profiles").select("email, full_name").eq("id", partnerId).maybeSingle(),
+        supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
+      ]);
       if (partnerEmailRow?.email) {
         // Actual portfolio capital before the top-up (includes compounded
         // returns) so the emailed new total matches the portfolio figure.
@@ -452,6 +454,12 @@ Deno.serve(async (req) => {
             previousPortfolioValue: previousValue,
             newTotalPartnershipValue: previousValue + topupAmount,
             roiPercentage: Number((portfolio as any).roi_percentage) || undefined,
+            portfolioId: portfolio.id,
+            portfolioName: accountLabel,
+            reviewedBy: reviewerProfile?.full_name || user.id,
+            portfoliosToppedUpCount: 1,
+            effectiveAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
           }),
           "manager-portfolio-topup",
         );

@@ -434,6 +434,7 @@ Deno.serve(async (req) => {
       subject: resolvedSubject,
       html,
       text: plainText,
+      ...(attachment ? { attachment } : {}),
       purpose: 'transactional',
       label: templateName,
       idempotency_key: idempotencyKey,
