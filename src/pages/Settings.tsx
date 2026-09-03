@@ -69,8 +69,10 @@ const SECTION_PREFETCH: Record<string, Array<() => Promise<unknown>>> = {
     () => import('@/components/settings/ArchivedPdfsCard'),
   ],
   appearance: [
-    () => import('@/components/PushNotificationButton'),
     () => import('@/components/CurrencyConverter'),
+  ],
+  notifications: [
+    () => import('@/components/PushNotificationButton'),
   ],
   security: [
     () => import('@/components/settings/PinSecuritySection'),
@@ -182,12 +184,13 @@ function SectionHeading({ children }: { children: ReactNode }) {
 }
 
 interface Profile { id: string; full_name: string; email: string; phone: string; avatar_url: string | null; }
-type SettingsSection = 'account' | 'appearance' | 'security' | 'legal' | 'advanced';
+type SettingsSection = 'account' | 'appearance' | 'notifications' | 'security' | 'legal' | 'advanced';
 
 const SECTIONS: { id: SettingsSection; label: string; icon: typeof User; helper: string }[] = [
   { id: 'account', label: 'Personal Information', icon: User, helper: 'Profile, contact, withdrawal and sign-in' },
   
   { id: 'appearance', label: 'Appearance', icon: Palette, helper: 'Theme, text size, language and currency' },
+  { id: 'notifications', label: 'Notifications', icon: Bell, helper: 'Push alerts and sounds' },
   { id: 'security', label: 'Safety', icon: ShieldCheck, helper: 'PIN, biometrics, devices and alerts' },
   { id: 'legal', label: 'Legal', icon: Scale, helper: 'Agreements and policy documents' },
   { id: 'advanced', label: 'More', icon: SettingsIcon, helper: 'Diagnostics and advanced tools' },
@@ -812,6 +815,48 @@ export default function Settings() {
                 <LazySection name="CurrencyConverter">
                   <CurrencyConverter variant="compact" />
                 </LazySection>
+              </div>
+            )}
+
+            {activeSection === 'notifications' && (
+              <div className="space-y-4">
+                <Card className="border-border/40 rounded-2xl">
+                  <CardContent className="pt-5 space-y-5">
+                  <Collapsible open={soundOpen} onOpenChange={setSoundOpen} className="space-y-2">
+                    <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
+                      <span className="flex items-center gap-2"><Volume2 className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Alert Sounds</span></span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-muted-foreground">{preferences.notificationSounds ? 'On' : 'Off'}</span>
+                        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", soundOpen && "rotate-180")} />
+                      </span>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-3 pt-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm">Enable sounds</p>
+                        <Switch checked={preferences.notificationSounds} onCheckedChange={(c) => { updatePreference('notificationSounds', c); if (c) playNotificationSound(preferences.notificationSoundType); toast.success(c ? 'Sounds on' : 'Sounds off'); }} />
+                      </div>
+                      {preferences.notificationSounds && (
+                        <div className="space-y-3 pl-6 border-l-2 border-primary/20">
+                          <div><p className="text-xs text-muted-foreground mb-2">General Sound</p><RadioGroup value={preferences.notificationSoundType} onValueChange={(v) => { updatePreference('notificationSoundType', v as any); playNotificationSound(v as any); }} className="grid grid-cols-3 gap-2">{(['ding', 'pop', 'chime'] as const).map((s) => (<Label key={s} htmlFor={`sound-${s}`} className={cn("flex items-center justify-center p-2 rounded-lg border cursor-pointer capitalize text-xs", preferences.notificationSoundType === s ? 'border-primary bg-primary/10 font-semibold' : 'border-border/50')}><RadioGroupItem value={s} id={`sound-${s}`} className="sr-only" />{s}</Label>))}</RadioGroup></div>
+                          <div><p className="text-xs text-muted-foreground mb-2">💰 Opportunity Sound</p><RadioGroup value={preferences.opportunitySoundType} onValueChange={(v) => { updatePreference('opportunitySoundType', v as any); if (v === 'opportunity') import('@/lib/notificationSound').then(m => m.playOpportunitySound('opportunity')); else playNotificationSound(v as any); }} className="grid grid-cols-2 gap-2">{(['opportunity', 'ding', 'pop', 'chime'] as const).map((s) => (<Label key={s} htmlFor={`opp-sound-${s}`} className={cn("flex items-center justify-center p-2 rounded-lg border cursor-pointer capitalize text-xs", preferences.opportunitySoundType === s ? 'border-success bg-success/10 font-semibold' : 'border-border/50')}><RadioGroupItem value={s} id={`opp-sound-${s}`} className="sr-only" />{s === 'opportunity' ? '💰 Money' : s}</Label>))}</RadioGroup></div>
+                        </div>
+                      )}
+                    </CollapsibleContent>
+                  </Collapsible>
+                  <Collapsible open={pushOpen} onOpenChange={setPushOpen} className="space-y-2">
+                    <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
+                      <span className="flex items-center gap-2"><Bell className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Push Notifications</span></span>
+                      <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", pushOpen && "rotate-180")} />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-2 pt-1">
+                      <p className="text-[11px] text-muted-foreground">Get instant alerts on this device for deposits, withdrawals, payouts and rent updates — even when Welile is closed.</p>
+                      <Suspense fallback={<Skeleton className="h-10 w-48 rounded-md" />}>
+                        <PushNotificationButton className="w-full sm:w-auto gap-2" />
+                      </Suspense>
+                    </CollapsibleContent>
+                  </Collapsible>
+                  </CardContent>
+                </Card>
               </div>
             )}
 
