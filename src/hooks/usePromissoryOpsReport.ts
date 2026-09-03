@@ -83,8 +83,6 @@ export interface PromissoryNoteRow {
   support_mode: 'self_support' | 'existing_support';
   reserved_plans: number;
   reserved_amount: number;
-  plan_intent_count: number;
-  house_intent_count: number;
   journey_stage: 'not_registered' | 'came_in' | 'portfolio_pending' | 'portfolio_active';
   portfolio_count: number;
   portfolio_active_count: number;

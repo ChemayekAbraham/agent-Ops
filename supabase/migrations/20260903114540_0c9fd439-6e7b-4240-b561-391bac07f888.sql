@@ -1,1 +1,0 @@
-select tgname, case when (tgtype & 2) > 0 then 'BEFORE' else 'AFTER' end as timing from pg_trigger where tgrelid = to_regclass('public.hr_pay_run_events') and not tgisinternal order by case when (tgtype & 2) > 0 then 0 else 1 end, tgname;

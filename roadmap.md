@@ -14,4 +14,5 @@
 - [ ] Fix AgentRentRequestDialog typecheck syntax error and verify preview build.
 - [x] CapitalRoutesSection hero: desktop heading wraps within container (no nowrap overflow).
 - [x] SelfPortfolioFundingCard: default feed order Houses first; toggle reordered accordingly.
-- [x] Partner Ops Promissory Notes: expose `support_mode` classification as Self support (with rent plan / house plan counts) vs Auto support in table, mobile cards, and detail sheet.
+- [x] Tenant "Kyeyune Agibu": cleared orphaned self-support reservation so CFO landlord-float disbursement is eligible; no money moved.
+- [ ] Fix preview typecheck errors in AgentOpsApprovedRequestsPanel.tsx and RentPipelineQueue.tsx.

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { RentPipelineTracker } from './RentPipelineTracker';
-import { CheckCircle2, Search, Calendar, User, Home, Briefcase, ArrowUpDown, Building, Banknote, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, Search, Calendar, Clock, User, Home, Briefcase, ArrowUpDown, Building, Banknote, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
 
 /**
