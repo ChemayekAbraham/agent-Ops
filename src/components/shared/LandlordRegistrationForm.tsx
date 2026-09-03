@@ -773,7 +773,12 @@ export default function LandlordRegistrationForm({
       }
 
       setSuccess(true);
-      toastFn({ title: 'Landlord Registered!', description: 'The signed agreement is attached and ready for verification.' });
+      toastFn({
+        title: 'Landlord Registered!',
+        description: agreementDetails.file
+          ? 'The signed agreement is attached and ready for verification.'
+          : 'The landlord was saved. A signed agreement can be attached when you post a new Rent Request.',
+      });
       onSuccess?.(newLandlord ? {
         id: newLandlord.id,
         name: newLandlord.name,

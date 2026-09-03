@@ -1738,6 +1738,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
         errors.push('Step 2 — Landlord: Pick or register the landlord first. Search to pick an existing landlord, or tap "Add new" to register them.');
       } else if (landlordCheck === 'missing') {
         errors.push('Step 2 — Landlord: The selected landlord is no longer in the system. Pick a registered landlord or register them again.');
+      }
       // The landlord's listed house MUST show photos. Block rent requests on
       // any selected listing that has no photos on record.
       if (selectedHouse && !listingHasRealPhoto(selectedHouse)) {
@@ -1797,6 +1798,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
         map['landlord'] = 'Step 2 — Landlord: Pick or register the landlord first. Search to pick an existing landlord, or tap "Add new" to register them.';
       } else if (landlordCheck === 'missing') {
         map['landlord'] = 'Step 2 — Landlord: The selected landlord is no longer in the system. Pick a registered landlord or register them again.';
+      }
       if (selectedHouse && !listingHasRealPhoto(selectedHouse)) {
         map['housePhotos'] = "This landlord's house has no photos — pick a house that shows photos before posting the rent request";
       }
@@ -2458,6 +2460,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
         errors.push('Step 2 — Landlord: Pick or register the landlord first. Search to pick an existing landlord, or tap "Add new" to register them.');
       } else if (landlordCheck === 'missing') {
         errors.push('Step 2 — Landlord: The selected landlord is no longer in the system. Pick a registered landlord or register them again.');
+      }
       if (!propertyAddress.trim()) errors.push('Type the property address');
       if (!lc1Name.trim()) errors.push('Type the LC1 chairperson\'s name');
       if (!lc1Phone.trim()) errors.push('Type the LC1 phone number');
