@@ -18,3 +18,4 @@
 - [x] Fix preview typecheck errors in AgentOpsApprovedRequestsPanel.tsx and RentPipelineQueue.tsx.
 - [x] Partner Ops overview: Returns projection card at 50% width with a self-supported vs company-supported portfolio doughnut beside it.
 - [x] Scope fence 7: four verbatim edits to src/hr/pay/PayRuns.tsx (ArrearsPanel wiring).
+- [ ] Match the top-up PDF to the uploaded reference and send a UGX 50,000 test email for portfolio WSP-8102.
