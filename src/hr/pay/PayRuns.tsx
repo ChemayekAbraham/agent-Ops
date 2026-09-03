@@ -1612,6 +1612,7 @@ export function PayRunDetailPlaceholder() {
             <CardHeader>
               <CardTitle className="text-base">Payslips</CardTitle>
             </CardHeader>
+
             <CardContent>
               {detail.payslips.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Not calculated yet.</p>
