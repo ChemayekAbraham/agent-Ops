@@ -10,6 +10,7 @@ import mtnLogoAsset from '@/assets/mtn-logo.png.asset.json';
 import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
 import { PhoneMoneyStatementSheet, type PhoneMoneyLine } from './PhoneMoneyStatementSheet';
 import { MerchantFloatEmailMovementsDialog } from './MerchantFloatEmailMovementsDialog';
+import { BankEmailReconciliationPanel } from './BankEmailReconciliationPanel';
 
 
 
@@ -108,12 +109,13 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
       const [phoneRes, cashRes, bankRes] = await Promise.all([
         supabase.rpc('get_phone_platform_reconciliation' as any),
         supabase.rpc('get_cash_at_hand_total' as any),
-        supabase.rpc('get_money_at_bank_total' as any),
+        supabase.rpc('get_money_at_bank_reconciliation' as any),
       ]);
       if (phoneRes.error) throw phoneRes.error;
+      if (bankRes.error) throw bankRes.error;
       const p = (phoneRes.data ?? {}) as any;
       const c = (cashRes.data ?? {}) as any;
-      const b = (bankRes.error ? {} : (bankRes.data ?? {})) as any;
+      const b = (bankRes.data ?? {}) as any;
       const mtn = Number(p.mtn_balance ?? 0);
       const airtel = Number(p.airtel_balance ?? 0);
       const cash = Number(c.cash_at_hand_total ?? 0);
@@ -244,13 +246,13 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
 
             <div className="mt-4 pt-4 border-t border-border space-y-2">
               {actualRows.map((r) => (
-                <button
-                  key={r.label}
-                  type="button"
-                  onClick={() => setOpenLine(r.line)}
-                  aria-label={`View ${r.label} statement`}
-                  className="w-full flex items-center justify-between gap-3 rounded-lg px-1 py-1.5 text-left hover:bg-muted/50 transition-colors"
-                >
+                <div key={r.label}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenLine(r.line)}
+                    aria-label={`View ${r.label} statement`}
+                    className="w-full flex items-center justify-between gap-3 rounded-lg px-1 py-1.5 text-left hover:bg-muted/50 transition-colors"
+                  >
                   <span className="flex items-center gap-2.5 min-w-0">
                     {r.logo ? (
                       <span className="h-6 w-6 rounded-md overflow-hidden shrink-0 border border-border bg-background">
@@ -273,12 +275,14 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
                     </span>
                     <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                   </span>
-                </button>
+                  </button>
+                  {r.line === 'bank' && <BankEmailReconciliationPanel />}
+                </div>
               ))}
             </div>
 
             <button
-              type="button"
+              type="button",
               onClick={() => setOpenMerchantEmails(true)}
               className="mt-3 w-full flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-left hover:bg-muted/60 transition-colors"
             >
