@@ -28,6 +28,8 @@ import { useFunderApprovalStatus } from '@/hooks/useFunderApprovalStatus';
 import { SelfPortfolioFundingCard } from '@/components/partner/SelfPortfolioFundingCard';
 import { HowItWorksSteps, type HowItWorksStep } from './HowItWorksSteps';
 import { EmptyHouseOpportunitiesSheet } from '@/components/agent/EmptyHouseOpportunitiesSheet';
+import { FunderBookedHousesPanel } from '@/components/supporter/FunderBookedHousesPanel';
+
 import { useProfile } from '@/hooks/useProfile';
 
 type OptionKey = 'managed' | 'direct' | 'angel';
@@ -972,13 +974,14 @@ export function FunderCapitalOpportunities() {
                 </div>
               );
             })()}
-
+            <FunderBookedHousesPanel />
 
             <p className="text-[12px] leading-relaxed text-muted-foreground">
-              Browse empty houses with photos, landlord contact, and GPS location. Pick the ones
-              you want and your promissory note is created instantly — you earn{' '}
+              Browse empty houses with photos, landlord contact, and GPS location. Fund the ones you want
+              straight away, or book them and promise a funding date — you earn{' '}
               <span className="font-bold text-success">15% of the rent every month for 12 months</span>.
             </p>
+
 
             <Button
               className="h-12 w-full gap-2 text-sm font-bold rounded-xl shadow-sm"
