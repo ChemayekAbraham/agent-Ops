@@ -421,39 +421,42 @@ export function TenantCallingCenter() {
               )}
 
 
-            {hub.total > hub.pageSize && (
-              <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
-                <span>
-                  {hub.pageFrom}–{hub.pageTo} of {hub.total}
-                </span>
-                <div className="flex gap-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 px-2"
-                    disabled={page === 0}
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  >
-                    <ChevronLeft className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 px-2"
-                    disabled={hub.pageTo >= hub.total}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    <ChevronRight className="h-3 w-3" />
-                  </Button>
+              {hub.total > hub.pageSize && (
+                <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-2 text-[11px] font-medium text-muted-foreground">
+                  <span className="tabular-nums">
+                    {hub.pageFrom}–{hub.pageTo} of {hub.total.toLocaleString()}
+                  </span>
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2.5"
+                      disabled={page === 0}
+                      onClick={() => setPage((p) => Math.max(0, p - 1))}
+                      aria-label="Previous page"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2.5"
+                      disabled={hub.pageTo >= hub.total}
+                      onClick={() => setPage((p) => p + 1)}
+                      aria-label="Next page"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </CardContent>
           </Card>
         </TabsContent>
 
         {/* ----------------------------------------------------- Live Call */}
-        <TabsContent value="live" className="mt-3 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+        <TabsContent value="live" className="mt-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-muted/30 p-2.5">
             {runBadge}
             {autoControls}
           </div>
@@ -469,41 +472,46 @@ export function TenantCallingCenter() {
         </TabsContent>
 
         {/* ------------------------------------------------------- History */}
-        <TabsContent value="history" className="mt-3">
+        <TabsContent value="history" className="mt-4">
           <TenantCallCenterHistory />
         </TabsContent>
 
         {/* ------------------------------------------------------ Settings */}
-        <TabsContent value="settings" className="mt-3 space-y-3">
-          <Card className="rounded-2xl border-border/60 p-3">
-            <p className="flex items-center gap-1.5 text-xs font-bold">
-              <Settings2 className="h-3.5 w-3.5 text-primary" />
-              Calling configuration
-            </p>
-            <dl className="mt-2 grid grid-cols-2 gap-2 text-[11px] lg:grid-cols-4">
-              {[
-                ['Open cycle', hub.cycle ? `#${hub.cycle.cycle_no}` : 'None'],
-                ['Open-attempt limit', hub.wipLimit != null ? String(hub.wipLimit) : 'Set by ops'],
-                ['Retry window', hub.cycle ? `${hub.cycle.retry_after_days} days` : '—'],
-                ['Sequential run cap', `${autoCap} calls`],
-                ['Default sort', hub.sortOptions.find((o) => o.key === hub.defaultSortKey)?.label ?? '—'],
-                ['Filters available', String(hub.filterOptions.length)],
-                ['Outcome categories', String(hub.categories.length)],
-                ['Transport', 'Browser voice (headset)'],
-              ].map(([k, v]) => (
-                <div key={k} className="rounded-lg bg-muted/50 p-2">
-                  <dt className="text-muted-foreground">{k}</dt>
-                  <dd className="font-semibold">{v}</dd>
-                </div>
-              ))}
-            </dl>
-            <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
-              Cycles, populations, filters, limits and outcome categories are owned by the calling
-              spine and are changed from the Calling Hub cycle controls — the Calling Center reads
-              exactly the same configuration so both surfaces stay consistent.
-            </p>
+        <TabsContent value="settings" className="mt-4 space-y-3">
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b bg-muted/30 p-3">
+              <CardTitle className="flex items-center gap-2 text-xs font-bold">
+                <Settings2 className="h-4 w-4 text-primary" />
+                Calling configuration
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 sm:p-4">
+              <dl className="grid grid-cols-2 gap-2 text-[11px] lg:grid-cols-4">
+                {[
+                  ['Open cycle', hub.cycle ? `#${hub.cycle.cycle_no}` : 'None'],
+                  ['Open-attempt limit', hub.wipLimit != null ? String(hub.wipLimit) : 'Set by ops'],
+                  ['Retry window', hub.cycle ? `${hub.cycle.retry_after_days} days` : '—'],
+                  ['Sequential run cap', `${autoCap} calls`],
+                  ['Default sort', hub.sortOptions.find((o) => o.key === hub.defaultSortKey)?.label ?? '—'],
+                  ['Filters available', String(hub.filterOptions.length)],
+                  ['Outcome categories', String(hub.categories.length)],
+                  ['Transport', 'Browser voice (headset)'],
+                ].map(([k, v]) => (
+                  <div key={k} className="rounded-xl border border-border/60 bg-muted/40 p-2.5">
+                    <dt className="text-muted-foreground">{k}</dt>
+                    <dd className="mt-0.5 text-xs font-bold">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="mt-3 text-[11px] leading-snug text-muted-foreground">
+                Cycles, populations, filters, limits and outcome categories are owned by the calling
+                spine and are changed from the Calling Hub cycle controls — the Calling Center reads
+                exactly the same configuration so both surfaces stay consistent.
+              </p>
+            </CardContent>
           </Card>
         </TabsContent>
+
       </Tabs>
 
       <RecordOutcomeDialog
