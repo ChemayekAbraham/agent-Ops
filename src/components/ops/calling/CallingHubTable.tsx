@@ -87,27 +87,30 @@ export function CallingHubTable({
   const header = (c: CallingColumnKey) => (c === 'metric' ? metricLabel : CALLING_COLUMN_LABEL[c]);
 
   const revealButton = (row: CcRow, full: boolean) => {
-    const phone = revealed[row.id];
+    // An open reveal can be re-opened as often as needed — it only closes when
+    // the call outcome has been recorded, which drops the row from `revealed`.
+    const isOpen = Object.prototype.hasOwnProperty.call(revealed, row.id);
     return (
       <Button
         size="sm"
-        variant={phone ? 'secondary' : 'default'}
+        variant={isOpen ? 'secondary' : 'default'}
         className={full ? 'h-9 w-full text-xs' : 'h-7 px-2 text-[11px]'}
-        disabled={wipBlocked || revealing || !!phone}
+        disabled={(wipBlocked && !isOpen) || revealing}
         title={
-          wipBlocked
+          wipBlocked && !isOpen
             ? 'Record the outcome of your open calls before revealing another number.'
-            : phone
-              ? 'Number revealed'
+            : isOpen
+              ? 'View the revealed number and call details again'
               : 'Reveal number'
         }
         onClick={() => onReveal(row)}
       >
         <Eye className="mr-1 h-3 w-3" />
-        {full ? (phone ? 'Number revealed' : 'Reveal number') : phone ? 'Revealed' : 'Reveal'}
+        {full ? (isOpen ? 'View call details' : 'Reveal number') : isOpen ? 'View' : 'Reveal'}
       </Button>
     );
   };
+
 
   const whatsappLink = (row: CcRow, full: boolean) => {
     const phone = revealed[row.id];
