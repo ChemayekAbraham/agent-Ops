@@ -524,6 +524,7 @@ export function PromissoryNotesQueue() {
                       <th className="py-2 pr-2 w-8"></th>
                       <th className="py-2 pr-3 font-medium">Agent</th>
                           <th className="py-2 pr-3 font-medium">Promissory note</th>
+                          <th className="py-2 pr-3 font-medium">Support</th>
                       <th className="py-2 pr-3 font-medium text-right">Promised</th>
                       <th className="py-2 pr-3 font-medium text-right">Fulfilled</th>
                       <th className="py-2 pr-3 font-medium">Created</th>
