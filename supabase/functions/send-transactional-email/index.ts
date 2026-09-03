@@ -3,6 +3,7 @@ import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
+import { bytesToBase64, renderPartnershipTopupReceipt } from '../_shared/partnerTopupReceiptPdf.ts'
 
 // Configuration baked in at scaffold time — do NOT change these manually.
 // To update, re-run the email domain setup flow.
@@ -377,6 +378,33 @@ Deno.serve(async (req) => {
     React.createElement(template.component, templateData),
     { plainText: true }
   )
+
+  // Partnership top-ups carry a compact PDF receipt generated from the same
+  // live values used in the email body. It is base64-encoded only for the
+  // short-lived queue message; the dispatcher turns it back into multipart
+  // Mailgun attachment data.
+  let attachment: Record<string, string> | undefined
+  if (templateName === 'partnership-topup') {
+    const pdfBytes = await renderPartnershipTopupReceipt({
+      receiptNumber: String(templateData.receipt_number || messageId),
+      effectiveAt: String(templateData.effective_datetime || new Date().toISOString()),
+      topupAmount: Number(templateData.topup_amount) || 0,
+      portfolioId: String(templateData.parent_portfolio_id || '—'),
+      portfolioName: String(templateData.portfolio_name || 'Partnership Portfolio'),
+      previousPrincipal: Number(templateData.previous_portfolio_value) || 0,
+      newTotalPrincipal: Number(templateData.new_total_partnership_value) || 0,
+      partnerName: String(templateData.partner_name || 'Partner'),
+      partnerId: String(templateData.partner_id || '—'),
+      portfoliosToppedUpCount: Number(templateData.portfolios_topped_up_count) || 1,
+      createdAt: String(templateData.created_at || new Date().toISOString()),
+      reviewedBy: String(templateData.reviewed_by || 'System'),
+    })
+    attachment = {
+      filename: `${String(templateData.receipt_number || messageId)}.pdf`,
+      content_base64: bytesToBase64(pdfBytes),
+      content_type: 'application/pdf',
+    }
+  }
 
   // 5. Enqueue the pre-rendered email for async processing by the dispatcher.
   // The dispatcher (process-email-queue) handles sending, retries, and rate-limit backoff.
