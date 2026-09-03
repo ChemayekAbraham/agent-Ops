@@ -173,6 +173,18 @@ export function LiveCallPanel({
         )}
       </div>
 
+      <div className="border-b border-border/60 p-3">
+        <TenantCallContextPanel
+          hub={hub}
+          subjectId={current.subjectId}
+          fallbackName={current.name}
+          district={current.district}
+          linkedAgent={current.row?.linked_agent ?? null}
+          phone={current.phone}
+          row={current.row ?? null}
+        />
+      </div>
+
       <div className="space-y-2 p-3">
         <p className="text-[11px] font-semibold text-muted-foreground">
           {needsOutcome
