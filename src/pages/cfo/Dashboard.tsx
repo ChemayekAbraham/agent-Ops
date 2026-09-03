@@ -7,6 +7,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useHorizontalSwipe } from '@/hooks/useHorizontalSwipe';
 import { executiveSidebarConfig } from '@/components/layout/executiveSidebarConfig';
+import { TenantOpsLandlordFloatTimeline } from '@/components/executive/TenantOpsLandlordFloatTimeline';
 import ExecutiveDashboardLayout from '@/components/layout/ExecutiveDashboardLayout';
 import { ChannelBalanceTracker } from '@/components/cfo/ChannelBalanceTracker';
 import { ErrorCorrectionAuditPanel } from '@/components/cfo/ErrorCorrectionAuditPanel';
@@ -476,6 +477,8 @@ export default function CFODashboardPage() {
         );
       case 'advance-repayments':
         return <CFOAdvancesManager />;
+      case 'landlord-float-timeline':
+        return <TenantOpsLandlordFloatTimeline />;
       case 'approval-audit':
         return <ManagerApprovalAudit />;
       case 'agent-requisitions':

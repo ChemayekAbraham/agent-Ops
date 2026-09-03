@@ -8,6 +8,7 @@ import HRDisciplinary from '@/components/hr/HRDisciplinary';
 import HRAudit from '@/components/hr/HRAudit';
 import HRDepartments from '@/components/hr/HRDepartments';
 import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWorkspace';
+import { ApprovalHistoryLog } from '@/components/executive/ApprovalHistoryLog';
 
 export default function HRDashboard() {
   const [activeSection, setActiveSection] = usePersistedActiveTab('hr');
@@ -60,6 +61,7 @@ export default function HRDashboard() {
       case 'leave': return <HRLeaveManagement />;
       case 'disciplinary': return <HRDisciplinary />;
       case 'audit': return <HRAudit />;
+      case 'approval-history': return <ApprovalHistoryLog />;
       case 'departments': return <HRDepartments />;
       default: return <HROverview onNavigate={setActiveSection} />;
     }

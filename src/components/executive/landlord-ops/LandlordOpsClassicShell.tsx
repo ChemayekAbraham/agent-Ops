@@ -5,6 +5,7 @@ import { LandlordOpsSidebar } from './LandlordOpsSidebar';
 import { LandlordOpsTopBar } from './LandlordOpsTopBar';
 import { LandlordOpsHome } from './LandlordOpsHome';
 import { CallingHub } from '@/components/ops/calling';
+import { TenantOpsLandlordFloatPanel } from '../TenantOpsLandlordFloatPanel';
 import { useLandlordOpsBadgeCounts } from '@/hooks/useLandlordOpsBadgeCounts';
 import {
   landlordOpsLabelFor,
@@ -72,6 +73,8 @@ export function LandlordOpsDashboardShell() {
             <LandlordOpsHome onNavigate={goTo} />
           ) : active === 'calling-hub' ? (
             <CallingHub subjectType="landlord" />
+          ) : active === 'agent-landlord-float' ? (
+            <TenantOpsLandlordFloatPanel />
           ) : (
             <LandlordOpsDashboard
               view={active as LandlordOpsClassicView}

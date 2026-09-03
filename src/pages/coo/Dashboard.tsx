@@ -28,6 +28,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useNavigate } from 'react-router-dom';
 import { COOScaleVisionView } from '@/components/coo/COOScaleVisionView';
 import { WelileOperationsHub } from '@/components/executive/WelileOperationsHub';
+import { GlobalVerificationHub } from '@/components/executive/GlobalVerificationHub';
+import { ApprovalHistoryLog } from '@/components/executive/ApprovalHistoryLog';
 import COOOverviewSnapshot from '@/components/coo/COOOverviewSnapshot';
 import { ServiceCentreReceivablesPanel } from '@/components/cfo/ServiceCentreReceivablesPanel';
 import COODepartmentBudgets from '@/components/coo/COODepartmentBudgets';
@@ -36,7 +38,7 @@ import { AgentNetworkBadge } from '@/components/executive/tenant-ops/AgentNetwor
 import {
   Activity, ClipboardList, Users, Wallet, BarChart3,
   FileText, Banknote, Handshake, UserCheck, UserPlus,
-  TrendingUp, ArrowLeft, ChevronRight, Receipt, Home, CalendarCheck, Megaphone, Globe2, Landmark, Wallet2, Building2
+  TrendingUp, ArrowLeft, ChevronRight, Receipt, Home, CalendarCheck, Megaphone, Globe2, Landmark, Wallet2, Building2, ShieldCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -267,6 +269,24 @@ export default function COODashboardPage() {
           <div className="space-y-3">
             {isMobile && renderBackButton('Overview')}
             <COOScaleVisionView />
+          </div>
+        );
+      case 'global-verification':
+        return (
+          <div className="space-y-3">
+            {isMobile && renderBackButton('Overview')}
+            {renderSectionHeader('Global Verification Center', ShieldCheck)}
+            <p className="text-sm text-muted-foreground -mt-2">Verify landlords, LC1 chairpersons and requests across the country.</p>
+            <GlobalVerificationHub />
+          </div>
+        );
+      case 'approval-history':
+        return (
+          <div className="space-y-3">
+            {isMobile && renderBackButton('Overview')}
+            {renderSectionHeader('Approval History', FileText)}
+            <p className="text-sm text-muted-foreground -mt-2">Full log of rent request approvals and rejections.</p>
+            <ApprovalHistoryLog />
           </div>
         );
       case 'welile-operations':

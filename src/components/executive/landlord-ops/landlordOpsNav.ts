@@ -21,6 +21,7 @@ import {
   Download,
   ClipboardList,
   PhoneCall,
+  Landmark,
 
   type LucideIcon,
 } from 'lucide-react';
@@ -31,7 +32,7 @@ import type { LandlordOpsClassicView } from '../LandlordOpsDashboard';
  * own view keys, so selecting one simply drives `LandlordOpsDashboard`; `home`
  * is owned by the shell (its landing page).
  */
-export type LandlordOpsShellOnlyView = 'calling-hub';
+export type LandlordOpsShellOnlyView = 'calling-hub' | 'agent-landlord-float';
 export type LandlordOpsViewKey = LandlordOpsClassicView | LandlordOpsShellOnlyView;
 
 
@@ -82,6 +83,7 @@ export const LANDLORD_OPS_NAV: LandlordOpsNavItem[] = [
       { key: 'matching', label: 'Tenant Matching', icon: Handshake, keywords: ['match', 'empty houses', 'tenants'] },
       { key: 'calling-hub', label: 'Calling Hub', icon: PhoneCall, keywords: ['call', 'calls', 'phone', 'follow up', 'pending', 'closed', 'missed calls', 'landlord calls'] },
       { key: 'advance-requests', label: 'Business Advances', icon: Banknote, keywords: ['advance', 'rent history'] },
+      { key: 'agent-landlord-float', label: 'Agent Landlord Float', icon: Landmark, keywords: ['float', 'earmarks', 'payout'] },
 
       { key: 'lc1', label: 'LC1 Chairpersons', icon: ShieldCheck, keywords: ['register', 'approved', 'rejected', 'reports'] },
     ],
