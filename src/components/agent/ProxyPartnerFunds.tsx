@@ -862,7 +862,14 @@ export function ProxyPartnerFunds() {
       const cardInFlight =
         (activeWithdrawalsByCard[cardKey] || 0) + (activeWithdrawalsByPartner[partnerId] || 0);
       if (cardInFlight > 50) return;
-      const totalApproved = rows.reduce((sum, row) => sum + row.amount, 0);
+      // A payout card represents the CURRENT approved cycle, not accumulated
+      // missed cycles. Keep older unsettled approvals in the audit/history,
+      // but do not add them onto the newest cycle amount shown for action.
+      const newestRows = rows
+        .slice()
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 1);
+      const totalApproved = newestRows.reduce((sum, row) => sum + row.amount, 0);
       const totalInFlight = cardInFlight;
       const historicalOpen = Math.max(0, totalApproved);
       // Managed partners → ROI lives in the AGENT's wallet, so the partner's
@@ -897,9 +904,7 @@ export function ProxyPartnerFunds() {
       let avail = 0;
       let inflight = 0;
       let latestAt = '';
-      rows
-        .slice()
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      newestRows
         .forEach((row) => {
           if (remainingOpen <= 50) return;
           const allocated = Math.min(row.amount, remainingOpen);
