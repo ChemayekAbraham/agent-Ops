@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, Briefcase, User, Bell, FolderOpen, Ticket, Wallet } from 'lucide-react';
+import { FileText, Briefcase, User, Bell, FolderOpen, Ticket, Wallet, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PersonalLayout from '@/components/layout/PersonalLayout';
 import NameCompletionReminder from '@/components/notifications/NameCompletionReminder';
@@ -27,110 +27,54 @@ interface HubCardProps {
 
 const HubCard = ({ to, icon: Icon, title, description, disabled, badges }: HubCardProps) => {
   const className = cn(
-    'group flex flex-col gap-3 rounded-2xl border bg-card p-5 shadow-sm transition-colors',
+    'group relative flex min-h-[138px] flex-col gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-sm transition-all sm:p-5',
     disabled
       ? 'cursor-not-allowed opacity-60'
-      : 'hover:border-primary/30 hover:bg-accent/50'
+      : 'hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md hover:shadow-primary/5',
   );
-
   const visibleBadges = (badges ?? []).filter((b) => b.count > 0);
-
   const content = (
     <>
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-        <Icon className="h-5 w-5" />
+      <div className="flex items-center justify-between">
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
+          <Icon className="h-[18px] w-[18px]" />
+        </span>
+        {!disabled && <ArrowRight className="h-4 w-4 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />}
       </div>
-      <div>
-        <h2 className="font-semibold text-card-foreground">{title}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      <div className="min-w-0">
+        <h2 className="text-sm font-semibold text-card-foreground sm:text-base">{title}</h2>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">{description}</p>
       </div>
       {visibleBadges.length > 0 && (
         <div className="mt-auto flex flex-wrap gap-1.5">
           {visibleBadges.map((b) => (
-            <span
-              key={b.label}
-              className={cn(
-                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium',
-                b.tone === 'pending'
-                  ? 'border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-900 dark:bg-amber-900/30 dark:text-amber-300'
-                  : 'border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-300'
-              )}
-            >
-              <span className="font-bold">{b.count}</span>
-              {b.label}
+            <span key={b.label} className={cn(
+              'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium',
+              b.tone === 'pending'
+                ? 'border-warning/30 bg-warning/10 text-warning-foreground dark:text-warning'
+                : 'border-success/30 bg-success/10 text-success',
+            )}>
+              <span className="font-bold">{b.count}</span>{b.label}
             </span>
           ))}
         </div>
       )}
-      {disabled && (
-        <span className="mt-auto self-start rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
-          Coming soon
-        </span>
-      )}
+      {disabled && <span className="mt-auto self-start rounded-full bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">Coming soon</span>}
     </>
   );
-
-
-  if (disabled || !to) {
-    return (
-      <div className={className} aria-disabled="true">
-        {content}
-      </div>
-    );
-  }
-
-  return (
-    <Link to={to} className={className}>
-      {content}
-    </Link>
-  );
+  if (disabled || !to) return <div className={className} aria-disabled="true">{content}</div>;
+  return <Link to={to} className={className}>{content}</Link>;
 };
 
 const CARDS = [
-  {
-    to: '/your-profile',
-    icon: User,
-    title: 'My profile',
-    description: 'Your personal details',
-  },
-  {
-    to: '/me/payslips',
-    icon: FileText,
-    title: 'My payslips',
-    description: 'Your own pay records',
-  },
-  {
-    to: '/me/work',
-    icon: Briefcase,
-    title: 'My work',
-    description: 'Tasks assigned to you',
-  },
-  {
-    to: '/me/tickets',
-    icon: Ticket,
-    title: 'Tickets',
-    description: 'Raise a fault or pick one up',
-  },
-  {
-    to: '/me/requisitions',
-    icon: Wallet,
-    title: 'Make a requisition',
-    description: 'Ask for funds — reviewed by your head, COO, then CFO',
-  },
-  {
-    to: '/notifications',
-    icon: Bell,
-    title: 'Notifications',
-    description: 'Messages and alerts',
-  },
-  {
-    icon: FolderOpen,
-    title: 'My documents',
-    description: 'Your contracts, letters and certificates',
-    to: '/me/documents',
-  },
+  { to: '/your-profile', icon: User, title: 'My profile', description: 'Your personal details' },
+  { to: '/me/payslips', icon: FileText, title: 'My payslips', description: 'Your own pay records' },
+  { to: '/me/work', icon: Briefcase, title: 'My work', description: 'Tasks assigned to you' },
+  { to: '/me/tickets', icon: Ticket, title: 'Tickets', description: 'Raise a fault or pick one up' },
+  { to: '/me/requisitions', icon: Wallet, title: 'Make a requisition', description: 'Ask for funds — reviewed by your head, COO, then CFO' },
+  { to: '/notifications', icon: Bell, title: 'Notifications', description: 'Messages and alerts' },
+  { icon: FolderOpen, title: 'My documents', description: 'Your contracts, letters and certificates', to: '/me/documents' },
 ];
-
 
 const PersonalHub = () => {
   const [staffRecord, setStaffRecord] = useState<Employee | null>(null);
@@ -142,70 +86,52 @@ const PersonalHub = () => {
       const { data: auth } = await supabase.auth.getUser();
       const uid = auth?.user?.id;
       if (!uid || cancelled) return;
-      const { data, error } = await supabase
-        .from('staff_requisitions')
-        .select('stage')
-        .eq('requester_id', uid);
+      const { data, error } = await supabase.from('staff_requisitions').select('stage').eq('requester_id', uid);
       if (cancelled) return;
-      if (error) {
-        console.error('staff_requisitions counts', error);
-        return;
-      }
+      if (error) { console.error('staff_requisitions counts', error); return; }
       const rows = (data ?? []) as { stage: string | null }[];
       setReqCounts({
-        pending: rows.filter(
-          (r) => r.stage && !['approved', 'rejected', 'cancelled'].includes(r.stage)
-        ).length,
+        pending: rows.filter((r) => r.stage && !['approved', 'rejected', 'cancelled'].includes(r.stage)).length,
         approved: rows.filter((r) => r.stage === 'approved').length,
       });
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
-
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       let staff: Employee | null = null;
-      try {
-        staff = await getMyStaff();
-      } catch {
-        staff = null;
-      }
+      try { staff = await getMyStaff(); } catch { staff = null; }
       if (cancelled) return;
       setStaffRecord(staff);
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   return (
     <PersonalLayout title="My space">
-      <div className="space-y-4">
+      <div className="space-y-5">
         <NameCompletionReminder />
         <GrowthCommissionCard />
         {staffRecord && <MyAdvanceCard staffId={staffRecord.id} />}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {CARDS.map((card, index) => (
-            <HubCard
-              key={index}
-              {...card}
-              badges={
-                card.to === '/me/requisitions'
-                  ? [
-                      { label: 'pending', count: reqCounts.pending, tone: 'pending' as const },
-                      { label: 'approved', count: reqCounts.approved, tone: 'approved' as const },
-                    ]
-                  : undefined
-              }
-            />
-          ))}
-
-        </div>
-
+        <section aria-labelledby="workspace-heading">
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-primary">Workspace</p>
+              <h2 id="workspace-heading" className="mt-1 text-base font-semibold tracking-tight sm:text-lg">Your tools and records</h2>
+            </div>
+            <span className="text-xs text-muted-foreground">{CARDS.length} areas</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {CARDS.map((card, index) => (
+              <HubCard key={index} {...card} badges={card.to === '/me/requisitions' ? [
+                { label: 'pending', count: reqCounts.pending, tone: 'pending' as const },
+                { label: 'approved', count: reqCounts.approved, tone: 'approved' as const },
+              ] : undefined} />
+            ))}
+          </div>
+        </section>
       </div>
     </PersonalLayout>
   );
