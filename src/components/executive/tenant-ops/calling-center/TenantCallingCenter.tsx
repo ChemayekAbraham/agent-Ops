@@ -98,6 +98,18 @@ export function TenantCallingCenter() {
   }, [dialer.current, dialer.live, dialer.needsOutcome]);
 
   const metricLabel = hub.rows[0]?.metric_label ?? 'Metric';
+  const activeQueueTab = CALLING_TABS.find((t) => t.key === queueState) ?? CALLING_TABS[0];
+  /**
+   * Same shape the Hub feeds its table: the row currently on the line keeps its
+   * revealed number visible until the outcome is recorded.
+   */
+  const revealedPhones = useMemo<Record<string, string | null>>(
+    () =>
+      dialer.current && (dialer.live || dialer.needsOutcome)
+        ? { [dialer.current.rowId]: dialer.current.phone }
+        : {},
+    [dialer.current, dialer.live, dialer.needsOutcome],
+  );
   const runBadge = (
     <Badge variant={auto.mode === 'running' ? 'default' : 'outline'} className="text-[10px]">
       {AUTO_LABEL[auto.mode]}
