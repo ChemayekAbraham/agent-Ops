@@ -1355,18 +1355,32 @@ export function AgentOpsReportWindow() {
                 ) : isDaily ? (
                   <DirectionValue value={growthVariancePp} kind="points" />
                 ) : (
-                  <p className={cn('text-3xl font-semibold tabular-nums', varianceDirection.className)}>
-                    {rateText(currentGrowthRate)}
-                  </p>
+                  (() => {
+                    const state = direction(currentGrowthRate);
+                    const Icon = state.Icon;
+                    return (
+                      <span
+                        className={cn('inline-flex items-center gap-1.5 text-3xl font-semibold tabular-nums', state.className)}
+                        title={`${state.label}: ${signedRate(currentGrowthRate)}`}
+                        aria-label={`${state.label}: ${signedRate(currentGrowthRate)}`}
+                      >
+                        <Icon className="h-6 w-6 shrink-0" aria-hidden="true" />
+                        <span>{signedRate(currentGrowthRate)}</span>
+                        <span className="text-sm font-medium">{state.label}</span>
+                      </span>
+                    );
+                  })()
                 )}
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {!priorSnapshot
-                  ? 'No comparison available'
-                  : isDaily
-                    ? `${priorPeriodLabel} ${rateText(computeGrowthRate(priorSnapshot))} → ${periodLabel} ${rateText(currentGrowthRate)}`
-                    : <>net change {signedNumber(netChange)} · <DirectionValue value={growthVariancePp} kind="points" /></>}
-              </p>
+              {priorSnapshot && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {isDaily ? (
+                    <>{priorPeriodLabel} {rateText(computeGrowthRate(priorSnapshot))} → {periodLabel} {rateText(currentGrowthRate)}</>
+                  ) : (
+                    <><DirectionValue value={growthVariancePp} kind="points" /> vs {priorPeriodLabel}</>
+                  )}
+                </p>
+              )}
               {priorSnapshot && (
                 <p className="mt-3 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                   <span>{priorPeriodLabel} {rateText(computeGrowthRate(priorSnapshot))}</span>
@@ -1375,9 +1389,6 @@ export function AgentOpsReportWindow() {
                 </p>
               )}
               <p className="mt-2 text-xs text-muted-foreground">each on its own opening base</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Conversion rate {oneDecimalPercent(snapshot.converted_in_period, snapshot.qualified_at_open)}
-              </p>
             </CardContent>
           </Card>
         </div>
