@@ -520,12 +520,6 @@ export default function Settings() {
                           onClick={() => fileInputRef.current?.click()}
                           trailing={uploadingAvatar ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : undefined}
                         />
-                        <SettingsLinkRow
-                          icon={Globe}
-                          label="Profile details"
-                          helper="Location, role, occupation, referring agent"
-                          onClick={() => window.dispatchEvent(new CustomEvent('open-profile-editor'))}
-                        />
                       </SettingsGroup>
                       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
                       <Card className="border-border/40 rounded-2xl">
