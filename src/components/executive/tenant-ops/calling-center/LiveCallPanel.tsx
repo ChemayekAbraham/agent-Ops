@@ -49,14 +49,18 @@ export function LiveCallPanel({
 
   if (!current) {
     return (
-      <Card className="rounded-2xl border-border/60 p-6 text-center">
-        <Phone className="mx-auto h-5 w-5 text-muted-foreground" />
-        <p className="mt-2 text-xs text-muted-foreground">
-          No call on the line. Pick a tenant in the Work Queue, or start a sequential run.
+      <Card className="p-8 text-center">
+        <div className="mx-auto w-fit rounded-2xl bg-primary/10 p-3 text-primary">
+          <Phone className="h-6 w-6" />
+        </div>
+        <p className="mt-3 text-sm font-bold">No call on the line</p>
+        <p className="mx-auto mt-1 max-w-[22rem] text-xs leading-snug text-muted-foreground">
+          Pick a tenant in the Work Queue and press Call, or start a sequential run.
         </p>
       </Card>
     );
   }
+
 
   const ended = isTerminalCallState(call.state);
   const dialling = call.state === 'initializing' || call.state === 'calling' || call.state === 'ringing';
