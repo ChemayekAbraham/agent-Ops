@@ -460,38 +460,63 @@ export function FunderCapitalOpportunities() {
             )}
           </div>
 
-          <TooltipProvider delayDuration={150}>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <OptionCard
-                icon={Handshake}
-                image={apartmentRentAmicoIllustration.url}
-                light
-                title="Support Tenants via Welile"
-                description="Sign a tenant-support contract with Welile. We manage the deployment and returns."
-                tooltip="A managed contract between you and Welile. We source verified tenants, deploy your capital, collect repayments, and send monthly returns to your wallet."
-                onClick={() => setView('managed')}
-              />
-              <OptionCard
-                icon={HandCoins}
-                image={apartmentRentIllustration.url}
-                light
-                title="Support Tenants Directly"
-                description="Pay landlords directly. Welile facilitates the introduction and documentation."
-                tooltip="You pay the landlord directly for a verified tenant. Welile handles introductions, documentation, and repayment tracking on your behalf."
-                onClick={() => setView('direct')}
-              />
-              <OptionCard
-                icon={Rocket}
-                image={investingBroIllustration.url}
-                light
-                featured
-                title="Angel Pool"
-                description="Buy a Welile share. Invest in the long-term Welile vision."
-                tooltip="Buy equity shares in Welile. Your capital supports platform growth and long-term value creation, with ownership reflected in your shareholder account."
-                onClick={() => setView('angel')}
-              />
-            </div>
-          </TooltipProvider>
+          <div className="grid grid-cols-1 gap-[clamp(8px,2vw,20px)]">
+            {[
+              {
+                key: 'managed' as const,
+                Icon: Handshake,
+                title: 'Support tenants via Welile',
+                description: 'We deploy the capital and manage the returns.',
+                recommended: false,
+              },
+              {
+                key: 'direct' as const,
+                Icon: HandCoins,
+                title: 'Support tenants directly',
+                description: 'Pay landlords yourself. We handle the introduction and the paperwork.',
+                recommended: true,
+              },
+              {
+                key: 'angel' as const,
+                Icon: Rocket,
+                title: 'Angel pool',
+                description: 'Buy a Welile share and back the long-term vision.',
+                recommended: false,
+              },
+            ].map((route) => (
+              <button
+                key={route.key}
+                type="button"
+                onClick={() => { hapticTap(); setView(route.key); }}
+                className={`group flex w-full flex-col text-left transition-all hover:-translate-y-1 active:-translate-y-px rounded-[clamp(16px,4.5vw,22px)] bg-card p-[clamp(15px,4.2vw,22px)] ${
+                  route.recommended
+                    ? 'border-[2.5px] border-primary/50 hover:border-primary'
+                    : 'border-[1.5px] border-primary hover:border-primary'
+                }`}
+              >
+                <div className="mb-[clamp(12px,3.4vw,20px)] flex items-start justify-between gap-2.5">
+                  <span className="grid h-[clamp(38px,10.5vw,52px)] w-[clamp(38px,10.5vw,52px)] place-items-center rounded-[clamp(11px,3vw,15px)] bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                    <route.Icon className="h-[clamp(21px,5.8vw,30px)] w-[clamp(21px,5.8vw,30px)]" />
+                  </span>
+                  {route.recommended && (
+                    <span className="inline-flex items-center gap-[clamp(2px,0.8vw,5px)] rounded-full border border-primary/30 bg-primary/10 px-[clamp(6px,2vw,11px)] py-[clamp(4px,1.3vw,7px)] text-[clamp(7.5px,2.1vw,10.5px)] font-bold uppercase tracking-wider text-primary">
+                      Recommended
+                    </span>
+                  )}
+                </div>
+                <h3 className="m-0 mb-[clamp(5px,1.6vw,8px)] text-[clamp(18px,5vw,24px)] font-extrabold leading-tight tracking-[-0.02em] text-foreground">
+                  {route.title}
+                </h3>
+                <p className="m-0 mb-[clamp(14px,3.8vw,24px)] max-w-[32ch] text-[clamp(12.5px,3.5vw,14.5px)] font-medium leading-relaxed text-muted-foreground">
+                  {route.description}
+                </p>
+                <span className="mt-auto grid h-[clamp(30px,8vw,38px)] w-[clamp(30px,8vw,38px)] place-items-center rounded-full bg-primary/10 text-primary transition-all group-hover:translate-x-0.5 group-hover:bg-primary group-hover:text-primary-foreground">
+                  <ChevronRight className="h-[clamp(13px,3.6vw,16px)] w-[clamp(13px,3.6vw,16px)]" />
+                </span>
+              </button>
+            ))}
+          </div>
+
 
           <div className="flex items-center justify-center gap-3 pt-1 text-[10px] text-muted-foreground font-medium">
             <span className="flex items-center gap-1"><BadgeCheck className="h-3 w-3 text-success" /> Verified</span>
