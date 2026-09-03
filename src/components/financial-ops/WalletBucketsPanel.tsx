@@ -239,9 +239,9 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
                     formatUGX(actual?.total ?? 0)
                   )}
                 </p>
-                <p className="text-xs text-muted-foreground mt-0.5 ml-7">
-                  MTN + Airtel line balances from email transactions, plus verified cash at hand and money at bank.
-                </p>
+                 <p className="text-xs text-muted-foreground mt-0.5 ml-7">
+                   MTN + Airtel line balances, verified cash at hand, and the balance managed in Bayo Mercy’s bank account.
+                 </p>
               </div>
             </div>
 
