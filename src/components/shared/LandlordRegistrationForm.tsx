@@ -545,8 +545,19 @@ export default function LandlordRegistrationForm({
       return;
     }
 
-    // Agreement upload is optional for landlord registration. New-agent Rent
-    // Request submission performs the mandatory signed-agreement check.
+    // Mandatory only for an agent registering a NEW landlord.
+    if (registeredByRole === 'agent' && !minimal && !isLandlordAgreementInlineComplete(agreementDetails)) {
+      hapticWarning();
+      setStep(1);
+      focusField('landlordAgreement');
+      toastFn({
+        title: 'Signed agreement required',
+        description: 'Upload the signed landlord agreement to register this new landlord.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
 
     // Pre-save duplicate check: if the phone hasn't already been verified as
     // free, run the check now and surface the exact field error before saving.
