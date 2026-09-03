@@ -11555,6 +11555,80 @@ export type Database = {
           },
         ]
       }
+      engrep_engineers: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          created_by: string | null
+          git_emails: string[]
+          id: string
+          staff_id: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          created_by?: string | null
+          git_emails?: string[]
+          id?: string
+          staff_id: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          git_emails?: string[]
+          id?: string
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engrep_engineers_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      engrep_windows: {
+        Row: {
+          granularity: string
+          harvested_at: string | null
+          id: string
+          locked_at: string | null
+          locked_by: string | null
+          opened_at: string
+          period_end: string
+          period_start: string
+          status: string
+        }
+        Insert: {
+          granularity: string
+          harvested_at?: string | null
+          id?: string
+          locked_at?: string | null
+          locked_by?: string | null
+          opened_at?: string
+          period_end: string
+          period_start: string
+          status?: string
+        }
+        Update: {
+          granularity?: string
+          harvested_at?: string | null
+          id?: string
+          locked_at?: string | null
+          locked_by?: string | null
+          opened_at?: string
+          period_end?: string
+          period_start?: string
+          status?: string
+        }
+        Relationships: []
+      }
       error_correction_alerts: {
         Row: {
           acknowledged_at: string | null
@@ -44753,6 +44827,7 @@ export type Database = {
         Args: { p_amount: number; p_recipient_type: string; p_user_id: string }
         Returns: Json
       }
+      engrep_is_adjudicator: { Args: never; Returns: boolean }
       enqueue_agent_capability_job: {
         Args: {
           _action: string
