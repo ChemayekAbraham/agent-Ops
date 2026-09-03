@@ -720,7 +720,13 @@ Deno.serve(async (req) => {
       let updated = 0; let unchanged = 0;
       const report: any[] = [];
       for (const r of rows ?? []) {
-        const combined = `${(r as any).subject ?? ''}\n${(r as any).snippet ?? ''}\n${(r as any).raw_body ?? ''}`;
+        // `snippet` is Gmail's truncated preview of the SAME text as `raw_body`.
+        // Joining both duplicates the message — the snippet's cut-off tail
+        // immediately followed by the body's start creates spurious
+        // cross-boundary matches (e.g. "...to" + "You have sent..." reads as
+        // "to You have sent", which the counterparty regex then captures
+        // instead of the real recipient). Use snippet only when raw_body is empty.
+        const combined = `${(r as any).subject ?? ''}\n${(r as any).raw_body || (r as any).snippet || ''}`;
         const p = parseTransaction(combined);
         const newAmount = p.amount ?? (r as any).amount ?? null;
         const newTid = p.transaction_id ?? (r as any).transaction_id ?? null;
@@ -828,7 +834,13 @@ Deno.serve(async (req) => {
       const subject = h('Subject');
       const snippet = full?.snippet ?? null;
       const body = extractPlainBody(full?.payload);
-      const combined = [subject, snippet, body].filter(Boolean).join('\n');
+      // `snippet` is Gmail's truncated preview of the SAME text as `body`.
+      // Joining both duplicates the message — the snippet's cut-off tail
+      // immediately followed by the body's start creates spurious
+      // cross-boundary matches (e.g. "...to" + "You have sent..." reads as
+      // "to You have sent", which the counterparty regex then captures
+      // instead of the real recipient). Use snippet only when body is empty.
+      const combined = [subject, body || snippet].filter(Boolean).join('\n');
       const parsed = parseTransaction(combined);
 
       // ── Guard: never ingest our OWN cash-deposit code-notification emails ──
@@ -1265,8 +1277,11 @@ async function tryAutoDebitPayout(
   // and no account number, so it cannot be attributed to a desk from the
   // message. Only the receiving bank's own notification names the account.
   {
+    // snippet is Gmail's truncated preview of the same text as raw_body —
+    // join only whichever is present to avoid the duplicate-boundary
+    // collision described above (use snippet only when raw_body is empty).
     const bank = extractBankBeneficiary(
-      [gmailRow.subject, (gmailRow as any).snippet, (gmailRow as any).raw_body]
+      [gmailRow.subject, (gmailRow as any).raw_body || (gmailRow as any).snippet]
         .filter(Boolean).join(' '),
     );
     // Require the "sent to <NAME> <masked account>" shape, not merely SOME
