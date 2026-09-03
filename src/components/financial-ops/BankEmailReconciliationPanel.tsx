@@ -135,14 +135,14 @@ export function BankEmailReconciliationPanel() {
           {expanded && (
             <div className="mt-3 space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Qualifying emails</p>
-                <Badge variant="outline" className="text-[10px]">
-                  {data.qualifying_emails.length} records
-                </Badge>
-              </div>
-              <div className="max-h-80 overflow-y-auto divide-y divide-border rounded-lg border border-border">
-                {data.qualifying_emails.length === 0 && (
-                  <p className="p-4 text-center text-xs text-muted-foreground">No qualifying Bayo emails found.</p>
+                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Bayo Mercy account alerts</p>
+                 <Badge variant="outline" className="text-[10px]">
+                   {data.qualifying_emails.length} records
+                 </Badge>
+               </div>
+               <div className="max-h-80 overflow-y-auto divide-y divide-border rounded-lg border border-border">
+                 {data.qualifying_emails.length === 0 && (
+                   <p className="p-4 text-center text-xs text-muted-foreground">No qualifying Bayo Mercy account alerts found.</p>
                 )}
                 {data.qualifying_emails.map((email) => {
                   const incoming = email.direction === 'in';
@@ -173,7 +173,7 @@ export function BankEmailReconciliationPanel() {
                   );
                 })}
               </div>
-              <p className="text-[10px] text-muted-foreground">Extracted {fmtDate(data.computed_at)} • Matching identifies Bayo Mercy account credits and debits from normalized bank alerts.</p>
+              <p className="text-[10px] text-muted-foreground">Extracted {fmtDate(data.computed_at)} • Money at Bank is the Bayo Mercy account balance: credits in less debits out.</p>
             </div>
           )}
         </>
