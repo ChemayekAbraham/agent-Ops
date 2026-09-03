@@ -209,7 +209,7 @@ interface Profile { id: string; full_name: string; email: string; phone: string;
 type SettingsSection = 'account' | 'roles' | 'appearance' | 'security' | 'legal' | 'advanced';
 
 const SECTIONS: { id: SettingsSection; label: string; icon: typeof User; helper: string }[] = [
-  { id: 'account', label: 'Me', icon: User, helper: 'Profile, contact, withdrawal and sign-in' },
+  { id: 'account', label: 'Personal Information', icon: User, helper: 'Profile, contact, withdrawal and sign-in' },
   { id: 'roles', label: 'Roles', icon: Shield, helper: 'Switch and review your active roles' },
   { id: 'appearance', label: 'Look', icon: Palette, helper: 'Theme, text size, language and currency' },
   { id: 'security', label: 'Safety', icon: ShieldCheck, helper: 'PIN, biometrics, devices and alerts' },
