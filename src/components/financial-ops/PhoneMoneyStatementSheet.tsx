@@ -95,7 +95,7 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
           id: String(t.id),
           at: t.extracted_at ?? null,
           amount: Number(t.amount ?? 0),
-          direction: (t.direction === 'out' ? 'out' : 'in') as const,
+          direction: (t.direction === 'out' ? 'out' : 'in') as Row['direction'],
           party: t.direction === 'out' ? 'Bayo Mercy' : 'Welile Technologies',
           reference: t.transaction_id ?? null,
           balanceAfter: null,
