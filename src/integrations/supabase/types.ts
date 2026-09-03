@@ -42201,6 +42201,10 @@ export type Database = {
         Args: { p_agent_id: string; p_frozen: boolean; p_reason?: string }
         Returns: Json
       }
+      agent_ops_set_stage: {
+        Args: { p_agent_profile_id: string; p_note?: string; p_stage: string }
+        Returns: string
+      }
       agent_ops_set_subagent_commission_whitelist: {
         Args: {
           p_reason: string
