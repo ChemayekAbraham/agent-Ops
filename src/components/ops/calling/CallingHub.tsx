@@ -64,31 +64,68 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
   const hub = useCcCallingHub(subjectType, { state: tab, sortKey, search: debouncedSearch, page, filters });
 
 
-  const [revealed, setRevealed] = useState<Record<string, string | null>>({});
+  /**
+   * Reveals stay usable until the row's outcome is recorded. An entry survives
+   * closing the sheet, and is dropped only when its attempt leaves the caller's
+   * open-attempt list — i.e. when the call status has actually been recorded.
+   */
+  const [reveals, setReveals] = useState<Record<string, { attemptId: string; phone: string | null }>>({});
   const [formAttempt, setFormAttempt] = useState<{ id: string; cycle_row_id: string; name: string } | null>(null);
   const [revealTarget, setRevealTarget] = useState<RevealTarget | null>(null);
   const belowLg = useBelowLg();
 
+  const openAttemptIds = useMemo(() => new Set(hub.openAttempts.map((a) => a.id)), [hub.openAttempts]);
+
+  /** Only reveals whose attempt is still open (unrecorded) count as active. */
+  const activeReveals = useMemo(() => {
+    const out: Record<string, { attemptId: string; phone: string | null }> = {};
+    for (const [rowId, v] of Object.entries(reveals)) {
+      if (openAttemptIds.has(v.attemptId)) out[rowId] = v;
+    }
+    return out;
+  }, [reveals, openAttemptIds]);
+
+  const revealedPhones = useMemo(() => {
+    const out: Record<string, string | null> = {};
+    for (const [rowId, v] of Object.entries(activeReveals)) out[rowId] = v.phone;
+    return out;
+  }, [activeReveals]);
+
   const metricLabel = useMemo(() => hub.rows[0]?.metric_label ?? 'Metric', [hub.rows]);
   const activeTab = CALLING_TABS.find((t) => t.key === tab) ?? CALLING_TABS[0];
 
+  const openSheet = (row: CcRow, attemptId: string, phone: string | null) =>
+    setRevealTarget({
+      attemptId,
+      cycleRowId: row.id,
+      subjectId: row.subject_id,
+      name: row.name ?? 'Unnamed',
+      attemptNo: null,
+      phone,
+      district: row.district,
+      linkedAgent: row.linked_agent,
+    });
+
   const handleReveal = (row: CcRow) => {
+    // Already revealed and still unrecorded → reopen the same attempt, never a new one.
+    const existing = activeReveals[row.id];
+    if (existing) {
+      openSheet(row, existing.attemptId, existing.phone);
+      return;
+    }
     hub.reveal.mutate(
       { id: row.id },
       {
         onSuccess: ({ attemptId, phone }) => {
-          setRevealed((r) => ({ ...r, [row.id]: phone }));
-          if (belowLg) {
-            // On a handset the operator dials straight from the sheet.
-            setRevealTarget({ attemptId, cycleRowId: row.id, name: row.name ?? 'Unnamed', attemptNo: null, phone });
-          } else {
-            toast.success(phone ? `Number revealed: ${phone}` : 'Attempt opened, but no number is on file.');
-          }
+          setReveals((r) => ({ ...r, [row.id]: { attemptId, phone } }));
+          openSheet(row, attemptId, phone);
+          if (!phone) toast.message('Attempt opened, but no number is on file.');
         },
         onError: (e) => toast.error(ccErrorText(e)),
       },
     );
   };
+
 
   return (
     <div className="space-y-3 pb-32 sm:pb-28">
