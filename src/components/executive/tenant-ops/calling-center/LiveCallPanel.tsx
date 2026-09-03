@@ -85,28 +85,40 @@ export function LiveCallPanel({
     );
 
   return (
-    <Card className="overflow-hidden rounded-2xl border-border/60">
+    <Card className="overflow-hidden">
       <div
         className={cn(
-          'px-4 pb-4 pt-6 text-center transition-colors',
-          call.state === 'connected' ? 'bg-primary/10' : ended ? 'bg-muted' : 'bg-primary/5',
+          'px-4 pb-5 pt-6 text-center transition-colors',
+          call.state === 'connected'
+            ? 'bg-gradient-to-b from-emerald-500/15 to-transparent'
+            : ended
+              ? 'bg-muted/50'
+              : 'bg-gradient-to-b from-primary/15 to-transparent',
         )}
       >
         <div className="relative mx-auto w-fit">
           {dialling && (
-            <span className="absolute inset-0 animate-ping rounded-full bg-primary/20" aria-hidden />
+            <span className="absolute inset-0 animate-ping rounded-full bg-primary/25" aria-hidden />
           )}
-          <div className="relative flex h-20 w-20 items-center justify-center rounded-full border-2 border-background bg-primary/15 text-lg font-bold text-primary shadow">
+          <div
+            className={cn(
+              'relative flex h-20 w-20 items-center justify-center rounded-full border-2 border-background text-lg font-bold shadow-md',
+              call.state === 'connected' ? 'bg-emerald-500/20 text-emerald-700' : 'bg-primary/15 text-primary',
+            )}
+          >
             {initials(current.name)}
           </div>
         </div>
 
         <h3 className="mt-3 truncate text-base font-bold">{current.name}</h3>
-        <p className="text-xs tabular-nums text-muted-foreground">{current.phone ?? 'No number on file'}</p>
-        <div className="mt-1.5 flex flex-wrap items-center justify-center gap-1.5">
-          <Badge variant="outline" className="text-[10px]">Tenant</Badge>
+        <p className="text-xs font-semibold tabular-nums text-muted-foreground">
+          {current.phone ?? 'No number on file'}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+          <Badge variant="secondary" className="text-[10px]">Tenant</Badge>
           {current.district && <Badge variant="outline" className="text-[10px]">{current.district}</Badge>}
         </div>
+
 
         <p
           className={cn(
