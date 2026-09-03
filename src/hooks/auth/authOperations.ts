@@ -144,7 +144,7 @@ function isPreviewHost(hostname: string) {
  *
  * The broker only accepts redirect URIs that are on the project's auth
  * allow-list (canonical domain + www + Lovable preview hosts). Retired /
- * unregistered hostnames (e.g. the legacy `welile.tech` apex, which still
+ * unregistered hostnames (e.g. the legacy `welile.tech` apex, which still legacy-domain-guard-allow
  * serves the app) were being passed through verbatim, so the popup opened,
  * the user consented, and the callback was then rejected — 0 successful
  * sign-ins from those hosts. Fall back to the canonical origin instead of
