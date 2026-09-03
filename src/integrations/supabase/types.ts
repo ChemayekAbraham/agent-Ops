@@ -47353,6 +47353,16 @@ export type Database = {
         }
         Returns: boolean
       }
+      house_listing_protected_unchanged: {
+        Args: {
+          _house_verified_bonus_paid: boolean
+          _id: string
+          _listed_bonus_paid: boolean
+          _listing_bonus_paid: boolean
+          _verified: boolean
+        }
+        Returns: boolean
+      }
       hr_can_assign_tasks: { Args: never; Returns: boolean }
       hr_change_department: {
         Args: {
@@ -50045,6 +50055,16 @@ export type Database = {
           p_prev_request_id: string
         }
         Returns: string
+      }
+      rent_request_financials_unchanged: {
+        Args: {
+          _amount_repaid: number
+          _daily_repayment: number
+          _id: string
+          _rent_amount: number
+          _total_repayment: number
+        }
+        Returns: boolean
       }
       reopen_deposit_for_repair: {
         Args: { p_deposit_id: string }
