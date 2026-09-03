@@ -154,7 +154,7 @@ export function AgentMonitoring() {
       const requests = await fetchAll<ActiveRentRequest>((from, to) =>
         supabase
           .from('rent_requests')
-          .select('id, tenant_id, agent_id, landlord_id, daily_repayment, total_repayment, amount_repaid, status, created_at, house_category, landlords(name, property_address)')
+          .select('id, tenant_id, agent_id, landlord_id, daily_repayment, total_repayment, amount_repaid, status, created_at, house_category')
           .in('status', ['funded', 'disbursed', 'repaying'])
           .range(from, to),
       );
@@ -181,9 +181,16 @@ export function AgentMonitoring() {
         ...Array.from(agentIds),
         ...activeRequests.map((request) => request.tenant_id),
       ]));
-      const profiles = ids.length === 0
-        ? []
-        : await fetchAll<Profile>((from, to) => supabase.from('profiles').select('id, full_name, phone').in('id', ids.slice(from, to + 1)));
+      const profiles: Profile[] = [];
+      const CHUNK = 300;
+      for (let index = 0; index < ids.length; index += CHUNK) {
+        const { data: batch, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, full_name, phone')
+          .in('id', ids.slice(index, index + CHUNK));
+        if (profileError) throw profileError;
+        profiles.push(...((batch ?? []) as Profile[]));
+      }
 
       return { requests: activeRequests, collections: (collections ?? []) as Collection[], profiles, requestCounts };
     },
