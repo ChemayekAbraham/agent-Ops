@@ -80,7 +80,7 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-30 border-b border-border/60 bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/70">
+      <header className="sticky top-0 z-30 border-b border-border/60 bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/70 pt-safe">
         <div className="mx-auto w-full max-w-5xl px-3 sm:px-4">
           <div className="flex items-center gap-2 py-2.5 sm:gap-3">
             {!isOnHub && (

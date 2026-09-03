@@ -474,7 +474,7 @@ export default function DepositsManagement() {
   return (
     <div className="min-h-screen bg-background pb-24 sm:pb-6">
       {/* Header */}
-      <header className="sticky top-0 z-50 wa-header shadow-sm">
+      <header className="sticky top-0 z-50 wa-header shadow-sm pt-safe">
         <div className="px-4 py-3">
           <div className="flex items-center gap-3">
             <Button

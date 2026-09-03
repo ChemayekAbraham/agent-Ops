@@ -158,7 +158,7 @@ export default function YourProfile() {
             {roles && roles.length > 1 && (
               <Card className="rounded-2xl">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Your access</CardTitle>
+                  <CardTitle className="text-sm">Your can access</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-1.5">
                   {roles.map(r => (

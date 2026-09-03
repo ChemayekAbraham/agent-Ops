@@ -96,7 +96,7 @@ export default function NotificationsScreen() {
 
   return (
     <div className="min-h-screen bg-background pb-28">
-      <header className="sticky top-0 z-20 bg-primary text-primary-foreground px-4 py-3 shadow-md">
+      <header className="sticky top-0 z-20 bg-primary text-primary-foreground px-4 py-3 shadow-md pt-safe">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
