@@ -6,11 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Users, FileText, Home, Phone, MapPin, Search, Calendar, XCircle } from 'lucide-react';
+import { Users, FileText, Home, Phone, MapPin, Search, Calendar, XCircle, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { RentPipelineQueue } from './RentPipelineQueue';
 import { PromissoryNotesQueue } from './PromissoryNotesQueue';
-import { RejectedRequestsQueue } from './RejectedRequestsQueue';
+import { AgentOpsApprovedRequestsPanel } from './AgentOpsApprovedRequestsPanel';
+import { AgentOpsRejectedRequestsPanel } from './AgentOpsRejectedRequestsPanel';
 import { NewTenantsWithoutRequestPanel } from './NewTenantsWithoutRequestPanel';
 import { formatLocation, locationHaystack } from '@/lib/locationText';
 
@@ -184,20 +185,39 @@ function LandlordsPipeline() {
   );
 }
 
+const APPROVED_STATUS_LIST = [
+  'agent_ops_approved',
+  'agent_verified',
+  'tenant_ops_approved',
+  'landlord_ops_approved',
+  'partner_ops_approved',
+  'coo_approved',
+  'approved',
+  'funded',
+  'disbursed',
+  'repaying',
+  'fully_repaid',
+  'completed',
+];
+
 export function AgentOpsPipelineHub() {
   const { data: counts } = useQuery({
     queryKey: ['pipeline-counts'],
     queryFn: async () => {
-      const [tenants, notes, landlordsData] = await Promise.all([
-        supabase.from('rent_requests').select('id', { count: 'exact', head: true }).eq('status', 'tenant_ops_approved'),
+      const [tenants, notes, landlordsData, approved, rejected] = await Promise.all([
+        supabase.from('rent_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
         supabase.from('promissory_notes').select('id', { count: 'exact', head: true }).in('status', ['pending', 'activated']),
         supabase.from('rent_requests').select('landlord_id').not('status', 'in', '("funded","rejected","cancelled")').not('landlord_id', 'is', null),
+        supabase.from('rent_requests').select('id', { count: 'exact', head: true }).in('status', APPROVED_STATUS_LIST),
+        supabase.from('rent_requests').select('id', { count: 'exact', head: true }).eq('status', 'rejected'),
       ]);
       const uniqueLandlords = new Set(landlordsData.data?.map((r: any) => r.landlord_id)).size;
       return {
         tenants: tenants.count || 0,
         notes: notes.count || 0,
         landlords: uniqueLandlords,
+        approved: approved.count || 0,
+        rejected: rejected.count || 0,
       };
     },
   });
@@ -206,8 +226,10 @@ export function AgentOpsPipelineHub() {
     { value: 'tenants', label: 'Tenants', icon: Users, count: counts?.tenants },
     { value: 'notes', label: 'Promissory Notes', icon: FileText, count: counts?.notes },
     { value: 'landlords', label: 'Landlords', icon: Home, count: counts?.landlords },
-    { value: 'rejected', label: 'Rejected', icon: XCircle, count: undefined as number | undefined },
+    { value: 'approved', label: 'Approved', icon: CheckCircle2, count: counts?.approved },
+    { value: 'rejected', label: 'Rejected', icon: XCircle, count: counts?.rejected },
   ];
+
 
   return (
     <Tabs defaultValue="tenants" className="space-y-4">
@@ -231,12 +253,8 @@ export function AgentOpsPipelineHub() {
       </TabsContent>
       <TabsContent value="notes"><PromissoryNotesQueue /></TabsContent>
       <TabsContent value="landlords"><LandlordsPipeline /></TabsContent>
-      <TabsContent value="rejected">
-        {/* Central correction desk: shows rejections from EVERY stage
-            (Agent Ops, Tenant Ops, Landlord Ops, COO, CFO).
-            Reopen sends the request directly back to the rejecting stage. */}
-        <RejectedRequestsQueue title="Rejected — Correction Desk (all stages)" />
-      </TabsContent>
+      <TabsContent value="approved"><AgentOpsApprovedRequestsPanel /></TabsContent>
+      <TabsContent value="rejected"><AgentOpsRejectedRequestsPanel /></TabsContent>
     </Tabs>
   );
 }

@@ -205,7 +205,14 @@ Deno.serve(async (req) => {
       })
       .eq('id', rent_request_id)
 
-    if (updateErr) throw new Error(`Failed to update request: ${updateErr.message}`)
+    if (updateErr) {
+      // Business guards raised by DB triggers (e.g. LANDLORD_NOT_VERIFIED) should reach
+      // the operator as plain, actionable text — not wrapped in internal prefixes.
+      const raw = updateErr.message || 'Unknown error'
+      const guard = raw.match(/LANDLORD_NOT_VERIFIED:\s*(.+)$/)
+      if (guard) throw new Error(guard[1].trim())
+      throw new Error(`Failed to update request: ${raw}`)
+    }
 
     // Record agent_float_funding so it shows in the agent's float history.
     // `rent_request_id` carries a unique index for active rows, so a retry can

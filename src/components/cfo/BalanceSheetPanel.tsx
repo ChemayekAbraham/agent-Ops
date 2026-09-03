@@ -7,7 +7,7 @@ import { Calendar as CalendarPicker } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import {
   classifyAssets, classifyLiabilities, classifyEquity, hasFlagged, visibleFlaggedLines,
-  expandLandlordFloat, expandIntangibleAssets, splitLegacyEquityLines, legacyIntangibleTotal,
+  expandLandlordFloat,
   type BsGroup, type LandlordFloatSplit,
 } from '@/components/cfo/balanceSheetClassification';
 import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
@@ -175,11 +175,29 @@ function GroupRow({
             ? (open ? <ChevronDown className="h-3 w-3 mt-0.5 shrink-0" /> : <ChevronRight className="h-3 w-3 mt-0.5 shrink-0" />)
             : null}
           <span className="truncate">{group.label}</span>
+          {/* A category with no ledger account behind it is a structural gap,
+              not a measured nil. Saying so stops a zero here being read as
+              "we hold none of this" when it means "the ledger does not track
+              it yet" — the balances for several of these sit in operational
+              sub-ledgers and are listed under memo sub-ledgers below. */}
+          {group.unsourced && (
+            <span
+              className="shrink-0 rounded px-1 py-px text-[9px] font-medium uppercase tracking-wide bg-muted text-muted-foreground"
+              title="No ledger account maps here yet — any balance sits in an operational sub-ledger and is shown under memo sub-ledgers, not in the ledger totals."
+            >
+              not in ledger
+            </span>
+          )}
         </span>
         {/* A heading names the block below it; its own total line carries the
             figure, so the amount is not printed twice. */}
         {!heading && (
-          <span className={cn('font-mono text-xs shrink-0 text-right', group.value < 0 ? 'text-destructive' : 'text-foreground')}>
+          <span
+            className={cn(
+              'font-mono text-xs shrink-0 text-right',
+              group.unsourced ? 'text-muted-foreground/70' : group.value < 0 ? 'text-destructive' : 'text-foreground',
+            )}
+          >
             {group.value < 0 ? `(${formatUGX(Math.abs(group.value))})` : formatUGX(group.value)}
           </span>
         )}
@@ -278,21 +296,17 @@ export default function BalanceSheetPanel() {
   const liabilityGroups = data
     ? classifyLiabilities([...data.liabilities.current, ...data.liabilities.non_current])
     : null;
-  /**
-   * Presentation only: the two legacy accounts (E3 / E4) are reported as
-   * component lines of Intangible Assets instead of inside Shareholders' Equity.
-   * Both sides move by the same amount, so the balance check is unchanged.
-   */
-  const legacySplit = data ? splitLegacyEquityLines(data.equity.lines) : null;
-  const legacyLines = legacySplit?.legacy ?? [];
-  const legacyAssetTotal = legacyIntangibleTotal(legacyLines);
-  const equityGroups = legacySplit ? classifyEquity(legacySplit.equity) : null;
-  /** Assets with Intangible Assets expanded into its component lines. */
-  const assetRows = expandIntangibleAssets(assetGroups?.groups ?? [], legacyLines);
-  const assetsTotal = data ? data.assets.total + legacyAssetTotal : 0;
-  const equityTotal = data ? data.equity.total + legacyAssetTotal : 0;
+  // E3 and E4 are equity accounts in ledger_account_catalog and are reported in
+  // equity. They were briefly reclassified onto the asset side as components of
+  // Intangible Assets, which inverted their sign and produced a negative
+  // intangible asset; per BIS approval that reclassification is removed. Every
+  // total below is now the RPC's own figure, with nothing added or moved.
+  const equityGroups = data ? classifyEquity(data.equity.lines) : null;
+  const assetRows = assetGroups?.groups ?? [];
+  const assetsTotal = data ? data.assets.total : 0;
+  const equityTotal = data ? data.equity.total : 0;
   const totalLiabilitiesAndEquity = data
-    ? data.balance_check.total_liabilities_and_equity + legacyAssetTotal
+    ? data.balance_check.total_liabilities_and_equity
     : 0;
   /** Landlord Float shown as Company Managed / Self Managed + subtotal. */
   const marketplaceRows = expandLandlordFloat(liabilityGroups?.marketplace ?? [], floatSplit);

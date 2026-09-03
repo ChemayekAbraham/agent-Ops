@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronRight, TrendingDown } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { formatUGX } from '@/lib/rentCalculations';
 import { usePayablesBreakdown, usePayablesTotal } from '@/hooks/usePayables';
@@ -26,58 +26,68 @@ export function PayablesCardDrilldown() {
 
   return (
     <>
-      <Card
-        role="button"
-        tabIndex={0}
-        onClick={() => setOpen(true)}
-        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setOpen(true)}
-        className="border-destructive/20 bg-destructive/5 cursor-pointer transition-colors hover:border-destructive/50 focus:outline-none focus:ring-2 focus:ring-ring"
-      >
-        <CardContent className="p-4 space-y-2">
+      <div className="w-full rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="w-full text-left p-5 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                Total Payables — authoritative
-              </p>
-              <p className="text-2xl font-bold font-mono tabular-nums break-words">
-                {money(t?.total)}
-              </p>
-              {failed ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    void total.refetch();
-                  }}
-                  className="text-[10px] text-destructive underline underline-offset-2"
-                >
-                  Payables could not be loaded · tap to retry
-                </button>
-              ) : (
-                <p className="text-[10px] text-muted-foreground">
-                  {t ? `${t.item_count ?? 0} open obligations · ` : ''}tap for breakdown &amp;
-                  forecast
-                </p>
-              )}
+            <div className="h-10 w-10 rounded-xl flex items-center justify-center shrink-0 bg-rose-600">
+              <TrendingDown className="h-5 w-5 text-rose-50" />
             </div>
-            <span className="flex items-center gap-1 shrink-0">
-              <TrendingDown className="h-5 w-5 text-destructive" />
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <span
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-muted/60 shrink-0"
+              aria-hidden
+            >
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-lg bg-background/70 px-2 py-1">
-              <p className="text-[9px] uppercase tracking-wider text-destructive">Overdue</p>
-              <p className="text-xs font-bold font-mono tabular-nums">{money(t?.overdue)}</p>
+          <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">
+            Total Payables — authoritative
+          </p>
+          <p className="mt-1.5 text-[22px] leading-none sm:text-[26px] sm:leading-none font-bold tabular-nums tracking-tight text-foreground break-words">
+            {money(t?.total)}
+          </p>
+          {failed ? (
+            <span
+              role="link"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                void total.refetch();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  void total.refetch();
+                }
+              }}
+              className="mt-2.5 block text-[11px] text-destructive underline underline-offset-2"
+            >
+              Payables could not be loaded · tap to retry
+            </span>
+          ) : (
+            <p className="mt-2.5 text-[11px] text-muted-foreground line-clamp-2">
+              {t ? `${t.item_count ?? 0} open obligations · ` : ''}tap for breakdown &amp; forecast
+            </p>
+          )}
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-lg border border-border/70 bg-muted/30 px-2.5 py-1.5">
+              <p className="text-[10px] font-medium text-muted-foreground">Overdue</p>
+              <p className="mt-0.5 text-xs font-semibold tabular-nums">{money(t?.overdue)}</p>
             </div>
-            <div className="rounded-lg bg-background/70 px-2 py-1">
-              <p className="text-[9px] uppercase tracking-wider text-muted-foreground">Due today</p>
-              <p className="text-xs font-bold font-mono tabular-nums">{money(t?.due_today)}</p>
+            <div className="rounded-lg border border-border/70 bg-muted/30 px-2.5 py-1.5">
+              <p className="text-[10px] font-medium text-muted-foreground">Due today</p>
+              <p className="mt-0.5 text-xs font-semibold tabular-nums">{money(t?.due_today)}</p>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </button>
+      </div>
+
 
 
       <Sheet open={open} onOpenChange={setOpen}>

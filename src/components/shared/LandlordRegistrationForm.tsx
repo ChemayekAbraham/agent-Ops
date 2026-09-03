@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import {
   emptyLandlordAgreementInline,
   isLandlordAgreementInlineComplete,
+
   LandlordAgreementInlineFields,
   type LandlordAgreementInlineValue,
 } from '@/components/landlord/agreement/LandlordAgreementInlineFields';
@@ -486,18 +487,19 @@ export default function LandlordRegistrationForm({
       }
     }
 
-    // The signed agreement is part of the normal form, so it must be attached
-    // before the agent can move to the confirmation step.
+    // The signed agreement is mandatory when an agent registers a NEW landlord.
+    // For a landlord already in the system it stays optional everywhere.
     if (registeredByRole === 'agent' && !minimal && !isLandlordAgreementInlineComplete(agreementDetails)) {
       hapticWarning();
       focusField('landlordAgreement');
       toastFn({
         title: 'Signed agreement required',
-        description: 'Download the contract, have it signed, then upload the signed copy to continue.',
+        description: 'Upload the signed landlord agreement to register this new landlord.',
         variant: 'destructive',
       });
       return;
     }
+
 
     hapticTap();
     setSubmitError('');
@@ -543,19 +545,19 @@ export default function LandlordRegistrationForm({
       return;
     }
 
-    // Agents must attach the signed agreement on the form itself before the
-    // landlord can be registered.
+    // Mandatory only for an agent registering a NEW landlord.
     if (registeredByRole === 'agent' && !minimal && !isLandlordAgreementInlineComplete(agreementDetails)) {
-      setStep(1);
       hapticWarning();
+      setStep(1);
       focusField('landlordAgreement');
       toastFn({
         title: 'Signed agreement required',
-        description: 'Download the contract, have it signed, then upload the signed copy before registering.',
+        description: 'Upload the signed landlord agreement to register this new landlord.',
         variant: 'destructive',
       });
       return;
     }
+
 
     // Pre-save duplicate check: if the phone hasn't already been verified as
     // free, run the check now and surface the exact field error before saving.
@@ -706,9 +708,8 @@ export default function LandlordRegistrationForm({
       if (error) throw error;
       setRegisteredLandlordId(newLandlord?.id ?? null);
 
-      if (registeredByRole === 'agent' && !minimal) {
+      if (registeredByRole === 'agent' && !minimal && agreementDetails.file) {
         const signedFile = agreementDetails.file;
-        if (!signedFile) throw new Error('Upload the signed landlord agreement before registering.');
         setProgressMsg('Saving the signed agreement…');
         const agreementDate = new Date().toISOString().slice(0, 10);
         await submitLandlordAgreementFile({
@@ -796,7 +797,12 @@ export default function LandlordRegistrationForm({
       }
 
       setSuccess(true);
-      toastFn({ title: 'Landlord Registered!', description: 'The signed agreement is attached and ready for verification.' });
+      toastFn({
+        title: 'Landlord Registered!',
+        description: agreementDetails.file
+          ? 'The signed agreement is attached and ready for verification.'
+          : 'The landlord was saved. A signed agreement can be attached when you post a new Rent Request.',
+      });
       onSuccess?.(newLandlord ? {
         id: newLandlord.id,
         name: newLandlord.name,
@@ -903,11 +909,13 @@ export default function LandlordRegistrationForm({
           <h3 className="text-lg font-semibold">Landlord Registered!</h3>
           <p className="text-muted-foreground text-sm">
             {registeredByRole === 'agent'
-              ? 'The signed landlord agreement was uploaded and preserved in agreement history.'
+              ? agreementDetails.file
+                ? 'The signed landlord agreement was uploaded and preserved in agreement history.'
+                : 'The landlord has been registered. A signed agreement can be attached when you post a new Rent Request.'
               : 'The landlord has been registered successfully.'}
           </p>
 
-          {registeredByRole === 'agent' && (
+          {registeredByRole === 'agent' && agreementDetails.file && (
             <div className="flex items-center justify-center gap-2 rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success">
               <CheckCircle2 className="h-4 w-4" /> Signed agreement uploaded and preserved in history.
             </div>

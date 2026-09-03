@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense, Component, ReactNode, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -208,23 +208,23 @@ function SectionHeading({ children }: { children: ReactNode }) {
 interface Profile { id: string; full_name: string; email: string; phone: string; avatar_url: string | null; }
 type SettingsSection = 'account' | 'roles' | 'appearance' | 'security' | 'legal' | 'advanced';
 
-const SECTIONS: { id: SettingsSection; label: string; icon: typeof User }[] = [
-  { id: 'account', label: 'Me', icon: User },
-  { id: 'roles', label: 'Roles', icon: Shield },
-  { id: 'appearance', label: 'Look', icon: Palette },
-  { id: 'security', label: 'Safety', icon: ShieldCheck },
-  { id: 'legal', label: 'Legal', icon: Scale },
-  { id: 'advanced', label: 'More', icon: SettingsIcon },
+const SECTIONS: { id: SettingsSection; label: string; icon: typeof User; helper: string }[] = [
+  { id: 'account', label: 'Me', icon: User, helper: 'Profile, contact, withdrawal and sign-in' },
+  { id: 'roles', label: 'Roles', icon: Shield, helper: 'Switch and review your active roles' },
+  { id: 'appearance', label: 'Look', icon: Palette, helper: 'Theme, text size, language and currency' },
+  { id: 'security', label: 'Safety', icon: ShieldCheck, helper: 'PIN, biometrics, devices and alerts' },
+  { id: 'legal', label: 'Legal', icon: Scale, helper: 'Agreements and policy documents' },
+  { id: 'advanced', label: 'More', icon: SettingsIcon, helper: 'Diagnostics and advanced tools' },
 ];
 
 type AccountTab = 'profile' | 'contact' | 'withdrawal' | 'access' | 'vault';
 
-const ACCOUNT_TABS: { id: AccountTab; label: string; icon: typeof User }[] = [
-  { id: 'profile', label: 'Profile', icon: User },
-  { id: 'contact', label: 'Contact', icon: Mail },
-  { id: 'withdrawal', label: 'Withdrawal', icon: Wallet },
-  { id: 'access', label: 'Sign-in', icon: ShieldCheck },
-  { id: 'vault', label: 'Vault', icon: Lock },
+const ACCOUNT_TABS: { id: AccountTab; label: string; helper: string; icon: typeof User }[] = [
+  { id: 'profile', label: 'Profile', helper: 'Photo, name and phone number', icon: User },
+  { id: 'contact', label: 'Contact', helper: 'Email address and notifications', icon: Mail },
+  { id: 'withdrawal', label: 'Withdrawal', helper: 'Mobile money name and wallet', icon: Wallet },
+  { id: 'access', label: 'Sign-in', helper: 'Linked accounts and sign-in methods', icon: ShieldCheck },
+  { id: 'vault', label: 'Vault', helper: 'Offline PDF documents', icon: Lock },
 ];
 
 export default function Settings() {
@@ -274,8 +274,37 @@ export default function Settings() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [activeSection, setActiveSection] = useState<SettingsSection>('account');
-  const [accountTab, setAccountTab] = useState<AccountTab>('profile');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sectionParam = searchParams.get('section') as SettingsSection | null;
+  const openSection: SettingsSection | null =
+    sectionParam && SECTIONS.some(s => s.id === sectionParam) ? sectionParam : null;
+  const activeSection: SettingsSection = openSection ?? 'account';
+  const setActiveSection = (id: SettingsSection) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('section', id);
+    setSearchParams(next);
+  };
+  const closeSection = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('section');
+    next.delete('tab');
+    setSearchParams(next);
+  };
+  const tabParam = searchParams.get('tab') as AccountTab | null;
+  const openAccountTab: AccountTab | null =
+    tabParam && ACCOUNT_TABS.some(t => t.id === tabParam) ? tabParam : null;
+  const accountTab: AccountTab = openAccountTab ?? 'profile';
+  const setAccountTab = (id: AccountTab) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('section', 'account');
+    next.set('tab', id);
+    setSearchParams(next);
+  };
+  const closeAccountTab = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('tab');
+    setSearchParams(next);
+  };
   const [deferredReady, setDeferredReady] = useState(false);
   const [pushOpen, setPushOpen] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
@@ -439,67 +468,89 @@ export default function Settings() {
         <meta property="og:url" content="https://welileapp.com/settings" />
       </Helmet>
       <div className="container mx-auto px-4 py-4 max-w-2xl pb-24 [padding-bottom:calc(6rem+env(safe-area-inset-bottom))]">
-        {/* Header — centered title, back on the left, Home on the right */}
-        <div className="sticky top-0 z-30 bg-background -mx-4 px-4 border-b border-border/30 mb-3">
-          <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 pt-2 pb-2">
-            <Button variant="ghost" size="icon" onClick={() => navigate(roleToSlug(role))} className="rounded-xl h-10 w-10 shrink-0">
+        {/* Header — minimal: circular back control, large title */}
+        <div className="sticky top-0 z-30 bg-background -mx-4 px-4 mb-2">
+          <div className="flex items-center justify-between gap-2 pt-2 pb-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                if (openSection === 'account' && openAccountTab) return closeAccountTab();
+                if (openSection) return closeSection();
+                navigate(roleToSlug(role));
+              }}
+              aria-label={openSection ? 'Back' : 'Back'}
+              className="h-10 w-10 shrink-0 rounded-full bg-muted/60 hover:bg-muted"
+            >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-lg font-bold tracking-tight text-center truncate">Settings</h1>
-            <Button variant="ghost" size="icon" onClick={() => navigate(roleToSlug(role))} aria-label="Home" className="rounded-xl h-10 w-10 shrink-0">
+            <Button variant="ghost" size="icon" onClick={() => navigate(roleToSlug(role))} aria-label="Home" className="h-10 w-10 shrink-0 rounded-full">
               <Home className="h-5 w-5" />
             </Button>
           </div>
 
-          {/* Tab bar */}
-          <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 pb-2">
-            <div className="inline-flex items-center gap-1 rounded-2xl bg-muted/50 p-1">
-              {visibleSections.map(({ id, label, icon: Icon }) => (
-                <button key={id} onClick={() => setActiveSection(id)}
+          <h1 className="pb-3 text-[28px] font-semibold leading-tight tracking-tight sm:text-[32px]">
+            {openSection === 'account' && openAccountTab
+              ? ACCOUNT_TABS.find(tab => tab.id === openAccountTab)?.label
+              : openSection
+                ? SECTIONS.find(section => section.id === openSection)?.label
+                : 'Settings'}
+          </h1>
+
+        </div>
+
+        {!openSection ? (
+          <div className="min-h-[calc(100vh-9rem)]">
+            <div className="divide-y divide-border/60">
+              {visibleSections.map(({ id, label, helper, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setActiveSection(id)}
                   onPointerEnter={() => prefetchSection(id)}
                   onPointerDown={() => prefetchSection(id)}
                   onFocus={() => prefetchSection(id)}
-                  className={cn(
-                  "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all min-h-[36px] shrink-0 touch-manipulation active:scale-95",
-                  activeSection === id ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-background/70"
-                )}>
-
-                  <Icon className="h-3.5 w-3.5" />{label}
+                  className="flex min-h-[64px] w-full items-center gap-4 py-4 text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:bg-muted/40"
+                >
+                  <Icon className="h-6 w-6 shrink-0 text-foreground" strokeWidth={1.5} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-base font-normal">{label}</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">{helper}</span>
+                  </span>
+                  <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" strokeWidth={1.5} />
                 </button>
               ))}
             </div>
           </div>
-        </div>
+        ) : (
 
-
-        {/* Active section content — ONLY one section renders at a time */}
-        <div className="mt-3">
-          <SectionBoundary name={activeSection}>
+          /* Active section content — only the selected section renders */
+          <div className="mt-1">
+            <SectionBoundary name={activeSection}>
             {activeSection === 'account' && (
-              <div className="flex flex-col sm:flex-row gap-4">
-                {/* Vertical tab rail */}
-                <div className="sm:w-44 shrink-0">
-                  <div className="flex sm:flex-col gap-1 overflow-x-auto sm:overflow-visible scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 pb-2 sm:pb-0 sm:rounded-2xl sm:bg-muted/50 sm:p-1">
-                    {ACCOUNT_TABS.map(({ id, label, icon: Icon }) => (
+              <div>
+                {!openAccountTab ? (
+                  /* Airbnb-style full-width vertical tabs — each opens its own page */
+                  <div className="min-h-[calc(100vh-9rem)] divide-y divide-border/60">
+                    {ACCOUNT_TABS.map(({ id, label, helper, icon: Icon }) => (
                       <button
                         key={id}
+                        type="button"
                         onClick={() => setAccountTab(id)}
-                        className={cn(
-                          "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all text-left min-h-[36px] shrink-0 touch-manipulation active:scale-95",
-                          accountTab === id
-                            ? "bg-primary text-primary-foreground shadow-sm"
-                            : "text-muted-foreground bg-muted/40 sm:bg-transparent hover:bg-background/70"
-                        )}
+                        className="flex min-h-[64px] w-full items-center gap-4 py-4 text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:bg-muted/40"
                       >
-                        <Icon className="h-3.5 w-3.5 shrink-0" />
-                        {label}
+                        <Icon className="h-6 w-6 shrink-0 text-foreground" strokeWidth={1.5} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-base font-normal">{label}</span>
+                          <span className="mt-0.5 block text-xs text-muted-foreground">{helper}</span>
+                        </span>
+                        <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" strokeWidth={1.5} />
                       </button>
                     ))}
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-4">
 
-                {/* Active account tab content */}
-                <div className="flex-1 min-w-0 space-y-4">
                   {accountTab === 'profile' && (
                     <div className="space-y-4">
                       <SectionHeading>Profile</SectionHeading>
@@ -644,9 +695,11 @@ export default function Settings() {
                       <LazySection name="ArchivedPdfs"><ArchivedPdfsCard /></LazySection>
                     </div>
                   )}
-                </div>
+                  </div>
+                )}
               </div>
             )}
+
 
             {activeSection === 'roles' && (
               <div className="space-y-4">
@@ -999,7 +1052,8 @@ export default function Settings() {
               </div>
             )}
           </SectionBoundary>
-        </div>
+          </div>
+        )}
 
         <div className="mt-8 text-center text-xs text-muted-foreground/50 pb-20"><p>Welile v1.11 • SW v11</p></div>
       </div>
