@@ -212,18 +212,18 @@ export async function renderPartnershipTopupReceipt(data: PartnerTopupReceiptDat
   field("Review Notes", "Top-up funds", COL2, y, SLATE, 10);
 
   // Footer — explanatory note and the same verification box/QR treatment as the reference.
-  page.drawRectangle({ x: CARD_X + 1, y: 31, width: CARD_W - 2, height: 155, color: FOOTER_BG });
-  hLine(186);
-  centered("This official receipt confirms capital top-up for your portfolio. Returns accrue per the Master Partnership Agreement.", 157, 9, regular, INK);
+  page.drawRectangle({ x: CARD_X + 1, y: 31, width: CARD_W - 2, height: 117, color: FOOTER_BG });
+  hLine(148);
+  centered("This official receipt confirms capital top-up for your portfolio. Returns accrue per the Master Partnership Agreement.", 128, 9, regular, INK);
 
-  page.drawSvgPath(roundedRectPath(LEFT, 74, RIGHT - LEFT, 51, 11), {
+  page.drawSvgPath(roundedRectPath(LEFT, 60, RIGHT - LEFT, 51, 11), {
     color: WHITE, borderColor: CARD_BORDER, borderWidth: 0.9,
   });
-  drawQrMark(page, LEFT + 12, 82, 35, INK);
-  text("Scan to Verify Receipt", LEFT + 57, 105, 9.5, bold, INK);
-  text("Cryptographic Authenticated", LEFT + 57, 90, 8.5, regular, MUTED);
-  text("welile.com/verify", RIGHT - 88, 94, 9, bold, PURPLE_DARK);
-  centered("© 2026 Welile Technologies Limited · Entebbe, Uganda", 51, 8.5, regular, INK);
+  drawQrMark(page, LEFT + 12, 68, 35, INK);
+  text("Scan to Verify Receipt", LEFT + 57, 91, 9.5, bold, INK);
+  text("Cryptographic Authenticated", LEFT + 57, 76, 8.5, regular, MUTED);
+  text("welile.com/verify", RIGHT - 88, 80, 9, bold, PURPLE_DARK);
+  centered("© 2026 Welile Technologies Limited · Entebbe, Uganda", 42, 8.5, regular, INK);
 
   return pdf.save({ useObjectStreams: true });
 }
