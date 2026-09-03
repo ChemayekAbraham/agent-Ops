@@ -265,26 +265,34 @@ export function AgentMonitoring() {
 
   const renderAgentRow = (agent: AgentRow, compact = false) => {
     const rate = agent.expected > 0 ? Math.min(100, (agent.collected / agent.expected) * 100) : null;
+    const callHref = agent.phone ? `tel:${agent.phone.replace(/[^\d+]/g, '')}` : null;
+
     if (compact) {
       return (
-        <Button
-          key={agent.id}
-          variant="ghost"
-          className="h-auto w-full justify-between gap-3 border p-3 text-left hover:bg-muted/50"
-          onClick={() => setSelectedAgent(agent)}
-        >
-          <div className="min-w-0">
-            <p className="truncate font-semibold">{agent.name}</p>
-            <p className="text-xs text-muted-foreground">{agent.phone || 'No phone number'} · {agent.tenantCount} tenants</p>
-            <p className="mt-1 text-xs tabular-nums text-muted-foreground">
-              {formatUGX(agent.collected)} / {formatUGX(agent.expected)} · {rate === null ? '—' : `${rate.toFixed(1)}%`}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
+        <div key={agent.id} className="rounded-lg border p-3">
+          <button
+            type="button"
+            className="flex w-full items-start justify-between gap-3 text-left"
+            onClick={() => setSelectedAgent(agent)}
+          >
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold">{agent.name}</p>
+              <p className="truncate text-xs text-muted-foreground">{agent.phone || 'No phone number'} · {agent.tenantCount} tenants</p>
+              <p className="mt-1 break-words text-xs tabular-nums text-muted-foreground">
+                {formatUGX(agent.collected)} / {formatUGX(agent.expected)} · {rate === null ? '—' : `${rate.toFixed(1)}%`}
+              </p>
+            </div>
+            <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
+          </button>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <StatusIndicator status={collectionStatus(agent.expected, agent.collected)} />
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            {callHref && (
+              <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
+                <a href={callHref}><Phone className="h-3.5 w-3.5" /> Call</a>
+              </Button>
+            )}
           </div>
-        </Button>
+        </div>
       );
     }
 
@@ -304,10 +312,27 @@ export function AgentMonitoring() {
         </TableCell>
         <TableCell className="text-right tabular-nums">{agent.requestCount}</TableCell>
         <TableCell><StatusIndicator status={collectionStatus(agent.expected, agent.collected)} /></TableCell>
-        <TableCell className="text-right"><ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" /></TableCell>
+        <TableCell className="text-right">
+          <div className="flex items-center justify-end gap-1">
+            {callHref && (
+              <Button
+                asChild
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                aria-label={`Call ${agent.name}`}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <a href={callHref}><Phone className="h-4 w-4" /></a>
+              </Button>
+            )}
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </TableCell>
       </TableRow>
     );
   };
+
 
   return (
     <div className="space-y-4">
