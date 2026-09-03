@@ -110,6 +110,7 @@ export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
       { key: 'agent-capacity-hub', label: 'Agent Rent Capacity', icon: Gauge, keywords: ['capacity', 'eligibility', 'rating'] },
       { key: 'all-tenants-hub', label: 'All Tenants', icon: Users, keywords: ['register', 'search', 'bulk'] },
       { key: 'daily-collections', label: 'Daily Collection Monitoring', icon: CalendarCheck, keywords: ['expected', 'collected', 'edit'] },
+      { key: 'agent-monitoring', label: 'Agent Monitoring', icon: Users, keywords: ['agents', 'monitoring', 'collections', 'expected', 'collected', 'performance'] },
       { key: 'reliability-hub', label: 'Repayment Reliability Score', icon: ShieldCheck, keywords: ['risk', 'score', 'recency'] },
       { key: 'tenant-products-report', label: 'Tenant Products & Services', icon: FileText, keywords: ['products', 'services', 'report'] },
     ],
