@@ -564,6 +564,17 @@ export function PromissoryNotesQueue() {
                               );
                             })()}
                           </td>
+                          <td className="py-2 pr-3">
+                            {(() => {
+                              const s = supportOf(note);
+                              return (
+                                <Badge variant="outline" className={cn('text-[10px] cursor-help', s.color)} title={s.label}>
+                                  <Home className="h-3 w-3 mr-1" />
+                                  {s.short}
+                                </Badge>
+                              );
+                            })()}
+                          </td>
 
                           <td className="py-2 pr-3 text-right font-medium"><CompactAmount value={Number(note.amount)} /></td>
                           <td className="py-2 pr-3 text-right font-medium text-emerald-600"><CompactAmount value={Number(note.total_collected)} /></td>
