@@ -54,15 +54,6 @@ const AUTO_LABEL: Record<string, string> = {
   finished: 'Run finished',
 };
 
-const fmtMetric = (row: CcRow) => {
-  if (row.metric_format === 'ugx' && row.metric_value != null)
-    return `UGX ${Math.round(row.metric_value).toLocaleString()}`;
-  if (row.metric_format === 'days' && row.metric_value != null) return `${row.metric_value} d`;
-  if (row.metric_format === 'date' && row.metric_date)
-    return new Date(row.metric_date).toLocaleDateString();
-  if (row.metric_text) return row.metric_text;
-  return row.metric_value != null ? String(row.metric_value) : '—';
-};
 
 export function TenantCallingCenter() {
   const [tab, setTab] = useState<CenterTab>('overview');
