@@ -1,7 +1,11 @@
 /**
- * Call history for the Tenant Calling Center — read-only over
- * `crm_call_sessions_feed` (the CRM Calling Centre's own feed), narrowed to
- * tenant calls. No new table, no duplicated call record.
+ * Call history for the Tenant Calling Center.
+ *
+ * Read-only over the SAME records the Tenant Calling Hub writes — the `cc_*`
+ * spine (`cc_call_attempts` + `cc_feedback` + `cc_followups`). There is no
+ * separate Calling Center history: calls made in the Hub before the Center
+ * launched and calls made in the Center afterwards appear in one list, with
+ * their original dates, statuses and comments intact.
  */
 import { useMemo, useState } from 'react';
 import { Card } from '@/components/ui/card';
@@ -11,31 +15,51 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Download } from 'lucide-react';
-import { useCallRecords } from '@/hooks/useCrmCallCentre';
 import {
-  OUTCOME_LABEL,
-  computeKpis,
-  deriveOutcome,
-  formatCallStamp,
-  formatTalkTime,
-  type CallRecord,
-} from '@/lib/callCentre';
+  CC_OUTCOME_LABEL,
+  isAnsweredOutcome,
+  useCcCallHistory,
+  type CcHistoryRow,
+} from '@/hooks/useCcCallHistory';
 
 const DAY_CHOICES = [7, 30, 90];
 
-function toCsv(rows: CallRecord[]) {
-  const head = ['Called at', 'Tenant', 'Number', 'District', 'Outcome', 'Talk time (s)', 'Officer', 'Summary'];
+const stamp = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+
+const statusLabel = (r: CcHistoryRow) =>
+  r.outcome ? CC_OUTCOME_LABEL[r.outcome] : 'Open (not yet recorded)';
+
+function toCsv(rows: CcHistoryRow[]) {
+  const head = [
+    'Revealed at',
+    'Recorded at',
+    'Tenant',
+    'Attempt no',
+    'Status',
+    'Category',
+    'Severity',
+    'Comment',
+    'Follow-up due',
+    'Follow-up completed',
+    'Officer',
+    'Source',
+  ];
   const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const body = rows.map((r) =>
     [
-      r.calledAt,
-      r.calleeName,
-      r.calleePhone,
-      r.location ?? '',
-      OUTCOME_LABEL[deriveOutcome(r)],
-      r.durationSeconds ?? 0,
-      r.staffName ?? '',
-      r.summary ?? '',
+      r.revealedAt,
+      r.recordedAt ?? '',
+      r.subjectName,
+      r.attemptNo,
+      statusLabel(r),
+      r.categoryLabel ?? '',
+      r.severity ?? '',
+      r.comment ?? r.voidReason ?? '',
+      r.followUpDueAt ?? '',
+      r.followUpCompletedAt ?? '',
+      r.officer ?? '',
+      r.source ?? '',
     ]
       .map(esc)
       .join(','),
@@ -46,22 +70,28 @@ function toCsv(rows: CallRecord[]) {
 export function TenantCallCenterHistory({ showKpis = true }: { showKpis?: boolean }) {
   const [days, setDays] = useState(30);
   const [search, setSearch] = useState('');
-  const { data, isLoading } = useCallRecords(days);
+  const { data, isLoading } = useCcCallHistory('tenant', days);
 
-  const tenantCalls = useMemo(
-    () => (data ?? []).filter((r) => r.calleeRole === 'tenant'),
-    [data],
-  );
+  const all = useMemo(() => data ?? [], [data]);
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return tenantCalls;
-    return tenantCalls.filter((r) =>
-      [r.calleeName, r.location ?? '', r.staffName ?? ''].join(' ').toLowerCase().includes(q),
+    if (!q) return all;
+    return all.filter((r) =>
+      [r.subjectName, r.officer ?? '', r.categoryLabel ?? '', r.comment ?? ''].join(' ').toLowerCase().includes(q),
     );
-  }, [tenantCalls, search]);
+  }, [all, search]);
 
-  const kpis = useMemo(() => computeKpis(tenantCalls), [tenantCalls]);
+  const kpis = useMemo(() => {
+    const recorded = all.filter((r) => !!r.outcome);
+    const answered = recorded.filter((r) => isAnsweredOutcome(r.outcome)).length;
+    return {
+      total: all.length,
+      answered,
+      answerRate: recorded.length ? Math.round((answered / recorded.length) * 100) : 0,
+      open: all.length - recorded.length,
+    };
+  }, [all]);
 
   const download = () => {
     const blob = new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8' });
@@ -78,10 +108,10 @@ export function TenantCallCenterHistory({ showKpis = true }: { showKpis?: boolea
       {showKpis && (
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
           {[
-            { label: 'Calls placed', value: kpis.totalCalls },
+            { label: 'Calls attempted', value: kpis.total },
             { label: 'Answered', value: kpis.answered },
             { label: 'Answer rate', value: `${kpis.answerRate}%` },
-            { label: 'Talk time', value: formatTalkTime(kpis.totalTalkSeconds) },
+            { label: 'Awaiting outcome', value: kpis.open },
           ].map((k) => (
             <Card key={k.label} className="rounded-xl border-border/60 p-3">
               <p className="text-[11px] text-muted-foreground">{k.label}</p>
@@ -107,7 +137,7 @@ export function TenantCallCenterHistory({ showKpis = true }: { showKpis?: boolea
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search tenant, district or officer"
+          placeholder="Search tenant, officer, category or comment"
           className="h-8 w-full text-xs sm:max-w-xs"
         />
         <Button variant="outline" size="sm" className="h-8 text-xs" onClick={download} disabled={!rows.length}>
@@ -126,38 +156,45 @@ export function TenantCallCenterHistory({ showKpis = true }: { showKpis?: boolea
         ) : !rows.length ? (
           <p className="p-6 text-center text-xs text-muted-foreground">No tenant calls in this window.</p>
         ) : (
-          <table className="w-full min-w-[680px] text-xs">
+          <table className="w-full min-w-[760px] text-xs">
             <thead>
               <tr className="border-b text-left text-[11px] text-muted-foreground">
                 <th className="py-1.5 pr-2 font-semibold">When</th>
                 <th className="py-1.5 pr-2 font-semibold">Tenant</th>
-                <th className="py-1.5 pr-2 font-semibold">Number</th>
-                <th className="py-1.5 pr-2 font-semibold">Outcome</th>
-                <th className="py-1.5 pr-2 font-semibold">Talk time</th>
+                <th className="py-1.5 pr-2 font-semibold">Status</th>
+                <th className="py-1.5 pr-2 font-semibold">Category</th>
+                <th className="py-1.5 pr-2 font-semibold">Comment</th>
+                <th className="py-1.5 pr-2 font-semibold">Follow-up</th>
                 <th className="py-1.5 pr-2 font-semibold">Officer</th>
               </tr>
             </thead>
             <tbody>
-              {rows.slice(0, 400).map((r) => {
-                const outcome = deriveOutcome(r);
-                return (
-                  <tr key={r.id} className="border-b border-border/50 last:border-0">
-                    <td className="py-1.5 pr-2 whitespace-nowrap text-muted-foreground">{formatCallStamp(r.calledAt)}</td>
-                    <td className="py-1.5 pr-2 font-semibold">{r.calleeName}</td>
-                    <td className="py-1.5 pr-2 tabular-nums text-muted-foreground">{r.calleePhone}</td>
-                    <td className="py-1.5 pr-2">
-                      <Badge
-                        variant={outcome === 'answered' ? 'default' : 'outline'}
-                        className="text-[10px]"
-                      >
-                        {OUTCOME_LABEL[outcome]}
-                      </Badge>
-                    </td>
-                    <td className="py-1.5 pr-2 tabular-nums">{formatTalkTime(r.durationSeconds)}</td>
-                    <td className="py-1.5 pr-2 text-muted-foreground">{r.staffName ?? '—'}</td>
-                  </tr>
-                );
-              })}
+              {rows.slice(0, 400).map((r) => (
+                <tr key={r.id} className="border-b border-border/50 last:border-0 align-top">
+                  <td className="py-1.5 pr-2 whitespace-nowrap text-muted-foreground">
+                    {stamp(r.recordedAt ?? r.revealedAt)}
+                  </td>
+                  <td className="py-1.5 pr-2 font-semibold">{r.subjectName}</td>
+                  <td className="py-1.5 pr-2">
+                    <Badge
+                      variant={isAnsweredOutcome(r.outcome) ? 'default' : r.outcome ? 'outline' : 'secondary'}
+                      className="text-[10px]"
+                    >
+                      {statusLabel(r)}
+                    </Badge>
+                  </td>
+                  <td className="py-1.5 pr-2 text-muted-foreground">{r.categoryLabel ?? '—'}</td>
+                  <td className="max-w-[240px] py-1.5 pr-2 text-muted-foreground">
+                    {r.comment ?? r.voidReason ?? '—'}
+                  </td>
+                  <td className="py-1.5 pr-2 whitespace-nowrap text-muted-foreground">
+                    {r.followUpDueAt
+                      ? `${stamp(r.followUpDueAt)}${r.followUpCompletedAt ? ' (done)' : ''}`
+                      : '—'}
+                  </td>
+                  <td className="py-1.5 pr-2 text-muted-foreground">{r.officer ?? '—'}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}
