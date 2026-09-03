@@ -26,7 +26,7 @@ export function CapitalRoutesSection({ className }: { className?: string }) {
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_0_3px_rgba(74,222,154,0.25)]" />
               Now funding
             </span>
-            <h2 className="m-0 max-w-[16ch] text-[clamp(27px,7.6vw,46px)] font-extrabold leading-[1.06] tracking-[-0.03em] text-white md:w-full md:max-w-none md:whitespace-nowrap">
+            <h2 className="m-0 max-w-[16ch] text-[clamp(27px,7.6vw,46px)] font-extrabold leading-[1.06] tracking-[-0.03em] text-white md:max-w-[24ch]">
               Put your capital where the rent is.
             </h2>
             <p className="m-0 max-w-[38ch] text-[clamp(13px,3.6vw,16px)] font-medium leading-relaxed text-white/80">

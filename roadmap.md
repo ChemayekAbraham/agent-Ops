@@ -12,3 +12,5 @@
 - [x] CapitalRoutesSection: mobile hero top space matches space below the CTA button.
 - [x] Payroll: add ARREARS salary component (scope-fenced migration).
 - [ ] Fix AgentRentRequestDialog typecheck syntax error and verify preview build.
+- [x] CapitalRoutesSection hero: desktop heading wraps within container (no nowrap overflow).
+- [x] SelfPortfolioFundingCard: default feed order Houses first; toggle reordered accordingly.
