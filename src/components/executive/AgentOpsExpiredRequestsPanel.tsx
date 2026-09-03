@@ -53,7 +53,17 @@ interface ExpiredRequestRow {
   expiryDate: Date;
 }
 
-export function AgentOpsExpiredRequestsPanel() {
+interface AgentOpsExpiredRequestsPanelProps {
+  statuses?: string[];
+  title?: string;
+  description?: string;
+}
+
+export function AgentOpsExpiredRequestsPanel({
+  statuses = ['pending'],
+  title = 'Expired Rent Requests',
+  description,
+}: AgentOpsExpiredRequestsPanelProps = {}) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -69,28 +79,36 @@ export function AgentOpsExpiredRequestsPanel() {
     queryClient.invalidateQueries({ queryKey: ['rent-pipeline'] });
     queryClient.invalidateQueries({ queryKey: ['pipeline-counts'] });
     queryClient.invalidateQueries({ queryKey: ['agent-ops-counts'] });
+    queryClient.invalidateQueries({ queryKey: ['tenant-ops-tool-counts'] });
+    queryClient.invalidateQueries({ queryKey: ['tenant-ops-expired-count'] });
   };
 
   const { data: rows = [], isLoading } = useQuery({
-    queryKey: ['agent-ops-expired-requests'],
+    queryKey: ['agent-ops-expired-requests', statuses.join(',')],
     staleTime: 0,
     refetchOnMount: 'always',
     queryFn: async (): Promise<ExpiredRequestRow[]> => {
       const thirtyDaysAgo = new Date(Date.now() - THIRTY_DAYS_MS).toISOString();
 
-      // Fetch pending requests submitted more than 30 days ago that were never verified
-      const { data, error } = await supabase
+      let query = supabase
         .from('rent_requests')
         .select('id, tenant_id, agent_id, assigned_agent_id, landlord_id, rent_amount, created_at, status, agent_verified, request_city')
-        .eq('status', 'pending')
         .lt('created_at', thirtyDaysAgo)
         .order('created_at', { ascending: false });
 
+      if (statuses.length === 1) {
+        query = query.eq('status', statuses[0]);
+      } else {
+        query = query.in('status', statuses);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       if (!data || data.length === 0) return [];
 
-      // Filter out any where agent_verified is true
-      const unverified = data.filter((r: any) => !r.agent_verified);
+      const unverified = statuses.includes('pending')
+        ? data.filter((r: any) => !r.agent_verified)
+        : data;
       if (unverified.length === 0) return [];
 
       // Resolve tenant, agent, and landlord names
@@ -247,13 +265,13 @@ export function AgentOpsExpiredRequestsPanel() {
           <div>
             <div className="flex items-center gap-2">
               <Clock className="h-5 w-5 text-destructive" />
-              <h2 className="text-base font-semibold">Expired Rent Requests</h2>
+              <h2 className="text-base font-semibold">{title}</h2>
               <Badge variant="destructive" size="sm" className="font-bold">
                 {filtered.length} expired
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Pending requests submitted over 30 days ago that were never field-verified.
+              {description || 'Pending requests submitted over 30 days ago that were never field-verified.'}{' '}
               Total volume: <strong>UGX {totalExpiredAmount.toLocaleString()}</strong>.
             </p>
           </div>

@@ -33,6 +33,7 @@ import { TenantOpsExtractCenter, type ExtractKind, type ExtractTargetView } from
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -61,7 +62,7 @@ import { toast } from 'sonner';
 import {
   FileCheck, Clock, AlertTriangle, CheckCircle2, Banknote,
   ArrowRight, Activity, ClipboardList, CalendarCheck, CalendarX2,
-  ArrowLeft, History, Table2, Link2, HandCoins, Users, Trash2, Loader2, FileSearch, Printer, Network, Shield, ShieldCheck, CalendarIcon, Download, Wallet, Landmark, MapPin
+  ArrowLeft, History, Table2, Link2, HandCoins, Users, Trash2, Loader2, FileSearch, Printer, Network, Shield, ShieldCheck, CalendarIcon, Download, Wallet, Landmark, MapPin, XCircle
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import ResidenceAddressForm from '@/components/profile/ResidenceAddressForm';
@@ -1006,9 +1007,20 @@ export function TenantOpsDashboard({
   const defaulted = rows.filter(r => r.status === 'defaulted').length;
   const inPipeline = rows.filter(r => ['tenant_ops_approved', 'agent_verified', 'landlord_ops_approved', 'coo_approved'].includes(r.status)).length;
 
-  // Whole-system counts for the tool badges (the row set above is a capped page,
-  // so it cannot be trusted for dashboard-wide totals).
   const { data: toolCounts } = useTenantOpsToolCounts();
+  const { data: rejectedTenantOpsCount = 0 } = useQuery({
+    queryKey: ['tenant-ops-rejected-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('rent_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'rejected')
+        .eq('rejected_at_stage', 'agent_ops_approved');
+      if (error) return 0;
+      return count ?? 0;
+    },
+    staleTime: 30_000,
+  });
 
   const navCards: NavCard[] = [
     {
@@ -1296,11 +1308,41 @@ export function TenantOpsDashboard({
                 Pipeline Status hub
               </Button>
             </div>
-            <RentPipelineQueue
-              stage="agent_ops_approved"
-              additionalStatuses={['agent_verified']}
-            />
-            <RejectedRequestsQueue stageFilter="agent_ops_approved" title="Rejected at Tenant Ops" />
+
+            <Tabs defaultValue="pending" className="space-y-4">
+              <div className="overflow-x-auto scrollbar-hide -mx-1 px-1">
+                <TabsList variant="pills" className="w-max">
+                  <TabsTrigger value="pending" variant="pills" className="gap-1.5">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span className="text-xs">Pending Review</span>
+                    {toolCounts?.review_requests != null && toolCounts.review_requests > 0 && (
+                      <Badge variant="primary" size="sm" className="ml-0.5 min-w-[18px] justify-center font-bold">
+                        {toolCounts.review_requests}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="rejected" variant="pills" className="gap-1.5">
+                    <XCircle className="h-3.5 w-3.5 text-destructive" />
+                    <span className="text-xs">Rejected</span>
+                    {rejectedTenantOpsCount > 0 && (
+                      <Badge variant="destructive" size="sm" className="ml-0.5 min-w-[18px] justify-center font-bold">
+                        {rejectedTenantOpsCount}
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent value="pending" className="space-y-4">
+                <RentPipelineQueue
+                  stage="agent_ops_approved"
+                  additionalStatuses={['agent_verified']}
+                />
+              </TabsContent>
+              <TabsContent value="rejected" className="space-y-4">
+                <RejectedRequestsQueue stageFilter="agent_ops_approved" title="Rejected at Tenant Ops" />
+              </TabsContent>
+            </Tabs>
           </div>
         );
       case 'pipeline-hub':

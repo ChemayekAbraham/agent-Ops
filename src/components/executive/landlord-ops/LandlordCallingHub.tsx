@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 import {
   CheckCircle2, ChevronRight, PhoneCall, PhoneMissed, RefreshCw, Search, Users,
 } from 'lucide-react';
+import { useSessionPersistedState } from '@/hooks/useSessionPersistedState';
 import { useLandlordCallingList, type LandlordCallingRow, type LandlordCallScope } from '@/hooks/useLandlordCallingList';
 import {
   LANDLORD_CALL_STATUS_LABEL,
@@ -46,13 +47,39 @@ const daysSince = (iso?: string | null) =>
  * houses or payouts is changed here.
  */
 export function LandlordCallingHub() {
-  const [scope, setScope] = useState<LandlordCallScope>('plans');
+  const [scope, setScope] = useSessionPersistedState<LandlordCallScope>('llcall:scope', 'plans');
   const { rows, isLoading, refetch } = useLandlordCallingList(scope);
-  const [tab, setTab] = useState<Tab>('to_call');
-  const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState<SortBy>('rent');
-  const [recallDays, setRecallDays] = useState<(typeof RECALL_OPTIONS)[number]>(3);
-  const [open, setOpen] = useState<LandlordCallingRow | null>(null);
+  const [tab, setTab] = useSessionPersistedState<Tab>('llcall:tab', 'to_call');
+  const [search, setSearch] = useSessionPersistedState<string>('llcall:search', '');
+  const [sortBy, setSortBy] = useSessionPersistedState<SortBy>('llcall:sort', 'rent');
+  const [recallDays, setRecallDays] = useSessionPersistedState<(typeof RECALL_OPTIONS)[number]>('llcall:recall', 3);
+  const [openId, setOpenId] = useSessionPersistedState<string | null>('llcall:openId', null);
+  const [scrollY, setScrollY] = useSessionPersistedState<number>('llcall:scrollY', 0);
+  const restoredScroll = useRef(false);
+
+  const open = useMemo(
+    () => (openId ? rows.find(r => r.landlord_id === openId) || null : null),
+    [openId, rows],
+  );
+
+  /** Remember where the officer was, so a `tel:` round-trip lands back in place. */
+  useEffect(() => {
+    const save = () => setScrollY(window.scrollY);
+    window.addEventListener('pagehide', save);
+    window.addEventListener('visibilitychange', save);
+    return () => {
+      window.removeEventListener('pagehide', save);
+      window.removeEventListener('visibilitychange', save);
+      save();
+    };
+  }, [setScrollY]);
+
+  useEffect(() => {
+    if (restoredScroll.current || isLoading || !rows.length) return;
+    restoredScroll.current = true;
+    if (scrollY > 0) window.scrollTo({ top: scrollY });
+  }, [isLoading, rows.length, scrollY]);
+
 
   /** A landlord needs calling when never called, or the last call still needs a
    *  follow-up (Pending/Missed) and is older than the re-call window. */
@@ -211,7 +238,7 @@ export function LandlordCallingHub() {
                 return (
                   <li key={r.landlord_id}>
                     <button
-                      onClick={() => setOpen(r)}
+                      onClick={() => setOpenId(r.landlord_id)}
                       className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-card p-2.5 text-left transition-colors hover:border-primary/40 hover:bg-muted/40 sm:gap-3 sm:p-3"
                     >
                       <div className="min-w-0 flex-1">
@@ -266,7 +293,7 @@ export function LandlordCallingHub() {
         searchLabel={search.trim() || undefined}
       />
 
-      <LandlordCallDrawer row={open} open={!!open} onClose={() => setOpen(null)} />
+      <LandlordCallDrawer row={open} open={!!open} onClose={() => setOpenId(null)} />
     </div>
   );
 }

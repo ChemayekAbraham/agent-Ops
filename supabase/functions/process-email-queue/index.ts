@@ -89,25 +89,54 @@ async function sendViaMailgun(
     html?: string
     text?: string
     idempotency_key?: string
+    attachment?: {
+      filename: string
+      content_base64: string
+      content_type?: string
+    }
   },
   cfg: MailgunConfig
 ): Promise<void> {
-  const form = new URLSearchParams()
-  form.set('from', payload.from)
-  form.set('to', payload.to)
-  form.set('subject', payload.subject ?? '')
-  if (payload.html) form.set('html', payload.html)
-  if (payload.text) form.set('text', payload.text)
-  if (payload.reply_to) form.set('h:Reply-To', payload.reply_to)
-  if (payload.bcc) form.set('bcc', payload.bcc)
+  const hasAttachment = Boolean(payload.attachment?.content_base64 && payload.attachment.filename)
+  let body: BodyInit
+  const headers: Record<string, string> = {
+    Authorization: `Basic ${btoa(`api:${cfg.apiKey}`)}`,
+  }
+  if (hasAttachment && payload.attachment) {
+    const form = new FormData()
+    form.set('from', payload.from)
+    form.set('to', payload.to)
+    form.set('subject', payload.subject ?? '')
+    if (payload.html) form.set('html', payload.html)
+    if (payload.text) form.set('text', payload.text)
+    if (payload.reply_to) form.set('h:Reply-To', payload.reply_to)
+    if (payload.bcc) form.set('bcc', payload.bcc)
+    const binary = atob(payload.attachment.content_base64)
+    const bytes = new Uint8Array(binary.length)
+    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+    form.set(
+      'attachment',
+      new File([bytes], payload.attachment.filename, { type: payload.attachment.content_type || 'application/pdf' }),
+      payload.attachment.filename,
+    )
+    body = form
+  } else {
+    const form = new URLSearchParams()
+    form.set('from', payload.from)
+    form.set('to', payload.to)
+    form.set('subject', payload.subject ?? '')
+    if (payload.html) form.set('html', payload.html)
+    if (payload.text) form.set('text', payload.text)
+    if (payload.reply_to) form.set('h:Reply-To', payload.reply_to)
+    if (payload.bcc) form.set('bcc', payload.bcc)
+    headers['Content-Type'] = 'application/x-www-form-urlencoded'
+    body = form
+  }
 
   const res = await fetch(`${cfg.baseUrl}/v3/${cfg.domain}/messages`, {
     method: 'POST',
-    headers: {
-      Authorization: `Basic ${btoa(`api:${cfg.apiKey}`)}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: form.toString(),
+    headers,
+    body,
   })
 
   if (!res.ok) {
@@ -400,6 +429,11 @@ Deno.serve(async (req) => {
             html: payload.html,
             text: payload.text,
             idempotency_key: payload.idempotency_key,
+            attachment: payload.attachment as {
+              filename: string
+              content_base64: string
+              content_type?: string
+            } | undefined,
           },
           mailgunConfig
         )

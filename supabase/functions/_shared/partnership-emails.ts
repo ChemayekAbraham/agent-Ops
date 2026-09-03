@@ -88,15 +88,24 @@ export interface PartnershipTopupInput {
   roiPercentage?: number;
   /** Optional: monthly reward AMOUNT after top-up (UGX). Derived from roiPercentage * newTotal when omitted. */
   monthlyReturnAmount?: number;
+  portfolioId?: string;
+  portfolioName?: string;
+  reviewedBy?: string;
+  portfoliosToppedUpCount?: number;
+  effectiveAt?: string;
+  createdAt?: string;
 }
 
 export function buildPartnershipTopupRequest(input: PartnershipTopupInput) {
+  const effectiveAt = input.effectiveAt || new Date().toISOString();
+  const receiptNumber = `WELILE-TU-${input.txGroupId.replace(/-/g, '').slice(0, 12).toUpperCase()}`;
   return {
     templateName: "partnership-topup",
     recipientEmail: input.recipientEmail,
     idempotencyKey: `partnership-topup-${input.partnerId}-${input.txGroupId}`,
     templateData: {
       partner_name: input.partnerName || "Partner",
+      partner_id: input.partnerId,
       topup_amount: input.topupAmount,
       previous_portfolio_value: input.previousPortfolioValue,
       new_total_partnership_value: input.newTotalPartnershipValue,
@@ -106,6 +115,13 @@ export function buildPartnershipTopupRequest(input: PartnershipTopupInput) {
       monthly_return_amount: typeof input.monthlyReturnAmount === 'number' && input.monthlyReturnAmount > 0
         ? input.monthlyReturnAmount
         : undefined,
+      receipt_number: receiptNumber,
+      effective_datetime: effectiveAt,
+      parent_portfolio_id: input.portfolioId || input.txGroupId,
+      portfolio_name: input.portfolioName || "Partnership Portfolio",
+      portfolios_topped_up_count: input.portfoliosToppedUpCount || 1,
+      created_at: input.createdAt || effectiveAt,
+      reviewed_by: input.reviewedBy || "System",
       currency: CURRENCY,
       company_name: COMPANY_NAME,
       logo_url: LOGO_URL,

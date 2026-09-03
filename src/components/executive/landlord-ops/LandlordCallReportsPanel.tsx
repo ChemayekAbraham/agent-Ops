@@ -92,8 +92,8 @@ export function LandlordCallReportsPanel({
   const { user } = useAuth();
   const [actorName, setActorName] = useState('');
   const [dayMode, setDayMode] = useState(false);
-  const [preset, setPreset] = useState<Preset>('30d');
-  const [from, setFrom] = useState<Date | undefined>(subDays(new Date(), 30));
+  const [preset, setPreset] = useState<Preset>('today');
+  const [from, setFrom] = useState<Date | undefined>(startOfDay(new Date()));
   const [to, setTo] = useState<Date | undefined>(new Date());
   const [scope, setScope] = useState<'filtered' | 'everyone'>('filtered');
   const [fmt, setFmt] = useState<'csv' | 'xlsx' | 'pdf'>('csv');

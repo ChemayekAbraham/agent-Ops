@@ -6,10 +6,11 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { RentPipelineTracker } from './RentPipelineTracker';
 import { CheckCircle2, Search, Calendar, Clock, User, Home, Briefcase, ArrowUpDown, Building, Banknote, ShieldCheck } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, subDays, startOfMonth } from 'date-fns';
 
 /**
  * Requests that have cleared Agent Ops review and have entered the Tenant Ops pipeline.
@@ -102,36 +103,81 @@ const formatWhatsApp = (phone: string): string => {
   return clean;
 };
 
+type DatePreset = 'today' | 'yesterday' | '7d' | '30d' | 'month' | 'all' | 'custom';
+
+const PRESETS: { key: DatePreset; label: string }[] = [
+  { key: 'today', label: 'Today' },
+  { key: 'yesterday', label: 'Yesterday' },
+  { key: '7d', label: 'Last 7 days' },
+  { key: '30d', label: 'Last 30 days' },
+  { key: 'month', label: 'This month' },
+  { key: 'all', label: 'All time' },
+];
+
 export function AgentOpsApprovedRequestsPanel() {
   const [search, setSearch] = useState('');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  const [preset, setPreset] = useState<DatePreset>('today');
+  const [from, setFrom] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  const [to, setTo] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [selectedTrace, setSelectedTrace] = useState<ApprovedRow | null>(null);
 
+  const handleSelectPreset = (p: DatePreset) => {
+    setPreset(p);
+    const now = new Date();
+    if (p === 'today') {
+      const d = format(now, 'yyyy-MM-dd');
+      setFrom(d);
+      setTo(d);
+    } else if (p === 'yesterday') {
+      const d = format(subDays(now, 1), 'yyyy-MM-dd');
+      setFrom(d);
+      setTo(d);
+    } else if (p === '7d') {
+      setFrom(format(subDays(now, 6), 'yyyy-MM-dd'));
+      setTo(format(now, 'yyyy-MM-dd'));
+    } else if (p === '30d') {
+      setFrom(format(subDays(now, 29), 'yyyy-MM-dd'));
+      setTo(format(now, 'yyyy-MM-dd'));
+    } else if (p === 'month') {
+      setFrom(format(startOfMonth(now), 'yyyy-MM-dd'));
+      setTo(format(now, 'yyyy-MM-dd'));
+    } else if (p === 'all') {
+      setFrom('');
+      setTo('');
+    }
+  };
+
   const { data: rows = [], isLoading } = useQuery({
-    queryKey: ['agent-ops-approved-requests'],
+    queryKey: ['agent-ops-approved-requests', from, to],
     staleTime: 0,
     refetchOnMount: 'always',
     queryFn: async (): Promise<ApprovedRow[]> => {
-      // Pull requests from the unified pipeline using Tenant Ops data sources
-      const PAGE = 1000;
-      const data: any[] = [];
-      for (let fromIdx = 0; ; fromIdx += PAGE) {
-        const { data: chunk, error } = await supabase
-          .from('rent_requests')
-          .select(
-            'id, status, tenancy_status, registration_type, rent_amount, daily_repayment, duration_days, total_repayment, amount_repaid, access_fee, request_fee, created_at, approved_at, funded_at, disbursed_at, resubmitted_at, returned_at, agent_verified, agent_verified_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, partner_ops_reviewed_at, coo_reviewed_at, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, approval_comment, payout_transaction_reference, tenant_id, agent_id, assigned_agent_id, landlord_id, house_listing_id, request_city',
-          )
-          .or('status.neq.pending,agent_verified.eq.true,agent_verified_at.not.is.null,agent_ops_reviewed_at.not.is.null')
-          .neq('status', 'rejected')
-          .neq('status', 'cancelled')
-          .order('created_at', { ascending: false })
-          .range(fromIdx, fromIdx + PAGE - 1);
-        if (error) throw error;
-        data.push(...(chunk || []));
-        if (!chunk || chunk.length < PAGE) break;
+      let query = supabase
+        .from('rent_requests')
+        .select(
+          'id, status, tenancy_status, registration_type, rent_amount, daily_repayment, duration_days, total_repayment, amount_repaid, access_fee, request_fee, created_at, approved_at, funded_at, disbursed_at, resubmitted_at, returned_at, agent_verified, agent_verified_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, partner_ops_reviewed_at, coo_reviewed_at, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, approval_comment, payout_transaction_reference, tenant_id, agent_id, assigned_agent_id, landlord_id, house_listing_id, request_city',
+        )
+        .or('status.neq.pending,agent_verified.eq.true,agent_verified_at.not.is.null,agent_ops_reviewed_at.not.is.null')
+        .neq('status', 'rejected')
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false });
+
+      if (from) {
+        query = query.gte('created_at', `${from}T00:00:00.000Z`);
       }
+      if (to) {
+        query = query.lte('created_at', `${to}T23:59:59.999Z`);
+      }
+      if (!from && !to) {
+        query = query.limit(300);
+      } else {
+        query = query.limit(1000);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      if (!data || data.length === 0) return [];
 
       const profileIds = Array.from(
         new Set(
@@ -150,8 +196,11 @@ export function AgentOpsApprovedRequestsPanel() {
         if (!profileIds.length) return [];
         const res: any[] = [];
         for (let i = 0; i < profileIds.length; i += BATCH) {
-          const { data } = await supabase.from('profiles').select('id, full_name, phone, district, village').in('id', profileIds.slice(i, i + BATCH));
-          if (data) res.push(...data);
+          const { data: chunk } = await supabase
+            .from('profiles')
+            .select('id, full_name, phone, district, village')
+            .in('id', profileIds.slice(i, i + BATCH));
+          if (chunk) res.push(...chunk);
         }
         return res;
       };
@@ -159,8 +208,11 @@ export function AgentOpsApprovedRequestsPanel() {
         if (!landlordIds.length) return [];
         const res: any[] = [];
         for (let i = 0; i < landlordIds.length; i += BATCH) {
-          const { data } = await supabase.from('landlords').select('id, name, phone, property_address, district').in('id', landlordIds.slice(i, i + BATCH));
-          if (data) res.push(...data);
+          const { data: chunk } = await supabase
+            .from('landlords')
+            .select('id, name, phone, property_address, district')
+            .in('id', landlordIds.slice(i, i + BATCH));
+          if (chunk) res.push(...chunk);
         }
         return res;
       };
@@ -168,8 +220,11 @@ export function AgentOpsApprovedRequestsPanel() {
         if (!houseIds.length) return [];
         const res: any[] = [];
         for (let i = 0; i < houseIds.length; i += BATCH) {
-          const { data } = await supabase.from('house_listings').select('id, title, address, district, village, region').in('id', houseIds.slice(i, i + BATCH));
-          if (data) res.push(...data);
+          const { data: chunk } = await supabase
+            .from('house_listings')
+            .select('id, title, address, district, village, region')
+            .in('id', houseIds.slice(i, i + BATCH));
+          if (chunk) res.push(...chunk);
         }
         return res;
       };
@@ -276,6 +331,7 @@ export function AgentOpsApprovedRequestsPanel() {
 
   return (
     <div className="space-y-3">
+      {/* Search Bar & Order */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -286,44 +342,80 @@ export function AgentOpsApprovedRequestsPanel() {
             className="pl-8 h-8 text-xs"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <Input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="h-8 text-xs"
-            aria-label="Approved from"
-          />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+          className="h-8 text-xs gap-1 shrink-0"
+        >
+          <ArrowUpDown className="h-3 w-3" />
+          <span>{sortOrder === 'desc' ? 'Newest' : 'Oldest'}</span>
+        </Button>
+      </div>
+
+      {/* Date-only Filter Bar with Quick Presets */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2 p-2.5 rounded-lg border bg-card/60">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mr-1 flex items-center gap-1">
+            <Calendar className="h-3 w-3" /> Date:
+          </span>
+          {PRESETS.map((p) => (
+            <Button
+              key={p.key}
+              type="button"
+              variant={preset === p.key ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => handleSelectPreset(p.key)}
+              className={`h-7 px-2.5 text-xs font-medium ${preset === p.key ? 'font-bold shadow-sm' : ''}`}
+            >
+              {p.label}
+            </Button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 text-xs flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <Label htmlFor="approved-from" className="text-[11px] text-muted-foreground">From</Label>
+            <Input
+              id="approved-from"
+              type="date"
+              value={from}
+              onChange={(e) => {
+                setFrom(e.target.value);
+                setPreset('custom');
+              }}
+              className="h-7 w-32 text-xs"
+              aria-label="Approved from date"
+            />
+          </div>
           <span className="text-xs text-muted-foreground">to</span>
-          <Input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="h-8 text-xs"
-            aria-label="Approved to"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-            className="h-8 text-xs gap-1"
-          >
-            <ArrowUpDown className="h-3 w-3" />
-            <span>{sortOrder === 'desc' ? 'Newest' : 'Oldest'}</span>
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <Label htmlFor="approved-to" className="text-[11px] text-muted-foreground">To</Label>
+            <Input
+              id="approved-to"
+              type="date"
+              value={to}
+              onChange={(e) => {
+                setTo(e.target.value);
+                setPreset('custom');
+              }}
+              className="h-7 w-32 text-xs"
+              aria-label="Approved to date"
+            />
+          </div>
           {hasFilters && (
             <Button
+              type="button"
               variant="ghost"
               size="sm"
-              className="h-8 text-xs"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
               onClick={() => {
                 setSearch('');
-                setFrom('');
-                setTo('');
+                handleSelectPreset('all');
               }}
             >
-              Clear
+              Reset
             </Button>
           )}
         </div>
@@ -406,15 +498,15 @@ export function AgentOpsApprovedRequestsPanel() {
                 <span className="inline-flex items-center gap-1 font-sans">
                   <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
                   Approved{' '}
-                  <span className="font-mono">{r.approved_at ? format(new Date(r.approved_at), 'dd MMM yyyy, HH:mm') : 'date not recorded'}</span>
+                  <span className="font-mono">{r.approved_at ? format(new Date(r.approved_at), 'dd MMM yyyy') : 'date not recorded'}</span>
                 </span>
                 <span className="inline-flex items-center gap-1 font-sans">
                   <Calendar className="h-3 w-3 shrink-0" />
-                  Submitted <span className="font-mono">{format(new Date(r.created_at), 'dd MMM yyyy, HH:mm')}</span>
+                  Submitted <span className="font-mono">{format(new Date(r.created_at), 'dd MMM yyyy')}</span>
                 </span>
                 <span className="inline-flex items-center gap-1 font-sans text-muted-foreground">
                   <Clock className="h-3 w-3 shrink-0" />
-                  Expiry Date <span className="font-mono">{format(new Date(new Date(r.created_at).getTime() + 30 * 24 * 60 * 60 * 1000), 'dd MMM yyyy, HH:mm')}</span>
+                  Expiry Date <span className="font-mono">{format(new Date(new Date(r.created_at).getTime() + 30 * 24 * 60 * 60 * 1000), 'dd MMM yyyy')}</span>
                 </span>
               </div>
             </CardContent>

@@ -5,8 +5,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { XCircle, Search, Calendar, User, Home, Briefcase } from 'lucide-react';
-import { format } from 'date-fns';
+import { Label } from '@/components/ui/label';
+import { XCircle, Search, Calendar, User, Home, Briefcase, ArrowUpDown } from 'lucide-react';
+import { format, subDays, startOfMonth } from 'date-fns';
 
 /**
  * Complete historical record of every rejected rent request, across all
@@ -37,30 +38,78 @@ interface RejectedRow {
   haystack: string;
 }
 
+type DatePreset = 'today' | 'yesterday' | '7d' | '30d' | 'month' | 'all' | 'custom';
+
+const PRESETS: { key: DatePreset; label: string }[] = [
+  { key: 'today', label: 'Today' },
+  { key: 'yesterday', label: 'Yesterday' },
+  { key: '7d', label: 'Last 7 days' },
+  { key: '30d', label: 'Last 30 days' },
+  { key: 'month', label: 'This month' },
+  { key: 'all', label: 'All time' },
+];
+
 export function AgentOpsRejectedRequestsPanel() {
   const [search, setSearch] = useState('');
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  const [preset, setPreset] = useState<DatePreset>('today');
+  const [from, setFrom] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  const [to, setTo] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+
+  const handleSelectPreset = (p: DatePreset) => {
+    setPreset(p);
+    const now = new Date();
+    if (p === 'today') {
+      const d = format(now, 'yyyy-MM-dd');
+      setFrom(d);
+      setTo(d);
+    } else if (p === 'yesterday') {
+      const d = format(subDays(now, 1), 'yyyy-MM-dd');
+      setFrom(d);
+      setTo(d);
+    } else if (p === '7d') {
+      setFrom(format(subDays(now, 6), 'yyyy-MM-dd'));
+      setTo(format(now, 'yyyy-MM-dd'));
+    } else if (p === '30d') {
+      setFrom(format(subDays(now, 29), 'yyyy-MM-dd'));
+      setTo(format(now, 'yyyy-MM-dd'));
+    } else if (p === 'month') {
+      setFrom(format(startOfMonth(now), 'yyyy-MM-dd'));
+      setTo(format(now, 'yyyy-MM-dd'));
+    } else if (p === 'all') {
+      setFrom('');
+      setTo('');
+    }
+  };
 
   const { data: rows = [], isLoading } = useQuery({
-    queryKey: ['agent-ops-rejected-history'],
+    queryKey: ['agent-ops-rejected-history', from, to],
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async (): Promise<RejectedRow[]> => {
-      // Complete history: page through every rejected request (no cap).
-      const PAGE = 1000;
-      const data: any[] = [];
-      for (let fromIdx = 0; ; fromIdx += PAGE) {
-        const { data: chunk, error } = await supabase
-          .from('rent_requests')
-          .select(
-            'id, rent_amount, rejected_at, rejected_at_stage, rejected_reason, reopen_count, created_at, tenant_id, agent_id, assigned_agent_id, landlord_id',
-          )
-          .eq('status', 'rejected')
-          .order('rejected_at', { ascending: false, nullsFirst: false })
-          .range(fromIdx, fromIdx + PAGE - 1);
-        if (error) throw error;
-        data.push(...(chunk || []));
-        if (!chunk || chunk.length < PAGE) break;
+      let query = supabase
+        .from('rent_requests')
+        .select(
+          'id, rent_amount, rejected_at, rejected_at_stage, rejected_reason, reopen_count, created_at, tenant_id, agent_id, assigned_agent_id, landlord_id',
+        )
+        .eq('status', 'rejected')
+        .order('created_at', { ascending: false });
+
+      if (from) {
+        query = query.gte('created_at', `${from}T00:00:00.000Z`);
       }
+      if (to) {
+        query = query.lte('created_at', `${to}T23:59:59.999Z`);
+      }
+      if (!from && !to) {
+        query = query.limit(300);
+      } else {
+        query = query.limit(1000);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      if (!data || data.length === 0) return [];
 
       const profileIds = Array.from(
         new Set(
@@ -71,23 +120,40 @@ export function AgentOpsRejectedRequestsPanel() {
         new Set(data.map((r: any) => r.landlord_id).filter(Boolean)),
       );
 
-      const nameById = new Map<string, string>();
-      for (let i = 0; i < profileIds.length; i += 500) {
-        const { data: people } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', profileIds.slice(i, i + 500));
-        (people || []).forEach((p: any) => nameById.set(p.id, p.full_name || '—'));
-      }
+      const BATCH = 50;
+      const fetchProfiles = async () => {
+        if (!profileIds.length) return [];
+        const res: any[] = [];
+        for (let i = 0; i < profileIds.length; i += BATCH) {
+          const { data: chunk } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', profileIds.slice(i, i + BATCH));
+          if (chunk) res.push(...chunk);
+        }
+        return res;
+      };
 
-      const landlordNameById = new Map<string, string>();
-      for (let i = 0; i < landlordIds.length; i += 500) {
-        const { data: landlords } = await supabase
-          .from('landlords')
-          .select('id, name')
-          .in('id', landlordIds.slice(i, i + 500));
-        (landlords || []).forEach((l: any) => landlordNameById.set(l.id, l.name || '—'));
-      }
+      const fetchLandlords = async () => {
+        if (!landlordIds.length) return [];
+        const res: any[] = [];
+        for (let i = 0; i < landlordIds.length; i += BATCH) {
+          const { data: chunk } = await supabase
+            .from('landlords')
+            .select('id, name')
+            .in('id', landlordIds.slice(i, i + BATCH));
+          if (chunk) res.push(...chunk);
+        }
+        return res;
+      };
+
+      const [profilesList, landlordsList] = await Promise.all([
+        fetchProfiles(),
+        fetchLandlords(),
+      ]);
+
+      const nameById = new Map(profilesList.map((p: any) => [p.id, p.full_name || '—']));
+      const landlordNameById = new Map(landlordsList.map((l: any) => [l.id, l.name || '—']));
 
       return data.map((r: any) => {
         const tenant_name = nameById.get(r.tenant_id) || 'Unknown tenant';
@@ -114,58 +180,111 @@ export function AgentOpsRejectedRequestsPanel() {
     const q = search.trim().toLowerCase();
     const fromTs = from ? new Date(`${from}T00:00:00`).getTime() : null;
     const toTs = to ? new Date(`${to}T23:59:59`).getTime() : null;
-    return rows.filter((r) => {
-      if (q && !r.haystack.includes(q)) return false;
-      const ref = new Date(r.rejected_at || r.created_at).getTime();
-      if (fromTs != null && ref < fromTs) return false;
-      if (toTs != null && ref > toTs) return false;
-      return true;
-    });
-  }, [rows, search, from, to]);
+    return rows
+      .filter((r) => {
+        if (q && !r.haystack.includes(q)) return false;
+        const ref = new Date(r.rejected_at || r.created_at).getTime();
+        if (fromTs != null && ref < fromTs) return false;
+        if (toTs != null && ref > toTs) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        const tsA = new Date(a.created_at).getTime();
+        const tsB = new Date(b.created_at).getTime();
+        return sortOrder === 'desc' ? tsB - tsA : tsA - tsB;
+      });
+  }, [rows, search, from, to, sortOrder]);
 
   const total = filtered.reduce((sum, r) => sum + r.rent_amount, 0);
   const hasFilters = !!(search || from || to);
 
   return (
     <div className="space-y-3">
+      {/* Search Bar & Order */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
-            placeholder="Search tenant, landlord, agent or reason..."
+            placeholder="Search tenant, landlord, agent, or rejection reason..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-8 h-8 text-xs"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <Input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            className="h-8 text-xs"
-            aria-label="Rejected from"
-          />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setSortOrder((prev) => (prev === 'desc' ? 'asc' : 'desc'))}
+          className="h-8 text-xs gap-1 shrink-0"
+        >
+          <ArrowUpDown className="h-3 w-3" />
+          <span>{sortOrder === 'desc' ? 'Newest' : 'Oldest'}</span>
+        </Button>
+      </div>
+
+      {/* Date-only Filter Bar with Quick Presets */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2 p-2.5 rounded-lg border bg-card/60">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mr-1 flex items-center gap-1">
+            <Calendar className="h-3 w-3" /> Date:
+          </span>
+          {PRESETS.map((p) => (
+            <Button
+              key={p.key}
+              type="button"
+              variant={preset === p.key ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => handleSelectPreset(p.key)}
+              className={`h-7 px-2.5 text-xs font-medium ${preset === p.key ? 'font-bold shadow-sm' : ''}`}
+            >
+              {p.label}
+            </Button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2 text-xs flex-wrap">
+          <div className="flex items-center gap-1.5">
+            <Label htmlFor="rejected-from" className="text-[11px] text-muted-foreground">From</Label>
+            <Input
+              id="rejected-from"
+              type="date"
+              value={from}
+              onChange={(e) => {
+                setFrom(e.target.value);
+                setPreset('custom');
+              }}
+              className="h-7 w-32 text-xs"
+              aria-label="Rejected from date"
+            />
+          </div>
           <span className="text-xs text-muted-foreground">to</span>
-          <Input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            className="h-8 text-xs"
-            aria-label="Rejected to"
-          />
+          <div className="flex items-center gap-1.5">
+            <Label htmlFor="rejected-to" className="text-[11px] text-muted-foreground">To</Label>
+            <Input
+              id="rejected-to"
+              type="date"
+              value={to}
+              onChange={(e) => {
+                setTo(e.target.value);
+                setPreset('custom');
+              }}
+              className="h-7 w-32 text-xs"
+              aria-label="Rejected to date"
+            />
+          </div>
           {hasFilters && (
             <Button
+              type="button"
               variant="ghost"
               size="sm"
-              className="h-8 text-xs"
+              className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
               onClick={() => {
                 setSearch('');
-                setFrom('');
-                setTo('');
+                handleSelectPreset('all');
               }}
             >
-              Clear
+              Reset
             </Button>
           )}
         </div>

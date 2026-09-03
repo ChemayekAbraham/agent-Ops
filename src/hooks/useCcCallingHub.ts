@@ -532,26 +532,49 @@ export function useCcCallingHub(
   /**
    * Opens the attempt row FIRST, then asks the server for the number.
    * The number is never read from a table.
+   *
+   * There is no reveal limit. If this officer already has an unrecorded
+   * attempt open on the same roster row, that row is reused instead of
+   * opening another one — so the number can be revealed again and again while
+   * the subject keeps its current call status, and only recording an outcome
+   * moves it on.
    */
   const reveal = useMutation({
     mutationFn: async (row: { id: string }) => {
-      const { data: attempt, error } = await supabase
+      const { data: existing } = await supabase
         .from('cc_call_attempts')
-        .insert({
-          cycle_row_id: row.id,
-          caller_id: user!.id,
-          revealed_at: new Date().toISOString(),
-          source: 'self_reported',
-        } as never)
         .select('id, attempt_no')
-        .single();
-      if (error) throw new Error(err(error));
-      const { data: phone, error: pErr } = await rpc('cc_reveal_phone', { p_attempt_id: attempt.id });
+        .eq('cycle_row_id', row.id)
+        .eq('caller_id', user!.id)
+        .is('recorded_at', null)
+        .order('revealed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let attemptId = (existing as { id?: string } | null)?.id ?? null;
+
+      if (!attemptId) {
+        const { data: attempt, error } = await supabase
+          .from('cc_call_attempts')
+          .insert({
+            cycle_row_id: row.id,
+            caller_id: user!.id,
+            revealed_at: new Date().toISOString(),
+            source: 'self_reported',
+          } as never)
+          .select('id, attempt_no')
+          .single();
+        if (error) throw new Error(err(error));
+        attemptId = attempt.id as string;
+      }
+
+      const { data: phone, error: pErr } = await rpc('cc_reveal_phone', { p_attempt_id: attemptId });
       if (pErr) throw new Error(err(pErr));
-      return { attemptId: attempt.id as string, phone: (phone as string) ?? null };
+      return { attemptId, phone: (phone as string) ?? null };
     },
     onSuccess: invalidate,
   });
+
 
   const recordQuick = useMutation({
     mutationFn: async (v: { attemptId: string; outcome: CcOutcome }) => {

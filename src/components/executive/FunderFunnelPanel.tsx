@@ -76,8 +76,8 @@ function rangeForPreset(preset: Exclude<PresetKey, 'custom'>): { from: Date; to:
 }
 
 export function FunderFunnelPanel() {
-  const [preset, setPreset] = useState<PresetKey>('30d');
-  const [customFrom, setCustomFrom] = useState<Date | undefined>(startOfDay(subDays(new Date(), 13)));
+  const [preset, setPreset] = useState<PresetKey>('today');
+  const [customFrom, setCustomFrom] = useState<Date | undefined>(startOfDay(new Date()));
   const [customTo, setCustomTo] = useState<Date | undefined>(endOfDay(new Date()));
   const [drillStep, setDrillStep] = useState<StepKey | null>(null);
 

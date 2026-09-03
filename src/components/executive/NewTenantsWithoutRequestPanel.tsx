@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { User, Phone, Search, UserPlus2, Calendar, AlertCircle, MapPin, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
@@ -90,8 +91,6 @@ export function NewTenantsWithoutRequestPanel() {
 
   const q = search.toLowerCase().trim();
   const filtered = rows.filter(r => !q || r.search_text.includes(q));
-  const PREVIEW_COUNT = 3;
-  const visible = open ? filtered.slice(0, 50) : filtered.slice(0, PREVIEW_COUNT);
   const agentCount = new Set(rows.map(r => r.agent_id).filter(Boolean)).size;
   const districtCount = new Set(rows.map(r => r.tenant_district).filter(Boolean)).size;
 
@@ -112,111 +111,124 @@ export function NewTenantsWithoutRequestPanel() {
   return (
     <Card className="border-amber-300/60 bg-amber-50/40 dark:bg-amber-950/10">
       <CardContent className="p-3 space-y-3">
-      <Collapsible open={open} onOpenChange={setOpen} className="space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-start gap-2 min-w-0">
-            <div className="p-1.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-400 shrink-0">
-              <UserPlus2 className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-foreground">
-                New tenants without a rent request
-              </p>
-              <p className="text-[11px] text-muted-foreground leading-snug">
-                Tenants agents added to the platform but who have not yet had a rent request submitted.
-                Follow up with the agent to capture the rent details.
-              </p>
-            </div>
-          </div>
-          <Badge variant="primary" size="sm">{rows.length}</Badge>
-        </div>
-
-        {/* Always-visible summary stats */}
-        <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-lg border border-border bg-card px-2 py-1.5">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tenants</p>
-            <p className="text-sm font-bold">{rows.length}</p>
-          </div>
-          <div className="rounded-lg border border-border bg-card px-2 py-1.5">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Agents</p>
-            <p className="text-sm font-bold">{agentCount}</p>
-          </div>
-          <div className="rounded-lg border border-border bg-card px-2 py-1.5">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Districts</p>
-            <p className="text-sm font-bold">{districtCount}</p>
-          </div>
-        </div>
-
-        <CollapsibleContent className="space-y-3">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            placeholder="Search tenant, phone, agent, district or address…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-8 h-8 text-xs bg-background"
-          />
-        </div>
-        </CollapsibleContent>
-
-        {filtered.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-2">No matches.</p>
-        ) : (
-          <div className={`space-y-2 pr-1 ${open ? 'max-h-[340px] overflow-y-auto' : ''}`}>
-            {visible.map(row => (
-              <div
-                key={row.tenant_id}
-                className="rounded-lg border border-border bg-card p-2.5 flex items-start justify-between gap-2"
+        <Collapsible open={open} onOpenChange={setOpen} className="space-y-3">
+          <div className="flex items-start justify-between gap-2">
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex items-start gap-2 min-w-0 text-left hover:opacity-90 transition-opacity cursor-pointer group flex-1"
               >
-                <div className="min-w-0 flex-1">
+                <div className="p-1.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5">
+                  <UserPlus2 className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-sm font-semibold truncate">{row.tenant_name}</span>
+                    <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
+                      New tenants without a rent request
+                    </p>
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
                   </div>
-                  {row.tenant_phone && (
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <Phone className="h-3 w-3 text-muted-foreground shrink-0" />
-                      <span className="text-[11px] text-muted-foreground">{row.tenant_phone}</span>
-                    </div>
-                  )}
-                  {row.tenant_address && (
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
-                      <span className="text-[11px] text-muted-foreground truncate">{row.tenant_address}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <Badge variant="outline" size="sm" className="text-[10px] py-0 px-1.5 font-normal">
-                      Agent: {row.agent_name}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    Registered {format(new Date(row.registered_at), 'dd MMM yyyy')}
-                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-snug">
+                    Tenants agents added to the platform but who have not yet had a rent request submitted.
+                    Follow up with the agent to capture the rent details.
+                  </p>
                 </div>
-                <div className="flex flex-col items-end gap-1 shrink-0">
-                  <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700">
-                    <AlertCircle className="h-3 w-3" /> No request
-                  </span>
-                </div>
-              </div>
-            ))}
-            {open && filtered.length > 50 && (
-              <p className="text-[10px] text-center text-muted-foreground pt-1">
-                Showing first 50 of {filtered.length}
-              </p>
-            )}
+              </button>
+            </CollapsibleTrigger>
+            <Badge variant="primary" size="sm" className="shrink-0">{rows.length}</Badge>
           </div>
-        )}
 
-        {filtered.length > PREVIEW_COUNT && (
-          <CollapsibleTrigger className="flex w-full items-center justify-center gap-1.5 rounded-lg border bg-muted/30 px-3 py-2 text-xs font-semibold">
-            {open ? 'Show less' : `Open all ${filtered.length}`}
-            <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+          {/* Always-visible summary stats */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-lg border border-border bg-card px-2 py-1.5">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tenants</p>
+              <p className="text-sm font-bold">{rows.length}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-card px-2 py-1.5">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Agents</p>
+              <p className="text-sm font-bold">{agentCount}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-card px-2 py-1.5">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Districts</p>
+              <p className="text-sm font-bold">{districtCount}</p>
+            </div>
+          </div>
+
+          <CollapsibleContent className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search tenant, phone, agent, district or address…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-8 h-8 text-xs bg-background"
+              />
+            </div>
+
+            {filtered.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-2">No matches.</p>
+            ) : (
+              <div className="space-y-2 pr-1 max-h-[380px] overflow-y-auto">
+                {filtered.slice(0, 50).map(row => (
+                  <div
+                    key={row.tenant_id}
+                    className="rounded-lg border border-border bg-card p-2.5 flex items-start justify-between gap-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-sm font-semibold truncate">{row.tenant_name}</span>
+                      </div>
+                      {row.tenant_phone && (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <Phone className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span className="text-[11px] text-muted-foreground">{row.tenant_phone}</span>
+                        </div>
+                      )}
+                      {row.tenant_address && (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <MapPin className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <span className="text-[11px] text-muted-foreground truncate">{row.tenant_address}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <Badge variant="outline" size="sm" className="text-[10px] py-0 px-1.5 font-normal">
+                          Agent: {row.agent_name}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-1 mt-1 text-[10px] text-muted-foreground">
+                        <Calendar className="h-3 w-3" />
+                        Registered {format(new Date(row.registered_at), 'dd MMM yyyy')}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700">
+                        <AlertCircle className="h-3 w-3" /> No request
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {filtered.length > 50 && (
+                  <p className="text-[10px] text-center text-muted-foreground pt-1">
+                    Showing first 50 of {filtered.length}
+                  </p>
+                )}
+              </div>
+            )}
+          </CollapsibleContent>
+
+          <CollapsibleTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border bg-muted/30 px-3 py-2 text-xs font-semibold hover:bg-muted/50 cursor-pointer"
+            >
+              {open ? 'Fold all' : `Open all ${filtered.length}`}
+              <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+            </Button>
           </CollapsibleTrigger>
-        )}
-      </Collapsible>
+        </Collapsible>
       </CardContent>
     </Card>
   );

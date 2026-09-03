@@ -93,7 +93,7 @@ export function TenantRepaymentReliabilityPanel() {
   const { user } = useAuth();
   const [band, setBand] = useState<BandKey>('all');
   const [search, setSearch] = useState('');
-  const [preset, setPreset] = useState<Preset>('all');
+  const [preset, setPreset] = useState<Preset>('today');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [exporting, setExporting] = useState(false);

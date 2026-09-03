@@ -819,6 +819,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
 
   const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
   const isRequestExpired = (createdAt: string, requestStatus: string, agentVerified?: boolean | null) => {
+    if (stage !== 'pending') return false;
     if (requestStatus !== 'pending') return false;
     if (agentVerified) return false;
     return Date.now() - new Date(createdAt).getTime() > THIRTY_DAYS_MS;
@@ -1480,7 +1481,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                       <p className="text-[10px] text-muted-foreground font-mono">
                         Submitted: {format(new Date(req.created_at), 'dd MMM yyyy, HH:mm')}
                       </p>
-                      {(() => {
+                      {stage === 'pending' && (() => {
                         const expiryDate = new Date(new Date(req.created_at).getTime() + 30 * 24 * 60 * 60 * 1000);
                         const isPastExpiry = Date.now() > expiryDate.getTime();
                         return (
