@@ -187,6 +187,7 @@ const PAYOUT_CATEGORIES: PayoutCategory[] = [
       { id: 'stationery', label: 'Stationery' },
       { id: 'property_equipment', label: 'Property & Equipment' },
       { id: 'eviction_enforcement', label: 'Eviction & Enforcement' },
+      { id: 'financial_agent_requisitions', label: 'Financial Agent Requisitions' },
     ],
   },
   {
