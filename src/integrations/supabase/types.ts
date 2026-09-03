@@ -49681,6 +49681,14 @@ export type Database = {
         }[]
       }
       receivables_guard: { Args: never; Returns: undefined }
+      recognise_landlord_receivable: {
+        Args: { p_subscription_id: string }
+        Returns: Json
+      }
+      recognise_partner_receivable: {
+        Args: { p_note_id: string }
+        Returns: Json
+      }
       recompute_agent_earned_vouch:
         | { Args: { p_agent_id: string }; Returns: number }
         | {
