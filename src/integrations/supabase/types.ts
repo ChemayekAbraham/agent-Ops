@@ -11585,6 +11585,13 @@ export type Database = {
             foreignKeyName: "engrep_addenda_row_id_fkey"
             columns: ["row_id"]
             isOneToOne: false
+            referencedRelation: "engrep_claimed_not_live"
+            referencedColumns: ["row_id"]
+          },
+          {
+            foreignKeyName: "engrep_addenda_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: false
             referencedRelation: "engrep_rows"
             referencedColumns: ["id"]
           },
@@ -11756,11 +11763,62 @@ export type Database = {
             foreignKeyName: "engrep_rows_self_fix_of_fkey"
             columns: ["self_fix_of"]
             isOneToOne: false
+            referencedRelation: "engrep_claimed_not_live"
+            referencedColumns: ["row_id"]
+          },
+          {
+            foreignKeyName: "engrep_rows_self_fix_of_fkey"
+            columns: ["self_fix_of"]
+            isOneToOne: false
             referencedRelation: "engrep_rows"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "engrep_rows_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_windows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      engrep_unclaimed_objects: {
+        Row: {
+          change: string
+          detected_at: string
+          id: string
+          investigated_at: string | null
+          investigated_by: string | null
+          note: string | null
+          object_key: string
+          object_kind: string
+          window_id: string
+        }
+        Insert: {
+          change: string
+          detected_at?: string
+          id?: string
+          investigated_at?: string | null
+          investigated_by?: string | null
+          note?: string | null
+          object_key: string
+          object_kind: string
+          window_id: string
+        }
+        Update: {
+          change?: string
+          detected_at?: string
+          id?: string
+          investigated_at?: string | null
+          investigated_by?: string | null
+          note?: string | null
+          object_key?: string
+          object_kind?: string
+          window_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engrep_unclaimed_objects_window_id_fkey"
             columns: ["window_id"]
             isOneToOne: false
             referencedRelation: "engrep_windows"
@@ -40301,6 +40359,56 @@ export type Database = {
           },
         ]
       }
+      engrep_claimed_not_live: {
+        Row: {
+          author_email: string | null
+          change_classes: string[] | null
+          commit_subject: string | null
+          engineer_code: string | null
+          evidence_kind: string | null
+          evidence_ref: string | null
+          migration_bearing: boolean | null
+          row_id: string | null
+          source: string | null
+          window_id: string | null
+          zero_reason: string | null
+        }
+        Insert: {
+          author_email?: string | null
+          change_classes?: string[] | null
+          commit_subject?: string | null
+          engineer_code?: string | null
+          evidence_kind?: string | null
+          evidence_ref?: string | null
+          migration_bearing?: boolean | null
+          row_id?: string | null
+          source?: string | null
+          window_id?: string | null
+          zero_reason?: string | null
+        }
+        Update: {
+          author_email?: string | null
+          change_classes?: string[] | null
+          commit_subject?: string | null
+          engineer_code?: string | null
+          evidence_kind?: string | null
+          evidence_ref?: string | null
+          migration_bearing?: boolean | null
+          row_id?: string | null
+          source?: string | null
+          window_id?: string | null
+          zero_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engrep_rows_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_windows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       landlords_directory: {
         Row: {
           caretaker_name: string | null
@@ -45018,6 +45126,10 @@ export type Database = {
           object_key: string
           object_kind: string
         }[]
+      }
+      engrep_detect_unclaimed: {
+        Args: { p_window_id: string }
+        Returns: number
       }
       engrep_is_adjudicator: { Args: never; Returns: boolean }
       engrep_lock_window: { Args: { p_window_id: string }; Returns: number }
