@@ -58,7 +58,7 @@ export function CapitalRoutesSection({ className }: { className?: string }) {
             <button
               type="button"
               onClick={scrollToOpportunities}
-              className="group mt-1 inline-flex items-center justify-center gap-[clamp(6px,1.9vw,10px)] rounded-full border border-white/20 bg-primary px-[clamp(14px,3.8vw,26px)] py-[clamp(9.5px,2.5vw,16px)] text-[clamp(11.5px,2.9vw,15px)] font-bold tracking-tight text-primary-foreground transition-all hover:-translate-y-0.5 hover:bg-primary/90 active:translate-y-0"
+              className="group mt-1 inline-flex items-center justify-center gap-[clamp(6px,1.9vw,10px)] rounded-full border border-white/20 bg-primary px-[clamp(14px,3.8vw,26px)] py-2 md:py-[clamp(9.5px,2.5vw,16px)] text-[clamp(11.5px,2.9vw,15px)] font-bold tracking-tight text-primary-foreground transition-all hover:-translate-y-0.5 hover:bg-primary/90 active:translate-y-0"
             >
               Choose your route
               <ArrowRight className="h-[clamp(12px,3.1vw,16px)] w-[clamp(12px,3.1vw,16px)] transition-transform group-hover:translate-y-0.5" />
