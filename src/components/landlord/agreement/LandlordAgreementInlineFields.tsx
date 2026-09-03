@@ -55,8 +55,8 @@ export function LandlordAgreementInlineFields({
       </Button>
 
       <div className="min-w-0 space-y-1">
-        <label htmlFor="landlord-signed-agreement" className="text-xs font-medium">
-          Upload signed contract / agreement *
+          <label htmlFor="landlord-signed-agreement" className="text-xs font-medium">
+          Upload signed contract / agreement (optional)
         </label>
         <Input
           id="landlord-signed-agreement"
