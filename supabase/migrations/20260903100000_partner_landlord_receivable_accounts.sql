@@ -104,14 +104,14 @@ VALUES
    'Recognition of a promissory note receivable. Posted cash_in so it debits A7. Counterpart credits L2.'),
   ('platform', 'partner_receivable_capital',     NULL, 'L2', 'cash_in',
    'Counterpart to partner_receivable_created. Posted cash_out so it credits L2 Partner Portfolios - Capital Held.'),
-  ('platform', 'partner_receivable_collected',   NULL, 'A7', 'cash_in',
-   'Settlement of a promissory note. Posted cash_out so it credits A7 and reduces the receivable. Must be used instead of partner_funding, which credits L2 and would double count the liability.'),
+  ('platform', 'partner_receivable_collected',   NULL, 'A7', 'cash_out',
+   'Settlement of a promissory note. The platform leg is posted cash_in (cash received) which, against debit_when cash_out, credits A7 and reduces the receivable — the same convention as rent_repayment and agent_repayment. Must be used instead of partner_funding, which credits L2 and would double count the liability.'),
   ('bridge',   'landlord_receivable_created',    NULL, 'A6', 'cash_in',
    'Recognition of a Welile Homes subscription receivable. Posted cash_in so it debits A6. Counterpart credits L4.'),
   ('platform', 'landlord_receivable_obligation', NULL, 'L4', 'cash_in',
    'Counterpart to landlord_receivable_created. Posted cash_out so it credits L4 Landlord Rent Payable.'),
-  ('platform', 'landlord_receivable_collected',  NULL, 'A6', 'cash_in',
-   'Settlement of a Welile Homes subscription. Posted cash_out so it credits A6. Replaces rent_repayment on this path, which credits A3 and does not hold this receivable.')
+  ('platform', 'landlord_receivable_collected',  NULL, 'A6', 'cash_out',
+   'Settlement of a Welile Homes subscription. The platform leg is posted cash_in (cash received) which, against debit_when cash_out, credits A6 and reduces the receivable. Replaces rent_repayment on this path, which credits A3 and does not hold this receivable.')
 ON CONFLICT (ledger_scope, category, COALESCE(wallet_bucket, '*')) DO UPDATE
   SET account_code = EXCLUDED.account_code,
       debit_when   = EXCLUDED.debit_when,
