@@ -28,6 +28,8 @@ import { useFunderApprovalStatus } from '@/hooks/useFunderApprovalStatus';
 import { SelfPortfolioFundingCard } from '@/components/partner/SelfPortfolioFundingCard';
 import { HowItWorksSteps, type HowItWorksStep } from './HowItWorksSteps';
 import { EmptyHouseOpportunitiesSheet } from '@/components/agent/EmptyHouseOpportunitiesSheet';
+import { FunderBookedHousesPanel } from '@/components/supporter/FunderBookedHousesPanel';
+
 import { useProfile } from '@/hooks/useProfile';
 
 type OptionKey = 'managed' | 'direct' | 'angel';
