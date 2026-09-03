@@ -1091,6 +1091,7 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
         total_repayment: fees.totalRepayment,
         daily_repayment: fees.dailyRepayment,
         status: 'pending',
+        registration_type: 'renewal',
         house_category: req.house_category ?? req.landlord?.house_category ?? null,
         tenant_no_smartphone: req.tenant_no_smartphone ?? false,
         request_latitude: req.request_latitude ?? req.landlord?.latitude ?? null,
