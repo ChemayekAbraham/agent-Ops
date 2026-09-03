@@ -802,6 +802,74 @@ export default function Settings() {
               </div>
             )}
 
+            {activeSection === 'accessibility' && (
+              <div className="space-y-4">
+                <Card className="border-border/40 rounded-2xl">
+                  <CardContent className="pt-5 space-y-5">
+                    <Collapsible open={textSizeOpen} onOpenChange={setTextSizeOpen} className="space-y-2">
+                      <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
+                        <span className="flex items-center gap-2"><Type className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Text Size</span></span>
+                        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", textSizeOpen && "rotate-180")} />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-2 pt-1">
+                        <p className="text-[11px] text-muted-foreground">Adjust the size of text throughout the app.</p>
+                        <RadioGroup value={fontSize} onValueChange={(v) => setFontSize(v as any)} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {fontSizeOptions.map((opt) => (<Label key={opt.value} htmlFor={opt.value} className={cn("flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm", fontSize === opt.value ? 'border-primary bg-primary/10' : 'border-border/50')}><RadioGroupItem value={opt.value} id={opt.value} /><div><p className="font-medium text-xs">{opt.label}</p><p className="text-[10px] text-muted-foreground">{opt.description}</p></div></Label>))}
+                        </RadioGroup>
+                      </CollapsibleContent>
+                    </Collapsible>
+
+                    <Collapsible open={vibrationOpen} onOpenChange={setVibrationOpen} className="space-y-2">
+                      <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
+                        <span className="flex items-center gap-2"><Vibrate className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Vibration</span></span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-muted-foreground capitalize">{hapticIntensityOptions.find((o) => o.value === hapticIntensity)?.label ?? hapticIntensity}</span>
+                          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", vibrationOpen && "rotate-180")} />
+                        </span>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-2 pt-1">
+                        <RadioGroup value={hapticIntensity} onValueChange={(v) => { setHapticIntensity(v as any); if (v !== 'off') setTimeout(() => hapticSelection(), 100); }} className="grid grid-cols-2 gap-2">
+                          {hapticIntensityOptions.map((opt) => (<Label key={opt.value} htmlFor={`haptic-${opt.value}`} className={cn("flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm", hapticIntensity === opt.value ? 'border-primary bg-primary/10' : 'border-border/50')}><RadioGroupItem value={opt.value} id={`haptic-${opt.value}`} /><div><p className="font-medium text-xs">{opt.label}</p><p className="text-[10px] text-muted-foreground">{opt.description}</p></div></Label>))}
+                        </RadioGroup>
+                      </CollapsibleContent>
+                    </Collapsible>
+
+                    <Collapsible open={motionOpen} onOpenChange={setMotionOpen} className="space-y-2">
+                      <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
+                        <span className="flex items-center gap-2"><Wind className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Motion</span></span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-muted-foreground capitalize">{reducedMotionOptions.find((o) => o.value === reducedMotion)?.label ?? reducedMotion}</span>
+                          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", motionOpen && "rotate-180")} />
+                        </span>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-2 pt-1">
+                        <RadioGroup value={reducedMotion} onValueChange={(v) => { setReducedMotion(v as any); toast.success(v === 'reduce' ? 'Animations reduced' : v === 'no-preference' ? 'Animations on' : 'Following system'); }} className="grid grid-cols-1 gap-2">
+                          {reducedMotionOptions.map((opt) => (<Label key={opt.value} htmlFor={`motion-${opt.value}`} className={cn("flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm", reducedMotion === opt.value ? 'border-primary bg-primary/10' : 'border-border/50')}><RadioGroupItem value={opt.value} id={`motion-${opt.value}`} /><div><p className="font-medium text-xs">{opt.label}</p><p className="text-[10px] text-muted-foreground">{opt.description}</p></div></Label>))}
+                        </RadioGroup>
+                      </CollapsibleContent>
+                    </Collapsible>
+
+                    <SettingsRow label="Reduce Graphics" description="Fix screen tearing on older phones" icon={Zap}>
+                      <Switch
+                        checked={typeof window !== 'undefined' && localStorage.getItem('welile-no-blur') === '1'}
+                        onCheckedChange={(c) => {
+                          if (c) {
+                            localStorage.setItem('welile-no-blur', '1');
+                            document.documentElement.classList.add('no-backdrop-blur');
+                            toast.success('Reduced graphics on');
+                          } else {
+                            localStorage.removeItem('welile-no-blur');
+                            document.documentElement.classList.remove('no-backdrop-blur');
+                            toast.success('Full graphics restored');
+                          }
+                        }}
+                      />
+                    </SettingsRow>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
             {activeSection === 'security' && (
               <div className="space-y-4">
                 <Card className="border-border/40 rounded-2xl">
