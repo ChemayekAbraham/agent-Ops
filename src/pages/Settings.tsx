@@ -453,69 +453,53 @@ export default function Settings() {
         <meta property="og:url" content="https://welileapp.com/settings" />
       </Helmet>
       <div className="container mx-auto px-4 py-4 max-w-2xl pb-24 [padding-bottom:calc(6rem+env(safe-area-inset-bottom))]">
-        {/* Header — centered title, back on the left, Home on the right */}
-        <div className="sticky top-0 z-30 bg-background -mx-4 px-4 border-b border-border/30 mb-3">
-          <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 pt-2 pb-2">
-            <Button variant="ghost" size="icon" onClick={() => navigate(roleToSlug(role))} className="rounded-xl h-10 w-10 shrink-0">
+        {/* Header — minimal: circular back control, large title */}
+        <div className="sticky top-0 z-30 bg-background -mx-4 px-4 mb-2">
+          <div className="flex items-center justify-between gap-2 pt-2 pb-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => (openSection ? closeSection() : navigate(roleToSlug(role)))}
+              aria-label={openSection ? 'Back to settings sections' : 'Back'}
+              className="h-10 w-10 shrink-0 rounded-full bg-muted/60 hover:bg-muted"
+            >
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-lg font-bold tracking-tight text-center truncate">Settings</h1>
-            <Button variant="ghost" size="icon" onClick={() => navigate(roleToSlug(role))} aria-label="Home" className="rounded-xl h-10 w-10 shrink-0">
+            <Button variant="ghost" size="icon" onClick={() => navigate(roleToSlug(role))} aria-label="Home" className="h-10 w-10 shrink-0 rounded-full">
               <Home className="h-5 w-5" />
             </Button>
           </div>
 
-          {openSection ? (
-            <div className="flex items-center gap-2 pb-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={closeSection}
-                aria-label="Back to settings sections"
-                className="h-9 w-9 rounded-lg"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold truncate">{SECTIONS.find(section => section.id === openSection)?.label}</p>
-                <p className="text-xs text-muted-foreground">Settings</p>
-              </div>
-            </div>
-          ) : null}
+          <h1 className="pb-3 text-[28px] font-semibold leading-tight tracking-tight sm:text-[32px]">
+            {openSection ? SECTIONS.find(section => section.id === openSection)?.label : 'Settings'}
+          </h1>
         </div>
 
         {!openSection ? (
-          <div className="min-h-[calc(100vh-9rem)] -mx-4 px-4 py-2">
-            <div className="space-y-2">
-              <div className="px-1 pb-2">
-                <h2 className="text-base font-semibold tracking-tight">Settings</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Choose a section to manage your account.</p>
-              </div>
-              <div className="divide-y divide-border/60 rounded-xl border border-border/60 bg-card shadow-sm">
-                {visibleSections.map(({ id, label, helper, icon: Icon }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setActiveSection(id)}
-                    onPointerEnter={() => prefetchSection(id)}
-                    onPointerDown={() => prefetchSection(id)}
-                    onFocus={() => prefetchSection(id)}
-                    className="flex min-h-[72px] w-full items-center gap-4 px-4 py-3 text-left transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:bg-muted/60"
-                  >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold">{label}</span>
-                      <span className="mt-0.5 block text-xs text-muted-foreground">{helper}</span>
-                    </span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  </button>
-                ))}
-              </div>
+          <div className="min-h-[calc(100vh-9rem)]">
+            <div className="divide-y divide-border/60">
+              {visibleSections.map(({ id, label, helper, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setActiveSection(id)}
+                  onPointerEnter={() => prefetchSection(id)}
+                  onPointerDown={() => prefetchSection(id)}
+                  onFocus={() => prefetchSection(id)}
+                  className="flex min-h-[64px] w-full items-center gap-4 py-4 text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:bg-muted/40"
+                >
+                  <Icon className="h-6 w-6 shrink-0 text-foreground" strokeWidth={1.5} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-base font-normal">{label}</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">{helper}</span>
+                  </span>
+                  <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" strokeWidth={1.5} />
+                </button>
+              ))}
             </div>
           </div>
         ) : (
+
           /* Active section content — only the selected section renders */
           <div className="mt-1">
             <SectionBoundary name={activeSection}>
