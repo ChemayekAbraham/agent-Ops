@@ -59,6 +59,7 @@ export interface EngrepRow {
   commit_subject: string | null;
   change_classes: string[] | null;
   claims_schema: boolean;
+  claimed_objects: string[];
   migration_bearing: boolean;
   live_verified: EngrepLiveness;
   untagged: boolean;
