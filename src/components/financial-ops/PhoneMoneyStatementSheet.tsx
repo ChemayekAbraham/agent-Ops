@@ -86,30 +86,22 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
       }
 
       if (line === 'bank') {
-        const { data: bankEmails, error } = await supabase
-          .from('gmail_transactions')
-          .select('id, amount, direction, counterparty, balance, internal_date, created_at, transaction_id, snippet, raw_body')
-          .eq('channel', 'bank')
-          .eq('direction', 'in')
-          .order('internal_date', { ascending: false })
-          .limit(120);
+        const { data: reconciliation, error } = await supabase.rpc('get_money_at_bank_reconciliation' as any);
         if (error) throw error;
-        return (bankEmails ?? [])
-          .filter((t: any) => {
-            const text = `${t.raw_body ?? ''} ${t.snippet ?? ''} ${t.counterparty ?? ''}`.toLowerCase();
-            return /dear\s+bayo/.test(text) && /from\s+welile\s+technologies/.test(text);
-          })
-          .map((t: any) => ({
-            id: t.id,
-            at: t.internal_date ?? t.created_at,
-            amount: Number(t.amount ?? 0),
-            direction: 'in' as const,
-            party: 'Bayo Mercy',
-            reference: t.transaction_id ?? null,
-            balanceAfter: t.balance != null ? Number(t.balance) : null,
-            note: t.snippet ? String(t.snippet).slice(0, 180) : 'Bank receipt addressed to Bayo Mercy from Welile Technologies',
-            phone: null,
-          }));
+        const movements = Array.isArray((reconciliation as any)?.qualifying_emails)
+          ? (reconciliation as any).qualifying_emails
+          : [];
+        return movements.map((t: any) => ({
+          id: String(t.id),
+          at: t.extracted_at ?? null,
+          amount: Number(t.amount ?? 0),
+          direction: (t.direction === 'out' ? 'out' : 'in') as const,
+          party: t.direction === 'out' ? 'Bayo Mercy' : 'Welile Technologies',
+          reference: t.transaction_id ?? null,
+          balanceAfter: null,
+          note: t.snippet ? String(t.snippet).slice(0, 180) : String(t.match_reason ?? 'Qualifying extracted bank email'),
+          phone: null,
+        }));
       }
 
       const { data: tx, error } = await supabase
@@ -196,7 +188,7 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
           <SheetTitle>{line ? TITLES[line] : 'Statement'}</SheetTitle>
           <SheetDescription className="text-xs sm:text-sm">
             {line === 'bank'
-              ? 'Verified cash deposits that have been banked.'
+              ? 'Qualifying extracted bank emails: receipts from Welile Technologies and transfers to Bayo Mercy.'
               : line === 'cash'
               ? 'Verified cash deposits collected by agents and not yet banked.'
               : 'Every money-in and money-out movement parsed from provider messages on this line.'}
