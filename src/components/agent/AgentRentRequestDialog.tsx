@@ -2450,8 +2450,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     if (isOutstanding) {
       if (!selectedLandlord) errors.push('Pick the landlord from the list');
       else if (landlordCheck === 'missing') errors.push('Step 2 — Landlord: The selected landlord is no longer in the system. Pick a registered landlord.');
-      else if (landlordAgreementCheck === 'missing') errors.push('Step 2 — Landlord: Upload the signed 12-month landlord agreement before continuing.');
-      else if (landlordAgreementCheck !== 'valid') errors.push('Step 2 — Landlord: We could not confirm the signed agreement yet. Check your connection and try again.');
       if (!outstandingRentAmount || parseInt(outstandingRentAmount.replace(/,/g, '')) <= 0) {
         errors.push('Type the rent amount');
       }
