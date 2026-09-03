@@ -1552,7 +1552,16 @@ export function PayRunDetailPlaceholder() {
                 )}
               </div>
               <div className="text-right">
-                <Button size="sm" onClick={runCalculation} disabled={!canCalculate}>
+                <Button
+                  size="sm"
+                  onClick={runCalculation}
+                  disabled={!canCalculate}
+                  title={
+                    detail.run_type === 'off_cycle'
+                      ? 'An off-cycle run is calculated from its arrears entries, in the Arrears section below.'
+                      : 'Calculate this run.'
+                  }
+                >
                   {calculating && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
                   {calculating ? 'Calculating…' : 'Calculate'}
                 </Button>
