@@ -75,6 +75,10 @@ export function BankEmailReconciliationPanel() {
             <p className="text-[11px] text-muted-foreground truncate">
               Account balance: credits in less debits out
             </p>
+            <Badge variant="secondary" className="mt-1 gap-1 px-1.5 py-0.5 text-[10px] font-normal">
+              <Clock className="h-3 w-3" />
+              Emails from 11:40 AM Kampala, 3 Sep 2026
+            </Badge>
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
