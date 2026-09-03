@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 import {
   CheckCircle2, ChevronRight, PhoneCall, PhoneMissed, RefreshCw, Search, Users,
 } from 'lucide-react';
+import { useSessionPersistedState } from '@/hooks/useSessionPersistedState';
 import { useLandlordCallingList, type LandlordCallingRow, type LandlordCallScope } from '@/hooks/useLandlordCallingList';
 import {
   LANDLORD_CALL_STATUS_LABEL,
@@ -237,7 +238,7 @@ export function LandlordCallingHub() {
                 return (
                   <li key={r.landlord_id}>
                     <button
-                      onClick={() => setOpen(r)}
+                      onClick={() => setOpenId(r.landlord_id)}
                       className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-card p-2.5 text-left transition-colors hover:border-primary/40 hover:bg-muted/40 sm:gap-3 sm:p-3"
                     >
                       <div className="min-w-0 flex-1">
@@ -292,7 +293,7 @@ export function LandlordCallingHub() {
         searchLabel={search.trim() || undefined}
       />
 
-      <LandlordCallDrawer row={open} open={!!open} onClose={() => setOpen(null)} />
+      <LandlordCallDrawer row={open} open={!!open} onClose={() => setOpenId(null)} />
     </div>
   );
 }
