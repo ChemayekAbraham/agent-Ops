@@ -11,6 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WindowToggle } from '@/components/hr/engrep/WindowToggle';
 import { ZoneALovableEdits } from '@/components/hr/engrep/ZoneALovableEdits';
+import { ZoneBExternalCommits } from '@/components/hr/engrep/ZoneBExternalCommits';
+
 
 import { getLatestWindowSummary, isAdjudicator } from '@/hr/engrep/api';
 import type { EngrepGranularity } from '@/hr/engrep/types';
