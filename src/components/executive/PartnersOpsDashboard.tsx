@@ -54,6 +54,7 @@ import { PartnerProfile360 } from './partner-ops/PartnerProfile360';
 import PartnerOnboardingPanel from '@/pages/PartnerOnboarding';
 import {
   PartnerRoiProjectionChart,
+  PartnerSupportMixChart,
   PartnerRecentWithdrawals,
   PartnerNewTrend,
 } from './partner-ops/PartnerOpsOverviewInsights';
@@ -237,7 +238,10 @@ export function PartnersOpsDashboard() {
       case 'overview': return (
         <div className="space-y-4">
           <PartnerOpsSummaryCards onNavigate={setView} />
-          <PartnerRoiProjectionChart />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <PartnerRoiProjectionChart />
+            <PartnerSupportMixChart />
+          </div>
           <PartnerRecentWithdrawals />
           <PartnerNewTrend />
           <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}>
