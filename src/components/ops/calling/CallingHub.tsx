@@ -299,11 +299,14 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
       <CallRevealSheet
         hub={hub}
         target={revealTarget}
+        subjectType={subjectType}
+        belowLg={belowLg}
         onClose={() => setRevealTarget(null)}
         onOpenForm={setFormAttempt}
       />
 
-      {hub.cycle && <MobileCallBar hub={hub} phones={revealed} onOpenForm={setFormAttempt} />}
+      {hub.cycle && <MobileCallBar hub={hub} phones={revealedPhones} onOpenForm={setFormAttempt} />}
+
     </div>
   );
 }
