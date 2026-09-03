@@ -146,7 +146,7 @@ export async function renderPartnershipTopupReceipt(data: PartnerTopupReceiptDat
   page.drawSvgPath(roundedRectPath(RIGHT - badgeW, 765, badgeW, 20, 10), {
     color: WHITE, borderColor: GREEN_BORDER, borderWidth: 0.9,
   });
-  text("✓", RIGHT - badgeW + 10, 771, 10, bold, GREEN);
+  text("OK", RIGHT - badgeW + 8, 771, 8, bold, GREEN);
   text(badgeLabel, RIGHT - badgeW + 24, 771, 9, bold, GREEN);
 
   text("Partner Top-Up Receipt", LEFT, 716, 16, bold, INK);
@@ -174,7 +174,7 @@ export async function renderPartnershipTopupReceipt(data: PartnerTopupReceiptDat
   const pillX = CARD_X + (CARD_W - regular.widthOfTextAtSize(pill, 10)) / 2;
   text(previous, pillX, 557, 10, regular, SLATE);
   const arrowX = pillX + regular.widthOfTextAtSize(previous, 10) + 12;
-  text("→", arrowX, 557, 11, bold, PURPLE_DARK);
+  text(">", arrowX, 557, 11, bold, PURPLE_DARK);
   text(next, arrowX + 18, 557, 10, regular, SLATE);
   hLine(552);
 
