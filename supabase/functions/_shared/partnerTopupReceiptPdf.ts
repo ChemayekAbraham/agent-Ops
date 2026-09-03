@@ -135,7 +135,7 @@ export async function renderPartnershipTopupReceipt(data: PartnerTopupReceiptDat
     borderColor: GREEN_BORDER,
     borderWidth: 1,
   });
-  text("✓", RIGHT - badgeW + 9, y + 2, 9, bold, GREEN);
+  text("OK", RIGHT - badgeW + 8, y + 2, 8, bold, GREEN);
   text(badgeLabel, RIGHT - badgeW + 22, y + 2, 8, bold, GREEN);
 
   y -= 26;
@@ -172,7 +172,7 @@ export async function renderPartnershipTopupReceipt(data: PartnerTopupReceiptDat
   centered(`Added to portfolio ${clean(data.portfolioId)}`, hy, 9.5, regular, MUTED);
 
   hy -= 26;
-  const pillText = `Previous: UGX ${amount(data.previousPrincipal)}   ➔   New Total: UGX ${amount(
+  const pillText = `Previous: UGX ${amount(data.previousPrincipal)}   >   New Total: UGX ${amount(
     data.newTotalPrincipal,
   )}`;
   const pillTextW = regular.widthOfTextAtSize(pillText, 8.5);
