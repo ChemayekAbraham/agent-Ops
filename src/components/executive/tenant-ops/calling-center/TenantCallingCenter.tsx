@@ -11,7 +11,7 @@
  *    `RecordOutcomeDialog` is reused as-is for engaged / callback outcomes.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,15 +20,25 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
+  AlertTriangle,
+  CalendarClock,
   ChevronLeft,
   ChevronRight,
   Headphones,
+  History,
+  LayoutDashboard,
+  ListChecks,
   Pause,
-  
+  Phone,
+  PhoneCall,
+  PhoneOutgoing,
   Play,
+  Search,
   Settings2,
+  SlidersHorizontal,
   Square,
 } from 'lucide-react';
+import { KPICard } from '../../KPICard';
 import { useCcCallingHub, type CcFilterSelection } from '@/hooks/useCcCallingHub';
 import { CALLING_TABS, type CallingTabKey } from '@/components/ops/calling/callingHubColumns';
 import { CallingHubTable } from '@/components/ops/calling/CallingHubTable';
@@ -53,6 +63,32 @@ const AUTO_LABEL: Record<string, string> = {
   awaiting_outcome: 'Waiting for outcome',
   finished: 'Run finished',
 };
+
+/** Presentation-only: the Center's primary action reveals *and* dials. */
+const CALL_ACTION_LABELS = {
+  compact: 'Call',
+  full: 'Call',
+  compactOpen: 'View',
+  fullOpen: 'View call details',
+  title: 'Call this tenant',
+};
+
+/** Tenant Ops palette per queue state — colour only, order unchanged. */
+const TAB_ACCENT: Record<string, string> = {
+  to_call: 'bg-primary/10 text-primary',
+  in_progress: 'bg-amber-500/10 text-amber-600',
+  callback: 'bg-sky-500/10 text-sky-600',
+  parked: 'bg-muted text-muted-foreground',
+  done: 'bg-emerald-500/10 text-emerald-600',
+};
+const TAB_ICON: Record<string, typeof Phone> = {
+  to_call: PhoneOutgoing,
+  in_progress: PhoneCall,
+  callback: CalendarClock,
+  parked: AlertTriangle,
+  done: ListChecks,
+};
+
 
 
 export function TenantCallingCenter() {
@@ -111,7 +147,24 @@ export function TenantCallingCenter() {
     [dialer.current, dialer.live, dialer.needsOutcome],
   );
   const runBadge = (
-    <Badge variant={auto.mode === 'running' ? 'default' : 'outline'} className="text-[10px]">
+    <Badge
+      variant={auto.mode === 'running' ? 'default' : 'outline'}
+      className={
+        auto.mode === 'running'
+          ? 'gap-1.5 text-[11px] font-semibold'
+          : auto.mode === 'paused' || auto.mode === 'awaiting_outcome'
+            ? 'gap-1.5 border-amber-500/40 bg-amber-500/10 text-[11px] font-semibold text-amber-700'
+            : 'gap-1.5 text-[11px] font-semibold'
+      }
+    >
+      <span
+        className={
+          auto.mode === 'running'
+            ? 'h-1.5 w-1.5 animate-pulse rounded-full bg-primary-foreground'
+            : 'h-1.5 w-1.5 rounded-full bg-muted-foreground'
+        }
+        aria-hidden
+      />
       {AUTO_LABEL[auto.mode]}
       {auto.mode !== 'off' && auto.total > 0 ? ` · ${Math.min(auto.index, auto.total)}/${auto.total}` : ''}
     </Badge>
@@ -120,7 +173,7 @@ export function TenantCallingCenter() {
   const autoControls = (
     <div className="flex flex-wrap items-center gap-1.5">
       <Select value={String(autoCap)} onValueChange={(v) => setAutoCap(Number(v))} disabled={auto.mode === 'running'}>
-        <SelectTrigger className="h-8 w-[120px] text-xs">
+        <SelectTrigger className="h-9 w-[120px] text-xs">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -132,63 +185,80 @@ export function TenantCallingCenter() {
         </SelectContent>
       </Select>
       {auto.mode === 'running' ? (
-        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={auto.pauseAuto}>
-          <Pause className="mr-1 h-3 w-3" />
+        <Button size="sm" variant="outline" className="h-9 text-xs font-semibold" onClick={auto.pauseAuto}>
+          <Pause className="mr-1.5 h-3.5 w-3.5" />
           Pause
         </Button>
       ) : auto.mode === 'paused' || auto.mode === 'awaiting_outcome' ? (
-        <Button size="sm" className="h-8 text-xs" onClick={auto.resumeAuto} disabled={dialer.needsOutcome}>
-          <Play className="mr-1 h-3 w-3" />
+        <Button
+          size="sm"
+          className="h-9 text-xs font-semibold"
+          onClick={auto.resumeAuto}
+          disabled={dialer.needsOutcome}
+        >
+          <Play className="mr-1.5 h-3.5 w-3.5" />
           Resume
         </Button>
       ) : (
         <Button
           size="sm"
-          className="h-8 text-xs"
+          className="h-9 text-xs font-semibold"
           onClick={() => auto.startAuto(hub.rows, autoCap)}
           disabled={!hub.rows.length || hub.wipBlocked}
         >
-          <Play className="mr-1 h-3 w-3" />
+          <Play className="mr-1.5 h-3.5 w-3.5" />
           Start sequential run
         </Button>
       )}
       {auto.mode !== 'off' && (
-        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={auto.stopAuto}>
-          <Square className="mr-1 h-3 w-3" />
+        <Button size="sm" variant="outline" className="h-9 text-xs font-semibold" onClick={auto.stopAuto}>
+          <Square className="mr-1.5 h-3.5 w-3.5" />
           Stop
         </Button>
       )}
     </div>
   );
 
+
   return (
-    <div className="space-y-3 pb-32 sm:pb-28">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-base font-bold">
-          <Headphones className="h-4 w-4 text-primary" />
-          Tenant Calling Center
-        </h2>
+    <div className="space-y-4 pb-32 sm:pb-28">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-3 sm:p-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="rounded-xl bg-primary/15 p-2 text-primary">
+            <Headphones className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold sm:text-base">Tenant Calling Center</h2>
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              Same tenants, statuses and history as the Calling Hub, with attended sequential dialling.
+            </p>
+          </div>
+        </div>
         {runBadge}
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as CenterTab)}>
         {/* Same tab chrome as the Calling Hub: wrap, never truncate. */}
-        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1.5 rounded-xl border border-border bg-muted/30 p-1.5">
           {([
-            ['overview', 'Overview'],
-            ['queue', 'Work Queue'],
-            ['live', 'Live Call'],
-            ['history', 'History'],
-            ['settings', 'Settings'],
-          ] as [CenterTab, string][]).map(([key, label]) => (
+            ['overview', 'Overview', LayoutDashboard],
+            ['queue', 'Work Queue', ListChecks],
+            ['live', 'Live Call', PhoneCall],
+            ['history', 'History', History],
+            ['settings', 'Settings', Settings2],
+          ] as [CenterTab, string, typeof Phone][]).map(([key, label, Icon]) => (
             <TabsTrigger
               key={key}
               value={key}
-              className="h-8 shrink-0 gap-1.5 whitespace-nowrap px-2 text-xs data-[state=active]:bg-muted"
+              className="h-9 shrink-0 gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
             >
+              <Icon className="h-3.5 w-3.5" />
               {label}
               {key === 'queue' && (
-                <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                <Badge
+                  variant="secondary"
+                  className="px-1.5 py-0 text-[10px] data-[state=active]:bg-primary-foreground/20"
+                >
                   {hub.counts[queueState]}
                 </Badge>
               )}
@@ -197,32 +267,45 @@ export function TenantCallingCenter() {
         </TabsList>
 
         {/* ------------------------------------------------------ Overview */}
-        <TabsContent value="overview" className="mt-3 space-y-3">
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
+        <TabsContent value="overview" className="mt-4 space-y-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5">
             {CALLING_TABS.map((t) => (
-              <Card key={t.key} className="rounded-xl border-border/60 p-3">
-                <p className="text-[11px] text-muted-foreground">{t.label}</p>
-                <p className="text-lg font-bold tabular-nums">{hub.counts[t.key]}</p>
-              </Card>
+              <KPICard
+                key={t.key}
+                title={t.label}
+                value={hub.counts[t.key]}
+                icon={TAB_ICON[t.key] ?? Phone}
+                color={TAB_ACCENT[t.key] ?? 'bg-primary/10 text-primary'}
+                onClick={() => {
+                  setQueueState(t.key);
+                  setTab('queue');
+                }}
+              />
             ))}
           </div>
 
-          <Card className="rounded-2xl border-border/60 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="text-xs font-bold">
-                  {hub.cycle ? `Cycle #${hub.cycle.cycle_no}` : 'No open calling cycle'}
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {hub.cycle
-                    ? `Open attempts ${hub.openCount}${hub.wipLimit != null ? ` of ${hub.wipLimit}` : ''} · retry after ${hub.cycle.retry_after_days} days`
-                    : 'Open a cycle from the Calling Hub cycle controls to start working the roster.'}
-                </p>
+          <Card className="overflow-hidden">
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="rounded-xl bg-emerald-500/10 p-2 text-emerald-600">
+                  <PhoneOutgoing className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold">
+                    {hub.cycle ? `Cycle #${hub.cycle.cycle_no}` : 'No open calling cycle'}
+                  </p>
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    {hub.cycle
+                      ? `Open attempts ${hub.openCount}${hub.wipLimit != null ? ` of ${hub.wipLimit}` : ''} · retry after ${hub.cycle.retry_after_days} days`
+                      : 'Open a cycle from the Calling Hub cycle controls to start working the roster.'}
+                  </p>
+                </div>
               </div>
-              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setTab('queue')}>
+              <Button size="sm" className="h-9 text-xs" onClick={() => setTab('queue')}>
                 Go to work queue
+                <ChevronRight className="ml-1 h-3.5 w-3.5" />
               </Button>
-            </div>
+            </CardContent>
           </Card>
 
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -231,14 +314,15 @@ export function TenantCallingCenter() {
           </div>
         </TabsContent>
 
+
         {/* --------------------------------------------------- Work Queue */}
-        <TabsContent value="queue" className="mt-3 space-y-3">
-          <Card className="rounded-2xl border-border/60 p-3">
+        <TabsContent value="queue" className="mt-4 space-y-3">
+          <div className="rounded-xl border border-border bg-muted/30 p-3">
             <div className="flex flex-wrap items-end gap-2">
               <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Status</Label>
+                <Label className="text-[11px] font-semibold text-muted-foreground">Status</Label>
                 <Select value={queueState} onValueChange={(v) => setQueueState(v as CallingTabKey)}>
-                  <SelectTrigger className="h-8 w-[150px] text-xs">
+                  <SelectTrigger className="h-9 w-full text-xs sm:w-[160px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -251,9 +335,9 @@ export function TenantCallingCenter() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Sort by</Label>
+                <Label className="text-[11px] font-semibold text-muted-foreground">Sort by</Label>
                 <Select value={hub.effectiveSortKey ?? ''} onValueChange={setSortKey}>
-                  <SelectTrigger className="h-8 w-[180px] text-xs">
+                  <SelectTrigger className="h-9 w-full text-xs sm:w-[180px]">
                     <SelectValue placeholder="Default order" />
                   </SelectTrigger>
                   <SelectContent>
@@ -265,16 +349,29 @@ export function TenantCallingCenter() {
                   </SelectContent>
                 </Select>
               </div>
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search name or district"
-                className="h-8 w-full text-xs sm:max-w-[220px]"
-              />
-              <div className="ml-auto">{autoControls}</div>
+              <div className="min-w-[200px] flex-1 space-y-1">
+                <Label className="text-[11px] font-semibold text-muted-foreground">Search</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search name or district"
+                    className="h-9 w-full pl-9 text-xs"
+                  />
+                </div>
+              </div>
+              <div className="ml-auto space-y-1">
+                <Label className="text-[11px] font-semibold text-muted-foreground">Sequential run</Label>
+                {autoControls}
+              </div>
             </div>
 
-            <div className="mt-2 hidden lg:block">
+            <div className="mt-3 hidden border-t border-border/60 pt-3 lg:block">
+              <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
+                <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
+                Filters
+              </p>
               <CallingFilterBar
                 options={hub.filterOptions}
                 loading={hub.filterOptionsLoading}
@@ -292,77 +389,97 @@ export function TenantCallingCenter() {
                 onClearAll={() => setFilters({})}
               />
             </div>
-          </Card>
+          </div>
 
           {hub.wipBlocked && (
-            <p className="rounded-lg bg-muted px-2 py-1.5 text-[11px] text-muted-foreground">
+            <p className="flex items-start gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-[11px] font-semibold text-amber-700">
+              <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
               You are at the open-attempt limit. Record the outcome of your open calls before starting another.
             </p>
           )}
 
-          <Card className="min-w-0 overflow-x-auto rounded-2xl border-border/60 p-2 sm:p-3">
-            {hub.error && (
-              <p className="mb-2 rounded-lg bg-destructive/10 px-2 py-1.5 text-xs font-semibold text-destructive">
-                {hub.error}
-              </p>
-            )}
-            {!hub.cycle ? (
-              <p className="p-6 text-center text-xs text-muted-foreground">
-                No open calling cycle for tenants.
-              </p>
-            ) : hub.isLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-6 w-full" />
-                <Skeleton className="h-6 w-full" />
-                <Skeleton className="h-6 w-full" />
-              </div>
-            ) : (
-              /* The Hub's own table renderer, same columns contract, same look.
-                 "Reveal" here reveals *and* dials through the Center's dialer. */
-              <CallingHubTable
-                columns={activeQueueTab.columns}
-                rows={hub.rows}
-                metricLabel={metricLabel}
-                revealed={revealedPhones}
-                revealing={dialer.starting || hub.reveal.isPending}
-                wipBlocked={hub.wipBlocked}
-                onReveal={(row) => void dialer.dial(row)}
-              />
-            )}
-
-            {hub.total > hub.pageSize && (
-              <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
-                <span>
-                  {hub.pageFrom}–{hub.pageTo} of {hub.total}
-                </span>
-                <div className="flex gap-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 px-2"
-                    disabled={page === 0}
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  >
-                    <ChevronLeft className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 px-2"
-                    disabled={hub.pageTo >= hub.total}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    <ChevronRight className="h-3 w-3" />
-                  </Button>
+          <Card className="min-w-0 overflow-hidden">
+            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 border-b bg-muted/30 p-3">
+              <CardTitle className="flex items-center gap-2 text-xs font-bold">
+                <ListChecks className="h-4 w-4 text-primary" />
+                {activeQueueTab.label}
+              </CardTitle>
+              <Badge variant="outline" className="text-[10px]">
+                {hub.total.toLocaleString()} rows
+              </Badge>
+            </CardHeader>
+            <CardContent className="min-w-0 overflow-x-auto p-2 sm:p-3">
+              {hub.error && (
+                <p className="mb-2 flex items-start gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-2 text-xs font-semibold text-destructive">
+                  <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
+                  {hub.error}
+                </p>
+              )}
+              {!hub.cycle ? (
+                <div className="p-6 text-center">
+                  <PhoneOutgoing className="mx-auto h-5 w-5 text-muted-foreground" />
+                  <p className="mt-2 text-xs text-muted-foreground">No open calling cycle for tenants.</p>
                 </div>
-              </div>
-            )}
+              ) : hub.isLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-2/3" />
+                </div>
+              ) : (
+                /* The Hub's own table renderer, same columns contract, same look.
+                   "Call" here reveals *and* dials through the Center's dialer. */
+                <CallingHubTable
+                  columns={activeQueueTab.columns}
+                  rows={hub.rows}
+                  metricLabel={metricLabel}
+                  revealed={revealedPhones}
+                  revealing={dialer.starting || hub.reveal.isPending}
+                  wipBlocked={hub.wipBlocked}
+                  onReveal={(row) => void dialer.dial(row)}
+                  actionLabels={CALL_ACTION_LABELS}
+                  actionIcon={Phone}
+                />
+              )}
+
+
+              {hub.total > hub.pageSize && (
+                <div className="mt-3 flex items-center justify-between border-t border-border/60 pt-2 text-[11px] font-medium text-muted-foreground">
+                  <span className="tabular-nums">
+                    {hub.pageFrom}–{hub.pageTo} of {hub.total.toLocaleString()}
+                  </span>
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2.5"
+                      disabled={page === 0}
+                      onClick={() => setPage((p) => Math.max(0, p - 1))}
+                      aria-label="Previous page"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2.5"
+                      disabled={hub.pageTo >= hub.total}
+                      onClick={() => setPage((p) => p + 1)}
+                      aria-label="Next page"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
           </Card>
         </TabsContent>
 
         {/* ----------------------------------------------------- Live Call */}
-        <TabsContent value="live" className="mt-3 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+        <TabsContent value="live" className="mt-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-muted/30 p-2.5">
             {runBadge}
             {autoControls}
           </div>
@@ -378,41 +495,46 @@ export function TenantCallingCenter() {
         </TabsContent>
 
         {/* ------------------------------------------------------- History */}
-        <TabsContent value="history" className="mt-3">
+        <TabsContent value="history" className="mt-4">
           <TenantCallCenterHistory />
         </TabsContent>
 
         {/* ------------------------------------------------------ Settings */}
-        <TabsContent value="settings" className="mt-3 space-y-3">
-          <Card className="rounded-2xl border-border/60 p-3">
-            <p className="flex items-center gap-1.5 text-xs font-bold">
-              <Settings2 className="h-3.5 w-3.5 text-primary" />
-              Calling configuration
-            </p>
-            <dl className="mt-2 grid grid-cols-2 gap-2 text-[11px] lg:grid-cols-4">
-              {[
-                ['Open cycle', hub.cycle ? `#${hub.cycle.cycle_no}` : 'None'],
-                ['Open-attempt limit', hub.wipLimit != null ? String(hub.wipLimit) : 'Set by ops'],
-                ['Retry window', hub.cycle ? `${hub.cycle.retry_after_days} days` : '—'],
-                ['Sequential run cap', `${autoCap} calls`],
-                ['Default sort', hub.sortOptions.find((o) => o.key === hub.defaultSortKey)?.label ?? '—'],
-                ['Filters available', String(hub.filterOptions.length)],
-                ['Outcome categories', String(hub.categories.length)],
-                ['Transport', 'Browser voice (headset)'],
-              ].map(([k, v]) => (
-                <div key={k} className="rounded-lg bg-muted/50 p-2">
-                  <dt className="text-muted-foreground">{k}</dt>
-                  <dd className="font-semibold">{v}</dd>
-                </div>
-              ))}
-            </dl>
-            <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
-              Cycles, populations, filters, limits and outcome categories are owned by the calling
-              spine and are changed from the Calling Hub cycle controls — the Calling Center reads
-              exactly the same configuration so both surfaces stay consistent.
-            </p>
+        <TabsContent value="settings" className="mt-4 space-y-3">
+          <Card className="overflow-hidden">
+            <CardHeader className="border-b bg-muted/30 p-3">
+              <CardTitle className="flex items-center gap-2 text-xs font-bold">
+                <Settings2 className="h-4 w-4 text-primary" />
+                Calling configuration
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 sm:p-4">
+              <dl className="grid grid-cols-2 gap-2 text-[11px] lg:grid-cols-4">
+                {[
+                  ['Open cycle', hub.cycle ? `#${hub.cycle.cycle_no}` : 'None'],
+                  ['Open-attempt limit', hub.wipLimit != null ? String(hub.wipLimit) : 'Set by ops'],
+                  ['Retry window', hub.cycle ? `${hub.cycle.retry_after_days} days` : '—'],
+                  ['Sequential run cap', `${autoCap} calls`],
+                  ['Default sort', hub.sortOptions.find((o) => o.key === hub.defaultSortKey)?.label ?? '—'],
+                  ['Filters available', String(hub.filterOptions.length)],
+                  ['Outcome categories', String(hub.categories.length)],
+                  ['Transport', 'Browser voice (headset)'],
+                ].map(([k, v]) => (
+                  <div key={k} className="rounded-xl border border-border/60 bg-muted/40 p-2.5">
+                    <dt className="text-muted-foreground">{k}</dt>
+                    <dd className="mt-0.5 text-xs font-bold">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="mt-3 text-[11px] leading-snug text-muted-foreground">
+                Cycles, populations, filters, limits and outcome categories are owned by the calling
+                spine and are changed from the Calling Hub cycle controls — the Calling Center reads
+                exactly the same configuration so both surfaces stay consistent.
+              </p>
+            </CardContent>
           </Card>
         </TabsContent>
+
       </Tabs>
 
       <RecordOutcomeDialog
