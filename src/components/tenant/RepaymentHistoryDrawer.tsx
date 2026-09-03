@@ -65,6 +65,7 @@ interface Repayment {
   created_at: string;
   rent_request_id: string;
   payment_method?: string;
+  collection_channel?: string | null;
 }
 
 interface LateFee {
@@ -117,7 +118,7 @@ export function RepaymentHistoryDrawer({ userId }: RepaymentHistoryDrawerProps) 
       // Payments now come from agent_collections (single source of truth).
       supabase
         .from('agent_collections')
-        .select('id, amount, created_at, rent_request_id, payment_method')
+        .select('id, amount, created_at, rent_request_id, payment_method, collection_channel')
         .eq('tenant_id', userId)
         .order('created_at', { ascending: false }),
     ]);
@@ -130,6 +131,7 @@ export function RepaymentHistoryDrawer({ userId }: RepaymentHistoryDrawerProps) 
       created_at: r.created_at,
       rent_request_id: r.rent_request_id ?? '',
       payment_method: r.payment_method ?? 'cash',
+      collection_channel: r.collection_channel ?? null,
     } as Repayment));
     setRepayments(mapped);
     setLateFees([]);
@@ -540,6 +542,14 @@ export function RepaymentHistoryDrawer({ userId }: RepaymentHistoryDrawerProps) 
                                 <p className="text-xs text-muted-foreground">
                                   {format(new Date(payment.payment_date), 'MMMM d, yyyy')}
                                 </p>
+                                <Badge
+                                  variant="outline"
+                                  className="mt-1 text-[10px]"
+                                >
+                                  {payment.collection_channel === 'tenant_paid'
+                                    ? 'Paid by you'
+                                    : 'Collected by agent'}
+                                </Badge>
                               </div>
                             </div>
                           </div>
