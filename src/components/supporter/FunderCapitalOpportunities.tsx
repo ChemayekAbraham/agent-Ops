@@ -320,8 +320,6 @@ export function FunderCapitalOpportunities() {
   // Empty-house funding calculator + breakdown UI state (display only)
   const [calcHouses, setCalcHouses] = useState(5);
   const [calcAmountInput, setCalcAmountInput] = useState('');
-  const [calcHouses2, setCalcHouses2] = useState(10);
-  const [calcAmountInput2, setCalcAmountInput2] = useState('');
   const [breakdownBy, setBreakdownBy] = useState<'district' | 'landlord'>('district');
   const [calcOpen, setCalcOpen] = useState(false);
   const [breakdownSort, setBreakdownSort] = useState<'rent' | 'houses'>('rent');
@@ -394,7 +392,6 @@ export function FunderCapitalOpportunities() {
   }, [emptyHouseSummary, feeRatePct]);
 
   const calc = useMemo(() => computeScenario(calcAmountInput, calcHouses), [computeScenario, calcAmountInput, calcHouses]);
-  const calc2 = useMemo(() => computeScenario(calcAmountInput2, calcHouses2), [computeScenario, calcAmountInput2, calcHouses2]);
 
 
   const handleAngelAmountChange = (val: string) => {
