@@ -10,8 +10,8 @@ import { Users, FileText, Home, Phone, MapPin, Search, Calendar, XCircle, CheckC
 import { format } from 'date-fns';
 import { RentPipelineQueue } from './RentPipelineQueue';
 import { PromissoryNotesQueue } from './PromissoryNotesQueue';
-import { RejectedRequestsQueue } from './RejectedRequestsQueue';
 import { AgentOpsApprovedRequestsPanel } from './AgentOpsApprovedRequestsPanel';
+import { AgentOpsRejectedRequestsPanel } from './AgentOpsRejectedRequestsPanel';
 import { NewTenantsWithoutRequestPanel } from './NewTenantsWithoutRequestPanel';
 import { formatLocation, locationHaystack } from '@/lib/locationText';
 
@@ -235,13 +235,7 @@ export function AgentOpsPipelineHub() {
       <TabsContent value="notes"><PromissoryNotesQueue /></TabsContent>
       <TabsContent value="landlords"><LandlordsPipeline /></TabsContent>
       <TabsContent value="approved"><AgentOpsApprovedRequestsPanel /></TabsContent>
-      <TabsContent value="rejected">
-
-        {/* Central correction desk: shows rejections from EVERY stage
-            (Agent Ops, Tenant Ops, Landlord Ops, COO, CFO).
-            Reopen sends the request directly back to the rejecting stage. */}
-        <RejectedRequestsQueue title="Rejected — Correction Desk (all stages)" />
-      </TabsContent>
+      <TabsContent value="rejected"><AgentOpsRejectedRequestsPanel /></TabsContent>
     </Tabs>
   );
 }
