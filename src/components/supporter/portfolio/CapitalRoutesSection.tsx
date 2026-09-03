@@ -1,4 +1,4 @@
-import { ArrowRight, Building2, Handshake, TrendingUp } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import heroAsset from '@/assets/hero.jpg.asset.json';
 import { cn } from '@/lib/utils';
 
@@ -7,29 +7,6 @@ function scrollToOpportunities() {
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-const routes = [
-  {
-    key: 'via-welile',
-    title: 'Support tenants via Welile',
-    description: 'We deploy the capital and manage the returns.',
-    Icon: Building2,
-    recommended: false,
-  },
-  {
-    key: 'direct',
-    title: 'Support tenants directly',
-    description: 'Pay landlords yourself. We handle the introduction and the paperwork.',
-    Icon: Handshake,
-    recommended: true,
-  },
-  {
-    key: 'angel',
-    title: 'Angel pool',
-    description: 'Buy a Welile share and back the long-term vision.',
-    Icon: TrendingUp,
-    recommended: false,
-  },
-];
 
 export function CapitalRoutesSection({ className }: { className?: string }) {
   return (
