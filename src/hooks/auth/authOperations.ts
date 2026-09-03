@@ -188,9 +188,10 @@ async function preparePreviewOAuthFlow() {
 export async function signInWithGoogle() {
   await preparePreviewOAuthFlow();
 
-  // Use current origin so OAuth callback returns to wherever the user is
-  // (preview domain OR custom domain — both must work)
-  const primaryUri = window.location.origin;
+  // Current origin when it is allow-listed (preview OR canonical custom
+  // domain); otherwise the canonical origin, so retired hostnames don't
+  // produce a consent screen whose callback is rejected.
+  const primaryUri = resolveOAuthRedirectOrigin();
 
   console.log('[OAuth:Google] domain:', window.location.hostname, '| redirect_uri:', primaryUri);
 
@@ -221,7 +222,7 @@ export async function signInWithGoogle() {
 export async function signInWithApple() {
   await preparePreviewOAuthFlow();
 
-  const primaryUri = window.location.origin;
+  const primaryUri = resolveOAuthRedirectOrigin();
 
   console.log('[OAuth:Apple] domain:', window.location.hostname, '| redirect_uri:', primaryUri);
 
