@@ -533,19 +533,8 @@ export default function LandlordRegistrationForm({
       return;
     }
 
-    // Agents must attach the signed agreement on the form itself before the
-    // landlord can be registered.
-    if (registeredByRole === 'agent' && !minimal && !isLandlordAgreementInlineComplete(agreementDetails)) {
-      setStep(1);
-      hapticWarning();
-      focusField('landlordAgreement');
-      toastFn({
-        title: 'Signed agreement required',
-        description: 'Download the contract, have it signed, then upload the signed copy before registering.',
-        variant: 'destructive',
-      });
-      return;
-    }
+    // Agreement upload is optional for landlord registration. New-agent Rent
+    // Request submission performs the mandatory signed-agreement check.
 
     // Pre-save duplicate check: if the phone hasn't already been verified as
     // free, run the check now and surface the exact field error before saving.
