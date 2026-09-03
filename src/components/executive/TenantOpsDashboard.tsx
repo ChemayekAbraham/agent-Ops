@@ -1656,7 +1656,7 @@ export function TenantOpsDashboard({
             </button>
 
             {/* Sticky mobile quick-actions — always reachable */}
-            <div className="sticky top-0 z-30 -mx-2 px-2 py-1.5 bg-background/95 backdrop-blur border-b sm:hidden">
+            <div className="sticky top-[52px] z-20 -mx-2 px-2 py-1.5 bg-background/95 backdrop-blur border-b sm:hidden">
               <div className="grid grid-cols-4 gap-1.5">
                 {quickActions.map((q) => {
                   const Icon = q.icon;
