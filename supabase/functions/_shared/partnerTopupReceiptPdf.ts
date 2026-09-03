@@ -15,23 +15,51 @@ export interface PartnerTopupReceiptData {
   reviewedBy: string;
 }
 
-const PURPLE = rgb(0.42, 0.13, 0.77);
-const INK = rgb(0.12, 0.10, 0.18);
-const MUTED = rgb(0.39, 0.36, 0.45);
-const BORDER = rgb(0.88, 0.85, 0.92);
-const SOFT_PURPLE = rgb(0.96, 0.94, 0.99);
+// Palette mirrored from the receipt HTML template
+const PURPLE = rgb(0.545, 0.173, 0.961); // #8B2CF5
+const PURPLE_SOFT = rgb(0.565, 0.38, 0.851); // #9061D9
+const INK = rgb(0.09, 0.106, 0.173); // #171B2C
+const SLATE = rgb(0.2, 0.255, 0.333); // #334155
+const MUTED = rgb(0.42, 0.447, 0.502); // #6B7280
+const FAINT = rgb(0.58, 0.639, 0.722); // #94A3B8
+const LINE = rgb(0.937, 0.937, 0.957); // #EFEFF4
+const DASH = rgb(0.85, 0.867, 0.906); // #D9DDE7
+const CARD_BORDER = rgb(0.906, 0.914, 0.937); // #E7E9EF
+const HERO_BG = rgb(0.984, 0.976, 1); // #FBF9FF
+const FOOTER_BG = rgb(0.98, 0.98, 0.988); // #FAFAFC
+const GREEN = rgb(0.082, 0.502, 0.239); // #15803D
+const GREEN_BG = rgb(0.925, 0.992, 0.961); // #ECFDF5
+const GREEN_BORDER = rgb(0.655, 0.953, 0.816); // #A7F3D0
+const PAGE_BG = rgb(0.965, 0.969, 0.98); // #F6F7FA
 const WHITE = rgb(1, 1, 1);
 
-const money = (value: number) => `UGX ${Math.round(Number(value) || 0).toLocaleString("en-US")}`;
+const PAGE_W = 460;
+const PAGE_H = 700;
+const CARD_X = 14;
+const CARD_W = PAGE_W - CARD_X * 2;
+const PAD = 22;
+const LEFT = CARD_X + PAD;
+const RIGHT = CARD_X + CARD_W - PAD;
+const COL2 = CARD_X + CARD_W / 2 + 4;
+
+const amount = (value: number) => Math.round(Number(value) || 0).toLocaleString("en-US");
 const clean = (value: unknown, fallback = "—") => String(value ?? "").trim() || fallback;
 
-function wrapText(text: string, maxChars: number): string[] {
+function fit(text: string, font: any, size: number, maxWidth: number): string {
+  let out = text;
+  while (out.length > 4 && font.widthOfTextAtSize(out, size) > maxWidth) {
+    out = out.slice(0, -1);
+  }
+  return out === text ? text : `${out.trimEnd()}…`;
+}
+
+function wrap(text: string, font: any, size: number, maxWidth: number): string[] {
   const words = text.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let line = "";
   for (const word of words) {
     const next = line ? `${line} ${word}` : word;
-    if (next.length > maxChars && line) {
+    if (font.widthOfTextAtSize(next, size) > maxWidth && line) {
       lines.push(line);
       line = word;
     } else {
@@ -42,68 +70,205 @@ function wrapText(text: string, maxChars: number): string[] {
   return lines.length ? lines : ["—"];
 }
 
-function drawLabelValue(
-  page: any,
-  label: string,
-  value: string,
-  x: number,
-  y: number,
-  labelFont: any,
-  valueFont: any,
-) {
-  page.drawText(label.toUpperCase(), { x, y, size: 7, font: labelFont, color: MUTED });
-  const lines = wrapText(value, 34);
-  page.drawText(lines[0] ?? "—", { x, y: y - 12, size: 10, font: valueFont, color: INK });
-  return lines.length;
-}
-
 export async function renderPartnershipTopupReceipt(data: PartnerTopupReceiptData): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
-  const page = pdf.addPage([460, 650]);
+  const page = pdf.addPage([PAGE_W, PAGE_H]);
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
-  page.drawRectangle({ x: 0, y: 0, width: 460, height: 650, color: WHITE });
-  page.drawRectangle({ x: 0, y: 640, width: 460, height: 10, color: PURPLE });
+  const text = (
+    value: string,
+    x: number,
+    y: number,
+    size: number,
+    font: any,
+    color = INK,
+  ) => page.drawText(value, { x, y, size, font, color });
 
-  page.drawText("WELILE", { x: 32, y: 598, size: 22, font: bold, color: PURPLE });
-  page.drawText("TECHNOLOGIES LIMITED", { x: 33, y: 583, size: 7, font: bold, color: MUTED });
-  page.drawText("OFFICIAL RECEIPT", { x: 322, y: 595, size: 8, font: bold, color: MUTED });
-  page.drawText(clean(data.receiptNumber), { x: 322, y: 581, size: 8, font: regular, color: INK });
+  const centered = (value: string, y: number, size: number, font: any, color = INK) => {
+    const w = font.widthOfTextAtSize(value, size);
+    page.drawText(value, { x: CARD_X + (CARD_W - w) / 2, y, size, font, color });
+  };
 
-  page.drawText("PARTNER TOP-UP RECEIPT", { x: 32, y: 535, size: 18, font: bold, color: INK });
-  page.drawText("This receipt confirms capital added to your partnership portfolio.", {
-    x: 32, y: 518, size: 9, font: regular, color: MUTED,
+  const hLine = (y: number, color = LINE, dashed = false) =>
+    page.drawLine({
+      start: { x: LEFT, y },
+      end: { x: RIGHT, y },
+      thickness: 1,
+      color,
+      ...(dashed ? { dashArray: [2, 2] } : {}),
+    });
+
+  const sectionTitle = (label: string, y: number) => text(label.toUpperCase(), LEFT, y, 7.5, bold, FAINT);
+
+  const field = (label: string, value: string, x: number, y: number, opts: { color?: any; size?: number } = {}) => {
+    const maxWidth = CARD_W / 2 - PAD - 6;
+    text(label, x, y, 7.5, regular, FAINT);
+    const size = opts.size ?? 10;
+    text(fit(value, bold, size, maxWidth), x, y - 13, size, bold, opts.color ?? INK);
+  };
+
+  // Page + card
+  page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: PAGE_H, color: PAGE_BG });
+  page.drawRectangle({
+    x: CARD_X,
+    y: 14,
+    width: CARD_W,
+    height: PAGE_H - 28,
+    color: WHITE,
+    borderColor: CARD_BORDER,
+    borderWidth: 1,
   });
 
-  page.drawRectangle({ x: 32, y: 432, width: 396, height: 64, color: SOFT_PURPLE, borderColor: BORDER, borderWidth: 1 });
-  page.drawText("TOP-UP AMOUNT", { x: 52, y: 474, size: 8, font: bold, color: MUTED });
-  page.drawText(money(data.topupAmount), { x: 52, y: 448, size: 22, font: bold, color: PURPLE });
-  page.drawText("Capital contribution received", { x: 300, y: 459, size: 8, font: regular, color: MUTED });
-  page.drawText(clean(data.effectiveAt), { x: 300, y: 445, size: 8, font: bold, color: INK });
+  let y = PAGE_H - 46;
 
-  page.drawText("PORTFOLIO DETAILS", { x: 32, y: 402, size: 9, font: bold, color: PURPLE });
-  page.drawLine({ start: { x: 32, y: 394 }, end: { x: 428, y: 394 }, thickness: 1, color: BORDER });
-  drawLabelValue(page, "Portfolio", clean(data.portfolioName), 32, 374, regular, bold);
-  drawLabelValue(page, "Portfolio ID", clean(data.portfolioId), 245, 374, regular, bold);
-  drawLabelValue(page, "Previous principal", money(data.previousPrincipal), 32, 330, regular, bold);
-  drawLabelValue(page, "New total principal", money(data.newTotalPrincipal), 245, 330, regular, bold);
+  // 1. Header
+  text("WELILE", LEFT, y, 17, bold, PURPLE);
+  const badgeLabel = "Top-Up Approved";
+  const badgeW = bold.widthOfTextAtSize(badgeLabel, 8) + 30;
+  page.drawRectangle({
+    x: RIGHT - badgeW,
+    y: y - 4,
+    width: badgeW,
+    height: 20,
+    color: GREEN_BG,
+    borderColor: GREEN_BORDER,
+    borderWidth: 1,
+  });
+  text("✓", RIGHT - badgeW + 9, y + 2, 9, bold, GREEN);
+  text(badgeLabel, RIGHT - badgeW + 22, y + 2, 8, bold, GREEN);
 
-  page.drawText("PARTNER INFORMATION", { x: 32, y: 276, size: 9, font: bold, color: PURPLE });
-  page.drawLine({ start: { x: 32, y: 268 }, end: { x: 428, y: 268 }, thickness: 1, color: BORDER });
-  drawLabelValue(page, "Partner", clean(data.partnerName), 32, 248, regular, bold);
-  drawLabelValue(page, "Partner ID", clean(data.partnerId), 245, 248, regular, bold);
-  drawLabelValue(page, "Portfolios topped up", String(data.portfoliosToppedUpCount || 1), 32, 204, regular, bold);
-  drawLabelValue(page, "Reviewed by", clean(data.reviewedBy, "System"), 245, 204, regular, bold);
+  y -= 26;
+  text("Partner Top-Up Receipt", LEFT, y, 15, bold, INK);
+  y -= 15;
+  text(
+    `Receipt No. ${clean(data.receiptNumber)}  ·  ${clean(data.effectiveAt)}`,
+    LEFT,
+    y,
+    8.5,
+    regular,
+    MUTED,
+  );
 
-  page.drawRectangle({ x: 32, y: 104, width: 396, height: 60, color: SOFT_PURPLE });
-  page.drawText("AUDIT TIMESTAMPS", { x: 48, y: 145, size: 8, font: bold, color: PURPLE });
-  page.drawText(`Effective: ${clean(data.effectiveAt)}`, { x: 48, y: 128, size: 8, font: regular, color: INK });
-  page.drawText(`Created: ${clean(data.createdAt)}`, { x: 48, y: 115, size: 8, font: regular, color: INK });
+  y -= 14;
+  hLine(y);
 
-  page.drawLine({ start: { x: 32, y: 76 }, end: { x: 428, y: 76 }, thickness: 1, color: BORDER });
-  page.drawText("Returns accrue per the Master Partnership Agreement.", { x: 32, y: 57, size: 8, font: regular, color: MUTED });
-  page.drawText("Welile Technologies Limited · partnership@welile.com", { x: 32, y: 42, size: 8, font: bold, color: INK });
+  // 2. Hero
+  const heroTop = y - 4;
+  const heroH = 128;
+  page.drawRectangle({ x: CARD_X + 1, y: heroTop - heroH, width: CARD_W - 2, height: heroH, color: HERO_BG });
+  let hy = heroTop - 26;
+  centered("TOP-UP AMOUNT ADDED", hy, 8, bold, PURPLE_SOFT);
+
+  hy -= 34;
+  const amountStr = amount(data.topupAmount);
+  const curW = bold.widthOfTextAtSize("UGX ", 15);
+  const amtW = bold.widthOfTextAtSize(amountStr, 30);
+  const startX = CARD_X + (CARD_W - (curW + amtW)) / 2;
+  text("UGX ", startX, hy + 4, 15, bold, PURPLE);
+  text(amountStr, startX + curW, hy, 30, bold, PURPLE);
+
+  hy -= 20;
+  centered(`Added to portfolio ${clean(data.portfolioId)}`, hy, 9.5, regular, MUTED);
+
+  hy -= 26;
+  const pillText = `Previous: UGX ${amount(data.previousPrincipal)}   ➔   New Total: UGX ${amount(
+    data.newTotalPrincipal,
+  )}`;
+  const pillTextW = regular.widthOfTextAtSize(pillText, 8.5);
+  const pillW = pillTextW + 26;
+  page.drawRectangle({
+    x: CARD_X + (CARD_W - pillW) / 2,
+    y: hy - 6,
+    width: pillW,
+    height: 22,
+    color: WHITE,
+    borderColor: rgb(0.914, 0.859, 1),
+    borderWidth: 1,
+  });
+  centered(pillText, hy, 8.5, regular, SLATE);
+
+  y = heroTop - heroH;
+  hLine(y);
+
+  // 3. Detail sections
+  y -= 22;
+  sectionTitle("1. Partner & Portfolio Attachment", y);
+
+  y -= 22;
+  field("Partner Name", clean(data.partnerName), LEFT, y);
+  field("Partner ID", clean(data.partnerId), COL2, y);
+  y -= 22;
+  hLine(y, DASH, true);
+
+  y -= 20;
+  field("Parent Portfolio ID", clean(data.portfolioId), LEFT, y, { color: PURPLE });
+  field(
+    "Portfolios Topped Up",
+    `${data.portfoliosToppedUpCount || 1} Active Portfolio${(data.portfoliosToppedUpCount || 1) > 1 ? "s" : ""}`,
+    COL2,
+    y,
+  );
+  y -= 22;
+  hLine(y, DASH, true);
+
+  y -= 20;
+  text("Portfolio Title", LEFT, y, 7.5, regular, FAINT);
+  const titleLines = wrap(clean(data.portfolioName), bold, 10, RIGHT - LEFT).slice(0, 2);
+  let ty = y - 13;
+  for (const line of titleLines) {
+    text(line, LEFT, ty, 10, bold, SLATE);
+    ty -= 12;
+  }
+  y = ty - 4;
+  hLine(y, DASH, true);
+
+  y -= 24;
+  sectionTitle("2. Timing & Processing", y);
+  y -= 22;
+  field("Effective Date & Time", clean(data.effectiveAt), LEFT, y, { size: 9 });
+  field("Created / Updated", clean(data.createdAt), COL2, y, { size: 9, color: MUTED });
+  y -= 22;
+  hLine(y, DASH, true);
+
+  y -= 24;
+  sectionTitle("3. Treasury Verification & Approval", y);
+  y -= 22;
+  field("Reviewed By", `${clean(data.reviewedBy, "System")} (Partner Operations)`, LEFT, y, { size: 9 });
+  field("Review Notes", "Top-up funds", COL2, y, { size: 9, color: SLATE });
+
+  // 4. Footer
+  const footerH = 96;
+  const footerTop = 14 + footerH;
+  page.drawRectangle({ x: CARD_X + 1, y: 15, width: CARD_W - 2, height: footerH, color: FOOTER_BG });
+  hLine(footerTop, LINE);
+
+  let fy = footerTop - 22;
+  const noteLines = wrap(
+    "This official receipt confirms capital top-up for your portfolio. Returns accrue per the Master Partnership Agreement.",
+    regular,
+    8.5,
+    RIGHT - LEFT,
+  );
+  for (const line of noteLines) {
+    centered(line, fy, 8.5, regular, MUTED);
+    fy -= 12;
+  }
+
+  fy -= 8;
+  page.drawRectangle({
+    x: LEFT,
+    y: fy - 14,
+    width: RIGHT - LEFT,
+    height: 34,
+    color: WHITE,
+    borderColor: CARD_BORDER,
+    borderWidth: 1,
+  });
+  text("Receipt Reference", LEFT + 12, fy + 8, 8.5, bold, INK);
+  text(`${clean(data.receiptNumber)} · Verified partnership record`, LEFT + 12, fy - 3, 7.5, regular, FAINT);
+
+  centered("© 2026 Welile Technologies Limited · Entebbe, Uganda", 26, 7.5, regular, FAINT);
 
   return pdf.save({ useObjectStreams: true });
 }
