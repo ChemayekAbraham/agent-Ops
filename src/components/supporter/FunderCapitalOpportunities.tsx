@@ -1008,18 +1008,19 @@ export function FunderCapitalOpportunities() {
               );
             })()}
 
-            <p className="text-[11px] leading-snug text-muted-foreground">
+            <p className="text-[12px] leading-relaxed text-muted-foreground">
               Browse empty houses with photos, landlord contact, and GPS location. Pick the ones
               you want and your promissory note is created instantly — you earn{' '}
               <span className="font-bold text-success">15% of the rent every month for 12 months</span>.
             </p>
 
             <Button
-              className="h-11 w-full gap-2 font-bold rounded-xl"
+              className="h-12 w-full gap-2 text-sm font-bold rounded-xl shadow-sm"
               onClick={() => { hapticTap(); setHousePickerOpen(true); }}
             >
               <Plus className="h-4 w-4" /> Browse empty houses
             </Button>
+
           </div>
         </div>
 
