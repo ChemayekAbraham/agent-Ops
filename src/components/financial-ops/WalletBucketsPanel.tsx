@@ -253,8 +253,8 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
                     aria-label={`View ${r.label} statement`}
                     className="w-full flex items-center justify-between gap-3 rounded-lg px-1 py-1.5 text-left hover:bg-muted/50 transition-colors"
                   >
-                  <span className="flex items-center gap-2.5 min-w-0">
-                    {r.logo ? (
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      {r.logo ? (
                       <span className="h-6 w-6 rounded-md overflow-hidden shrink-0 border border-border bg-background">
                         <img src={r.logo} alt={r.label} className="w-full h-full object-cover" loading="lazy" />
                       </span>
@@ -266,15 +266,15 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
                       <span className="h-6 w-6 rounded-md shrink-0 border border-border bg-emerald-500/10 flex items-center justify-center">
                         <Banknote className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                       </span>
-                    )}
-                    <span className="text-sm text-foreground truncate">{r.label}</span>
-                  </span>
-                  <span className="flex items-center gap-1.5 shrink-0">
-                    <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
-                      {actualLoading ? '—' : formatUGX(r.amount)}
+                      )}
+                      <span className="text-sm text-foreground truncate">{r.label}</span>
                     </span>
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                  </span>
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+                        {actualLoading ? '—' : formatUGX(r.amount)}
+                      </span>
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                    </span>
                   </button>
                   {r.line === 'bank' && <BankEmailReconciliationPanel />}
                 </div>
