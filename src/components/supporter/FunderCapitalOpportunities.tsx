@@ -902,40 +902,41 @@ export function FunderCapitalOpportunities() {
               const maxRent = Math.max(1, ...top.map(r => r.total_rent_needed));
               const maxHouses = Math.max(1, ...top.map(r => r.house_count));
               if (top.length === 0) return null;
+              const segBtn = (active: boolean) =>
+                `px-2.5 h-7 text-[11px] font-bold transition-colors ${
+                  active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted/60'
+                }`;
               return (
-                <div className="rounded-xl bg-card/80 border border-border/60 p-3 space-y-2.5">
+                <div className="rounded-xl bg-card border border-border/60 p-3.5 space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest">
+                    <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wider">
                       Biggest opportunities
                     </p>
-                    <div className="flex items-center gap-1.5">
-                      <div className="flex rounded-lg border border-border/60 overflow-hidden">
-                        {(['district', 'landlord'] as const).map(k => (
-                          <button
-                            key={k}
-                            type="button"
-                            onClick={() => { hapticTap(); setBreakdownBy(k); }}
-                            className={`px-2 py-1 text-[9px] font-bold capitalize ${breakdownBy === k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
-                          >
-                            {k}
-                          </button>
-                        ))}
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-6 gap-1 rounded-lg px-2 text-[9px] font-bold"
-                        onClick={() => { hapticTap(); exportRankingPdf(top); }}
-                      >
-                        <Download className="h-3 w-3" /> PDF
-                      </Button>
-                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 gap-1.5 rounded-lg px-2.5 text-[11px] font-bold"
+                      onClick={() => { hapticTap(); exportRankingPdf(top); }}
+                    >
+                      <Download className="h-3.5 w-3.5" /> PDF
+                    </Button>
                   </div>
 
-
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-x-3 gap-y-2 flex-wrap">
+                    <div className="flex rounded-lg border border-border/60 overflow-hidden">
+                      {(['district', 'landlord'] as const).map(k => (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => { hapticTap(); setBreakdownBy(k); }}
+                          className={`${segBtn(breakdownBy === k)} capitalize`}
+                        >
+                          {k}
+                        </button>
+                      ))}
+                    </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[9px] text-muted-foreground font-medium">Rank by</span>
+                      <span className="text-[11px] text-muted-foreground font-medium">Rank by</span>
                       <div className="flex rounded-lg border border-border/60 overflow-hidden">
                         {([
                           { k: 'rent' as const, label: 'Rent needed' },
@@ -945,7 +946,7 @@ export function FunderCapitalOpportunities() {
                             key={o.k}
                             type="button"
                             onClick={() => { hapticTap(); setBreakdownSort(o.k); }}
-                            className={`px-2 py-1 text-[9px] font-bold ${breakdownSort === o.k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+                            className={segBtn(breakdownSort === o.k)}
                           >
                             {o.label}
                           </button>
@@ -953,7 +954,7 @@ export function FunderCapitalOpportunities() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[9px] text-muted-foreground font-medium">Show</span>
+                      <span className="text-[11px] text-muted-foreground font-medium">Show</span>
                       <div className="flex rounded-lg border border-border/60 overflow-hidden">
                         {([
                           { k: 6 as const, label: 'Top 6' },
@@ -964,7 +965,7 @@ export function FunderCapitalOpportunities() {
                             key={o.label}
                             type="button"
                             onClick={() => { hapticTap(); setBreakdownTopN(o.k); }}
-                            className={`px-2 py-1 text-[9px] font-bold ${breakdownTopN === o.k ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}
+                            className={segBtn(breakdownTopN === o.k)}
                           >
                             {o.label}
                           </button>
@@ -973,23 +974,26 @@ export function FunderCapitalOpportunities() {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    {top.map(r => (
-                      <div key={r.label} className="space-y-1">
+                  <div className="divide-y divide-border/50">
+                    {top.map((r, i) => (
+                      <div key={r.label} className="py-2.5 first:pt-0 last:pb-0 space-y-1.5">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-[11px] font-bold text-foreground flex items-center gap-1 truncate">
+                          <p className="text-[12px] font-bold text-foreground flex items-center gap-1.5 min-w-0">
+                            <span className="text-[10px] font-black text-muted-foreground w-4 shrink-0 tabular-nums">
+                              {i + 1}
+                            </span>
                             {breakdownBy === 'district'
-                              ? <MapPin className="h-3 w-3 text-primary shrink-0" />
-                              : <User className="h-3 w-3 text-primary shrink-0" />}
+                              ? <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+                              : <User className="h-3.5 w-3.5 text-primary shrink-0" />}
                             <span className="truncate">{r.label}</span>
                           </p>
-                          <span className="text-[10px] font-semibold text-muted-foreground shrink-0">
+                          <span className="text-[11px] font-semibold text-muted-foreground shrink-0 tabular-nums">
                             {r.house_count.toLocaleString()} houses
                           </span>
                         </div>
-                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                        <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-primary"
+                            className="h-full rounded-full bg-primary transition-all"
                             style={{
                               width: `${Math.max(4, Math.round(((breakdownSort === 'rent'
                                 ? r.total_rent_needed / maxRent
@@ -997,7 +1001,7 @@ export function FunderCapitalOpportunities() {
                             }}
                           />
                         </div>
-                        <div className="flex items-center justify-between text-[9px] font-medium">
+                        <div className="flex items-center justify-between text-[11px] font-medium">
                           <span className="text-muted-foreground">{formatAmountCompact(r.total_rent_needed)} rent needed</span>
                           <span className="text-success font-bold">{formatAmountCompact(r.monthly_return)} / month</span>
                         </div>
@@ -1007,6 +1011,7 @@ export function FunderCapitalOpportunities() {
                 </div>
               );
             })()}
+
 
             <p className="text-[12px] leading-relaxed text-muted-foreground">
               Browse empty houses with photos, landlord contact, and GPS location. Pick the ones
