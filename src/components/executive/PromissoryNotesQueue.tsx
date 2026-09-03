@@ -779,6 +779,20 @@ export function PromissoryNotesQueue() {
                       </div>
                     </div>
                     {(() => {
+                      const s = supportOf(selectedNote);
+                      return (
+                        <div className="flex items-center gap-2">
+                          <Home className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <p className="text-[11px] text-muted-foreground">Support model</p>
+                            <Badge variant="outline" className={cn('text-[10px] mt-0.5', s.color)}>
+                              {s.label}
+                            </Badge>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    {(() => {
                       const ci = cameInIdentity(selectedNote);
                       if (!ci) {
                         return (
