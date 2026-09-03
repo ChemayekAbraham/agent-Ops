@@ -465,30 +465,60 @@ export default function Settings() {
             </Button>
           </div>
 
-          {/* Tab bar */}
-          <div className="overflow-x-auto scrollbar-hide -mx-4 px-4 pb-2">
-            <div className="inline-flex items-center gap-1 rounded-2xl bg-muted/50 p-1">
-              {visibleSections.map(({ id, label, icon: Icon }) => (
-                <button key={id} onClick={() => setActiveSection(id)}
-                  onPointerEnter={() => prefetchSection(id)}
-                  onPointerDown={() => prefetchSection(id)}
-                  onFocus={() => prefetchSection(id)}
-                  className={cn(
-                  "flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all min-h-[36px] shrink-0 touch-manipulation active:scale-95",
-                  activeSection === id ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:bg-background/70"
-                )}>
-
-                  <Icon className="h-3.5 w-3.5" />{label}
-                </button>
-              ))}
+          {openSection ? (
+            <div className="flex items-center gap-2 pb-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={closeSection}
+                aria-label="Back to settings sections"
+                className="h-9 w-9 rounded-lg"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate">{SECTIONS.find(section => section.id === openSection)?.label}</p>
+                <p className="text-xs text-muted-foreground">Settings</p>
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
 
-
-        {/* Active section content — ONLY one section renders at a time */}
-        <div className="mt-3">
-          <SectionBoundary name={activeSection}>
+        {!openSection ? (
+          <div className="min-h-[calc(100vh-9rem)] -mx-4 px-4 py-2">
+            <div className="space-y-2">
+              <div className="px-1 pb-2">
+                <h2 className="text-base font-semibold tracking-tight">Settings</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Choose a section to manage your account.</p>
+              </div>
+              <div className="divide-y divide-border/60 rounded-xl border border-border/60 bg-card shadow-sm">
+                {visibleSections.map(({ id, label, helper, icon: Icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setActiveSection(id)}
+                    onPointerEnter={() => prefetchSection(id)}
+                    onPointerDown={() => prefetchSection(id)}
+                    onFocus={() => prefetchSection(id)}
+                    className="flex min-h-[72px] w-full items-center gap-4 px-4 py-3 text-left transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:bg-muted/60"
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold">{label}</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">{helper}</span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Active section content — only the selected section renders */
+          <div className="mt-1">
+            <SectionBoundary name={activeSection}>
             {activeSection === 'account' && (
               <div className="flex flex-col sm:flex-row gap-4">
                 {/* Vertical tab rail */}
