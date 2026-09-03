@@ -91,6 +91,7 @@ export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
       { key: 'agent-tenants', label: 'Search by Agent', icon: Users, keywords: ['find tenants', 'agent'] },
       { key: 'location-browser', label: 'Browse by Location', icon: MapPin, keywords: ['country', 'region', 'district', 'ward'] },
       { key: 'daily-repayments-report', label: 'Daily Rent Repayments', icon: HandCoins, keywords: ['ledger', 'repayments', 'day'] },
+      { key: 'tenant-self-repayments', label: 'Tenant Self-Repayments', icon: HandCoins, keywords: ['self pay', 'tenant paid', 'deposit', 'own rent', 'self repayment'] },
     ],
   },
   {
