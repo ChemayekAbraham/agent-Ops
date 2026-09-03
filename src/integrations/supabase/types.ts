@@ -37043,6 +37043,9 @@ export type Database = {
       user_roles: {
         Row: {
           created_at: string
+          disable_reason: string | null
+          disabled_at: string | null
+          disabled_by: string | null
           enabled: boolean
           id: string
           role: Database["public"]["Enums"]["app_role"]
@@ -37050,6 +37053,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          disable_reason?: string | null
+          disabled_at?: string | null
+          disabled_by?: string | null
           enabled?: boolean
           id?: string
           role: Database["public"]["Enums"]["app_role"]
@@ -37057,6 +37063,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          disable_reason?: string | null
+          disabled_at?: string | null
+          disabled_by?: string | null
           enabled?: boolean
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
