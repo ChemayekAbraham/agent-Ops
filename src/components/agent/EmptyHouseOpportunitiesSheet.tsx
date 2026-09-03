@@ -1051,10 +1051,49 @@ export function EmptyHouseOpportunitiesSheet({
             <p className="text-[10px] text-muted-foreground text-center">
               {formatUGX(annualReturn)} over 12 months, paid monthly from what the tenant repays.
             </p>
-            <Button className="w-full h-11 gap-2 font-semibold" onClick={handleSubmit} disabled={submitting}>
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              {submitting ? 'Creating…' : 'Create note for these houses'}
-            </Button>
+            {isPartner ? (
+              <div className="space-y-2">
+                <div>
+                  <Label className="text-[11px]">Promised funding date (optional)</Label>
+                  <Input
+                    type="date"
+                    value={promisedDate}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => setPromisedDate(e.target.value)}
+                    className="mt-0.5 h-10 text-xs"
+                  />
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Booked houses are held for you for 7 days. If they are not funded by then they go back
+                    to the open empty-house list and we notify you by SMS and email.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    className="h-11 gap-2 text-xs font-semibold"
+                    onClick={handleSubmit}
+                    disabled={submitting || fundingNow}
+                  >
+                    {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
+                    {submitting ? 'Booking…' : 'Promise a date'}
+                  </Button>
+                  <Button
+                    className="h-11 gap-2 text-xs font-semibold"
+                    onClick={handleFundNow}
+                    disabled={submitting || fundingNow}
+                  >
+                    {fundingNow ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    {fundingNow ? 'Submitting…' : 'Fund now'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button className="w-full h-11 gap-2 font-semibold" onClick={handleSubmit} disabled={submitting}>
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {submitting ? 'Creating…' : 'Create note for these houses'}
+              </Button>
+            )}
+
           </div>
         )}
 
