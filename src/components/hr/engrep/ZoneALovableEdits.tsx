@@ -9,9 +9,10 @@ import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import type { EngrepRow } from '@/hr/engrep/types';
+import { AdjudicationCells } from '@/components/hr/engrep/AdjudicationRow';
 
 const ROW_SELECT =
-  'id, engineer_code, commit_subject, change_classes, claims_schema, live_verified, untagged, fenced_breach, self_fix, zeroed, zero_reason, harvested_at';
+  'id, window_id, engineer_code, commit_subject, change_classes, claims_schema, live_verified, untagged, fenced_breach, self_fix, zeroed, zero_reason, harvested_at, band, basis';
 
 // The engrep tables are newer than the generated Supabase types.
 const db = supabase as unknown as { from: (table: string) => any };
@@ -19,6 +20,9 @@ const db = supabase as unknown as { from: (table: string) => any };
 type ZoneARow = Pick<
   EngrepRow,
   | 'id'
+  | 'window_id'
+  | 'band'
+  | 'basis'
   | 'engineer_code'
   | 'commit_subject'
   | 'change_classes'
@@ -162,12 +166,14 @@ export function ZoneALovableEdits({ windowId }: { windowId: string | null }) {
               <th className="px-3 py-2 font-medium">Commit message</th>
               <th className="px-3 py-2 font-medium">Classes</th>
               <th className="px-3 py-2 font-medium">Live</th>
+              <th className="px-3 py-2 font-medium">Band *</th>
+              <th className="px-3 py-2 font-medium">Written basis *</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-3 py-4 text-center text-xs text-muted-foreground">
+                <td colSpan={6} className="px-3 py-4 text-center text-xs text-muted-foreground">
                   No Lovable edits recorded in this window.
                 </td>
               </tr>
@@ -205,6 +211,7 @@ export function ZoneALovableEdits({ windowId }: { windowId: string | null }) {
                   <td className="whitespace-nowrap px-3 py-2">
                     <LiveCell value={row.live_verified} />
                   </td>
+                  <AdjudicationCells row={row} windowId={windowId} />
                 </tr>
               );
             })}
