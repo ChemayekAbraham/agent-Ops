@@ -363,11 +363,41 @@ Deno.serve(async (req) => {
     return done();
   }
 
+  // ---------------- dial ANSWERED (pick-up), not yet finished ----------------
+  // The moment the customer picks up, AT re-posts with the leg still active and
+  // a dial destination but NO `dialStatus` (that only arrives once the dial is
+  // over). Treating that as "post-dial" used to hang the bridge up about two
+  // seconds after pick-up and file the call as not answered. It is a pick-up:
+  // record it and answer with an empty <Response/> so the bridge keeps talking.
+  const dialDestination = p.dialDestinationNumber || p.dialDestinationPhoneNumber || '';
+  const dialAnswered = Boolean(dialDestination) && !dialStatus;
+
+  if (dialAnswered && !alreadyEnded) {
+    console.log('[crm-voice-callback] dial answered — keeping the bridge up', {
+      callId: session.id,
+      atSessionId,
+      sessionStatus: session.status,
+      transport: session.transport,
+      dialDestination,
+    });
+
+    await patch(
+      {
+        status: 'active',
+        is_active: true,
+        ...(session.answered_at ? {} : { answered_at: new Date().toISOString() }),
+      },
+      'dial_answered',
+    );
+
+    return done();
+  }
+
   // ---------------- post-<Dial> callback (LOOP GUARD) ----------------
   // Once <Dial> finishes AT re-posts to this URL with the leg still active and
   // dial* fields populated. Issuing <Dial> again here is what causes an endless
   // redial loop, so we record the outcome and end the leg instead.
-  const isPostDial = Boolean(dialStatus || p.dialDestinationNumber || p.dialDestinationPhoneNumber);
+  const isPostDial = Boolean(dialStatus || dialDestination);
 
   if (isPostDial || alreadyBridged) {
     const dialDuration = numeric(p.dialDurationInSeconds) ?? 0;
@@ -387,13 +417,15 @@ Deno.serve(async (req) => {
     // already-terminal call is answered with <Hangup/> and nothing is overwritten.
     if (isPostDial && recordable && !alreadyEnded) {
       // A WebRTC leg has no second "staff handset" step: once the dial to the
-      // customer is over, the CRM call itself is over.
+      // customer is over, the CRM call itself is over. Talk time (or a stored
+      // answered_at from the pick-up event) proves it connected.
+      const connected = ok || dialDuration > 0 || Boolean(session.answered_at);
       const webrtcTerminal = isWebrtc
         ? {
-            status: mapState(dialStatus || 'Completed', ok || dialDuration > 0),
+            status: mapState(dialStatus || 'Completed', connected),
             is_active: false,
             ended_at: new Date().toISOString(),
-            ended_by: session.cancel_requested_at ? 'crm_user' : ok ? 'unknown' : 'remote_party',
+            ended_by: session.cancel_requested_at ? 'crm_user' : connected ? 'unknown' : 'remote_party',
           }
         : { status: ok || !dialStatus ? 'bridged' : 'bridge_failed' };
 
@@ -409,6 +441,7 @@ Deno.serve(async (req) => {
 
     return hangup();
   }
+
 
   // ---------------- BROWSER (WebRTC) leg → dial the customer ----------------
   // The CRM user's browser client is already connected; AT is asking what to do
