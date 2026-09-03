@@ -182,9 +182,11 @@ export function CallRevealSheet({
                   variant="outline"
                   className="h-11 justify-start text-xs"
                   disabled={hub.recordQuick.isPending || !target}
-                  onClick={() =>
+                  onClick={() => {
+                    const currentTarget = target;
+                    if (!currentTarget) return;
                     hub.recordQuick.mutate(
-                      { attemptId: target!.attemptId, outcome: o.value },
+                      { attemptId: currentTarget.attemptId, outcome: o.value },
                       {
                         onSuccess: () => {
                           toast.success(`Recorded: ${o.label}`);
@@ -192,8 +194,9 @@ export function CallRevealSheet({
                         },
                         onError: (e) => toast.error(ccErrorText(e)),
                       },
-                    )
-                  }
+                    );
+                  }}
+
                 >
                   <PhoneOff className="mr-2 h-4 w-4" />
                   {o.label}
