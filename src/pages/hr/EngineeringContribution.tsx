@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WindowToggle } from '@/components/hr/engrep/WindowToggle';
+import { ZoneALovableEdits } from '@/components/hr/engrep/ZoneALovableEdits';
+
 import { getLatestWindowSummary, isAdjudicator } from '@/hr/engrep/api';
 import type { EngrepGranularity } from '@/hr/engrep/types';
 import { useState } from 'react';
@@ -119,10 +121,14 @@ export default function EngineeringContribution() {
             </CardHeader>
             <CardContent className="space-y-2">
               {zone.note && <p className="text-xs text-muted-foreground">{zone.note}</p>}
+              {zone.key === 'a' && (
+                <ZoneALovableEdits windowId={summary?.window_id ?? null} />
+              )}
               {!canAdjudicate && (
                 <p className="text-xs text-muted-foreground">{RESTRICTED_NOTE}</p>
               )}
             </CardContent>
+
           </Card>
         ))}
       </div>
