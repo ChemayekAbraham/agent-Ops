@@ -82,7 +82,7 @@ const PAGE_SIZE = 1000;
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : 'Unable to load agent monitoring data.';
 
-async function fetchAll<T>(query: (from: number, to: number) => Promise<{ data: T[] | null; error: { message: string } | null }>) {
+async function fetchAll<T>(query: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>) {
   const rows: T[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
     const result = await query(from, from + PAGE_SIZE - 1);
