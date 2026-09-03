@@ -303,6 +303,7 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
           </CardContent>
         </Card>
       </div>
+      </div>
 
       <PhoneMoneyStatementSheet line={openLine} onOpenChange={(open) => !open && setOpenLine(null)} />
       <MerchantFloatEmailMovementsDialog open={openMerchantEmails} onOpenChange={setOpenMerchantEmails} />
