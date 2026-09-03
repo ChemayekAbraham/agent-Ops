@@ -36,6 +36,7 @@ import { type LocationRecipient } from './PayByLocationRecipientPicker';
 import { BusinessAdvanceDisbursementQueue } from './BusinessAdvanceDisbursementQueue';
 import { CreditDrawApprovalQueue } from './CreditDrawApprovalQueue';
 import { ROIPayoutQueue } from './ROIPayoutQueue';
+import { CFOAgentRequisitions } from './CFOAgentRequisitions';
 import { PayoutAutomationToggle, describeSchedule, type PayoutScheduleConfig } from './PayoutAutomationToggle';
 import { getNextRunDate } from '@/lib/standingOrderSchedule';
 import { UGANDA_BANKS } from '@/lib/ugandaBanks';
