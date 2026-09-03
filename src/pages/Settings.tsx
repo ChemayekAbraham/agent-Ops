@@ -211,7 +211,7 @@ type SettingsSection = 'account' | 'roles' | 'appearance' | 'security' | 'legal'
 const SECTIONS: { id: SettingsSection; label: string; icon: typeof User; helper: string }[] = [
   { id: 'account', label: 'Personal Information', icon: User, helper: 'Profile, contact, withdrawal and sign-in' },
   { id: 'roles', label: 'Roles', icon: Shield, helper: 'Switch and review your active roles' },
-  { id: 'appearance', label: 'Look', icon: Palette, helper: 'Theme, text size, language and currency' },
+  { id: 'appearance', label: 'Appearance', icon: Palette, helper: 'Theme, text size, language and currency' },
   { id: 'security', label: 'Safety', icon: ShieldCheck, helper: 'PIN, biometrics, devices and alerts' },
   { id: 'legal', label: 'Legal', icon: Scale, helper: 'Agreements and policy documents' },
   { id: 'advanced', label: 'More', icon: SettingsIcon, helper: 'Diagnostics and advanced tools' },
