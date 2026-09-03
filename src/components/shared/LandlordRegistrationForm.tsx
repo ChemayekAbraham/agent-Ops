@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   emptyLandlordAgreementInline,
+  isLandlordAgreementInlineComplete,
+
   LandlordAgreementInlineFields,
   type LandlordAgreementInlineValue,
 } from '@/components/landlord/agreement/LandlordAgreementInlineFields';
