@@ -1608,11 +1608,17 @@ export function PayRunDetailPlaceholder() {
             </CardContent>
           </Card>
 
+          <ArrearsPanel
+            runId={detail.id}
+            runType={detail.run_type}
+            status={detail.status}
+            onDone={() => void load()}
+          />
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Payslips</CardTitle>
             </CardHeader>
-
             <CardContent>
               {detail.payslips.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Not calculated yet.</p>
