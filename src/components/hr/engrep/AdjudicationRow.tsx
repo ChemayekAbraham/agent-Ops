@@ -131,13 +131,28 @@ function AddendumDialog({
 export function AdjudicationCells({
   row,
   windowId,
-  locked,
 }: {
   row: AdjudicationRowInput;
   windowId: string | null;
-  locked: boolean;
 }) {
   const queryClient = useQueryClient();
+  const effectiveWindowId = windowId ?? row.window_id ?? null;
+
+  // The lock state is read from the database, never inferred in the client.
+  const windowQuery = useQuery({
+    queryKey: ['engrep', 'window-status', effectiveWindowId],
+    enabled: Boolean(effectiveWindowId),
+    queryFn: async () => {
+      const { data, error } = await db
+        .from('engrep_windows')
+        .select('status, locked_at')
+        .eq('id', effectiveWindowId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { status: string; locked_at: string | null } | null;
+    },
+  });
+  const locked = windowQuery.data?.status === 'locked' || Boolean(windowQuery.data?.locked_at);
   // No default selection and no suggested value: the harvest must never propose a band.
   const [band, setBand] = useState<EngrepBand | ''>(row.band ?? '');
   const [basis, setBasis] = useState(row.basis ?? '');
@@ -180,7 +195,7 @@ export function AdjudicationCells({
             open={addendumOpen}
             onOpenChange={setAddendumOpen}
             rowId={row.id}
-            windowId={windowId ?? row.window_id ?? null}
+            windowId={effectiveWindowId}
           />
         </td>
       </>
