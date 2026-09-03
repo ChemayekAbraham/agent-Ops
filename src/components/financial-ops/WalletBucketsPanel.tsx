@@ -283,7 +283,7 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
             </div>
 
             <button
-              type="button",
+              type="button"
               onClick={() => setOpenMerchantEmails(true)}
               className="mt-3 w-full flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-left hover:bg-muted/60 transition-colors"
             >
