@@ -31,7 +31,7 @@ const TITLES: Record<PhoneMoneyLine, string> = {
   mtn_momo: 'MTN Money statement',
   airtel_money: 'Airtel Money statement',
   cash: 'Cash at hand statement',
-  bank: 'Money at bank statement',
+  bank: 'Money at Bank — Bayo Mercy account',
 };
 
 interface Row {
