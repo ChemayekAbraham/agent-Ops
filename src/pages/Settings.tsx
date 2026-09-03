@@ -1043,7 +1043,8 @@ export default function Settings() {
               </div>
             )}
           </SectionBoundary>
-        </div>
+          </div>
+        )}
 
         <div className="mt-8 text-center text-xs text-muted-foreground/50 pb-20"><p>Welile v1.11 • SW v11</p></div>
       </div>
