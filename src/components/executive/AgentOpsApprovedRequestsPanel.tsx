@@ -145,21 +145,44 @@ export function AgentOpsApprovedRequestsPanel() {
         new Set((data || []).map((r: any) => r.house_listing_id).filter(Boolean)),
       );
 
-      const [profilesRes, landlordsRes, housesRes] = await Promise.all([
-        profileIds.length
-          ? supabase.from('profiles').select('id, full_name, phone, district, village').in('id', profileIds)
-          : { data: [] as any[] },
-        landlordIds.length
-          ? supabase.from('landlords').select('id, name, phone, property_address, district').in('id', landlordIds)
-          : { data: [] as any[] },
-        houseIds.length
-          ? supabase.from('house_listings').select('id, title, address, district, village, region').in('id', houseIds)
-          : { data: [] as any[] },
+      const BATCH = 50;
+      const fetchProfiles = async () => {
+        if (!profileIds.length) return [];
+        const res: any[] = [];
+        for (let i = 0; i < profileIds.length; i += BATCH) {
+          const { data } = await supabase.from('profiles').select('id, full_name, phone, district, village').in('id', profileIds.slice(i, i + BATCH));
+          if (data) res.push(...data);
+        }
+        return res;
+      };
+      const fetchLandlords = async () => {
+        if (!landlordIds.length) return [];
+        const res: any[] = [];
+        for (let i = 0; i < landlordIds.length; i += BATCH) {
+          const { data } = await supabase.from('landlords').select('id, name, phone, property_address, district').in('id', landlordIds.slice(i, i + BATCH));
+          if (data) res.push(...data);
+        }
+        return res;
+      };
+      const fetchHouses = async () => {
+        if (!houseIds.length) return [];
+        const res: any[] = [];
+        for (let i = 0; i < houseIds.length; i += BATCH) {
+          const { data } = await supabase.from('house_listings').select('id, title, address, district, village, region').in('id', houseIds.slice(i, i + BATCH));
+          if (data) res.push(...data);
+        }
+        return res;
+      };
+
+      const [profilesList, landlordsList, housesList] = await Promise.all([
+        fetchProfiles(),
+        fetchLandlords(),
+        fetchHouses(),
       ]);
 
-      const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.id, p]));
-      const landlordMap = new Map((landlordsRes.data || []).map((l: any) => [l.id, l]));
-      const houseMap = new Map((housesRes.data || []).map((h: any) => [h.id, h]));
+      const profileMap = new Map(profilesList.map((p: any) => [p.id, p]));
+      const landlordMap = new Map(landlordsList.map((l: any) => [l.id, l]));
+      const houseMap = new Map(housesList.map((h: any) => [h.id, h]));
 
       return (data || []).map((r: any) => {
         const tenant = profileMap.get(r.tenant_id) as any;

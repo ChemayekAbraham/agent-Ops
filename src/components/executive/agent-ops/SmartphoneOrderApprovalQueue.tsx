@@ -16,7 +16,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Smartphone, Check, X, Loader2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Smartphone, Check, X, Loader2, Trash2, AlertTriangle } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { SupplierPicker, type SupplierChoice } from './SmartphoneCatalogDialog';
 import { format } from 'date-fns';
@@ -89,6 +99,9 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
   const [officialAmount, setOfficialAmount] = useState('');
   const [repaymentDays, setRepaymentDays] = useState('30');
   const [supplierDraft, setSupplierDraft] = useState<SupplierChoice | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<SmartphoneOrderRow | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const approveStage: 'coo' | 'cfo' = approveTarget && isAwaitingCfo(approveTarget.order_status) ? 'cfo' : 'coo';
 
@@ -258,6 +271,62 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
     onError: (e: any) => toast.error(e.message || 'Could not assign the supplier'),
   });
 
+  const deleteSingleOrder = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      const { data: plans } = await db.from('merchandise_recovery_plans').select('id').eq('sale_id', deleteTarget.id);
+      if (plans && plans.length > 0) {
+        const planIds = plans.map((p: any) => p.id);
+        await db.from('merchandise_recovery_deductions').delete().in('plan_id', planIds);
+        await db.from('merchandise_recovery_plans').delete().eq('sale_id', deleteTarget.id);
+      }
+      const { error } = await db.from('merchandise_sales').delete().eq('id', deleteTarget.id);
+      if (error) throw error;
+
+      toast.success(`Application for ${deleteTarget.client_name || 'Agent'} deleted.`);
+      setDeleteTarget(null);
+      invalidate();
+    } catch (err: any) {
+      toast.error(err.message || 'Could not delete application');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const deleteBulkOrders = async () => {
+    if (filtered.length === 0) return;
+    setIsDeleting(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const order of filtered) {
+      try {
+        const { data: plans } = await db.from('merchandise_recovery_plans').select('id').eq('sale_id', order.id);
+        if (plans && plans.length > 0) {
+          const planIds = plans.map((p: any) => p.id);
+          await db.from('merchandise_recovery_deductions').delete().in('plan_id', planIds);
+          await db.from('merchandise_recovery_plans').delete().eq('sale_id', order.id);
+        }
+        const { error } = await db.from('merchandise_sales').delete().eq('id', order.id);
+        if (error) throw error;
+        successCount++;
+      } catch {
+        failCount++;
+      }
+    }
+
+    setIsDeleting(false);
+    setBulkDeleteOpen(false);
+    invalidate();
+
+    if (failCount === 0) {
+      toast.success(`Deleted all ${successCount} applications.`);
+    } else {
+      toast.error(`Deleted ${successCount} applications. ${failCount} failed.`);
+    }
+  };
+
   const scoped = useMemo(
     () => (rejectedOnly ? orders.filter((o) => o.order_status === 'rejected') : pendingOnly ? orders.filter((o) => isOpen(o.order_status)) : orders),
     [orders, pendingOnly, rejectedOnly],
@@ -284,20 +353,40 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-          <Smartphone className="h-4 w-4 text-primary" />
-          {rejectedOnly ? 'Rejected applications' : pendingOnly ? 'Pending applications' : 'Smartphone applications'}
-          {rejectedOnly ? (
-            <Badge variant="outline" className={STATUS_TONE.rejected}>{scoped.length} rejected</Badge>
-          ) : (
-            <>
-              <Badge variant="secondary">{pendingCount} awaiting COO</Badge>
-              <Badge variant="outline" className={STATUS_TONE.coo_approved}>
-                {awaitingCfoCount} awaiting CFO
-              </Badge>
-            </>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+            <Smartphone className="h-4 w-4 text-primary" />
+            {rejectedOnly ? 'Rejected applications' : pendingOnly ? 'Pending applications' : 'Smartphone applications'}
+            {rejectedOnly ? (
+              <Badge variant="outline" className={STATUS_TONE.rejected}>{scoped.length} rejected</Badge>
+            ) : (
+              <>
+                <Badge variant="secondary">{pendingCount} awaiting COO</Badge>
+                <Badge variant="outline" className={STATUS_TONE.coo_approved}>
+                  {awaitingCfoCount} awaiting CFO
+                </Badge>
+              </>
+            )}
+          </CardTitle>
+
+          {filtered.length > 0 && rejectedOnly && (
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={() => setBulkDeleteOpen(true)}
+              disabled={isDeleting}
+              className="gap-1.5 h-8 text-xs font-semibold shrink-0"
+            >
+              {isDeleting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="h-3.5 w-3.5" />
+              )}
+              <span>Delete All ({filtered.length})</span>
+            </Button>
           )}
-        </CardTitle>
+        </div>
         {!rejectedOnly && (
           <p className="text-[11px] text-muted-foreground">
             Stage 1 — COO approves the official amount and forwards to the CFO. Stage 2 — CFO releases the
@@ -343,10 +432,27 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                       {o.client_phone || '—'} · {format(new Date(o.created_at), 'dd MMM yyyy HH:mm')}
                     </p>
                   </div>
-                  <Badge variant="outline" className={STATUS_TONE[o.order_status] || ''}>
-                    {statusLabel(o.order_status)}
-                  </Badge>
-
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Badge variant="outline" className={STATUS_TONE[o.order_status] || ''}>
+                      {statusLabel(o.order_status)}
+                    </Badge>
+                    {rejectedOnly && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget(o);
+                        }}
+                        disabled={isDeleting}
+                        className="h-7 w-7 text-destructive hover:bg-destructive/10 shrink-0"
+                        title="Delete this rejected application"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
@@ -820,6 +926,61 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Single Confirmation Dialog */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Smartphone Application?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              Are you sure you want to permanently delete the application for{' '}
+              <strong>{deleteTarget?.client_name || 'Agent'}</strong> ({deleteTarget?.brand || ''} {deleteTarget?.model_type || ''})?
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteSingleOrder}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete All Confirmation Dialog */}
+      <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Delete All {filtered.length} Applications?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm">
+              This will permanently delete all <strong>{filtered.length}</strong> rejected smartphone applications currently listed.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteBulkOrders}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-bold"
+            >
+              {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Yes, Delete All ({filtered.length})
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

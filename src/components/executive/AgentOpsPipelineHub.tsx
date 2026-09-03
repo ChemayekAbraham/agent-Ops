@@ -6,12 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Users, FileText, Home, Phone, MapPin, Search, Calendar, XCircle, CheckCircle2 } from 'lucide-react';
+import { Users, FileText, Home, Phone, MapPin, Search, Calendar, XCircle, CheckCircle2, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { RentPipelineQueue } from './RentPipelineQueue';
 import { PromissoryNotesQueue } from './PromissoryNotesQueue';
 import { AgentOpsApprovedRequestsPanel } from './AgentOpsApprovedRequestsPanel';
 import { AgentOpsRejectedRequestsPanel } from './AgentOpsRejectedRequestsPanel';
+import { AgentOpsExpiredRequestsPanel } from './AgentOpsExpiredRequestsPanel';
 import { NewTenantsWithoutRequestPanel } from './NewTenantsWithoutRequestPanel';
 import { formatLocation, locationHaystack } from '@/lib/locationText';
 
@@ -206,7 +207,8 @@ export function AgentOpsPipelineHub() {
     staleTime: 0,
     refetchOnMount: 'always',
     queryFn: async () => {
-      const [tenants, notes, landlordsData, approved, rejected] = await Promise.all([
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const [tenants, notes, landlordsData, approved, rejected, expiredData] = await Promise.all([
         supabase.from('rent_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
         supabase.from('promissory_notes').select('id', { count: 'exact', head: true }).in('status', ['pending', 'activated']),
         supabase.from('rent_requests').select('landlord_id').not('status', 'in', '("funded","rejected","cancelled")').not('landlord_id', 'is', null),
@@ -217,14 +219,21 @@ export function AgentOpsPipelineHub() {
           .neq('status', 'rejected')
           .neq('status', 'cancelled'),
         supabase.from('rent_requests').select('id', { count: 'exact', head: true }).eq('status', 'rejected'),
+        supabase
+          .from('rent_requests')
+          .select('id, agent_verified')
+          .eq('status', 'pending')
+          .lt('created_at', thirtyDaysAgo),
       ]);
       const uniqueLandlords = new Set(landlordsData.data?.map((r: any) => r.landlord_id)).size;
+      const expiredCount = (expiredData.data || []).filter((r: any) => !r.agent_verified).length;
       return {
         tenants: tenants.count || 0,
         notes: notes.count || 0,
         landlords: uniqueLandlords,
         approved: approved.count || 0,
         rejected: rejected.count || 0,
+        expired: expiredCount,
       };
     },
   });
@@ -234,9 +243,9 @@ export function AgentOpsPipelineHub() {
     { value: 'notes', label: 'Promissory Notes', icon: FileText, count: counts?.notes },
     { value: 'landlords', label: 'Landlords', icon: Home, count: counts?.landlords },
     { value: 'approved', label: 'Approved', icon: CheckCircle2, count: counts?.approved },
+    { value: 'expired', label: 'Expired', icon: Clock, count: counts?.expired, isDestructive: true },
     { value: 'rejected', label: 'Rejected', icon: XCircle, count: counts?.rejected },
   ];
-
 
   return (
     <Tabs defaultValue="tenants" className="space-y-4">
@@ -247,7 +256,13 @@ export function AgentOpsPipelineHub() {
               <t.icon className="h-3.5 w-3.5" />
               <span className="text-xs">{t.label}</span>
               {t.count != null && t.count > 0 && (
-                <Badge variant="primary" size="sm" className="ml-0.5 min-w-[18px] justify-center">{t.count}</Badge>
+                <Badge
+                  variant={t.isDestructive ? 'destructive' : 'primary'}
+                  size="sm"
+                  className="ml-0.5 min-w-[18px] justify-center font-bold"
+                >
+                  {t.count}
+                </Badge>
               )}
             </TabsTrigger>
           ))}
@@ -261,6 +276,7 @@ export function AgentOpsPipelineHub() {
       <TabsContent value="notes"><PromissoryNotesQueue /></TabsContent>
       <TabsContent value="landlords"><LandlordsPipeline /></TabsContent>
       <TabsContent value="approved"><AgentOpsApprovedRequestsPanel /></TabsContent>
+      <TabsContent value="expired"><AgentOpsExpiredRequestsPanel /></TabsContent>
       <TabsContent value="rejected"><AgentOpsRejectedRequestsPanel /></TabsContent>
     </Tabs>
   );

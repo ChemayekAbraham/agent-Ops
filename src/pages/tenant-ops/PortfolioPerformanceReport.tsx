@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { BarChart3, CalendarRange, CheckCircle2, FileText } from 'lucide-react';
+import { BarChart3, CalendarRange, CheckCircle2, FileText, ArrowLeft, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PeriodToggle, type TppoGranularity } from '@/components/tenant-ops/tppo/PeriodToggle';
@@ -61,7 +63,20 @@ function priorAnchor(periodStart: string): string {
 }
 
 
-export default function PortfolioPerformanceReport() {
+export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => void } = {}) {
+  const navigate = useNavigate();
+  const handleClose = () => {
+    if (onBack) {
+      onBack();
+      return;
+    }
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/executive-hub?tab=agent-ops');
+    }
+  };
+
   // Each period state holds its own record: the query key is the sole carrier of
   // state, so nothing (figure, text or draft) crosses between Daily/Weekly/Monthly.
   const [granularity, setGranularity] = useState<TppoGranularity>('day');
@@ -220,18 +235,44 @@ export default function PortfolioPerformanceReport() {
 
   return (
     <div className="w-full space-y-4 overflow-x-hidden pb-28 pt-1 sm:space-y-5">
-      <div className="flex flex-col gap-3 border-b border-border/60 pb-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 text-primary">
-            <BarChart3 className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <p className="text-[11px] font-semibold uppercase tracking-wider">Portfolio reporting</p>
+      <div className="flex flex-col gap-3 border-b border-border/60 pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3 min-w-0">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleClose}
+            className="h-9 gap-1.5 px-3 shrink-0 rounded-lg border-border hover:bg-muted font-medium"
+            title="Close report and return to dashboard"
+          >
+            <ArrowLeft className="h-4 w-4 text-muted-foreground" />
+            <span className="hidden sm:inline">Back</span>
+          </Button>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-primary">
+              <BarChart3 className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <p className="text-[11px] font-semibold uppercase tracking-wider">Portfolio reporting</p>
+            </div>
+            <h1 className="mt-1 text-xl font-bold tracking-tight text-foreground sm:text-2xl">Portfolio Performance</h1>
+            <p className="mt-1 max-w-2xl text-xs text-muted-foreground sm:text-sm">
+              Collections and rent requests across the selected reporting period.
+            </p>
           </div>
-          <h1 className="mt-1 text-xl font-bold tracking-tight text-foreground sm:text-2xl">Portfolio Performance</h1>
-          <p className="mt-1 max-w-2xl text-xs text-muted-foreground sm:text-sm">
-            Collections and rent requests across the selected reporting period.
-          </p>
         </div>
-        <PeriodToggle value={granularity} onChange={setGranularity} />
+        <div className="flex items-center gap-2 self-end sm:self-center">
+          <PeriodToggle value={granularity} onChange={setGranularity} />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={handleClose}
+            className="h-9 w-9 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground shrink-0"
+            title="Close report"
+          >
+            <X className="h-5 w-5" />
+            <span className="sr-only">Close</span>
+          </Button>
+        </div>
       </div>
 
       <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5" aria-labelledby="portfolio-period-heading">
