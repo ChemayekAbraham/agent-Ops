@@ -664,6 +664,15 @@ export function PromissoryNotesQueue() {
                           <Badge variant="outline" className={cn('text-[10px]', stageOf(note).color)}>
                             {stageOf(note).label}
                           </Badge>
+                          {(() => {
+                            const s = supportOf(note);
+                            return (
+                              <Badge variant="outline" className={cn('text-[10px]', s.color)} title={s.label}>
+                                <Home className="h-3 w-3 mr-1" />
+                                {s.short}
+                              </Badge>
+                            );
+                          })()}
                         </div>
                       </div>
 
