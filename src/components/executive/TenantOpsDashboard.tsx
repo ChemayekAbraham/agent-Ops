@@ -1428,6 +1428,8 @@ export function TenantOpsDashboard({
         return <GlobalVerificationHub />;
       case 'daily-collections':
         return <DailyCollectionMonitoringDashboard mode="editable" title="Daily Collection Monitoring" />;
+      case 'agent-monitoring':
+        return <AgentMonitoring />;
       case 'daily-repayments-report':
         return <DailyRentReport mode="tenant" />;
       case 'agent-capacity-hub':
@@ -1476,6 +1478,7 @@ export function TenantOpsDashboard({
     'agent-capacity-hub': 'Agent Rent Capacity',
     'all-tenants-hub': 'All Tenants',
     'daily-collections': 'Daily Collection Monitoring',
+    'agent-monitoring': 'Agent Monitoring',
     'reports-hub': 'Reports & Exports',
     'reliability-hub': 'Repayment Reliability Score',
   };
