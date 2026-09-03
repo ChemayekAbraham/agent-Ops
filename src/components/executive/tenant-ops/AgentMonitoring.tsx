@@ -265,49 +265,47 @@ export function AgentMonitoring() {
 
   const renderAgentRow = (agent: AgentRow, compact = false) => {
     const rate = agent.expected > 0 ? Math.min(100, (agent.collected / agent.expected) * 100) : null;
+    if (compact) {
+      return (
+        <Button
+          key={agent.id}
+          variant="ghost"
+          className="h-auto w-full justify-between gap-3 border p-3 text-left hover:bg-muted/50"
+          onClick={() => setSelectedAgent(agent)}
+        >
+          <div className="min-w-0">
+            <p className="truncate font-semibold">{agent.name}</p>
+            <p className="text-xs text-muted-foreground">{agent.phone || 'No phone number'} · {agent.tenantCount} tenants</p>
+            <p className="mt-1 text-xs tabular-nums text-muted-foreground">
+              {formatUGX(agent.collected)} / {formatUGX(agent.expected)} · {rate === null ? '—' : `${rate.toFixed(1)}%`}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <StatusIndicator status={collectionStatus(agent.expected, agent.collected)} />
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </Button>
+      );
+    }
+
     return (
-      <div
-        key={agent.id}
-        className={compact ? 'space-y-3' : undefined}
-      >
-        {compact ? (
-          <Button
-            variant="ghost"
-            className="h-auto w-full justify-between gap-3 border p-3 text-left hover:bg-muted/50"
-            onClick={() => setSelectedAgent(agent)}
-          >
-            <div className="min-w-0">
-              <p className="truncate font-semibold">{agent.name}</p>
-              <p className="text-xs text-muted-foreground">{agent.phone || 'No phone number'} · {agent.tenantCount} tenants</p>
-              <p className="mt-1 text-xs tabular-nums text-muted-foreground">
-                {formatUGX(agent.collected)} / {formatUGX(agent.expected)} · {rate === null ? '—' : `${rate.toFixed(1)}%`}
-              </p>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <StatusIndicator status={collectionStatus(agent.expected, agent.collected)} />
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </div>
-          </Button>
-        ) : (
-          <TableRow className="cursor-pointer" onClick={() => setSelectedAgent(agent)}>
-            <TableCell>
-              <div className="min-w-[170px]">
-                <p className="font-semibold">{agent.name}</p>
-                <p className="text-xs text-muted-foreground">{agent.phone || 'No phone number'}</p>
-              </div>
-            </TableCell>
-            <TableCell className="text-right tabular-nums">{agent.tenantCount}</TableCell>
-            <TableCell className="text-right tabular-nums">{formatUGX(agent.expected)}</TableCell>
-            <TableCell className="text-right tabular-nums">{formatUGX(agent.collected)}</TableCell>
-            <TableCell className="text-right tabular-nums font-semibold">
-              {rate === null ? '—' : `${rate.toFixed(1)}%`}
-            </TableCell>
-            <TableCell className="text-right tabular-nums">{agent.requestCount}</TableCell>
-            <TableCell><StatusIndicator status={collectionStatus(agent.expected, agent.collected)} /></TableCell>
-            <TableCell className="text-right"><ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" /></TableCell>
-          </TableRow>
-        )}
-      </div>
+      <TableRow key={agent.id} className="cursor-pointer" onClick={() => setSelectedAgent(agent)}>
+        <TableCell>
+          <div className="min-w-[170px]">
+            <p className="font-semibold">{agent.name}</p>
+            <p className="text-xs text-muted-foreground">{agent.phone || 'No phone number'}</p>
+          </div>
+        </TableCell>
+        <TableCell className="text-right tabular-nums">{agent.tenantCount}</TableCell>
+        <TableCell className="text-right tabular-nums">{formatUGX(agent.expected)}</TableCell>
+        <TableCell className="text-right tabular-nums">{formatUGX(agent.collected)}</TableCell>
+        <TableCell className="text-right tabular-nums font-semibold">
+          {rate === null ? '—' : `${rate.toFixed(1)}%`}
+        </TableCell>
+        <TableCell className="text-right tabular-nums">{agent.requestCount}</TableCell>
+        <TableCell><StatusIndicator status={collectionStatus(agent.expected, agent.collected)} /></TableCell>
+        <TableCell className="text-right"><ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" /></TableCell>
+      </TableRow>
     );
   };
 
