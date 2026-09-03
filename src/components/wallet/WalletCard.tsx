@@ -240,57 +240,7 @@ export function WalletCard() {
           <MyReferralsCount />
 
 
-          {/* Recent transactions - Simplified */}
-          {transactions.length > 0 && (
-            <div className="pt-3 border-t border-border/50">
-              <div className="flex items-center justify-between mb-2.5">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Recent</p>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => navigate('/transactions')}
-                  className="gap-1 h-auto py-1 px-2 text-xs"
-                >
-                  All
-                  <History className="h-3 w-3" />
-                </Button>
-              </div>
-              <div className="space-y-1">
-                {transactions.slice(0, 3).map((tx) => {
-                  const isSent = tx.sender_id === user?.id;
-                  return (
-                    <button 
-                      key={tx.id} 
-                      onClick={() => {
-                        setSelectedTransaction(tx);
-                        setReceiptOpen(true);
-                      }}
-                      className="flex items-center justify-between p-2.5 rounded-xl w-full hover:bg-muted/50 active:scale-[0.98] transition-all"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className={`p-2 rounded-full ${isSent ? 'bg-destructive/10' : 'bg-success/10'}`}>
-                          {isSent ? (
-                            <ArrowUpRight className="h-4 w-4 text-destructive" />
-                          ) : (
-                            <ArrowDownLeft className="h-4 w-4 text-success" />
-                          )}
-                        </div>
-                        <div className="text-left">
-                          <p className="text-sm font-semibold truncate max-w-[120px]">
-                            {isSent ? tx.recipient_name?.split(' ')[0] : tx.sender_name?.split(' ')[0]}
-                          </p>
-                        </div>
-                      </div>
-                      <p className={`text-sm font-bold tabular-nums ${isSent ? 'text-destructive' : 'text-success'}`}>
-                        {isSent ? '-' : '+'}
-                        {tx.amount >= 1000 ? `${(tx.amount / 1000).toFixed(0)}K` : tx.amount}
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+
         </CardContent>
       </Card>
       </div>
