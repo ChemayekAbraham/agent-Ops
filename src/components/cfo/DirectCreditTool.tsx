@@ -454,7 +454,9 @@ export function DirectCreditTool() {
   );
   const isBusinessAdvance = selectedCategoryId === 'business_advance';
   const isROIPayout = selectedCategoryId === 'roi_payout';
-  const isQueueCategory = isRentDisbursement || isBusinessAdvance || isROIPayout;
+  const isFinancialAgentRequisitionQueue =
+    selectedCategoryId === 'operational_expense' && selectedSubCategoryId === 'financial_agent_requisitions';
+  const isQueueCategory = isRentDisbursement || isBusinessAdvance || isROIPayout || isFinancialAgentRequisitionQueue;
 
   const handleOperationChange = (op: Operation) => {
     setOperation(op);

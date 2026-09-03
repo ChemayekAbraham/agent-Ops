@@ -1172,6 +1172,34 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               }}
             />
 
+            {isFinancialAgent && (
+              <Card className="border-primary/30 bg-primary/5 shadow-sm">
+                <CardContent className="flex items-center gap-3 p-4 sm:p-5">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+                    <FileText className="h-6 w-6" strokeWidth={2.2} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-bold text-foreground">Post an Operations Requisition</p>
+                      <Badge variant="secondary" className="text-[10px]">Financial Agent</Badge>
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      Request operational funds and send them to the CFO for review.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="shrink-0 gap-1.5 font-semibold"
+                    onClick={() => { hapticTap(); setRequisitionOpen(true); }}
+                  >
+                    <Send className="h-4 w-4" />
+                    Post
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
 
             {/* 2) Today's collected total — single most useful at-a-glance number */}
             {!isMerchant && <FieldCollectDailyTotals live />}
