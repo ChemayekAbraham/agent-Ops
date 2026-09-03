@@ -54,6 +54,7 @@ import {
   type DisbursementRow,
 } from '@/hr/pay/api/release';
 import PayrollRegister from '@/hr/pay/PayrollRegister';
+import ArrearsPanel from '@/hr/pay/ArrearsPanel';
 import { supabase } from '@/hr/api/client';
 
 /**
@@ -1473,7 +1474,10 @@ export function PayRunDetailPlaceholder() {
   const blockingCount = exceptionGroups.BLOCK.length;
 
   const canCalculate =
-    !!detail && ['draft', 'calculated', 'returned'].includes(detail.status) && !calculating;
+    !!detail &&
+    detail.run_type !== 'off_cycle' &&
+    ['draft', 'calculated', 'returned'].includes(detail.status) &&
+    !calculating;
 
   const runCalculation = async () => {
     if (!runId) return;
