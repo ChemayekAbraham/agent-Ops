@@ -21,6 +21,7 @@ import {
   type SupportableHouse,
 } from './SelfSupportHousesSection';
 import { EmptyHouseDetailSheet } from '@/components/agent/EmptyHouseDetailSheet';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
@@ -67,7 +68,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
   const [detailPlan, setDetailPlan] = useState<FundablePlan | null>(null);
   const [page, setPage] = useState(0);
   // Both datasets always remain in one feed; this only chooses which group leads.
-  const [feedOrder, setFeedOrder] = useState<FeedOrder>('houses');
+  const [feedOrder, setFeedOrder] = useState<FeedOrder>('rent');
   const [houseSelected, setHouseSelected] = useState<string[]>([]);
   const [detailHouse, setDetailHouse] = useState<SupportableHouse | null>(null);
   // Short code arriving from a branded /s/<code> share link (?share=<code>).
