@@ -409,6 +409,7 @@ export function DirectCreditTool() {
     () => ({
       roi_payout: approvalCounts.roi,
       rent_disbursement: approvalCounts.rent,
+      operational_expense: approvalCounts.agentRequisitions,
       // This category renders both the Credit Draw approval queue and the
       // Business Advance disbursement queue, so the badge covers both.
       business_advance: approvalCounts.businessAdvances + approvalCounts.creditDraws,
