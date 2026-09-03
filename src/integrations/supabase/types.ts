@@ -14674,6 +14674,73 @@ export type Database = {
           },
         ]
       }
+      hr_pay_arrears: {
+        Row: {
+          amount: number
+          basis: string
+          component_id: string
+          created_at: string
+          currency: string
+          id: string
+          paid_in_run_id: string | null
+          period_owed: string
+          requested_at: string
+          requested_by: string
+          staff_id: string
+          status: string
+        }
+        Insert: {
+          amount: number
+          basis: string
+          component_id: string
+          created_at?: string
+          currency?: string
+          id?: string
+          paid_in_run_id?: string | null
+          period_owed: string
+          requested_at?: string
+          requested_by?: string
+          staff_id: string
+          status?: string
+        }
+        Update: {
+          amount?: number
+          basis?: string
+          component_id?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          paid_in_run_id?: string | null
+          period_owed?: string
+          requested_at?: string
+          requested_by?: string
+          staff_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_pay_arrears_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "hr_pay_components"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_arrears_paid_in_run_id_fkey"
+            columns: ["paid_in_run_id"]
+            isOneToOne: false
+            referencedRelation: "hr_pay_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_arrears_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hr_pay_authorities: {
         Row: {
           changed_by: string | null
