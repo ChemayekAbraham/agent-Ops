@@ -2456,6 +2456,8 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       // Outstanding balance and days remaining can both be 0
       // (tenant already cleared / no current period left).
       if (outstandingDaysRemaining === '' || isNaN(parseInt(outstandingDaysRemaining))) {
+        errors.push('Type the days remaining');
+      }
       if (outstandingBalance === '' || isNaN(parseInt(outstandingBalance.replace(/,/g, '')))) {
         errors.push('Type the outstanding balance');
       }
