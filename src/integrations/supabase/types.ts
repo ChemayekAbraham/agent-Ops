@@ -27576,36 +27576,138 @@ export type Database = {
         }
         Relationships: []
       }
+      promissory_house_booking_notices: {
+        Row: {
+          created_at: string
+          days_left: number | null
+          email: string | null
+          email_error: string | null
+          email_sent_at: string | null
+          house_count: number
+          houses: Json
+          id: string
+          kind: string
+          note_id: string
+          partner_name: string | null
+          partner_user_id: string | null
+          phone: string | null
+          promised_funding_date: string | null
+          release_at: string | null
+          sms_error: string | null
+          sms_sent_at: string | null
+          total_rent: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          days_left?: number | null
+          email?: string | null
+          email_error?: string | null
+          email_sent_at?: string | null
+          house_count?: number
+          houses?: Json
+          id?: string
+          kind: string
+          note_id: string
+          partner_name?: string | null
+          partner_user_id?: string | null
+          phone?: string | null
+          promised_funding_date?: string | null
+          release_at?: string | null
+          sms_error?: string | null
+          sms_sent_at?: string | null
+          total_rent?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          days_left?: number | null
+          email?: string | null
+          email_error?: string | null
+          email_sent_at?: string | null
+          house_count?: number
+          houses?: Json
+          id?: string
+          kind?: string
+          note_id?: string
+          partner_name?: string | null
+          partner_user_id?: string | null
+          phone?: string | null
+          promised_funding_date?: string | null
+          release_at?: string | null
+          sms_error?: string | null
+          sms_sent_at?: string | null
+          total_rent?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promissory_house_booking_notices_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "promissory_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promissory_house_booking_notices_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["note_id"]
+          },
+        ]
+      }
       promissory_note_house_intents: {
         Row: {
           agent_id: string
           created_at: string
+          funded_at: string | null
           house_id: string
           id: string
           listing_agent_id: string | null
           monthly_rent: number
           note_id: string
+          promised_funding_date: string | null
+          release_reason: string | null
+          released_at: string | null
+          reserved_until: string | null
           status: string
+          updated_at: string
+          warned_at: string | null
         }
         Insert: {
           agent_id: string
           created_at?: string
+          funded_at?: string | null
           house_id: string
           id?: string
           listing_agent_id?: string | null
           monthly_rent?: number
           note_id: string
+          promised_funding_date?: string | null
+          release_reason?: string | null
+          released_at?: string | null
+          reserved_until?: string | null
           status?: string
+          updated_at?: string
+          warned_at?: string | null
         }
         Update: {
           agent_id?: string
           created_at?: string
+          funded_at?: string | null
           house_id?: string
           id?: string
           listing_agent_id?: string | null
           monthly_rent?: number
           note_id?: string
+          promised_funding_date?: string | null
+          release_reason?: string | null
+          released_at?: string | null
+          reserved_until?: string | null
           status?: string
+          updated_at?: string
+          warned_at?: string | null
         }
         Relationships: [
           {
@@ -44595,6 +44697,7 @@ export type Database = {
         Args: { p_type: string; p_value: string }
         Returns: string
       }
+      funder_booked_houses: { Args: never; Returns: Json }
       funder_create_pending_portfolio: {
         Args: {
           p_amount: number
@@ -44605,12 +44708,24 @@ export type Database = {
       }
       funder_float_available: { Args: { p_user_id: string }; Returns: number }
       funder_float_capacity: { Args: { p_user_id: string }; Returns: number }
+      funder_fund_booked_houses: {
+        Args: {
+          p_house_ids: string[]
+          p_idempotency_key?: string
+          p_term_months?: number
+        }
+        Returns: Json
+      }
       funder_has_signed_agreement: {
         Args: { p_user_id: string }
         Returns: boolean
       }
       funder_pending_committed: { Args: { p_user_id: string }; Returns: number }
       funder_pending_hold: { Args: { p_user_id: string }; Returns: number }
+      funder_release_booked_houses: {
+        Args: { p_house_ids: string[]; p_reason?: string }
+        Returns: Json
+      }
       funder_support_capacity: { Args: { p_user_id: string }; Returns: number }
       funder_support_tenant_direct: {
         Args: {
@@ -49616,6 +49731,11 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: string
       }
+      psm_queue_house_booking_notice: {
+        Args: { p_kind: string; p_note_id: string }
+        Returns: undefined
+      }
+      psm_queue_house_release_warnings: { Args: never; Returns: Json }
       psm_queue_promissory_pledge_notice: {
         Args: { p_note_id: string }
         Returns: undefined
@@ -49625,6 +49745,7 @@ export type Database = {
         Args: { p_key: string; p_partner: string }
         Returns: boolean
       }
+      psm_release_expired_house_intents: { Args: never; Returns: Json }
       psm_release_expired_promissory_intents: { Args: never; Returns: Json }
       psm_release_orphaned_self_funding: {
         Args: { p_partner_id?: string }
