@@ -11555,6 +11555,48 @@ export type Database = {
           },
         ]
       }
+      engrep_addenda: {
+        Row: {
+          addendum_text: string
+          created_at: string
+          created_by: string
+          id: string
+          row_id: string | null
+          window_id: string
+        }
+        Insert: {
+          addendum_text: string
+          created_at?: string
+          created_by: string
+          id?: string
+          row_id?: string | null
+          window_id: string
+        }
+        Update: {
+          addendum_text?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          row_id?: string | null
+          window_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engrep_addenda_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_addenda_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_windows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       engrep_catalog_snapshot: {
         Row: {
           captured_at: string
@@ -11622,7 +11664,11 @@ export type Database = {
       }
       engrep_rows: {
         Row: {
+          adjudicated_at: string | null
+          adjudicated_by: string | null
           author_email: string | null
+          band: Database["public"]["Enums"]["hr_difficulty_band"] | null
+          basis: string | null
           change_classes: string[]
           claims_schema: boolean
           commit_subject: string
@@ -11645,7 +11691,11 @@ export type Database = {
           zeroed: boolean
         }
         Insert: {
+          adjudicated_at?: string | null
+          adjudicated_by?: string | null
           author_email?: string | null
+          band?: Database["public"]["Enums"]["hr_difficulty_band"] | null
+          basis?: string | null
           change_classes?: string[]
           claims_schema?: boolean
           commit_subject: string
@@ -11668,7 +11718,11 @@ export type Database = {
           zeroed?: boolean
         }
         Update: {
+          adjudicated_at?: string | null
+          adjudicated_by?: string | null
           author_email?: string | null
+          band?: Database["public"]["Enums"]["hr_difficulty_band"] | null
+          basis?: string | null
           change_classes?: string[]
           claims_schema?: boolean
           commit_subject?: string
@@ -44948,6 +45002,14 @@ export type Database = {
         Args: { p_amount: number; p_recipient_type: string; p_user_id: string }
         Returns: Json
       }
+      engrep_adjudicate: {
+        Args: {
+          p_band: Database["public"]["Enums"]["hr_difficulty_band"]
+          p_basis: string
+          p_row_id: string
+        }
+        Returns: undefined
+      }
       engrep_capture_catalog: { Args: { p_day?: string }; Returns: number }
       engrep_catalog_delta: {
         Args: { p_day: string }
@@ -44958,6 +45020,7 @@ export type Database = {
         }[]
       }
       engrep_is_adjudicator: { Args: never; Returns: boolean }
+      engrep_lock_window: { Args: { p_window_id: string }; Returns: number }
       enqueue_agent_capability_job: {
         Args: {
           _action: string
