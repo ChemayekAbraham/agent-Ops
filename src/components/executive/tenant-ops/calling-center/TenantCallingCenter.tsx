@@ -293,13 +293,13 @@ export function TenantCallingCenter() {
 
 
         {/* --------------------------------------------------- Work Queue */}
-        <TabsContent value="queue" className="mt-3 space-y-3">
-          <Card className="rounded-2xl border-border/60 p-3">
+        <TabsContent value="queue" className="mt-4 space-y-3">
+          <div className="rounded-xl border border-border bg-muted/30 p-3">
             <div className="flex flex-wrap items-end gap-2">
               <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Status</Label>
+                <Label className="text-[11px] font-semibold text-muted-foreground">Status</Label>
                 <Select value={queueState} onValueChange={(v) => setQueueState(v as CallingTabKey)}>
-                  <SelectTrigger className="h-8 w-[150px] text-xs">
+                  <SelectTrigger className="h-9 w-full text-xs sm:w-[160px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -312,9 +312,9 @@ export function TenantCallingCenter() {
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Sort by</Label>
+                <Label className="text-[11px] font-semibold text-muted-foreground">Sort by</Label>
                 <Select value={hub.effectiveSortKey ?? ''} onValueChange={setSortKey}>
-                  <SelectTrigger className="h-8 w-[180px] text-xs">
+                  <SelectTrigger className="h-9 w-full text-xs sm:w-[180px]">
                     <SelectValue placeholder="Default order" />
                   </SelectTrigger>
                   <SelectContent>
@@ -326,16 +326,29 @@ export function TenantCallingCenter() {
                   </SelectContent>
                 </Select>
               </div>
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search name or district"
-                className="h-8 w-full text-xs sm:max-w-[220px]"
-              />
-              <div className="ml-auto">{autoControls}</div>
+              <div className="min-w-[200px] flex-1 space-y-1">
+                <Label className="text-[11px] font-semibold text-muted-foreground">Search</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search name or district"
+                    className="h-9 w-full pl-9 text-xs"
+                  />
+                </div>
+              </div>
+              <div className="ml-auto space-y-1">
+                <Label className="text-[11px] font-semibold text-muted-foreground">Sequential run</Label>
+                {autoControls}
+              </div>
             </div>
 
-            <div className="mt-2 hidden lg:block">
+            <div className="mt-3 hidden border-t border-border/60 pt-3 lg:block">
+              <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
+                <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
+                Filters
+              </p>
               <CallingFilterBar
                 options={hub.filterOptions}
                 loading={hub.filterOptionsLoading}
@@ -353,43 +366,60 @@ export function TenantCallingCenter() {
                 onClearAll={() => setFilters({})}
               />
             </div>
-          </Card>
+          </div>
 
           {hub.wipBlocked && (
-            <p className="rounded-lg bg-muted px-2 py-1.5 text-[11px] text-muted-foreground">
+            <p className="flex items-start gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-[11px] font-semibold text-amber-700">
+              <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
               You are at the open-attempt limit. Record the outcome of your open calls before starting another.
             </p>
           )}
 
-          <Card className="min-w-0 overflow-x-auto rounded-2xl border-border/60 p-2 sm:p-3">
-            {hub.error && (
-              <p className="mb-2 rounded-lg bg-destructive/10 px-2 py-1.5 text-xs font-semibold text-destructive">
-                {hub.error}
-              </p>
-            )}
-            {!hub.cycle ? (
-              <p className="p-6 text-center text-xs text-muted-foreground">
-                No open calling cycle for tenants.
-              </p>
-            ) : hub.isLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-6 w-full" />
-                <Skeleton className="h-6 w-full" />
-                <Skeleton className="h-6 w-full" />
-              </div>
-            ) : (
-              /* The Hub's own table renderer, same columns contract, same look.
-                 "Reveal" here reveals *and* dials through the Center's dialer. */
-              <CallingHubTable
-                columns={activeQueueTab.columns}
-                rows={hub.rows}
-                metricLabel={metricLabel}
-                revealed={revealedPhones}
-                revealing={dialer.starting || hub.reveal.isPending}
-                wipBlocked={hub.wipBlocked}
-                onReveal={(row) => void dialer.dial(row)}
-              />
-            )}
+          <Card className="min-w-0 overflow-hidden">
+            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 border-b bg-muted/30 p-3">
+              <CardTitle className="flex items-center gap-2 text-xs font-bold">
+                <ListChecks className="h-4 w-4 text-primary" />
+                {activeQueueTab.label}
+              </CardTitle>
+              <Badge variant="outline" className="text-[10px]">
+                {hub.total.toLocaleString()} rows
+              </Badge>
+            </CardHeader>
+            <CardContent className="min-w-0 overflow-x-auto p-2 sm:p-3">
+              {hub.error && (
+                <p className="mb-2 flex items-start gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-2 text-xs font-semibold text-destructive">
+                  <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
+                  {hub.error}
+                </p>
+              )}
+              {!hub.cycle ? (
+                <div className="p-6 text-center">
+                  <PhoneOutgoing className="mx-auto h-5 w-5 text-muted-foreground" />
+                  <p className="mt-2 text-xs text-muted-foreground">No open calling cycle for tenants.</p>
+                </div>
+              ) : hub.isLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-2/3" />
+                </div>
+              ) : (
+                /* The Hub's own table renderer, same columns contract, same look.
+                   "Call" here reveals *and* dials through the Center's dialer. */
+                <CallingHubTable
+                  columns={activeQueueTab.columns}
+                  rows={hub.rows}
+                  metricLabel={metricLabel}
+                  revealed={revealedPhones}
+                  revealing={dialer.starting || hub.reveal.isPending}
+                  wipBlocked={hub.wipBlocked}
+                  onReveal={(row) => void dialer.dial(row)}
+                  actionLabels={CALL_ACTION_LABELS}
+                  actionIcon={Phone}
+                />
+              )}
+
 
             {hub.total > hub.pageSize && (
               <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
