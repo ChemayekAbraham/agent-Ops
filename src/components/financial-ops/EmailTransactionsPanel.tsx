@@ -232,6 +232,23 @@ const TIMEZONE_OPTIONS = [
 ];
 
 /**
+ * A bank "you have received X from WELILE TECHNOLOGIES LIMITED" email is the
+ * bank's own echo of a payout WE already sent out (e.g. to a merchant's or
+ * landlord's personal Equity account) — landing in the same shared inbox that
+ * also receives real inbound deposits to Welile's account. It is NOT new
+ * money arriving; the corresponding debit already happened when the payout
+ * was made. Treating it like an ordinary "in" row would double-count it in
+ * totals and invite an operator to credit it to a wallet a second time.
+ * Matches on `counterparty` (once the parser extracts it) and falls back to
+ * the raw snippet so older rows ingested before that extraction existed are
+ * still caught.
+ */
+function isWelileOutboundEcho(r: GmailTx): boolean {
+  if (r.channel !== 'bank' || r.direction !== 'in') return false;
+  return /welile\s*tech/i.test(`${r.counterparty ?? ''} ${r.snippet ?? ''}`);
+}
+
+/**
  * Validate a parsed Gmail transaction row against its own raw email text.
  * A row is considered "flagged" (excluded from totals) when any of:
  *   - parsed=true but amount is null / non-finite / ≤ 0
@@ -2743,7 +2760,8 @@ export function EmailTransactionsPanel() {
   // Flagged rows are kept in totals (only highlighted in the UI). A row counts
   // toward totals as long as it's parsed and has a usable amount.
   const isCountable = (r: GmailTx) =>
-    r.parsed && r.amount !== null && Number.isFinite(r.amount as number) && (r.amount as number) > 0;
+    r.parsed && r.amount !== null && Number.isFinite(r.amount as number) && (r.amount as number) > 0
+    && !isWelileOutboundEcho(r);
   const totalAmount = filteredRows.filter(isCountable).reduce((s, r) => s + (r.amount ?? 0), 0);
   const totalIn = filteredRows
     .filter((r) => isCountable(r) && r.direction === 'in')
@@ -2756,7 +2774,8 @@ export function EmailTransactionsPanel() {
   // Unmatched email counters — deposit emails with no linked request and
   // payout emails neither routed to a wallet nor matched to an open withdrawal.
   const unmatchedInCount = filteredRows.filter(
-    (r) => r.parsed && r.direction === 'in' && !r.linked_deposit_request_id && !r.auto_matched_at,
+    (r) => r.parsed && r.direction === 'in' && !r.linked_deposit_request_id && !r.auto_matched_at
+      && !isWelileOutboundEcho(r),
   ).length;
   const unmatchedOutCount = filteredRows.filter(
     (r) =>
@@ -2825,6 +2844,7 @@ export function EmailTransactionsPanel() {
   // logic used in the row render so the filter and the badge always agree.
   const isNeedsRouting = useCallback((r: GmailTx) => {
     if (r.direction !== 'in') return false;
+    if (isWelileOutboundEcho(r)) return false;
     if (justRoutedIds.has(r.id)) return false;
     const isRouted = (routingHistory[r.id] ?? []).length > 0;
     const credited = creditedDeposits[r.id] ?? [];
@@ -2844,6 +2864,7 @@ export function EmailTransactionsPanel() {
   const getRowStatus = useCallback((r: GmailTx): 'unparsed' | 'needs_routing' | 'credited' | 'other' => {
     if (isUnparsedRow(r)) return 'unparsed';
     if (r.direction !== 'in') return 'other';
+    if (isWelileOutboundEcho(r)) return 'other';
     if (justRoutedIds.has(r.id)) return 'credited';
     const isRouted = (routingHistory[r.id] ?? []).length > 0;
     const credited = creditedDeposits[r.id] ?? [];
@@ -4142,6 +4163,9 @@ export function EmailTransactionsPanel() {
                 const isCredited = manualMark
                   ? manualMark.mark === 'credited'
                   : credited.length > 0;
+                // Bank "received from WELILE TECHNOLOGIES LIMITED" echo of a
+                // payout we already sent — never a real uncredited deposit.
+                const isEcho = isWelileOutboundEcho(r);
                 const totalCredited = credited.reduce((s, c) => s + c.amount, 0);
                 const emailAmount = Number(r.amount ?? 0);
                 const creditShortfall = emailAmount > 0 ? Math.max(0, emailAmount - totalCredited) : 0;
@@ -4232,7 +4256,7 @@ export function EmailTransactionsPanel() {
                 // unrouted payouts charge a wallet (debit). Anything already
                 // settled has no swipe action.
                 const swipeAction: SwipeAction | null =
-                  r.direction === 'in' && !isCredited && !isRouted
+                  r.direction === 'in' && !isCredited && !isRouted && !isEcho
                     ? {
                         label: 'Send to wallet',
                         hint: 'Route deposit',
@@ -4770,7 +4794,7 @@ export function EmailTransactionsPanel() {
                           wallet (no credit + not routed). Flag it clearly and
                           explain which reference fields are missing so the
                           operator knows why it couldn't auto-map. */}
-                      {r.parsed && r.direction === 'in' && !isCredited && !isRouted && (
+                      {r.parsed && r.direction === 'in' && !isCredited && !isRouted && !isEcho && (
                         <BadgeTip
                           plain="This money has not reached any wallet yet — it still needs to be sorted and sent to the right person."
                           details={[
@@ -4793,7 +4817,7 @@ export function EmailTransactionsPanel() {
                       {/* Same clear status for incoming deposits that never even
                           parsed: still uncredited and unrouted, so they need ops
                           attention just as much. */}
-                      {!r.parsed && r.direction === 'in' && !isCredited && !isRouted && (
+                      {!r.parsed && r.direction === 'in' && !isCredited && !isRouted && !isEcho && (
                         <BadgeTip
                           plain="This money has not reached any wallet yet — it still needs to be sorted and sent to the right person."
                           details="Needs Routing — this incoming deposit email has not been credited to any wallet. Open it to route the money to the right user."
@@ -4813,7 +4837,7 @@ export function EmailTransactionsPanel() {
                           amount-side CTA. Shown for any uncredited, unrouted
                           incoming deposit (parsed or not). Made very visible
                           with a large, pulsing emerald button. */}
-                      {r.direction === 'in' && !isCredited && !isRouted && (
+                      {r.direction === 'in' && !isCredited && !isRouted && !isEcho && (
                         <Button
                           size="sm"
                           className="h-8 px-3 text-[11px] gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/30 ring-2 ring-emerald-400/60 ring-offset-1 animate-pulse"
@@ -4915,7 +4939,7 @@ export function EmailTransactionsPanel() {
                     )}
                     {/* "Not Matched Yet" details: show which reference signals
                         are present vs missing so reviewers know what to fix. */}
-                    {r.parsed && r.direction === 'in' && !isCredited && !isRouted && (
+                    {r.parsed && r.direction === 'in' && !isCredited && !isRouted && !isEcho && (
                       <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
                         <span className="uppercase tracking-wide font-semibold text-orange-600/90">Still missing:</span>
                         <span
@@ -4973,7 +4997,7 @@ export function EmailTransactionsPanel() {
                         the poller did NOT auto-credit, show the exact gate
                         checklist it evaluated so ops can see which rule failed
                         (mirrors _tryAutoCreditOperationalFloat in the edge fn). */}
-                    {r.direction === 'in' && !isCredited && !isRouted && (() => {
+                    {r.direction === 'in' && !isCredited && !isRouted && !isEcho && (() => {
                       const gates = autoCreditGateReport({
                         amount: r.amount,
                         transactionId: r.transaction_id,
@@ -5053,7 +5077,7 @@ export function EmailTransactionsPanel() {
                         {/* Top-of-email credit CTA — the first thing an operator
                             sees when they open a deposit that has not reached a
                             wallet yet. Full-width and unmissable. */}
-                        {r.direction === 'in' && !isCredited && !isRouted && (
+                        {r.direction === 'in' && !isCredited && !isRouted && !isEcho && (
                           <div className="rounded-lg border-2 border-emerald-500/60 bg-emerald-500/10 p-3 space-y-3">
                             <div className="flex items-start gap-2">
                               <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-800 dark:text-emerald-300 inline-flex items-center gap-1">

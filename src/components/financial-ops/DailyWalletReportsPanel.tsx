@@ -37,7 +37,7 @@ interface ReportRow {
 }
 
 const DEPOSIT_LABEL: Record<string, string> = {
-  cash: 'Cash', mtn: 'MTN Mobile Money', airtel: 'Airtel Money', bank: 'Bank',
+  cash: 'Cash', cash_code: 'Cash (Deposit Code)', mtn: 'MTN Mobile Money', airtel: 'Airtel Money', bank: 'Bank',
   cfo_direct_credit: 'CFO Direct Credit',
   gmail_auto_credit: 'Gmail Auto-Credit',
   manual_recovery: 'Manual Recovery',

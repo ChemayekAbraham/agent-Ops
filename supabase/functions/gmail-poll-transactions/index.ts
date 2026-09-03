@@ -300,7 +300,14 @@ function parseTransaction(text: string): {
     }
   }
 
-  const cpMatch = t.match(/\b(?:from|to|by)\s+([A-Z][A-Za-z'.\- ]{1,40}?)(?=\s+(?:on|at|UGX|USh|Shs|Bal|ID|TID|Ref|\.|,|256|\+256|0\d{9}))/);
+  // Bank credit alerts (Equity etc.) phrase the sender as
+  // "from NAME <masked account> to your <bank> account" — the masked account
+  // (a leading digit, a run of mask chars, then 4 digits) sits where the
+  // generic lookahead tokens below expect punctuation/currency/a phone
+  // number, so without this alternative the sender name — including the
+  // "WELILE TECHNOLOGIES LIMITED" shape that identifies our own outbound
+  // payouts echoing back into this inbox — was never captured.
+  const cpMatch = t.match(/\b(?:from|to|by)\s+([A-Z][A-Za-z'.\- ]{1,40}?)(?=\s+(?:on|at|UGX|USh|Shs|Bal|ID|TID|Ref|\.|,|256|\+256|0\d{9}|\d[*xX•·]{3,}\d{4}))/);
   if (cpMatch) out.counterparty = cpMatch[1].trim();
   if (!out.counterparty) {
     const phoneCp = t.match(/\b(?:from|to|by)\s+((?:\+?256|0)\d{9})\b/);
