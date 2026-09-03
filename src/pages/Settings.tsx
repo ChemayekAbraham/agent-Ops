@@ -274,7 +274,21 @@ export default function Settings() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [activeSection, setActiveSection] = useState<SettingsSection>('account');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sectionParam = searchParams.get('section') as SettingsSection | null;
+  const openSection: SettingsSection | null =
+    sectionParam && SECTIONS.some(s => s.id === sectionParam) ? sectionParam : null;
+  const activeSection: SettingsSection = openSection ?? 'account';
+  const setActiveSection = (id: SettingsSection) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('section', id);
+    setSearchParams(next);
+  };
+  const closeSection = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('section');
+    setSearchParams(next);
+  };
   const [accountTab, setAccountTab] = useState<AccountTab>('profile');
   const [deferredReady, setDeferredReady] = useState(false);
   const [pushOpen, setPushOpen] = useState(false);
