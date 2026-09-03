@@ -417,6 +417,13 @@ export function AgentMonitoring() {
                 <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Paid today</p><p className="mt-1 font-bold tabular-nums">{formatUGX(selectedAgent.collected)}</p></CardContent></Card>
                 <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Requests submitted</p><p className="mt-1 font-bold tabular-nums">{selectedAgent.requestCount}</p></CardContent></Card>
               </div>
+              {selectedAgent.phone && (
+                <Button asChild variant="outline" size="sm" className="w-full gap-2 sm:w-auto">
+                  <a href={`tel:${selectedAgent.phone.replace(/[^\d+]/g, '')}`}>
+                    <Phone className="h-4 w-4" /> Call {selectedAgent.name}
+                  </a>
+                </Button>
+              )}
               <Separator />
               <div className="space-y-2">
                 <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Active tenants</h3><StatusIndicator status={collectionStatus(selectedAgent.expected, selectedAgent.collected)} /></div>
