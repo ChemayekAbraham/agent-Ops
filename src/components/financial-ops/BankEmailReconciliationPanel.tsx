@@ -47,8 +47,6 @@ export function BankEmailReconciliationPanel() {
       if (rpcError) throw rpcError;
       const value = (result ?? {}) as any;
       return {
-        banked_base: Number(value.banked_base ?? 0),
-        banked_count: Number(value.banked_count ?? 0),
         extracted_received: Number(value.extracted_received ?? 0),
         extracted_sent: Number(value.extracted_sent ?? 0),
         extracted_net: Number(value.extracted_net ?? 0),
@@ -64,7 +62,7 @@ export function BankEmailReconciliationPanel() {
     retry: false,
   });
 
-  const mismatch = data ? data.money_at_bank_total - (data.banked_base + data.extracted_net) : 0;
+  const mismatch = data ? data.money_at_bank_total - data.extracted_net : 0;
   const hasMismatch = Math.abs(mismatch) >= 1;
 
   return (
@@ -73,9 +71,9 @@ export function BankEmailReconciliationPanel() {
         <div className="flex items-center gap-2 min-w-0">
           <Mail className="h-4 w-4 text-primary shrink-0" />
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-foreground">Bayo email reconciliation</p>
+            <p className="text-xs font-semibold text-foreground">Bayo Mercy account reconciliation</p>
             <p className="text-[11px] text-muted-foreground truncate">
-              Net of qualifying bank emails addressed to the Bayo account
+              Account balance: credits in less debits out
             </p>
           </div>
         </div>
@@ -111,12 +109,11 @@ export function BankEmailReconciliationPanel() {
 
       {data && (
         <>
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Metric label="Banked base" value={data.banked_base} />
-            <Metric label="Received" value={data.extracted_received} tone="success" />
-            <Metric label="Sent to Bayo" value={data.extracted_sent} tone="destructive" />
-            <Metric label="Reconciled total" value={data.money_at_bank_total} tone={data.money_at_bank_total < 0 ? 'destructive' : 'primary'} />
-          </div>
+           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+             <Metric label="Credits into account" value={data.extracted_received} tone="success" />
+             <Metric label="Debits out of account" value={data.extracted_sent} tone="destructive" />
+             <Metric label="Money at Bank" value={data.money_at_bank_total} tone={data.money_at_bank_total < 0 ? 'destructive' : 'primary'} />
+           </div>
 
           <div className={cn(
             'mt-3 flex items-start gap-2 rounded-lg border px-3 py-2.5',
@@ -128,9 +125,9 @@ export function BankEmailReconciliationPanel() {
                 {hasMismatch ? 'Mismatch detected' : 'Reconciled'}
               </p>
               <p className="text-[11px] leading-relaxed text-muted-foreground">
-                {hasMismatch
-                  ? `The bucket differs from the banked base plus extracted net by ${formatUGX(Math.abs(mismatch))}.`
-                  : 'Money at Bank equals the banked base plus qualifying extracted receipts less transfers to Bayo Mercy.'}
+                 {hasMismatch
+                   ? `The bucket differs from the extracted Bayo Mercy account balance by ${formatUGX(Math.abs(mismatch))}.`
+                   : 'Money at Bank equals qualifying credits into Bayo Mercy’s account less debits out.'}
               </p>
             </div>
           </div>
@@ -158,7 +155,7 @@ export function BankEmailReconciliationPanel() {
                           </span>
                           <div className="min-w-0">
                             <p className="text-xs font-medium text-foreground">
-                              {incoming ? 'Received from Welile Technologies' : 'Transferred to Bayo Mercy'}
+                              {incoming ? 'Credit into Bayo Mercy account' : 'Debit from Bayo Mercy account'}
                             </p>
                             <p className="text-[11px] text-muted-foreground">{fmtDate(email.extracted_at)}</p>
                           </div>
@@ -176,7 +173,7 @@ export function BankEmailReconciliationPanel() {
                   );
                 })}
               </div>
-              <p className="text-[10px] text-muted-foreground">Extracted {fmtDate(data.computed_at)} • Matching is limited to normalized “Dear Bayo” receipts from Welile Technologies and explicit transfers to Bayo Mercy.</p>
+              <p className="text-[10px] text-muted-foreground">Extracted {fmtDate(data.computed_at)} • Matching identifies Bayo Mercy account credits and debits from normalized bank alerts.</p>
             </div>
           )}
         </>

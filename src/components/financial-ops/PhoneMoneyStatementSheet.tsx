@@ -187,9 +187,9 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
         <SheetHeader className="p-4 sm:p-5 pb-3 border-b border-border shrink-0 text-left">
           <SheetTitle>{line ? TITLES[line] : 'Statement'}</SheetTitle>
           <SheetDescription className="text-xs sm:text-sm">
-            {line === 'bank'
-              ? 'Qualifying extracted bank emails: receipts from Welile Technologies and transfers to Bayo Mercy.'
-              : line === 'cash'
+             {line === 'bank'
+               ? 'Qualifying bank alerts for credits into and debits from Bayo Mercy’s account.'
+               : line === 'cash'
               ? 'Verified cash deposits collected by agents and not yet banked.'
               : 'Every money-in and money-out movement parsed from provider messages on this line.'}
           </SheetDescription>
