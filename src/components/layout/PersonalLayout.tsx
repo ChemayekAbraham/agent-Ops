@@ -1,8 +1,8 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { X, ArrowLeft, User } from 'lucide-react';
+import { X, ArrowLeft } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const getInitials = (name: string) => {
@@ -21,11 +21,11 @@ interface PersonalLayoutProps {
   title?: string;
 }
 
-
 const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
   const { user, roles, switchRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
   const [displayName, setDisplayName] = useState('');
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
