@@ -208,13 +208,13 @@ function SectionHeading({ children }: { children: ReactNode }) {
 interface Profile { id: string; full_name: string; email: string; phone: string; avatar_url: string | null; }
 type SettingsSection = 'account' | 'roles' | 'appearance' | 'security' | 'legal' | 'advanced';
 
-const SECTIONS: { id: SettingsSection; label: string; icon: typeof User }[] = [
-  { id: 'account', label: 'Me', icon: User },
-  { id: 'roles', label: 'Roles', icon: Shield },
-  { id: 'appearance', label: 'Look', icon: Palette },
-  { id: 'security', label: 'Safety', icon: ShieldCheck },
-  { id: 'legal', label: 'Legal', icon: Scale },
-  { id: 'advanced', label: 'More', icon: SettingsIcon },
+const SECTIONS: { id: SettingsSection; label: string; icon: typeof User; helper: string }[] = [
+  { id: 'account', label: 'Me', icon: User, helper: 'Profile, contact, withdrawal and sign-in' },
+  { id: 'roles', label: 'Roles', icon: Shield, helper: 'Switch and review your active roles' },
+  { id: 'appearance', label: 'Look', icon: Palette, helper: 'Theme, text size, language and currency' },
+  { id: 'security', label: 'Safety', icon: ShieldCheck, helper: 'PIN, biometrics, devices and alerts' },
+  { id: 'legal', label: 'Legal', icon: Scale, helper: 'Agreements and policy documents' },
+  { id: 'advanced', label: 'More', icon: SettingsIcon, helper: 'Diagnostics and advanced tools' },
 ];
 
 type AccountTab = 'profile' | 'contact' | 'withdrawal' | 'access' | 'vault';
