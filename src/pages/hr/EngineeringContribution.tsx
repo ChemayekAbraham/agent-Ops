@@ -132,6 +132,9 @@ export default function EngineeringContribution() {
                   distinctAuthorEmails={summary?.distinct_author_emails ?? null}
                 />
               )}
+              {zone.key === 'c' && <ZoneCExceptions canAdjudicate={canAdjudicate} />}
+
+
 
               {!canAdjudicate && (
                 <p className="text-xs text-muted-foreground">{RESTRICTED_NOTE}</p>
