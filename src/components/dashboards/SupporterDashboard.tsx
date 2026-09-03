@@ -505,6 +505,10 @@ export default function SupporterDashboard({
             />
           </WidgetErrorBoundary>
 
+          <WidgetErrorBoundary label="Capital routes">
+            <CapitalRoutesSection />
+          </WidgetErrorBoundary>
+
           <WidgetErrorBoundary label="Your portfolio">
             <PartnerPortfolioSection
               onViewPortfolios={(portfolioId) => {
@@ -518,10 +522,6 @@ export default function SupporterDashboard({
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
             />
-          </WidgetErrorBoundary>
-
-          <WidgetErrorBoundary label="Capital routes">
-            <CapitalRoutesSection />
           </WidgetErrorBoundary>
 
           <WidgetErrorBoundary label="Houses you support">
