@@ -162,7 +162,7 @@ export function TenantCallingCenter() {
   );
 
   return (
-    <div className="space-y-3 pb-24">
+    <div className="space-y-3 pb-32 sm:pb-28">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-base font-bold">
           <Headphones className="h-4 w-4 text-primary" />
@@ -172,6 +172,7 @@ export function TenantCallingCenter() {
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as CenterTab)}>
+        {/* Same tab chrome as the Calling Hub: wrap, never truncate. */}
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0">
           {([
             ['overview', 'Overview'],
@@ -183,9 +184,14 @@ export function TenantCallingCenter() {
             <TabsTrigger
               key={key}
               value={key}
-              className="h-8 shrink-0 px-2.5 text-xs data-[state=active]:bg-muted"
+              className="h-8 shrink-0 gap-1.5 whitespace-nowrap px-2 text-xs data-[state=active]:bg-muted"
             >
               {label}
+              {key === 'queue' && (
+                <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                  {hub.counts[queueState]}
+                </Badge>
+              )}
             </TabsTrigger>
           ))}
         </TabsList>
