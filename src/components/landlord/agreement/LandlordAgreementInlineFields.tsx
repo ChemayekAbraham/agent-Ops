@@ -35,7 +35,7 @@ export function LandlordAgreementInlineFields({
         <div className="min-w-0">
           <p className="text-sm font-semibold">Landlord contract / agreement</p>
           <p className="text-xs text-muted-foreground">
-            Download the approved contract, have it completed and signed, then upload the signed copy before continuing.
+            You can download the contract, have it completed and signed, then upload the signed copy now or attach it when posting a new Rent Request.
           </p>
         </div>
       </div>
