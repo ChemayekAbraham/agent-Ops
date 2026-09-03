@@ -59,7 +59,7 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
     enabled: !!line,
     staleTime: 15_000,
     queryFn: async (): Promise<Row[]> => {
-      if (line === 'cash' || line === 'bank') {
+      if (line === 'cash') {
         const { data: cash, error } = await supabase
           .from('cash_deposit_verifications')
           .select('id, amount, user_id, verified_at, created_at, deposit_request_id, deposit_requests!inner(purpose_audit)')
@@ -67,10 +67,9 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
           .order('verified_at', { ascending: false })
           .limit(100);
         if (error) throw error;
-        const wantBank = line === 'bank';
         const rows = (cash ?? []).filter((c: any) => {
           const loc = (c.deposit_requests?.purpose_audit?.cash_location ?? 'cash_at_hand') as string;
-          return wantBank ? loc === 'bank' : loc !== 'bank';
+          return loc !== 'bank';
         });
         const people = await resolveNames(rows.map((c: any) => c.user_id));
         return rows.map((c: any) => ({
@@ -81,9 +80,36 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
           party: people.get(c.user_id)?.name ?? 'Unknown depositor',
           reference: c.deposit_request_id ? String(c.deposit_request_id).slice(0, 8) : null,
           balanceAfter: null,
-          note: wantBank ? 'Verified cash deposited at bank' : 'Verified cash collected — awaiting banking',
+          note: 'Verified cash collected — awaiting banking',
           phone: people.get(c.user_id)?.phone ?? null,
         }));
+      }
+
+      if (line === 'bank') {
+        const { data: bankEmails, error } = await supabase
+          .from('gmail_transactions')
+          .select('id, amount, direction, counterparty, balance, internal_date, created_at, transaction_id, snippet, raw_body')
+          .eq('channel', 'bank')
+          .eq('direction', 'in')
+          .order('internal_date', { ascending: false })
+          .limit(120);
+        if (error) throw error;
+        return (bankEmails ?? [])
+          .filter((t: any) => {
+            const text = `${t.raw_body ?? ''} ${t.snippet ?? ''} ${t.counterparty ?? ''}`.toLowerCase();
+            return /dear\s+bayo/.test(text) && /from\s+welile\s+technologies/.test(text);
+          })
+          .map((t: any) => ({
+            id: t.id,
+            at: t.internal_date ?? t.created_at,
+            amount: Number(t.amount ?? 0),
+            direction: 'in' as const,
+            party: 'Bayo Mercy',
+            reference: t.transaction_id ?? null,
+            balanceAfter: t.balance != null ? Number(t.balance) : null,
+            note: t.snippet ? String(t.snippet).slice(0, 180) : 'Bank receipt addressed to Bayo Mercy from Welile Technologies',
+            phone: null,
+          }));
       }
 
       const { data: tx, error } = await supabase
