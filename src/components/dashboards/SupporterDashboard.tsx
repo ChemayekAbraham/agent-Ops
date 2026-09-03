@@ -520,6 +520,10 @@ export default function SupporterDashboard({
             />
           </WidgetErrorBoundary>
 
+          <WidgetErrorBoundary label="Capital routes">
+            <CapitalRoutesSection />
+          </WidgetErrorBoundary>
+
           <WidgetErrorBoundary label="Houses you support">
             <SupportedHouseReturnsSection />
           </WidgetErrorBoundary>
