@@ -474,8 +474,12 @@ export default function Settings() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => (openSection ? closeSection() : navigate(roleToSlug(role)))}
-              aria-label={openSection ? 'Back to settings sections' : 'Back'}
+              onClick={() => {
+                if (openSection === 'account' && openAccountTab) return closeAccountTab();
+                if (openSection) return closeSection();
+                navigate(roleToSlug(role));
+              }}
+              aria-label={openSection ? 'Back' : 'Back'}
               className="h-10 w-10 shrink-0 rounded-full bg-muted/60 hover:bg-muted"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -486,8 +490,13 @@ export default function Settings() {
           </div>
 
           <h1 className="pb-3 text-[28px] font-semibold leading-tight tracking-tight sm:text-[32px]">
-            {openSection ? SECTIONS.find(section => section.id === openSection)?.label : 'Settings'}
+            {openSection === 'account' && openAccountTab
+              ? ACCOUNT_TABS.find(tab => tab.id === openAccountTab)?.label
+              : openSection
+                ? SECTIONS.find(section => section.id === openSection)?.label
+                : 'Settings'}
           </h1>
+
         </div>
 
         {!openSection ? (
