@@ -306,47 +306,18 @@ export function TenantCallingCenter() {
                 <Skeleton className="h-6 w-full" />
                 <Skeleton className="h-6 w-full" />
               </div>
-            ) : !hub.rows.length ? (
-              <p className="p-6 text-center text-xs text-muted-foreground">Nothing in this list.</p>
             ) : (
-              <table className="w-full min-w-[620px] text-xs">
-                <thead>
-                  <tr className="border-b text-left text-[11px] text-muted-foreground">
-                    <th className="py-1.5 pr-2 font-semibold">#</th>
-                    <th className="py-1.5 pr-2 font-semibold">Tenant</th>
-                    <th className="py-1.5 pr-2 font-semibold">District</th>
-                    <th className="py-1.5 pr-2 font-semibold">Agent</th>
-                    <th className="py-1.5 pr-2 font-semibold">{metricLabel}</th>
-                    <th className="py-1.5 pr-2 font-semibold">Attempts</th>
-                    <th className="py-1.5 pr-2 text-right font-semibold">Call</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {hub.rows.map((row, i) => (
-                    <tr key={row.id} className="border-b border-border/50 last:border-0">
-                      <td className="py-1.5 pr-2 tabular-nums text-muted-foreground">
-                        {page * hub.pageSize + i + 1}
-                      </td>
-                      <td className="py-1.5 pr-2 font-semibold">{row.name}</td>
-                      <td className="py-1.5 pr-2 text-muted-foreground">{row.district ?? '—'}</td>
-                      <td className="py-1.5 pr-2 text-muted-foreground">{row.linked_agent ?? '—'}</td>
-                      <td className="py-1.5 pr-2 tabular-nums">{fmtMetric(row)}</td>
-                      <td className="py-1.5 pr-2 tabular-nums text-muted-foreground">{row.attempts_made}</td>
-                      <td className="py-1.5 pr-2 text-right">
-                        <Button
-                          size="sm"
-                          className="h-7 px-2 text-[11px]"
-                          disabled={dialer.starting || dialer.live || auto.mode === 'running'}
-                          onClick={() => void dialer.dial(row)}
-                        >
-                          <Phone className="mr-1 h-3 w-3" />
-                          Call
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              /* The Hub's own table renderer, same columns contract, same look.
+                 "Reveal" here reveals *and* dials through the Center's dialer. */
+              <CallingHubTable
+                columns={activeQueueTab.columns}
+                rows={hub.rows}
+                metricLabel={metricLabel}
+                revealed={revealedPhones}
+                revealing={dialer.starting || hub.reveal.isPending}
+                wipBlocked={hub.wipBlocked}
+                onReveal={(row) => void dialer.dial(row)}
+              />
             )}
 
             {hub.total > hub.pageSize && (
