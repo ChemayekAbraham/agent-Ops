@@ -206,8 +206,10 @@ export function AgentOpsPipelineHub() {
     { value: 'tenants', label: 'Tenants', icon: Users, count: counts?.tenants },
     { value: 'notes', label: 'Promissory Notes', icon: FileText, count: counts?.notes },
     { value: 'landlords', label: 'Landlords', icon: Home, count: counts?.landlords },
+    { value: 'approved', label: 'Approved', icon: CheckCircle2, count: undefined as number | undefined },
     { value: 'rejected', label: 'Rejected', icon: XCircle, count: undefined as number | undefined },
   ];
+
 
   return (
     <Tabs defaultValue="tenants" className="space-y-4">
