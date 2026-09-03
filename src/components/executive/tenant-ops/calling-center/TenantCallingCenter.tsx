@@ -11,7 +11,7 @@
  *    `RecordOutcomeDialog` is reused as-is for engaged / callback outcomes.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,15 +20,25 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
+  AlertTriangle,
+  CalendarClock,
   ChevronLeft,
   ChevronRight,
   Headphones,
+  History,
+  LayoutDashboard,
+  ListChecks,
   Pause,
-  
+  Phone,
+  PhoneCall,
+  PhoneOutgoing,
   Play,
+  Search,
   Settings2,
+  SlidersHorizontal,
   Square,
 } from 'lucide-react';
+import { KPICard } from '../../KPICard';
 import { useCcCallingHub, type CcFilterSelection } from '@/hooks/useCcCallingHub';
 import { CALLING_TABS, type CallingTabKey } from '@/components/ops/calling/callingHubColumns';
 import { CallingHubTable } from '@/components/ops/calling/CallingHubTable';
@@ -53,6 +63,32 @@ const AUTO_LABEL: Record<string, string> = {
   awaiting_outcome: 'Waiting for outcome',
   finished: 'Run finished',
 };
+
+/** Presentation-only: the Center's primary action reveals *and* dials. */
+const CALL_ACTION_LABELS = {
+  compact: 'Call',
+  full: 'Call',
+  compactOpen: 'View',
+  fullOpen: 'View call details',
+  title: 'Call this tenant',
+};
+
+/** Tenant Ops palette per queue state — colour only, order unchanged. */
+const TAB_ACCENT: Record<string, string> = {
+  to_call: 'bg-primary/10 text-primary',
+  in_progress: 'bg-amber-500/10 text-amber-600',
+  callback: 'bg-sky-500/10 text-sky-600',
+  parked: 'bg-muted text-muted-foreground',
+  done: 'bg-emerald-500/10 text-emerald-600',
+};
+const TAB_ICON: Record<string, typeof Phone> = {
+  to_call: PhoneOutgoing,
+  in_progress: PhoneCall,
+  callback: CalendarClock,
+  parked: AlertTriangle,
+  done: ListChecks,
+};
+
 
 
 export function TenantCallingCenter() {
