@@ -45230,46 +45230,26 @@ export type Database = {
         Args: { p_window_id: string }
         Returns: number
       }
-      engrep_ingest_row:
-        | {
-            Args: {
-              p_author_email?: string
-              p_change_classes?: string[]
-              p_claims_schema?: boolean
-              p_commit_subject: string
-              p_engineer_code?: string
-              p_evidence_ref: string
-              p_fence_path?: string
-              p_fenced_breach?: boolean
-              p_migration_bearing?: boolean
-              p_self_fix?: boolean
-              p_self_fix_of?: string
-              p_source: string
-              p_untagged?: boolean
-              p_window_id: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_author_email?: string
-              p_change_classes?: string[]
-              p_claimed_objects?: string[]
-              p_claims_schema?: boolean
-              p_commit_subject: string
-              p_engineer_code?: string
-              p_evidence_ref: string
-              p_fence_path?: string
-              p_fenced_breach?: boolean
-              p_migration_bearing?: boolean
-              p_self_fix?: boolean
-              p_self_fix_of?: string
-              p_source: string
-              p_untagged?: boolean
-              p_window_id: string
-            }
-            Returns: string
-          }
+      engrep_ingest_row: {
+        Args: {
+          p_author_email?: string
+          p_change_classes?: string[]
+          p_claimed_objects?: string[]
+          p_claims_schema?: boolean
+          p_commit_subject: string
+          p_engineer_code?: string
+          p_evidence_ref: string
+          p_fence_path?: string
+          p_fenced_breach?: boolean
+          p_migration_bearing?: boolean
+          p_self_fix?: boolean
+          p_self_fix_of?: string
+          p_source: string
+          p_untagged?: boolean
+          p_window_id: string
+        }
+        Returns: string
+      }
       engrep_is_adjudicator: { Args: never; Returns: boolean }
       engrep_lock_window: { Args: { p_window_id: string }; Returns: number }
       engrep_mark_harvested: {
