@@ -113,7 +113,7 @@ export function CycleControls({ hub }: { hub: CcCallingHub }) {
             <Badge variant="outline">{Number(p?.total_rows ?? 0)} rows</Badge>
             <Badge variant="outline">Coverage {p?.coverage_pct ?? 0}%</Badge>
             <Badge variant="outline">Reach {p?.reach_pct ?? 0}%</Badge>
-            <Badge variant="outline">Attempt cap {hub.cycle.attempt_cap}</Badge>
+            
           </div>
           <Button
             size="sm"
