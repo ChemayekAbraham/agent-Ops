@@ -43,7 +43,7 @@ export function CapitalRoutesSection({ className }: { className?: string }) {
           loading="lazy"
         />
         <div className="absolute inset-0 -z-10 bg-gradient-to-b from-black/15 via-black/60 to-black/95" />
-        <div className="flex min-h-[clamp(300px,64vw,420px)] items-end px-[clamp(20px,5.5vw,44px)] pb-[clamp(20px,5.5vw,44px)] pt-3 md:items-center md:min-h-[clamp(280px,32vw,380px)]">
+        <div className="flex min-h-[clamp(300px,64vw,420px)] items-end px-[clamp(20px,5.5vw,44px)] pb-[clamp(20px,5.5vw,44px)] pt-2 md:items-center md:min-h-[clamp(280px,32vw,380px)]">
           <div className="flex w-full flex-col items-start gap-[clamp(10px,2.6vw,16px)] md:max-w-[60%]">
             <span className="inline-flex items-center gap-[7px] rounded-full border border-white/30 bg-gradient-to-b from-white/25 to-white/10 px-[clamp(11px,3vw,14px)] py-[clamp(7px,2vw,9px)] text-[clamp(9px,2.4vw,11px)] font-bold uppercase tracking-widest text-white backdrop-blur-md">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_0_3px_rgba(74,222,154,0.25)]" />
