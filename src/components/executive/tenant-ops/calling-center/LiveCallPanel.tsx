@@ -15,6 +15,7 @@ import { describeHangupCause, formatTalkTime } from '@/lib/callCentre';
 import { isTerminalCallState, type CallState } from '@/hooks/useCrmVoiceCall';
 import { QUICK_OUTCOMES, ccErrorText, type CcCallingHub } from '@/hooks/useCcCallingHub';
 import { telHref, waHref } from '@/components/ops/calling/ccPhone';
+import { TenantCallContextPanel } from './TenantCallContextPanel';
 import type { TenantCallCenterDialer } from './useTenantCallCenterDialer';
 
 const STATE_LABEL: Record<CallState, string> = {
