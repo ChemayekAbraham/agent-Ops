@@ -287,9 +287,24 @@ export default function Settings() {
   const closeSection = () => {
     const next = new URLSearchParams(searchParams);
     next.delete('section');
+    next.delete('tab');
     setSearchParams(next);
   };
-  const [accountTab, setAccountTab] = useState<AccountTab>('profile');
+  const tabParam = searchParams.get('tab') as AccountTab | null;
+  const openAccountTab: AccountTab | null =
+    tabParam && ACCOUNT_TABS.some(t => t.id === tabParam) ? tabParam : null;
+  const accountTab: AccountTab = openAccountTab ?? 'profile';
+  const setAccountTab = (id: AccountTab) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('section', 'account');
+    next.set('tab', id);
+    setSearchParams(next);
+  };
+  const closeAccountTab = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('tab');
+    setSearchParams(next);
+  };
   const [deferredReady, setDeferredReady] = useState(false);
   const [pushOpen, setPushOpen] = useState(false);
   const [themeOpen, setThemeOpen] = useState(false);
