@@ -166,7 +166,7 @@ export async function renderPartnershipTopupReceipt(data: PartnerTopupReceiptDat
 
   const previous = `Previous: UGX ${amount(data.previousPrincipal)}`;
   const next = `New Total: UGX ${amount(data.newTotalPrincipal)}`;
-  const pill = `${previous}   →   ${next}`;
+  const pill = `${previous}   >   ${next}`;
   const pillW = regular.widthOfTextAtSize(pill, 10) + 30;
   page.drawSvgPath(roundedRectPath(CARD_X + (CARD_W - pillW) / 2, 548, pillW, 27, 14), {
     color: WHITE, borderColor: rgb(0.89, 0.84, 0.96), borderWidth: 0.9,
