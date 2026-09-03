@@ -11620,6 +11620,100 @@ export type Database = {
           },
         ]
       }
+      engrep_rows: {
+        Row: {
+          author_email: string | null
+          change_classes: string[]
+          claims_schema: boolean
+          commit_subject: string
+          engineer_code: string | null
+          engineer_id: string | null
+          evidence_kind: string
+          evidence_ref: string
+          fence_path: string | null
+          fenced_breach: boolean
+          harvested_at: string
+          id: string
+          live_verified: string
+          migration_bearing: boolean
+          self_fix: boolean
+          self_fix_of: string | null
+          source: string
+          untagged: boolean
+          window_id: string
+          zero_reason: string | null
+          zeroed: boolean
+        }
+        Insert: {
+          author_email?: string | null
+          change_classes?: string[]
+          claims_schema?: boolean
+          commit_subject: string
+          engineer_code?: string | null
+          engineer_id?: string | null
+          evidence_kind: string
+          evidence_ref: string
+          fence_path?: string | null
+          fenced_breach?: boolean
+          harvested_at?: string
+          id?: string
+          live_verified?: string
+          migration_bearing?: boolean
+          self_fix?: boolean
+          self_fix_of?: string | null
+          source: string
+          untagged?: boolean
+          window_id: string
+          zero_reason?: string | null
+          zeroed?: boolean
+        }
+        Update: {
+          author_email?: string | null
+          change_classes?: string[]
+          claims_schema?: boolean
+          commit_subject?: string
+          engineer_code?: string | null
+          engineer_id?: string | null
+          evidence_kind?: string
+          evidence_ref?: string
+          fence_path?: string | null
+          fenced_breach?: boolean
+          harvested_at?: string
+          id?: string
+          live_verified?: string
+          migration_bearing?: boolean
+          self_fix?: boolean
+          self_fix_of?: string | null
+          source?: string
+          untagged?: boolean
+          window_id?: string
+          zero_reason?: string | null
+          zeroed?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engrep_rows_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_engineers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_rows_self_fix_of_fkey"
+            columns: ["self_fix_of"]
+            isOneToOne: false
+            referencedRelation: "engrep_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_rows_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_windows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       engrep_windows: {
         Row: {
           granularity: string
