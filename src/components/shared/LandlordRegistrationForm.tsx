@@ -486,18 +486,8 @@ export default function LandlordRegistrationForm({
       }
     }
 
-    // The signed agreement is part of the normal form, so it must be attached
-    // before the agent can move to the confirmation step.
-    if (registeredByRole === 'agent' && !minimal && !isLandlordAgreementInlineComplete(agreementDetails)) {
-      hapticWarning();
-      focusField('landlordAgreement');
-      toastFn({
-        title: 'Signed agreement required',
-        description: 'Download the contract, have it signed, then upload the signed copy to continue.',
-        variant: 'destructive',
-      });
-      return;
-    }
+    // Agreement upload is optional while registering a landlord. The signed
+    // agreement is required later only when an agent submits a new Rent Request.
 
     hapticTap();
     setSubmitError('');
