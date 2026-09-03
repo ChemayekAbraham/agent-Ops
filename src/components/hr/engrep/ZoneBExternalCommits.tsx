@@ -178,12 +178,14 @@ export function ZoneBExternalCommits({
               <th className="px-3 py-2 font-medium">Subject</th>
               <th className="px-3 py-2 font-medium">Migration</th>
               <th className="px-3 py-2 font-medium">Live</th>
+              <th className="px-3 py-2 font-medium">Band *</th>
+              <th className="px-3 py-2 font-medium">Written basis *</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-3 py-4 text-center text-xs text-muted-foreground">
+                <td colSpan={6} className="px-3 py-4 text-center text-xs text-muted-foreground">
                   No external commits recorded in this window.
                 </td>
               </tr>

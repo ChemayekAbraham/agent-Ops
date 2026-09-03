@@ -13,6 +13,7 @@ import { WindowToggle } from '@/components/hr/engrep/WindowToggle';
 import { ZoneALovableEdits } from '@/components/hr/engrep/ZoneALovableEdits';
 import { ZoneBExternalCommits } from '@/components/hr/engrep/ZoneBExternalCommits';
 import { ZoneCExceptions } from '@/components/hr/engrep/ZoneCExceptions';
+import { LockPeriodButton } from '@/components/hr/engrep/LockPeriodButton';
 
 
 
@@ -135,6 +136,17 @@ export default function EngineeringContribution() {
                 />
               )}
               {zone.key === 'c' && <ZoneCExceptions canAdjudicate={canAdjudicate} />}
+              {zone.key === 'lock' && (
+                <LockPeriodButton
+                  windowId={summary?.window_id ?? null}
+                  granularity={granularity}
+                  periodStart={summary?.period_start ?? null}
+                  periodEnd={summary?.period_end ?? null}
+                  unadjudicated={summary?.unadjudicated ?? null}
+                  status={summary?.status ?? null}
+                  canAdjudicate={canAdjudicate}
+                />
+              )}
 
 
 
