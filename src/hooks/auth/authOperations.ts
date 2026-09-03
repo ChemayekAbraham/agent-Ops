@@ -139,6 +139,34 @@ function isPreviewHost(hostname: string) {
   return hostname.includes('id-preview--') || hostname.includes('preview--') || hostname.endsWith('.lovableproject.com');
 }
 
+/**
+ * Origin to hand the OAuth broker as `redirect_uri`.
+ *
+ * The broker only accepts redirect URIs that are on the project's auth
+ * allow-list (canonical domain + www + Lovable preview hosts). Retired /
+ * unregistered hostnames (e.g. the legacy `welile.tech` apex, which still
+ * serves the app) were being passed through verbatim, so the popup opened,
+ * the user consented, and the callback was then rejected — 0 successful
+ * sign-ins from those hosts. Fall back to the canonical origin instead of
+ * silently failing.
+ */
+function resolveOAuthRedirectOrigin(): string {
+  if (typeof window === 'undefined') return getPublicOrigin();
+  const { hostname, origin } = window.location;
+  const isLocalDev =
+    hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0' || hostname.endsWith('.local');
+  const isAllowListed =
+    isLocalDev ||
+    isPreviewHost(hostname) ||
+    hostname.endsWith('.lovable.app') ||
+    origin === getPublicOrigin() ||
+    origin === getPublicOrigin().replace('https://', 'https://www.');
+  if (isAllowListed) return origin;
+  console.warn('[OAuth] Host is not an allow-listed redirect origin — using canonical origin instead:', hostname);
+  return getPublicOrigin();
+}
+
+
 async function preparePreviewOAuthFlow() {
   if (!isPreviewHost(window.location.hostname)) return;
 
