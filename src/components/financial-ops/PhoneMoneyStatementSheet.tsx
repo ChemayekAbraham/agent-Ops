@@ -85,24 +85,24 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
         }));
       }
 
-      if (line === 'bank') {
-        const { data: reconciliation, error } = await supabase.rpc('get_money_at_bank_reconciliation' as any);
-        if (error) throw error;
-        const movements = Array.isArray((reconciliation as any)?.qualifying_emails)
-          ? (reconciliation as any).qualifying_emails
-          : [];
-        return movements.map((t: any) => ({
-          id: String(t.id),
-          at: t.extracted_at ?? null,
-          amount: Number(t.amount ?? 0),
-          direction: (t.direction === 'out' ? 'out' : 'in') as Row['direction'],
-          party: t.direction === 'out' ? 'Bayo Mercy' : 'Welile Technologies',
-          reference: t.transaction_id ?? null,
-          balanceAfter: null,
-          note: t.snippet ? String(t.snippet).slice(0, 180) : String(t.match_reason ?? 'Qualifying extracted bank email'),
-          phone: null,
-        }));
-      }
+       if (line === 'bank') {
+         const { data: reconciliation, error } = await supabase.rpc('get_money_at_bank_reconciliation' as any);
+         if (error) throw error;
+         const movements = Array.isArray((reconciliation as any)?.qualifying_emails)
+           ? (reconciliation as any).qualifying_emails
+           : [];
+         return movements.map((t: any) => ({
+           id: String(t.id),
+           at: t.extracted_at ?? null,
+           amount: Number(t.amount ?? 0),
+           direction: (t.direction === 'out' ? 'out' : 'in') as Row['direction'],
+           party: 'Bayo Mercy account',
+           reference: t.transaction_id ?? null,
+           balanceAfter: null,
+           note: t.snippet ? String(t.snippet).slice(0, 180) : String(t.match_reason ?? 'Qualifying Bayo Mercy account alert'),
+           phone: null,
+         }));
+       }
 
       const { data: tx, error } = await supabase
         .from('gmail_transactions')
@@ -188,7 +188,7 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
           <SheetTitle>{line ? TITLES[line] : 'Statement'}</SheetTitle>
           <SheetDescription className="text-xs sm:text-sm">
              {line === 'bank'
-               ? 'Qualifying bank alerts for credits into and debits from Bayo Mercy’s account.'
+               ? 'Bayo Mercy account balance: qualifying credits in less debits out.'
                : line === 'cash'
               ? 'Verified cash deposits collected by agents and not yet banked.'
               : 'Every money-in and money-out movement parsed from provider messages on this line.'}
