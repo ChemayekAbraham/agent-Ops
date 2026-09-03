@@ -8,3 +8,6 @@
 - [x] WELILE-CC-WIPUI26: open-attempt badge/guard read cc_call_cycles.wip_limit only; no client fallback number; reveals stay enabled while the limit is loading.
 - [x] Fix typecheck build errors in AgentOpsReportWindow.tsx (`periodStart` narrowing on `AgentOpsReportWindowResult`).
 
+- [x] Renewal rent requests: agreement optional end-to-end (trigger bypass + client gates removed for renewal/outstanding).
+- [x] CapitalRoutesSection: mobile hero top space matches space below the CTA button.
+- [x] Payroll: add ARREARS salary component (scope-fenced migration).
