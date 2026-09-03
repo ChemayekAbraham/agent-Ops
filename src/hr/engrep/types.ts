@@ -6,11 +6,14 @@
 
 export type EngrepGranularity = 'day' | 'week' | 'month';
 
-export type EngrepWindowStatus = 'open' | 'harvested' | 'locked';
+export type EngrepWindowStatus = 'open' | 'locked';
 
 export type EngrepSource = 'lovable_edit' | 'external_commit';
 
-export type EngrepLiveness = 'unknown' | 'yes' | 'no';
+export type EngrepLiveness = 'yes' | 'no' | 'na';
+
+/** The only two verdicts engrep_set_liveness accepts. */
+export type EngrepLivenessVerdict = 'yes' | 'no';
 
 export type EngrepBand = 'w1' | 'w2' | 'w3' | 'w4' | 'w5';
 
@@ -56,6 +59,7 @@ export interface EngrepRow {
   commit_subject: string | null;
   change_classes: string[] | null;
   claims_schema: boolean;
+  claimed_objects: string[];
   migration_bearing: boolean;
   live_verified: EngrepLiveness;
   untagged: boolean;
@@ -113,4 +117,5 @@ export interface EngrepIngestInput {
   fencePath?: string | null;
   selfFix?: boolean;
   selfFixOf?: string | null;
+  claimedObjects?: string[];
 }

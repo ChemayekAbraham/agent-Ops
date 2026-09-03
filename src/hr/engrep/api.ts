@@ -10,7 +10,7 @@ import type {
   EngrepClaimedNotLive,
   EngrepGranularity,
   EngrepIngestInput,
-  EngrepLiveness,
+  EngrepLivenessVerdict,
   EngrepRow,
   EngrepUnclaimedObject,
   EngrepWindowSummary,
@@ -62,7 +62,7 @@ export async function listRows(
     .from('engrep_rows')
     .select('*')
     .eq('window_id', windowId)
-    .order('harvested_at', { ascending: false, nullsFirst: false });
+    .order('harvested_at', { ascending: true, nullsFirst: false });
   if (source) query = query.eq('source', source);
   return (unwrap(await query) ?? []) as EngrepRow[];
 }
@@ -112,10 +112,11 @@ export function ingestRow(input: EngrepIngestInput): Promise<string> {
     p_fence_path: input.fencePath ?? null,
     p_self_fix: input.selfFix ?? false,
     p_self_fix_of: input.selfFixOf ?? null,
+    p_claimed_objects: input.claimedObjects ?? [],
   });
 }
 
-export function setLiveness(rowId: string, verdict: EngrepLiveness): Promise<unknown> {
+export function setLiveness(rowId: string, verdict: EngrepLivenessVerdict): Promise<unknown> {
   return rpc('engrep_set_liveness', { p_row_id: rowId, p_verdict: verdict });
 }
 
