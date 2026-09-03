@@ -23,8 +23,6 @@ interface EmailMovement {
 }
 
 interface BankReconciliation {
-  banked_base: number;
-  banked_count: number;
   extracted_received: number;
   extracted_sent: number;
   extracted_net: number;

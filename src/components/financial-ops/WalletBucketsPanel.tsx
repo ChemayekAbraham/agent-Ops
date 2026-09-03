@@ -133,7 +133,7 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
     { label: 'MTN Money', amount: actual?.mtn ?? 0, logo: mtnLogoAsset.url as string | null, line: 'mtn_momo' as PhoneMoneyLine },
     { label: 'Airtel Money', amount: actual?.airtel ?? 0, logo: airtelLogoAsset.url as string | null, line: 'airtel_money' as PhoneMoneyLine },
     { label: 'Cash at Hand', amount: actual?.cash ?? 0, logo: null, line: 'cash' as PhoneMoneyLine },
-    { label: 'Money at Bank', amount: actual?.bank ?? 0, logo: null, line: 'bank' as PhoneMoneyLine },
+    { label: 'Money at Bank — Bayo Mercy account', amount: actual?.bank ?? 0, logo: null, line: 'bank' as PhoneMoneyLine },
   ];
 
 
