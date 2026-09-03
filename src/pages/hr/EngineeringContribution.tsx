@@ -36,8 +36,8 @@ const ZONES: Array<{ key: string; label: string; note?: string }> = [
 
 function formatEatCloseTime(periodEnd: string | null | undefined): string {
   if (!periodEnd) return '—';
-  // The window closes at the end of its final day, expressed in EAT (UTC+3).
-  const closesAt = new Date(`${periodEnd}T23:59:59+03:00`);
+  // The window closes at 17:00 EAT (UTC+3) on its final day.
+  const closesAt = new Date(`${periodEnd}T17:00:00+03:00`);
   return `${closesAt.toLocaleString('en-GB', {
     timeZone: 'Africa/Kampala',
     day: '2-digit',
