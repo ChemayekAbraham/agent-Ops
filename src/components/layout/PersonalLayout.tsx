@@ -1,11 +1,21 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { X, ArrowLeft } from 'lucide-react';
-import workInProgressIllustration from '@/assets/work-in-progress.svg.asset.json';
+import {
+  X,
+  ArrowLeft,
+  User,
+  FileText,
+  Briefcase,
+  Ticket,
+  Wallet,
+  Bell,
+  FolderOpen,
+  LayoutGrid,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-
 
 const getInitials = (name: string) => {
   if (!name) return 'Me';
@@ -23,7 +33,17 @@ interface PersonalLayoutProps {
   title?: string;
 }
 
-
+/** Same destinations as the My space hub cards — surfaced as a quick nav rail. */
+const NAV_ITEMS = [
+  { to: '/me', icon: LayoutGrid, label: 'Overview' },
+  { to: '/your-profile', icon: User, label: 'Profile' },
+  { to: '/me/payslips', icon: FileText, label: 'Payslips' },
+  { to: '/me/work', icon: Briefcase, label: 'My work' },
+  { to: '/me/tickets', icon: Ticket, label: 'Tickets' },
+  { to: '/me/requisitions', icon: Wallet, label: 'Requisitions' },
+  { to: '/notifications', icon: Bell, label: 'Notifications' },
+  { to: '/me/documents', icon: FolderOpen, label: 'Documents' },
+];
 
 const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
   const { user, roles, switchRole } = useAuth();
@@ -56,57 +76,85 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
     navigate('/dashboard', { replace: true });
   };
 
+  const isOnHub = location.pathname === '/me';
+
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card/60 backdrop-blur sticky top-0 z-30">
-        <div className="max-w-3xl mx-auto px-4 py-3 relative">
-          {location.pathname !== '/me' && (
-            <button
-              type="button"
-              onClick={() => navigate('/me')}
-              className="absolute top-2 left-2 p-2 mt-2 mb-2 rounded-full bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Back to My space"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={goToFunderDashboard}
-            className="absolute top-2 right-2 p-2 mt-2 mb-2 rounded-full bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Back to funder dashboard"
-          >
-            <X className="h-4 w-4" />
-          </button>
-          <div className="flex items-center gap-3 min-w-0 pt-4 mx-12">
-            <Avatar className="h-11 w-11 border-2 border-primary/10 shrink-0">
+      <header className="sticky top-0 z-30 border-b border-border/60 bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/70">
+        <div className="mx-auto w-full max-w-5xl px-3 sm:px-4">
+          <div className="flex items-center gap-2 py-2.5 sm:gap-3">
+            {!isOnHub && (
+              <button
+                type="button"
+                onClick={() => navigate('/me')}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Back to My space"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+            )}
 
+            <Avatar className="h-9 w-9 shrink-0 border border-border/70 sm:h-10 sm:w-10">
               <AvatarImage src={avatarUrl || ''} alt={displayName || 'Your profile'} />
-              <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
+              <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
                 {getInitials(displayName)}
               </AvatarFallback>
             </Avatar>
-            <div className="min-w-0">
-              <p className="font-bold truncate leading-tight">{displayName || 'Your Name'}</p>
-              <span className="text-xs text-muted-foreground">My space</span>
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold leading-tight text-foreground sm:text-base">
+                {displayName || 'Your Name'}
+              </p>
+              <p className="truncate text-[11px] text-muted-foreground">
+                My space{title && !isOnHub ? ` · ${title}` : ''}
+              </p>
             </div>
+
+            <button
+              type="button"
+              onClick={goToFunderDashboard}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Back to funder dashboard"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
+
+          <nav
+            aria-label="My space sections"
+            className="-mx-3 flex gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-mx-4 sm:px-4"
+          >
+            {NAV_ITEMS.map((item) => {
+              const active =
+                item.to === '/me'
+                  ? location.pathname === '/me'
+                  : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  aria-current={active ? 'page' : undefined}
+                  className={cn(
+                    'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                    active
+                      ? 'border-primary/30 bg-primary/10 text-primary'
+                      : 'border-transparent bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  <item.icon className="h-3.5 w-3.5" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-5 space-y-4">
+      <main className="mx-auto w-full max-w-5xl px-3 py-4 sm:px-4 sm:py-6">
         {title && (
-          <div className="flex items-center gap-3">
-            <img
-              src={workInProgressIllustration.url}
-              alt="Work in progress illustration"
-              loading="lazy"
-              className="h-10 w-10 flex-none sm:h-12 sm:w-12"
-            />
-            <h1 className="text-xl font-bold tracking-tight">{title}</h1>
-          </div>
+          <h1 className="mb-3 text-lg font-bold tracking-tight sm:mb-4 sm:text-2xl">{title}</h1>
         )}
-        {children}
+        <div className="space-y-4">{children}</div>
       </main>
     </div>
   );
