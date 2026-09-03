@@ -9,6 +9,7 @@ import {
   CircleCheck,
   CircleDot,
   Loader2,
+  Phone,
   Search,
   Users,
 } from 'lucide-react';
@@ -348,9 +349,9 @@ export function AgentMonitoring() {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-1 rounded-lg border p-1">
+        <div className="flex w-full flex-wrap items-center gap-1 rounded-lg border p-1 sm:w-auto">
           <Button variant="ghost" size="sm" onClick={() => setDay((value) => subDays(value, 1))} aria-label="Previous day">←</Button>
-          <div className="min-w-[128px] text-center text-xs font-medium tabular-nums">{format(day, 'dd MMM yyyy')}</div>
+          <div className="flex-1 min-w-[110px] text-center text-xs font-medium tabular-nums sm:flex-none sm:min-w-[128px]">{format(day, 'dd MMM yyyy')}</div>
           <Button variant="ghost" size="sm" onClick={() => setDay((value) => addDays(value, 1))} aria-label="Next day">→</Button>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setDay(startOfDay(new Date()))}>
             <CalendarDays className="h-3.5 w-3.5" /> Today
@@ -358,21 +359,21 @@ export function AgentMonitoring() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Agents monitored</p><p className="mt-1 text-xl font-bold tabular-nums">{filteredAgents.length}</p></CardContent></Card>
         <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Daily expected</p><p className="mt-1 text-xl font-bold tabular-nums">{formatUGX(totals.expected)}</p></CardContent></Card>
         <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Collected so far</p><p className="mt-1 text-xl font-bold tabular-nums">{formatUGX(totals.collected)}</p></CardContent></Card>
       </div>
 
       <Card>
-        <CardHeader className="gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
+        <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="text-base">Collection performance</CardTitle>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search agent or phone" className="h-8 pl-8 text-xs sm:w-56" />
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search agent or phone" className="h-8 w-full pl-8 text-xs sm:w-56" />
             </div>
-            <div className="flex gap-1" role="group" aria-label="Collection status filter">
+            <div className="flex flex-wrap gap-1" role="group" aria-label="Collection status filter">
               {(['all', 'full', 'partial', 'critical'] as const).map((value) => (
                 <Button key={value} variant={statusFilter === value ? 'secondary' : 'ghost'} size="sm" className="h-8 px-2 text-xs capitalize" onClick={() => setStatusFilter(value)}>
                   {value}
@@ -403,14 +404,14 @@ export function AgentMonitoring() {
       </Card>
 
       <Dialog open={Boolean(selectedAgent)} onOpenChange={(open) => { if (!open) setSelectedAgent(null); }}>
-        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+        <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] max-w-4xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{selectedAgent?.name || 'Agent'} — collection details</DialogTitle>
-            <DialogDescription>{selectedAgent?.phone || 'No phone number'} · {format(day, 'dd MMM yyyy')}</DialogDescription>
+            <DialogTitle className="break-words pr-6 text-base sm:text-lg">{selectedAgent?.name || 'Agent'} — collection details</DialogTitle>
+            <DialogDescription className="break-words">{selectedAgent?.phone || 'No phone number'} · {format(day, 'dd MMM yyyy')}</DialogDescription>
           </DialogHeader>
           {selectedAgent && (
             <div className="space-y-4">
-              <div className="grid gap-2 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Tenants</p><p className="mt-1 font-bold tabular-nums">{selectedAgent.tenantCount}</p></CardContent></Card>
                 <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Expected</p><p className="mt-1 font-bold tabular-nums">{formatUGX(selectedAgent.expected)}</p></CardContent></Card>
                 <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Paid today</p><p className="mt-1 font-bold tabular-nums">{formatUGX(selectedAgent.collected)}</p></CardContent></Card>
@@ -429,7 +430,11 @@ export function AgentMonitoring() {
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div className="min-w-0">
                               <Button variant="link" className="h-auto p-0 text-left font-semibold" onClick={() => setSelectedTenant(request.tenant_id)}>{tenant?.full_name || 'Unknown tenant'}</Button>
-                              <p className="text-xs text-muted-foreground">{tenant?.phone || 'No phone number'}{request.house_category ? ` · ${request.house_category}` : ''}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {tenant?.phone ? (
+                                  <a href={`tel:${tenant.phone.replace(/[^\d+]/g, '')}`} className="underline underline-offset-2">{tenant.phone}</a>
+                                ) : 'No phone number'}{request.house_category ? ` · ${request.house_category}` : ''}
+                              </p>
                               <p className="mt-1 text-xs text-muted-foreground">Rent Plan: {formatStatus(request.status)} · Started {format(new Date(request.created_at), 'dd MMM yyyy')}</p>
                             </div>
                             <StatusIndicator status={collectionStatus(expected, collected)} />
