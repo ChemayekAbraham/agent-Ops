@@ -85,6 +85,7 @@ export const SUBMITTED_STATUSES = [
   'agent_verified',
   'agent_ops_approved',
   'landlord_ops_approved',
+  'partner_ops_approved',
   'coo_approved',
 ];
 
@@ -96,11 +97,13 @@ const STAGE_LABEL: Record<string, string> = {
   agent_ops_approved: 'Tenant Ops review',
   agent_verified: 'Tenant Ops review',
   tenant_ops_approved: 'Landlord Ops review',
-  landlord_ops_approved: 'COO review',
+  landlord_ops_approved: 'Partner Ops review',
+  partner_ops_approved: 'COO review',
   coo_approved: 'CFO funding',
   funded: 'Funded — awaiting disbursal',
   disbursed: 'Disbursed — ready to collect',
 };
+
 
 const STAGE_NEXT: Record<string, string> = {
   service_center_review: 'Next: Agent Ops review',
