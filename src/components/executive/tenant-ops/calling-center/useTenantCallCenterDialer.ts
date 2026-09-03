@@ -118,6 +118,7 @@ export function useTenantCallCenterDialer(hub: CcCallingHub) {
           district: row.district,
           attemptId,
           phone,
+          row,
         };
         setCurrent(subject);
         setNeedsOutcome(false);
