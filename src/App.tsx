@@ -220,6 +220,7 @@ const HRRecruitmentPage = lazy(() => import('./hr/pages/Recruitment'));
 const HRMetricDefinitionsPage = lazy(() => import('./hr/pages/MetricDefinitions'));
 const HRMyWorkPage = lazy(() => import('./hr/pages/MyWork'));
 const MeTicketsPage = lazy(() => import('./pages/me/TicketsPage'));
+const EngineeringContribution = lazy(() => import('./pages/hr/EngineeringContribution'));
 const HRExecutiveBriefPage = lazy(() => import('./hr/pages/ExecutiveBrief'));
 const HRStaffScorecardPage = lazy(() => import('./hr/pages/StaffScorecard'));
 const HREmployeeProfilePage = lazy(() => import('./pages/hr/EmployeeProfile'));
