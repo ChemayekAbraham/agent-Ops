@@ -9,6 +9,8 @@ import { MissionGoalsEditor } from '@/components/executive/MissionGoalsEditor';
 import { RoleManagementPanel } from '@/components/executive/RoleManagementPanel';
 import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWorkspace';
 import ExecutiveBrief from '@/hr/components/ExecutiveBrief';
+import { GlobalVerificationHub } from '@/components/executive/GlobalVerificationHub';
+import { WelileOperationsHub } from '@/components/executive/WelileOperationsHub';
 
 export default function CEODashboardPage() {
   const [activeTab, setActiveTab] = usePersistedActiveTab('ceo');
@@ -32,6 +34,10 @@ export default function CEODashboardPage() {
         return <AngelPoolManagementPanel userRole="ceo" />;
       case 'mission-goals':
         return <MissionGoalsEditor />;
+      case 'global-verification':
+        return <GlobalVerificationHub />;
+      case 'welile-operations':
+        return <WelileOperationsHub />;
       case 'role-management':
         return <RoleManagementPanel />;
       default:
