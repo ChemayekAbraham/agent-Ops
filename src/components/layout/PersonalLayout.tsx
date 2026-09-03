@@ -1,20 +1,8 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  X,
-  ArrowLeft,
-  User,
-  FileText,
-  Briefcase,
-  Ticket,
-  Wallet,
-  Bell,
-  FolderOpen,
-  LayoutGrid,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { X, ArrowLeft, User } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const getInitials = (name: string) => {
@@ -33,17 +21,6 @@ interface PersonalLayoutProps {
   title?: string;
 }
 
-/** Same destinations as the My space hub cards — surfaced as a quick nav rail. */
-const NAV_ITEMS = [
-  { to: '/me', icon: LayoutGrid, label: 'Overview' },
-  { to: '/your-profile', icon: User, label: 'Profile' },
-  { to: '/me/payslips', icon: FileText, label: 'Payslips' },
-  { to: '/me/work', icon: Briefcase, label: 'My work' },
-  { to: '/me/tickets', icon: Ticket, label: 'Tickets' },
-  { to: '/me/requisitions', icon: Wallet, label: 'Requisitions' },
-  { to: '/notifications', icon: Bell, label: 'Notifications' },
-  { to: '/me/documents', icon: FolderOpen, label: 'Documents' },
-];
 
 const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
   const { user, roles, switchRole } = useAuth();
