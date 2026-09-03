@@ -184,13 +184,13 @@ function SectionHeading({ children }: { children: ReactNode }) {
 }
 
 interface Profile { id: string; full_name: string; email: string; phone: string; avatar_url: string | null; }
-type SettingsSection = 'account' | 'appearance' | 'notifications' | 'security' | 'legal' | 'advanced';
+type SettingsSection = 'account' | 'appearance' | 'notifications' | 'accessibility' | 'security' | 'legal' | 'advanced';
 
 const SECTIONS: { id: SettingsSection; label: string; icon: typeof User; helper: string }[] = [
   { id: 'account', label: 'Personal Information', icon: User, helper: 'Profile, contact, withdrawal and sign-in' },
-  
-  { id: 'appearance', label: 'Appearance', icon: Palette, helper: 'Theme, text size, language and currency' },
+  { id: 'appearance', label: 'Appearance', icon: Palette, helper: 'Theme, language and currency' },
   { id: 'notifications', label: 'Notifications', icon: Bell, helper: 'Push alerts and sounds' },
+  { id: 'accessibility', label: 'Accessibility', icon: Accessibility, helper: 'Text size, motion, vibration and contrast' },
   { id: 'security', label: 'Safety', icon: ShieldCheck, helper: 'PIN, biometrics, devices and alerts' },
   { id: 'legal', label: 'Legal', icon: Scale, helper: 'Agreements and policy documents' },
   { id: 'advanced', label: 'More', icon: SettingsIcon, helper: 'Diagnostics and advanced tools' },
