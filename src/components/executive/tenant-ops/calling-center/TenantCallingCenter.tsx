@@ -147,7 +147,24 @@ export function TenantCallingCenter() {
     [dialer.current, dialer.live, dialer.needsOutcome],
   );
   const runBadge = (
-    <Badge variant={auto.mode === 'running' ? 'default' : 'outline'} className="text-[10px]">
+    <Badge
+      variant={auto.mode === 'running' ? 'default' : 'outline'}
+      className={
+        auto.mode === 'running'
+          ? 'gap-1.5 text-[11px] font-semibold'
+          : auto.mode === 'paused' || auto.mode === 'awaiting_outcome'
+            ? 'gap-1.5 border-amber-500/40 bg-amber-500/10 text-[11px] font-semibold text-amber-700'
+            : 'gap-1.5 text-[11px] font-semibold'
+      }
+    >
+      <span
+        className={
+          auto.mode === 'running'
+            ? 'h-1.5 w-1.5 animate-pulse rounded-full bg-primary-foreground'
+            : 'h-1.5 w-1.5 rounded-full bg-muted-foreground'
+        }
+        aria-hidden
+      />
       {AUTO_LABEL[auto.mode]}
       {auto.mode !== 'off' && auto.total > 0 ? ` · ${Math.min(auto.index, auto.total)}/${auto.total}` : ''}
     </Badge>
@@ -156,7 +173,7 @@ export function TenantCallingCenter() {
   const autoControls = (
     <div className="flex flex-wrap items-center gap-1.5">
       <Select value={String(autoCap)} onValueChange={(v) => setAutoCap(Number(v))} disabled={auto.mode === 'running'}>
-        <SelectTrigger className="h-8 w-[120px] text-xs">
+        <SelectTrigger className="h-9 w-[120px] text-xs">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -168,34 +185,40 @@ export function TenantCallingCenter() {
         </SelectContent>
       </Select>
       {auto.mode === 'running' ? (
-        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={auto.pauseAuto}>
-          <Pause className="mr-1 h-3 w-3" />
+        <Button size="sm" variant="outline" className="h-9 text-xs font-semibold" onClick={auto.pauseAuto}>
+          <Pause className="mr-1.5 h-3.5 w-3.5" />
           Pause
         </Button>
       ) : auto.mode === 'paused' || auto.mode === 'awaiting_outcome' ? (
-        <Button size="sm" className="h-8 text-xs" onClick={auto.resumeAuto} disabled={dialer.needsOutcome}>
-          <Play className="mr-1 h-3 w-3" />
+        <Button
+          size="sm"
+          className="h-9 text-xs font-semibold"
+          onClick={auto.resumeAuto}
+          disabled={dialer.needsOutcome}
+        >
+          <Play className="mr-1.5 h-3.5 w-3.5" />
           Resume
         </Button>
       ) : (
         <Button
           size="sm"
-          className="h-8 text-xs"
+          className="h-9 text-xs font-semibold"
           onClick={() => auto.startAuto(hub.rows, autoCap)}
           disabled={!hub.rows.length || hub.wipBlocked}
         >
-          <Play className="mr-1 h-3 w-3" />
+          <Play className="mr-1.5 h-3.5 w-3.5" />
           Start sequential run
         </Button>
       )}
       {auto.mode !== 'off' && (
-        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={auto.stopAuto}>
-          <Square className="mr-1 h-3 w-3" />
+        <Button size="sm" variant="outline" className="h-9 text-xs font-semibold" onClick={auto.stopAuto}>
+          <Square className="mr-1.5 h-3.5 w-3.5" />
           Stop
         </Button>
       )}
     </div>
   );
+
 
   return (
     <div className="space-y-4 pb-32 sm:pb-28">
