@@ -133,7 +133,7 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
     { label: 'MTN Money', amount: actual?.mtn ?? 0, logo: mtnLogoAsset.url as string | null, line: 'mtn_momo' as PhoneMoneyLine },
     { label: 'Airtel Money', amount: actual?.airtel ?? 0, logo: airtelLogoAsset.url as string | null, line: 'airtel_money' as PhoneMoneyLine },
     { label: 'Cash at Hand', amount: actual?.cash ?? 0, logo: null, line: 'cash' as PhoneMoneyLine },
-    { label: 'Money at Bank', amount: actual?.bank ?? 0, logo: null, line: 'bank' as PhoneMoneyLine },
+    { label: 'Money at Bank — Bayo Mercy account', amount: actual?.bank ?? 0, logo: null, line: 'bank' as PhoneMoneyLine },
   ];
 
 
@@ -239,9 +239,9 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
                     formatUGX(actual?.total ?? 0)
                   )}
                 </p>
-                <p className="text-xs text-muted-foreground mt-0.5 ml-7">
-                  MTN + Airtel line balances from email transactions, plus verified cash at hand and money at bank.
-                </p>
+                 <p className="text-xs text-muted-foreground mt-0.5 ml-7">
+                   MTN + Airtel line balances, verified cash at hand, and the balance managed in Bayo Mercy’s bank account.
+                 </p>
               </div>
             </div>
 
