@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import type { EngrepRow } from '@/hr/engrep/types';
+import { AdjudicationCells } from '@/components/hr/engrep/AdjudicationRow';
 
 const SUB_LINE = 'harvested from git at 17:00, Lovable bot author excluded';
 
@@ -15,7 +16,7 @@ const BLIND_WARNING =
   'git config user.email is wrong on a machine and this zone is blind.';
 
 const ROW_SELECT =
-  'id, engineer_code, author_email, commit_subject, migration_bearing, live_verified, zeroed, zero_reason, harvested_at';
+  'id, window_id, engineer_code, author_email, commit_subject, migration_bearing, live_verified, zeroed, zero_reason, harvested_at, band, basis';
 
 // The engrep tables are newer than the generated Supabase types.
 const db = supabase as unknown as { from: (table: string) => any };
@@ -23,6 +24,9 @@ const db = supabase as unknown as { from: (table: string) => any };
 type ZoneBRow = Pick<
   EngrepRow,
   | 'id'
+  | 'window_id'
+  | 'band'
+  | 'basis'
   | 'engineer_code'
   | 'author_email'
   | 'commit_subject'
@@ -208,6 +212,7 @@ export function ZoneBExternalCommits({
                 <td className="whitespace-nowrap px-3 py-2">
                   <LiveCell value={row.live_verified} />
                 </td>
+                <AdjudicationCells row={row} windowId={windowId} />
               </tr>
             ))}
           </tbody>
