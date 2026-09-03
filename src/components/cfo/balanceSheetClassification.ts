@@ -84,6 +84,12 @@ const ASSET_ACCOUNT_MAP: Record<string, string> = {
   A5: 'Cash and Bank Balances',
   A3: 'Receivables from Tenant Products and Services',
   A4: 'Receivables from Agent Products and Services',
+  // A6 and A7 recognise the Welile Homes and promissory note receivables that
+  // previously existed only in the operational sub-ledgers and were disclosed as
+  // memo comparisons. Once the ledger carries them they report here, and the
+  // two categories stop being unsourced placeholders.
+  A6: 'Receivables from Landlord Products and Services',
+  A7: 'Receivables from Partner Products and Services',
 };
 
 
