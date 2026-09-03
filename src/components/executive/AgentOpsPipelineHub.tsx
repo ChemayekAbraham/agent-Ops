@@ -6,11 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Users, FileText, Home, Phone, MapPin, Search, Calendar, XCircle } from 'lucide-react';
+import { Users, FileText, Home, Phone, MapPin, Search, Calendar, XCircle, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { RentPipelineQueue } from './RentPipelineQueue';
 import { PromissoryNotesQueue } from './PromissoryNotesQueue';
 import { RejectedRequestsQueue } from './RejectedRequestsQueue';
+import { AgentOpsApprovedRequestsPanel } from './AgentOpsApprovedRequestsPanel';
 import { NewTenantsWithoutRequestPanel } from './NewTenantsWithoutRequestPanel';
 import { formatLocation, locationHaystack } from '@/lib/locationText';
 
@@ -206,8 +207,10 @@ export function AgentOpsPipelineHub() {
     { value: 'tenants', label: 'Tenants', icon: Users, count: counts?.tenants },
     { value: 'notes', label: 'Promissory Notes', icon: FileText, count: counts?.notes },
     { value: 'landlords', label: 'Landlords', icon: Home, count: counts?.landlords },
+    { value: 'approved', label: 'Approved', icon: CheckCircle2, count: undefined as number | undefined },
     { value: 'rejected', label: 'Rejected', icon: XCircle, count: undefined as number | undefined },
   ];
+
 
   return (
     <Tabs defaultValue="tenants" className="space-y-4">
@@ -231,7 +234,9 @@ export function AgentOpsPipelineHub() {
       </TabsContent>
       <TabsContent value="notes"><PromissoryNotesQueue /></TabsContent>
       <TabsContent value="landlords"><LandlordsPipeline /></TabsContent>
+      <TabsContent value="approved"><AgentOpsApprovedRequestsPanel /></TabsContent>
       <TabsContent value="rejected">
+
         {/* Central correction desk: shows rejections from EVERY stage
             (Agent Ops, Tenant Ops, Landlord Ops, COO, CFO).
             Reopen sends the request directly back to the rejecting stage. */}
