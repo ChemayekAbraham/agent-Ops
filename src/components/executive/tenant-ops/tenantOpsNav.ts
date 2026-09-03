@@ -186,6 +186,16 @@ export const TENANT_OPS_VIEW_KEYS = new Set<string>(TENANT_OPS_SEARCH_INDEX.map(
 export const TENANT_OPS_TRANSIENT_VIEW_KEYS = new Set<string>([
   'tenant-detail',
   'tenant-location-browser',
+  // Relocated to other dashboards (no sidebar entry here any more) but still
+  // reachable from the Extract Center's "open the view" links inside Classic.
+  'history',
+  'agent-allocations',
+  'landlord-float',
+  'landlord-float-timeline',
+  'collect-rent',
+  'advance-requests',
+  'global-verification',
+  'welile-operations',
 ]);
 
 /** Is this a destination the shell may render (sidebar entry or drill-down)? */
