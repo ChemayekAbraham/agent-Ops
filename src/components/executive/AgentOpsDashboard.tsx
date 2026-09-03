@@ -143,6 +143,7 @@ const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; pri
   { key: 'agent-service-centres', icon: Store, label: 'Agent Service Centres', color: 'bg-orange-600' },
   { key: 'agent-products-services', icon: Package, label: 'Agent Products & Services', color: 'bg-amber-600', priority: true },
   { key: 'calling-hub', icon: PhoneCall, label: 'Calling Hub', color: 'bg-sky-600', priority: true },
+  { key: 'tenant-self-repayments', icon: HandCoins, label: 'Tenant Self-Repayments', color: 'bg-emerald-600', priority: true },
 ];
 
 export function AgentOpsDashboard() {
