@@ -1436,8 +1436,8 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                     </div>
                     <div className="text-right shrink-0">
                       <p className="font-bold text-sm">UGX {fmt(req.rent_amount)}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {format(new Date(req.created_at), 'dd MMM yy')}
+                      <p className="text-[10px] text-muted-foreground font-mono">
+                        {format(new Date(req.created_at), 'dd MMM yyyy, HH:mm')}
                       </p>
                     </div>
                   </div>

@@ -373,15 +373,15 @@ export function AgentOpsApprovedRequestsPanel() {
                 </div>
               )}
 
-              <div className="flex items-center gap-3 pt-1 border-t text-[11px] text-muted-foreground">
-                <span className="inline-flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+              <div className="flex items-center gap-3 pt-1 border-t text-[11px] text-muted-foreground font-mono">
+                <span className="inline-flex items-center gap-1 font-sans">
+                  <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
                   Approved{' '}
-                  {r.approved_at ? format(new Date(r.approved_at), 'dd MMM yyyy') : 'date not recorded'}
+                  <span className="font-mono">{r.approved_at ? format(new Date(r.approved_at), 'dd MMM yyyy, HH:mm') : 'date not recorded'}</span>
                 </span>
-                <span className="inline-flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  Submitted {format(new Date(r.created_at), 'dd MMM yyyy')}
+                <span className="inline-flex items-center gap-1 font-sans">
+                  <Calendar className="h-3 w-3 shrink-0" />
+                  Submitted <span className="font-mono">{format(new Date(r.created_at), 'dd MMM yyyy, HH:mm')}</span>
                 </span>
               </div>
             </CardContent>
