@@ -1081,6 +1081,11 @@ export function DirectCreditTool() {
           <ROIPayoutQueue />
         )}
 
+        {/* ── FINANCIAL AGENT REQUISITIONS ── */}
+        {selectedCategoryId === 'operational_expense' && selectedSubCategoryId === 'financial_agent_requisitions' && (
+          <CFOAgentRequisitions />
+        )}
+
         {/* ── MANUAL PAYOUT FORM (non-queue categories) ── */}
         {(!isQueueCategory || (locationRecipients.length > 0 && !isRentDisbursement)) && selectedCategoryId && !needsSubCategory && (
           <>
