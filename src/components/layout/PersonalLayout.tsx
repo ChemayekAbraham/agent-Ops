@@ -120,33 +120,6 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
             </button>
           </div>
 
-          <nav
-            aria-label="My space sections"
-            className="-mx-3 flex gap-1 overflow-x-auto px-3 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:-mx-4 sm:px-4"
-          >
-            {NAV_ITEMS.map((item) => {
-              const active =
-                item.to === '/me'
-                  ? location.pathname === '/me'
-                  : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  aria-current={active ? 'page' : undefined}
-                  className={cn(
-                    'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
-                    active
-                      ? 'border-primary/30 bg-primary/10 text-primary'
-                      : 'border-transparent bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
-                  )}
-                >
-                  <item.icon className="h-3.5 w-3.5" />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
         </div>
       </header>
 
