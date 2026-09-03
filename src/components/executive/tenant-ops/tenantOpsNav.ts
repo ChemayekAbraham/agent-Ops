@@ -22,6 +22,7 @@ import {
   Copy,
   Home,
   FileText,
+  Headphones,
   PhoneCall,
   AlertTriangle,
   type LucideIcon,
@@ -33,7 +34,7 @@ import type { TenantOpsClassicView } from '../TenantOpsDashboard';
  * view keys (so selecting one simply drives `TenantOpsDashboard`) or one of the
  * shell-owned keys below.
  */
-export type TenantOpsShellOnlyView = 'home' | 'phone-duplicates' | 'calling-hub';
+export type TenantOpsShellOnlyView = 'home' | 'phone-duplicates' | 'calling-hub' | 'calling-center';
 export type TenantOpsViewKey = TenantOpsShellOnlyView | TenantOpsClassicView;
 
 /** Actions that are not views — they open a sheet or leave the dashboard. */
@@ -80,6 +81,7 @@ export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
       { key: 'pipeline', label: 'Review Requests', icon: ClipboardList, keywords: ['approve', 'vet', 'queue', 'pipeline'] },
       { key: 'daily', label: 'Daily Payments', icon: CalendarCheck, keywords: ['today', 'paid', 'unpaid'] },
       { key: 'calling-hub', label: 'Calling Hub', icon: PhoneCall, keywords: ['call', 'calls', 'phone', 'follow up', 'pending', 'closed', 'missed calls'] },
+      { key: 'calling-center', label: 'Calling Center', icon: Headphones, keywords: ['call centre', 'call center', 'dial', 'auto call', 'sequential', 'live call', 'voice'] },
       { key: 'missed', label: 'Missed Days', icon: CalendarX2, keywords: ['behind', 'arrears', 'late'] },
       { key: 'backlog-analysis', label: 'Backlog Analysis', icon: AlertTriangle, keywords: ['overdue', 'backlog', 'arrears', 'recovery', 'ageing', 'aging'] },
       { key: 'behavior', label: 'Tenant Behavior', icon: Activity, keywords: ['risk', 'score', 'patterns'] },
