@@ -11555,6 +11555,33 @@ export type Database = {
           },
         ]
       }
+      engrep_catalog_snapshot: {
+        Row: {
+          captured_at: string
+          captured_for: string
+          fingerprint: string
+          id: number
+          object_key: string
+          object_kind: string
+        }
+        Insert: {
+          captured_at?: string
+          captured_for: string
+          fingerprint: string
+          id?: number
+          object_key: string
+          object_kind: string
+        }
+        Update: {
+          captured_at?: string
+          captured_for?: string
+          fingerprint?: string
+          id?: number
+          object_key?: string
+          object_kind?: string
+        }
+        Relationships: []
+      }
       engrep_engineers: {
         Row: {
           active: boolean
@@ -44826,6 +44853,15 @@ export type Database = {
       enforce_recipient_routing: {
         Args: { p_amount: number; p_recipient_type: string; p_user_id: string }
         Returns: Json
+      }
+      engrep_capture_catalog: { Args: { p_day?: string }; Returns: number }
+      engrep_catalog_delta: {
+        Args: { p_day: string }
+        Returns: {
+          change: string
+          object_key: string
+          object_kind: string
+        }[]
       }
       engrep_is_adjudicator: { Args: never; Returns: boolean }
       enqueue_agent_capability_job: {
