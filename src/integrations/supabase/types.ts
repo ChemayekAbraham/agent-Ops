@@ -51274,6 +51274,8 @@ export type Database = {
           agent_id: string
           amount_repaid: number
           daily_repayment: number
+          days_elapsed: number
+          expected_due: number
           landlord_id: string
           landlord_name: string
           other_active_plans: number
