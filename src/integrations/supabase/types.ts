@@ -11592,8 +11592,22 @@ export type Database = {
             foreignKeyName: "engrep_addenda_row_id_fkey"
             columns: ["row_id"]
             isOneToOne: false
+            referencedRelation: "engrep_my_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_addenda_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: false
             referencedRelation: "engrep_rows"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_addenda_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_window_summary"
+            referencedColumns: ["window_id"]
           },
           {
             foreignKeyName: "engrep_addenda_window_id_fkey"
@@ -11770,8 +11784,22 @@ export type Database = {
             foreignKeyName: "engrep_rows_self_fix_of_fkey"
             columns: ["self_fix_of"]
             isOneToOne: false
+            referencedRelation: "engrep_my_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_rows_self_fix_of_fkey"
+            columns: ["self_fix_of"]
+            isOneToOne: false
             referencedRelation: "engrep_rows"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_rows_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_window_summary"
+            referencedColumns: ["window_id"]
           },
           {
             foreignKeyName: "engrep_rows_window_id_fkey"
@@ -11817,6 +11845,13 @@ export type Database = {
           window_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "engrep_unclaimed_objects_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_window_summary"
+            referencedColumns: ["window_id"]
+          },
           {
             foreignKeyName: "engrep_unclaimed_objects_window_id_fkey"
             columns: ["window_id"]
@@ -40359,6 +40394,17 @@ export type Database = {
           },
         ]
       }
+      engrep_banded_rollup: {
+        Row: {
+          band: Database["public"]["Enums"]["hr_difficulty_band"] | null
+          engineer_code: string | null
+          granularity: string | null
+          period_end: string | null
+          period_start: string | null
+          rows_banded: number | null
+        }
+        Relationships: []
+      }
       engrep_claimed_not_live: {
         Row: {
           author_email: string | null
@@ -40404,10 +40450,60 @@ export type Database = {
             foreignKeyName: "engrep_rows_window_id_fkey"
             columns: ["window_id"]
             isOneToOne: false
+            referencedRelation: "engrep_window_summary"
+            referencedColumns: ["window_id"]
+          },
+          {
+            foreignKeyName: "engrep_rows_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
             referencedRelation: "engrep_windows"
             referencedColumns: ["id"]
           },
         ]
+      }
+      engrep_my_rows: {
+        Row: {
+          adjudicated_at: string | null
+          band: Database["public"]["Enums"]["hr_difficulty_band"] | null
+          basis: string | null
+          change_classes: string[] | null
+          claims_schema: boolean | null
+          commit_subject: string | null
+          evidence_ref: string | null
+          granularity: string | null
+          id: string | null
+          live_verified: string | null
+          period_end: string | null
+          period_start: string | null
+          source: string | null
+          status: string | null
+          zero_reason: string | null
+          zeroed: boolean | null
+        }
+        Relationships: []
+      }
+      engrep_window_summary: {
+        Row: {
+          claiming_schema: number | null
+          distinct_author_emails: number | null
+          external_commits: number | null
+          fenced_breaches: number | null
+          granularity: string | null
+          harvested_at: string | null
+          live_verified: number | null
+          locked_at: string | null
+          lovable_edits: number | null
+          period_end: string | null
+          period_start: string | null
+          self_fixes: number | null
+          status: string | null
+          unadjudicated: number | null
+          untagged: number | null
+          window_id: string | null
+          zeroed: number | null
+        }
+        Relationships: []
       }
       landlords_directory: {
         Row: {
