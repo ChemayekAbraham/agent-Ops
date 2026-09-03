@@ -233,7 +233,9 @@ export function AgentOpsPipelineHub() {
       </TabsContent>
       <TabsContent value="notes"><PromissoryNotesQueue /></TabsContent>
       <TabsContent value="landlords"><LandlordsPipeline /></TabsContent>
+      <TabsContent value="approved"><AgentOpsApprovedRequestsPanel /></TabsContent>
       <TabsContent value="rejected">
+
         {/* Central correction desk: shows rejections from EVERY stage
             (Agent Ops, Tenant Ops, Landlord Ops, COO, CFO).
             Reopen sends the request directly back to the rejecting stage. */}
