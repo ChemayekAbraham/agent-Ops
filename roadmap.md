@@ -16,3 +16,5 @@
 - [x] SelfPortfolioFundingCard: default feed order Houses first; toggle reordered accordingly.
 - [x] Tenant "Kyeyune Agibu": cleared orphaned self-support reservation so CFO landlord-float disbursement is eligible; no money moved.
 - [ ] Fix preview typecheck errors in AgentOpsApprovedRequestsPanel.tsx and RentPipelineQueue.tsx.
+- [ ] Partner Ops overview: Returns projection card at 50% width with a self-supported vs company-supported portfolio doughnut beside it.
+- [ ] Scope fence 7: four verbatim edits to src/hr/pay/PayRuns.tsx (ArrearsPanel wiring).
