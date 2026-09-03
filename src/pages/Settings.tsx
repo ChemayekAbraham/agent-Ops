@@ -9,9 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, User, Phone, Mail, Save, Loader2, Camera, Shield, Home, Users, Wallet, Building2, Check, Type, Vibrate, RotateCcw, LogIn, Volume2, Scale, Lock, Eye, EyeOff, Settings as SettingsIcon, Palette, ShieldCheck, Globe, DollarSign, Zap, Smartphone, Clock, Wind, Bell, ChevronRight, ChevronDown, Accessibility } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useLanguage } from '@/hooks/useLanguage';
+
 import { useCurrency, currencies as ALL_CURRENCIES } from '@/hooks/useCurrency';
-import { Language, languageNames, languageFlags } from '@/i18n/translations';
+
 import { useHapticSettings, hapticIntensityOptions } from '@/hooks/useHapticSettings';
 import { useReducedMotion, reducedMotionOptions } from '@/hooks/useCombinedSettings';
 import { hapticSelection } from '@/lib/haptics';
@@ -188,7 +188,7 @@ type SettingsSection = 'account' | 'appearance' | 'notifications' | 'accessibili
 
 const SECTIONS: { id: SettingsSection; label: string; icon: typeof User; helper: string }[] = [
   { id: 'account', label: 'Personal Information', icon: User, helper: 'Profile, contact, withdrawal and sign-in' },
-  { id: 'appearance', label: 'Appearance', icon: Palette, helper: 'Theme, language and currency' },
+  { id: 'appearance', label: 'Appearance', icon: Palette, helper: 'Theme and currency' },
   { id: 'notifications', label: 'Notifications', icon: Bell, helper: 'Push alerts and sounds' },
   { id: 'accessibility', label: 'Accessibility', icon: Accessibility, helper: 'Text size, motion, vibration and contrast' },
   { id: 'security', label: 'Safety', icon: ShieldCheck, helper: 'PIN, biometrics, devices and alerts' },
@@ -214,7 +214,6 @@ export default function Settings() {
   const { intensity: hapticIntensity, setIntensity: setHapticIntensity } = useHapticSettings();
   const { reducedMotion, setReducedMotion } = useReducedMotion();
   const { preferences, updatePreference } = useAppPreferences();
-  const { language, setLanguage } = useLanguage();
   const { currency, setCurrency } = useCurrency();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -291,7 +290,7 @@ export default function Settings() {
   const [vibrationOpen, setVibrationOpen] = useState(false);
   const [motionOpen, setMotionOpen] = useState(false);
   const [soundOpen, setSoundOpen] = useState(false);
-  const [languageOpen, setLanguageOpen] = useState(false);
+
 
 
 
@@ -418,7 +417,7 @@ export default function Settings() {
         <title>Account Settings | Welile</title>
         <meta
           name="description"
-          content="Manage your Welile account settings — profile, security, language, currency, notifications, and app preferences in one place."
+          content="Manage your Welile account settings — profile, security, currency, notifications, and app preferences in one place."
         />
         <link rel="canonical" href="https://welileapp.com/settings" />
         <meta property="og:title" content="Account Settings | Welile" />
