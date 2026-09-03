@@ -16,7 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { CheckCircle2, XCircle, Clock, MapPin, User, UserCheck, Home, Banknote, ArrowRight, ArrowRightLeft, Loader2, Search, MessageCircle, Phone, Pencil, Check, X, PhoneCall, ShieldCheck, AlertCircle, Image as ImageIcon, Camera, Cloud, HardDrive, RotateCcw } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, MapPin, User, UserCheck, Home, Banknote, ArrowRight, ArrowRightLeft, Loader2, Search, MessageCircle, Phone, Pencil, Check, X, PhoneCall, ShieldCheck, AlertCircle, Image as ImageIcon, Camera, Cloud, HardDrive, RotateCcw, ArrowUpDown } from 'lucide-react';
 import { calculateRentRepayment } from '@/lib/rentCalculations';
 import { formatTenantSync } from '@/lib/tenantFilterSyncFormat';
 import { formatLocation, locationHaystack } from '@/lib/locationText';
@@ -220,6 +220,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [quickProcessingId, setQuickProcessingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
@@ -685,12 +686,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       }
 
       const { data, error: queueError } = await query
-        // FIFO by latest activity — most recently bumped/resubmitted/approved-into-stage first
-        .order('resubmitted_at', { ascending: false, nullsFirst: false })
-        .order('updated_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
-        // Raised from 100: the pending stage alone holds 200+ requests, so the
-        // queue was hiding more than half of the work.
         .limit(1000);
       if (queueError) throw queueError;
 
@@ -814,22 +810,28 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
     ).values(),
   ).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
-  const filtered = rows.filter(r => {
-    if (selectedTenantId !== 'all' && r.tenant_id !== selectedTenantId) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      return (
-        r.tenant_name.toLowerCase().includes(q) ||
-        r.landlord_name.toLowerCase().includes(q) ||
-        r.agent_name.toLowerCase().includes(q) ||
-        (r.tenant_phone || '').includes(q) ||
-        (r.landlord_phone || '').includes(q) ||
-        // District / village / parish / sub-county / free-text address
-        (r.location_search || '').includes(q)
-      );
-    }
-    return true;
-  });
+  const filtered = rows
+    .filter(r => {
+      if (selectedTenantId !== 'all' && r.tenant_id !== selectedTenantId) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        return (
+          r.tenant_name.toLowerCase().includes(q) ||
+          r.landlord_name.toLowerCase().includes(q) ||
+          r.agent_name.toLowerCase().includes(q) ||
+          (r.tenant_phone || '').includes(q) ||
+          (r.landlord_phone || '').includes(q) ||
+          // District / village / parish / sub-county / free-text address
+          (r.location_search || '').includes(q)
+        );
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const tsA = new Date(a.created_at).getTime();
+      const tsB = new Date(b.created_at).getTime();
+      return sortOrder === 'desc' ? tsB - tsA : tsA - tsB;
+    });
 
   const handleApprove = async (decision?: FunderVisibilityDecision) => {
     if (!selectedRequest || !user) return;
@@ -1293,6 +1295,17 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
               className="pl-9 h-9 text-sm"
             />
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+            className="h-9 gap-1.5 text-xs shrink-0 border-border"
+            title={sortOrder === 'desc' ? 'Sorted by Date (Newest first)' : 'Sorted by Date (Oldest first)'}
+          >
+            <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+            <span>{sortOrder === 'desc' ? 'Newest first' : 'Oldest first'}</span>
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="p-0">
