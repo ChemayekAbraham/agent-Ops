@@ -108,12 +108,9 @@ export function WalletCard() {
               <div className="p-2.5 rounded-xl bg-primary-foreground/15">
                 <Wallet className="h-5 w-5" />
               </div>
-              <div>
-                <span className="font-semibold text-sm tracking-wide uppercase opacity-90">Wallet Balance</span>
-                <div className="mt-0.5 flex items-center gap-2">
-                  <WalletBreakdown />
-                  <WalletStatement />
-                </div>
+              <div className="flex items-center gap-2">
+                <WalletBreakdown />
+                <WalletStatement />
               </div>
             </div>
             <Button 
