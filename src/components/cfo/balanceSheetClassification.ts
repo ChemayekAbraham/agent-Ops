@@ -441,7 +441,13 @@ export function expandIntangibleAssets(
     if (g.label !== INTANGIBLE_ASSETS_LABEL) return [g];
     const value = g.value + added;
     return [
-      { ...g, value, lines: [...g.lines, ...legacy], components, heading: true, depth: 0 },
+      // The reclassified legacy balances are a real ledger source for this
+      // category, so it is no longer an unsourced placeholder once they land.
+      {
+        ...g, value, lines: [...g.lines, ...legacy], components,
+        unsourced: g.unsourced && legacy.length === 0,
+        heading: true, depth: 0,
+      },
       { label: INTANGIBLE_ASSETS_TOTAL_LABEL, value, lines: [], subtotal: true, depth: 0 },
     ];
   });
