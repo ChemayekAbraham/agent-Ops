@@ -198,33 +198,44 @@ export function TenantCallingCenter() {
   );
 
   return (
-    <div className="space-y-3 pb-32 sm:pb-28">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-base font-bold">
-          <Headphones className="h-4 w-4 text-primary" />
-          Tenant Calling Center
-        </h2>
+    <div className="space-y-4 pb-32 sm:pb-28">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-3 sm:p-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="rounded-xl bg-primary/15 p-2 text-primary">
+            <Headphones className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-sm font-bold sm:text-base">Tenant Calling Center</h2>
+            <p className="text-[11px] leading-snug text-muted-foreground">
+              Same tenants, statuses and history as the Calling Hub, with attended sequential dialling.
+            </p>
+          </div>
+        </div>
         {runBadge}
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as CenterTab)}>
         {/* Same tab chrome as the Calling Hub: wrap, never truncate. */}
-        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1.5 rounded-xl border border-border bg-muted/30 p-1.5">
           {([
-            ['overview', 'Overview'],
-            ['queue', 'Work Queue'],
-            ['live', 'Live Call'],
-            ['history', 'History'],
-            ['settings', 'Settings'],
-          ] as [CenterTab, string][]).map(([key, label]) => (
+            ['overview', 'Overview', LayoutDashboard],
+            ['queue', 'Work Queue', ListChecks],
+            ['live', 'Live Call', PhoneCall],
+            ['history', 'History', History],
+            ['settings', 'Settings', Settings2],
+          ] as [CenterTab, string, typeof Phone][]).map(([key, label, Icon]) => (
             <TabsTrigger
               key={key}
               value={key}
-              className="h-8 shrink-0 gap-1.5 whitespace-nowrap px-2 text-xs data-[state=active]:bg-muted"
+              className="h-9 shrink-0 gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
             >
+              <Icon className="h-3.5 w-3.5" />
               {label}
               {key === 'queue' && (
-                <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                <Badge
+                  variant="secondary"
+                  className="px-1.5 py-0 text-[10px] data-[state=active]:bg-primary-foreground/20"
+                >
                   {hub.counts[queueState]}
                 </Badge>
               )}
@@ -233,32 +244,45 @@ export function TenantCallingCenter() {
         </TabsList>
 
         {/* ------------------------------------------------------ Overview */}
-        <TabsContent value="overview" className="mt-3 space-y-3">
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
+        <TabsContent value="overview" className="mt-4 space-y-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5">
             {CALLING_TABS.map((t) => (
-              <Card key={t.key} className="rounded-xl border-border/60 p-3">
-                <p className="text-[11px] text-muted-foreground">{t.label}</p>
-                <p className="text-lg font-bold tabular-nums">{hub.counts[t.key]}</p>
-              </Card>
+              <KPICard
+                key={t.key}
+                title={t.label}
+                value={hub.counts[t.key]}
+                icon={TAB_ICON[t.key] ?? Phone}
+                color={TAB_ACCENT[t.key] ?? 'bg-primary/10 text-primary'}
+                onClick={() => {
+                  setQueueState(t.key);
+                  setTab('queue');
+                }}
+              />
             ))}
           </div>
 
-          <Card className="rounded-2xl border-border/60 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="text-xs font-bold">
-                  {hub.cycle ? `Cycle #${hub.cycle.cycle_no}` : 'No open calling cycle'}
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  {hub.cycle
-                    ? `Open attempts ${hub.openCount}${hub.wipLimit != null ? ` of ${hub.wipLimit}` : ''} · retry after ${hub.cycle.retry_after_days} days`
-                    : 'Open a cycle from the Calling Hub cycle controls to start working the roster.'}
-                </p>
+          <Card className="overflow-hidden">
+            <CardContent className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="rounded-xl bg-emerald-500/10 p-2 text-emerald-600">
+                  <PhoneOutgoing className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold">
+                    {hub.cycle ? `Cycle #${hub.cycle.cycle_no}` : 'No open calling cycle'}
+                  </p>
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    {hub.cycle
+                      ? `Open attempts ${hub.openCount}${hub.wipLimit != null ? ` of ${hub.wipLimit}` : ''} · retry after ${hub.cycle.retry_after_days} days`
+                      : 'Open a cycle from the Calling Hub cycle controls to start working the roster.'}
+                  </p>
+                </div>
               </div>
-              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setTab('queue')}>
+              <Button size="sm" className="h-9 text-xs" onClick={() => setTab('queue')}>
                 Go to work queue
+                <ChevronRight className="ml-1 h-3.5 w-3.5" />
               </Button>
-            </div>
+            </CardContent>
           </Card>
 
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -266,6 +290,7 @@ export function TenantCallingCenter() {
             <FollowupsDuePanel hub={hub} />
           </div>
         </TabsContent>
+
 
         {/* --------------------------------------------------- Work Queue */}
         <TabsContent value="queue" className="mt-3 space-y-3">
