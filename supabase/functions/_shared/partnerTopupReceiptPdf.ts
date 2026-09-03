@@ -34,7 +34,7 @@ const PAGE_BG = rgb(0.965, 0.969, 0.98); // #F6F7FA
 const WHITE = rgb(1, 1, 1);
 
 const PAGE_W = 460;
-const PAGE_H = 700;
+const PAGE_H = 648;
 const CARD_X = 14;
 const CARD_W = PAGE_W - CARD_X * 2;
 const PAD = 22;
@@ -125,7 +125,7 @@ export async function renderPartnershipTopupReceipt(data: PartnerTopupReceiptDat
   // 1. Header
   text("WELILE", LEFT, y, 17, bold, PURPLE);
   const badgeLabel = "Top-Up Approved";
-  const badgeW = bold.widthOfTextAtSize(badgeLabel, 8) + 30;
+  const badgeW = bold.widthOfTextAtSize(badgeLabel, 8) + 22;
   page.drawRectangle({
     x: RIGHT - badgeW,
     y: y - 4,
@@ -135,8 +135,7 @@ export async function renderPartnershipTopupReceipt(data: PartnerTopupReceiptDat
     borderColor: GREEN_BORDER,
     borderWidth: 1,
   });
-  text("OK", RIGHT - badgeW + 8, y + 2, 8, bold, GREEN);
-  text(badgeLabel, RIGHT - badgeW + 22, y + 2, 8, bold, GREEN);
+  text(badgeLabel, RIGHT - badgeW + 11, y + 2, 8, bold, GREEN);
 
   y -= 26;
   text("Partner Top-Up Receipt", LEFT, y, 15, bold, INK);
@@ -238,7 +237,7 @@ export async function renderPartnershipTopupReceipt(data: PartnerTopupReceiptDat
   field("Review Notes", "Top-up funds", COL2, y, { size: 9, color: SLATE });
 
   // 4. Footer
-  const footerH = 96;
+  const footerH = 112;
   const footerTop = 14 + footerH;
   page.drawRectangle({ x: CARD_X + 1, y: 15, width: CARD_W - 2, height: footerH, color: FOOTER_BG });
   hLine(footerTop, LINE);
@@ -255,7 +254,7 @@ export async function renderPartnershipTopupReceipt(data: PartnerTopupReceiptDat
     fy -= 12;
   }
 
-  fy -= 8;
+  fy -= 20;
   page.drawRectangle({
     x: LEFT,
     y: fy - 14,
