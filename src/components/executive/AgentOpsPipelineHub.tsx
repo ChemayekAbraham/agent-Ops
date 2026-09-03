@@ -208,7 +208,12 @@ export function AgentOpsPipelineHub() {
         supabase.from('rent_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
         supabase.from('promissory_notes').select('id', { count: 'exact', head: true }).in('status', ['pending', 'activated']),
         supabase.from('rent_requests').select('landlord_id').not('status', 'in', '("funded","rejected","cancelled")').not('landlord_id', 'is', null),
-        supabase.from('rent_requests').select('id', { count: 'exact', head: true }).in('status', APPROVED_STATUS_LIST),
+        supabase
+          .from('rent_requests')
+          .select('id', { count: 'exact', head: true })
+          .or(`agent_verified.eq.true,agent_verified_at.not.is.null,agent_ops_reviewed_at.not.is.null,status.in.(${APPROVED_STATUS_LIST.map((s) => `"${s}"`).join(',')})`)
+          .neq('status', 'rejected')
+          .neq('status', 'cancelled'),
         supabase.from('rent_requests').select('id', { count: 'exact', head: true }).eq('status', 'rejected'),
       ]);
       const uniqueLandlords = new Set(landlordsData.data?.map((r: any) => r.landlord_id)).size;

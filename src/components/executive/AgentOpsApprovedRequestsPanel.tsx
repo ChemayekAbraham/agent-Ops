@@ -30,6 +30,8 @@ const APPROVED_STATUSES = [
 ];
 
 const STAGE_LABEL: Record<string, string> = {
+  pending: 'Field Verified',
+  service_center_review: 'Service Center Check',
   agent_ops_approved: 'Tenant Ops review',
   agent_verified: 'Tenant Ops review',
   tenant_ops_approved: 'Landlord Ops review',
@@ -117,9 +119,11 @@ export function AgentOpsApprovedRequestsPanel() {
         const { data: chunk, error } = await supabase
           .from('rent_requests')
           .select(
-            'id, status, tenancy_status, registration_type, rent_amount, daily_repayment, duration_days, total_repayment, amount_repaid, access_fee, request_fee, created_at, approved_at, funded_at, disbursed_at, resubmitted_at, returned_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, partner_ops_reviewed_at, coo_reviewed_at, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, approval_comment, payout_transaction_reference, tenant_id, agent_id, assigned_agent_id, landlord_id, house_listing_id, request_city',
+            'id, status, tenancy_status, registration_type, rent_amount, daily_repayment, duration_days, total_repayment, amount_repaid, access_fee, request_fee, created_at, approved_at, funded_at, disbursed_at, resubmitted_at, returned_at, agent_verified, agent_verified_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, partner_ops_reviewed_at, coo_reviewed_at, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, approval_comment, payout_transaction_reference, tenant_id, agent_id, assigned_agent_id, landlord_id, house_listing_id, request_city',
           )
-          .in('status', APPROVED_STATUSES)
+          .or(`agent_verified.eq.true,agent_verified_at.not.is.null,agent_ops_reviewed_at.not.is.null,status.in.(${APPROVED_STATUSES.join(',')})`)
+          .neq('status', 'rejected')
+          .neq('status', 'cancelled')
           .order('created_at', { ascending: false })
           .range(fromIdx, fromIdx + PAGE - 1);
         if (error) throw error;
@@ -166,7 +170,7 @@ export function AgentOpsApprovedRequestsPanel() {
         const agent_name = agent?.full_name || '—';
         const house_title = house?.title || 'Residential Unit';
         const house_address = [house?.address, house?.village, house?.district].filter(Boolean).join(', ') || r.request_city || '—';
-        const effectiveApprovalDate = r.agent_ops_reviewed_at || r.approved_at || null;
+        const effectiveApprovalDate = r.agent_ops_reviewed_at || r.approved_at || r.agent_verified_at || null;
 
         const totalRepay = Number(r.total_repayment) || 0;
         const repaid = Number(r.amount_repaid) || 0;
