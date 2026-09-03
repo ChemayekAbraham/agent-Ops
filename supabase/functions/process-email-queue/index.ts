@@ -98,15 +98,19 @@ async function sendViaMailgun(
   cfg: MailgunConfig
 ): Promise<void> {
   const hasAttachment = Boolean(payload.attachment?.content_base64 && payload.attachment.filename)
-  const form = hasAttachment ? new FormData() : new URLSearchParams()
-  form.set('from', payload.from)
-  form.set('to', payload.to)
-  form.set('subject', payload.subject ?? '')
-  if (payload.html) form.set('html', payload.html)
-  if (payload.text) form.set('text', payload.text)
-  if (payload.reply_to) form.set('h:Reply-To', payload.reply_to)
-  if (payload.bcc) form.set('bcc', payload.bcc)
+  let body: BodyInit
+  const headers: Record<string, string> = {
+    Authorization: `Basic ${btoa(`api:${cfg.apiKey}`)}`,
+  }
   if (hasAttachment && payload.attachment) {
+    const form = new FormData()
+    form.set('from', payload.from)
+    form.set('to', payload.to)
+    form.set('subject', payload.subject ?? '')
+    if (payload.html) form.set('html', payload.html)
+    if (payload.text) form.set('text', payload.text)
+    if (payload.reply_to) form.set('h:Reply-To', payload.reply_to)
+    if (payload.bcc) form.set('bcc', payload.bcc)
     const binary = atob(payload.attachment.content_base64)
     const bytes = new Uint8Array(binary.length)
     for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
@@ -115,15 +119,24 @@ async function sendViaMailgun(
       new File([bytes], payload.attachment.filename, { type: payload.attachment.content_type || 'application/pdf' }),
       payload.attachment.filename,
     )
+    body = form
+  } else {
+    const form = new URLSearchParams()
+    form.set('from', payload.from)
+    form.set('to', payload.to)
+    form.set('subject', payload.subject ?? '')
+    if (payload.html) form.set('html', payload.html)
+    if (payload.text) form.set('text', payload.text)
+    if (payload.reply_to) form.set('h:Reply-To', payload.reply_to)
+    if (payload.bcc) form.set('bcc', payload.bcc)
+    headers['Content-Type'] = 'application/x-www-form-urlencoded'
+    body = form
   }
 
   const res = await fetch(`${cfg.baseUrl}/v3/${cfg.domain}/messages`, {
     method: 'POST',
-    headers: {
-      Authorization: `Basic ${btoa(`api:${cfg.apiKey}`)}`,
-      ...(hasAttachment ? {} : { 'Content-Type': 'application/x-www-form-urlencoded' }),
-    },
-    body: form,
+    headers,
+    body,
   })
 
   if (!res.ok) {
