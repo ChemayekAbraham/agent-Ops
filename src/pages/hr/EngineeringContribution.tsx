@@ -124,6 +124,13 @@ export default function EngineeringContribution() {
               {zone.key === 'a' && (
                 <ZoneALovableEdits windowId={summary?.window_id ?? null} />
               )}
+              {zone.key === 'b' && (
+                <ZoneBExternalCommits
+                  windowId={summary?.window_id ?? null}
+                  distinctAuthorEmails={summary?.distinct_author_emails ?? null}
+                />
+              )}
+
               {!canAdjudicate && (
                 <p className="text-xs text-muted-foreground">{RESTRICTED_NOTE}</p>
               )}
