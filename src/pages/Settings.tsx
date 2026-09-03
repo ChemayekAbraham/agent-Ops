@@ -672,9 +672,11 @@ export default function Settings() {
                       <LazySection name="ArchivedPdfs"><ArchivedPdfsCard /></LazySection>
                     </div>
                   )}
-                </div>
+                  </div>
+                )}
               </div>
             )}
+
 
             {activeSection === 'roles' && (
               <div className="space-y-4">
