@@ -11691,6 +11691,7 @@ export type Database = {
           band: Database["public"]["Enums"]["hr_difficulty_band"] | null
           basis: string | null
           change_classes: string[]
+          claimed_objects: string[]
           claims_schema: boolean
           commit_subject: string
           engineer_code: string | null
@@ -11718,6 +11719,7 @@ export type Database = {
           band?: Database["public"]["Enums"]["hr_difficulty_band"] | null
           basis?: string | null
           change_classes?: string[]
+          claimed_objects?: string[]
           claims_schema?: boolean
           commit_subject: string
           engineer_code?: string | null
@@ -11745,6 +11747,7 @@ export type Database = {
           band?: Database["public"]["Enums"]["hr_difficulty_band"] | null
           basis?: string | null
           change_classes?: string[]
+          claimed_objects?: string[]
           claims_schema?: boolean
           commit_subject?: string
           engineer_code?: string | null
@@ -45231,6 +45234,7 @@ export type Database = {
         Args: {
           p_author_email?: string
           p_change_classes?: string[]
+          p_claimed_objects?: string[]
           p_claims_schema?: boolean
           p_commit_subject: string
           p_engineer_code?: string
