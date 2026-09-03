@@ -117,4 +117,5 @@ export interface EngrepIngestInput {
   fencePath?: string | null;
   selfFix?: boolean;
   selfFixOf?: string | null;
+  claimedObjects?: string[];
 }
