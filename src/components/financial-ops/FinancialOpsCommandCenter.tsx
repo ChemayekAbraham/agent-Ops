@@ -887,15 +887,11 @@ function FinOpsHome({
           desc={`${queues?.depositsPending ?? 0} deposit${(queues?.depositsPending ?? 0) === 1 ? '' : 's'} awaiting verification.`}
         />
         <MajorActionButton
-          onClick={() => onOpenTool('stale_withdrawal_holds')}
-          icon={AlertTriangle}
-          tone="rose"
-          title="Stale Holds"
-          desc={
-            (staleHolds?.count ?? 0) > 0
-              ? `${staleHolds?.count} stuck hold${(staleHolds?.count ?? 0) === 1 ? '' : 's'} blocking balances.`
-              : '0 stuck withdrawal holds.'
-          }
+          onClick={() => onOpenTool('withdrawals')}
+          icon={Banknote}
+          tone="blue"
+          title="Payout Queue"
+          desc={`${queues?.payoutsPending ?? 0} withdrawal${(queues?.payoutsPending ?? 0) === 1 ? '' : 's'} pending payout.`}
         />
         <MajorActionButton
           onClick={() => onOpenTool('merchant_float')}
