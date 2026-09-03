@@ -100,8 +100,8 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
   const { data, isLoading, isFetching, refetch, error } = useTenantPipelineHubData();
   const { user, role } = useAuth();
 
-  const [presetKey, setPresetKey] = useState('30d');
-  const [range, setRange] = useState<{ from: Date; to: Date }>(() => PRESETS[2].make());
+  const [presetKey, setPresetKey] = useState('today');
+  const [range, setRange] = useState<{ from: Date; to: Date }>(() => PRESETS[0].make());
   const [dateBasis, setDateBasis] = useState<DateBasis>('created_at');
   const [statusKey, setStatusKey] = useState(() =>
     initialStatusKey && PIPELINE_STATUS_GROUPS.some((g) => g.key === initialStatusKey)

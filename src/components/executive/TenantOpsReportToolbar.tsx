@@ -46,7 +46,7 @@ export function TenantOpsReportToolbar({
   tool, status = 'all', search = '', visibleCount, fileSlug, className,
 }: Props) {
   const { user } = useAuth();
-  const [preset, setPreset] = useState<Preset>('30d');
+  const [preset, setPreset] = useState<Preset>('today');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [exporting, setExporting] = useState(false);
