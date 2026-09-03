@@ -68,7 +68,7 @@ export function CapitalRoutesSection({ className }: { className?: string }) {
       </div>
 
       {/* Route cards */}
-      <div className="grid scroll-mt-[clamp(14px,4vw,32px)] grid-cols-3 gap-[clamp(8px,2vw,20px)]">
+      <div className="grid scroll-mt-[clamp(14px,4vw,32px)] grid-cols-1 gap-[clamp(8px,2vw,20px)]">
         {routes.map((route) => (
           <button
             key={route.key}
