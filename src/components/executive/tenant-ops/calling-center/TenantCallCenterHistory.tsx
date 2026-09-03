@@ -106,24 +106,21 @@ export function TenantCallCenterHistory({ showKpis = true }: { showKpis?: boolea
   return (
     <div className="space-y-3">
       {showKpis && (
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
           {[
-            { label: 'Calls attempted', value: kpis.total },
-            { label: 'Answered', value: kpis.answered },
-            { label: 'Answer rate', value: `${kpis.answerRate}%` },
-            { label: 'Awaiting outcome', value: kpis.open },
+            { label: 'Calls attempted', value: kpis.total, icon: PhoneCall, color: 'bg-primary/10 text-primary' },
+            { label: 'Answered', value: kpis.answered, icon: PhoneIncoming, color: 'bg-emerald-500/10 text-emerald-600' },
+            { label: 'Answer rate', value: `${kpis.answerRate}%`, icon: PercentCircle, color: 'bg-sky-500/10 text-sky-600' },
+            { label: 'Awaiting outcome', value: kpis.open, icon: Clock3, color: 'bg-amber-500/10 text-amber-600' },
           ].map((k) => (
-            <Card key={k.label} className="rounded-xl border-border/60 p-3">
-              <p className="text-[11px] text-muted-foreground">{k.label}</p>
-              <p className="text-lg font-bold tabular-nums">{k.value}</p>
-            </Card>
+            <KPICard key={k.label} title={k.label} value={k.value} icon={k.icon} color={k.color} loading={isLoading} />
           ))}
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-muted/30 p-3">
         <Select value={String(days)} onValueChange={(v) => setDays(Number(v))}>
-          <SelectTrigger className="h-8 w-[140px] text-xs">
+          <SelectTrigger className="h-9 w-full text-xs sm:w-[150px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -134,71 +131,93 @@ export function TenantCallCenterHistory({ showKpis = true }: { showKpis?: boolea
             ))}
           </SelectContent>
         </Select>
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search tenant, officer, category or comment"
-          className="h-8 w-full text-xs sm:max-w-xs"
-        />
-        <Button variant="outline" size="sm" className="h-8 text-xs" onClick={download} disabled={!rows.length}>
-          <Download className="mr-1 h-3 w-3" />
+        <div className="relative min-w-[220px] flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search tenant, officer, category or comment"
+            className="h-9 w-full pl-9 text-xs"
+          />
+        </div>
+        <Badge variant="secondary" className="h-7 text-[10px]">
+          {rows.length.toLocaleString()} shown
+        </Badge>
+        <Button variant="outline" size="sm" className="h-9 text-xs font-semibold" onClick={download} disabled={!rows.length}>
+          <Download className="mr-1.5 h-3.5 w-3.5" />
           CSV
         </Button>
       </div>
 
-      <Card className="min-w-0 overflow-x-auto rounded-2xl border-border/60 p-2 sm:p-3">
-        {isLoading ? (
-          <div className="space-y-2">
-            <Skeleton className="h-6 w-full" />
-            <Skeleton className="h-6 w-full" />
-            <Skeleton className="h-6 w-full" />
-          </div>
-        ) : !rows.length ? (
-          <p className="p-6 text-center text-xs text-muted-foreground">No tenant calls in this window.</p>
-        ) : (
-          <table className="w-full min-w-[760px] text-xs">
-            <thead>
-              <tr className="border-b text-left text-[11px] text-muted-foreground">
-                <th className="py-1.5 pr-2 font-semibold">When</th>
-                <th className="py-1.5 pr-2 font-semibold">Tenant</th>
-                <th className="py-1.5 pr-2 font-semibold">Status</th>
-                <th className="py-1.5 pr-2 font-semibold">Category</th>
-                <th className="py-1.5 pr-2 font-semibold">Comment</th>
-                <th className="py-1.5 pr-2 font-semibold">Follow-up</th>
-                <th className="py-1.5 pr-2 font-semibold">Officer</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.slice(0, 400).map((r) => (
-                <tr key={r.id} className="border-b border-border/50 last:border-0 align-top">
-                  <td className="py-1.5 pr-2 whitespace-nowrap text-muted-foreground">
-                    {stamp(r.recordedAt ?? r.revealedAt)}
-                  </td>
-                  <td className="py-1.5 pr-2 font-semibold">{r.subjectName}</td>
-                  <td className="py-1.5 pr-2">
-                    <Badge
-                      variant={isAnsweredOutcome(r.outcome) ? 'default' : r.outcome ? 'outline' : 'secondary'}
-                      className="text-[10px]"
-                    >
-                      {statusLabel(r)}
-                    </Badge>
-                  </td>
-                  <td className="py-1.5 pr-2 text-muted-foreground">{r.categoryLabel ?? '—'}</td>
-                  <td className="max-w-[240px] py-1.5 pr-2 text-muted-foreground">
-                    {r.comment ?? r.voidReason ?? '—'}
-                  </td>
-                  <td className="py-1.5 pr-2 whitespace-nowrap text-muted-foreground">
-                    {r.followUpDueAt
-                      ? `${stamp(r.followUpDueAt)}${r.followUpCompletedAt ? ' (done)' : ''}`
-                      : '—'}
-                  </td>
-                  <td className="py-1.5 pr-2 text-muted-foreground">{r.officer ?? '—'}</td>
+      <Card className="min-w-0 overflow-hidden">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 border-b bg-muted/30 p-3">
+          <CardTitle className="flex items-center gap-2 text-xs font-bold">
+            <History className="h-4 w-4 text-primary" />
+            Tenant call history
+          </CardTitle>
+          <span className="text-[10px] text-muted-foreground">
+            Shared records — Calling Hub and Calling Center calls in one list
+          </span>
+        </CardHeader>
+        <CardContent className="min-w-0 overflow-x-auto p-0">
+          {isLoading ? (
+            <div className="space-y-2 p-3">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-2/3" />
+            </div>
+          ) : !rows.length ? (
+            <div className="p-8 text-center">
+              <PhoneCall className="mx-auto h-5 w-5 text-muted-foreground" />
+              <p className="mt-2 text-xs text-muted-foreground">No tenant calls in this window.</p>
+            </div>
+          ) : (
+            <table className="w-full min-w-[760px] text-xs">
+              <thead>
+                <tr className="border-b bg-muted/30 text-left text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <th className="p-2.5 font-semibold">When</th>
+                  <th className="p-2.5 font-semibold">Tenant</th>
+                  <th className="p-2.5 font-semibold">Status</th>
+                  <th className="p-2.5 font-semibold">Category</th>
+                  <th className="p-2.5 font-semibold">Comment</th>
+                  <th className="p-2.5 font-semibold">Follow-up</th>
+                  <th className="p-2.5 font-semibold">Officer</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+              </thead>
+              <tbody>
+                {rows.slice(0, 400).map((r) => (
+                  <tr key={r.id} className="border-b border-border/50 align-top transition-colors last:border-0 hover:bg-muted/40">
+                    <td className="whitespace-nowrap p-2.5 text-muted-foreground">
+                      {stamp(r.recordedAt ?? r.revealedAt)}
+                    </td>
+                    <td className="p-2.5 font-semibold">{r.subjectName}</td>
+                    <td className="p-2.5">
+                      <Badge
+                        variant={isAnsweredOutcome(r.outcome) ? 'default' : r.outcome ? 'outline' : 'secondary'}
+                        className="text-[10px]"
+                      >
+                        {statusLabel(r)}
+                      </Badge>
+                    </td>
+                    <td className="p-2.5 text-muted-foreground">{r.categoryLabel ?? '—'}</td>
+                    <td className="max-w-[240px] p-2.5 text-muted-foreground">
+                      {r.comment ?? r.voidReason ?? '—'}
+                    </td>
+                    <td className="whitespace-nowrap p-2.5 text-muted-foreground">
+                      {r.followUpDueAt
+                        ? `${stamp(r.followUpDueAt)}${r.followUpCompletedAt ? ' (done)' : ''}`
+                        : '—'}
+                    </td>
+                    <td className="p-2.5 text-muted-foreground">{r.officer ?? '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
       </Card>
     </div>
   );
 }
+
