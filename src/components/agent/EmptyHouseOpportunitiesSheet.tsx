@@ -311,6 +311,7 @@ export function EmptyHouseOpportunitiesSheet({
           amount,
           contribution_type: contributionType === 'monthly' ? 'monthly' : 'once_off',
         };
+        if (isPartner && promisedDate) payload.promised_funding_date = promisedDate;
         if (contributionType === 'monthly') {
           payload.deduction_day = String(Number(deductionDay));
           const now = new Date();
@@ -332,8 +333,12 @@ export function EmptyHouseOpportunitiesSheet({
         void supabase.functions
           .invoke('notify-promissory-note-pledge', { body: { note_id: result.note.id } })
           .catch(() => {});
+        void supabase.functions
+          .invoke('notify-house-booking', { body: { note_id: result.note.id } })
+          .catch(() => {});
         return result.note;
       };
+
 
       if (splitPerHouse && picked.length > 1) {
         const made: { id: string; activation_token?: string; label: string; amount: number }[] = [];
