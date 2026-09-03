@@ -8,19 +8,21 @@
  * their original dates, statuses and comments intact.
  */
 import { useMemo, useState } from 'react';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Download } from 'lucide-react';
+import { Clock3, Download, History, PercentCircle, PhoneCall, PhoneIncoming, Search } from 'lucide-react';
+import { KPICard } from '../../KPICard';
 import {
   CC_OUTCOME_LABEL,
   isAnsweredOutcome,
   useCcCallHistory,
   type CcHistoryRow,
 } from '@/hooks/useCcCallHistory';
+
 
 const DAY_CHOICES = [7, 30, 90];
 
