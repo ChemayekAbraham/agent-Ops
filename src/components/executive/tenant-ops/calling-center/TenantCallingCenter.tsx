@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { useCcCallingHub, type CcFilterSelection, type CcRow } from '@/hooks/useCcCallingHub';
 import { CALLING_TABS, type CallingTabKey } from '@/components/ops/calling/callingHubColumns';
+import { CallingHubTable } from '@/components/ops/calling/CallingHubTable';
 import { RecordOutcomeDialog } from '@/components/ops/calling/RecordOutcomeDialog';
 import { CallingFilterBar } from '@/components/ops/calling/CallingFilterBar';
 import { FollowupsDuePanel } from '@/components/ops/calling/FollowupsDuePanel';
