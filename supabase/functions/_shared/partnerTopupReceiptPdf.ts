@@ -34,7 +34,7 @@ const PAGE_BG = rgb(0.965, 0.969, 0.98); // #F6F7FA
 const WHITE = rgb(1, 1, 1);
 
 const PAGE_W = 460;
-const PAGE_H = 648;
+const PAGE_H = 664;
 const CARD_X = 14;
 const CARD_W = PAGE_W - CARD_X * 2;
 const PAD = 22;
