@@ -148,7 +148,8 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
   }
 
   return (
-    <div className="space-y-5">
+    <>
+      <div className="space-y-5">
       <div>
         <h2 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2.5">
           <Wallet className="h-6 w-6 text-primary" />
@@ -305,8 +306,6 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
 
       <PhoneMoneyStatementSheet line={openLine} onOpenChange={(open) => !open && setOpenLine(null)} />
       <MerchantFloatEmailMovementsDialog open={openMerchantEmails} onOpenChange={setOpenMerchantEmails} />
-
-
-    </div>
+    </>
   );
 }
