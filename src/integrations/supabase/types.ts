@@ -1704,11 +1704,14 @@ export type Database = {
         Row: {
           agent_id: string
           amount: number
+          collection_channel: string
           created_at: string
+          deposit_request_id: string | null
           expected_amount: number | null
           float_after: number
           float_before: number
           id: string
+          initiated_by: string | null
           is_partial: boolean
           location_name: string | null
           momo_payer_name: string | null
@@ -1718,6 +1721,7 @@ export type Database = {
           notes: string | null
           partial_reason: string | null
           payment_method: Database["public"]["Enums"]["collection_payment_method"]
+          performance_weight: number
           rent_request_id: string | null
           shortfall_amount: number | null
           sms_sent_agent: boolean | null
@@ -1730,11 +1734,14 @@ export type Database = {
         Insert: {
           agent_id: string
           amount: number
+          collection_channel?: string
           created_at?: string
+          deposit_request_id?: string | null
           expected_amount?: number | null
           float_after?: number
           float_before?: number
           id?: string
+          initiated_by?: string | null
           is_partial?: boolean
           location_name?: string | null
           momo_payer_name?: string | null
@@ -1744,6 +1751,7 @@ export type Database = {
           notes?: string | null
           partial_reason?: string | null
           payment_method: Database["public"]["Enums"]["collection_payment_method"]
+          performance_weight?: number
           rent_request_id?: string | null
           shortfall_amount?: number | null
           sms_sent_agent?: boolean | null
@@ -1756,11 +1764,14 @@ export type Database = {
         Update: {
           agent_id?: string
           amount?: number
+          collection_channel?: string
           created_at?: string
+          deposit_request_id?: string | null
           expected_amount?: number | null
           float_after?: number
           float_before?: number
           id?: string
+          initiated_by?: string | null
           is_partial?: boolean
           location_name?: string | null
           momo_payer_name?: string | null
@@ -1770,6 +1781,7 @@ export type Database = {
           notes?: string | null
           partial_reason?: string | null
           payment_method?: Database["public"]["Enums"]["collection_payment_method"]
+          performance_weight?: number
           rent_request_id?: string | null
           shortfall_amount?: number | null
           sms_sent_agent?: boolean | null
@@ -1828,6 +1840,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_agent_ops_directory"
             referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: false
+            referencedRelation: "agent_misrouted_deposits_preview"
+            referencedColumns: ["deposit_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: false
+            referencedRelation: "deposit_requests"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "agent_collections_rent_request_id_fkey"
@@ -31154,25 +31180,54 @@ export type Database = {
         Row: {
           amount: number
           created_at: string
+          deposit_request_id: string | null
+          external_reference: string | null
           id: string
+          initiated_by: string | null
+          paid_by: string | null
+          payment_method: string | null
           rent_request_id: string
           tenant_id: string
         }
         Insert: {
           amount: number
           created_at?: string
+          deposit_request_id?: string | null
+          external_reference?: string | null
           id?: string
+          initiated_by?: string | null
+          paid_by?: string | null
+          payment_method?: string | null
           rent_request_id: string
           tenant_id: string
         }
         Update: {
           amount?: number
           created_at?: string
+          deposit_request_id?: string | null
+          external_reference?: string | null
           id?: string
+          initiated_by?: string | null
+          paid_by?: string | null
+          payment_method?: string | null
           rent_request_id?: string
           tenant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "repayments_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: false
+            referencedRelation: "agent_misrouted_deposits_preview"
+            referencedColumns: ["deposit_id"]
+          },
+          {
+            foreignKeyName: "repayments_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: false
+            referencedRelation: "deposit_requests"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "repayments_rent_request_id_fkey"
             columns: ["rent_request_id"]
@@ -35739,6 +35794,135 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_self_repayment_attempts: {
+        Row: {
+          agent_id: string | null
+          applied_amount: number | null
+          created_at: string
+          deposit_amount: number
+          deposit_request_id: string
+          id: string
+          metadata: Json
+          outcome: string
+          paid_from_phone: string | null
+          reason: string | null
+          rent_request_id: string | null
+          surplus_amount: number | null
+          tenant_id: string | null
+          transaction_group_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id?: string | null
+          applied_amount?: number | null
+          created_at?: string
+          deposit_amount?: number
+          deposit_request_id: string
+          id?: string
+          metadata?: Json
+          outcome: string
+          paid_from_phone?: string | null
+          reason?: string | null
+          rent_request_id?: string | null
+          surplus_amount?: number | null
+          tenant_id?: string | null
+          transaction_group_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string | null
+          applied_amount?: number | null
+          created_at?: string
+          deposit_amount?: number
+          deposit_request_id?: string
+          id?: string
+          metadata?: Json
+          outcome?: string
+          paid_from_phone?: string | null
+          reason?: string | null
+          rent_request_id?: string | null
+          surplus_amount?: number | null
+          tenant_id?: string | null
+          transaction_group_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_self_repayment_attempts_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: true
+            referencedRelation: "agent_misrouted_deposits_preview"
+            referencedColumns: ["deposit_id"]
+          },
+          {
+            foreignKeyName: "tenant_self_repayment_attempts_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: true
+            referencedRelation: "deposit_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_self_repayment_notices: {
+        Row: {
+          attempts: number
+          created_at: string
+          deposit_request_id: string
+          id: string
+          last_error: string | null
+          phone: string | null
+          recipient_role: string
+          recipient_user_id: string | null
+          sent_at: string | null
+          sms_status: string
+          sms_text: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          deposit_request_id: string
+          id?: string
+          last_error?: string | null
+          phone?: string | null
+          recipient_role: string
+          recipient_user_id?: string | null
+          sent_at?: string | null
+          sms_status?: string
+          sms_text: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          deposit_request_id?: string
+          id?: string
+          last_error?: string | null
+          phone?: string | null
+          recipient_role?: string
+          recipient_user_id?: string | null
+          sent_at?: string | null
+          sms_status?: string
+          sms_text?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_self_repayment_notices_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: false
+            referencedRelation: "agent_misrouted_deposits_preview"
+            referencedColumns: ["deposit_id"]
+          },
+          {
+            foreignKeyName: "tenant_self_repayment_notices_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: false
+            referencedRelation: "deposit_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_transfers: {
         Row: {
           actor_accuracy: number | null
@@ -40178,6 +40362,68 @@ export type Database = {
         }
         Relationships: []
       }
+      v_agent_collection_performance: {
+        Row: {
+          agent_id: string | null
+          amount_collected: number | null
+          collection_channel: string | null
+          collection_day: string | null
+          collections: number | null
+          weighted_amount: number | null
+          weighted_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
       v_agent_daily_eligibility: {
         Row: {
           active_count: number | null
@@ -41870,6 +42116,54 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tenant_ops_property_base"
             referencedColumns: ["listing_id"]
+          },
+        ]
+      }
+      v_tenant_self_repayments: {
+        Row: {
+          agent_id: string | null
+          agent_name: string | null
+          amount_deposited: number | null
+          amount_repaid: number | null
+          applied_amount: number | null
+          attempt_id: string | null
+          collection_channel: string | null
+          commission_agent: number | null
+          commission_parent: number | null
+          commission_total: number | null
+          deposit_request_id: string | null
+          external_reference: string | null
+          outcome: string | null
+          outstanding_after: number | null
+          paid_at: string | null
+          paid_from_phone: string | null
+          parent_agent_id: string | null
+          performance_weight: number | null
+          plan_status: string | null
+          provider: string | null
+          refusal_reason: string | null
+          rent_request_id: string | null
+          surplus_amount: number | null
+          tenant_id: string | null
+          tenant_name: string | null
+          total_repayment: number | null
+          tracking_id: string | null
+          transaction_group_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_self_repayment_attempts_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: true
+            referencedRelation: "agent_misrouted_deposits_preview"
+            referencedColumns: ["deposit_id"]
+          },
+          {
+            foreignKeyName: "tenant_self_repayment_attempts_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: true
+            referencedRelation: "deposit_requests"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -47165,6 +47459,17 @@ export type Database = {
         Args: { p_band?: string; p_limit?: number; p_offset?: number }
         Returns: Json
       }
+      get_tenant_self_repayments: {
+        Args: {
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_outcome?: string
+          p_search?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
       get_tenant_transfer_history: {
         Args: { p_tenant_id: string }
         Returns: {
@@ -50739,6 +51044,10 @@ export type Database = {
         Args: { p_advance_ids: string[]; p_note?: string }
         Returns: Json
       }
+      settle_tenant_rent_from_deposit: {
+        Args: { p_deposit_request_id: string }
+        Returns: Json
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       signup_source_funnel: {
@@ -50958,6 +51267,21 @@ export type Database = {
           p_request_id: string
         }
         Returns: Json
+      }
+      tenant_self_repayment_plan: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          agent_id: string
+          amount_repaid: number
+          daily_repayment: number
+          landlord_id: string
+          landlord_name: string
+          other_active_plans: number
+          outstanding: number
+          rent_request_id: string
+          status: string
+          total_repayment: number
+        }[]
       }
       test_wallet_drift_fix: { Args: never; Returns: Json }
       toggle_house_listing_visibility: {
