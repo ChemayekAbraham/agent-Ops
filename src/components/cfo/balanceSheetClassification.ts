@@ -29,7 +29,13 @@ export interface BsGroup {
   lines: PositionLine[];
   /** True when no ledger account maps here yet. */
   unsourced?: boolean;
+  /** Presentation-only fields used by the balance sheet renderer. */
+  heading?: boolean;
+  subtotal?: boolean;
+  depth?: number;
+  components?: PositionLine[];
 }
+
 
 export const FLAGGED_LABEL = 'Unclassified — flagged for review';
 
