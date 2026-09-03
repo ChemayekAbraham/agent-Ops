@@ -44,12 +44,12 @@ export function CapitalRoutesSection({ className }: { className?: string }) {
         />
         <div className="absolute inset-0 -z-10 bg-gradient-to-b from-black/15 via-black/60 to-black/95" />
         <div className="flex min-h-0 items-end px-4 pb-4 pt-4 md:items-center md:min-h-[clamp(280px,32vw,380px)] md:px-[clamp(20px,5.5vw,44px)] md:pb-[clamp(20px,5.5vw,44px)] md:pt-2">
-          <div className="flex w-full flex-col items-start gap-2 md:max-w-[60%] md:gap-[clamp(10px,2.6vw,16px)]">
+          <div className="flex w-full flex-col items-start gap-2 md:max-w-[80%] md:gap-[clamp(10px,2.6vw,16px)]">
             <span className="inline-flex items-center gap-[7px] rounded-full border border-white/30 bg-gradient-to-b from-white/25 to-white/10 px-[clamp(11px,3vw,14px)] py-[clamp(7px,2vw,9px)] text-[clamp(9px,2.4vw,11px)] font-bold uppercase tracking-widest text-white backdrop-blur-md">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_0_3px_rgba(74,222,154,0.25)]" />
               Now funding
             </span>
-            <h2 className="m-0 max-w-[16ch] text-[clamp(27px,7.6vw,46px)] font-extrabold leading-[1.06] tracking-[-0.03em] text-white md:w-full md:max-w-full">
+            <h2 className="m-0 max-w-[16ch] text-[clamp(27px,7.6vw,46px)] font-extrabold leading-[1.06] tracking-[-0.03em] text-white md:w-full md:max-w-none md:whitespace-nowrap">
               Put your capital where the rent is.
             </h2>
             <p className="m-0 max-w-[38ch] text-[clamp(13px,3.6vw,16px)] font-medium leading-relaxed text-white/80">
@@ -68,7 +68,7 @@ export function CapitalRoutesSection({ className }: { className?: string }) {
       </div>
 
       {/* Route cards */}
-      <div className="grid scroll-mt-[clamp(14px,4vw,32px)] gap-[clamp(10px,3vw,20px)] md:grid-cols-3">
+      <div className="grid scroll-mt-[clamp(14px,4vw,32px)] grid-cols-3 gap-[clamp(8px,2vw,20px)]">
         {routes.map((route) => (
           <button
             key={route.key}
