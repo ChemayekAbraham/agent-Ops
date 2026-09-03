@@ -1806,6 +1806,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
         map['landlord'] = 'Step 2 — Landlord: Upload the signed 12-month landlord agreement before continuing.';
       } else if (landlordAgreementCheck !== 'valid') {
         map['landlord'] = 'Step 2 — Landlord: We could not confirm the signed agreement yet. Check your connection and try again.';
+      }
+      if (selectedHouse && !listingHasRealPhoto(selectedHouse)) {
+        map['housePhotos'] = "This landlord's house has no photos — pick a house that shows photos before posting the rent request";
+      }
       if (!propertyAddress.trim()) map['propertyAddress'] = 'Type the property address';
       const missingHousePhotos = HOUSE_PHOTO_SLOTS.some((_, i) => !housePhotos[i]);
       if (missingHousePhotos) map['housePhotos'] = 'Take all 4 house photos (front, back, left and right)';
