@@ -10,6 +10,7 @@ import mtnLogoAsset from '@/assets/mtn-logo.png.asset.json';
 import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
 import { PhoneMoneyStatementSheet, type PhoneMoneyLine } from './PhoneMoneyStatementSheet';
 import { MerchantFloatEmailMovementsDialog } from './MerchantFloatEmailMovementsDialog';
+import { BankEmailReconciliationPanel } from './BankEmailReconciliationPanel';
 
 
 
@@ -108,12 +109,13 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
       const [phoneRes, cashRes, bankRes] = await Promise.all([
         supabase.rpc('get_phone_platform_reconciliation' as any),
         supabase.rpc('get_cash_at_hand_total' as any),
-        supabase.rpc('get_money_at_bank_total' as any),
+        supabase.rpc('get_money_at_bank_reconciliation' as any),
       ]);
       if (phoneRes.error) throw phoneRes.error;
+      if (bankRes.error) throw bankRes.error;
       const p = (phoneRes.data ?? {}) as any;
       const c = (cashRes.data ?? {}) as any;
-      const b = (bankRes.error ? {} : (bankRes.data ?? {})) as any;
+      const b = (bankRes.data ?? {}) as any;
       const mtn = Number(p.mtn_balance ?? 0);
       const airtel = Number(p.airtel_balance ?? 0);
       const cash = Number(c.cash_at_hand_total ?? 0);
@@ -146,7 +148,8 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
   }
 
   return (
-    <div className="space-y-5">
+    <>
+      <div className="space-y-5">
       <div>
         <h2 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2.5">
           <Wallet className="h-6 w-6 text-primary" />
@@ -244,15 +247,15 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
 
             <div className="mt-4 pt-4 border-t border-border space-y-2">
               {actualRows.map((r) => (
-                <button
-                  key={r.label}
-                  type="button"
-                  onClick={() => setOpenLine(r.line)}
-                  aria-label={`View ${r.label} statement`}
-                  className="w-full flex items-center justify-between gap-3 rounded-lg px-1 py-1.5 text-left hover:bg-muted/50 transition-colors"
-                >
-                  <span className="flex items-center gap-2.5 min-w-0">
-                    {r.logo ? (
+                <div key={r.label}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenLine(r.line)}
+                    aria-label={`View ${r.label} statement`}
+                    className="w-full flex items-center justify-between gap-3 rounded-lg px-1 py-1.5 text-left hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      {r.logo ? (
                       <span className="h-6 w-6 rounded-md overflow-hidden shrink-0 border border-border bg-background">
                         <img src={r.logo} alt={r.label} className="w-full h-full object-cover" loading="lazy" />
                       </span>
@@ -264,16 +267,18 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
                       <span className="h-6 w-6 rounded-md shrink-0 border border-border bg-emerald-500/10 flex items-center justify-center">
                         <Banknote className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                       </span>
-                    )}
-                    <span className="text-sm text-foreground truncate">{r.label}</span>
-                  </span>
-                  <span className="flex items-center gap-1.5 shrink-0">
-                    <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
-                      {actualLoading ? '—' : formatUGX(r.amount)}
+                      )}
+                      <span className="text-sm text-foreground truncate">{r.label}</span>
                     </span>
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                  </span>
-                </button>
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+                        {actualLoading ? '—' : formatUGX(r.amount)}
+                      </span>
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                    </span>
+                  </button>
+                  {r.line === 'bank' && <BankEmailReconciliationPanel />}
+                </div>
               ))}
             </div>
 
@@ -298,11 +303,10 @@ export function WalletBucketsPanel({ onOpenTool }: WalletBucketsPanelProps) {
           </CardContent>
         </Card>
       </div>
+      </div>
 
       <PhoneMoneyStatementSheet line={openLine} onOpenChange={(open) => !open && setOpenLine(null)} />
       <MerchantFloatEmailMovementsDialog open={openMerchantEmails} onOpenChange={setOpenMerchantEmails} />
-
-
-    </div>
+    </>
   );
 }
