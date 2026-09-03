@@ -219,12 +219,12 @@ const SECTIONS: { id: SettingsSection; label: string; icon: typeof User; helper:
 
 type AccountTab = 'profile' | 'contact' | 'withdrawal' | 'access' | 'vault';
 
-const ACCOUNT_TABS: { id: AccountTab; label: string; icon: typeof User }[] = [
-  { id: 'profile', label: 'Profile', icon: User },
-  { id: 'contact', label: 'Contact', icon: Mail },
-  { id: 'withdrawal', label: 'Withdrawal', icon: Wallet },
-  { id: 'access', label: 'Sign-in', icon: ShieldCheck },
-  { id: 'vault', label: 'Vault', icon: Lock },
+const ACCOUNT_TABS: { id: AccountTab; label: string; helper: string; icon: typeof User }[] = [
+  { id: 'profile', label: 'Profile', helper: 'Photo, name and phone number', icon: User },
+  { id: 'contact', label: 'Contact', helper: 'Email address and notifications', icon: Mail },
+  { id: 'withdrawal', label: 'Withdrawal', helper: 'Mobile money name and wallet', icon: Wallet },
+  { id: 'access', label: 'Sign-in', helper: 'Linked accounts and sign-in methods', icon: ShieldCheck },
+  { id: 'vault', label: 'Vault', helper: 'Offline PDF documents', icon: Lock },
 ];
 
 export default function Settings() {
