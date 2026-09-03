@@ -125,6 +125,10 @@ export function EmptyHouseOpportunitiesSheet({
   >([]);
   const [splitPerHouse, setSplitPerHouse] = useState(true);
   const [detailHouse, setDetailHouse] = useState<HouseOpportunity | null>(null);
+  // Partner mode only: "Promise a date" holds the houses for 7 days.
+  const [promisedDate, setPromisedDate] = useState('');
+  const [fundingNow, setFundingNow] = useState(false);
+
 
 
   const partnerName = isPartner ? (selfName || '').trim() : joinPersonName(nameParts);
