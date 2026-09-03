@@ -355,14 +355,27 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
           </Button>
         </div>
       </Card>
+      <div className="flex items-center justify-between gap-2 px-1">
+        <p className="text-[11px] font-semibold text-muted-foreground">
+          {plans.length} rent request{plans.length === 1 ? '' : 's'} · {houses.length} house
+          {houses.length === 1 ? '' : 's'}
+        </p>
+        <ToggleGroup
+          type="single"
+          size="sm"
+          value={feedOrder}
+          onValueChange={(value) => value && setFeedOrder(value as FeedOrder)}
+          className="shrink-0"
+        >
+          <ToggleGroupItem value="rent" className="text-[10px] px-2 h-7">
+            Rent first
+          </ToggleGroupItem>
+          <ToggleGroupItem value="houses" className="text-[10px] px-2 h-7">
+            Houses first
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
 
-
-
-
-      <p className="text-[11px] font-semibold text-muted-foreground px-1">
-        {plans.length} rent request{plans.length === 1 ? '' : 's'} · {houses.length} house
-        {houses.length === 1 ? '' : 's'}
-      </p>
 
       {feed.length === 0 && (
         <Card className="p-6 rounded-2xl text-center">
