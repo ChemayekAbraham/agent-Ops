@@ -1738,10 +1738,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
         errors.push('Step 2 — Landlord: Pick or register the landlord first. Search to pick an existing landlord, or tap "Add new" to register them.');
       } else if (landlordCheck === 'missing') {
         errors.push('Step 2 — Landlord: The selected landlord is no longer in the system. Pick a registered landlord or register them again.');
-      } else if (landlordAgreementCheck === 'missing') {
-        errors.push('Step 2 — Landlord: Upload the signed 12-month landlord agreement before continuing.');
-      } else if (landlordAgreementCheck !== 'valid') {
-        errors.push('Step 2 — Landlord: We could not confirm the signed agreement yet. Check your connection and try again.');
       }
       // The landlord's listed house MUST show photos. Block rent requests on
       // any selected listing that has no photos on record.
@@ -1806,10 +1802,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
         map['landlord'] = 'Step 2 — Landlord: Upload the signed 12-month landlord agreement before continuing.';
       } else if (landlordAgreementCheck !== 'valid') {
         map['landlord'] = 'Step 2 — Landlord: We could not confirm the signed agreement yet. Check your connection and try again.';
-      }
-      if (selectedHouse && !listingHasRealPhoto(selectedHouse)) {
-        map['housePhotos'] = "This landlord's house has no photos — pick a house that shows photos before posting the rent request";
-      }
       if (!propertyAddress.trim()) map['propertyAddress'] = 'Type the property address';
       const missingHousePhotos = HOUSE_PHOTO_SLOTS.some((_, i) => !housePhotos[i]);
       if (missingHousePhotos) map['housePhotos'] = 'Take all 4 house photos (front, back, left and right)';
@@ -2458,8 +2450,6 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       // Outstanding balance and days remaining can both be 0
       // (tenant already cleared / no current period left).
       if (outstandingDaysRemaining === '' || isNaN(parseInt(outstandingDaysRemaining))) {
-        errors.push('Type the days remaining');
-      }
       if (outstandingBalance === '' || isNaN(parseInt(outstandingBalance.replace(/,/g, '')))) {
         errors.push('Type the outstanding balance');
       }
@@ -2703,23 +2693,26 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
         // verification request (below/UI) so ops know to review this landlord.
         setLandlordVerifiedAtSubmit(!!landlordRow.verified);
 
-        // Final fresh agreement check: the agreement may have expired, been
-        // superseded, or been removed since the wizard check ran.
-        const { data: hasAgreement, error: agreementError } = await (supabase.rpc as any)(
-          'landlord_has_current_agreement',
-          { p_landlord_id: landlordId },
-        );
-        if (agreementError || hasAgreement !== true) {
-          const msg = agreementError
-            ? 'Could not confirm the landlord agreement. Check your connection and try again.'
-            : 'This landlord does not have a current signed agreement. Upload it before posting this rent request.';
-          setSubmissionError(msg);
-          toast.error('Signed agreement required', { description: msg });
-          setLoading(false);
-          setRequestState('idle');
-          submitLockRef.current = false;
-          setDetailStep(2);
-          return;
+        // The agreement is compulsory for an ordinary new agent request.
+        // Existing-tenant continuation requests (outstanding balance) are
+        // allowed to proceed without a new agreement upload.
+        if (!isOutstanding) {
+          const { data: hasAgreement, error: agreementError } = await (supabase.rpc as any)(
+            'landlord_has_current_agreement',
+            { p_landlord_id: landlordId },
+          );
+          if (agreementError || hasAgreement !== true) {
+            const msg = agreementError
+              ? 'Could not confirm the landlord agreement. Check your connection and try again.'
+              : 'This landlord does not have a current signed agreement. Upload it before posting this rent request.';
+            setSubmissionError(msg);
+            toast.error('Signed agreement required', { description: msg });
+            setLoading(false);
+            setRequestState('idle');
+            submitLockRef.current = false;
+            setDetailStep(2);
+            return;
+          }
         }
       } catch (lookupErr) {
         // A failed lookup (e.g. transient network) shouldn't silently pass the
