@@ -15,6 +15,7 @@ import { describeHangupCause, formatTalkTime } from '@/lib/callCentre';
 import { isTerminalCallState, type CallState } from '@/hooks/useCrmVoiceCall';
 import { QUICK_OUTCOMES, ccErrorText, type CcCallingHub } from '@/hooks/useCcCallingHub';
 import { telHref, waHref } from '@/components/ops/calling/ccPhone';
+import { TenantCallContextPanel } from './TenantCallContextPanel';
 import type { TenantCallCenterDialer } from './useTenantCallCenterDialer';
 
 const STATE_LABEL: Record<CallState, string> = {
@@ -170,6 +171,18 @@ export function LiveCallPanel({
             </Button>
           </>
         )}
+      </div>
+
+      <div className="border-b border-border/60 p-3">
+        <TenantCallContextPanel
+          hub={hub}
+          subjectId={current.subjectId}
+          fallbackName={current.name}
+          district={current.district}
+          linkedAgent={current.row?.linked_agent ?? null}
+          phone={current.phone}
+          row={current.row ?? null}
+        />
       </div>
 
       <div className="space-y-2 p-3">

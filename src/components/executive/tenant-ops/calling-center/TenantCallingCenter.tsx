@@ -24,13 +24,14 @@ import {
   ChevronRight,
   Headphones,
   Pause,
-  Phone,
+  
   Play,
   Settings2,
   Square,
 } from 'lucide-react';
-import { useCcCallingHub, type CcFilterSelection, type CcRow } from '@/hooks/useCcCallingHub';
+import { useCcCallingHub, type CcFilterSelection } from '@/hooks/useCcCallingHub';
 import { CALLING_TABS, type CallingTabKey } from '@/components/ops/calling/callingHubColumns';
+import { CallingHubTable } from '@/components/ops/calling/CallingHubTable';
 import { RecordOutcomeDialog } from '@/components/ops/calling/RecordOutcomeDialog';
 import { CallingFilterBar } from '@/components/ops/calling/CallingFilterBar';
 import { FollowupsDuePanel } from '@/components/ops/calling/FollowupsDuePanel';
@@ -53,15 +54,6 @@ const AUTO_LABEL: Record<string, string> = {
   finished: 'Run finished',
 };
 
-const fmtMetric = (row: CcRow) => {
-  if (row.metric_format === 'ugx' && row.metric_value != null)
-    return `UGX ${Math.round(row.metric_value).toLocaleString()}`;
-  if (row.metric_format === 'days' && row.metric_value != null) return `${row.metric_value} d`;
-  if (row.metric_format === 'date' && row.metric_date)
-    return new Date(row.metric_date).toLocaleDateString();
-  if (row.metric_text) return row.metric_text;
-  return row.metric_value != null ? String(row.metric_value) : '—';
-};
 
 export function TenantCallingCenter() {
   const [tab, setTab] = useState<CenterTab>('overview');
@@ -106,6 +98,18 @@ export function TenantCallingCenter() {
   }, [dialer.current, dialer.live, dialer.needsOutcome]);
 
   const metricLabel = hub.rows[0]?.metric_label ?? 'Metric';
+  const activeQueueTab = CALLING_TABS.find((t) => t.key === queueState) ?? CALLING_TABS[0];
+  /**
+   * Same shape the Hub feeds its table: the row currently on the line keeps its
+   * revealed number visible until the outcome is recorded.
+   */
+  const revealedPhones = useMemo<Record<string, string | null>>(
+    () =>
+      dialer.current && (dialer.live || dialer.needsOutcome)
+        ? { [dialer.current.rowId]: dialer.current.phone }
+        : {},
+    [dialer.current, dialer.live, dialer.needsOutcome],
+  );
   const runBadge = (
     <Badge variant={auto.mode === 'running' ? 'default' : 'outline'} className="text-[10px]">
       {AUTO_LABEL[auto.mode]}
@@ -158,7 +162,7 @@ export function TenantCallingCenter() {
   );
 
   return (
-    <div className="space-y-3 pb-24">
+    <div className="space-y-3 pb-32 sm:pb-28">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-base font-bold">
           <Headphones className="h-4 w-4 text-primary" />
@@ -168,6 +172,7 @@ export function TenantCallingCenter() {
       </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as CenterTab)}>
+        {/* Same tab chrome as the Calling Hub: wrap, never truncate. */}
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0">
           {([
             ['overview', 'Overview'],
@@ -179,9 +184,14 @@ export function TenantCallingCenter() {
             <TabsTrigger
               key={key}
               value={key}
-              className="h-8 shrink-0 px-2.5 text-xs data-[state=active]:bg-muted"
+              className="h-8 shrink-0 gap-1.5 whitespace-nowrap px-2 text-xs data-[state=active]:bg-muted"
             >
               {label}
+              {key === 'queue' && (
+                <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                  {hub.counts[queueState]}
+                </Badge>
+              )}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -306,47 +316,18 @@ export function TenantCallingCenter() {
                 <Skeleton className="h-6 w-full" />
                 <Skeleton className="h-6 w-full" />
               </div>
-            ) : !hub.rows.length ? (
-              <p className="p-6 text-center text-xs text-muted-foreground">Nothing in this list.</p>
             ) : (
-              <table className="w-full min-w-[620px] text-xs">
-                <thead>
-                  <tr className="border-b text-left text-[11px] text-muted-foreground">
-                    <th className="py-1.5 pr-2 font-semibold">#</th>
-                    <th className="py-1.5 pr-2 font-semibold">Tenant</th>
-                    <th className="py-1.5 pr-2 font-semibold">District</th>
-                    <th className="py-1.5 pr-2 font-semibold">Agent</th>
-                    <th className="py-1.5 pr-2 font-semibold">{metricLabel}</th>
-                    <th className="py-1.5 pr-2 font-semibold">Attempts</th>
-                    <th className="py-1.5 pr-2 text-right font-semibold">Call</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {hub.rows.map((row, i) => (
-                    <tr key={row.id} className="border-b border-border/50 last:border-0">
-                      <td className="py-1.5 pr-2 tabular-nums text-muted-foreground">
-                        {page * hub.pageSize + i + 1}
-                      </td>
-                      <td className="py-1.5 pr-2 font-semibold">{row.name}</td>
-                      <td className="py-1.5 pr-2 text-muted-foreground">{row.district ?? '—'}</td>
-                      <td className="py-1.5 pr-2 text-muted-foreground">{row.linked_agent ?? '—'}</td>
-                      <td className="py-1.5 pr-2 tabular-nums">{fmtMetric(row)}</td>
-                      <td className="py-1.5 pr-2 tabular-nums text-muted-foreground">{row.attempts_made}</td>
-                      <td className="py-1.5 pr-2 text-right">
-                        <Button
-                          size="sm"
-                          className="h-7 px-2 text-[11px]"
-                          disabled={dialer.starting || dialer.live || auto.mode === 'running'}
-                          onClick={() => void dialer.dial(row)}
-                        >
-                          <Phone className="mr-1 h-3 w-3" />
-                          Call
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              /* The Hub's own table renderer, same columns contract, same look.
+                 "Reveal" here reveals *and* dials through the Center's dialer. */
+              <CallingHubTable
+                columns={activeQueueTab.columns}
+                rows={hub.rows}
+                metricLabel={metricLabel}
+                revealed={revealedPhones}
+                revealing={dialer.starting || hub.reveal.isPending}
+                wipBlocked={hub.wipBlocked}
+                onReveal={(row) => void dialer.dial(row)}
+              />
             )}
 
             {hub.total > hub.pageSize && (

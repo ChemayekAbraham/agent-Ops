@@ -38,6 +38,8 @@ export interface DialSubject {
   attemptId: string;
   /** Revealed by the same `cc_reveal_phone` path the Hub uses. */
   phone: string | null;
+  /** The queue row exactly as the shared hub returned it (context only). */
+  row: CcRow;
 }
 
 /**
@@ -116,6 +118,7 @@ export function useTenantCallCenterDialer(hub: CcCallingHub) {
           district: row.district,
           attemptId,
           phone,
+          row,
         };
         setCurrent(subject);
         setNeedsOutcome(false);
