@@ -297,6 +297,23 @@ export function PromissoryNotesQueue() {
   };
   const stageOf = (n: any) => stageConfig[n?.journey_stage as string] || (n?.came_in ? stageConfig.came_in : stageConfig.not_registered);
 
+  const supportOf = (n: any) => {
+    if (n?.support_mode === 'self_support') {
+      const plans = n?.plan_intent_count ?? 0;
+      const houses = n?.house_intent_count ?? 0;
+      const parts: string[] = [];
+      if (plans > 0) parts.push(`${plans} rent plan${plans === 1 ? '' : 's'}`);
+      if (houses > 0) parts.push(`${houses} house${houses === 1 ? '' : 's'}`);
+      return {
+        short: parts.length ? `Self support · ${parts.join(' · ')}` : 'Self support',
+        label: parts.length ? `Self support · ${parts.join(' · ')}` : 'Self support',
+        color: 'bg-sky-50 text-sky-700 border-sky-200',
+        isSelf: true,
+      };
+    }
+    return { short: 'Auto support', label: 'Auto support (company)', color: 'bg-slate-50 text-slate-700 border-slate-200', isSelf: false };
+  };
+
   // When a partner registers, the backend matches them on phone/WhatsApp or email
   // and returns the name they registered with. Ops must see that name next to the
   // name written on the note so a mismatch is visible, never silently accepted.
