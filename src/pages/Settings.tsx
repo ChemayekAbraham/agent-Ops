@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, User, Phone, Mail, Save, Loader2, Camera, Shield, Home, Users, Wallet, Building2, Check, Type, Vibrate, RotateCcw, LogIn, Volume2, RefreshCw, Scale, Lock, Eye, EyeOff, LayoutDashboard, Unlock, Settings as SettingsIcon, Palette, ShieldCheck, Globe, DollarSign, Zap, Smartphone, Clock, Wind, Bell, ChevronRight, ChevronDown } from 'lucide-react';
+import { ArrowLeft, User, Phone, Mail, Save, Loader2, Camera, Shield, Home, Users, Wallet, Building2, Check, Type, Vibrate, RotateCcw, LogIn, Volume2, Scale, Lock, Eye, EyeOff, Settings as SettingsIcon, Palette, ShieldCheck, Globe, DollarSign, Zap, Smartphone, Clock, Wind, Bell, ChevronRight, ChevronDown } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCurrency, currencies as ALL_CURRENCIES } from '@/hooks/useCurrency';
@@ -15,7 +15,7 @@ import { Language, languageNames, languageFlags } from '@/i18n/translations';
 import { useHapticSettings, hapticIntensityOptions } from '@/hooks/useHapticSettings';
 import { useReducedMotion, reducedMotionOptions } from '@/hooks/useCombinedSettings';
 import { hapticSelection } from '@/lib/haptics';
-import { useAuth, AppRole } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/useAuth';
 import { roleToSlug } from '@/lib/roleRoutes';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
@@ -43,29 +43,16 @@ const BiometricSecuritySection = lazy(() => import('@/components/settings/Biomet
 const DeviceSessionsSection = lazy(() => import('@/components/settings/DeviceSessionsSection'));
 const TwoFactorSection = lazy(() => import('@/components/settings/TwoFactorSection'));
 const TrustPrivacySection = lazy(() => import('@/components/settings/TrustPrivacySection'));
-const MyLandlordsSection = lazy(() => import('@/components/tenant/MyLandlordsSection'));
-const MyTenantsSection = lazy(() => import('@/components/landlord/MyTenantsSection'));
-const RentDiscountToggle = lazy(() => import('@/components/tenant/RentDiscountToggle'));
-const StaffAccessCard = lazy(() => import('@/components/settings/StaffAccessCard'));
 const ResidenceAddressForm = lazy(() => import('@/components/profile/ResidenceAddressForm'));
 const EmailEditor = lazy(() => import('@/components/profile/EmailEditor'));
 const MobileMoneyNameCard = lazy(() => import('@/components/settings/MobileMoneyNameCard'));
 const AccountLinkingCard = lazy(() => import('@/components/settings/AccountLinkingCard'));
 
 
-const AgentRentCapacitySelfCard = lazy(() =>
-  import('@/components/agent/AgentRentCapacitySelfCard').then((m) => ({ default: m.AgentRentCapacitySelfCard })),
-);
-const AgentCapacityBreakdownPanel = lazy(() =>
-  import('@/components/agent/AgentCapacityBreakdownPanel').then((m) => ({ default: m.AgentCapacityBreakdownPanel })),
-);
 const ArchivedPdfsCard = lazy(() =>
   import('@/components/settings/ArchivedPdfsCard').then((m) => ({ default: m.ArchivedPdfsCard })),
 );
 const CurrencyConverter = lazy(() => import('@/components/CurrencyConverter').then(m => ({ default: m.CurrencyConverter })));
-const MapKeySettingsCard = lazy(() => import('@/components/manager/MapKeySettingsCard').then(m => ({ default: m.MapKeySettingsCard })));
-const DriveVaultCard = lazy(() => import('@/components/manager/DriveVaultCard').then(m => ({ default: m.DriveVaultCard })));
-const DriveDocumentReviewPanel = lazy(() => import('@/components/manager/DriveDocumentReviewPanel').then(m => ({ default: m.DriveDocumentReviewPanel })));
 const PushNotificationButton = lazy(() => import('@/components/PushNotificationButton').then(m => ({ default: m.PushNotificationButton })));
 
 /**
@@ -80,17 +67,6 @@ const SECTION_PREFETCH: Record<string, Array<() => Promise<unknown>>> = {
     () => import('@/components/wallet/WalletCard'),
     () => import('@/components/settings/AccountLinkingCard'),
     () => import('@/components/settings/ArchivedPdfsCard'),
-  ],
-  roles: [
-    () => import('@/components/settings/StaffAccessCard'),
-    () => import('@/components/tenant/RentDiscountToggle'),
-    () => import('@/components/tenant/MyLandlordsSection'),
-    () => import('@/components/landlord/MyTenantsSection'),
-    () => import('@/components/agent/AgentRentCapacitySelfCard'),
-    () => import('@/components/agent/AgentCapacityBreakdownPanel'),
-    () => import('@/components/manager/MapKeySettingsCard'),
-    () => import('@/components/manager/DriveVaultCard'),
-    () => import('@/components/manager/DriveDocumentReviewPanel'),
   ],
   appearance: [
     () => import('@/components/PushNotificationButton'),
@@ -206,11 +182,11 @@ function SectionHeading({ children }: { children: ReactNode }) {
 }
 
 interface Profile { id: string; full_name: string; email: string; phone: string; avatar_url: string | null; }
-type SettingsSection = 'account' | 'roles' | 'appearance' | 'security' | 'legal' | 'advanced';
+type SettingsSection = 'account' | 'appearance' | 'security' | 'legal' | 'advanced';
 
 const SECTIONS: { id: SettingsSection; label: string; icon: typeof User; helper: string }[] = [
   { id: 'account', label: 'Personal Information', icon: User, helper: 'Profile, contact, withdrawal and sign-in' },
-  { id: 'roles', label: 'Roles', icon: Shield, helper: 'Switch and review your active roles' },
+  
   { id: 'appearance', label: 'Appearance', icon: Palette, helper: 'Theme, text size, language and currency' },
   { id: 'security', label: 'Safety', icon: ShieldCheck, helper: 'PIN, biometrics, devices and alerts' },
   { id: 'legal', label: 'Legal', icon: Scale, helper: 'Agreements and policy documents' },
@@ -413,24 +389,6 @@ export default function Settings() {
 
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
-  const roleConfig: Record<AppRole, { label: string; icon: React.ReactNode; color: string }> = {
-    tenant: { label: 'Tenant', icon: <Home className="h-4 w-4" />, color: 'bg-primary/20 text-primary border-primary/30' },
-    agent: { label: 'Agent', icon: <Users className="h-4 w-4" />, color: 'bg-warning/20 text-warning border-warning/30' },
-    supporter: { label: 'Supporter', icon: <Wallet className="h-4 w-4" />, color: 'bg-success/20 text-success border-success/30' },
-    landlord: { label: 'Landlord', icon: <Building2 className="h-4 w-4" />, color: 'bg-accent/20 text-accent border-accent/30' },
-    manager: { label: 'Manager', icon: <Shield className="h-4 w-4" />, color: 'bg-destructive/20 text-destructive border-destructive/30' },
-    ceo: { label: 'CEO', icon: <Shield className="h-4 w-4" />, color: 'bg-primary/20 text-primary border-primary/30' },
-    coo: { label: 'COO', icon: <Shield className="h-4 w-4" />, color: 'bg-primary/20 text-primary border-primary/30' },
-    cfo: { label: 'CFO', icon: <Wallet className="h-4 w-4" />, color: 'bg-warning/20 text-warning border-warning/30' },
-    cto: { label: 'CTO', icon: <Shield className="h-4 w-4" />, color: 'bg-accent/20 text-accent border-accent/30' },
-    cmo: { label: 'CMO', icon: <Users className="h-4 w-4" />, color: 'bg-success/20 text-success border-success/30' },
-    crm: { label: 'CRM', icon: <Users className="h-4 w-4" />, color: 'bg-warning/20 text-warning border-warning/30' },
-    employee: { label: 'Employee', icon: <Users className="h-4 w-4" />, color: 'bg-muted text-muted-foreground border-border' },
-    operations: { label: 'Operations', icon: <Shield className="h-4 w-4" />, color: 'bg-accent/20 text-accent border-accent/30' },
-    super_admin: { label: 'Super Admin', icon: <Shield className="h-4 w-4" />, color: 'bg-destructive/20 text-destructive border-destructive/30' },
-    hr: { label: 'HR', icon: <Users className="h-4 w-4" />, color: 'bg-primary/20 text-primary border-primary/30' },
-    access_admin: { label: 'Access Admin', icon: <Shield className="h-4 w-4" />, color: 'bg-accent/20 text-accent border-accent/30' },
-  };
 
   const hasLegalContent = roles.includes('tenant') || roles.includes('agent') || roles.includes('supporter');
   const visibleSections = useMemo(() => SECTIONS.filter(s => s.id !== 'legal' || hasLegalContent), [hasLegalContent]);
@@ -701,77 +659,6 @@ export default function Settings() {
             )}
 
 
-            {activeSection === 'roles' && (
-              <div className="space-y-4">
-                <LazySection name="StaffAccess"><StaffAccessCard /></LazySection>
-                <SettingsGroup>
-                  <SettingsLinkRow
-                    icon={preferences.unlockAllRoles ? Unlock : Lock}
-                    label="Open All Dashboards"
-                    helper="Use all role views"
-                    chevron={false}
-                    trailing={
-                      <Switch
-                        checked={preferences.unlockAllRoles}
-                        onCheckedChange={(c) => { updatePreference('unlockAllRoles', c); toast.success(c ? 'All dashboards open!' : 'Back to default'); }}
-                        className="shrink-0"
-                      />
-                    }
-                  />
-                </SettingsGroup>
-                <Card className="border-border/40 rounded-2xl">
-                  <CardHeader className="pb-2"><CardTitle className="text-sm">Your Roles</CardTitle></CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      {roles.map((role) => { const c = roleConfig[role]; return c ? <Badge key={role} className={`${c.color} flex items-center gap-1.5 px-3 py-1.5 border text-xs`}>{c.icon}{c.label}<Check className="h-3 w-3 ml-0.5" /></Badge> : null; })}
-                      {roles.length === 0 && <p className="text-sm text-muted-foreground">No roles yet</p>}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border-border/40 rounded-2xl">
-                  <CardHeader className="pb-2"><div className="flex items-center gap-2"><LayoutDashboard className="h-4 w-4 text-primary" /><div><CardTitle className="text-sm">Home Screen</CardTitle><CardDescription className="text-xs">Pick which page opens when you log in</CardDescription></div></div></CardHeader>
-                  <CardContent>
-
-
-                    <RadioGroup value={preferences.defaultRole} onValueChange={(v) => { updatePreference('defaultRole', v as any); toast.success(`Default set to ${v}`); }} className="grid grid-cols-2 gap-2">
-                      <div className="flex items-center space-x-2 p-2.5 rounded-lg border border-border/50"><RadioGroupItem value="auto" id="role-auto" /><Label htmlFor="role-auto" className="text-sm cursor-pointer flex items-center gap-1.5"><RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />Auto</Label></div>
-                      {roles.map((r) => { const rc = roleConfig[r]; if (!rc) return null; return (<div key={r} className="flex items-center space-x-2 p-2.5 rounded-lg border border-border/50"><RadioGroupItem value={r} id={`role-${r}`} /><Label htmlFor={`role-${r}`} className="text-sm cursor-pointer flex items-center gap-1.5">{rc.icon}{rc.label}</Label></div>); })}
-                    </RadioGroup>
-                    {roles.includes('agent') && (
-                      <div className="mt-3 flex items-start justify-between gap-3 p-2.5 rounded-lg border border-border/50">
-                        <div className="min-w-0">
-                          <p className="font-medium text-xs">Skip auto-agent default</p>
-                          <p className="text-[11px] text-muted-foreground">Don't auto-open the Agent dashboard just because you've posted a rent request — use the choice above instead.</p>
-                        </div>
-                        <Switch
-                          checked={preferences.disableAgentAutoDefault}
-                          onCheckedChange={(c) => { updatePreference('disableAgentAutoDefault', c); toast.success(c ? 'Auto-agent default off' : 'Auto-agent default on'); }}
-                          className="shrink-0"
-                        />
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-                {roles.includes('tenant') && <LazySection name="RentDiscount"><RentDiscountToggle /></LazySection>}
-                {roles.includes('tenant') && <LazySection name="MyLandlords"><MyLandlordsSection /></LazySection>}
-                {roles.includes('landlord') && <LazySection name="MyTenants"><MyTenantsSection /></LazySection>}
-                {roles.includes('agent') && (
-                  <LazySection name="AgentRentCapacity"><AgentRentCapacitySelfCard /></LazySection>
-                )}
-                {roles.includes('agent') && (
-                  <LazySection name="AgentCapacityBreakdown"><AgentCapacityBreakdownPanel /></LazySection>
-                )}
-                {roles.includes('manager') && (
-                  <LazySection name="MapKeySettings"><MapKeySettingsCard /></LazySection>
-                )}
-                {roles.includes('manager') && (
-                  <LazySection name="DriveVault"><DriveVaultCard /></LazySection>
-                )}
-                {(['manager', 'super_admin', 'coo', 'operations'] as const).some((r) => roles.includes(r)) && (
-                  <LazySection name="DriveDocumentReview"><DriveDocumentReviewPanel /></LazySection>
-                )}
-              </div>
-            )}
 
             {activeSection === 'appearance' && (
               <div className="space-y-4">
