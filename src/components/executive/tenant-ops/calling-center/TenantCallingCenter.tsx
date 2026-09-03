@@ -29,7 +29,7 @@ import {
   Settings2,
   Square,
 } from 'lucide-react';
-import { useCcCallingHub, type CcFilterSelection, type CcRow } from '@/hooks/useCcCallingHub';
+import { useCcCallingHub, type CcFilterSelection } from '@/hooks/useCcCallingHub';
 import { CALLING_TABS, type CallingTabKey } from '@/components/ops/calling/callingHubColumns';
 import { CallingHubTable } from '@/components/ops/calling/CallingHubTable';
 import { RecordOutcomeDialog } from '@/components/ops/calling/RecordOutcomeDialog';
