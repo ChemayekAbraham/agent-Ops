@@ -11,3 +11,4 @@
 - [x] Renewal rent requests: agreement optional end-to-end (trigger bypass + client gates removed for renewal/outstanding).
 - [x] CapitalRoutesSection: mobile hero top space matches space below the CTA button.
 - [x] Payroll: add ARREARS salary component (scope-fenced migration).
+- [ ] Fix AgentRentRequestDialog typecheck syntax error and verify preview build.
