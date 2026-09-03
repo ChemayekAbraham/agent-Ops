@@ -46183,6 +46183,8 @@ export type Database = {
       }
       get_merchant_payout_float: { Args: never; Returns: Json }
       get_mission_leaderboard: { Args: { p_limit?: number }; Returns: Json }
+      get_money_at_bank_reconciliation: { Args: never; Returns: Json }
+      get_money_at_bank_total: { Args: never; Returns: Json }
       get_my_ai_id_summary: { Args: never; Returns: Json }
       get_my_borrowed_loans: {
         Args: never

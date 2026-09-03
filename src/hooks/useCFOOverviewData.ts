@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { LEDGER_SCOPE, FINAL_WITHDRAWAL_STATUSES } from '@/lib/ledgerConstants';
+import { accountCodeOf, type PositionLine } from '@/components/cfo/balanceSheetClassification';
 
 const STALE_TIME = 300_000; // 5 minutes
 
@@ -409,6 +410,64 @@ export function useCFOOverviewData() {
   });
 
 
+  /**
+   * Authoritative cash position for the CFO cash cards.
+   *
+   * Read straight from get_statement_of_financial_position — the same RPC the
+   * Balance Sheet renders — so the cards cannot drift from it.
+   *
+   * This exists because get_treasury_cash_position resolves accounts from
+   * ledger_account_map alone. It has no equivalent of the SOFP's R1 rule, which
+   * routes platform.system_balance_correction to A1 when the group also touches
+   * agent float. Evidenced float corrections therefore landed in A9 Suspense
+   * there and were invisible to the cards, while the statement saw them
+   * correctly — which is how a corrected UGX 46.35bn float error kept showing on
+   * the dashboard. Rather than copy R1 into a second function and let the two
+   * drift again, the cards now consume the statement's own numbers.
+   */
+  const position = useQuery({
+    queryKey: ['cfo-overview-position'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc(
+        'get_statement_of_financial_position' as any,
+        {} as any,
+      );
+      if (error) throw error;
+      const d = data as any;
+
+      const lines = [
+        ...((d?.assets?.current ?? []) as PositionLine[]),
+        ...((d?.assets?.non_current ?? []) as PositionLine[]),
+      ];
+      const valueOf = (code: string) =>
+        lines.filter(l => accountCodeOf(l) === code)
+             .reduce((t, l) => t + Number(l.value || 0), 0);
+
+      // A1 Cash and Bank, A2 Cash at Hand — Float with Agents, A5 Cash in
+      // Transit: the same set the Balance Sheet groups as "Cash and Bank
+      // Balances", so the headline ties to that line exactly.
+      const bank = valueOf('A1');
+      const float = valueOf('A2');
+      const inTransit = valueOf('A5');
+
+      return {
+        asAt: d?.as_at ?? null,
+        totalCash: bank + float + inTransit,
+        // Money in Bank is the bank account itself. Everything else the
+        // platform holds — agent float plus cash collected but not yet banked —
+        // is cash held outside the bank, so the two cards partition the
+        // headline exactly rather than overlapping it.
+        bank,
+        outsideBank: float + inTransit,
+        float,
+        inTransit,
+        totalLiabilities: Number(d?.liabilities?.total ?? 0),
+        balanceCheck: d?.balance_check ?? null,
+      };
+    },
+    staleTime: STALE_TIME,
+  });
+
   // "Money We Owe" = actual wallet balances (same as Financial Ops)
   const liabilities = useQuery({
     queryKey: ['cfo-overview-liabilities'],
@@ -685,6 +744,9 @@ export function useCFOOverviewData() {
 
   return {
     platformCash: platformCash.data,
+    /** Authoritative cash position behind the CFO cash cards. */
+    position: position.data,
+    positionError: position.error,
     liabilities: liabilities.data,
     revenue: revenue.data,
     moneyFlow: moneyFlow.data,

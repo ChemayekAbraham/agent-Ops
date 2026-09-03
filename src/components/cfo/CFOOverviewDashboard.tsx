@@ -57,7 +57,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
     setOpenSections((prev) => ({ ...prev, [key]: prev[key] === false }));
   const { user } = useAuth();
   const {
-    platformCash, liabilities, revenue, receivables, moneyFlow,
+    platformCash, position, positionError, liabilities, revenue, receivables, moneyFlow,
     todayCashFlow, isLoading
   } = useCFOOverviewData();
   const { data: sevenDayCashFlow } = useCFO7DayCashFlow();
@@ -134,9 +134,13 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
     );
   }
 
-  const totalCash = platformCash?.totalCash ?? 0;
-  const treasuryPosition = (platformCash?.positions ?? []).find((p: any) => p.category === 'treasury_platform_cash');
-  const bankPosition = (platformCash?.positions ?? []).find((p: any) => p.category === 'bank_cash');
+  // Cash comes from the Balance Sheet's own statement, so these cards and the
+  // Balance Sheet cannot disagree. Bank (A1) and cash held outside the bank
+  // (A2 float + A5 in transit) partition the headline exactly.
+  const totalCash = position?.totalCash ?? 0;
+  const bankCash = position?.bank ?? 0;
+  const outsideBankCash = position?.outsideBank ?? 0;
+  const positionUnavailable = !!positionError;
   const totalLiabilities = liabilities?.totalLiabilities ?? 0;
   const walletTotal = liabilities?.tenantFunds ?? 0;
   const moneyWeCanUse = Math.max(0, totalCash - walletTotal);
@@ -213,12 +217,15 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               icon={<PiggyBank className="h-5 w-5 text-emerald-50" />}
               iconBg="bg-emerald-600"
               title="Money We Have"
-              value={fmt(totalCash)}
+              value={positionUnavailable ? '—' : fmt(totalCash)}
               items={[
-                { dot: 'bg-emerald-500', label: 'Platform / Treasury Balance', value: fmt(platformCash?.a1 ?? 0) },
-                { dot: 'bg-emerald-500', label: 'Cash in Transit (A5)', value: fmt(platformCash?.a5 ?? 0) },
+                { dot: 'bg-emerald-500', label: 'Cash and Bank (A1)', value: fmt(bankCash) },
+                { dot: 'bg-emerald-500', label: 'Float with Agents (A2)', value: fmt(position?.float ?? 0) },
+                { dot: 'bg-emerald-500', label: 'Cash in Transit (A5)', value: fmt(position?.inTransit ?? 0) },
               ]}
-              footer="Total available across all accounts"
+              footer={positionUnavailable
+                ? 'Could not load'
+                : 'Balance sheet cash — A1 + A2 + A5'}
               footerTone="bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400"
               onClick={() => setActiveBreakdown('cash')}
             />
@@ -256,10 +263,10 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               icon={<Vault className="h-5 w-5 text-indigo-50" />}
               iconBg="bg-indigo-600"
               title="Money in Treasury / Platform"
-              value={fmt(treasuryPosition?.value ?? 0)}
+              value={positionUnavailable ? '—' : fmt(outsideBankCash)}
               items={[
-                { dot: 'bg-indigo-500', label: 'Cash held outside the bank', value: fmt(treasuryPosition?.value ?? 0) },
-                { dot: 'bg-indigo-500', label: 'Ledger entries', value: String(treasuryPosition?.count ?? 0) },
+                { dot: 'bg-indigo-500', label: 'Float with Agents (A2)', value: fmt(position?.float ?? 0) },
+                { dot: 'bg-indigo-500', label: 'Cash in Transit (A5)', value: fmt(position?.inTransit ?? 0) },
               ]}
               footer="Position view — part of Money We Have, not added to it"
               footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic"
@@ -268,10 +275,10 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               icon={<Landmark className="h-5 w-5 text-sky-50" />}
               iconBg="bg-sky-500"
               title="Money in Bank"
-              value={fmt(bankPosition?.value ?? 0)}
+              value={positionUnavailable ? '—' : fmt(bankCash)}
               items={[
-                { dot: 'bg-sky-500', label: 'Net banked cash', value: fmt(bankPosition?.value ?? 0) },
-                { dot: 'bg-sky-500', label: 'Ledger entries', value: String(bankPosition?.count ?? 0) },
+                { dot: 'bg-sky-500', label: 'Cash and Bank Balances (A1)', value: fmt(bankCash) },
+                { dot: 'bg-sky-500', label: 'Plus held outside the bank', value: fmt(outsideBankCash) },
               ]}
               footer="Position view — part of Money We Have, not added to it"
               footerTone="bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic"

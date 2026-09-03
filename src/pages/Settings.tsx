@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, User, Phone, Mail, Save, Loader2, Camera, Shield, Home, Users, Wallet, Building2, Check, Type, Vibrate, RotateCcw, LogIn, Volume2, RefreshCw, Scale, Lock, Eye, EyeOff, LayoutDashboard, Unlock, Settings as SettingsIcon, Palette, ShieldCheck, Globe, DollarSign, Zap, Smartphone, Clock, Wind, Bell, ChevronRight, ChevronDown } from 'lucide-react';
+import { ArrowLeft, User, Phone, Mail, Save, Loader2, Camera, Shield, Home, Users, Wallet, Building2, Check, Type, Vibrate, RotateCcw, LogIn, Volume2, Scale, Lock, Eye, EyeOff, Settings as SettingsIcon, Palette, ShieldCheck, Globe, DollarSign, Zap, Smartphone, Clock, Wind, Bell, ChevronRight, ChevronDown, Accessibility } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useLanguage } from '@/hooks/useLanguage';
 import { useCurrency, currencies as ALL_CURRENCIES } from '@/hooks/useCurrency';
@@ -15,7 +15,7 @@ import { Language, languageNames, languageFlags } from '@/i18n/translations';
 import { useHapticSettings, hapticIntensityOptions } from '@/hooks/useHapticSettings';
 import { useReducedMotion, reducedMotionOptions } from '@/hooks/useCombinedSettings';
 import { hapticSelection } from '@/lib/haptics';
-import { useAuth, AppRole } from '@/hooks/useAuth';
+import { useAuth } from '@/hooks/useAuth';
 import { roleToSlug } from '@/lib/roleRoutes';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
@@ -43,29 +43,16 @@ const BiometricSecuritySection = lazy(() => import('@/components/settings/Biomet
 const DeviceSessionsSection = lazy(() => import('@/components/settings/DeviceSessionsSection'));
 const TwoFactorSection = lazy(() => import('@/components/settings/TwoFactorSection'));
 const TrustPrivacySection = lazy(() => import('@/components/settings/TrustPrivacySection'));
-const MyLandlordsSection = lazy(() => import('@/components/tenant/MyLandlordsSection'));
-const MyTenantsSection = lazy(() => import('@/components/landlord/MyTenantsSection'));
-const RentDiscountToggle = lazy(() => import('@/components/tenant/RentDiscountToggle'));
-const StaffAccessCard = lazy(() => import('@/components/settings/StaffAccessCard'));
 const ResidenceAddressForm = lazy(() => import('@/components/profile/ResidenceAddressForm'));
 const EmailEditor = lazy(() => import('@/components/profile/EmailEditor'));
 const MobileMoneyNameCard = lazy(() => import('@/components/settings/MobileMoneyNameCard'));
 const AccountLinkingCard = lazy(() => import('@/components/settings/AccountLinkingCard'));
 
 
-const AgentRentCapacitySelfCard = lazy(() =>
-  import('@/components/agent/AgentRentCapacitySelfCard').then((m) => ({ default: m.AgentRentCapacitySelfCard })),
-);
-const AgentCapacityBreakdownPanel = lazy(() =>
-  import('@/components/agent/AgentCapacityBreakdownPanel').then((m) => ({ default: m.AgentCapacityBreakdownPanel })),
-);
 const ArchivedPdfsCard = lazy(() =>
   import('@/components/settings/ArchivedPdfsCard').then((m) => ({ default: m.ArchivedPdfsCard })),
 );
 const CurrencyConverter = lazy(() => import('@/components/CurrencyConverter').then(m => ({ default: m.CurrencyConverter })));
-const MapKeySettingsCard = lazy(() => import('@/components/manager/MapKeySettingsCard').then(m => ({ default: m.MapKeySettingsCard })));
-const DriveVaultCard = lazy(() => import('@/components/manager/DriveVaultCard').then(m => ({ default: m.DriveVaultCard })));
-const DriveDocumentReviewPanel = lazy(() => import('@/components/manager/DriveDocumentReviewPanel').then(m => ({ default: m.DriveDocumentReviewPanel })));
 const PushNotificationButton = lazy(() => import('@/components/PushNotificationButton').then(m => ({ default: m.PushNotificationButton })));
 
 /**
@@ -81,20 +68,11 @@ const SECTION_PREFETCH: Record<string, Array<() => Promise<unknown>>> = {
     () => import('@/components/settings/AccountLinkingCard'),
     () => import('@/components/settings/ArchivedPdfsCard'),
   ],
-  roles: [
-    () => import('@/components/settings/StaffAccessCard'),
-    () => import('@/components/tenant/RentDiscountToggle'),
-    () => import('@/components/tenant/MyLandlordsSection'),
-    () => import('@/components/landlord/MyTenantsSection'),
-    () => import('@/components/agent/AgentRentCapacitySelfCard'),
-    () => import('@/components/agent/AgentCapacityBreakdownPanel'),
-    () => import('@/components/manager/MapKeySettingsCard'),
-    () => import('@/components/manager/DriveVaultCard'),
-    () => import('@/components/manager/DriveDocumentReviewPanel'),
-  ],
   appearance: [
-    () => import('@/components/PushNotificationButton'),
     () => import('@/components/CurrencyConverter'),
+  ],
+  notifications: [
+    () => import('@/components/PushNotificationButton'),
   ],
   security: [
     () => import('@/components/settings/PinSecuritySection'),
@@ -206,12 +184,13 @@ function SectionHeading({ children }: { children: ReactNode }) {
 }
 
 interface Profile { id: string; full_name: string; email: string; phone: string; avatar_url: string | null; }
-type SettingsSection = 'account' | 'roles' | 'appearance' | 'security' | 'legal' | 'advanced';
+type SettingsSection = 'account' | 'appearance' | 'notifications' | 'accessibility' | 'security' | 'legal' | 'advanced';
 
 const SECTIONS: { id: SettingsSection; label: string; icon: typeof User; helper: string }[] = [
-  { id: 'account', label: 'Me', icon: User, helper: 'Profile, contact, withdrawal and sign-in' },
-  { id: 'roles', label: 'Roles', icon: Shield, helper: 'Switch and review your active roles' },
-  { id: 'appearance', label: 'Look', icon: Palette, helper: 'Theme, text size, language and currency' },
+  { id: 'account', label: 'Personal Information', icon: User, helper: 'Profile, contact, withdrawal and sign-in' },
+  { id: 'appearance', label: 'Appearance', icon: Palette, helper: 'Theme, language and currency' },
+  { id: 'notifications', label: 'Notifications', icon: Bell, helper: 'Push alerts and sounds' },
+  { id: 'accessibility', label: 'Accessibility', icon: Accessibility, helper: 'Text size, motion, vibration and contrast' },
   { id: 'security', label: 'Safety', icon: ShieldCheck, helper: 'PIN, biometrics, devices and alerts' },
   { id: 'legal', label: 'Legal', icon: Scale, helper: 'Agreements and policy documents' },
   { id: 'advanced', label: 'More', icon: SettingsIcon, helper: 'Diagnostics and advanced tools' },
@@ -413,24 +392,6 @@ export default function Settings() {
 
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
-  const roleConfig: Record<AppRole, { label: string; icon: React.ReactNode; color: string }> = {
-    tenant: { label: 'Tenant', icon: <Home className="h-4 w-4" />, color: 'bg-primary/20 text-primary border-primary/30' },
-    agent: { label: 'Agent', icon: <Users className="h-4 w-4" />, color: 'bg-warning/20 text-warning border-warning/30' },
-    supporter: { label: 'Supporter', icon: <Wallet className="h-4 w-4" />, color: 'bg-success/20 text-success border-success/30' },
-    landlord: { label: 'Landlord', icon: <Building2 className="h-4 w-4" />, color: 'bg-accent/20 text-accent border-accent/30' },
-    manager: { label: 'Manager', icon: <Shield className="h-4 w-4" />, color: 'bg-destructive/20 text-destructive border-destructive/30' },
-    ceo: { label: 'CEO', icon: <Shield className="h-4 w-4" />, color: 'bg-primary/20 text-primary border-primary/30' },
-    coo: { label: 'COO', icon: <Shield className="h-4 w-4" />, color: 'bg-primary/20 text-primary border-primary/30' },
-    cfo: { label: 'CFO', icon: <Wallet className="h-4 w-4" />, color: 'bg-warning/20 text-warning border-warning/30' },
-    cto: { label: 'CTO', icon: <Shield className="h-4 w-4" />, color: 'bg-accent/20 text-accent border-accent/30' },
-    cmo: { label: 'CMO', icon: <Users className="h-4 w-4" />, color: 'bg-success/20 text-success border-success/30' },
-    crm: { label: 'CRM', icon: <Users className="h-4 w-4" />, color: 'bg-warning/20 text-warning border-warning/30' },
-    employee: { label: 'Employee', icon: <Users className="h-4 w-4" />, color: 'bg-muted text-muted-foreground border-border' },
-    operations: { label: 'Operations', icon: <Shield className="h-4 w-4" />, color: 'bg-accent/20 text-accent border-accent/30' },
-    super_admin: { label: 'Super Admin', icon: <Shield className="h-4 w-4" />, color: 'bg-destructive/20 text-destructive border-destructive/30' },
-    hr: { label: 'HR', icon: <Users className="h-4 w-4" />, color: 'bg-primary/20 text-primary border-primary/30' },
-    access_admin: { label: 'Access Admin', icon: <Shield className="h-4 w-4" />, color: 'bg-accent/20 text-accent border-accent/30' },
-  };
 
   const hasLegalContent = roles.includes('tenant') || roles.includes('agent') || roles.includes('supporter');
   const visibleSections = useMemo(() => SECTIONS.filter(s => s.id !== 'legal' || hasLegalContent), [hasLegalContent]);
@@ -701,77 +662,6 @@ export default function Settings() {
             )}
 
 
-            {activeSection === 'roles' && (
-              <div className="space-y-4">
-                <LazySection name="StaffAccess"><StaffAccessCard /></LazySection>
-                <SettingsGroup>
-                  <SettingsLinkRow
-                    icon={preferences.unlockAllRoles ? Unlock : Lock}
-                    label="Open All Dashboards"
-                    helper="Use all role views"
-                    chevron={false}
-                    trailing={
-                      <Switch
-                        checked={preferences.unlockAllRoles}
-                        onCheckedChange={(c) => { updatePreference('unlockAllRoles', c); toast.success(c ? 'All dashboards open!' : 'Back to default'); }}
-                        className="shrink-0"
-                      />
-                    }
-                  />
-                </SettingsGroup>
-                <Card className="border-border/40 rounded-2xl">
-                  <CardHeader className="pb-2"><CardTitle className="text-sm">Your Roles</CardTitle></CardHeader>
-                  <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      {roles.map((role) => { const c = roleConfig[role]; return c ? <Badge key={role} className={`${c.color} flex items-center gap-1.5 px-3 py-1.5 border text-xs`}>{c.icon}{c.label}<Check className="h-3 w-3 ml-0.5" /></Badge> : null; })}
-                      {roles.length === 0 && <p className="text-sm text-muted-foreground">No roles yet</p>}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border-border/40 rounded-2xl">
-                  <CardHeader className="pb-2"><div className="flex items-center gap-2"><LayoutDashboard className="h-4 w-4 text-primary" /><div><CardTitle className="text-sm">Home Screen</CardTitle><CardDescription className="text-xs">Pick which page opens when you log in</CardDescription></div></div></CardHeader>
-                  <CardContent>
-
-
-                    <RadioGroup value={preferences.defaultRole} onValueChange={(v) => { updatePreference('defaultRole', v as any); toast.success(`Default set to ${v}`); }} className="grid grid-cols-2 gap-2">
-                      <div className="flex items-center space-x-2 p-2.5 rounded-lg border border-border/50"><RadioGroupItem value="auto" id="role-auto" /><Label htmlFor="role-auto" className="text-sm cursor-pointer flex items-center gap-1.5"><RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />Auto</Label></div>
-                      {roles.map((r) => { const rc = roleConfig[r]; if (!rc) return null; return (<div key={r} className="flex items-center space-x-2 p-2.5 rounded-lg border border-border/50"><RadioGroupItem value={r} id={`role-${r}`} /><Label htmlFor={`role-${r}`} className="text-sm cursor-pointer flex items-center gap-1.5">{rc.icon}{rc.label}</Label></div>); })}
-                    </RadioGroup>
-                    {roles.includes('agent') && (
-                      <div className="mt-3 flex items-start justify-between gap-3 p-2.5 rounded-lg border border-border/50">
-                        <div className="min-w-0">
-                          <p className="font-medium text-xs">Skip auto-agent default</p>
-                          <p className="text-[11px] text-muted-foreground">Don't auto-open the Agent dashboard just because you've posted a rent request — use the choice above instead.</p>
-                        </div>
-                        <Switch
-                          checked={preferences.disableAgentAutoDefault}
-                          onCheckedChange={(c) => { updatePreference('disableAgentAutoDefault', c); toast.success(c ? 'Auto-agent default off' : 'Auto-agent default on'); }}
-                          className="shrink-0"
-                        />
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-                {roles.includes('tenant') && <LazySection name="RentDiscount"><RentDiscountToggle /></LazySection>}
-                {roles.includes('tenant') && <LazySection name="MyLandlords"><MyLandlordsSection /></LazySection>}
-                {roles.includes('landlord') && <LazySection name="MyTenants"><MyTenantsSection /></LazySection>}
-                {roles.includes('agent') && (
-                  <LazySection name="AgentRentCapacity"><AgentRentCapacitySelfCard /></LazySection>
-                )}
-                {roles.includes('agent') && (
-                  <LazySection name="AgentCapacityBreakdown"><AgentCapacityBreakdownPanel /></LazySection>
-                )}
-                {roles.includes('manager') && (
-                  <LazySection name="MapKeySettings"><MapKeySettingsCard /></LazySection>
-                )}
-                {roles.includes('manager') && (
-                  <LazySection name="DriveVault"><DriveVaultCard /></LazySection>
-                )}
-                {(['manager', 'super_admin', 'coo', 'operations'] as const).some((r) => roles.includes(r)) && (
-                  <LazySection name="DriveDocumentReview"><DriveDocumentReviewPanel /></LazySection>
-                )}
-              </div>
-            )}
 
             {activeSection === 'appearance' && (
               <div className="space-y-4">
@@ -788,98 +678,7 @@ export default function Settings() {
                     </CollapsibleContent>
                   </Collapsible>
 
-                  <Collapsible open={textSizeOpen} onOpenChange={setTextSizeOpen} className="space-y-2">
-                    <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
-                      <span className="flex items-center gap-2"><Type className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Text Size</span></span>
-                      <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", textSizeOpen && "rotate-180")} />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="space-y-2 pt-1">
-                      <p className="text-[11px] text-muted-foreground">Adjust the size of text throughout the app.</p>
-                      <RadioGroup value={fontSize} onValueChange={(v) => setFontSize(v as any)} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {fontSizeOptions.map((opt) => (<Label key={opt.value} htmlFor={opt.value} className={cn("flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm", fontSize === opt.value ? 'border-primary bg-primary/10' : 'border-border/50')}><RadioGroupItem value={opt.value} id={opt.value} /><div><p className="font-medium text-xs">{opt.label}</p><p className="text-[10px] text-muted-foreground">{opt.description}</p></div></Label>))}
-                      </RadioGroup>
-                    </CollapsibleContent>
-                  </Collapsible>
-
-                  <Collapsible open={vibrationOpen} onOpenChange={setVibrationOpen} className="space-y-2">
-                    <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
-                      <span className="flex items-center gap-2"><Vibrate className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Vibration</span></span>
-                      <span className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-muted-foreground capitalize">{hapticIntensityOptions.find((o) => o.value === hapticIntensity)?.label ?? hapticIntensity}</span>
-                        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", vibrationOpen && "rotate-180")} />
-                      </span>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="space-y-2 pt-1">
-                      <RadioGroup value={hapticIntensity} onValueChange={(v) => { setHapticIntensity(v as any); if (v !== 'off') setTimeout(() => hapticSelection(), 100); }} className="grid grid-cols-2 gap-2">
-                        {hapticIntensityOptions.map((opt) => (<Label key={opt.value} htmlFor={`haptic-${opt.value}`} className={cn("flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm", hapticIntensity === opt.value ? 'border-primary bg-primary/10' : 'border-border/50')}><RadioGroupItem value={opt.value} id={`haptic-${opt.value}`} /><div><p className="font-medium text-xs">{opt.label}</p><p className="text-[10px] text-muted-foreground">{opt.description}</p></div></Label>))}
-                      </RadioGroup>
-                    </CollapsibleContent>
-                  </Collapsible>
-
-                  <Collapsible open={motionOpen} onOpenChange={setMotionOpen} className="space-y-2">
-                    <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
-                      <span className="flex items-center gap-2"><Wind className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Motion</span></span>
-                      <span className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-muted-foreground capitalize">{reducedMotionOptions.find((o) => o.value === reducedMotion)?.label ?? reducedMotion}</span>
-                        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", motionOpen && "rotate-180")} />
-                      </span>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="space-y-2 pt-1">
-                      <RadioGroup value={reducedMotion} onValueChange={(v) => { setReducedMotion(v as any); toast.success(v === 'reduce' ? 'Animations reduced' : v === 'no-preference' ? 'Animations on' : 'Following system'); }} className="grid grid-cols-1 gap-2">
-                        {reducedMotionOptions.map((opt) => (<Label key={opt.value} htmlFor={`motion-${opt.value}`} className={cn("flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm", reducedMotion === opt.value ? 'border-primary bg-primary/10' : 'border-border/50')}><RadioGroupItem value={opt.value} id={`motion-${opt.value}`} /><div><p className="font-medium text-xs">{opt.label}</p><p className="text-[10px] text-muted-foreground">{opt.description}</p></div></Label>))}
-                      </RadioGroup>
-                    </CollapsibleContent>
-                  </Collapsible>
-                  <Collapsible open={soundOpen} onOpenChange={setSoundOpen} className="space-y-2">
-                    <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
-                      <span className="flex items-center gap-2"><Volume2 className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Alert Sounds</span></span>
-                      <span className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-muted-foreground">{preferences.notificationSounds ? 'On' : 'Off'}</span>
-                        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", soundOpen && "rotate-180")} />
-                      </span>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="space-y-3 pt-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm">Enable sounds</p>
-                        <Switch checked={preferences.notificationSounds} onCheckedChange={(c) => { updatePreference('notificationSounds', c); if (c) playNotificationSound(preferences.notificationSoundType); toast.success(c ? 'Sounds on' : 'Sounds off'); }} />
-                      </div>
-                      {preferences.notificationSounds && (
-                        <div className="space-y-3 pl-6 border-l-2 border-primary/20">
-                          <div><p className="text-xs text-muted-foreground mb-2">General Sound</p><RadioGroup value={preferences.notificationSoundType} onValueChange={(v) => { updatePreference('notificationSoundType', v as any); playNotificationSound(v as any); }} className="grid grid-cols-3 gap-2">{(['ding', 'pop', 'chime'] as const).map((s) => (<Label key={s} htmlFor={`sound-${s}`} className={cn("flex items-center justify-center p-2 rounded-lg border cursor-pointer capitalize text-xs", preferences.notificationSoundType === s ? 'border-primary bg-primary/10 font-semibold' : 'border-border/50')}><RadioGroupItem value={s} id={`sound-${s}`} className="sr-only" />{s}</Label>))}</RadioGroup></div>
-                          <div><p className="text-xs text-muted-foreground mb-2">💰 Opportunity Sound</p><RadioGroup value={preferences.opportunitySoundType} onValueChange={(v) => { updatePreference('opportunitySoundType', v as any); if (v === 'opportunity') import('@/lib/notificationSound').then(m => m.playOpportunitySound('opportunity')); else playNotificationSound(v as any); }} className="grid grid-cols-2 gap-2">{(['opportunity', 'ding', 'pop', 'chime'] as const).map((s) => (<Label key={s} htmlFor={`opp-sound-${s}`} className={cn("flex items-center justify-center p-2 rounded-lg border cursor-pointer capitalize text-xs", preferences.opportunitySoundType === s ? 'border-success bg-success/10 font-semibold' : 'border-border/50')}><RadioGroupItem value={s} id={`opp-sound-${s}`} className="sr-only" />{s === 'opportunity' ? '💰 Money' : s}</Label>))}</RadioGroup></div>
-                        </div>
-                      )}
-                    </CollapsibleContent>
-                  </Collapsible>
-                  <Collapsible open={pushOpen} onOpenChange={setPushOpen} className="space-y-2">
-                    <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
-                      <span className="flex items-center gap-2"><Bell className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Push Notifications</span></span>
-                      <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", pushOpen && "rotate-180")} />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="space-y-2 pt-1">
-                      <p className="text-[11px] text-muted-foreground">Get instant alerts on this device for deposits, withdrawals, payouts and rent updates — even when Welile is closed.</p>
-                      <Suspense fallback={<Skeleton className="h-10 w-48 rounded-md" />}>
-                        <PushNotificationButton className="w-full sm:w-auto gap-2" />
-                      </Suspense>
-                    </CollapsibleContent>
-                  </Collapsible>
                   <SettingsRow label="Stay Logged In" description="Don't ask to sign in every time" icon={LogIn}><Switch checked={preferences.rememberLogin} onCheckedChange={(c) => { updatePreference('rememberLogin', c); toast.success(c ? 'Login remembered' : 'Login not remembered'); }} /></SettingsRow>
-                  <SettingsRow label="Reduce Graphics" description="Fix screen tearing on older phones" icon={Zap}>
-                    <Switch
-                      checked={typeof window !== 'undefined' && localStorage.getItem('welile-no-blur') === '1'}
-                      onCheckedChange={(c) => {
-                        if (c) {
-                          localStorage.setItem('welile-no-blur', '1');
-                          document.documentElement.classList.add('no-backdrop-blur');
-                          toast.success('Reduced graphics on');
-                        } else {
-                          localStorage.removeItem('welile-no-blur');
-                          document.documentElement.classList.remove('no-backdrop-blur');
-                          toast.success('Full graphics restored');
-                        }
-                      }}
-                    />
-                  </SettingsRow>
                   <SettingsRow label="Skip Welcome Screen" description={preferences.skipSplash ? 'Goes straight to dashboard' : 'Shows welcome first'} icon={RotateCcw}><Switch checked={preferences.skipSplash} onCheckedChange={(c) => { updatePreference('skipSplash', c); toast.success(c ? 'Splash skipped' : 'Splash enabled'); }} /></SettingsRow>
                   </CardContent>
                 </Card>
@@ -958,6 +757,116 @@ export default function Settings() {
                 <LazySection name="CurrencyConverter">
                   <CurrencyConverter variant="compact" />
                 </LazySection>
+              </div>
+            )}
+
+            {activeSection === 'notifications' && (
+              <div className="space-y-4">
+                <Card className="border-border/40 rounded-2xl">
+                  <CardContent className="pt-5 space-y-5">
+                  <Collapsible open={soundOpen} onOpenChange={setSoundOpen} className="space-y-2">
+                    <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
+                      <span className="flex items-center gap-2"><Volume2 className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Alert Sounds</span></span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-muted-foreground">{preferences.notificationSounds ? 'On' : 'Off'}</span>
+                        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", soundOpen && "rotate-180")} />
+                      </span>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-3 pt-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm">Enable sounds</p>
+                        <Switch checked={preferences.notificationSounds} onCheckedChange={(c) => { updatePreference('notificationSounds', c); if (c) playNotificationSound(preferences.notificationSoundType); toast.success(c ? 'Sounds on' : 'Sounds off'); }} />
+                      </div>
+                      {preferences.notificationSounds && (
+                        <div className="space-y-3 pl-6 border-l-2 border-primary/20">
+                          <div><p className="text-xs text-muted-foreground mb-2">General Sound</p><RadioGroup value={preferences.notificationSoundType} onValueChange={(v) => { updatePreference('notificationSoundType', v as any); playNotificationSound(v as any); }} className="grid grid-cols-3 gap-2">{(['ding', 'pop', 'chime'] as const).map((s) => (<Label key={s} htmlFor={`sound-${s}`} className={cn("flex items-center justify-center p-2 rounded-lg border cursor-pointer capitalize text-xs", preferences.notificationSoundType === s ? 'border-primary bg-primary/10 font-semibold' : 'border-border/50')}><RadioGroupItem value={s} id={`sound-${s}`} className="sr-only" />{s}</Label>))}</RadioGroup></div>
+                          <div><p className="text-xs text-muted-foreground mb-2">💰 Opportunity Sound</p><RadioGroup value={preferences.opportunitySoundType} onValueChange={(v) => { updatePreference('opportunitySoundType', v as any); if (v === 'opportunity') import('@/lib/notificationSound').then(m => m.playOpportunitySound('opportunity')); else playNotificationSound(v as any); }} className="grid grid-cols-2 gap-2">{(['opportunity', 'ding', 'pop', 'chime'] as const).map((s) => (<Label key={s} htmlFor={`opp-sound-${s}`} className={cn("flex items-center justify-center p-2 rounded-lg border cursor-pointer capitalize text-xs", preferences.opportunitySoundType === s ? 'border-success bg-success/10 font-semibold' : 'border-border/50')}><RadioGroupItem value={s} id={`opp-sound-${s}`} className="sr-only" />{s === 'opportunity' ? '💰 Money' : s}</Label>))}</RadioGroup></div>
+                        </div>
+                      )}
+                    </CollapsibleContent>
+                  </Collapsible>
+                  <Collapsible open={pushOpen} onOpenChange={setPushOpen} className="space-y-2">
+                    <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
+                      <span className="flex items-center gap-2"><Bell className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Push Notifications</span></span>
+                      <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", pushOpen && "rotate-180")} />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-2 pt-1">
+                      <p className="text-[11px] text-muted-foreground">Get instant alerts on this device for deposits, withdrawals, payouts and rent updates — even when Welile is closed.</p>
+                      <Suspense fallback={<Skeleton className="h-10 w-48 rounded-md" />}>
+                        <PushNotificationButton className="w-full sm:w-auto gap-2" />
+                      </Suspense>
+                    </CollapsibleContent>
+                  </Collapsible>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {activeSection === 'accessibility' && (
+              <div className="space-y-4">
+                <Card className="border-border/40 rounded-2xl">
+                  <CardContent className="pt-5 space-y-5">
+                    <Collapsible open={textSizeOpen} onOpenChange={setTextSizeOpen} className="space-y-2">
+                      <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
+                        <span className="flex items-center gap-2"><Type className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Text Size</span></span>
+                        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", textSizeOpen && "rotate-180")} />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-2 pt-1">
+                        <p className="text-[11px] text-muted-foreground">Adjust the size of text throughout the app.</p>
+                        <RadioGroup value={fontSize} onValueChange={(v) => setFontSize(v as any)} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {fontSizeOptions.map((opt) => (<Label key={opt.value} htmlFor={opt.value} className={cn("flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm", fontSize === opt.value ? 'border-primary bg-primary/10' : 'border-border/50')}><RadioGroupItem value={opt.value} id={opt.value} /><div><p className="font-medium text-xs">{opt.label}</p><p className="text-[10px] text-muted-foreground">{opt.description}</p></div></Label>))}
+                        </RadioGroup>
+                      </CollapsibleContent>
+                    </Collapsible>
+
+                    <Collapsible open={vibrationOpen} onOpenChange={setVibrationOpen} className="space-y-2">
+                      <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
+                        <span className="flex items-center gap-2"><Vibrate className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Vibration</span></span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-muted-foreground capitalize">{hapticIntensityOptions.find((o) => o.value === hapticIntensity)?.label ?? hapticIntensity}</span>
+                          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", vibrationOpen && "rotate-180")} />
+                        </span>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-2 pt-1">
+                        <RadioGroup value={hapticIntensity} onValueChange={(v) => { setHapticIntensity(v as any); if (v !== 'off') setTimeout(() => hapticSelection(), 100); }} className="grid grid-cols-2 gap-2">
+                          {hapticIntensityOptions.map((opt) => (<Label key={opt.value} htmlFor={`haptic-${opt.value}`} className={cn("flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm", hapticIntensity === opt.value ? 'border-primary bg-primary/10' : 'border-border/50')}><RadioGroupItem value={opt.value} id={`haptic-${opt.value}`} /><div><p className="font-medium text-xs">{opt.label}</p><p className="text-[10px] text-muted-foreground">{opt.description}</p></div></Label>))}
+                        </RadioGroup>
+                      </CollapsibleContent>
+                    </Collapsible>
+
+                    <Collapsible open={motionOpen} onOpenChange={setMotionOpen} className="space-y-2">
+                      <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
+                        <span className="flex items-center gap-2"><Wind className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Motion</span></span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="text-[11px] text-muted-foreground capitalize">{reducedMotionOptions.find((o) => o.value === reducedMotion)?.label ?? reducedMotion}</span>
+                          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", motionOpen && "rotate-180")} />
+                        </span>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-2 pt-1">
+                        <RadioGroup value={reducedMotion} onValueChange={(v) => { setReducedMotion(v as any); toast.success(v === 'reduce' ? 'Animations reduced' : v === 'no-preference' ? 'Animations on' : 'Following system'); }} className="grid grid-cols-1 gap-2">
+                          {reducedMotionOptions.map((opt) => (<Label key={opt.value} htmlFor={`motion-${opt.value}`} className={cn("flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm", reducedMotion === opt.value ? 'border-primary bg-primary/10' : 'border-border/50')}><RadioGroupItem value={opt.value} id={`motion-${opt.value}`} /><div><p className="font-medium text-xs">{opt.label}</p><p className="text-[10px] text-muted-foreground">{opt.description}</p></div></Label>))}
+                        </RadioGroup>
+                      </CollapsibleContent>
+                    </Collapsible>
+
+                    <SettingsRow label="Reduce Graphics" description="Fix screen tearing on older phones" icon={Zap}>
+                      <Switch
+                        checked={typeof window !== 'undefined' && localStorage.getItem('welile-no-blur') === '1'}
+                        onCheckedChange={(c) => {
+                          if (c) {
+                            localStorage.setItem('welile-no-blur', '1');
+                            document.documentElement.classList.add('no-backdrop-blur');
+                            toast.success('Reduced graphics on');
+                          } else {
+                            localStorage.removeItem('welile-no-blur');
+                            document.documentElement.classList.remove('no-backdrop-blur');
+                            toast.success('Full graphics restored');
+                          }
+                        }}
+                      />
+                    </SettingsRow>
+                  </CardContent>
+                </Card>
               </div>
             )}
 

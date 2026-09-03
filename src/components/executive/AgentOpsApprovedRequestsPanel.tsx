@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { RentPipelineTracker } from './RentPipelineTracker';
-import { CheckCircle2, Search, Calendar, User, Home, Briefcase, ArrowUpDown, Building, Banknote, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, Search, Calendar, Clock, User, Home, Briefcase, ArrowUpDown, Building, Banknote, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
 
 /**
@@ -30,6 +30,8 @@ const APPROVED_STATUSES = [
 ];
 
 const STAGE_LABEL: Record<string, string> = {
+  pending: 'Field Verified',
+  service_center_review: 'Service Center Check',
   agent_ops_approved: 'Tenant Ops review',
   agent_verified: 'Tenant Ops review',
   tenant_ops_approved: 'Landlord Ops review',
@@ -109,6 +111,8 @@ export function AgentOpsApprovedRequestsPanel() {
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ['agent-ops-approved-requests'],
+    staleTime: 0,
+    refetchOnMount: 'always',
     queryFn: async (): Promise<ApprovedRow[]> => {
       // Pull requests from the unified pipeline using Tenant Ops data sources
       const PAGE = 1000;
@@ -117,9 +121,11 @@ export function AgentOpsApprovedRequestsPanel() {
         const { data: chunk, error } = await supabase
           .from('rent_requests')
           .select(
-            'id, status, tenancy_status, registration_type, rent_amount, daily_repayment, duration_days, total_repayment, amount_repaid, access_fee, request_fee, created_at, approved_at, funded_at, disbursed_at, resubmitted_at, returned_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, partner_ops_reviewed_at, coo_reviewed_at, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, approval_comment, payout_transaction_reference, tenant_id, agent_id, assigned_agent_id, landlord_id, house_listing_id, request_city',
+            'id, status, tenancy_status, registration_type, rent_amount, daily_repayment, duration_days, total_repayment, amount_repaid, access_fee, request_fee, created_at, approved_at, funded_at, disbursed_at, resubmitted_at, returned_at, agent_verified, agent_verified_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, partner_ops_reviewed_at, coo_reviewed_at, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, approval_comment, payout_transaction_reference, tenant_id, agent_id, assigned_agent_id, landlord_id, house_listing_id, request_city',
           )
-          .in('status', APPROVED_STATUSES)
+          .or('status.neq.pending,agent_verified.eq.true,agent_verified_at.not.is.null,agent_ops_reviewed_at.not.is.null')
+          .neq('status', 'rejected')
+          .neq('status', 'cancelled')
           .order('created_at', { ascending: false })
           .range(fromIdx, fromIdx + PAGE - 1);
         if (error) throw error;
@@ -139,21 +145,44 @@ export function AgentOpsApprovedRequestsPanel() {
         new Set((data || []).map((r: any) => r.house_listing_id).filter(Boolean)),
       );
 
-      const [profilesRes, landlordsRes, housesRes] = await Promise.all([
-        profileIds.length
-          ? supabase.from('profiles').select('id, full_name, phone, district, village').in('id', profileIds)
-          : { data: [] as any[] },
-        landlordIds.length
-          ? supabase.from('landlords').select('id, name, phone, property_address, district').in('id', landlordIds)
-          : { data: [] as any[] },
-        houseIds.length
-          ? supabase.from('house_listings').select('id, title, address, district, village, region').in('id', houseIds)
-          : { data: [] as any[] },
+      const BATCH = 50;
+      const fetchProfiles = async () => {
+        if (!profileIds.length) return [];
+        const res: any[] = [];
+        for (let i = 0; i < profileIds.length; i += BATCH) {
+          const { data } = await supabase.from('profiles').select('id, full_name, phone, district, village').in('id', profileIds.slice(i, i + BATCH));
+          if (data) res.push(...data);
+        }
+        return res;
+      };
+      const fetchLandlords = async () => {
+        if (!landlordIds.length) return [];
+        const res: any[] = [];
+        for (let i = 0; i < landlordIds.length; i += BATCH) {
+          const { data } = await supabase.from('landlords').select('id, name, phone, property_address, district').in('id', landlordIds.slice(i, i + BATCH));
+          if (data) res.push(...data);
+        }
+        return res;
+      };
+      const fetchHouses = async () => {
+        if (!houseIds.length) return [];
+        const res: any[] = [];
+        for (let i = 0; i < houseIds.length; i += BATCH) {
+          const { data } = await supabase.from('house_listings').select('id, title, address, district, village, region').in('id', houseIds.slice(i, i + BATCH));
+          if (data) res.push(...data);
+        }
+        return res;
+      };
+
+      const [profilesList, landlordsList, housesList] = await Promise.all([
+        fetchProfiles(),
+        fetchLandlords(),
+        fetchHouses(),
       ]);
 
-      const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.id, p]));
-      const landlordMap = new Map((landlordsRes.data || []).map((l: any) => [l.id, l]));
-      const houseMap = new Map((housesRes.data || []).map((h: any) => [h.id, h]));
+      const profileMap = new Map(profilesList.map((p: any) => [p.id, p]));
+      const landlordMap = new Map(landlordsList.map((l: any) => [l.id, l]));
+      const houseMap = new Map(housesList.map((h: any) => [h.id, h]));
 
       return (data || []).map((r: any) => {
         const tenant = profileMap.get(r.tenant_id) as any;
@@ -166,7 +195,7 @@ export function AgentOpsApprovedRequestsPanel() {
         const agent_name = agent?.full_name || '—';
         const house_title = house?.title || 'Residential Unit';
         const house_address = [house?.address, house?.village, house?.district].filter(Boolean).join(', ') || r.request_city || '—';
-        const effectiveApprovalDate = r.agent_ops_reviewed_at || r.approved_at || null;
+        const effectiveApprovalDate = r.agent_ops_reviewed_at || r.approved_at || r.agent_verified_at || null;
 
         const totalRepay = Number(r.total_repayment) || 0;
         const repaid = Number(r.amount_repaid) || 0;
@@ -373,7 +402,7 @@ export function AgentOpsApprovedRequestsPanel() {
                 </div>
               )}
 
-              <div className="flex items-center gap-3 pt-1 border-t text-[11px] text-muted-foreground font-mono">
+              <div className="flex items-center gap-3 pt-1 border-t text-[11px] text-muted-foreground font-mono flex-wrap">
                 <span className="inline-flex items-center gap-1 font-sans">
                   <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
                   Approved{' '}
@@ -382,6 +411,10 @@ export function AgentOpsApprovedRequestsPanel() {
                 <span className="inline-flex items-center gap-1 font-sans">
                   <Calendar className="h-3 w-3 shrink-0" />
                   Submitted <span className="font-mono">{format(new Date(r.created_at), 'dd MMM yyyy, HH:mm')}</span>
+                </span>
+                <span className="inline-flex items-center gap-1 font-sans text-muted-foreground">
+                  <Clock className="h-3 w-3 shrink-0" />
+                  Expiry Date <span className="font-mono">{format(new Date(new Date(r.created_at).getTime() + 30 * 24 * 60 * 60 * 1000), 'dd MMM yyyy, HH:mm')}</span>
                 </span>
               </div>
             </CardContent>

@@ -9,6 +9,37 @@ section[aria-label*="Notifications" i]:empty {
   display: none !important;
 }
 
+/* iOS PWA Safe Area Utilities & Inset Handling */
+@layer utilities {
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pl-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .pr-safe {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .px-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .py-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .top-safe {
+    top: env(safe-area-inset-top, 0px);
+  }
+  .bottom-safe {
+    bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+
 /* Toasts must always render above every dialog/sheet/overlay so critical
    error messages (KYC blocks, validation, etc.) are never hidden behind a
    modal. Radix Dialog uses z-50; sonner defaults are lower, and on mobile

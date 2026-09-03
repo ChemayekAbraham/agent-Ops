@@ -208,6 +208,12 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const invalidateAllPipelineQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ['rent-pipeline'] });
+    queryClient.invalidateQueries({ queryKey: ['pipeline-counts'] });
+    queryClient.invalidateQueries({ queryKey: ['agent-ops-approved-requests'] });
+    queryClient.invalidateQueries({ queryKey: ['agent-ops-counts'] });
+  };
   const config = STAGE_CONFIG[stage];
 
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
@@ -221,6 +227,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   const [quickProcessingId, setQuickProcessingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [hideExpired, setHideExpired] = useState(true);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
@@ -472,7 +479,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
 
       // Update local state
       setSelectedRequest((prev: any) => prev ? { ...prev, ...updates } : prev);
-      queryClient.invalidateQueries({ queryKey: ['rent-pipeline'] });
+      invalidateAllPipelineQueries();
 
       // Audit log
       await supabase.from('audit_logs').insert({
@@ -637,7 +644,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
         ? 'completed (outstanding balance recorded)'
         : config.nextStatus.replace(/_/g, ' ');
       toast({ title: '✅ Approved', description: `${req.tenant_name} → ${finalStatus}` });
-      queryClient.invalidateQueries({ queryKey: ['rent-pipeline'] });
+      invalidateAllPipelineQueries();
 
       // Credit the agent's UGX 5,000 landlord-verification bonus in the
       // background. This is a non-critical, slow edge call (cold start +
@@ -675,7 +682,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       const statuses = [stage, ...additionalStatuses];
       let query = supabase
         .from('rent_requests')
-        .select('id, tenant_id, agent_id, landlord_id, lc1_id, rent_amount, duration_days, access_fee, request_fee, total_repayment, daily_repayment, status, created_at, updated_at, resubmitted_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, coo_reviewed_at, house_category, request_city, request_latitude, request_longitude, assigned_agent_id, payout_method, payout_transaction_reference, approval_comment, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, partner_ops_reviewed_at, proxy_agent_id, registration_type, initial_outstanding_balance, tenant_photo_url, house_image_urls, latest_rent_receipt_url, latest_rent_receipt_uploaded_at, funder_visible, funder_visibility_reason')
+        .select('id, tenant_id, agent_id, landlord_id, lc1_id, rent_amount, duration_days, access_fee, request_fee, total_repayment, daily_repayment, status, created_at, updated_at, resubmitted_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, coo_reviewed_at, house_category, request_city, request_latitude, request_longitude, assigned_agent_id, payout_method, payout_transaction_reference, approval_comment, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, partner_ops_reviewed_at, proxy_agent_id, registration_type, initial_outstanding_balance, tenant_photo_url, house_image_urls, latest_rent_receipt_url, latest_rent_receipt_uploaded_at, funder_visible, funder_visibility_reason, agent_verified')
         .in('status', statuses);
 
       // Outstanding-balance rent requests bypass COO + CFO (DB trigger short-circuits
@@ -810,9 +817,20 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
     ).values(),
   ).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+  const isRequestExpired = (createdAt: string, requestStatus: string, agentVerified?: boolean | null) => {
+    if (requestStatus !== 'pending') return false;
+    if (agentVerified) return false;
+    return Date.now() - new Date(createdAt).getTime() > THIRTY_DAYS_MS;
+  };
+  const expiredCount = rows.filter(r => isRequestExpired(r.created_at, r.status, r.agent_verified)).length;
+
   const filtered = rows
     .filter(r => {
       if (selectedTenantId !== 'all' && r.tenant_id !== selectedTenantId) return false;
+      if (stage === 'pending' && hideExpired && isRequestExpired(r.created_at, r.status, r.agent_verified)) {
+        return false;
+      }
       if (search) {
         const q = search.toLowerCase();
         return (
@@ -835,6 +853,10 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
 
   const handleApprove = async (decision?: FunderVisibilityDecision) => {
     if (!selectedRequest || !user) return;
+    if (stage === 'pending' && isRequestExpired(selectedRequest.created_at, selectedRequest.status, selectedRequest.agent_verified)) {
+      toast({ title: 'Request expired', description: 'Cannot approve a request that has exceeded 30 days without verification.', variant: 'destructive' });
+      return;
+    }
     const isOutstanding = selectedRequest.registration_type === 'outstanding_balance';
     if (config.showAgentSelector && !isOutstanding && !assignedAgentId && !selectedRequest.agent_id) {
       toast({ title: 'Please assign an agent', variant: 'destructive' });
@@ -936,7 +958,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       setComment('');
       setAssignedAgentId(null);
       setPayoutRef('');
-      queryClient.invalidateQueries({ queryKey: ['rent-pipeline'] });
+      invalidateAllPipelineQueries();
 
       // Credit the agent's UGX 5,000 landlord-verification bonus in the
       // background (non-critical, slow edge call). Awaiting it delayed the
@@ -1032,7 +1054,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       toast({ title: 'Returned for correction — sent to Agent Ops & originating Agent' });
       setSelectedRequest(null);
       setComment('');
-      queryClient.invalidateQueries({ queryKey: ['rent-pipeline'] });
+      invalidateAllPipelineQueries();
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
@@ -1076,7 +1098,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
         });
       }
       setSelectedIds(new Set());
-      queryClient.invalidateQueries({ queryKey: ['rent-pipeline'] });
+      invalidateAllPipelineQueries();
     } catch (err: any) {
       toast({ title: 'Bulk approval error', description: err.message, variant: 'destructive' });
     } finally {
@@ -1136,7 +1158,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       setSelectedIds(new Set());
       setBulkRejectReason('');
       setBulkRejectOpen(false);
-      queryClient.invalidateQueries({ queryKey: ['rent-pipeline'] });
+      invalidateAllPipelineQueries();
     } catch (err: any) {
       toast({ title: 'Bulk return error', description: err.message, variant: 'destructive' });
     } finally {
@@ -1306,6 +1328,19 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
             <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
             <span>{sortOrder === 'desc' ? 'Newest first' : 'Oldest first'}</span>
           </Button>
+          {stage === 'pending' && expiredCount > 0 && (
+            <Button
+              type="button"
+              variant={hideExpired ? 'outline' : 'secondary'}
+              size="sm"
+              onClick={() => setHideExpired(prev => !prev)}
+              className="h-9 gap-1.5 text-xs shrink-0 border-border"
+              title={hideExpired ? 'Click to show expired requests (> 30 days without verification)' : 'Click to hide expired requests'}
+            >
+              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+              <span>{hideExpired ? `Hide Expired (${expiredCount})` : `Show Expired (${expiredCount})`}</span>
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent className="p-0">
@@ -1360,6 +1395,12 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                           <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 border border-amber-500/30 shrink-0">
                             <AlertCircle className="h-2.5 w-2.5" />
                             Outstanding
+                          </span>
+                        )}
+                        {isRequestExpired(req.created_at, req.status, req.agent_verified) && (
+                          <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive border border-destructive/30 shrink-0">
+                            <Clock className="h-2.5 w-2.5" />
+                            Expired (&gt;30d)
                           </span>
                         )}
                         {req.is_resubmitted && (
@@ -1434,11 +1475,21 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                         <WhatsAppButton phone={req.agent_phone} name={req.assigned_agent_name || req.agent_name} label="Agent" />
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div className="text-right shrink-0 space-y-0.5">
                       <p className="font-bold text-sm">UGX {fmt(req.rent_amount)}</p>
                       <p className="text-[10px] text-muted-foreground font-mono">
-                        {format(new Date(req.created_at), 'dd MMM yyyy, HH:mm')}
+                        Submitted: {format(new Date(req.created_at), 'dd MMM yyyy, HH:mm')}
                       </p>
+                      {(() => {
+                        const expiryDate = new Date(new Date(req.created_at).getTime() + 30 * 24 * 60 * 60 * 1000);
+                        const isPastExpiry = Date.now() > expiryDate.getTime();
+                        return (
+                          <p className={`text-[10px] font-mono flex items-center justify-end gap-1 ${isPastExpiry ? 'text-destructive font-semibold' : 'text-amber-600 dark:text-amber-400'}`}>
+                            <Clock className="h-2.5 w-2.5 shrink-0" />
+                            <span>Expires: {format(expiryDate, 'dd MMM yyyy, HH:mm')}</span>
+                          </p>
+                        );
+                      })()}
                     </div>
                   </div>
                 </button>
@@ -1457,8 +1508,14 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                   <Button
                     size="sm"
                     onClick={(e) => handleQuickApprove(req, e)}
-                    disabled={quickProcessingId === req.id || (isLandlordStage && !checklistComplete)}
-                    title={isLandlordStage && !checklistComplete ? `Complete the landlord verification checklist (${checklistDone}/2)` : undefined}
+                    disabled={quickProcessingId === req.id || (isLandlordStage && !checklistComplete) || isRequestExpired(req.created_at, req.status, req.agent_verified)}
+                    title={
+                      isRequestExpired(req.created_at, req.status, req.agent_verified)
+                        ? "This rent request expired after 30 days without verification"
+                        : isLandlordStage && !checklistComplete
+                        ? `Complete the landlord verification checklist (${checklistDone}/2)`
+                        : undefined
+                    }
                     className="h-8 px-3 text-xs font-bold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
                   >
                     {quickProcessingId === req.id ? (
@@ -1668,6 +1725,17 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                 <InlineEditableField field="access_fee" label="Access Fee" value={selectedRequest.access_fee} prefix="UGX " />
                 <InlineEditableField field="daily_repayment" label="Daily Repayment" value={selectedRequest.daily_repayment} prefix="UGX " className="font-bold text-base text-primary" />
                 <InlineEditableField field="total_repayment" label="Total Repayment" value={selectedRequest.total_repayment} prefix="UGX " />
+                <div className="space-y-0.5">
+                  <p className="text-xs text-muted-foreground">Submitted Date</p>
+                  <p className="font-semibold text-xs font-mono">{format(new Date(selectedRequest.created_at), 'dd MMM yyyy, HH:mm')}</p>
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-xs text-muted-foreground">Expiry Date</p>
+                  <p className="font-semibold text-xs font-mono text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {format(new Date(new Date(selectedRequest.created_at).getTime() + 30 * 24 * 60 * 60 * 1000), 'dd MMM yyyy, HH:mm')}
+                  </p>
+                </div>
                 {selectedRequest.house_category && (
                   <InlineEditableField field="house_category" label="House Category" value={selectedRequest.house_category} />
                 )}
@@ -2089,7 +2157,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
           currentAgentId={selectedRequest.assigned_agent_id || selectedRequest.agent_id}
           currentAgentName={selectedRequest.assigned_agent_name || selectedRequest.agent_name}
           onTransferred={() => {
-            queryClient.invalidateQueries({ queryKey: ['rent-pipeline'] });
+            invalidateAllPipelineQueries();
             setSelectedRequest(null);
           }}
         />

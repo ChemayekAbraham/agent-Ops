@@ -136,7 +136,7 @@ export default function YourProfile() {
 
             <Card className="rounded-2xl">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Identity details</CardTitle>
+                <CardTitle className="text-sm">Personal information</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <ul className="divide-y">
@@ -158,7 +158,7 @@ export default function YourProfile() {
             {roles && roles.length > 1 && (
               <Card className="rounded-2xl">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Your access</CardTitle>
+                  <CardTitle className="text-sm">You can access</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-1.5">
                   {roles.map(r => (

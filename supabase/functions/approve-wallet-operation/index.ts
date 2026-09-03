@@ -205,8 +205,15 @@ Deno.serve(async (req) => {
             .select('next_roi_date')
             .eq('id', op.source_id)
             .maybeSingle();
-          const cycleAnchor = (cyclePf?.next_roi_date as string | null) || new Date().toISOString().slice(0, 10);
-          roiCycleKey = `roi-cycle-${op.source_id}-${cycleAnchor}`;
+          const cycleAnchor = (op.metadata?.cycle_anchor as string | null)
+            || (cyclePf?.next_roi_date as string | null)
+            || new Date().toISOString().slice(0, 10);
+          const correctionKey = typeof op.metadata?.correction_key === 'string'
+            ? op.metadata.correction_key.trim()
+            : '';
+          roiCycleKey = correctionKey
+            ? `roi-cycle-correction-${correctionKey}`
+            : `roi-cycle-${op.source_id}-${cycleAnchor}`;
 
           const { data: alreadyCredited } = await adminClient
             .from('general_ledger')

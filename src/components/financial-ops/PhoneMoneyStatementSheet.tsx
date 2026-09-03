@@ -20,7 +20,7 @@ function WhatsAppIcon({ className }: { className?: string }) {
 
 const PAGE_SIZE = 20;
 
-export type PhoneMoneyLine = 'mtn_momo' | 'airtel_money' | 'cash';
+export type PhoneMoneyLine = 'mtn_momo' | 'airtel_money' | 'cash' | 'bank';
 
 interface Props {
   line: PhoneMoneyLine | null;
@@ -31,6 +31,7 @@ const TITLES: Record<PhoneMoneyLine, string> = {
   mtn_momo: 'MTN Money statement',
   airtel_money: 'Airtel Money statement',
   cash: 'Cash at hand statement',
+  bank: 'Money at Bank — Bayo Mercy account',
 };
 
 interface Row {
@@ -61,13 +62,17 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
       if (line === 'cash') {
         const { data: cash, error } = await supabase
           .from('cash_deposit_verifications')
-          .select('id, amount, user_id, verified_at, created_at, deposit_request_id')
+          .select('id, amount, user_id, verified_at, created_at, deposit_request_id, deposit_requests!inner(purpose_audit)')
           .not('verified_at', 'is', null)
           .order('verified_at', { ascending: false })
           .limit(100);
         if (error) throw error;
-        const people = await resolveNames((cash ?? []).map((c: any) => c.user_id));
-        return (cash ?? []).map((c: any) => ({
+        const rows = (cash ?? []).filter((c: any) => {
+          const loc = (c.deposit_requests?.purpose_audit?.cash_location ?? 'cash_at_hand') as string;
+          return loc !== 'bank';
+        });
+        const people = await resolveNames(rows.map((c: any) => c.user_id));
+        return rows.map((c: any) => ({
           id: c.id,
           at: c.verified_at ?? c.created_at,
           amount: Number(c.amount ?? 0),
@@ -79,6 +84,25 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
           phone: people.get(c.user_id)?.phone ?? null,
         }));
       }
+
+       if (line === 'bank') {
+         const { data: reconciliation, error } = await supabase.rpc('get_money_at_bank_reconciliation' as any);
+         if (error) throw error;
+         const movements = Array.isArray((reconciliation as any)?.qualifying_emails)
+           ? (reconciliation as any).qualifying_emails
+           : [];
+         return movements.map((t: any) => ({
+           id: String(t.id),
+           at: t.extracted_at ?? null,
+           amount: Number(t.amount ?? 0),
+           direction: (t.direction === 'out' ? 'out' : 'in') as Row['direction'],
+           party: 'Bayo Mercy account',
+           reference: t.transaction_id ?? null,
+           balanceAfter: null,
+           note: t.snippet ? String(t.snippet).slice(0, 180) : String(t.match_reason ?? 'Qualifying Bayo Mercy account alert'),
+           phone: null,
+         }));
+       }
 
       const { data: tx, error } = await supabase
         .from('gmail_transactions')
@@ -163,7 +187,9 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
         <SheetHeader className="p-4 sm:p-5 pb-3 border-b border-border shrink-0 text-left">
           <SheetTitle>{line ? TITLES[line] : 'Statement'}</SheetTitle>
           <SheetDescription className="text-xs sm:text-sm">
-            {line === 'cash'
+             {line === 'bank'
+               ? 'Bayo Mercy account balance: qualifying credits in less debits out.'
+               : line === 'cash'
               ? 'Verified cash deposits collected by agents and not yet banked.'
               : 'Every money-in and money-out movement parsed from provider messages on this line.'}
           </SheetDescription>

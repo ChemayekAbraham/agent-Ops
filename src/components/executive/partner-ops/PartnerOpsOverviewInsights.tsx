@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ResponsiveContainer, BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { TrendingUp, ArrowUpFromLine, Users } from 'lucide-react';
+import { TrendingUp, ArrowUpFromLine, Users, PieChart as PieChartIcon } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 
@@ -155,6 +155,148 @@ export function PartnerRoiProjectionChart() {
     </Card>
   );
 }
+
+/* ─────────── 1b. Self-supported vs company-supported portfolio mix ─────────── */
+interface SupportMixSlice {
+  name: string;
+  count: number;
+  amount: number;
+  color: string;
+}
+
+export function PartnerSupportMixChart() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['partner-ops-support-mix'],
+    queryFn: async () => {
+      const [portfoliosRes, linesRes] = await Promise.all([
+        supabase
+          .from('investor_portfolios')
+          .select('id, investor_id, investment_amount, status')
+          .eq('status', 'active')
+          .limit(5000),
+        supabase
+          .from('partner_self_funding_lines')
+          .select('partner_id, status')
+          .in('status', ['idle', 'active', 'completed'])
+          .limit(10000),
+      ]);
+      if (portfoliosRes.error) throw portfoliosRes.error;
+      if (linesRes.error) throw linesRes.error;
+
+      const selfPartners = new Set(
+        ((linesRes.data ?? []) as { partner_id: string }[]).map((l) => l.partner_id),
+      );
+
+      let selfCount = 0;
+      let selfAmount = 0;
+      let companyCount = 0;
+      let companyAmount = 0;
+
+      for (const p of (portfoliosRes.data ?? []) as {
+        investor_id: string | null;
+        investment_amount: number | string;
+      }[]) {
+        const amount = Number(p.investment_amount) || 0;
+        if (p.investor_id && selfPartners.has(p.investor_id)) {
+          selfCount += 1;
+          selfAmount += amount;
+        } else {
+          companyCount += 1;
+          companyAmount += amount;
+        }
+      }
+
+      return { selfCount, selfAmount, companyCount, companyAmount };
+    },
+    staleTime: 60_000,
+  });
+
+  const slices: SupportMixSlice[] = useMemo(
+    () => [
+      {
+        name: 'Self supported',
+        count: data?.selfCount ?? 0,
+        amount: data?.selfAmount ?? 0,
+        color: 'hsl(var(--primary))',
+      },
+      {
+        name: 'Company supported',
+        count: data?.companyCount ?? 0,
+        amount: data?.companyAmount ?? 0,
+        color: 'hsl(var(--muted-foreground))',
+      },
+    ],
+    [data],
+  );
+
+  const totalCount = slices.reduce((s, x) => s + x.count, 0);
+  const selfPct = totalCount > 0 ? Math.round((slices[0].count / totalCount) * 100) : 0;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2 space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2 text-sm font-bold">
+            <PieChartIcon className="h-4 w-4 text-primary" /> Portfolio support mix
+          </CardTitle>
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Self vs company</span>
+        </div>
+        <div className="flex flex-wrap gap-4 pt-1">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Self supported</p>
+            <p className="text-lg font-black tabular-nums text-primary">{slices[0].count}</p>
+            <p className="text-[10px] text-muted-foreground tabular-nums">{formatUGX(slices[0].amount)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Company supported</p>
+            <p className="text-lg font-black tabular-nums">{slices[1].count}</p>
+            <p className="text-[10px] text-muted-foreground tabular-nums">{formatUGX(slices[1].amount)}</p>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {isLoading ? (
+          <Skeleton className="h-56 w-full" />
+        ) : totalCount === 0 ? (
+          <p className="py-12 text-center text-xs text-muted-foreground">No active portfolios to classify yet.</p>
+        ) : (
+          <div className="relative h-56 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={slices}
+                  dataKey="count"
+                  nameKey="name"
+                  innerRadius="58%"
+                  outerRadius="82%"
+                  paddingAngle={2}
+                  stroke="none"
+                >
+                  {slices.map((s) => (
+                    <Cell key={s.name} fill={s.color} fillOpacity={s.name === 'Self supported' ? 1 : 0.45} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(v: number, n: string) => {
+                    const slice = slices.find((s) => s.name === n);
+                    return [`${v} portfolios · ${formatUGX(slice?.amount ?? 0)}`, n];
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center pb-6">
+              <p className="text-xl font-black tabular-nums">{selfPct}%</p>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Self supported</p>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+
 
 /* ─────────────── 2. Recent portfolio withdrawals ─────────────── */
 interface WithdrawalRow {

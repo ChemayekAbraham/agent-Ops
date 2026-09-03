@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { AgentOpsHomeView, type DateRange } from './agent-ops-v2/AgentOpsHomeView';
 import { AgentOpsBottomNav, type BottomTab } from './agent-ops-v2/AgentOpsBottomNav';
+
+const PortfolioPerformanceReport = lazy(() => import('@/pages/tenant-ops/PortfolioPerformanceReport'));
 import { AdvanceRequestsQueue } from '@/components/ops/AdvanceRequestsQueue';
 import { AdvanceRequestsReviewed } from '@/components/ops/AdvanceRequestsReviewed';
 import { AdvanceRepaymentsPanel } from '@/components/ops/AdvanceRepaymentsPanel';
@@ -73,7 +75,7 @@ import {
   ChevronLeft, Briefcase, TrendingUp, TrendingDown, UsersRound, PiggyBank, HandCoins, ShieldCheck, FileBarChart,
   LayoutGrid, ChevronDown, ToggleRight, Layers, Gauge, Target, Activity, Clock3
   , Coins, Megaphone, Lock, Store, MapPinned, Workflow, Package,
-  Bike, ShoppingBag, Signpost, Smartphone, PhoneCall
+  Bike, ShoppingBag, Signpost, Smartphone, PhoneCall, Loader2
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -277,6 +279,12 @@ export function AgentOpsDashboard() {
     switch (activeView) {
       case 'agent-ops-report': return <AgentOpsReportWindow />;
       case 'comprehensive-report': return <AgentOpsComprehensiveReport />;
+      case 'portfolio-performance':
+        return (
+          <Suspense fallback={<div className="flex min-h-64 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}>
+            <PortfolioPerformanceReport onBack={() => setActiveView(null)} />
+          </Suspense>
+        );
       case 'guarantor-float': return <AgentGuarantorFloatPanel />;
       case 'products-services-report': return <AgentProductsServicesReport />;
       case 'trust-capture': return <TrustCaptureTab />;
@@ -409,20 +417,11 @@ export function AgentOpsDashboard() {
     setActiveView(null);
   };
 
-  // 'portfolio-performance' is a route, not an in-dashboard sub-view.
   const selectView = (key: ActiveView) => {
-    if (key === 'portfolio-performance') {
-      navigate('/agent-ops/reports/tenant-portfolio-performance');
-      return;
-    }
     setActiveView(key);
   };
 
   const handleOpenSection = (key: string) => {
-    if (key === 'portfolio-performance') {
-      navigate('/agent-ops/reports/tenant-portfolio-performance');
-      return;
-    }
     const next = NAV_ITEMS.some((item) => item.key === key) ? key as ActiveView : null;
     setActiveView(next);
   };
