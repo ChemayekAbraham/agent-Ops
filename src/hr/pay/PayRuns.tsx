@@ -54,6 +54,7 @@ import {
   type DisbursementRow,
 } from '@/hr/pay/api/release';
 import PayrollRegister from '@/hr/pay/PayrollRegister';
+import ArrearsPanel from '@/hr/pay/ArrearsPanel';
 import { supabase } from '@/hr/api/client';
 
 /**
@@ -1473,7 +1474,10 @@ export function PayRunDetailPlaceholder() {
   const blockingCount = exceptionGroups.BLOCK.length;
 
   const canCalculate =
-    !!detail && ['draft', 'calculated', 'returned'].includes(detail.status) && !calculating;
+    !!detail &&
+    detail.run_type !== 'off_cycle' &&
+    ['draft', 'calculated', 'returned'].includes(detail.status) &&
+    !calculating;
 
   const runCalculation = async () => {
     if (!runId) return;
@@ -1548,7 +1552,16 @@ export function PayRunDetailPlaceholder() {
                 )}
               </div>
               <div className="text-right">
-                <Button size="sm" onClick={runCalculation} disabled={!canCalculate}>
+                <Button
+                  size="sm"
+                  onClick={runCalculation}
+                  disabled={!canCalculate}
+                  title={
+                    detail.run_type === 'off_cycle'
+                      ? 'An off-cycle run is calculated from its arrears entries, in the Arrears section below.'
+                      : 'Calculate this run.'
+                  }
+                >
                   {calculating && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
                   {calculating ? 'Calculating…' : 'Calculate'}
                 </Button>
@@ -1594,6 +1607,13 @@ export function PayRunDetailPlaceholder() {
               />
             </CardContent>
           </Card>
+
+          <ArrearsPanel
+            runId={detail.id}
+            runType={detail.run_type}
+            status={detail.status}
+            onDone={() => void load()}
+          />
 
           <Card>
             <CardHeader>
