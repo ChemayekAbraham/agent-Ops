@@ -68,7 +68,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
   const [detailPlan, setDetailPlan] = useState<FundablePlan | null>(null);
   const [page, setPage] = useState(0);
   // Both datasets always remain in one feed; this only chooses which group leads.
-  const [feedOrder, setFeedOrder] = useState<FeedOrder>('rent');
+  const [feedOrder, setFeedOrder] = useState<FeedOrder>('houses');
   const [houseSelected, setHouseSelected] = useState<string[]>([]);
   const [detailHouse, setDetailHouse] = useState<SupportableHouse | null>(null);
   // Short code arriving from a branded /s/<code> share link (?share=<code>).
@@ -377,11 +377,11 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
           className="shrink-0"
           aria-label="Choose which opportunities appear first"
         >
-          <ToggleGroupItem value="rent" className="h-7 px-2.5 text-[11px]">
-            Rent first
-          </ToggleGroupItem>
           <ToggleGroupItem value="houses" className="h-7 px-2.5 text-[11px]">
             Houses first
+          </ToggleGroupItem>
+          <ToggleGroupItem value="rent" className="h-7 px-2.5 text-[11px]">
+            Rent first
           </ToggleGroupItem>
         </ToggleGroup>
       </div>
