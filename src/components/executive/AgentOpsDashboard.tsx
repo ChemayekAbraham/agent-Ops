@@ -138,9 +138,14 @@ const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; pri
 ];
 
 export function AgentOpsDashboard() {
-  // Agent Products & Services is the landing view when Agent Ops opens.
-  const [activeView, setActiveView] = useState<ActiveView>('agent-products-services');
   const [searchParams, setSearchParams] = useSearchParams();
+  // Overview dashboard is the default landing view when Agent Ops opens.
+  const [activeView, setActiveView] = useState<ActiveView>(() => {
+    const s = searchParams.get('section');
+    if (!s) return null;
+    const requested = s === 'products' ? 'sc-products' : s;
+    return NAV_ITEMS.some((item) => item.key === requested) ? (requested as ActiveView) : null;
+  });
   const [selectedAgent, setSelectedAgent] = useState<any>(null);
   const [bottomTab, setBottomTab] = useState<BottomTab>('home');
   const [productSection, setProductSection] = useState<null | 'motor_bike' | 'smart_phone' | 'boutique' | 'signage' | 'advances'>(null);
@@ -151,11 +156,14 @@ export function AgentOpsDashboard() {
   // Deep-linkable sections: /executive-hub?tab=agent-ops&section=products
   useEffect(() => {
     const s = searchParams.get('section');
-    if (!s) return;
+    if (!s) {
+      setActiveView(null);
+      return;
+    }
     const requested = s === 'products' ? 'sc-products' : s;
     setActiveView(NAV_ITEMS.some((item) => item.key === requested) ? requested as ActiveView : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams);

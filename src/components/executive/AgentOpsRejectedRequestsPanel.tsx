@@ -52,7 +52,7 @@ export function AgentOpsRejectedRequestsPanel() {
         const { data: chunk, error } = await supabase
           .from('rent_requests')
           .select(
-            'id, rent_amount, rejected_at, rejected_at_stage, rejected_reason, reopen_count, created_at, tenant_id, agent_id, landlords(name)',
+            'id, rent_amount, rejected_at, rejected_at_stage, rejected_reason, reopen_count, created_at, tenant_id, agent_id, assigned_agent_id, landlord_id',
           )
           .eq('status', 'rejected')
           .order('rejected_at', { ascending: false, nullsFirst: false })
@@ -62,24 +62,37 @@ export function AgentOpsRejectedRequestsPanel() {
         if (!chunk || chunk.length < PAGE) break;
       }
 
-      const ids = Array.from(
+      const profileIds = Array.from(
         new Set(
-          data.flatMap((r: any) => [r.tenant_id, r.agent_id]).filter(Boolean),
+          data.flatMap((r: any) => [r.tenant_id, r.agent_id, r.assigned_agent_id]).filter(Boolean),
         ),
       );
+      const landlordIds = Array.from(
+        new Set(data.map((r: any) => r.landlord_id).filter(Boolean)),
+      );
+
       const nameById = new Map<string, string>();
-      for (let i = 0; i < ids.length; i += 500) {
+      for (let i = 0; i < profileIds.length; i += 500) {
         const { data: people } = await supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', ids.slice(i, i + 500));
+          .in('id', profileIds.slice(i, i + 500));
         (people || []).forEach((p: any) => nameById.set(p.id, p.full_name || '—'));
+      }
+
+      const landlordNameById = new Map<string, string>();
+      for (let i = 0; i < landlordIds.length; i += 500) {
+        const { data: landlords } = await supabase
+          .from('landlords')
+          .select('id, name')
+          .in('id', landlordIds.slice(i, i + 500));
+        (landlords || []).forEach((l: any) => landlordNameById.set(l.id, l.name || '—'));
       }
 
       return data.map((r: any) => {
         const tenant_name = nameById.get(r.tenant_id) || 'Unknown tenant';
-        const landlord_name = r.landlords?.name || '—';
-        const agent_name = nameById.get(r.agent_id) || '—';
+        const landlord_name = landlordNameById.get(r.landlord_id) || '—';
+        const agent_name = nameById.get(r.assigned_agent_id || r.agent_id) || '—';
         return {
           id: r.id,
           rent_amount: Number(r.rent_amount) || 0,

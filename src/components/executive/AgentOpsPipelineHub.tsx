@@ -185,20 +185,39 @@ function LandlordsPipeline() {
   );
 }
 
+const APPROVED_STATUS_LIST = [
+  'agent_ops_approved',
+  'agent_verified',
+  'tenant_ops_approved',
+  'landlord_ops_approved',
+  'partner_ops_approved',
+  'coo_approved',
+  'approved',
+  'funded',
+  'disbursed',
+  'repaying',
+  'fully_repaid',
+  'completed',
+];
+
 export function AgentOpsPipelineHub() {
   const { data: counts } = useQuery({
     queryKey: ['pipeline-counts'],
     queryFn: async () => {
-      const [tenants, notes, landlordsData] = await Promise.all([
-        supabase.from('rent_requests').select('id', { count: 'exact', head: true }).eq('status', 'tenant_ops_approved'),
+      const [tenants, notes, landlordsData, approved, rejected] = await Promise.all([
+        supabase.from('rent_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
         supabase.from('promissory_notes').select('id', { count: 'exact', head: true }).in('status', ['pending', 'activated']),
         supabase.from('rent_requests').select('landlord_id').not('status', 'in', '("funded","rejected","cancelled")').not('landlord_id', 'is', null),
+        supabase.from('rent_requests').select('id', { count: 'exact', head: true }).in('status', APPROVED_STATUS_LIST),
+        supabase.from('rent_requests').select('id', { count: 'exact', head: true }).eq('status', 'rejected'),
       ]);
       const uniqueLandlords = new Set(landlordsData.data?.map((r: any) => r.landlord_id)).size;
       return {
         tenants: tenants.count || 0,
         notes: notes.count || 0,
         landlords: uniqueLandlords,
+        approved: approved.count || 0,
+        rejected: rejected.count || 0,
       };
     },
   });
@@ -207,8 +226,8 @@ export function AgentOpsPipelineHub() {
     { value: 'tenants', label: 'Tenants', icon: Users, count: counts?.tenants },
     { value: 'notes', label: 'Promissory Notes', icon: FileText, count: counts?.notes },
     { value: 'landlords', label: 'Landlords', icon: Home, count: counts?.landlords },
-    { value: 'approved', label: 'Approved', icon: CheckCircle2, count: undefined as number | undefined },
-    { value: 'rejected', label: 'Rejected', icon: XCircle, count: undefined as number | undefined },
+    { value: 'approved', label: 'Approved', icon: CheckCircle2, count: counts?.approved },
+    { value: 'rejected', label: 'Rejected', icon: XCircle, count: counts?.rejected },
   ];
 
 
