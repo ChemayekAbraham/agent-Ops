@@ -67,46 +67,8 @@ export function CapitalRoutesSection({ className }: { className?: string }) {
         </div>
       </div>
 
-      {/* Route cards */}
-      <div className="grid scroll-mt-[clamp(14px,4vw,32px)] grid-cols-1 gap-[clamp(8px,2vw,20px)]">
-        {routes.map((route) => (
-          <button
-            key={route.key}
-            type="button"
-            onClick={scrollToOpportunities}
-            className={cn(
-              'group flex w-full flex-col text-left transition-all hover:-translate-y-1 active:-translate-y-px',
-              'rounded-[clamp(16px,4.5vw,22px)] bg-card p-[clamp(15px,4.2vw,22px)]',
-              route.recommended
-                ? 'border-[2.5px] border-primary/50 hover:border-primary'
-                : 'border-[1.5px] border-primary hover:border-primary'
-            )}
-          >
-            <div className="mb-[clamp(12px,3.4vw,20px)] flex items-start justify-between gap-2.5">
-              <span className="grid h-[clamp(38px,10.5vw,52px)] w-[clamp(38px,10.5vw,52px)] place-items-center rounded-[clamp(11px,3vw,15px)] bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                <route.Icon className="h-[clamp(21px,5.8vw,30px)] w-[clamp(21px,5.8vw,30px)]" />
-              </span>
-              {route.recommended && (
-                <span className="inline-flex items-center gap-[clamp(2px,0.8vw,5px)] rounded-full border border-primary/30 bg-primary/10 px-[clamp(6px,2vw,11px)] py-[clamp(4px,1.3vw,7px)] text-[clamp(7.5px,2.1vw,10.5px)] font-bold uppercase tracking-wider text-primary">
-                  <svg className="h-[clamp(8px,2.2vw,11px)] w-[clamp(8px,2.2vw,11px)]" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                    <path d="M8 1.8 9.9 5.7l4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z" />
-                  </svg>
-                  Recommended
-                </span>
-              )}
-            </div>
-            <h3 className="m-0 mb-[clamp(5px,1.6vw,8px)] text-[clamp(18px,5vw,24px)] font-extrabold leading-tight tracking-[-0.02em] text-foreground">
-              {route.title}
-            </h3>
-            <p className="m-0 mb-[clamp(14px,3.8vw,24px)] max-w-[32ch] text-[clamp(12.5px,3.5vw,14.5px)] font-medium leading-relaxed text-muted-foreground">
-              {route.description}
-            </p>
-            <span className="mt-auto grid h-[clamp(30px,8vw,38px)] w-[clamp(30px,8vw,38px)] place-items-center rounded-full bg-primary/10 text-primary transition-all group-hover:translate-x-0.5 group-hover:bg-primary group-hover:text-primary-foreground">
-              <ArrowRight className="h-[clamp(13px,3.6vw,16px)] w-[clamp(13px,3.6vw,16px)]" />
-            </span>
-          </button>
-        ))}
-      </div>
+
+
     </section>
   );
 }
