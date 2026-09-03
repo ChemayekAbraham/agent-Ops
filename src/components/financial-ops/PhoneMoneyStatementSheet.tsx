@@ -20,7 +20,7 @@ function WhatsAppIcon({ className }: { className?: string }) {
 
 const PAGE_SIZE = 20;
 
-export type PhoneMoneyLine = 'mtn_momo' | 'airtel_money' | 'cash';
+export type PhoneMoneyLine = 'mtn_momo' | 'airtel_money' | 'cash' | 'bank';
 
 interface Props {
   line: PhoneMoneyLine | null;
@@ -31,6 +31,7 @@ const TITLES: Record<PhoneMoneyLine, string> = {
   mtn_momo: 'MTN Money statement',
   airtel_money: 'Airtel Money statement',
   cash: 'Cash at hand statement',
+  bank: 'Money at bank statement',
 };
 
 interface Row {
@@ -58,16 +59,21 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
     enabled: !!line,
     staleTime: 15_000,
     queryFn: async (): Promise<Row[]> => {
-      if (line === 'cash') {
+      if (line === 'cash' || line === 'bank') {
         const { data: cash, error } = await supabase
           .from('cash_deposit_verifications')
-          .select('id, amount, user_id, verified_at, created_at, deposit_request_id')
+          .select('id, amount, user_id, verified_at, created_at, deposit_request_id, deposit_requests!inner(purpose_audit)')
           .not('verified_at', 'is', null)
           .order('verified_at', { ascending: false })
           .limit(100);
         if (error) throw error;
-        const people = await resolveNames((cash ?? []).map((c: any) => c.user_id));
-        return (cash ?? []).map((c: any) => ({
+        const wantBank = line === 'bank';
+        const rows = (cash ?? []).filter((c: any) => {
+          const loc = (c.deposit_requests?.purpose_audit?.cash_location ?? 'cash_at_hand') as string;
+          return wantBank ? loc === 'bank' : loc !== 'bank';
+        });
+        const people = await resolveNames(rows.map((c: any) => c.user_id));
+        return rows.map((c: any) => ({
           id: c.id,
           at: c.verified_at ?? c.created_at,
           amount: Number(c.amount ?? 0),
@@ -75,7 +81,7 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
           party: people.get(c.user_id)?.name ?? 'Unknown depositor',
           reference: c.deposit_request_id ? String(c.deposit_request_id).slice(0, 8) : null,
           balanceAfter: null,
-          note: 'Verified cash collected — awaiting banking',
+          note: wantBank ? 'Verified cash deposited at bank' : 'Verified cash collected — awaiting banking',
           phone: people.get(c.user_id)?.phone ?? null,
         }));
       }
@@ -163,7 +169,9 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
         <SheetHeader className="p-4 sm:p-5 pb-3 border-b border-border shrink-0 text-left">
           <SheetTitle>{line ? TITLES[line] : 'Statement'}</SheetTitle>
           <SheetDescription className="text-xs sm:text-sm">
-            {line === 'cash'
+            {line === 'bank'
+              ? 'Verified cash deposits that have been banked.'
+              : line === 'cash'
               ? 'Verified cash deposits collected by agents and not yet banked.'
               : 'Every money-in and money-out movement parsed from provider messages on this line.'}
           </SheetDescription>
