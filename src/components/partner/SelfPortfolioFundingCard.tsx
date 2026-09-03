@@ -21,7 +21,6 @@ import {
   type SupportableHouse,
 } from './SelfSupportHousesSection';
 import { EmptyHouseDetailSheet } from '@/components/agent/EmptyHouseDetailSheet';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
