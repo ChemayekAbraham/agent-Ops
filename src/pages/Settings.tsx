@@ -7,10 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, User, Phone, Mail, Save, Loader2, Camera, Shield, Home, Users, Wallet, Building2, Check, Type, Vibrate, RotateCcw, LogIn, Volume2, Scale, Lock, Eye, EyeOff, Settings as SettingsIcon, Palette, ShieldCheck, Globe, DollarSign, Zap, Smartphone, Clock, Wind, Bell, ChevronRight, ChevronDown, Accessibility } from 'lucide-react';
+import { ArrowLeft, User, Phone, Mail, Save, Loader2, Camera, Shield, Home, Users, Wallet, Building2, Check, Type, Vibrate, RotateCcw, LogIn, Volume2, Scale, Lock, Eye, EyeOff, Settings as SettingsIcon, Palette, ShieldCheck, Globe, Zap, Smartphone, Clock, Wind, Bell, ChevronRight, ChevronDown, Accessibility } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-import { useCurrency, currencies as ALL_CURRENCIES } from '@/hooks/useCurrency';
+
 
 import { useHapticSettings, hapticIntensityOptions } from '@/hooks/useHapticSettings';
 import { useReducedMotion, reducedMotionOptions } from '@/hooks/useCombinedSettings';
@@ -52,7 +52,7 @@ const AccountLinkingCard = lazy(() => import('@/components/settings/AccountLinki
 const ArchivedPdfsCard = lazy(() =>
   import('@/components/settings/ArchivedPdfsCard').then((m) => ({ default: m.ArchivedPdfsCard })),
 );
-const CurrencyConverter = lazy(() => import('@/components/CurrencyConverter').then(m => ({ default: m.CurrencyConverter })));
+
 const PushNotificationButton = lazy(() => import('@/components/PushNotificationButton').then(m => ({ default: m.PushNotificationButton })));
 
 /**
@@ -68,9 +68,7 @@ const SECTION_PREFETCH: Record<string, Array<() => Promise<unknown>>> = {
     () => import('@/components/settings/AccountLinkingCard'),
     () => import('@/components/settings/ArchivedPdfsCard'),
   ],
-  appearance: [
-    () => import('@/components/CurrencyConverter'),
-  ],
+  appearance: [],
   notifications: [
     () => import('@/components/PushNotificationButton'),
   ],
@@ -188,7 +186,7 @@ type SettingsSection = 'account' | 'appearance' | 'notifications' | 'accessibili
 
 const SECTIONS: { id: SettingsSection; label: string; icon: typeof User; helper: string }[] = [
   { id: 'account', label: 'Personal Information', icon: User, helper: 'Profile, contact, withdrawal and sign-in' },
-  { id: 'appearance', label: 'Appearance', icon: Palette, helper: 'Theme and currency' },
+  { id: 'appearance', label: 'Appearance', icon: Palette, helper: 'Theme and display' },
   { id: 'notifications', label: 'Notifications', icon: Bell, helper: 'Push alerts and sounds' },
   { id: 'accessibility', label: 'Accessibility', icon: Accessibility, helper: 'Text size, motion, vibration and contrast' },
   { id: 'security', label: 'Safety', icon: ShieldCheck, helper: 'PIN, biometrics, devices and alerts' },
@@ -214,7 +212,7 @@ export default function Settings() {
   const { intensity: hapticIntensity, setIntensity: setHapticIntensity } = useHapticSettings();
   const { reducedMotion, setReducedMotion } = useReducedMotion();
   const { preferences, updatePreference } = useAppPreferences();
-  const { currency, setCurrency } = useCurrency();
+  
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -417,7 +415,7 @@ export default function Settings() {
         <title>Account Settings | Welile</title>
         <meta
           name="description"
-          content="Manage your Welile account settings — profile, security, currency, notifications, and app preferences in one place."
+          content="Manage your Welile account settings — profile, security, notifications, and app preferences in one place."
         />
         <link rel="canonical" href="https://welileapp.com/settings" />
         <meta property="og:title" content="Account Settings | Welile" />
@@ -682,42 +680,6 @@ export default function Settings() {
                   </CardContent>
                 </Card>
 
-                {/* Preferred currency */}
-                <Card className="border-border/40 rounded-2xl">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-primary" />
-                      <div>
-                        <CardTitle className="text-sm">Preferred Currency</CardTitle>
-                        <CardDescription className="text-xs">Display amounts in this currency (base is UGX)</CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <select
-                      value={currency.code}
-                      onChange={(e) => {
-                        const c = ALL_CURRENCIES.find(x => x.code === e.target.value);
-                        if (c) { setCurrency(c); toast.success(`Currency: ${c.name}`); }
-                      }}
-                      className="w-full h-11 rounded-xl border border-border/50 bg-background px-3 text-sm"
-                    >
-                      {ALL_CURRENCIES.map((c) => (
-                        <option key={c.code} value={c.code}>
-                          {c.flag} {c.code} — {c.name}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-[11px] text-muted-foreground">
-                      Currently displaying in <span className="font-semibold">{currency.flag} {currency.code}</span>
-                    </p>
-                  </CardContent>
-                </Card>
-
-                {/* Live converter */}
-                <LazySection name="CurrencyConverter">
-                  <CurrencyConverter variant="compact" />
-                </LazySection>
               </div>
             )}
 
