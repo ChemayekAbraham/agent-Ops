@@ -367,6 +367,72 @@ export function EmptyHouseOpportunitiesSheet({
     }
   };
 
+  /**
+   * Partner mode only — book the picked houses and immediately submit the funding
+   * through the existing house-support path (operational review, then release to
+   * the landlords). No money moves in the client.
+   */
+  const handleFundNow = async () => {
+    if (fundingNow || submitting) return;
+    setErrorMsg(null);
+    if (picked.length === 0) {
+      const msg = 'Pick at least one empty house first';
+      setErrorMsg(msg);
+      toast.error(msg);
+      return;
+    }
+
+    setFundingNow(true);
+    try {
+      const houseIds = picked.map((h) => h.house_id);
+      const { data, error } = await supabase.rpc('agent_create_promissory_note_for_houses', {
+        p_payload: {
+          partner_name: (selfName || '').trim(),
+          whatsapp_number: (selfPhone || '').trim(),
+          phone_number: (selfPhone || '').trim() || null,
+          email: (selfEmail || '').trim() || null,
+          amount: rentTotal,
+          contribution_type: 'once_off',
+        },
+        p_house_ids: houseIds,
+      });
+      if (error) throw error;
+      const note = ((data ?? {}) as { note?: { id: string } }).note;
+      if (!note) throw new Error('Booking was not created');
+
+      const { error: fundErr } = await supabase.rpc('funder_fund_booked_houses', {
+        p_house_ids: houseIds,
+        p_term_months: 1,
+        p_idempotency_key: `fund-${note.id}`,
+      });
+      if (fundErr) throw fundErr;
+
+      void supabase.functions.invoke('notify-house-booking', { body: { note_id: note.id } }).catch(() => {});
+      toast.success(
+        `Funding submitted for ${picked.length} house${picked.length === 1 ? '' : 's'} — it goes for operational review, then agents place tenants.`,
+      );
+      window.dispatchEvent(new Event('supporter-contribution-changed'));
+      setSelected({});
+      void refetch();
+      onOpenChange(false);
+    } catch (err: unknown) {
+      const raw = String((err as { message?: string })?.message || 'Failed to fund these houses');
+      const msg = raw.includes('HOUSES_UNAVAILABLE')
+        ? 'Some selected houses are no longer empty. Refresh the list and pick again.'
+        : raw.includes('AGREEMENT_REQUIRED')
+          ? 'Please sign your partnership agreement before funding houses.'
+          : raw.includes('INSUFFICIENT') || raw.includes('BALANCE')
+            ? 'Your balance is not enough for these houses. Add funds or promise a date instead.'
+            : raw;
+      setErrorMsg(msg);
+      toast.error(msg);
+      if (raw.includes('HOUSES_UNAVAILABLE')) { setSelected({}); void refetch(); }
+    } finally {
+      setFundingNow(false);
+    }
+  };
+
+
   const handleShare = async () => {
     if (!createdNote?.activation_token) return;
     const link = `${getPublicOrigin()}/activate?token=${createdNote.activation_token}`;
