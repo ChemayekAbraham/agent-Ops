@@ -36,6 +36,7 @@ import { type LocationRecipient } from './PayByLocationRecipientPicker';
 import { BusinessAdvanceDisbursementQueue } from './BusinessAdvanceDisbursementQueue';
 import { CreditDrawApprovalQueue } from './CreditDrawApprovalQueue';
 import { ROIPayoutQueue } from './ROIPayoutQueue';
+import { CFOAgentRequisitions } from './CFOAgentRequisitions';
 import { PayoutAutomationToggle, describeSchedule, type PayoutScheduleConfig } from './PayoutAutomationToggle';
 import { getNextRunDate } from '@/lib/standingOrderSchedule';
 import { UGANDA_BANKS } from '@/lib/ugandaBanks';
@@ -187,6 +188,7 @@ const PAYOUT_CATEGORIES: PayoutCategory[] = [
       { id: 'stationery', label: 'Stationery' },
       { id: 'property_equipment', label: 'Property & Equipment' },
       { id: 'eviction_enforcement', label: 'Eviction & Enforcement' },
+      { id: 'financial_agent_requisitions', label: 'Financial Agent Requisitions' },
     ],
   },
   {
@@ -407,6 +409,7 @@ export function DirectCreditTool() {
     () => ({
       roi_payout: approvalCounts.roi,
       rent_disbursement: approvalCounts.rent,
+      operational_expense: approvalCounts.agentRequisitions,
       // This category renders both the Credit Draw approval queue and the
       // Business Advance disbursement queue, so the badge covers both.
       business_advance: approvalCounts.businessAdvances + approvalCounts.creditDraws,
@@ -451,7 +454,9 @@ export function DirectCreditTool() {
   );
   const isBusinessAdvance = selectedCategoryId === 'business_advance';
   const isROIPayout = selectedCategoryId === 'roi_payout';
-  const isQueueCategory = isRentDisbursement || isBusinessAdvance || isROIPayout;
+  const isFinancialAgentRequisitionQueue =
+    selectedCategoryId === 'operational_expense' && selectedSubCategoryId === 'financial_agent_requisitions';
+  const isQueueCategory = isRentDisbursement || isBusinessAdvance || isROIPayout || isFinancialAgentRequisitionQueue;
 
   const handleOperationChange = (op: Operation) => {
     setOperation(op);
@@ -1076,6 +1081,11 @@ export function DirectCreditTool() {
         {/* ── ROI PAYOUT QUEUE ── */}
         {isROIPayout && locationRecipients.length === 0 && (
           <ROIPayoutQueue />
+        )}
+
+        {/* ── FINANCIAL AGENT REQUISITIONS ── */}
+        {selectedCategoryId === 'operational_expense' && selectedSubCategoryId === 'financial_agent_requisitions' && (
+          <CFOAgentRequisitions />
         )}
 
         {/* ── MANUAL PAYOUT FORM (non-queue categories) ── */}
