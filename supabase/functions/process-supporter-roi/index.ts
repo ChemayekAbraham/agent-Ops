@@ -644,6 +644,12 @@ Deno.serve(async (req) => {
                     previousPortfolioValue: previousValue,
                     newTotalPartnershipValue: Number(newAmount) || previousValue + totalPending,
                     roiPercentage: Number((portfolio as any).roi_percentage) || undefined,
+                    portfolioId: portfolio.id,
+                    portfolioName: accountLabel,
+                    reviewedBy: "System",
+                    portfoliosToppedUpCount: 1,
+                    effectiveAt: new Date().toISOString(),
+                    createdAt: new Date().toISOString(),
                   }),
                   "process-supporter-roi",
                 );
