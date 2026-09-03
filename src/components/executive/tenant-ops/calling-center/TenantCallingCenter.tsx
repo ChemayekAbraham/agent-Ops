@@ -24,7 +24,7 @@ import {
   ChevronRight,
   Headphones,
   Pause,
-  Phone,
+  
   Play,
   Settings2,
   Square,
