@@ -253,7 +253,7 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
                       columns={activeTab.columns}
                       rows={hub.rows}
                       metricLabel={metricLabel}
-                      revealed={revealed}
+                      revealed={revealedPhones}
                       revealing={hub.reveal.isPending}
                       wipBlocked={hub.wipBlocked}
                       onReveal={handleReveal}
