@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, User, Phone, Mail, Save, Loader2, Camera, Shield, Home, Users, Wallet, Building2, Check, Type, Vibrate, RotateCcw, LogIn, Volume2, Scale, Lock, Eye, EyeOff, Settings as SettingsIcon, Palette, ShieldCheck, Globe, Zap, Smartphone, Clock, Wind, Bell, ChevronRight, ChevronDown, Accessibility } from 'lucide-react';
+import { ArrowLeft, User, Phone, Mail, Save, Loader2, Camera, Shield, Home, Users, Wallet, Building2, Check, Type, Vibrate, RotateCcw, LogIn, Volume2, Scale, Lock, Eye, EyeOff, Settings as SettingsIcon, Palette, ShieldCheck, Zap, Smartphone, Clock, Wind, Bell, ChevronRight, ChevronDown, Accessibility } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 
