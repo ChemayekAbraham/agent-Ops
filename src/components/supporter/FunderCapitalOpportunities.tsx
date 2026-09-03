@@ -621,8 +621,9 @@ export function FunderCapitalOpportunities() {
           <div className="flex items-center gap-2">
             <div className="w-1 h-5 rounded-full bg-primary" />
             <h4 className="text-xs font-black text-foreground tracking-tight">
-              Ready to fun Rentals
+              Ready to fund rentals
             </h4>
+
           </div>
           {user?.id
             ? <SelfPortfolioFundingCard partnerId={user.id} />
