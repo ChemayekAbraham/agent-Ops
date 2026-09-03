@@ -110,8 +110,9 @@ const STAGE_NEXT: Record<string, string> = {
   pending: 'Next: Tenant Ops review',
   agent_verified: 'Next: Landlord Ops review',
   agent_ops_approved: 'Next: Landlord Ops review',
-  tenant_ops_approved: 'Next: COO review',
-  landlord_ops_approved: 'Next: CFO funding',
+  tenant_ops_approved: 'Next: Partner Ops review',
+  landlord_ops_approved: 'Next: Partner Ops review',
+  partner_ops_approved: 'Next: COO review',
   coo_approved: 'Next: Funds sent to landlord',
   funded: 'Next: Tenant starts repayments',
   disbursed: 'Next: Collect rent from tenant',
@@ -134,6 +135,7 @@ const STAGE_ICON: Record<string, typeof Eye> = {
   agent_verified: FileCheck,
   tenant_ops_approved: User,
   landlord_ops_approved: Landmark,
+  partner_ops_approved: Landmark,
   coo_approved: FileCheck,
   funded: Wallet,
   disbursed: HandCoins,
@@ -147,11 +149,13 @@ const STAGE_STRIP: Record<string, { bg: string; text: string; iconBg: string }> 
   agent_verified: { bg: 'bg-sky-500', text: 'text-white', iconBg: 'bg-white/20' },
   tenant_ops_approved: { bg: 'bg-indigo-500', text: 'text-white', iconBg: 'bg-white/20' },
   landlord_ops_approved: { bg: 'bg-violet-500', text: 'text-white', iconBg: 'bg-white/20' },
+  partner_ops_approved: { bg: 'bg-purple-500', text: 'text-white', iconBg: 'bg-white/20' },
   coo_approved: { bg: 'bg-teal-500', text: 'text-white', iconBg: 'bg-white/20' },
   funded: { bg: 'bg-emerald-500', text: 'text-white', iconBg: 'bg-white/20' },
   disbursed: { bg: 'bg-emerald-600', text: 'text-white', iconBg: 'bg-white/20' },
   rejected: { bg: 'bg-destructive', text: 'text-destructive-foreground', iconBg: 'bg-white/20' },
 };
+
 
 interface PipelineRow {
   id: string;
