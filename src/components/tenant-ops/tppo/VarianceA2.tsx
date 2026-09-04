@@ -173,8 +173,13 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
               row.current ? 'border-primary/30 bg-primary/5' : 'border-border/60'
             }`}
           >
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <span>{row.label}</span>
+              {row.differentBasis && (
+                <Badge variant="outline" className="text-[10px] font-medium normal-case">
+                  different basis
+                </Badge>
+              )}
               {row.current && <span className="font-medium normal-case text-primary">still counting</span>}
             </p>
             <div className="mt-2 space-y-1 text-sm">
@@ -188,11 +193,14 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
               </p>
               <p className="flex items-baseline justify-between gap-3">
                 <span className="text-muted-foreground">Rate</span>
-                <span className="shrink-0 tabular-nums">{rateText(row.rate)}</span>
+                <span className="shrink-0 tabular-nums">
+                  {row.differentBasis ? '—' : rateText(row.rate)}
+                </span>
               </p>
             </div>
           </div>
         ))}
+
 
         <div className="rounded-md border border-border p-3 font-medium">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Increase / decrease</p>
