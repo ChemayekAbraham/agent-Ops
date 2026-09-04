@@ -210,7 +210,14 @@ export function EmptyHouseOpportunitiesSheet({
     },
   });
 
-  const districtOptions = data?.districts ?? [];
+  const districtOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const raw of data?.districts ?? []) {
+      const official = officialDistrict(raw);
+      if (official) set.add(official);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [data?.districts]);
   const activeFilterCount =
     (district !== 'all' ? 1 : 0) + (verifiedOnly ? 1 : 0) + (mapPinOnly ? 1 : 0) +
     (minRent ? 1 : 0) + (maxRent ? 1 : 0) + (nearMe ? 1 : 0);
