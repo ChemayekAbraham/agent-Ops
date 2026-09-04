@@ -42405,6 +42405,9 @@ export type Database = {
           agent_id: string | null
           amount_repaid: number | null
           daily_amount: number | null
+          is_live: boolean | null
+          oblig_days: number | null
+          obligation_end: string | null
           rent_request_id: string | null
           tenant_id: string | null
           term_days: number | null
