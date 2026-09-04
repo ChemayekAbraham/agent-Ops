@@ -85,6 +85,7 @@ import { CFOAgentOpsFloatSender } from '@/components/cfo/CFOAgentOpsFloatSender'
 import { CFOImpactKPIStrip } from '@/components/cfo/CFOImpactKPIStrip';
 import { CFOWalletActivities } from '@/components/cfo/CFOWalletActivities';
 import { RecentPayoutActivity } from '@/components/cfo/RecentPayoutActivity';
+import { GeneralPayoutPage } from '@/components/cfo/GeneralPayoutPage';
 import { EarningsExplainer } from '@/components/shared/EarningsExplainer';
 import { AgentAllocationTracesPanel } from '@/components/cfo/AgentAllocationTracesPanel';
 import { PhantomCorrectionDriftPanel } from '@/components/cfo/PhantomCorrectionDriftPanel';
@@ -191,6 +192,9 @@ export default function CFODashboardPage() {
     switch (activeTab) {
       case 'requisitions':
         return <RequisitionsWorkspace manualStage="cfo" />;
+
+      case 'general-payout':
+        return <GeneralPayoutPage />;
 
       case 'wallet-payout':
         return (
