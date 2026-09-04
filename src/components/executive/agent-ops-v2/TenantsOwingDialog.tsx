@@ -143,6 +143,14 @@ export function TenantsOwingDialog({
     );
   }, [filteredRows]);
 
+  // Total of the amount shown in each row's right-hand column, across every
+  // filtered row (not just the ones currently rendered).
+  const displayedColumnTotal = useMemo(
+    () => filteredRows.reduce((sum, r) => sum + num(r.is_owing ? r.arrears : r.scheduled_today), 0),
+    [filteredRows],
+  );
+
+
   const downloadCsv = () => {
     const columns: { key: keyof TenantsOwingRow; label: string }[] = [
       { key: 'tenant_name', label: 'tenant_name' },
