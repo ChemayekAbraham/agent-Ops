@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowRight, ArrowUp, Minus } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
+import { Badge } from '@/components/ui/badge';
 import type { TppoZoneAReport } from '@/components/tenant-ops/tppo/tppoTypes';
 
 interface VarianceA2Props {
@@ -7,6 +8,18 @@ interface VarianceA2Props {
   /** One period older than `report.prior` — same RPC, anchored a period earlier. */
   earlier?: TppoZoneAReport | null;
 }
+
+/**
+ * basis_version lives in each snapshot's `basis` JSON. Periods computed before the
+ * schedule correction carry 1 (or carry no basis at all), corrected ones carry 2.
+ */
+function basisVersionOf(source: unknown): number {
+  const basis = (source as { basis?: unknown } | null | undefined)?.basis;
+  const raw = (basis as { basis_version?: unknown } | null | undefined)?.basis_version;
+  const parsed = typeof raw === 'string' ? Number(raw) : raw;
+  return typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : 1;
+}
+
 
 function shortDate(iso?: string | null): string {
   if (!iso) return '—';
