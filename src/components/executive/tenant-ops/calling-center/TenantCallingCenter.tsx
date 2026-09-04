@@ -117,6 +117,9 @@ export function TenantCallingCenter() {
   const [filters, setFilters] = useState<CcFilterSelection>({});
   const [autoCap, setAutoCap] = useState(DEFAULT_AUTO_CAP);
   const [formAttempt, setFormAttempt] = useState<{ id: string; cycle_row_id: string; name: string } | null>(null);
+  /** Tenant chosen from the list — details first, calling from inside the modal. */
+  const [detailsRow, setDetailsRow] = useState<CcRow | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
