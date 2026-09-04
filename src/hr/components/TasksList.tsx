@@ -93,8 +93,8 @@ export default function TasksList() {
   // New task dialog (shared component)
   const [open, setOpen] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     setError(null);
     try {
       const [t, d, e] = await Promise.all([getTasks(), getDepartments(), getEmployees()]);
