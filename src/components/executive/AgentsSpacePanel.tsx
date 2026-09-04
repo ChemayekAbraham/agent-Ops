@@ -566,7 +566,7 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
   // =========================================================================
   if (mode === 'agent') {
     return (
-      <div className="space-y-6 pb-20">
+      <div className="space-y-4 sm:space-y-6 pb-32 sm:pb-20">
         {/* Top Breadcrumb Bar */}
         <div className="flex items-center justify-between py-2 border-b border-border/40">
           <div className="flex items-center gap-3">
@@ -905,28 +905,29 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
   // VIEW 2: OPS / ADMIN MODE (Queue, Route to COO then CFO, Approved, Declined, Permissions)
   // =========================================================================
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-4 sm:space-y-6 pb-32 sm:pb-20">
       {/* Top Breadcrumb Bar */}
       <div className="flex items-center justify-between py-2 border-b border-border/40">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           {onBack && (
             <Button
               variant="ghost"
               size="icon"
               onClick={onBack}
-              className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
+              className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground shrink-0"
+              aria-label="Back"
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
           )}
-          <Avatar className="h-9 w-9 bg-primary/10 text-primary border border-primary/20">
+          <Avatar className="h-8 w-8 sm:h-9 sm:w-9 bg-primary/10 text-primary border border-primary/20 shrink-0">
             <AvatarFallback className="bg-primary/15 text-primary text-xs font-bold">
               {initials || 'AG'}
             </AvatarFallback>
           </Avatar>
-          <div>
-            <p className="text-sm font-bold text-foreground leading-none">{userName}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm font-bold text-foreground leading-none truncate">{userName}</p>
+            <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5 truncate">
               Agent Operations · Requisitions Hub &amp; Whitelist
             </p>
           </div>
@@ -937,7 +938,8 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
             variant="ghost"
             size="icon"
             onClick={onBack}
-            className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
+            className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground shrink-0"
+            aria-label="Close"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -945,22 +947,22 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
       </div>
 
       {/* Main Header & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground">
             Agents' Space Operations
           </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
             Review agent funding requisitions. Approvals route <span className="font-semibold text-primary">Agent Ops → COO → CFO</span> for final wallet crediting.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <Button
             variant="outline"
             size="sm"
             onClick={() => { void fetchRows(); void fetchPermissions(); }}
-            className="rounded-xl h-10 px-3 text-xs gap-1.5 border-border"
+            className="rounded-xl h-9 sm:h-10 px-3 text-xs gap-1.5 border-border flex-1 sm:flex-none justify-center"
           >
             <RefreshCw className="h-3.5 w-3.5" /> Refresh
           </Button>
@@ -969,7 +971,7 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
             <DialogTrigger asChild>
               <Button
                 variant="outline"
-                className="rounded-xl h-10 px-3 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10 font-semibold"
+                className="rounded-xl h-9 sm:h-10 px-3 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10 font-semibold flex-1 sm:flex-none justify-center"
               >
                 <Key className="h-4 w-4" /> Assign Agent Permission
               </Button>
@@ -1066,97 +1068,97 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
       </div>
 
       {/* Overview Metric Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
         <Card
           onClick={() => setActiveTab('pending')}
-          className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+          className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border cursor-pointer transition-all ${
             activeTab === 'pending'
               ? 'border-amber-500 bg-amber-500/10 shadow-sm'
               : 'border-border bg-card hover:border-amber-500/40'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground">Pending Review</span>
-            <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <span className="text-[11px] sm:text-xs font-semibold text-muted-foreground truncate">Pending Review</span>
+            <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600 dark:text-amber-400 shrink-0" />
           </div>
-          <p className="text-2xl font-bold text-foreground mt-2">
+          <p className="text-xl sm:text-2xl font-bold text-foreground mt-1 sm:mt-2">
             {filteredBuckets.pending.length}
           </p>
-          <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-0.5">Awaiting Agent Ops</p>
+          <p className="text-[10px] sm:text-[11px] text-amber-700 dark:text-amber-400 mt-0.5 truncate">Awaiting Agent Ops</p>
         </Card>
 
         <Card
           onClick={() => setActiveTab('approved')}
-          className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+          className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border cursor-pointer transition-all ${
             activeTab === 'approved'
               ? 'border-emerald-500 bg-emerald-500/10 shadow-sm'
               : 'border-border bg-card hover:border-emerald-500/40'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground">Approved / Forwarded</span>
-            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <span className="text-[11px] sm:text-xs font-semibold text-muted-foreground truncate">Approved / Forwarded</span>
+            <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
           </div>
-          <p className="text-2xl font-bold text-foreground mt-2">
+          <p className="text-xl sm:text-2xl font-bold text-foreground mt-1 sm:mt-2">
             {filteredBuckets.approved.length}
           </p>
-          <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5">Approved &amp; Credited</p>
+          <p className="text-[10px] sm:text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5 truncate">Approved &amp; Credited</p>
         </Card>
 
         <Card
           onClick={() => setActiveTab('rejected')}
-          className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+          className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border cursor-pointer transition-all ${
             activeTab === 'rejected'
               ? 'border-destructive bg-destructive/10 shadow-sm'
               : 'border-border bg-card hover:border-destructive/40'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground">Declined</span>
-            <XCircle className="h-4 w-4 text-destructive" />
+            <span className="text-[11px] sm:text-xs font-semibold text-muted-foreground truncate">Declined</span>
+            <XCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive shrink-0" />
           </div>
-          <p className="text-2xl font-bold text-foreground mt-2">
+          <p className="text-xl sm:text-2xl font-bold text-foreground mt-1 sm:mt-2">
             {filteredBuckets.rejected.length}
           </p>
-          <p className="text-[11px] text-destructive mt-0.5">Rejected requisitions</p>
+          <p className="text-[10px] sm:text-[11px] text-destructive mt-0.5 truncate">Rejected requisitions</p>
         </Card>
 
         <Card
           onClick={() => setActiveTab('access_control')}
-          className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+          className={`p-3 sm:p-4 rounded-xl sm:rounded-2xl border cursor-pointer transition-all ${
             activeTab === 'access_control'
               ? 'border-primary bg-primary/10 shadow-sm'
               : 'border-border bg-card hover:border-primary/40'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-muted-foreground">Authorized Agents</span>
-            <ShieldCheck className="h-4 w-4 text-primary" />
+            <span className="text-[11px] sm:text-xs font-semibold text-muted-foreground truncate">Authorized Agents</span>
+            <ShieldCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary shrink-0" />
           </div>
-          <p className="text-2xl font-bold text-foreground mt-2">
+          <p className="text-xl sm:text-2xl font-bold text-foreground mt-1 sm:mt-2">
             {activeAuthorizedAgentsCount}
           </p>
-          <p className="text-[11px] text-primary mt-0.5">Permission Assigned</p>
+          <p className="text-[10px] sm:text-[11px] text-primary mt-0.5 truncate">Permission Assigned</p>
         </Card>
       </div>
 
       {/* Navigation Tabs Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabSection)} className="w-full sm:w-auto">
-          <TabsList className="grid grid-cols-2 sm:flex sm:flex-row h-auto p-1 bg-muted rounded-xl gap-1">
-            <TabsTrigger value="pending" className="text-xs py-1.5 px-3 rounded-lg font-semibold gap-1.5">
+          <TabsList className="flex flex-nowrap overflow-x-auto no-scrollbar w-full p-1 bg-muted/60 border border-border/50 rounded-xl gap-1 justify-start">
+            <TabsTrigger value="pending" className="shrink-0 whitespace-nowrap text-xs py-2 px-3 rounded-lg font-semibold gap-1.5">
               <Clock className="h-3.5 w-3.5" />
               Pending ({filteredBuckets.pending.length})
             </TabsTrigger>
-            <TabsTrigger value="approved" className="text-xs py-1.5 px-3 rounded-lg font-semibold gap-1.5">
+            <TabsTrigger value="approved" className="shrink-0 whitespace-nowrap text-xs py-2 px-3 rounded-lg font-semibold gap-1.5">
               <CheckCircle2 className="h-3.5 w-3.5" />
               Approved ({filteredBuckets.approved.length})
             </TabsTrigger>
-            <TabsTrigger value="rejected" className="text-xs py-1.5 px-3 rounded-lg font-semibold gap-1.5">
+            <TabsTrigger value="rejected" className="shrink-0 whitespace-nowrap text-xs py-2 px-3 rounded-lg font-semibold gap-1.5">
               <XCircle className="h-3.5 w-3.5" />
               Declined ({filteredBuckets.rejected.length})
             </TabsTrigger>
-            <TabsTrigger value="access_control" className="text-xs py-1.5 px-3 rounded-lg font-semibold gap-1.5">
+            <TabsTrigger value="access_control" className="shrink-0 whitespace-nowrap text-xs py-2 px-3 rounded-lg font-semibold gap-1.5">
               <ShieldCheck className="h-3.5 w-3.5" />
               Permission Access ({activeAuthorizedAgentsCount})
             </TabsTrigger>
@@ -1164,13 +1166,13 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
         </Tabs>
 
         {activeTab !== 'access_control' && (
-          <div className="relative min-w-[220px]">
+          <div className="relative w-full sm:w-auto sm:min-w-[220px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search agent, code or title..."
-              className="pl-8 h-9 text-xs rounded-xl bg-card border-border"
+              className="pl-8 h-9 text-xs rounded-xl bg-card border-border w-full"
             />
             {searchQuery && (
               <button

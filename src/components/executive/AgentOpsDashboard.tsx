@@ -456,14 +456,18 @@ export function AgentOpsDashboard() {
   // Main content region — sub-view when one is active, else the overview / more-grid.
   const contentRegion = activeView ? (
     <div className="space-y-4">
-      <button
-        onClick={() => setActiveView(null)}
-        className="flex items-center gap-2 text-sm font-semibold text-primary hover:underline lg:hidden"
-      >
-        <ChevronLeft className="h-4 w-4" />
-        Back to Agent Ops Overview
-      </button>
-      <h2 className="text-lg font-bold">{viewLabel}</h2>
+      {activeView !== 'agents-space' && (
+        <>
+          <button
+            onClick={() => setActiveView(null)}
+            className="flex items-center gap-2 text-sm font-semibold text-primary hover:underline lg:hidden"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back to Agent Ops Overview
+          </button>
+          <h2 className="text-lg font-bold">{viewLabel}</h2>
+        </>
+      )}
       {renderSubView()}
     </div>
   ) : bottomTab !== 'more' ? (
