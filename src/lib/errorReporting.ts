@@ -9,6 +9,20 @@
  * crashes are traceable per role and per page.
  */
 import { supabase } from '@/integrations/supabase/client';
+import { CANONICAL_ORIGIN } from '@/lib/getPublicOrigin';
+
+/**
+ * Only report from the canonical production origin. `client_error_reports`
+ * feeds the daily CTO report presented to the CEO/Board as production
+ * incidents — local dev (localhost:8080) and Lovable preview/editor traffic
+ * (*.lovableproject.com, id-preview--*.lovable.app) were polluting it with
+ * mid-edit noise (e.g. a briefly-missing import self-corrected before the
+ * commit landed) that real users never saw. See 2026-09-03 report: 5 of 7
+ * "new" errors that day sourced to localhost or the preview domain.
+ */
+function isProductionOrigin(): boolean {
+  return typeof window !== 'undefined' && window.location.origin === CANONICAL_ORIGIN;
+}
 
 type ReportSource =
   | 'dashboard-error-boundary'
@@ -59,6 +73,10 @@ function shouldDedupe(signature: string) {
  * throws — so callers (including error boundaries) are safe to await.
  */
 export async function reportClientError(input: ErrorReportInput): Promise<boolean> {
+  // Dev/preview errors stay visible in that environment's own console —
+  // they just never reach the table the CTO report reads as "production".
+  if (!isProductionOrigin()) return true;
+
   const route = typeof window !== 'undefined' ? window.location.pathname : null;
   const signature = `${input.source}|${input.message ?? ''}|${route ?? ''}`;
   // Manual user-triggered reports always go through, even if the same error
