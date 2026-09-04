@@ -128,6 +128,14 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
   const num = (n: number, failed?: unknown) =>
     countsLoading ? '—' : failed ? '!' : n.toLocaleString();
 
+  /** Hover text explaining a "!", so the reason is visible without a console. */
+  const numTitle = (failed?: unknown) =>
+    failed
+      ? `Could not load this queue — ${
+          (failed as { message?: string })?.message ?? 'unknown error'
+        }. The number shown is not a count.`
+      : undefined;
+
   const triggerDecision = (id: string) => {
     setParams((prev) => {
       const next = new URLSearchParams(prev);
@@ -185,7 +193,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
                 <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-bold tracking-tight text-foreground">
+                <span className="text-2xl font-bold tracking-tight text-foreground" title={numTitle(countErrors.houses)}>
                   {num(pendingHouses, countErrors.houses)}
                 </span>
                 <Badge className={`${urgency(pendingHouses).cls} border-none text-[10px] px-1.5 py-0 font-semibold`}>
@@ -212,7 +220,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
                 <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-bold tracking-tight text-foreground">
+                <span className="text-2xl font-bold tracking-tight text-foreground" title={numTitle(countErrors.landlords)}>
                   {num(pendingLandlords, countErrors.landlords)}
                 </span>
                 <Badge className={`${urgency(pendingLandlords).cls} border-none text-[10px] px-1.5 py-0 font-semibold`}>
@@ -239,7 +247,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
                 <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-bold tracking-tight text-foreground">{num(pendingLc1, countErrors.lc1)}</span>
+                <span className="text-2xl font-bold tracking-tight text-foreground" title={numTitle(countErrors.lc1)}>{num(pendingLc1, countErrors.lc1)}</span>
                 <Badge className={`${urgency(pendingLc1).cls} border-none text-[10px] px-1.5 py-0 font-semibold`}>
                   {urgency(pendingLc1).label}
                 </Badge>
@@ -264,7 +272,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
                 <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" />
               </div>
               <div className="mt-3 flex items-baseline gap-2">
-                <span className="text-2xl font-bold tracking-tight text-foreground">{num(pendingPipeline, countErrors.pipeline)}</span>
+                <span className="text-2xl font-bold tracking-tight text-foreground" title={numTitle(countErrors.pipeline)}>{num(pendingPipeline, countErrors.pipeline)}</span>
                 <Badge className={`${urgency(pendingPipeline).cls} border-none text-[10px] px-1.5 py-0 font-semibold`}>
                   {urgency(pendingPipeline).label}
                 </Badge>
@@ -342,7 +350,10 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
               <span className="font-bold text-sm text-foreground">Verify</span>
             </div>
             <p className="text-xs text-muted-foreground">Houses, Landlords, LC1</p>
-            <p className="text-lg font-extrabold text-foreground pt-1">
+            <p
+              className="text-lg font-extrabold text-foreground pt-1"
+              title={numTitle(countErrors.houses || countErrors.landlords || countErrors.lc1)}
+            >
               {num(verifyQueueTotal, countErrors.houses || countErrors.landlords || countErrors.lc1)} <span className="text-xs font-normal text-muted-foreground">items in queue</span>
             </p>
           </div>
@@ -364,7 +375,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
               <span className="font-bold text-sm text-foreground">Pipeline</span>
             </div>
             <p className="text-xs text-muted-foreground">Rent requests, Advances</p>
-            <p className="text-lg font-extrabold text-foreground pt-1">
+            <p className="text-lg font-extrabold text-foreground pt-1" title={numTitle(countErrors.pipeline)}>
               {num(pendingPipeline, countErrors.pipeline)} <span className="text-xs font-normal text-muted-foreground">awaiting sign-off</span>
             </p>
           </div>
@@ -386,7 +397,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
               <span className="font-bold text-sm text-foreground">Payouts</span>
             </div>
             <p className="text-xs text-muted-foreground">Payout review, Paid, Float</p>
-            <p className="text-lg font-extrabold text-foreground pt-1">
+            <p className="text-lg font-extrabold text-foreground pt-1" title={numTitle(countErrors.payouts)}>
               {num(pendingPayouts, countErrors.payouts)} <span className="text-xs font-normal text-muted-foreground">awaiting review</span>
             </p>
           </div>
