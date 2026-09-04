@@ -437,12 +437,12 @@ Deno.serve(async (req) => {
         const firstPayoutIso = firstPayout.toISOString();
         if (partnerProfile?.email) {
           const emailRequest = roiMode === "monthly_compounding"
-            ? buildPartnerCompoundCreationRequest({
+              ? buildPartnerCompoundCreationRequest({
                 recipientEmail: partnerProfile.email,
                 partnerName: partnerProfile.full_name,
                 partnerId: investorId,
                 portfolioId: portfolio.id,
-                initialAmount: investmentAmount,
+                initialAmount: investmentAmount as number,
                 roiPercentage,
                 contributionDateIso: contributionIso,
               })
