@@ -499,9 +499,9 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
     const finalTitle = form.category === 'Others' ? form.customTitle.trim() : form.category;
     if (!finalTitle) return toast.error('Please specify what this requisition is for');
     if (!Number.isFinite(amount) || amount <= 0) return toast.error('Enter a valid amount');
-    if (form.reason.trim().length < 10) return toast.error('Explain the request in at least 10 characters');
 
     const taggedCategory = `[${AGENTS_SPACE_TAG}] ${form.category === 'Others' ? (finalTitle || 'Others') : form.category}`;
+    const finalReason = form.reason?.trim() || `Requisition for ${finalTitle} under Agents' Space`;
 
     setSubmitting(true);
     const { error } = await invokeEdgeFunction('staff-requisition-submit', {
@@ -511,7 +511,7 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
         amount,
         category: taggedCategory,
         needed_by: form.needed_by || null,
-        reason: form.reason.trim(),
+        reason: finalReason,
       },
       errorTitle: 'Could not submit your requisition',
     });
@@ -691,17 +691,6 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
                       onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value.replace(/[^0-9.]/g, '') }))}
                       placeholder="250000"
                       className="rounded-xl h-11"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="req-reason">Business justification</Label>
-                    <Textarea
-                      id="req-reason"
-                      rows={3}
-                      value={form.reason}
-                      onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))}
-                      placeholder="Why this expenditure is needed and what it enables..."
-                      className="rounded-xl"
                     />
                   </div>
                 </div>
