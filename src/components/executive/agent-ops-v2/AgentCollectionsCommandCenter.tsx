@@ -158,6 +158,21 @@ export function AgentCollectionsCommandCenter() {
     staleTime: 20_000,
   });
 
+  const totals = data?.totals;
+
+  const { data: target } = useQuery({
+    queryKey: ['agent-ops-collection-target', totals?.defaulted_as_of ?? 'today'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('agent_ops_collection_target', {
+        p_as_of: totals?.defaulted_as_of ?? format(new Date(), 'yyyy-MM-dd'),
+      });
+      if (error) throw error;
+      return data as unknown as CollectionTargetData;
+    },
+    enabled: preset !== 'next7',
+    staleTime: 60_000,
+  });
+
   // Live refresh when collections or rent requests change
   useEffect(() => {
     const channel = supabase
@@ -171,8 +186,6 @@ export function AgentCollectionsCommandCenter() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [qc]);
-
-  const totals = data?.totals;
   const series = (data?.series ?? []).map(s => ({
     label: bucketLabel(s.bucket, bucket),
     collected: num(s.collected),
