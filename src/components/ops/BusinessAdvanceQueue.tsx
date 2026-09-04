@@ -104,7 +104,21 @@ const STATUS_LABEL: Record<string, string> = {
   rejected: 'Declined',
 };
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 10;
+
+function getPageNumbers(totalPages: number, currentPage: number) {
+  const pages: (number | string)[] = [];
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
+  } else if (currentPage <= 4) {
+    pages.push(1, 2, 3, 4, 5, '...', totalPages);
+  } else if (currentPage >= totalPages - 3) {
+    pages.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+  } else {
+    pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+  }
+  return pages;
+}
 
 function StatusBadge({ status }: { status: string }) {
   const label = STATUS_LABEL[status] ?? status.replace(/_/g, ' ');
