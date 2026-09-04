@@ -89,6 +89,47 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
             <span className="ml-2 text-foreground">provisional — period still open</span>
           )}
         </p>
+
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 mt-3">
+          <div className="rounded-md border px-3 py-2">
+            <p className="text-[11px] text-muted-foreground">Due on agreed plans</p>
+            <p className="text-sm font-semibold tabular-nums">
+              {scheduled === null ? '—' : formatUGX(scheduled)}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              {`${cohortCount ?? '—'} plans within term`}
+            </p>
+          </div>
+          {arrearsTarget !== null && arrearsTarget !== undefined ? (
+            <div className="rounded-md border px-3 py-2">
+              <p className="text-[11px] text-muted-foreground">Arrears target</p>
+              <p className="text-sm font-semibold tabular-nums text-destructive">
+                {formatUGX(arrearsTarget)}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {`${arrearsTargetCount ?? '—'} plans past their agreed end date`}
+              </p>
+            </div>
+          ) : (
+            <p className="text-[11px] text-muted-foreground">
+              Arrears target not recorded for this period
+            </p>
+          )}
+        </div>
+
+        <p className="text-xs">
+          {`Total field target — ${totalFieldTarget === null || totalFieldTarget === undefined ? '—' : formatUGX(totalFieldTarget)}`}
+        </p>
+        {arrearsOutstanding !== null && arrearsOutstanding !== undefined && (
+          <p className="text-[11px] text-muted-foreground">
+            {`Arrears outstanding to date — ${formatUGX(arrearsOutstanding)}`}
+          </p>
+        )}
+
+        <p className="text-[11px] text-muted-foreground mt-2">
+          Due on agreed plans is what the payment plans schedule in this period. Arrears target is the daily rate of plans that have passed their agreed end date and schedule nothing further. The two cover different plans and do not overlap. Arrears outstanding is a running balance, not a target for this period.
+        </p>
+
         <p>{threshold === null ? 'threshold —' : `threshold ${threshold.toFixed(1)}%`}</p>
         {report?.prior?.period_start && (
           <p>
@@ -99,6 +140,7 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
           </p>
         )}
       </div>
+
 
       <div className="mt-4 space-y-2 border-t border-border pt-3 text-sm text-muted-foreground sm:space-y-1">
         <p>
