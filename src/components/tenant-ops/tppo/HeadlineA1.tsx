@@ -26,8 +26,15 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
   const hasRate = rate !== null && rate !== undefined;
   const atOrAbove = hasRate && below === false;
 
+  const priorRate = report?.prior?.collection_rate_pct ?? null;
+
   return (
     <section aria-label="A1 headline" className="rounded-xl border border-primary/25 bg-primary/5 p-4 shadow-sm">
+      <p className="mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <span>{periodLabel(report?.period_start, report?.period_end)}</span>
+        {provisional && <span className="font-medium normal-case text-primary">still counting</span>}
+      </p>
+
       <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3 sm:gap-y-1">
         <span className="break-words text-2xl font-semibold tabular-nums text-foreground">
           {collected === null ? '—' : formatUGX(collected)}
