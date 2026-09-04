@@ -56,6 +56,10 @@ export default function PartnerAgreementSignOff({
   const [sigDataUrl, setSigDataUrl] = useState<string | undefined>();
   // Editable stamp / execution date shown on the contract and the Welile stamp.
   const [stampDate, setStampDate] = useState<string>('');
+  // Editable partnership amount printed on the contract. Prefilled from the
+  // agreement row, falling back to the partner's portfolio total when the
+  // stored snapshot is empty/zero (legacy rows captured before the amount).
+  const [amountInput, setAmountInput] = useState<string>('');
 
   useEffect(() => {
     if (!open || !partner) return;
@@ -66,7 +70,7 @@ export default function PartnerAgreementSignOff({
     setIsDraft(false);
     (async () => {
       try {
-        const [{ data: ag, error: agErr }, { data: def }] = await Promise.all([
+        const [{ data: ag, error: agErr }, { data: def }, { data: pfAll }] = await Promise.all([
           supabase
             .from('partner_agreements')
             .select('*')
@@ -77,22 +81,23 @@ export default function PartnerAgreementSignOff({
             .select('*')
             .limit(1)
             .maybeSingle(),
+          supabase.from('investor_portfolios').select('investment_amount').eq('investor_id', partner.id),
         ]);
         if (cancelled) return;
         if (agErr) throw agErr;
+        const portfolioTotal = (pfAll || []).reduce((s: number, r: any) => s + (Number(r.investment_amount) || 0), 0);
         if (!ag) {
           // Build a draft agreement from the profile + saved payout method so the
           // stamp date, rep fields and preview all render. The record is created
           // when the admin counter-signs.
-          const [{ data: prof }, { data: method }, { data: pf }] = await Promise.all([
+          const [{ data: prof }, { data: method }] = await Promise.all([
             supabase.from('profiles').select('full_name, phone, email, national_id, landmark').eq('id', partner.id).maybeSingle(),
             supabase.from('saved_payout_methods').select('*').eq('user_id', partner.id)
               .order('is_default', { ascending: false })
               .limit(1).maybeSingle(),
-            supabase.from('investor_portfolios').select('investment_amount').eq('investor_id', partner.id),
           ]);
           if (cancelled) return;
-          const total = (pf || []).reduce((s: number, r: any) => s + (Number(r.investment_amount) || 0), 0);
+          const total = portfolioTotal;
           setIsDraft(true);
           setMissing(null);
           setAgreement({
@@ -132,6 +137,9 @@ export default function PartnerAgreementSignOff({
           setRepPosition(def?.rep_position || '');
           setRepContact(def?.rep_contact || '');
           setSigDataUrl(undefined);
+          const storedAmount = Number(ag?.partnership_amount) || 0;
+          const effectiveAmount = storedAmount > 0 ? storedAmount : portfolioTotal;
+          setAmountInput(effectiveAmount > 0 ? String(effectiveAmount) : '');
           const base = ag?.countersigned_at ? new Date(ag.countersigned_at) : new Date();
           setStampDate(
             `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}-${String(base.getDate()).padStart(2, '0')}`,
@@ -158,7 +166,7 @@ export default function PartnerAgreementSignOff({
       partnerAddress: agreement.address || '',
       partnerPhone: agreement.phone || partner?.phone || '',
       partnerEmail: agreement.email || partner?.email || '',
-      partnershipAmount: Number(agreement.partnership_amount) || 0,
+      partnershipAmount: Number(amountInput) || Number(agreement.partnership_amount) || 0,
       payoutMode: agreement.payout_mode === 'momo' ? 'momo' : 'bank',
       bankName: agreement.bank_name || '',
       bankAccountName: agreement.bank_account_name || '',
@@ -185,7 +193,7 @@ export default function PartnerAgreementSignOff({
       partnerSignatureDataUrl: agreement.partner_signature_data_url || undefined,
       includeStamp: true,
     };
-  }, [agreement, partner, repSigUrl, repName, repPosition, repContact, sigDataUrl, stampDate]);
+  }, [agreement, partner, repSigUrl, repName, repPosition, repContact, sigDataUrl, stampDate, amountInput]);
 
   const onSignatureFile = (file?: File) => {
     if (!file) return;
@@ -223,7 +231,10 @@ export default function PartnerAgreementSignOff({
       // A changed stamp date must land in the stored/emailed PDF, so re-render
       // instead of resending the previously stored file.
       const stampChanged = !!stampDate && stampDate !== storedStamp;
-      if (alreadySigned && !stampChanged) {
+      // Same for an edited partnership amount — the stored PDF is stale.
+      const amountChanged =
+        (Number(amountInput) || 0) !== (Number(agreement?.partnership_amount) || 0);
+      if (alreadySigned && !stampChanged && !amountChanged) {
         const { data, error } = await supabase.functions.invoke('resend-partner-agreement-email', {
           body: { partnerId: partner.id },
         });
@@ -320,7 +331,10 @@ export default function PartnerAgreementSignOff({
                 )}
                 <section className="space-y-1.5">
                   <p className="text-xs font-semibold text-foreground">{isDraft ? 'Partner details (from profile)' : 'Partner submitted'}</p>
-                  <ReadRow label="Partnership amount" value={`UGX ${(Number(agreement.partnership_amount) || 0).toLocaleString('en-US')}`} />
+                  <ReadRow
+                    label="Partnership amount"
+                    value={`UGX ${(Number(amountInput) || Number(agreement.partnership_amount) || 0).toLocaleString('en-US')}`}
+                  />
                   <ReadRow label="National ID / Passport" value={agreement.national_id || '—'} />
                   <ReadRow label="Address" value={agreement.address || '—'} />
                   <ReadRow
@@ -339,6 +353,22 @@ export default function PartnerAgreementSignOff({
                   <p className="text-[10px] text-muted-foreground -mt-1">
                     Fill in the details below before counter-signing. They render live in the preview.
                   </p>
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">Partnership amount (UGX)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      value={amountInput}
+                      onChange={(e) => setAmountInput(e.target.value)}
+                      placeholder="e.g. 5000000"
+                      className="h-8 text-xs"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Prefilled from the partner's record (or their portfolio total when the record is blank).
+                      Changing it updates the contract and re-sends the executed PDF.
+                    </p>
+                  </div>
                   <div className="space-y-1">
                     <Label className="text-[11px]">Representative name</Label>
                     <Input value={repName} onChange={(e) => setRepName(e.target.value)} placeholder="e.g. Jane Doe" className="h-8 text-xs" />
