@@ -267,7 +267,7 @@ export function CreditDrawApprovalQueue() {
                               </Button>
                               <Button size="sm" variant="outline" className="h-7 text-[11px] text-destructive"
                                 onClick={() => { setRejectingId(item.id); setRejectReason(''); }}>
-                                <X className="h-3 w-3" />
+                                Reject
                               </Button>
                             </div>
                           )}
