@@ -51776,6 +51776,14 @@ export type Database = {
           transaction_group_id: string
         }[]
       }
+      staff_requisition_reduce_amount: {
+        Args: {
+          p_new_amount: number
+          p_reason: string
+          p_requisition_id: string
+        }
+        Returns: Json
+      }
       staff_requisition_route: {
         Args: { _user_id: string }
         Returns: {
