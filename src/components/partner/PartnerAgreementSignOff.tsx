@@ -166,7 +166,7 @@ export default function PartnerAgreementSignOff({
       partnerAddress: agreement.address || '',
       partnerPhone: agreement.phone || partner?.phone || '',
       partnerEmail: agreement.email || partner?.email || '',
-      partnershipAmount: Number(agreement.partnership_amount) || 0,
+      partnershipAmount: Number(amountInput) || Number(agreement.partnership_amount) || 0,
       payoutMode: agreement.payout_mode === 'momo' ? 'momo' : 'bank',
       bankName: agreement.bank_name || '',
       bankAccountName: agreement.bank_account_name || '',
