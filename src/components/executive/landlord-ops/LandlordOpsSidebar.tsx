@@ -1,125 +1,74 @@
-import { useEffect, useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  LANDLORD_OPS_NAV,
-  landlordOpsGroupForView,
-  type LandlordOpsViewKey,
-} from './landlordOpsNav';
+import { LANDLORD_OPS_SECTIONS, type LandlordOpsNavItem } from './landlordOpsNav';
 
-interface Props {
-  active: LandlordOpsViewKey;
-  onSelect: (key: LandlordOpsViewKey) => void;
-  badges?: Partial<Record<string, number>>;
+interface SidebarProps {
+  activePath: string;
+  onNavigate: (path: string) => void;
+  badges?: Record<string, number>;
   className?: string;
 }
 
-/**
- * Landlord Ops sidebar — same structure, spacing and active treatment as the
- * Partner Ops / Tenant Ops sidebars, with expandable groups (Verification &
- * Approvals, Landlord Ops Tools, Workspaces, Places…).
- */
-export function LandlordOpsSidebar({ active, onSelect, badges = {}, className }: Props) {
-  const [open, setOpen] = useState<Record<string, boolean>>(() => ({
-    verification: true,
-    tools: true,
-    workspaces: true,
-    places: false,
-    reports: false,
-  }));
-
-  // Keep the group holding the active view expanded (e.g. after a deep link).
-  useEffect(() => {
-    const group = landlordOpsGroupForView(String(active));
-    if (group) setOpen((prev) => (prev[group] ? prev : { ...prev, [group]: true }));
-  }, [active]);
-
-  const Badge = ({ n }: { n?: number }) =>
-    n && n > 0 ? (
-      <span className="ml-auto rounded-full bg-destructive/15 px-1.5 py-0.5 text-[9px] font-bold leading-none text-destructive">
-        {n}
-      </span>
-    ) : null;
+export function LandlordOpsSidebar({ activePath, onNavigate, badges = {}, className }: SidebarProps) {
+  const cleanActive = activePath.replace(/^\//, '').replace(/^landlord-ops\/?/, '');
 
   return (
-    <nav className={cn('flex h-full flex-col', className)} aria-label="Landlord Ops sections">
-      <ScrollArea className="flex-1">
-        <ul className="space-y-1 p-2">
-          {LANDLORD_OPS_NAV.map((item, index) => {
-            const Icon = item.icon;
-            const key = String(item.key);
-            const isLast = index === LANDLORD_OPS_NAV.length - 1;
-            const expanded = !!open[key];
+    <nav className={cn('w-56 lg:w-60 shrink-0 border-r border-border bg-card flex flex-col h-full text-xs select-none', className)}>
+      <ScrollArea className="flex-1 py-3 px-2.5">
+        <div className="space-y-4">
+          {LANDLORD_OPS_SECTIONS.map((section, idx) => (
+            <div key={section.title || `section-${idx}`} className="space-y-0.5">
+              {section.title && (
+                <div className="px-2.5 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+                  {section.title}
+                </div>
+              )}
+              <div className="space-y-0.5">
+                {section.items.map((item: LandlordOpsNavItem) => {
+                  const Icon = item.icon;
+                  const isActive = cleanActive === item.path || (item.path === '' && cleanActive === 'today');
+                  const count = item.badgeKey ? badges[item.badgeKey] : undefined;
 
-            return (
-              <li key={key} className="pb-2">
-                {!item.children?.length ? (
-                  <button
-                    type="button"
-                    onClick={() => onSelect((item.view || key) as LandlordOpsViewKey)}
-                    aria-current={active === (item.view || key) ? 'page' : undefined}
-                    className={cn(
-                      'flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors',
-                      active === (item.view || key)
-                        ? 'bg-primary text-primary-foreground shadow-sm'
-                        : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'
-                    )}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    <span className="truncate">{item.label}</span>
-                    <Badge n={badges[item.view || key]} />
-                  </button>
-                ) : (
-                  <div className="space-y-1">
+                  return (
                     <button
-                      type="button"
-                      onClick={() => setOpen((prev) => ({ ...prev, [key]: !prev[key] }))}
-                      aria-expanded={expanded}
-                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-primary/5 hover:text-primary"
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <span className="truncate">{item.label}</span>
-                      {expanded ? (
-                        <ChevronDown className="ml-auto h-3.5 w-3.5 shrink-0" />
-                      ) : (
-                        <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0" />
+                      key={item.key}
+                      onClick={() => onNavigate(item.path)}
+                      className={cn(
+                        'flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 font-medium transition-all group text-left',
+                        isActive
+                          ? 'bg-[#E8F8EE] text-[#0FA958] dark:bg-emerald-950/50 dark:text-emerald-400 font-bold shadow-xs'
+                          : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
                       )}
+                    >
+                      <div className="flex items-center gap-2.5 truncate">
+                        <Icon
+                          className={cn(
+                            'h-4 w-4 shrink-0 transition-colors',
+                            isActive ? 'text-[#0FA958] dark:text-emerald-400' : 'text-muted-foreground group-hover:text-foreground'
+                          )}
+                        />
+                        <span className="truncate">{item.label}</span>
+                      </div>
+
+                      {count && count > 0 ? (
+                        <span
+                          className={cn(
+                            'px-1.5 py-0.2 rounded-full text-[9px] font-bold tabular-nums shrink-0',
+                            isActive
+                              ? 'bg-[#0FA958] text-white'
+                              : 'bg-muted text-muted-foreground group-hover:bg-muted-foreground/20'
+                          )}
+                        >
+                          {count > 999 ? `${Math.round(count / 1000)}k` : count}
+                        </span>
+                      ) : null}
                     </button>
-                    {expanded && (
-                      <ul className="space-y-0.5">
-                        {item.children.map((child) => {
-                          const ChildIcon = child.icon;
-                          const isActive = active === child.key;
-                          return (
-                            <li key={child.key}>
-                              <button
-                                type="button"
-                                onClick={() => onSelect(child.key)}
-                                aria-current={isActive ? 'page' : undefined}
-                                className={cn(
-                                  'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs transition-colors',
-                                  isActive
-                                    ? 'bg-primary/10 font-semibold text-primary'
-                                    : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'
-                                )}
-                              >
-                                <ChildIcon className="h-3.5 w-3.5 shrink-0" />
-                                <span className="truncate">{child.label}</span>
-                                <Badge n={badges[child.key]} />
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </div>
-                )}
-                {!isLast && <div className="mt-2 h-px bg-border/60" />}
-              </li>
-            );
-          })}
-        </ul>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       </ScrollArea>
     </nav>
   );

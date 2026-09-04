@@ -111,7 +111,7 @@ const violations = [];
 const skipped = [];
 
 for (const file of walk(ROOT)) {
-  const rel = relative(ROOT, file);
+  const rel = relative(ROOT, file).replace(/\\/g, '/');
   if (rel.startsWith('components/location/')) continue; // the pickers themselves
   const src = readFileSync(file, 'utf8');
 

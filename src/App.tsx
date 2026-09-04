@@ -5,6 +5,7 @@ import { Suspense, memo, useEffect, useState, Component, type ReactNode } from "
 import { HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { LANDLORD_OPS_ROUTES } from "./pages/landlord-ops/routes";
 import { ThemeProvider } from "next-themes";
 import { ThemeColorSync } from "@/components/ThemeColorSync";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -228,6 +229,8 @@ const HRStaffScorecardPage = lazy(() => import('./hr/pages/StaffScorecard'));
 const HREmployeeProfilePage = lazy(() => import('./pages/hr/EmployeeProfile'));
 const DirectorDashboardPage = lazy(() => import('./pages/director/Dashboard'));
 const AdminDashboardPage = lazy(() => import('./pages/admin/Dashboard'));
+const LandlordOpsPage = lazy(() => import('./pages/landlord-ops/LandlordOpsPage'));
+
 const AdminUsersPage = lazy(() => import('./pages/admin/Users'));
 const AdminAccessAuditPage = lazy(() => import('./pages/admin/AccessAudit'));
 const AdminFinancialOpsPage = lazy(() => import('./pages/admin/FinancialOps'));
@@ -407,7 +410,7 @@ function AppRoutes() {
   const location = useLocation();
   // Financial Ops is added here because a stray pull-to-refresh inside a long
   // panel (e.g. Merchant Agents) reloads the whole app mid-task.
-  const PTR_DISABLED_PREFIXES = ['/', '/index', '/auth', '/welcome', '/funder-onboarding', '/executive-hub', '/admin/financial-ops'];
+  const PTR_DISABLED_PREFIXES = ['/', '/index', '/auth', '/welcome', '/funder-onboarding', '/executive-hub', '/admin/financial-ops', '/landlord-ops'];
   const disablePullToRefresh = PTR_DISABLED_PREFIXES.some(
     (p) => location.pathname === p || location.pathname.startsWith(p + '/'),
   );
@@ -684,6 +687,15 @@ function AppRoutes() {
           <Route path="/coo-dashboard" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto']} requiredPermission="coo"><COODashboardPage /></RoleGuard>} />
           <Route path="/cfo-dashboard" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto']} requiredPermission="cfo"><CFODashboardPage /></RoleGuard>} />
           <Route path="/executive-hub" element={<RoleGuard allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']}><ExecutiveHubPage /></RoleGuard>} />
+          <Route path="/landlord-ops" element={<RoleGuard allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']}><LandlordOpsPage /></RoleGuard>}>
+            {LANDLORD_OPS_ROUTES.map(({ path, Component: RouteView }) => (
+              <Route
+                key={path || 'index'}
+                {...(path ? { path } : { index: true })}
+                element={<RouteView />}
+              />
+            ))}
+          </Route>
           <Route path="/agent-ops/reports/tenant-portfolio-performance" element={<RoleGuard allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']}><TppoPortfolioPerformanceReport /></RoleGuard>} />
           <Route path="/agent-performance-report" element={<AgentPerformanceReportPage />} />
           <Route path="/agent-ops/products/:slug" element={<RoleGuard allowedRoles={['ceo', 'cto', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']}><AgentProductCategoryPage /></RoleGuard>} />

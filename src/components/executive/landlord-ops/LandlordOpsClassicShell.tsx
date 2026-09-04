@@ -1,89 +1,87 @@
-import { useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { LandlordOpsDashboard, type LandlordOpsClassicView } from '../LandlordOpsDashboard';
-import { LandlordOpsSidebar } from './LandlordOpsSidebar';
-import { LandlordOpsTopBar } from './LandlordOpsTopBar';
-import { LandlordOpsHome } from './LandlordOpsHome';
-import { CallingHub } from '@/components/ops/calling';
-import { TenantOpsLandlordFloatPanel } from '../TenantOpsLandlordFloatPanel';
-import { useLandlordOpsBadgeCounts } from '@/hooks/useLandlordOpsBadgeCounts';
-import {
-  landlordOpsLabelFor,
-  LANDLORD_OPS_VIEW_KEYS,
-  type LandlordOpsViewKey,
-} from './landlordOpsNav';
+import { useEffect } from 'react';
+import { Navigate, useSearchParams } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 
 /**
- * Persistent-sidebar shell around Classic Landlord Ops. The selected section
- * lives in the URL (`?view=`) so deep links, refresh and browser back/forward
- * all work; Classic itself renders in controlled mode with its legacy overview
- * suppressed. Navigation and presentation only — no workflow logic here.
+ * Compatibility redirect for the retired `?view=` Landlord Ops shell.
+ *
+ * Landlord Ops is now a layout route with one URL per destination
+ * (`/landlord-ops/verify/houses`, …) — see `src/pages/landlord-ops/`. This
+ * component only exists so the Executive Hub tab and every old
+ * `…?view=<key>` bookmark land on the equivalent new route instead of a shell
+ * whose sidebar keys no longer match anything it can render.
+ *
+ * Nine destinations were folded away in the rebuild; those keys map to the
+ * closest surviving destination, and anything unrecognised goes to Today.
  */
+const VIEW_TO_PATH: Record<string, string> = {
+  home: '',
+  today: '',
+
+  // Verify
+  verify: 'verify/houses',
+  'agent-verify-requests': 'verify/landlords',
+  'residence-verify': 'verify/landlords',
+  'lc1-inbox': 'verify/lc1',
+  'lc1-requests': 'verify/lc1',
+
+  // Pipeline
+  'rent-pipeline-queue': 'pipeline/rent-requests',
+  'rejected-queue': 'pipeline/rent-requests',
+  pipeline: 'pipeline/rent-requests',
+  'advance-requests': 'pipeline/advances',
+
+  // Payouts
+  'payout-review': 'payouts/review',
+  'landlords-paid': 'payouts/paid',
+  'agent-landlord-float': 'payouts/float',
+
+  // Fix-ups
+  chain: 'fixups/chain-health',
+  'lc1-duplicates': 'fixups/lc1-duplicates',
+  locations: 'fixups/locations',
+  'no-landlord': 'fixups/no-landlord',
+  matching: 'fixups/matching',
+
+  // Registers
+  landlords: 'registers/landlords',
+  'landlords-tenants': 'registers/houses-tenants',
+  'houses-by-landlord': 'registers/houses-tenants',
+  'all-requests': 'registers/requests',
+  lc1: 'registers/lc1',
+
+  // Across everything
+  'calling-hub': 'calling',
+  calling: 'calling',
+  cities: 'coverage',
+  empty: 'coverage',
+  occupied: 'coverage',
+  coverage: 'coverage',
+  'agent-capacity': 'agent-capacity',
+  agents: 'agent-capacity',
+  'service-centres': 'service-centres',
+  reports: 'reports',
+  analytics: 'reports',
+};
+
 export function LandlordOpsDashboardShell() {
-  const [params, setParams] = useSearchParams();
-  const { pendingHouses, pendingLandlords } = useLandlordOpsBadgeCounts();
+  const [params] = useSearchParams();
+  const raw = (params.get('view') || '').toLowerCase();
 
-  const raw = params.get('view') || 'home';
-  const active = (LANDLORD_OPS_VIEW_KEYS.has(raw) ? raw : 'home') as LandlordOpsViewKey;
+  // A new-style path already in `?view=` (e.g. `verify/houses`) passes through.
+  const target = raw.includes('/') ? raw : VIEW_TO_PATH[raw] ?? '';
 
-  const badges = useMemo<Partial<Record<string, number>>>(
-    () => ({
-      verify: pendingHouses,
-      landlords: pendingLandlords,
-    }),
-    [pendingHouses, pendingLandlords],
-  );
-
-  const goTo = useCallback(
-    (key: LandlordOpsViewKey) => {
-      const next = new URLSearchParams(params);
-      if (key === 'home') next.delete('view');
-      else next.set('view', key);
-      setParams(next);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    },
-    [params, setParams],
-  );
-
-  const handleClassicViewChange = useCallback(
-    (view: LandlordOpsClassicView) => {
-      // Classic can navigate itself (e.g. its own back row); mirror it into the
-      // URL so the sidebar and browser history stay in sync.
-      goTo(view as LandlordOpsViewKey);
-    },
-    [goTo],
-  );
-
-  const label = active === 'home' ? '' : landlordOpsLabelFor(active);
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, []);
 
   return (
-    <div className="space-y-2">
-      <LandlordOpsTopBar active={active} onSelect={goTo} badges={badges} />
-
-      <div className="flex gap-3">
-        <aside className="hidden w-56 shrink-0 lg:block">
-          <div className="sticky top-14 h-[calc(100vh-4.5rem)] overflow-hidden rounded-xl border bg-card shadow-sm">
-            <LandlordOpsSidebar active={active} onSelect={goTo} badges={badges} />
-          </div>
-        </aside>
-
-        <main className="min-w-0 flex-1">
-          {label && <h2 className="mb-2 text-sm font-bold text-foreground lg:text-base">{label}</h2>}
-          {active === 'home' ? (
-            <LandlordOpsHome onNavigate={goTo} />
-          ) : active === 'calling-hub' ? (
-            <CallingHub subjectType="landlord" />
-          ) : active === 'agent-landlord-float' ? (
-            <TenantOpsLandlordFloatPanel />
-          ) : (
-            <LandlordOpsDashboard
-              view={active as LandlordOpsClassicView}
-              onViewChange={handleClassicViewChange}
-              hideOverview
-            />
-          )}
-        </main>
+    <>
+      <div className="flex items-center justify-center gap-2 py-16 text-xs text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Opening Landlord Operations…
       </div>
-    </div>
+      <Navigate to={`/landlord-ops${target ? `/${target}` : ''}`} replace />
+    </>
   );
 }
