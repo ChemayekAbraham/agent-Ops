@@ -1,25 +1,31 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  housesAwaitingVerification,
+  landlordsAwaitingVerification,
+  lc1AwaitingVerification,
+  rentRequestsAwaitingLandlordOps,
+  payoutsAwaitingLandlordOps,
+  type QueueFilterable,
+} from './landlordOpsQueueFilters';
 
 /**
  * Backlog counters shared by the Landlord Ops shell (sidebar badges) and its
  * Today landing page.
  *
- * Each query below deliberately reuses the exact filter the panel behind that
- * destination already applies, so a badge can never disagree with the queue it
- * points at. No new logic.
+ * Every count applies the queue definition from `landlordOpsQueueFilters`, so a
+ * badge can never disagree with the queue it points at.
  */
 export function useLandlordOpsBadgeCounts() {
   const pendingHouses = useQuery({
     queryKey: ['exec-house-listings-pending-count'],
     staleTime: 60_000,
     queryFn: async () => {
-      const { count } = await supabase
-        .from('house_listings')
-        .select('id', { count: 'exact', head: true })
-        .eq('verified', false)
-        .not('status', 'in', '(rejected,delisted)')
-        .in('service_center_status', ['not_required', 'passed']);
+      const { count } = await housesAwaitingVerification(
+        supabase
+          .from('house_listings')
+          .select('id', { count: 'exact', head: true }) as unknown as QueueFilterable,
+      );
       return count || 0;
     },
   });
@@ -28,54 +34,50 @@ export function useLandlordOpsBadgeCounts() {
     queryKey: ['landlord-ops-pending-verification-count'],
     staleTime: 30_000,
     queryFn: async () => {
-      const { count } = await supabase
-        .from('landlords')
-        .select('id', { count: 'exact', head: true })
-        // Still with a Service Centre manager → not yet Landlord Ops work.
-        .neq('service_center_status', 'pending')
-        .or('verified.is.null,verified.eq.false');
+      const { count } = await landlordsAwaitingVerification(
+        supabase
+          .from('landlords')
+          .select('id', { count: 'exact', head: true }) as unknown as QueueFilterable,
+      );
       return count || 0;
     },
   });
 
-  // Mirrors Lc1VerificationInboxPanel's `pending` bucket: chairpersons still
-  // being vetted by their Service Centre manager are not yet Landlord Ops work.
   const pendingLc1 = useQuery({
     queryKey: ['landlord-ops-lc1-pending-count'],
     staleTime: 30_000,
     queryFn: async () => {
-      const { count } = await supabase
-        .from('v_lc1_verification_inbox')
-        .select('lc1_id', { count: 'exact', head: true })
-        .neq('service_center_status', 'pending')
-        .eq('status', 'pending');
+      const { count } = await lc1AwaitingVerification(
+        supabase
+          .from('v_lc1_verification_inbox')
+          .select('lc1_id', { count: 'exact', head: true }) as unknown as QueueFilterable,
+      );
       return count || 0;
     },
   });
 
-  // Mirrors <RentPipelineQueue stage="tenant_ops_approved" /> — the stage that
-  // is waiting on Landlord Ops.
   const pendingPipeline = useQuery({
     queryKey: ['landlord-ops-pipeline-pending-count'],
     staleTime: 30_000,
     queryFn: async () => {
-      const { count } = await supabase
-        .from('rent_requests')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'tenant_ops_approved');
+      const { count } = await rentRequestsAwaitingLandlordOps(
+        supabase
+          .from('rent_requests')
+          .select('id', { count: 'exact', head: true }) as unknown as QueueFilterable,
+      );
       return count || 0;
     },
   });
 
-  // Mirrors <LandlordOpsPayoutReview reviewRole="landlord_ops" />.
   const pendingPayouts = useQuery({
     queryKey: ['landlord-ops-payouts-pending-count'],
     staleTime: 30_000,
     queryFn: async () => {
-      const { count } = await supabase
-        .from('agent_landlord_payouts')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'pending_landlord_ops');
+      const { count } = await payoutsAwaitingLandlordOps(
+        supabase
+          .from('agent_landlord_payouts')
+          .select('id', { count: 'exact', head: true }) as unknown as QueueFilterable,
+      );
       return count || 0;
     },
   });

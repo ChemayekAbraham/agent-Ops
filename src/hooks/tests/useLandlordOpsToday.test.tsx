@@ -103,7 +103,7 @@ describe('useLandlordOpsBadgeCounts — the badges that used to be 73 / 38 / 26'
     await waitFor(() => expect(result.current.paidLandlords).toBe(2));
   });
 
-  it('filters the LC1 queue the way the LC1 inbox panel does', async () => {
+  it('counts the LC1 bucket the inbox actually opens on (agent_requested)', async () => {
     responses = { v_lc1_verification_inbox: { count: 0 } };
     const { result } = renderHook(() => useLandlordOpsBadgeCounts(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -114,6 +114,12 @@ describe('useLandlordOpsBadgeCounts — the badges that used to be 73 / 38 / 26'
       expect.arrayContaining([{ fn: 'neq', args: ['service_center_status', 'pending'] }]),
     );
     expect(ops).toEqual(expect.arrayContaining([{ fn: 'eq', args: ['status', 'pending'] }]));
+    // Lc1VerificationInboxPanel defaults to initialStatus='agent_requested'.
+    // Counting bare `status='pending'` made the badge read ~11.8k against a tab
+    // showing a fraction of that.
+    expect(ops).toEqual(
+      expect.arrayContaining([{ fn: 'eq', args: ['agent_request_open', true] }]),
+    );
   });
 
   it('counts the rent-pipeline stage that actually sits on Landlord Ops', async () => {
@@ -304,5 +310,45 @@ describe('recent decisions — real operators and real amounts', () => {
     expect(result.current.data).toEqual([]);
     // No point querying listings/profiles for nothing.
     expect(tablesQueried()).not.toContain('profiles');
+  });
+});
+
+describe('useLandlordOpsNewToday — must be a subset of the headline', () => {
+  it('applies each queue filter as well as the date, so it cannot exceed the count above it', async () => {
+    const { useLandlordOpsNewToday } = await import('../useLandlordOpsToday');
+    const { result } = renderHook(() => useLandlordOpsNewToday(), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    // The bug this guards: these counted every row created today with no status
+    // filter, so a card could read "0 awaiting sign-off / New today: 5".
+    const houses = opsFor('house_listings');
+    expect(houses).toEqual(expect.arrayContaining([{ fn: 'eq', args: ['verified', false] }]));
+    expect(houses).toEqual(expect.arrayContaining([{ fn: 'gte', args: ['created_at', expect.any(String)] }]));
+
+    const rent = opsFor('rent_requests');
+    expect(rent).toEqual(expect.arrayContaining([{ fn: 'eq', args: ['status', 'tenant_ops_approved'] }]));
+    expect(rent).toEqual(expect.arrayContaining([{ fn: 'gte', args: ['created_at', expect.any(String)] }]));
+
+    const lc1 = opsFor('v_lc1_verification_inbox');
+    expect(lc1).toEqual(expect.arrayContaining([{ fn: 'eq', args: ['agent_request_open', true] }]));
+    expect(lc1).toEqual(expect.arrayContaining([{ fn: 'gte', args: ['requested_at', expect.any(String)] }]));
+
+    const landlords = opsFor('landlords');
+    expect(landlords).toEqual(
+      expect.arrayContaining([{ fn: 'neq', args: ['service_center_status', 'pending'] }]),
+    );
+    expect(landlords).toEqual(expect.arrayContaining([{ fn: 'gte', args: ['created_at', expect.any(String)] }]));
+  });
+
+  it('counts today from local midnight, not UTC midnight', async () => {
+    const { useLandlordOpsNewToday } = await import('../useLandlordOpsToday');
+    const { result } = renderHook(() => useLandlordOpsNewToday(), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const gte = opsFor('house_listings').find((o) => o.fn === 'gte');
+    const since = new Date(String((gte!.args as [string, string])[1]));
+    const localMidnight = new Date();
+    localMidnight.setHours(0, 0, 0, 0);
+    expect(since.getTime()).toBe(localMidnight.getTime());
   });
 });
