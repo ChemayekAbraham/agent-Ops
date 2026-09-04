@@ -241,39 +241,76 @@ export function GeneralPayoutActivities() {
 
       const totalAmount = allRows.reduce((s, r) => s + Number(r.amount || 0), 0);
 
+      // Always export in ascending chronological order (oldest first),
+      // regardless of how the on-screen table is ordered.
+      const exportRows = [...allRows].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      );
+
       const { default: jsPDF } = await import('jspdf');
       const autoTableMod: any = await import('jspdf-autotable');
       const autoTable = autoTableMod.default || autoTableMod;
 
       const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const marginX = 12;
 
+      // ---- Report header ----
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(15);
-      doc.text('Welile — General Payout Activities', 12, 14);
+      doc.setFontSize(16);
+      doc.setTextColor(40, 20, 70);
+      doc.text('General Payout Activities Report', marginX, 15);
+
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
       doc.setTextColor(90);
-      doc.text(`Period: ${window.label}`, 12, 20);
-      doc.text(`Generated: ${format(new Date(), 'dd MMM yyyy, HH:mm')}`, 12, 25);
+      doc.text(`Period: ${window.label}`, marginX, 21);
       doc.text(
-        `Payouts: ${allRows.length}    Total: UGX ${totalAmount.toLocaleString('en-UG')}`,
-        12,
-        30,
+        `Generated: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`,
+        pageWidth - marginX,
+        21,
+        { align: 'right' },
       );
+
+      const appliedFilters: string[] = [
+        `Name: ${nameFilter.trim() || 'All'}`,
+        `Type: ${typeFilter === 'all' ? 'All' : typeFilter === 'credit' ? 'Sent' : 'Taken out'}`,
+        `Destination: ${destinationFilter === 'all' ? 'All' : destinationFilter === 'operational_wallet' ? 'Operational float' : 'User wallet'}`,
+        `Category: ${categoryFilter.trim() || 'All'}`,
+      ];
+      doc.text(`Filters — ${appliedFilters.join('  ·  ')}`, marginX, 26.5);
+
+      // Summary band
+      doc.setFillColor(248, 246, 252);
+      doc.roundedRect(marginX, 30, pageWidth - marginX * 2, 9, 1.5, 1.5, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9.5);
+      doc.setTextColor(40, 20, 70);
+      doc.text(
+        `Total payouts: ${exportRows.length}      Total amount: UGX ${totalAmount.toLocaleString('en-UG')}`,
+        marginX + 4,
+        36,
+      );
+
+      // Divider
+      doc.setDrawColor(108, 33, 196);
+      doc.setLineWidth(0.6);
+      doc.line(marginX, 42, pageWidth - marginX, 42);
       doc.setTextColor(0);
 
       autoTable(doc, {
-        startY: 34,
+        startY: 46,
+        margin: { left: marginX, right: marginX, bottom: 16 },
         head: [[
           'Date', 'Recipient', 'Phone', 'Type', 'Destination', 'Category',
           'Amount (UGX)', 'Reference', 'Notes',
         ]],
-        body: allRows.map((r) => {
+        body: exportRows.map((r) => {
           const meta = (r.metadata ?? {}) as Record<string, unknown>;
           const recipient = names[r.target_user_id];
           return [
-            format(new Date(r.created_at), 'dd MMM yyyy HH:mm'),
+            format(new Date(r.created_at), 'dd/MM/yyyy HH:mm'),
             recipient?.full_name ?? '—',
             recipient?.phone ?? '',
             r.operation === 'credit' ? 'Sent' : 'Taken out',
@@ -288,21 +325,47 @@ export function GeneralPayoutActivities() {
           '', '', '', '', '', 'TOTAL',
           totalAmount.toLocaleString('en-UG'), '', '',
         ]],
-        styles: { fontSize: 7.5, cellPadding: 1.6, overflow: 'linebreak' },
-        headStyles: { fillColor: [108, 33, 196], textColor: 255, fontStyle: 'bold' },
+        // Headers repeat automatically on every page.
+        showHead: 'everyPage',
+        showFoot: 'lastPage',
+        rowPageBreak: 'avoid',
+        styles: {
+          font: 'helvetica',
+          fontSize: 8,
+          cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
+          overflow: 'linebreak',
+          valign: 'middle',
+          lineColor: [226, 220, 238],
+          lineWidth: 0.1,
+        },
+        headStyles: { fillColor: [108, 33, 196], textColor: 255, fontStyle: 'bold', fontSize: 8.5 },
         footStyles: { fillColor: [243, 238, 252], textColor: [40, 20, 70], fontStyle: 'bold' },
         columnStyles: {
-          6: { halign: 'right', fontStyle: 'bold' },
+          0: { cellWidth: 26 },
+          1: { cellWidth: 42 },
+          2: { cellWidth: 26 },
+          3: { cellWidth: 18 },
+          4: { cellWidth: 30 },
+          5: { cellWidth: 34 },
+          6: { cellWidth: 28, halign: 'right', fontStyle: 'bold' },
+          7: { cellWidth: 26 },
+          8: { cellWidth: 'auto' },
         },
         alternateRowStyles: { fillColor: [248, 246, 252] },
         didDrawPage: () => {
+          const pageNumber = doc.getCurrentPageInfo().pageNumber;
           const pageCount = doc.getNumberOfPages();
+          doc.setDrawColor(226, 220, 238);
+          doc.setLineWidth(0.3);
+          doc.line(marginX, pageHeight - 11, pageWidth - marginX, pageHeight - 11);
+          doc.setFont('helvetica', 'normal');
           doc.setFontSize(8);
           doc.setTextColor(120);
+          doc.text('Welile — Confidential financial report', marginX, pageHeight - 7);
           doc.text(
-            `Page ${doc.getCurrentPageInfo().pageNumber} of ${pageCount}`,
-            pageWidth - 12,
-            doc.internal.pageSize.getHeight() - 6,
+            `Page ${pageNumber} of ${pageCount}`,
+            pageWidth - marginX,
+            pageHeight - 7,
             { align: 'right' },
           );
           doc.setTextColor(0);
