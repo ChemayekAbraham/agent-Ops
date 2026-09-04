@@ -27,7 +27,6 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import {
   CheckCircle2, XCircle, Loader2, Clock, Briefcase, MapPin, Banknote, UserCheck,
-  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AssignNearbyAgentDialog } from './AssignNearbyAgentDialog';
@@ -105,7 +104,21 @@ const STATUS_LABEL: Record<string, string> = {
   rejected: 'Declined',
 };
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 10;
+
+function getPageNumbers(totalPages: number, currentPage: number) {
+  const pages: (number | string)[] = [];
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
+  } else if (currentPage <= 4) {
+    pages.push(1, 2, 3, 4, 5, '...', totalPages);
+  } else if (currentPage >= totalPages - 3) {
+    pages.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+  } else {
+    pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+  }
+  return pages;
+}
 
 function StatusBadge({ status }: { status: string }) {
   const label = STATUS_LABEL[status] ?? status.replace(/_/g, ' ');
@@ -385,17 +398,46 @@ export function BusinessAdvanceQueue({ stage }: BusinessAdvanceQueueProps) {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between border-t px-3 py-2 text-xs">
-              <span className="text-muted-foreground">
-                Page {safePage} of {totalPages} • {visible.length} advances
-              </span>
-              <div className="flex gap-1">
-                <Button size="sm" variant="outline" className="h-7 px-2" disabled={safePage === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-                  <ChevronLeft className="h-3 w-3" />
-                </Button>
-                <Button size="sm" variant="outline" className="h-7 px-2" disabled={safePage === totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
-                  <ChevronRight className="h-3 w-3" />
-                </Button>
+            <div className="border-t px-3 py-2">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
+                <span className="text-muted-foreground">
+                  Page {safePage} of {totalPages} • {visible.length} advances
+                </span>
+                <div className="flex flex-wrap items-center justify-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs"
+                    disabled={safePage === 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+                  {getPageNumbers(totalPages, safePage).map((p, idx) => (
+                    p === '...' ? (
+                      <span key={`ellipsis-${idx}`} className="px-1 text-muted-foreground">…</span>
+                    ) : (
+                      <Button
+                        key={p}
+                        size="sm"
+                        variant={safePage === p ? 'default' : 'outline'}
+                        className="h-7 min-w-[28px] px-2 text-xs"
+                        onClick={() => setPage(Number(p))}
+                      >
+                        {p}
+                      </Button>
+                    )
+                  ))}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs"
+                    disabled={safePage === totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
             </div>
           )}
