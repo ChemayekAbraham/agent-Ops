@@ -45,7 +45,7 @@ function signedPp(value?: number | null): string {
  * A2 · VARIANCE ON PRIOR PERIOD. Every figure — including the variance itself —
  * is taken straight from tppo_get_report_zone_a. Nothing is computed here.
  */
-export function VarianceA2({ report }: VarianceA2Props) {
+export function VarianceA2({ report, earlier }: VarianceA2Props) {
   const variance = report?.rate_variance_pp ?? null;
   const hasVariance = variance !== null && variance !== undefined;
   const direction = !hasVariance ? 'none' : variance > 0 ? 'up' : variance < 0 ? 'down' : 'flat';
