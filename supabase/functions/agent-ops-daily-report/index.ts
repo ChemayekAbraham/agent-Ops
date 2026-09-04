@@ -30,7 +30,7 @@ const REPORT_RECIPIENTS = ["benjamin@welile.com", "paphra.me@gmail.com", "jlukod
 const FROM = "Welile Reports <info@welile.com>";
 const SENDER_DOMAIN = "notify.welile.com";
 
-type Admin = ReturnType<typeof createClient>;
+type Admin = any;
 
 // ---------- utilities ----------
 

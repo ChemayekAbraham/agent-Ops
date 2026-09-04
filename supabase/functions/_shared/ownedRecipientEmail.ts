@@ -12,7 +12,7 @@
 //   2. their profile email ONLY when no other profile/auth account uses it,
 //   3. otherwise null -> do not email (SMS/in-app still notify the user).
 export async function resolveOwnedRecipientEmail(
-  admin: { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> },
+  admin: any,
   userId: string | null | undefined,
   tag = "email-guard",
 ): Promise<string | null> {

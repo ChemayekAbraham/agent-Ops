@@ -45,7 +45,7 @@ const SENDER_DOMAIN = "notify.welile.com";
 const ACTIVE_STATUSES = ["approved", "disbursed", "active", "repaying", "funded"];
 const UNASSIGNED_AGENT_KEY = "__unassigned__";
 
-type Admin = ReturnType<typeof createClient>;
+type Admin = any;
 type RGB = [number, number, number];
 
 const HEAD: RGB = [146, 52, 234];
@@ -756,7 +756,7 @@ Deno.serve(async (req) => {
       const t = totalsOf(rows);
       if (body?.pdf === true) {
         const pdf = buildPdf(rows, t, dateStr);
-        return new Response(pdf, {
+        return new Response(pdf as unknown as BodyInit, {
           headers: {
             ...corsHeaders,
             "Content-Type": "application/pdf",

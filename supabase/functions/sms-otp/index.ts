@@ -33,7 +33,7 @@ function clientIpFrom(req: Request): string | null {
 }
 
 async function userIdFromAuth(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   req: Request,
 ): Promise<string | null> {
   const authHeader = req.headers.get("authorization") || "";
@@ -564,7 +564,7 @@ async function sendSMS(
  * in what order, and the final outcome. Best-effort — never throws.
  */
 async function logSmsAttempts(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   ctx: {
     phone: string;
     message: string;

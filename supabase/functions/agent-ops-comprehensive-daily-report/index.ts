@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
     const [report, prev, population] = await Promise.all([
       fetchReport(fromDate, toDate),
       fetchReport(prevFrom, prevTo).catch(() => null),
-      admin.rpc('get_agent_operational_population', { p_as_of: toDate, p_from: fromDate })
+      Promise.resolve(admin.rpc('get_agent_operational_population', { p_as_of: toDate, p_from: fromDate }))
         .then((r) => (r.error ? null : r.data)).catch(() => null),
     ]);
 

@@ -206,13 +206,13 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
   const adv = report.advances;
   const sc = report.service_centres;
 
-  const subAgents = (report.new_agent_rows || []).filter(r => r.agent_type === 'sub-agent').length;
+  const subAgents = (report.new_agent_rows || []).filter((r: any) => r.agent_type === 'sub-agent').length;
   const rentRows = report.rent_rows || [];
   const expectedTotal = Number(rent.expected_cumulative) || 0;
   const collected = Number(rent.collected_today) || 0;
   const outstandingRent = pos(Number(rent.outstanding) || 0);
   const collectionRate = pctNum(collected, expectedTotal);
-  const agentsCollected = rentRows.filter(r => Number(r.collected_today) > 0).length;
+  const agentsCollected = rentRows.filter((r: any) => Number(r.collected_today) > 0).length;
   const agentsShort = rentRows.length - agentsCollected;
 
   // Canonical network figures. The reporting RPC's `agents.*` block counts a
@@ -354,9 +354,9 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
   }));
 
   const ranked = rentRows
-    .map(r => ({ r, exp: perAgentExpected(r), got: Number(r.collected_today) || 0 }))
-    .filter(x => x.exp > 0)
-    .map(x => ({ ...x, rate: pctNum(x.got, x.exp) }));
+    .map((r: any) => ({ r, exp: perAgentExpected(r), got: Number(r.collected_today) || 0 }))
+    .filter((x: any) => x.exp > 0)
+    .map((x: any) => ({ ...x, rate: pctNum(x.got, x.exp) }));
 
   const behaviourRow = (x: { r: any; exp: number; got: number; rate: number }) => `<tr>
     <td>${esc(x.r.agent_name)}</td>
@@ -440,10 +440,10 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
 
   // ---------- Page 3: advances ----------------------------------------------
   const advRows = report.advance_rows || [];
-  const recovered = advRows.reduce((s, r) => s + (Number(r.recovered) || 0), 0);
+  const recovered = advRows.reduce((s: number, r: any) => s + (Number(r.recovered) || 0), 0);
   const advOutstanding = pos(Number(adv.outstanding) || 0);
   const recoveryRate = pctNum(recovered, recovered + advOutstanding);
-  const agentsWithAdvances = new Set(advRows.map(r => r.agent_name)).size;
+  const agentsWithAdvances = new Set(advRows.map((r: any) => r.agent_name)).size;
 
   const advRow = (r: any) => `<tr>
     <td>${esc(r.agent_name)}</td>
@@ -458,10 +458,10 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
   </tr>`;
 
   const advRanked = advRows
-    .map(r => ({ r, rate: pctNum(Number(r.recovered) || 0, Number(r.principal) || 0) }))
-    .filter(x => (Number(x.r.principal) || 0) > 0);
-  const advBest = [...advRanked].sort((a, b) => b.rate - a.rate).slice(0, 5).map(x => advRow(x.r));
-  const advWorst = [...advRanked].sort((a, b) => a.rate - b.rate).slice(0, 5).map(x => advRow(x.r));
+    .map((r: any) => ({ r, rate: pctNum(Number(r.recovered) || 0, Number(r.principal) || 0) }))
+    .filter((x: any) => (Number(x.r.principal) || 0) > 0);
+  const advBest = [...advRanked].sort((a: any, b: any) => b.rate - a.rate).slice(0, 5).map((x: any) => advRow(x.r));
+  const advWorst = [...advRanked].sort((a: any, b: any) => a.rate - b.rate).slice(0, 5).map((x: any) => advRow(x.r));
 
   const page3 = `
     <h2 class="section-title">Agent Advances</h2>
@@ -521,7 +521,7 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
 
   // ---------- Page 4: service centres ---------------------------------------
   const scRows = report.service_centre_rows || [];
-  const scTable = scRows.slice(0, 40).map(r => `<tr>
+  const scTable = scRows.slice(0, 40).map((r: any) => `<tr>
     <td>${esc(r.location_name || '—')}</td>
     <td><div class="agent-stack"><span class="agent-stack-item">${esc(r.agent_name)}</span>
       <span class="agent-stack-sub font-mono">${esc(r.agent_phone || '—')}</span></div></td>
@@ -572,11 +572,11 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
     byProduct.get(key)!.push(r);
   }
 
-  const productSummary = [...byProduct.entries()].flatMap(([label, rows]) => {
-    const issued = rows.filter(r => r.is_issued);
-    const value = issued.reduce((s, r) => s + (Number(r.value) || 0), 0);
-    const paid = issued.reduce((s, r) => s + (Number(r.paid) || 0), 0);
-    const out = issued.reduce((s, r) => s + pos(Number(r.outstanding) || 0), 0);
+  const productSummary = [...byProduct.entries()].flatMap(([label, rows]: [string, any[]]) => {
+    const issued = rows.filter((r: any) => r.is_issued);
+    const value = issued.reduce((s: number, r: any) => s + (Number(r.value) || 0), 0);
+    const paid = issued.reduce((s: number, r: any) => s + (Number(r.paid) || 0), 0);
+    const out = issued.reduce((s: number, r: any) => s + pos(Number(r.outstanding) || 0), 0);
     const parent = `<tr class="parent-row">
       <td>${esc(label)}</td>
       <td class="right num">${num(rows.length)}</td>
@@ -594,11 +594,11 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
       if (!byItem.has(k)) byItem.set(k, []);
       byItem.get(k)!.push(r);
     }
-    const children = [...byItem.entries()].map(([item, items]) => {
-      const iss = items.filter(r => r.is_issued);
-      const v = iss.reduce((s, r) => s + (Number(r.value) || 0), 0);
-      const p = iss.reduce((s, r) => s + (Number(r.paid) || 0), 0);
-      const o = iss.reduce((s, r) => s + pos(Number(r.outstanding) || 0), 0);
+    const children = [...byItem.entries()].map(([item, items]: [string, any[]]) => {
+      const iss = items.filter((r: any) => r.is_issued);
+      const v = iss.reduce((s: number, r: any) => s + (Number(r.value) || 0), 0);
+      const p = iss.reduce((s: number, r: any) => s + (Number(r.paid) || 0), 0);
+      const o = iss.reduce((s: number, r: any) => s + pos(Number(r.outstanding) || 0), 0);
       return `<tr class="child-row">
         <td>→ ${esc(item)}</td>
         <td class="right num">${num(items.length)}</td>
@@ -643,17 +643,17 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
 
   // ---------- Page 6: agent performance -------------------------------------
   const floatRows = report.agent_float_rows || [];
-  const rentByAgent = new Map(rentRows.map(r => [r.agent_id, r]));
+  const rentByAgent = new Map(rentRows.map((r: any) => [r.agent_id, r]));
   const perf = floatRows
-    .map(f => {
+    .map((f: any) => {
       const r: any = rentByAgent.get(f.agent_id);
       const exp = r ? perAgentExpected(r) : 0;
       const got = Number(f.collections_amount) || 0;
       return { f, r, exp, rate: pctNum(got, exp), got };
     })
-    .sort((a, b) => (b.rate - a.rate) || (b.got - a.got))
+    .sort((a: any, b: any) => (b.rate - a.rate) || (b.got - a.got))
     .slice(0, 40)
-    .map((x, i) => `<tr>
+    .map((x: any, i: number) => `<tr>
       <td class="right num">${i + 1}</td>
       <td>${esc(x.f.agent_name)}</td>
       <td class="font-mono">${esc(x.f.phone || '—')}</td>
@@ -675,10 +675,10 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
       <thead><tr><th>Indicator</th><th class="right">Value</th><th>Indicator</th><th class="right">Value</th></tr></thead>
       <tbody>
         <tr><td>Agents with activity in period</td><td class="right num">${num(floatRows.length)}</td>
-            <td>Agents that collected</td><td class="right num">${num(floatRows.filter(f => Number(f.collections_count) > 0).length)}</td></tr>
-        <tr><td>Total collected by agents</td><td class="right currency">${ugx(floatRows.reduce((s, f) => s + (Number(f.collections_amount) || 0), 0))}</td>
-            <td>Collection transactions</td><td class="right num">${num(floatRows.reduce((s, f) => s + (Number(f.collections_count) || 0), 0))}</td></tr>
-        <tr><td>Commission earned in period</td><td class="right currency">${ugx(floatRows.reduce((s, f) => s + (Number(f.commission_balance) || 0), 0))}</td>
+            <td>Agents that collected</td><td class="right num">${num(floatRows.filter((f: any) => Number(f.collections_count) > 0).length)}</td></tr>
+        <tr><td>Total collected by agents</td><td class="right currency">${ugx(floatRows.reduce((s: number, f: any) => s + (Number(f.collections_amount) || 0), 0))}</td>
+            <td>Collection transactions</td><td class="right num">${num(floatRows.reduce((s: number, f: any) => s + (Number(f.collections_count) || 0), 0))}</td></tr>
+        <tr><td>Commission earned in period</td><td class="right currency">${ugx(floatRows.reduce((s: number, f: any) => s + (Number(f.commission_balance) || 0), 0))}</td>
             <td>Leaderboard score</td><td class="right">${PENDING}</td></tr>
       </tbody>
     </table>

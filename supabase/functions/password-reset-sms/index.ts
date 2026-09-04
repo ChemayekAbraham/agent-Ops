@@ -173,7 +173,7 @@ async function sendSMS(
 
 /** Best-effort per-provider attempt audit trail into sms_delivery_log. */
 async function logSmsAttempts(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   ctx: { phone: string; message: string; userId?: string | null; name?: string | null; referenceId?: string | null; source: string },
   outcome: SmsOutcome,
 ): Promise<void> {

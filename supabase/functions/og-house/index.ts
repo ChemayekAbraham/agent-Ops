@@ -44,9 +44,7 @@ Deno.serve(async (req) => {
 
   let query = supabase
     .from("house_listings")
-    .select("id, short_code, title, region, district, daily_rate, image_urls, house_category, number_of_rooms")
-    .limit(1)
-    .single();
+    .select("id, short_code, title, region, district, daily_rate, image_urls, house_category, number_of_rooms");
 
   if (shortCode) {
     query = query.eq("short_code", shortCode);
@@ -54,7 +52,7 @@ Deno.serve(async (req) => {
     query = query.eq("id", houseId);
   }
 
-  const { data: house } = await query;
+  const { data: house } = await query.limit(1).single();
 
   if (!house) {
     return new Response(null, {

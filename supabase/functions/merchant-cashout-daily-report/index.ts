@@ -46,7 +46,7 @@ function generateToken(): string {
 // Ensure an unsubscribe token exists for a recipient (the email API requires
 // one on transactional sends). Upsert-then-read handles concurrent inserts.
 async function ensureUnsubscribeToken(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   email: string,
 ): Promise<string> {
   const normalized = email.trim().toLowerCase();

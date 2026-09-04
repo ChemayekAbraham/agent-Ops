@@ -19,6 +19,6 @@ export const MIN_INVESTMENT_ERROR_PORTFOLIO = "Investment amount must be at leas
  * Returns true when `amount` is an acceptable investment (>= UGX 1,000).
  * Rejects null/undefined/NaN/0 and any value strictly below the minimum.
  */
-export function isValidInvestmentAmount(amount: unknown): boolean {
-  return typeof amount === "number" && Number.isFinite(amount) && amount >= MIN_INVESTMENT_UGX;
+export function isValidInvestmentAmount(amount: unknown): amount is number {
+  return typeof amount === "number" && Number.isFinite(amount) && (amount as number) >= MIN_INVESTMENT_UGX;
 }

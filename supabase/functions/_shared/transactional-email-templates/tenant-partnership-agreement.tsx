@@ -63,10 +63,10 @@ export function TenantPartnershipAgreement({
                   <td className="padding-mobile" style={headerCell}>
                     <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
                       <tbody><tr>
-                        <td align="left" valign="middle">
+                        <td align="left" style={{ verticalAlign: "middle" }}>
                           <Img src={logo_url} alt={company_name} width="130" style={logoImg} />
                         </td>
-                        <td align="right" valign="middle" className="hide-mobile" style={secureLabel}>
+                        <td align="right" style={{ verticalAlign: "middle" }} className="hide-mobile" style={secureLabel}>
                           PARTNERSHIP AGREEMENT
                         </td>
                       </tr></tbody>
@@ -113,40 +113,40 @@ export function TenantPartnershipAgreement({
                             <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
                               <tbody>
                                 <tr>
-                                  <td width="50%" valign="top" className="td-block mobile-padding-bottom" style={{ paddingBottom: '20px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '20px' }} className="td-block mobile-padding-bottom" >
                                     <Text style={docKey}>Partner Reference</Text>
                                     <Text style={docValStrong}>{partner_reference || '—'}</Text>
                                   </td>
-                                  <td width="50%" valign="top" className="td-block" style={{ paddingBottom: '20px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '20px' }} className="td-block" >
                                     <Text style={docKey}>Account Email</Text>
                                     <Text style={docValStrong}>{partner_email || '—'}</Text>
                                   </td>
                                 </tr>
                                 <tr>
-                                  <td width="50%" valign="top" className="td-block mobile-padding-bottom" style={{ paddingBottom: '20px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '20px' }} className="td-block mobile-padding-bottom" >
                                     <Text style={docKey}>Partnership Amount</Text>
                                     <Text style={docValStrong}>{partnership_amount || '—'}</Text>
                                     {partnership_amount_words ? (
                                       <Text style={docValStrong}>{partnership_amount_words} Shillings Only</Text>
                                     ) : null}
                                   </td>
-                                  <td width="50%" valign="top" className="td-block" style={{ paddingBottom: '20px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '20px' }} className="td-block" >
                                     <Text style={docKey}>Monthly Return</Text>
                                     <Text style={docValStrong}>{monthly_return || '15%'}</Text>
                                   </td>
                                 </tr>
                                 <tr>
-                                  <td width="50%" valign="top" className="td-block mobile-padding-bottom" style={{ paddingBottom: '20px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '20px' }} className="td-block mobile-padding-bottom" >
                                     <Text style={docKey}>Term</Text>
                                     <Text style={docValBody}>One (1) year</Text>
                                   </td>
-                                  <td width="50%" valign="top" className="td-block" style={{ paddingBottom: '20px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '20px' }} className="td-block" >
                                     <Text style={docKey}>Payout Method</Text>
                                     <Text style={docValStrong}>{payout_summary || '—'}</Text>
                                   </td>
                                 </tr>
                                 <tr>
-                                  <td colSpan={2} valign="top" style={statusRow}>
+                                  <td colSpan={2} style={{ verticalAlign: "top" }} style={statusRow}>
                                     <Text style={docKey}>Counter-signature</Text>
                                     <Text style={statusPending}>Pending Welile execution</Text>
                                   </td>
@@ -165,7 +165,7 @@ export function TenantPartnershipAgreement({
                   <td align="center" className="padding-mobile" style={{ padding: '0 40px 30px 40px' }}>
                     <table border={0} cellSpacing={0} cellPadding={0} role="presentation">
                       <tbody><tr>
-                        <td align="center" style={ctaCell} bgcolor={BRAND}>
+                        <td align="center" style={ctaCell} style={{...ctaCell, backgroundColor: BRAND}}>
                           <a href={agreement_download_url} target="_blank" style={ctaLink}>
                             Download Your Agreement (PDF)
                           </a>

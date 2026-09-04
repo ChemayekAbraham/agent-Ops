@@ -28,7 +28,7 @@ const corsHeaders = {
 async function withRetry<T>(
   label: string,
   depositId: string,
-  fn: () => Promise<{ data?: T; error: any } | { error: any }>,
+  fn: () => PromiseLike<{ data?: T; error: any } | { error: any }>,
   maxAttempts = 3,
 ): Promise<{ data?: T; error: any; attempts: number; ms: number }> {
   let lastErr: any = null;
@@ -199,6 +199,12 @@ Deno.serve(async (req) => {
     // it again for re-review and possible approval. Manager-only — the
     // same role that can approve/reject in the first place.
     if (action === 'reopen') {
+      if (!user) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
       const { data: isMgr } = await supabaseAdmin
         .from('user_roles')
         .select('role')
@@ -1319,7 +1325,7 @@ async function sendSmsViaAfricasTalking(
   phone: string,
   message: string,
   logCtx?: {
-    admin: ReturnType<typeof createClient>;
+    admin: any;
     recipientUserId?: string | null;
     recipientName?: string | null;
     referenceId?: string | null;

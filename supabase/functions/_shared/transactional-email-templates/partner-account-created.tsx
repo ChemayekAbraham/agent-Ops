@@ -57,10 +57,10 @@ export function PartnerAccountCreated({
                   <td className="padding-mobile" style={headerCell}>
                     <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
                       <tbody><tr>
-                        <td align="left" valign="middle">
+                        <td align="left" style={{ verticalAlign: "middle" }}>
                           <Img src={logo_url} alt={company_name} width="130" style={logoImg} />
                         </td>
-                        <td align="right" valign="middle" className="hide-mobile" style={secureLabel}>
+                        <td align="right" style={{ verticalAlign: "middle" }} className="hide-mobile" style={secureLabel}>
                           SYSTEM NOTIFICATION
                         </td>
                       </tr></tbody>
@@ -106,27 +106,27 @@ export function PartnerAccountCreated({
                             <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
                               <tbody>
                                 <tr>
-                                  <td width="50%" valign="top" className="td-block mobile-padding-bottom" style={{ paddingBottom: '20px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '20px' }} className="td-block mobile-padding-bottom" >
                                     <Text style={docKey}>Account Email</Text>
                                     <Text style={docValStrong}>{partner_email || '—'}</Text>
                                   </td>
-                                  <td width="50%" valign="top" className="td-block" style={{ paddingBottom: '20px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '20px' }} className="td-block" >
                                     <Text style={docKey}>Partner Reference</Text>
                                     <Text style={docValStrong}>{partner_reference || '—'}</Text>
                                   </td>
                                 </tr>
                                 <tr>
-                                  <td width="50%" valign="top" className="td-block mobile-padding-bottom" style={{ paddingBottom: '20px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '20px' }} className="td-block mobile-padding-bottom" >
                                     <Text style={docKey}>Partnership Agreement</Text>
                                     <Text style={docValBody}>Pre-filled from your form — sent separately</Text>
                                   </td>
-                                  <td width="50%" valign="top" className="td-block" style={{ paddingBottom: '20px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '20px' }} className="td-block" >
                                     <Text style={docKey}>Next Step</Text>
                                     <Text style={docValBody}>Sign in and review your dashboard</Text>
                                   </td>
                                 </tr>
                                 <tr>
-                                  <td colSpan={2} valign="top" style={statusRow}>
+                                  <td colSpan={2} style={{ verticalAlign: "top" }} style={statusRow}>
                                     <Text style={docKey}>Account Status</Text>
                                     <Text style={statusPending}>Active</Text>
                                   </td>
@@ -145,7 +145,7 @@ export function PartnerAccountCreated({
                   <td align="center" className="padding-mobile" style={{ padding: '0 40px 30px 40px' }}>
                     <table border={0} cellSpacing={0} cellPadding={0} role="presentation">
                       <tbody><tr>
-                        <td align="center" style={ctaCell} bgcolor={BRAND}>
+                        <td align="center" style={ctaCell} style={{...ctaCell, backgroundColor: BRAND}}>
                           <a href={portal_url || agreement_download_url} target="_blank" style={ctaLink}>
                             Open Your Partner Dashboard
                           </a>
