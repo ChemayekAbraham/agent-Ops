@@ -90,19 +90,65 @@ Deno.serve(async (req) => {
       actor: 'Automated daily report',
     } as never);
 
-    // The attachment is the report HTML exactly as rendered on screen — no re-layout.
-    const filename = fromDate === toDate
-      ? `Welile_Agent_Ops_Comprehensive_${toDate}.html`
-      : `Welile_Agent_Ops_Comprehensive_${fromDate}_to_${toDate}.html`;
+    // The email body stays the report HTML (single source of truth for content).
+    // The attachment is a REAL PDF rendered from the same RPC payload.
+    const stem = fromDate === toDate
+      ? `Welile_Agent_Ops_Comprehensive_${toDate}`
+      : `Welile_Agent_Ops_Comprehensive_${fromDate}_to_${toDate}`;
+    const filename = `${stem}.pdf`;
 
+    let pdfBytes: Uint8Array | null = null;
+    let pdfError: string | null = null;
+    try {
+      const bytes = buildComprehensiveReportPdf({
+        report, population, fromDate, toDate,
+        periodLabel: fromDate === toDate ? 'Daily (previous day)' : 'Custom range',
+      } as never);
+      const sig = new TextDecoder().decode(bytes.slice(0, 5));
+      if (!(bytes instanceof Uint8Array) || bytes.byteLength < 1000) {
+        throw new Error(`PDF too small (${bytes?.byteLength ?? 0} bytes)`);
+      }
+      if (sig !== '%PDF-') throw new Error(`Missing %PDF- signature (got "${sig}")`);
+      pdfBytes = bytes;
+      console.log('comprehensive report pdf ok', { bytes: bytes.byteLength, signature: sig, filename });
+    } catch (e) {
+      pdfError = String((e as Error)?.message ?? e);
+      console.error('comprehensive report PDF render failed — sending without attachment', pdfError);
+    }
+
+    // Real PDF binary for manual verification.
     if (body.pdf === true) {
+      if (!pdfBytes) {
+        return new Response(JSON.stringify({ error: 'PDF render failed', details: pdfError }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(pdfBytes as unknown as BodyInit, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `inline; filename="${filename}"`,
+        },
+      });
+    }
+
+    // HTML preview of the on-screen report.
+    if (body.preview_html === true) {
       return new Response(html, {
-        headers: { ...corsHeaders, 'Content-Type': 'text/html; charset=utf-8', 'Content-Disposition': `inline; filename="${filename}"` },
+        headers: { ...corsHeaders, 'Content-Type': 'text/html; charset=utf-8', 'Content-Disposition': `inline; filename="${stem}.html"` },
       });
     }
 
     if (dryRun) {
-      return new Response(JSON.stringify({ ok: true, dry_run: true, from: fromDate, to: toDate, html_length: html.length, attachment: filename }), {
+      return new Response(JSON.stringify({
+        ok: true, dry_run: true, from: fromDate, to: toDate,
+        html_length: html.length,
+        attachment: pdfBytes ? filename : null,
+        pdf_ok: !!pdfBytes,
+        pdf_bytes: pdfBytes?.byteLength ?? 0,
+        pdf_signature_valid: !!pdfBytes,
+        pdf_error: pdfError,
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -111,14 +157,25 @@ Deno.serve(async (req) => {
       ? `Welile Agent Ops - Comprehensive Report (${toDate})`
       : `Welile Agent Ops - Comprehensive Report (${fromDate} to ${toDate})`;
 
+    const failureNote = pdfError
+      ? '<div style="margin:16px;padding:12px 14px;border:1px solid #f0b4b4;background:#fdf1f1;color:#8a1c1c;font:13px/1.5 Arial,sans-serif;">'
+        + '<strong>Automated PDF generation failed.</strong> The full report is in this email body. '
+        + `Technical detail: ${pdfError.replace(/[<>&]/g, '')}</div>`
+      : '';
+
     const form = new FormData();
     form.set('from', DEFAULT_FROM);
     recipients.forEach((r) => form.append('to', r));
     form.set('subject', subject);
-    form.set('text', `${subject}\n\nThe full report is in this email and attached as an HTML file.`);
-    form.set('html', html);
+    form.set('text', pdfBytes
+      ? `${subject}\n\nThe full report is in this email and attached as a PDF file.`
+      : `${subject}\n\nAutomated PDF generation failed, so no attachment is included. The full report is in this email body.`);
+    form.set('html', failureNote ? failureNote + html : html);
     form.set('o:tag', 'agent-ops-comprehensive-daily');
-    form.append('attachment', new Blob([html], { type: 'text/html; charset=utf-8' }), filename);
+    if (pdfBytes) {
+      form.append('attachment', new Blob([pdfBytes], { type: 'application/pdf' }), filename);
+    }
+
 
 
 
