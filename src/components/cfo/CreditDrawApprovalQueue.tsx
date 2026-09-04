@@ -167,134 +167,131 @@ export function CreditDrawApprovalQueue() {
             <p className="text-xs">All credit access draws have been reviewed</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {items.map(item => {
-              const e = edits[item.id];
-              const amount = e?.amount !== undefined && e.amount !== '' ? Number(e.amount) : item.amount;
-              const months = e?.months !== undefined && e.months !== '' ? Number(e.months) : item.duration_months;
-              const terms = calcTerms(amount || 0, Math.max(1, Math.min(12, months || 1)));
-              const edited = amount !== item.amount || months !== item.duration_months;
-              return (
-                <div key={item.id} className="rounded-lg border p-3 space-y-3 bg-card">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-medium flex items-center gap-1.5">
-                        <User className="h-3.5 w-3.5 text-primary shrink-0" />
-                        <span className="truncate">{item.user_name}</span>
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {item.user_phone || '—'} · Agent: {item.agent_name}
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 shrink-0">
-                      <Calendar className="h-2.5 w-2.5" />
-                      {format(new Date(item.submitted_at || item.created_at), 'dd MMM HH:mm')}
-                    </span>
-                  </div>
-
-                  <div className="text-[11px] text-muted-foreground">
-                    Requested: <b className="text-foreground">{fmt(item.requested_amount ?? item.amount)}</b> for {item.duration_months} month(s)
-                  </div>
-
-                  {/* Editable terms */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-[10px] flex items-center gap-1"><Pencil className="h-2.5 w-2.5" /> Amount (UGX)</Label>
-                      <Input
-                        type="number"
-                        value={e?.amount ?? String(item.amount)}
-                        onChange={ev => setEdits(p => ({ ...p, [item.id]: { amount: ev.target.value, months: p[item.id]?.months ?? String(item.duration_months) } }))}
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-[10px]">Months (1-12)</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={12}
-                        value={e?.months ?? String(item.duration_months)}
-                        onChange={ev => setEdits(p => ({ ...p, [item.id]: { months: ev.target.value, amount: p[item.id]?.amount ?? String(item.amount) } }))}
-                        className="h-8 text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Recomputed terms */}
-                  <div className="rounded-md bg-muted/40 p-2 grid grid-cols-3 gap-2 text-center text-[10px]">
-                    <div>
-                      <p className="text-muted-foreground">Access Fee</p>
-                      <p className="font-bold text-warning">{fmt(terms.accessFee)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Total Repay</p>
-                      <p className="font-bold">{fmt(terms.totalPayable)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Daily Charge</p>
-                      <p className="font-bold">{fmt(terms.dailyCharge)}</p>
-                    </div>
-                  </div>
-                  {edited && (
-                    <Badge variant="outline" className="text-[9px] bg-amber-100 text-amber-700 border-amber-200">
-                      Edited by CFO
-                    </Badge>
-                  )}
-
-                  <TreasuryImpactBanner payoutAmount={amount || 0} />
-
-                  <Textarea
-                    placeholder="CFO note (optional)"
-                    value={notes[item.id] || ''}
-                    onChange={ev => setNotes(p => ({ ...p, [item.id]: ev.target.value }))}
-                    rows={1}
-                    className="text-xs"
-                  />
-
-                  {rejectingId === item.id ? (
-                    <div className="space-y-2">
-                      <Input
-                        placeholder="Reason for rejection"
-                        value={rejectReason}
-                        onChange={ev => setRejectReason(ev.target.value)}
-                        className="h-8 text-sm"
-                      />
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="destructive" className="flex-1 h-8"
-                          onClick={() => reject.mutate(item.id)} disabled={reject.isPending}>
-                          {reject.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <X className="h-3 w-3 mr-1" />}
-                          Confirm Reject
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-8"
-                          onClick={() => { setRejectingId(null); setRejectReason(''); }}>
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <Separator />
-                  )}
-
-                  {rejectingId !== item.id && (
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        className="flex-1 h-8"
-                        onClick={() => setConfirming(item)}
-                        disabled={approve.isPending || !amount || amount < 10000}
-                      >
-                        {approve.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Banknote className="h-3 w-3 mr-1" />}
-                        Approve & Disburse {fmt(amount || 0)}
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-8 text-destructive"
-                        onClick={() => { setRejectingId(item.id); setRejectReason(''); }}>
-                        <X className="h-3 w-3 mr-1" /> Reject
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+          <div className="rounded-xl border border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50 text-muted-foreground">
+                    <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Applicant</th>
+                    <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Submitted</th>
+                    <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Requested</th>
+                    <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Amount (UGX)</th>
+                    <th className="px-3 py-2 text-center font-semibold whitespace-nowrap">Months</th>
+                    <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Access fee</th>
+                    <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Total repay</th>
+                    <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Daily charge</th>
+                    <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">CFO note</th>
+                    <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map(item => {
+                    const e = edits[item.id];
+                    const amount = e?.amount !== undefined && e.amount !== '' ? Number(e.amount) : item.amount;
+                    const months = e?.months !== undefined && e.months !== '' ? Number(e.months) : item.duration_months;
+                    const terms = calcTerms(amount || 0, Math.max(1, Math.min(12, months || 1)));
+                    const edited = amount !== item.amount || months !== item.duration_months;
+                    return (
+                      <tr key={item.id} className="border-b border-border last:border-0 align-middle hover:bg-muted/30">
+                        <td className="px-3 py-2">
+                          <p className="font-medium flex items-center gap-1.5">
+                            <User className="h-3.5 w-3.5 text-primary shrink-0" />
+                            <span className="truncate max-w-[140px]">{item.user_name}</span>
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {item.user_phone || '—'} · {item.agent_name}
+                          </p>
+                          {edited && (
+                            <Badge variant="outline" className="mt-1 text-[9px] bg-amber-100 text-amber-700 border-amber-200">
+                              Edited by CFO
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap text-[11px] text-muted-foreground">
+                          <span className="inline-flex items-center gap-1">
+                            <Calendar className="h-2.5 w-2.5" />
+                            {format(new Date(item.submitted_at || item.created_at), 'dd MMM HH:mm')}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap">
+                          {fmt(item.requested_amount ?? item.amount)}
+                          <span className="block text-[10px] text-muted-foreground">{item.duration_months} mo</span>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <Input
+                            type="number"
+                            value={e?.amount ?? String(item.amount)}
+                            onChange={ev => setEdits(p => ({ ...p, [item.id]: { amount: ev.target.value, months: p[item.id]?.months ?? String(item.duration_months) } }))}
+                            className="h-8 w-28 text-xs text-right"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <Input
+                            type="number"
+                            min={1}
+                            max={12}
+                            value={e?.months ?? String(item.duration_months)}
+                            onChange={ev => setEdits(p => ({ ...p, [item.id]: { months: ev.target.value, amount: p[item.id]?.amount ?? String(item.amount) } }))}
+                            className="h-8 w-16 text-xs text-center mx-auto"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-right font-semibold text-warning whitespace-nowrap">{fmt(terms.accessFee)}</td>
+                        <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">{fmt(terms.totalPayable)}</td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap">{fmt(terms.dailyCharge)}</td>
+                        <td className="px-3 py-2">
+                          <Textarea
+                            placeholder="Optional"
+                            value={notes[item.id] || ''}
+                            onChange={ev => setNotes(p => ({ ...p, [item.id]: ev.target.value }))}
+                            rows={1}
+                            className="text-xs min-w-[140px]"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          {rejectingId === item.id ? (
+                            <div className="space-y-1 min-w-[180px]">
+                              <Input
+                                placeholder="Reason for rejection"
+                                value={rejectReason}
+                                onChange={ev => setRejectReason(ev.target.value)}
+                                className="h-8 text-xs"
+                              />
+                              <div className="flex gap-1 justify-end">
+                                <Button size="sm" variant="destructive" className="h-7 text-[11px]"
+                                  onClick={() => reject.mutate(item.id)} disabled={reject.isPending}>
+                                  {reject.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <X className="h-3 w-3 mr-1" />}
+                                  Confirm
+                                </Button>
+                                <Button size="sm" variant="outline" className="h-7 text-[11px]"
+                                  onClick={() => { setRejectingId(null); setRejectReason(''); }}>
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex gap-1 justify-end">
+                              <Button
+                                size="sm"
+                                className="h-7 text-[11px] whitespace-nowrap"
+                                onClick={() => setConfirming(item)}
+                                disabled={approve.isPending || !amount || amount < 10000}
+                              >
+                                {approve.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Banknote className="h-3 w-3 mr-1" />}
+                                Approve
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 text-[11px] text-destructive"
+                                onClick={() => { setRejectingId(item.id); setRejectReason(''); }}>
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </CardContent>
