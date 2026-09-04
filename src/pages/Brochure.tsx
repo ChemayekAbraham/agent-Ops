@@ -42,7 +42,7 @@ export default function Brochure() {
           name="description"
           content="Welile Technologies Limited — Turning Rent into an Asset. A smarter rental ecosystem for Africa connecting tenants, landlords, partners and agents."
         />
-        <link rel="canonical" href="https://welilereceipts.com/brochure" />
+        <link rel="canonical" href="https://welileapp.com/brochure" />
       </Helmet>
 
       {/* ── Screen Navigation Bar (Hidden in Print) ── */}
