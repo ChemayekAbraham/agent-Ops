@@ -8,7 +8,7 @@ import { Loader2, ArrowDownLeft, ArrowUpRight, History, ChevronLeft, ChevronRigh
 import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 10;
 
 interface CorrectionRow {
   id: string;
