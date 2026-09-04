@@ -238,6 +238,17 @@ export interface PredictiveForecast {
     method_note: string;
     source: string;
   };
+  /**
+   * Receivables that cannot responsibly be placed in a forecast window: no
+   * contractual date and no daily amount to project from. Still part of Total
+   * Receivables — excluded only from the timeline, never from the book.
+   */
+  unscheduled?: {
+    items: number;
+    amount: number;
+    by_product: Record<string, number>;
+    note?: string;
+  };
 }
 
 /**
