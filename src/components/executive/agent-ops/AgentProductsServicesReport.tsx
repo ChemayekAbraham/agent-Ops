@@ -986,7 +986,7 @@ export function AgentProductsServicesReport() {
           ) : populationQuery.data ? (
             <TotalAgentsComposition
               population={populationQuery.data}
-              asOf={format(today, 'dd MMM yyyy')}
+              asOf={format(endDate, 'dd MMM yyyy')}
             />
           ) : null}
 
@@ -995,7 +995,7 @@ export function AgentProductsServicesReport() {
           <Card>
             <CardHeader className="p-3 pb-1">
               <CardTitle className="text-xs font-bold">
-                Cumulative build-up to {format(today, 'dd MMM yyyy')}
+                Cumulative build-up to {format(endDate, 'dd MMM yyyy')}
               </CardTitle>
               <p className="text-[10px] text-muted-foreground">
                 Totals accumulated from 7, 30, 90 and 365 days ago up to the reporting date
