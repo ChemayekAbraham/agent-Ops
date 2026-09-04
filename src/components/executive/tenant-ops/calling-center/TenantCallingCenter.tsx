@@ -65,14 +65,29 @@ const AUTO_LABEL: Record<string, string> = {
   finished: 'Run finished',
 };
 
-/** Presentation-only: the Center's primary action reveals *and* dials. */
+/** Presentation-only: the Center's primary action opens the tenant details modal. */
 const CALL_ACTION_LABELS = {
-  compact: 'Call',
-  full: 'Call',
-  compactOpen: 'View',
-  fullOpen: 'View call details',
-  title: 'Call this tenant',
+  compact: 'Open',
+  full: 'Open',
+  compactOpen: 'Open',
+  fullOpen: 'Open tenant details',
+  title: 'Open tenant details and call',
 };
+
+/**
+ * Declutter: the Center's list carries only what is needed to pick the next
+ * tenant. Everything else about that tenant lives in the details modal.
+ */
+const CENTER_COLUMNS = new Set<CallingColumnKey>([
+  'name',
+  'phone',
+  'metric',
+  'attempts',
+  'callback_due',
+  'feedback_category',
+  'park_reason',
+  'actions',
+]);
 
 /** Tenant Ops palette per queue state — colour only, order unchanged. */
 const TAB_ACCENT: Record<string, string> = {
