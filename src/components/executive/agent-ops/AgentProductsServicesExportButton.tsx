@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { format, subDays, startOfMonth, startOfYear, differenceInCalendarDays, startOfDay, endOfDay } from 'date-fns';
+import { format, subDays, startOfMonth, startOfYear, differenceInCalendarDays, startOfDay, endOfDay, isSameDay } from 'date-fns';
 import { toast } from 'sonner';
 import { FileText, Loader2, CalendarIcon, ChevronDown } from 'lucide-react';
 
@@ -45,8 +45,11 @@ const longPresets: [PresetKind, string][] = [
 
 export function AgentProductsServicesExportButton({ className }: { className?: string }) {
   const { user } = useAuth();
-  const [day, setDay] = useState<Date>(() => new Date());
-  const [activePreset, setActivePreset] = useState<PresetKind>('today');
+  const [mode, setMode] = useState<'single' | 'range'>('single');
+  const [singleDate, setSingleDate] = useState<Date>(() => new Date());
+  const [rangeFrom, setRangeFrom] = useState<Date>(() => subDays(new Date(), 6));
+  const [rangeTo, setRangeTo] = useState<Date>(() => new Date());
+  const [activeRangePreset, setActiveRangePreset] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [actorName, setActorName] = useState('');
 
@@ -60,17 +63,19 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
     return () => { cancelled = true; };
   }, [user?.id, user?.email]);
 
-  const dayKey = toDateKey(day);
-  const today = useMemo(() => new Date(), []);
-  const todayKey = toDateKey(today);
-  const rangeDays = Math.max(1, differenceInCalendarDays(today, day) + 1);
-  const isRange = rangeDays > 1;
+  const startDate = mode === 'single' ? singleDate : rangeFrom;
+  const endDate = mode === 'single' ? singleDate : rangeTo;
+
+  const dayKey = toDateKey(startDate);
+  const endDateKey = toDateKey(endDate);
+  const rangeDays = Math.max(1, differenceInCalendarDays(endDate, startDate) + 1);
+  const isRange = mode === 'range' || rangeDays > 1;
 
   const reportQuery = useQuery({
-    queryKey: ['agent-products-services-report', dayKey, todayKey],
+    queryKey: ['agent-products-services-report', dayKey, endDateKey],
     queryFn: async (): Promise<ApsReport> => {
       const { data, error } = await supabase.rpc('get_agent_products_services_report' as any, {
-        p_date: todayKey,
+        p_date: endDateKey,
         p_from: dayKey,
       });
       if (error) throw error;
@@ -83,11 +88,11 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
 
   /** Fetch canonical schedule expectations from command center RPC (which derives from v_rent_plan_schedule). */
   const commandCenterQuery = useQuery({
-    queryKey: ['agent-collections-command-center-aps', startOfDay(day).toISOString(), endOfDay(today).toISOString()],
+    queryKey: ['agent-collections-command-center-aps', startOfDay(startDate).toISOString(), endOfDay(endDate).toISOString()],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_agent_collections_command_center', {
-        p_start: startOfDay(day).toISOString(),
-        p_end: endOfDay(today).toISOString(),
+        p_start: startOfDay(startDate).toISOString(),
+        p_end: endOfDay(endDate).toISOString(),
         p_bucket: 'day',
       });
       if (error) throw error;
@@ -97,11 +102,11 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
   });
 
   const commissionQuery = useQuery({
-    queryKey: ['agent-commission-earned', dayKey, todayKey],
+    queryKey: ['agent-commission-earned', dayKey, endDateKey],
     queryFn: async (): Promise<Record<string, number>> => {
       const { data, error } = await supabase.rpc('get_agent_commission_earned' as any, {
         p_from: dayKey,
-        p_to: todayKey,
+        p_to: endDateKey,
       });
       if (error) throw error;
       const map: Record<string, number> = {};
@@ -162,9 +167,9 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
   }, [rawReport, commissionQuery.data, commandCenterQuery.data, rangeDays]);
 
   const cumulativeQuery = useQuery({
-    queryKey: ['agent-products-cumulative', todayKey],
+    queryKey: ['agent-products-cumulative', endDateKey],
     queryFn: async (): Promise<ApsCumulative> => {
-      const { data, error } = await supabase.rpc('get_agent_products_cumulative' as any, { p_date: todayKey });
+      const { data, error } = await supabase.rpc('get_agent_products_cumulative' as any, { p_date: endDateKey });
       if (error) throw error;
       return data as unknown as ApsCumulative;
     },
@@ -173,8 +178,8 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
 
   const cumulative = cumulativeQuery.data ?? null;
 
-  const prevFrom = useMemo(() => subDays(day, rangeDays), [day, rangeDays]);
-  const prevTo = useMemo(() => subDays(day, 1), [day]);
+  const prevFrom = useMemo(() => subDays(startDate, rangeDays), [startDate, rangeDays]);
+  const prevTo = useMemo(() => subDays(startDate, 1), [startDate]);
   const prevFromKey = toDateKey(prevFrom);
   const prevToKey = toDateKey(prevTo);
 
@@ -236,7 +241,7 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
         cumulative,
         prev: prevReport,
       });
-      downloadBlob(blob, isRange ? `agent-products-services-${dayKey}_to_${todayKey}.pdf` : `agent-products-services-${todayKey}.pdf`);
+      downloadBlob(blob, isRange ? `agent-products-services-${dayKey}_to_${endDateKey}.pdf` : `agent-products-services-${dayKey}.pdf`);
       toast.success(isRange ? 'Cumulative report downloaded' : 'Daily report downloaded');
     } catch (err: any) {
       toast.error(err?.message || 'Could not generate the report');
@@ -245,72 +250,163 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
     }
   };
 
-  const setPreset = (kind: PresetKind) => {
-    setActivePreset(kind);
+  type RangePresetKind = 'd7' | 'd14' | 'd30' | 'd90' | 'y1' | 'month' | 'year' | 'all';
+  const rangePresets: [RangePresetKind, string][] = [
+    ['d7', 'Last 7 days'],
+    ['d14', 'Last 14 days'],
+    ['d30', 'Last 30 days'],
+    ['d90', 'Last 90 days'],
+    ['y1', 'Last 1 year'],
+    ['month', 'This month'],
+    ['year', 'This year'],
+    ['all', 'All time'],
+  ];
+
+  const applyRangePreset = (kind: RangePresetKind) => {
+    setActiveRangePreset(kind);
     const now = new Date();
-    if (kind === 'today') setDay(now);
-    if (kind === 'yesterday') setDay(subDays(now, 1));
-    if (kind === 'd7') setDay(subDays(now, 7));
-    if (kind === 'd14') setDay(subDays(now, 14));
-    if (kind === 'd30') setDay(subDays(now, 30));
-    if (kind === 'd90') setDay(subDays(now, 90));
-    if (kind === 'y1') setDay(subDays(now, 365));
-    if (kind === 'month') setDay(startOfMonth(now));
-    if (kind === 'year') setDay(startOfYear(now));
-    if (kind === 'all') setDay(new Date(2015, 0, 1));
+    setRangeTo(now);
+    if (kind === 'd7') setRangeFrom(subDays(now, 6));
+    if (kind === 'd14') setRangeFrom(subDays(now, 13));
+    if (kind === 'd30') setRangeFrom(subDays(now, 29));
+    if (kind === 'd90') setRangeFrom(subDays(now, 89));
+    if (kind === 'y1') setRangeFrom(subDays(now, 364));
+    if (kind === 'month') setRangeFrom(startOfMonth(now));
+    if (kind === 'year') setRangeFrom(startOfYear(now));
+    if (kind === 'all') setRangeFrom(new Date(2015, 0, 1));
   };
 
-  const activeLongLabel = longPresets.find(([k]) => k === activePreset)?.[1];
+  const activeRangePresetLabel = rangePresets.find(([k]) => k === activeRangePreset)?.[1];
 
   return (
-    <div className={cn('flex flex-wrap items-center gap-1.5', className)}>
-      <Button
-        size="sm"
-        variant={activePreset === 'today' ? 'default' : 'secondary'}
-        className="h-8 text-[11px]"
-        onClick={() => setPreset('today')}
-      >
-        Today
-      </Button>
-      <Button
-        size="sm"
-        variant={activePreset === 'yesterday' ? 'default' : 'secondary'}
-        className="h-8 text-[11px]"
-        onClick={() => setPreset('yesterday')}
-      >
-        Yesterday
-      </Button>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button size="sm" variant={activeLongLabel ? 'default' : 'secondary'} className="h-8 text-[11px]">
-            {activeLongLabel || 'Select Period'}
-            <ChevronDown className="h-3.5 w-3.5 ml-1" />
+    <div className={cn('flex flex-wrap items-center gap-2', className)}>
+      <div className="inline-flex items-center rounded-lg bg-muted/60 p-0.5 border">
+        <Button
+          type="button"
+          size="sm"
+          variant={mode === 'single' ? 'default' : 'ghost'}
+          className="h-7 px-2.5 text-[11px] font-medium"
+          onClick={() => setMode('single')}
+        >
+          Single Day
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={mode === 'range' ? 'default' : 'ghost'}
+          className="h-7 px-2.5 text-[11px] font-medium"
+          onClick={() => {
+            setMode('range');
+            if (!activeRangePreset) applyRangePreset('d7');
+          }}
+        >
+          Range
+        </Button>
+      </div>
+
+      {mode === 'single' ? (
+        <>
+          <Button
+            size="sm"
+            variant={isSameDay(singleDate, new Date()) ? 'default' : 'secondary'}
+            className="h-8 text-[11px]"
+            onClick={() => setSingleDate(new Date())}
+          >
+            Today
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="z-[200]">
-          {longPresets.map(([k, l]) => (
-            <DropdownMenuItem key={k} className="text-[12px]" onClick={() => setPreset(k)}>{l}</DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button size="sm" variant="outline" className="h-8 text-[11px]">
-            <CalendarIcon className="h-3.5 w-3.5 mr-1" />
-            From {format(day, 'dd MMM yyyy')}
+          <Button
+            size="sm"
+            variant={isSameDay(singleDate, subDays(new Date(), 1)) ? 'default' : 'secondary'}
+            className="h-8 text-[11px]"
+            onClick={() => setSingleDate(subDays(new Date(), 1))}
+          >
+            Yesterday
           </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0 z-[200]" align="start">
-          <Calendar
-            mode="single"
-            selected={day}
-            onSelect={(d) => d && setDay(d)}
-            disabled={(d) => d > today}
-            initialFocus
-            className="p-3 pointer-events-auto"
-          />
-        </PopoverContent>
-      </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant="outline" className="h-8 text-[11px]">
+                <CalendarIcon className="h-3.5 w-3.5 mr-1" />
+                {format(singleDate, 'dd MMM yyyy')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 z-[200]" align="start">
+              <Calendar
+                mode="single"
+                selected={singleDate}
+                onSelect={(d) => d && setSingleDate(d)}
+                disabled={(d) => d > new Date()}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+        </>
+      ) : (
+        <>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant={activeRangePreset ? 'default' : 'secondary'} className="h-8 text-[11px]">
+                {activeRangePresetLabel || 'Select Period'}
+                <ChevronDown className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="z-[200]">
+              {rangePresets.map(([k, l]) => (
+                <DropdownMenuItem key={k} className="text-[12px]" onClick={() => applyRangePreset(k)}>{l}</DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant="outline" className="h-8 text-[11px]">
+                <CalendarIcon className="h-3.5 w-3.5 mr-1" />
+                From {format(rangeFrom, 'dd MMM yyyy')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 z-[200]" align="start">
+              <Calendar
+                mode="single"
+                selected={rangeFrom}
+                onSelect={(d) => {
+                  if (d) {
+                    setRangeFrom(d);
+                    if (d > rangeTo) setRangeTo(d);
+                    setActiveRangePreset(null);
+                  }
+                }}
+                disabled={(d) => d > new Date()}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant="outline" className="h-8 text-[11px]">
+                <CalendarIcon className="h-3.5 w-3.5 mr-1" />
+                To {format(rangeTo, 'dd MMM yyyy')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 z-[200]" align="start">
+              <Calendar
+                mode="single"
+                selected={rangeTo}
+                onSelect={(d) => {
+                  if (d) {
+                    setRangeTo(d);
+                    if (d < rangeFrom) setRangeFrom(d);
+                    setActiveRangePreset(null);
+                  }
+                }}
+                disabled={(d) => d > new Date()}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+        </>
+      )}
+
       <Button
         size="sm"
         className="h-8 text-[11px]"
@@ -318,7 +414,7 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
         onClick={handlePdf}
       >
         {exporting ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <FileText className="h-3.5 w-3.5 mr-1" />}
-        Export PDF
+        {isRange ? 'Export Cumulative PDF' : 'Export Daily PDF'}
       </Button>
     </div>
   );
