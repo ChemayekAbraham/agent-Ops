@@ -61,7 +61,7 @@ export function PromissoryNoteReleaseWarning({
   return (
     <Html>
       <Head />
-      <Preview>{count} tenant{count === 1 ? '' : 's'} still held for you — {days_left} day{days_left === 1 ? '' : 's'} left</Preview>
+      <Preview>{String(count)} tenant{count === 1 ? '' : 's'} still held for you — {String(days_left)} day{days_left === 1 ? '' : 's'} left</Preview>
       <Body style={main}>
         <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
           <tbody><tr><td align="center" style={{ padding: '36px 10px' }}>
