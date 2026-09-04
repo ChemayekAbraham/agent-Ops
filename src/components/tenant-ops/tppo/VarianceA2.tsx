@@ -4,6 +4,8 @@ import type { TppoZoneAReport } from '@/components/tenant-ops/tppo/tppoTypes';
 
 interface VarianceA2Props {
   report?: TppoZoneAReport | null;
+  /** One period older than `report.prior` — same RPC, anchored a period earlier. */
+  earlier?: TppoZoneAReport | null;
 }
 
 function shortDate(iso?: string | null): string {
