@@ -167,15 +167,21 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
           <div className="mt-2 space-y-1 text-sm">
             <p className="flex items-baseline justify-between gap-3">
               <span className="text-muted-foreground">Scheduled due (own period)</span>
-              <span className="shrink-0 tabular-nums">{signedMoney(report?.scheduled_delta_ugx)}</span>
+              <span className={`shrink-0 tabular-nums ${signedClass(report?.scheduled_delta_ugx)}`}>
+                {signedMoney(report?.scheduled_delta_ugx)}
+              </span>
             </p>
             <p className="flex items-baseline justify-between gap-3">
               <span className="text-muted-foreground">Collected</span>
-              <span className="shrink-0 tabular-nums">{signedMoney(report?.collected_delta_ugx)}</span>
+              <span className={`shrink-0 tabular-nums ${signedClass(report?.collected_delta_ugx)}`}>
+                {signedMoney(report?.collected_delta_ugx)}
+              </span>
             </p>
             <p className="flex items-baseline justify-between gap-3">
               <span className="text-muted-foreground">Rate</span>
-              <span className="shrink-0 tabular-nums">{signedPp(variance)}</span>
+              <span className={`shrink-0 tabular-nums ${signedClass(variance)}`}>
+                {signedPp(variance)}
+              </span>
             </p>
           </div>
         </div>
