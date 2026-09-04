@@ -71,6 +71,38 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
 
   const currentLabel = periodLabel(report?.period_start, report?.period_end);
   const priorLabel = periodLabel(report?.prior?.period_start, report?.prior?.period_end);
+  const earlierLabel = periodLabel(earlier?.period_start, earlier?.period_end);
+
+  // Oldest closed period first, the still-counting current period last. The
+  // labels come from the RPC, so this shuffles by itself as each day closes.
+  const rows = [
+    {
+      key: 'earlier',
+      label: earlierLabel,
+      scheduled: earlier?.scheduled_due_ugx ?? null,
+      collected: earlier?.collected_ugx ?? null,
+      rate: earlier?.collection_rate_pct ?? null,
+      current: false,
+    },
+    {
+      key: 'prior',
+      label: priorLabel,
+      scheduled: report?.prior?.scheduled_due_ugx ?? null,
+      collected: report?.prior?.collected_ugx ?? null,
+      rate: report?.prior?.collection_rate_pct ?? null,
+      current: false,
+    },
+    {
+      key: 'current',
+      label: currentLabel,
+      scheduled: report?.scheduled_due_ugx ?? null,
+      collected: report?.collected_ugx ?? null,
+      rate: report?.collection_rate_pct ?? null,
+      current: true,
+    },
+  ];
+
+  const money = (value: number | null) => (value === null ? '—' : formatUGX(value));
 
   return (
     <section aria-label="A2 variance on prior period" className="rounded-xl border border-border bg-card p-4 shadow-sm">
