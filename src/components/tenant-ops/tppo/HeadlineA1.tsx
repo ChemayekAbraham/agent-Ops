@@ -138,8 +138,10 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
         )}
 
         <p className="pt-2 text-xs italic">
-          The headline rate is measured only on rent scheduled and recovered within term; arrears
-          recovery is reported beside it, not inside it.
+          Scheduled is the sum of instalments the agreed payment plans fall due in this period.
+          Plans past their agreed end date schedule nothing further; recovery against them is
+          reported beside the rate, not inside it. Once a day is closed its scheduled figure is
+          fixed and does not move.
         </p>
       </div>
     </section>
