@@ -324,7 +324,7 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
 
       <div className="grid gap-4 xl:grid-cols-2">
         <HeadlineA1 report={data} />
-        <VarianceA2 report={data} />
+        <VarianceA2 report={data} earlier={earlier} />
       </div>
 
       <ProjectionA3 granularity={granularity} anchor={anchor} />
