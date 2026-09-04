@@ -7,7 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { FileDown, Loader2 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { FileDown, Loader2, Calendar } from 'lucide-react';
 import {
   generateTenantOpsToolReportPdf,
   tenantOpsToolReportTitle,
@@ -15,7 +22,7 @@ import {
   type TenantOpsTool,
 } from '@/lib/generateTenantOpsToolReportPdf';
 
-type Preset = 'all' | 'today' | '7d' | '30d' | 'month';
+type Preset = 'today' | '7d' | '30d' | 'month' | 'all';
 
 const PRESETS: { key: Preset; label: string }[] = [
   { key: 'today', label: 'Today' },
@@ -112,36 +119,52 @@ export function TenantOpsReportToolbar({
   };
 
   return (
-    <div className={`rounded-lg border border-border bg-muted/30 p-3 space-y-2 ${className || ''}`}>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Report period</span>
-        {PRESETS.map(p => (
-          <Button
-            key={p.key}
-            type="button"
-            size="sm"
-            variant={!dateFrom && !dateTo && preset === p.key ? 'default' : 'outline'}
-            className="h-7 px-2 text-[11px]"
-            onClick={() => { setPreset(p.key); setDateFrom(''); setDateTo(''); }}
+    <div className={`rounded-lg border border-border bg-muted/30 p-3 space-y-2.5 ${className || ''}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground shrink-0 flex items-center gap-1">
+            <Calendar className="h-3.5 w-3.5 text-primary" />
+            Report period
+          </Label>
+          <Select
+            value={preset}
+            onValueChange={(val) => {
+              setPreset(val as Preset);
+              setDateFrom('');
+              setDateTo('');
+            }}
           >
-            {p.label}
-          </Button>
-        ))}
-        <Badge variant="secondary" className="text-[10px] font-bold">
-          {tenantOpsToolStatusLabel(tool)}: {status && status !== 'all' ? status.replace(/_/g, ' ') : 'All'}
-        </Badge>
-        {typeof visibleCount === 'number' && (
-          <Badge variant="outline" className="text-[10px]">{visibleCount.toLocaleString()} on screen</Badge>
-        )}
+            <SelectTrigger className="h-8 text-xs w-[140px] bg-background border-border font-medium">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PRESETS.map((p) => (
+                <SelectItem key={p.key} value={p.key} className="text-xs">
+                  {p.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Badge variant="secondary" className="text-[10px] font-bold">
+            {tenantOpsToolStatusLabel(tool)}: {status && status !== 'all' ? status.replace(/_/g, ' ') : 'All'}
+          </Badge>
+          {typeof visibleCount === 'number' && (
+            <Badge variant="outline" className="text-[10px]">{visibleCount.toLocaleString()} on screen</Badge>
+          )}
+        </div>
       </div>
+
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1">
           <Label className="text-[10px] text-muted-foreground">From</Label>
-          <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-8 w-[150px] text-xs" />
+          <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-8 w-[140px] text-xs bg-background" />
         </div>
         <div className="space-y-1">
           <Label className="text-[10px] text-muted-foreground">To</Label>
-          <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-8 w-[150px] text-xs" />
+          <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-8 w-[140px] text-xs bg-background" />
         </div>
         {(dateFrom || dateTo) && (
           <Button type="button" size="sm" variant="ghost" className="h-8 text-[11px]" onClick={() => { setDateFrom(''); setDateTo(''); }}>

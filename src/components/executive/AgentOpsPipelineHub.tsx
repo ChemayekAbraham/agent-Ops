@@ -3,10 +3,18 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Users, FileText, Home, Phone, MapPin, Search, Calendar, XCircle, CheckCircle2, Clock } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
+import { Users, FileText, Home, Phone, MapPin, Search, Calendar, XCircle, CheckCircle2, Clock, ChevronDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { RentPipelineQueue } from './RentPipelineQueue';
 import { PromissoryNotesQueue } from './PromissoryNotesQueue';
@@ -186,22 +194,9 @@ function LandlordsPipeline() {
   );
 }
 
-const APPROVED_STATUS_LIST = [
-  'agent_ops_approved',
-  'agent_verified',
-  'tenant_ops_approved',
-  'landlord_ops_approved',
-  'partner_ops_approved',
-  'coo_approved',
-  'approved',
-  'funded',
-  'disbursed',
-  'repaying',
-  'fully_repaid',
-  'completed',
-];
-
 export function AgentOpsPipelineHub() {
+  const [activeTab, setActiveTab] = useState('tenants');
+
   const { data: counts } = useQuery({
     queryKey: ['pipeline-counts'],
     staleTime: 0,
@@ -247,11 +242,97 @@ export function AgentOpsPipelineHub() {
     { value: 'rejected', label: 'Rejected', icon: XCircle, count: counts?.rejected },
   ];
 
+  const otherTabs = tabs.filter((t) => t.value !== 'tenants');
+  const activeOtherTab = otherTabs.find((t) => t.value === activeTab);
+
   return (
-    <Tabs defaultValue="tenants" className="space-y-4">
-      <div className="overflow-x-auto scrollbar-hide -mx-1 px-1">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      {/* Mobile view: Tenants button + dropdown for other tabs */}
+      <div className="flex sm:hidden items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant={activeTab === 'tenants' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('tenants')}
+          className="h-8 text-xs font-semibold gap-1.5 rounded-full px-3 shadow-xs"
+        >
+          <Users className="h-3.5 w-3.5" />
+          <span>Tenants</span>
+          {counts?.tenants != null && counts.tenants > 0 && (
+            <Badge
+              variant={activeTab === 'tenants' ? 'secondary' : 'primary'}
+              size="sm"
+              className="ml-1 px-1.5 h-4 text-[10px] font-bold"
+            >
+              {counts.tenants}
+            </Badge>
+          )}
+        </Button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              size="sm"
+              variant={activeTab !== 'tenants' ? 'default' : 'outline'}
+              className="h-8 text-xs font-semibold gap-1.5 rounded-full border-border/70 px-3 shadow-xs"
+            >
+              {activeOtherTab ? (
+                <>
+                  <activeOtherTab.icon className="h-3.5 w-3.5" />
+                  <span>{activeOtherTab.label}</span>
+                  {activeOtherTab.count != null && activeOtherTab.count > 0 && (
+                    <Badge
+                      variant={activeOtherTab.isDestructive ? 'destructive' : 'secondary'}
+                      size="sm"
+                      className="ml-1 px-1.5 h-4 text-[10px] font-bold"
+                    >
+                      {activeOtherTab.count}
+                    </Badge>
+                  )}
+                  <ChevronDown className="h-3 w-3 ml-0.5 opacity-70" />
+                </>
+              ) : (
+                <>
+                  <span>More tabs</span>
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                </>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-52 p-1 z-50 bg-popover border border-border shadow-md">
+            {otherTabs.map((t) => (
+              <DropdownMenuItem
+                key={t.value}
+                onClick={() => setActiveTab(t.value)}
+                className={cn(
+                  'text-xs py-2 px-2.5 cursor-pointer flex items-center justify-between rounded-md transition-colors',
+                  activeTab === t.value ? 'bg-primary/10 text-primary font-semibold' : 'text-foreground hover:bg-accent/50'
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <t.icon className="h-3.5 w-3.5" />
+                  <span>{t.label}</span>
+                </div>
+                {t.count != null && t.count > 0 && (
+                  <Badge
+                    variant={t.isDestructive ? 'destructive' : 'primary'}
+                    size="sm"
+                    className="px-1.5 h-4 text-[10px] font-bold"
+                  >
+                    {t.count}
+                  </Badge>
+                )}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Desktop view: Standard horizontal pills */}
+      <div className="hidden sm:block overflow-x-auto scrollbar-hide -mx-1 px-1">
         <TabsList variant="pills" className="w-max">
-          {tabs.map(t => (
+          {tabs.map((t) => (
             <TabsTrigger key={t.value} value={t.value} variant="pills" className="gap-1.5">
               <t.icon className="h-3.5 w-3.5" />
               <span className="text-xs">{t.label}</span>
@@ -281,3 +362,4 @@ export function AgentOpsPipelineHub() {
     </Tabs>
   );
 }
+
