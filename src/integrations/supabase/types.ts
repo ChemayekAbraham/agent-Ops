@@ -2494,6 +2494,33 @@ export type Database = {
           },
         ]
       }
+      agent_expected_day_plans: {
+        Row: {
+          agent_id: string | null
+          captured_at: string
+          day: string
+          expected_ugx: number
+          rent_request_id: string
+          tenant_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          captured_at?: string
+          day: string
+          expected_ugx?: number
+          rent_request_id: string
+          tenant_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          captured_at?: string
+          day?: string
+          expected_ugx?: number
+          rent_request_id?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
       agent_fleet_assignments: {
         Row: {
           agent_id: string
@@ -50512,6 +50539,7 @@ export type Database = {
         Args: { p_missing: Json; p_settlement_state: string; p_status: string }
         Returns: string
       }
+      pin_agent_expected_day: { Args: { p_day: string }; Returns: number }
       populate_wallet_review_queue: {
         Args: never
         Returns: {
