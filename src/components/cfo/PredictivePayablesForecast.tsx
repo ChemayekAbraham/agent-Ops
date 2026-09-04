@@ -570,37 +570,6 @@ export default function PredictivePayablesForecast() {
                   </p>
                 )}
 
-                {/* Obligations with no due date and no daily amount — wallet
-                    balances are payable on demand, so there is nothing to place
-                    on a timeline. Disclosed rather than silently dropped. */}
-                {!!data.unscheduled && data.unscheduled.items > 0 && (
-                  <div className="rounded-lg border border-amber-500/40 bg-amber-50/60 dark:bg-amber-950/20 p-2.5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">
-                          Payable on Demand / Not Scheduled
-                        </p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          {data.unscheduled.items} item{data.unscheduled.items === 1 ? '' : 's'} with no
-                          contractual due date. Included in Total Payables, excluded from the timeline
-                          above — these are settled on request, not on a schedule.
-                        </p>
-                        {Object.keys(data.unscheduled.by_product ?? {}).length > 0 && (
-                          <p className="text-[10px] text-muted-foreground mt-1">
-                            {Object.entries(data.unscheduled.by_product)
-                              .sort((a, b) => b[1] - a[1])
-                              .map(([k, v]) => `${k.replace(/_/g, ' ')} ${formatUGX(v)}`)
-                              .join(' · ')}
-                          </p>
-                        )}
-                      </div>
-                      <span className="font-mono text-xs font-bold shrink-0 text-amber-800 dark:text-amber-300">
-                        {formatUGX(data.unscheduled.amount)}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
                 <p className="text-[9px] sm:text-[10px] text-muted-foreground">
                   {data.meta.method_note} History available: {data.meta.history_span_days ?? 0} days.
                   Any period ending beyond that span is extrapolation: it can never be shown as high

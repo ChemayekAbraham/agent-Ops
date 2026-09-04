@@ -624,37 +624,6 @@ export default function PredictiveReceivablesForecast() {
                   </p>
                 )}
 
-                {/* Receivables the forecast cannot place on a timeline. Shown so
-                    the gap between the book and the forecast is visible rather
-                    than silent — the amount is still in Total Receivables. */}
-                {!!data.unscheduled && data.unscheduled.items > 0 && (
-                  <div className="rounded-lg border border-amber-500/40 bg-amber-50/60 dark:bg-amber-950/20 p-2.5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">
-                          Unscheduled / Not in Forecast
-                        </p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          {data.unscheduled.items} item{data.unscheduled.items === 1 ? '' : 's'} with no
-                          contractual date and no daily amount to project from. Included in Total
-                          Receivables, excluded from the timeline above.
-                        </p>
-                        {Object.keys(data.unscheduled.by_product ?? {}).length > 0 && (
-                          <p className="text-[10px] text-muted-foreground mt-1">
-                            {Object.entries(data.unscheduled.by_product)
-                              .sort((a, b) => b[1] - a[1])
-                              .map(([k, v]) => `${k.replace(/_/g, ' ')} ${formatUGX(v)}`)
-                              .join(' · ')}
-                          </p>
-                        )}
-                      </div>
-                      <span className="font-mono text-xs font-bold shrink-0 text-amber-800 dark:text-amber-300">
-                        {formatUGX(data.unscheduled.amount)}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
                 <p className="text-[11px] text-muted-foreground">
                   {data.meta.method_note} History available:{' '}
                   {data.meta.history_span_days ?? 0} days. Any period ending beyond that span is
