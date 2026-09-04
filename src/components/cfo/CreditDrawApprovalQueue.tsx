@@ -249,16 +249,18 @@ export function CreditDrawApprovalQueue() {
               <h3 className="text-sm font-bold">Credit access draws</h3>
               <Badge variant="secondary">{visible.length} of {items.length} shown</Badge>
             </div>
+          </div>
+        )}
 
-            {visible.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <CheckCircle2 className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">No credit access draws match the selected filters.</p>
-                {items.length > 0 && (
-                  <Button variant="outline" size="sm" className="mt-3" onClick={clearFilters}>Clear filters</Button>
-                )}
-              </div>
-            ) : (
+      {visible.length === 0 && items.length > 0 && (
+        <div className="text-center py-8 text-muted-foreground">
+          <CheckCircle2 className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">No credit access draws match the selected filters.</p>
+          <Button variant="outline" size="sm" className="mt-3" onClick={clearFilters}>Clear filters</Button>
+        </div>
+      )}
+
+      {visible.length > 0 && (
               <div className="rounded-xl border border-border overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
@@ -420,7 +422,6 @@ export function CreditDrawApprovalQueue() {
               </div>
             )}
           </div>
-        </div>
       )}
       </CardContent>
 
