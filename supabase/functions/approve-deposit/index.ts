@@ -545,6 +545,13 @@ Deno.serve(async (req) => {
       // FLOAT-ALWAYS (2026-07-29): every deposit auto-credits float,
       // regardless of the declared purpose. `deposit_purpose` is retained
       // for analytics only.
+      //
+      // NOTE: this flag governs WALLET BUCKET ROUTING ONLY. It used to pick the
+      // platform leg's category too, which meant a product decision about where
+      // the user's money sits also flipped the company-side cash direction —
+      // every inbound deposit CREDITED A1 as though the company had paid out.
+      // The platform leg is now chosen from the economics of the receipt (see
+      // the entries array below); the two concerns are deliberately decoupled.
       const isFloatDeposit = true;
       const depositCategory: 'agent_float_deposit' | 'wallet_deposit' =
         isFloatDeposit ? 'agent_float_deposit' : 'wallet_deposit';
@@ -709,18 +716,33 @@ Deno.serve(async (req) => {
                 currency: 'UGX',
                 transaction_date: new Date().toISOString(),
               },
+              // ── PLATFORM LEG: economics, not wallet routing ──────────────
+              // The wallet leg above owns bucket routing (its category drives
+              // wallet_route_for_category). This leg owns the COMPANY-side
+              // account, and the two must not be conflated.
+              //
+              // `agent_float_deposit` maps to A1 with debit_when 'cash_in', so a
+              // cash_out leg CREDITS A1 — correct when the company ISSUES float
+              // from its own bank (cfo_direct_credit does exactly that), and
+              // wrong here, where an agent has just PAID MONEY IN. It made
+              // "Money We Have" fall on a receipt.
+              //
+              // `wallet_deposit` maps to A1 with debit_when 'cash_out', so the
+              // same cash_out leg DEBITS A1: cash in, custody owed. That is the
+              // treatment the 459 Pattern A deposits already use correctly.
+              //
+              // Physical cash keeps its own A5/L1 route below. A2 is untouched
+              // in every branch — the agent genuinely holds that float.
               {
                 direction: 'cash_out',
                 amount: depositRequest.amount,
-                category: isPhysicalCashChannel ? 'agent_float_cash_offset' : depositCategory,
+                category: isPhysicalCashChannel ? 'agent_float_cash_offset' : 'wallet_deposit',
                 ledger_scope: 'platform',
                 source_table: 'deposit_requests',
                 source_id: depositRequest.id,
                 description: isPhysicalCashChannel
                   ? 'Offset: physical cash is held by the company, not with the agent'
-                  : isFloatDeposit
-                  ? 'Platform: float deposit credited to agent float bucket'
-                  : 'Platform liability: deposit credited to user wallet',
+                  : `Platform: deposit received via ${depositRequest.provider || 'mobile money'} — cash in, custody owed`,
                 currency: 'UGX',
                 transaction_date: new Date().toISOString(),
               },
