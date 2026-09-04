@@ -48,6 +48,8 @@ import { FollowupsDuePanel } from '@/components/ops/calling/FollowupsDuePanel';
 import { OpenAttemptQueue } from '@/components/ops/calling/OpenAttemptQueue';
 import { LiveCallPanel } from './LiveCallPanel';
 import { TenantCallCenterHistory } from './TenantCallCenterHistory';
+import { TenantCallsReport } from './TenantCallsReport';
+
 import { TenantCallDetailsDialog } from './TenantCallDetailsDialog';
 import {
   AUTO_CAP_CHOICES,
