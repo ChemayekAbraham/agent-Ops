@@ -15,11 +15,11 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell,
 } from 'recharts';
 import {
-  CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown,
+  CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown, AlertTriangle,
 } from 'lucide-react';
 import { ComprehensiveReportButton } from './ComprehensiveReportButton';
 import { NextSevenDaysExpected } from './NextSevenDaysExpected';
-import { format, startOfDay, endOfDay, subDays, startOfMonth, startOfYear, addDays } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay, subDays, startOfMonth, startOfYear, addDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 import { generateAgentCollectionsStatementPdf } from '@/lib/agentCollectionsStatementPdf';
@@ -83,6 +83,7 @@ interface CommandCenterData {
   totals: {
     collected: number; collections_count: number; active_agents: number; tenants_paid: number;
     avg_collection: number; requests_count: number; requests_amount: number; days: number;
+    expected_due: number; defaulted_to_date: number; defaulted_plans: number; defaulted_as_of: string; span_days: number;
   };
   series: { bucket: string; collected: number; collections_count: number; requests_amount: number; requests_count: number }[];
   peak_hours: { hour: number; amount: number; count: number }[];
@@ -92,6 +93,7 @@ interface CommandCenterData {
     expected_daily: number; expected: number; expected_source: 'history' | 'projected';
     last_collection_at: string | null;
   }[];
+  expected_daily: { day: string; expected_ugx: number; plans: number; elapsed: boolean }[];
   generated_at: string;
 }
 
@@ -207,7 +209,7 @@ export function AgentCollectionsCommandCenter() {
     [agents],
   );
 
-  const expectedTotal = agents.reduce((s, a) => s + a.expected, 0);
+  const expectedTotal = num(totals?.expected_due);
   const [exporting, setExporting] = useState(false);
 
   const exportStatementPdf = async () => {
@@ -222,7 +224,7 @@ export function AgentCollectionsCommandCenter() {
         generatedAt: data.generated_at,
         totals: {
           collected: num(data.totals?.collected),
-          expected: agents.reduce((s, a) => s + a.expected, 0),
+          expected: num(data.totals?.expected_due),
           collections_count: num(data.totals?.collections_count),
           avg_collection: num(data.totals?.avg_collection),
           active_agents: num(data.totals?.active_agents),
@@ -328,7 +330,7 @@ export function AgentCollectionsCommandCenter() {
       ) : (
         <>
       {/* KPI strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <Card className="p-3">
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><Banknote className="h-3.5 w-3.5" /> Collected</div>
           <p className="text-lg font-bold mt-1">{formatUGX(collectedTotal)}</p>
@@ -352,7 +354,62 @@ export function AgentCollectionsCommandCenter() {
           <p className="text-lg font-bold mt-1">{num(totals?.requests_count)}</p>
           <p className="text-[11px] text-muted-foreground">{formatUGX(num(totals?.requests_amount))} requested</p>
         </Card>
+        <Card className="p-3">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground"><AlertTriangle className="h-3.5 w-3.5" /> Defaulted</div>
+          <p className="text-lg font-bold mt-1 text-destructive">{formatUGX(num(totals?.defaulted_to_date))}</p>
+          <p className="text-[11px] text-muted-foreground">{num(totals?.defaulted_plans)} plans · as at {totals?.defaulted_as_of}</p>
+        </Card>
       </div>
+
+      {/* Expected collections per day */}
+      {data?.expected_daily && data.expected_daily.length > 0 && (
+        <Card className="p-3">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold">Expected collections per day</h3>
+            <Badge variant="outline" className="text-[10px]">Per the agreed payment plans</Badge>
+          </div>
+          <div className="h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data.expected_daily}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis
+                  dataKey="day"
+                  tickFormatter={(d: string) => format(parseISO(d), 'dd MMM')}
+                  tick={{ fontSize: 10 }}
+                  stroke="hsl(var(--muted-foreground))"
+                />
+                <YAxis tickFormatter={compact} tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
+                <Tooltip formatter={(v: any) => formatUGX(Number(v))} labelFormatter={(l: any) => format(parseISO(l), 'EEEE dd MMM')} />
+                <Bar dataKey="expected_ugx" name="Expected" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-3 space-y-1">
+            {data.expected_daily.slice(0, 31).map((row) => (
+              <div
+                key={row.day}
+                className="flex items-center justify-between rounded-md border px-2 py-1.5"
+              >
+                <div>
+                  <p className="text-xs font-medium">{format(parseISO(row.day), 'EEE dd MMM')}</p>
+                  <p className="text-[10px] text-muted-foreground">{row.plans} plans due</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {!row.elapsed && (
+                    <Badge variant="outline" className="text-[10px]">Upcoming</Badge>
+                  )}
+                  <p className="text-sm font-semibold tabular-nums">{formatUGX(row.expected_ugx)}</p>
+                </div>
+              </div>
+            ))}
+            {data.expected_daily.length > 31 && (
+              <p className="text-[11px] text-muted-foreground">
+                {data.expected_daily.length - 31} further days not shown.
+              </p>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* Trend */}
       <Card className="p-3">
@@ -562,9 +619,6 @@ export function AgentCollectionsCommandCenter() {
                       </span>
                     </div>
                     <div className="mt-1 flex flex-wrap gap-1.5">
-                      {a.expected_source === 'projected' && a.expected > 0 && (
-                        <Badge variant="outline" className="text-[10px]">Projected target</Badge>
-                      )}
                       {a.last_collection_at && (
                         <Badge variant="outline" className="text-[10px]">
                           Last {format(new Date(a.last_collection_at), 'dd MMM h:mm a')}
@@ -585,8 +639,7 @@ export function AgentCollectionsCommandCenter() {
           </>
         )}
         <p className="text-[11px] text-muted-foreground mt-2">
-          Collected comes from recorded agent collections. Expected uses the daily-target snapshots for each day in
-          range; days without a snapshot fall back to the agent's current daily target.
+          Expected is the sum of the instalments each tenant's agreed payment plan schedules inside this period. Plans that have run past their agreed end date, or that are already settled, raise no further expectation — their balances appear under Defaulted.
         </p>
       </Card>
         </>
