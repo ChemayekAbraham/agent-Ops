@@ -354,6 +354,22 @@ export default function PartnerAgreementSignOff({
                     Fill in the details below before counter-signing. They render live in the preview.
                   </p>
                   <div className="space-y-1">
+                    <Label className="text-[11px]">Partnership amount (UGX)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      value={amountInput}
+                      onChange={(e) => setAmountInput(e.target.value)}
+                      placeholder="e.g. 5000000"
+                      className="h-8 text-xs"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Prefilled from the partner's record (or their portfolio total when the record is blank).
+                      Changing it updates the contract and re-sends the executed PDF.
+                    </p>
+                  </div>
+                  <div className="space-y-1">
                     <Label className="text-[11px]">Representative name</Label>
                     <Input value={repName} onChange={(e) => setRepName(e.target.value)} placeholder="e.g. Jane Doe" className="h-8 text-xs" />
                   </div>
