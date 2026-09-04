@@ -41,6 +41,11 @@ function signedPp(value?: number | null): string {
   return `${sign}${Math.abs(value).toFixed(1)} pp`;
 }
 
+function signedClass(value?: number | null): string {
+  if (value === null || value === undefined) return '';
+  return value > 0 ? 'text-emerald-600' : value < 0 ? 'text-destructive' : '';
+}
+
 /**
  * A2 · VARIANCE ON PRIOR PERIOD. Every figure — including the variance itself —
  * is taken straight from tppo_get_report_zone_a. Nothing is computed here.
