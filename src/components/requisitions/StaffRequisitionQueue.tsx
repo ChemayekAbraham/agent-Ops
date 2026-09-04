@@ -216,9 +216,10 @@ export function StaffRequisitionQueue() {
 
   const visible = buckets[tab];
 
-  const openAction = (row: StaffRequisition, type: 'approve' | 'reject' | 'return_info') => {
+  const openAction = (row: StaffRequisition, type: 'approve' | 'reject' | 'return_info', reduce = false) => {
     setActive(row);
     setActionType(type);
+    setReduceMode(reduce);
     setComment('');
     setAmountOverride(String(row.approved_amount ?? row.amount));
     void loadEvents(row.id);
@@ -235,6 +236,18 @@ export function StaffRequisitionQueue() {
       toast.error('Enter a valid amount');
       return;
     }
+    if (reduceMode) {
+      const requested = Number(active.approved_amount ?? active.amount);
+      if (amount >= requested) {
+        toast.error(`Enter an amount lower than ${formatUGX(requested)}`);
+        return;
+      }
+      if (comment.trim().length < 10) {
+        toast.error('Explain the reduction in at least 10 characters');
+        return;
+      }
+    }
+
     setActing(true);
     const { error } = await invokeEdgeFunction('staff-requisition-decide', {
       body: {
