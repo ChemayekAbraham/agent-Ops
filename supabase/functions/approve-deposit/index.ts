@@ -28,7 +28,7 @@ const corsHeaders = {
 async function withRetry<T>(
   label: string,
   depositId: string,
-  fn: () => Promise<{ data?: T; error: any } | { error: any }>,
+  fn: () => PromiseLike<{ data?: T; error: any } | { error: any }>,
   maxAttempts = 3,
 ): Promise<{ data?: T; error: any; attempts: number; ms: number }> {
   let lastErr: any = null;
