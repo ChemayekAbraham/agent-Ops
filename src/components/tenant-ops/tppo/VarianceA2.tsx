@@ -251,13 +251,20 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
               >
                 <td className="py-2 pr-3">
                   <span className={row.current ? 'font-medium text-foreground' : ''}>{row.label}</span>
+                  {row.differentBasis && (
+                    <Badge variant="outline" className="ml-2 text-[10px] font-medium">
+                      different basis
+                    </Badge>
+                  )}
                   {row.current && (
                     <span className="ml-2 text-xs text-primary">still counting</span>
                   )}
                 </td>
                 <td className="py-2 pr-3 text-right tabular-nums">{money(row.scheduled)}</td>
                 <td className="py-2 pr-3 text-right tabular-nums">{money(row.collected)}</td>
-                <td className="py-2 text-right tabular-nums">{rateText(row.rate)}</td>
+                <td className="py-2 text-right tabular-nums">
+                  {row.differentBasis ? '—' : rateText(row.rate)}
+                </td>
               </tr>
             ))}
             <tr className="font-medium">
@@ -268,9 +275,14 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
               <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">
                 —
               </td>
-              <td className={`py-2 text-right tabular-nums ${signedClass(rateDeltaPct)}`}>
-                {signedPct(rateDeltaPct)}
+              <td
+                className={`py-2 text-right tabular-nums ${
+                  anyDifferentBasis ? 'text-muted-foreground' : signedClass(rateDeltaPct)
+                }`}
+              >
+                {anyDifferentBasis ? '—' : signedPct(rateDeltaPct)}
               </td>
+
             </tr>
           </tbody>
         </table>
