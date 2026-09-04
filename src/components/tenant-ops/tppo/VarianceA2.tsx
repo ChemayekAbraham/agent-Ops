@@ -35,10 +35,10 @@ function signedMoney(value?: number | null): string {
   return `${sign}${formatUGX(Math.abs(value))}`;
 }
 
-function signedPp(value?: number | null): string {
+function signedPct(value?: number | null): string {
   if (value === null || value === undefined) return '—';
   const sign = value > 0 ? '+' : value < 0 ? '-' : '';
-  return `${sign}${Math.abs(value).toFixed(1)} pp`;
+  return `${sign}${Math.abs(value).toFixed(1)}%`;
 }
 
 function signedClass(value?: number | null): string {
@@ -47,13 +47,18 @@ function signedClass(value?: number | null): string {
 }
 
 /**
- * A2 · VARIANCE ON PRIOR PERIOD. Every figure — including the variance itself —
- * is taken straight from tppo_get_report_zone_a. Nothing is computed here.
+ * A2 · VARIANCE ON PRIOR PERIOD. Scheduled/collected deltas come from the RPC.
+ * The rate variance is computed here as the middle (prior) period rate minus the
+ * earliest (earlier) period rate and expressed as a percentage change.
  */
 export function VarianceA2({ report, earlier }: VarianceA2Props) {
-  const variance = report?.rate_variance_pp ?? null;
-  const hasVariance = variance !== null && variance !== undefined;
-  const direction = !hasVariance ? 'none' : variance > 0 ? 'up' : variance < 0 ? 'down' : 'flat';
+  const priorRate = report?.prior?.collection_rate_pct;
+  const earlierRate = earlier?.collection_rate_pct;
+  const rateDeltaPct =
+    priorRate != null && earlierRate != null ? priorRate - earlierRate : null;
+
+  const hasRateDelta = rateDeltaPct !== null && rateDeltaPct !== undefined;
+  const direction = !hasRateDelta ? 'none' : rateDeltaPct! > 0 ? 'up' : rateDeltaPct! < 0 ? 'down' : 'flat';
 
   const DirectionIcon =
     direction === 'up' ? ArrowUp : direction === 'down' ? ArrowDown : Minus;
@@ -67,11 +72,11 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
 
   const directionLabel =
     direction === 'up'
-      ? 'up on prior period'
+      ? 'up vs earlier period'
       : direction === 'down'
-        ? 'down on prior period'
+        ? 'down vs earlier period'
         : direction === 'flat'
-          ? 'unchanged on prior period'
+          ? 'unchanged vs earlier period'
           : 'no comparison available';
 
   const currentLabel = periodLabel(report?.period_start, report?.period_end);
@@ -117,17 +122,17 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
 
       <div className={`mt-2 flex flex-wrap items-center gap-2 ${directionClass}`}>
         <DirectionIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
-        <span className="text-xl font-semibold tabular-nums">{signedPp(variance)}</span>
+        <span className="text-xl font-semibold tabular-nums">{signedPct(rateDeltaPct)}</span>
         <span className="text-sm font-medium">{directionLabel}</span>
       </div>
 
       <div className="mt-3 space-y-1">
         <p className="flex flex-wrap items-center gap-2 text-sm text-foreground">
-          <span>{priorLabel}</span>
-          <span className="tabular-nums">{rateText(report?.prior?.collection_rate_pct)}</span>
+          <span>{earlierLabel}</span>
+          <span className="tabular-nums">{rateText(earlierRate)}</span>
           <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          <span>{currentLabel}</span>
-          <span className="tabular-nums">{rateText(report?.collection_rate_pct)}</span>
+          <span>{priorLabel}</span>
+          <span className="tabular-nums">{rateText(priorRate)}</span>
         </p>
         <p className="text-xs text-muted-foreground">each on its own period&apos;s schedule</p>
       </div>
@@ -179,8 +184,8 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
             </p>
             <p className="flex items-baseline justify-between gap-3">
               <span className="text-muted-foreground">Rate</span>
-              <span className={`shrink-0 tabular-nums ${signedClass(variance)}`}>
-                {signedPp(variance)}
+              <span className={`shrink-0 tabular-nums ${signedClass(rateDeltaPct)}`}>
+                {signedPct(rateDeltaPct)}
               </span>
             </p>
           </div>
@@ -223,8 +228,8 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
               <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">
                 —
               </td>
-              <td className={`py-2 text-right tabular-nums ${signedClass(variance)}`}>
-                {signedPp(variance)}
+              <td className={`py-2 text-right tabular-nums ${signedClass(rateDeltaPct)}`}>
+                {signedPct(rateDeltaPct)}
               </td>
             </tr>
           </tbody>
