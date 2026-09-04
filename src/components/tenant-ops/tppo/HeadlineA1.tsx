@@ -5,6 +5,24 @@ interface HeadlineA1Props {
   report?: TppoZoneAReport | null;
 }
 
+function shortDate(iso?: string | null): string {
+  if (!iso) return '—';
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(y, m - 1, d)));
+}
+
+function periodLabel(start?: string | null, end?: string | null): string {
+  if (!start) return '—';
+  if (!end || end === start) return shortDate(start);
+  return `${shortDate(start)} – ${shortDate(end)}`;
+}
+
+
 
 /**
  * A1 · HEADLINE. Every figure is rendered as supplied by tppo_get_report_zone_a;
