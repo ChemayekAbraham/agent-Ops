@@ -154,6 +154,28 @@ export function TenantCallingCenter() {
 
   const metricLabel = hub.rows[0]?.metric_label ?? 'Metric';
   const activeQueueTab = CALLING_TABS.find((t) => t.key === queueState) ?? CALLING_TABS[0];
+  const leanColumns = useMemo(
+    () => activeQueueTab.columns.filter((c) => CENTER_COLUMNS.has(c)),
+    [activeQueueTab],
+  );
+
+  /**
+   * Background refresh without flicker: while a refetch is in flight the list
+   * keeps showing what it already had, so the officer never loses their place.
+   */
+  const [stableRows, setStableRows] = useState<CcRow[]>([]);
+  useEffect(() => {
+    if (!hub.isLoading) setStableRows(hub.rows);
+  }, [hub.isLoading, hub.rows]);
+  const displayRows = hub.isLoading && stableRows.length ? stableRows : hub.rows;
+
+  /** The list only opens details; the call itself starts inside the modal. */
+  const openDetails = (row: CcRow) => setDetailsRow(row);
+  const callFromDetails = (row: CcRow) => {
+    setDetailsRow(null);
+    void dialer.dial(row);
+  };
+
   /**
    * Same shape the Hub feeds its table: the row currently on the line keeps its
    * revealed number visible until the outcome is recorded.
