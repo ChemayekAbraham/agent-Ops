@@ -127,59 +127,35 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
         <p className="text-xs text-muted-foreground">each on its own period&apos;s schedule</p>
       </div>
 
-      {/* Mobile: the same three rows stacked, so nothing is clipped at 360px. */}
+      {/* Mobile: the same rows stacked, so nothing is clipped at 360px. */}
       <div className="mt-4 space-y-3 sm:hidden">
-        <div className="rounded-md border border-border/60 p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{priorLabel}</p>
-          <div className="mt-2 space-y-1 text-sm">
-            <p className="flex items-baseline justify-between gap-3">
-              <span className="text-muted-foreground">Scheduled due (own period)</span>
-              <span className="shrink-0 tabular-nums">
-                {report?.prior?.scheduled_due_ugx === null || report?.prior?.scheduled_due_ugx === undefined
-                  ? '—'
-                  : formatUGX(report.prior.scheduled_due_ugx)}
-              </span>
+        {rows.map((row) => (
+          <div
+            key={row.key}
+            className={`rounded-md border p-3 ${
+              row.current ? 'border-primary/30 bg-primary/5' : 'border-border/60'
+            }`}
+          >
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <span>{row.label}</span>
+              {row.current && <span className="font-medium normal-case text-primary">still counting</span>}
             </p>
-            <p className="flex items-baseline justify-between gap-3">
-              <span className="text-muted-foreground">Collected</span>
-              <span className="shrink-0 tabular-nums">
-                {report?.prior?.collected_ugx === null || report?.prior?.collected_ugx === undefined
-                  ? '—'
-                  : formatUGX(report.prior.collected_ugx)}
-              </span>
-            </p>
-            <p className="flex items-baseline justify-between gap-3">
-              <span className="text-muted-foreground">Rate</span>
-              <span className="shrink-0 tabular-nums">{rateText(report?.prior?.collection_rate_pct)}</span>
-            </p>
+            <div className="mt-2 space-y-1 text-sm">
+              <p className="flex items-baseline justify-between gap-3">
+                <span className="text-muted-foreground">Scheduled due (own period)</span>
+                <span className="shrink-0 tabular-nums">{money(row.scheduled)}</span>
+              </p>
+              <p className="flex items-baseline justify-between gap-3">
+                <span className="text-muted-foreground">Collected</span>
+                <span className="shrink-0 tabular-nums">{money(row.collected)}</span>
+              </p>
+              <p className="flex items-baseline justify-between gap-3">
+                <span className="text-muted-foreground">Rate</span>
+                <span className="shrink-0 tabular-nums">{rateText(row.rate)}</span>
+              </p>
+            </div>
           </div>
-        </div>
-
-        <div className="rounded-md border border-border/60 p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{currentLabel}</p>
-          <div className="mt-2 space-y-1 text-sm">
-            <p className="flex items-baseline justify-between gap-3">
-              <span className="text-muted-foreground">Scheduled due (own period)</span>
-              <span className="shrink-0 tabular-nums">
-                {report?.scheduled_due_ugx === null || report?.scheduled_due_ugx === undefined
-                  ? '—'
-                  : formatUGX(report.scheduled_due_ugx)}
-              </span>
-            </p>
-            <p className="flex items-baseline justify-between gap-3">
-              <span className="text-muted-foreground">Collected</span>
-              <span className="shrink-0 tabular-nums">
-                {report?.collected_ugx === null || report?.collected_ugx === undefined
-                  ? '—'
-                  : formatUGX(report.collected_ugx)}
-              </span>
-            </p>
-            <p className="flex items-baseline justify-between gap-3">
-              <span className="text-muted-foreground">Rate</span>
-              <span className="shrink-0 tabular-nums">{rateText(report?.collection_rate_pct)}</span>
-            </p>
-          </div>
-        </div>
+        ))}
 
         <div className="rounded-md border border-border p-3 font-medium">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Increase / decrease</p>
@@ -212,34 +188,22 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
             </tr>
           </thead>
           <tbody>
-            <tr className="border-b border-border/60">
-              <td className="py-2 pr-3">{priorLabel}</td>
-              <td className="py-2 pr-3 text-right tabular-nums">
-                {report?.prior?.scheduled_due_ugx === null || report?.prior?.scheduled_due_ugx === undefined
-                  ? '—'
-                  : formatUGX(report.prior.scheduled_due_ugx)}
-              </td>
-              <td className="py-2 pr-3 text-right tabular-nums">
-                {report?.prior?.collected_ugx === null || report?.prior?.collected_ugx === undefined
-                  ? '—'
-                  : formatUGX(report.prior.collected_ugx)}
-              </td>
-              <td className="py-2 text-right tabular-nums">{rateText(report?.prior?.collection_rate_pct)}</td>
-            </tr>
-            <tr className="border-b border-border/60">
-              <td className="py-2 pr-3">{currentLabel}</td>
-              <td className="py-2 pr-3 text-right tabular-nums">
-                {report?.scheduled_due_ugx === null || report?.scheduled_due_ugx === undefined
-                  ? '—'
-                  : formatUGX(report.scheduled_due_ugx)}
-              </td>
-              <td className="py-2 pr-3 text-right tabular-nums">
-                {report?.collected_ugx === null || report?.collected_ugx === undefined
-                  ? '—'
-                  : formatUGX(report.collected_ugx)}
-              </td>
-              <td className="py-2 text-right tabular-nums">{rateText(report?.collection_rate_pct)}</td>
-            </tr>
+            {rows.map((row) => (
+              <tr
+                key={row.key}
+                className={`border-b border-border/60 ${row.current ? 'bg-primary/5' : ''}`}
+              >
+                <td className="py-2 pr-3">
+                  <span className={row.current ? 'font-medium text-foreground' : ''}>{row.label}</span>
+                  {row.current && (
+                    <span className="ml-2 text-xs text-primary">still counting</span>
+                  )}
+                </td>
+                <td className="py-2 pr-3 text-right tabular-nums">{money(row.scheduled)}</td>
+                <td className="py-2 pr-3 text-right tabular-nums">{money(row.collected)}</td>
+                <td className="py-2 text-right tabular-nums">{rateText(row.rate)}</td>
+              </tr>
+            ))}
             <tr className="font-medium">
               <td className="py-2 pr-3">Increase / decrease</td>
               <td className="py-2 pr-3 text-right tabular-nums">{signedMoney(report?.scheduled_delta_ugx)}</td>
