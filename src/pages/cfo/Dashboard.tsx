@@ -218,9 +218,6 @@ export default function CFODashboardPage() {
                   out via WhatsApp.
                 </p>
               </div>
-              <div className="lg:text-right shrink-0">
-                <CFOPayoutsShareButton />
-              </div>
             </div>
 
             <DirectCreditTool />
