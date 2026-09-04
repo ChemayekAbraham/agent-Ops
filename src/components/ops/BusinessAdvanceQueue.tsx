@@ -398,17 +398,46 @@ export function BusinessAdvanceQueue({ stage }: BusinessAdvanceQueueProps) {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between border-t px-3 py-2 text-xs">
-              <span className="text-muted-foreground">
-                Page {safePage} of {totalPages} • {visible.length} advances
-              </span>
-              <div className="flex gap-1">
-                <Button size="sm" variant="outline" className="h-7 px-2" disabled={safePage === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-                  <ChevronLeft className="h-3 w-3" />
-                </Button>
-                <Button size="sm" variant="outline" className="h-7 px-2" disabled={safePage === totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
-                  <ChevronRight className="h-3 w-3" />
-                </Button>
+            <div className="border-t px-3 py-2">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
+                <span className="text-muted-foreground">
+                  Page {safePage} of {totalPages} • {visible.length} advances
+                </span>
+                <div className="flex flex-wrap items-center justify-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs"
+                    disabled={safePage === 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+                  {getPageNumbers(totalPages, safePage).map((p, idx) => (
+                    p === '...' ? (
+                      <span key={`ellipsis-${idx}`} className="px-1 text-muted-foreground">…</span>
+                    ) : (
+                      <Button
+                        key={p}
+                        size="sm"
+                        variant={safePage === p ? 'default' : 'outline'}
+                        className="h-7 min-w-[28px] px-2 text-xs"
+                        onClick={() => setPage(Number(p))}
+                      >
+                        {p}
+                      </Button>
+                    )
+                  ))}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs"
+                    disabled={safePage === totalPages}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
             </div>
           )}
