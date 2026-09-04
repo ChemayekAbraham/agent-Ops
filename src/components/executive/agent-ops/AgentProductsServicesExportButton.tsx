@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { format, subDays, startOfMonth, startOfYear, differenceInCalendarDays, startOfDay, endOfDay, isSameDay } from 'date-fns';
 import { toast } from 'sonner';
 import { FileText, Loader2, CalendarIcon, ChevronDown } from 'lucide-react';
@@ -81,7 +81,9 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
       if (error) throw error;
       return data as unknown as ApsReport;
     },
-    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const rawReport = reportQuery.data;
@@ -98,7 +100,9 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
       if (error) throw error;
       return data as any;
     },
-    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const commissionQuery = useQuery({
@@ -113,7 +117,9 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
       for (const row of (data as any[]) || []) map[row.agent_id] = Number(row.commission_earned) || 0;
       return map;
     },
-    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const report = useMemo(() => {
@@ -173,7 +179,9 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
       if (error) throw error;
       return data as unknown as ApsCumulative;
     },
-    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const cumulative = cumulativeQuery.data ?? null;
@@ -193,7 +201,9 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
       if (error) throw error;
       return data as unknown as ApsReport;
     },
-    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const prevCommandCenterQuery = useQuery({
@@ -207,7 +217,9 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
       if (error) throw error;
       return data as any;
     },
-    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const prevReport = useMemo(() => {

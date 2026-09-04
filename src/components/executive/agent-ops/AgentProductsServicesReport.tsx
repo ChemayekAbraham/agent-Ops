@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { format, subDays, startOfMonth, startOfYear, differenceInCalendarDays, startOfDay, endOfDay, isSameDay } from 'date-fns';
 import { toast } from 'sonner';
 import {
@@ -480,7 +480,9 @@ export function AgentProductsServicesReport() {
       if (error) throw error;
       return data as unknown as ApsReport;
     },
-    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const rawReport = reportQuery.data;
@@ -497,7 +499,9 @@ export function AgentProductsServicesReport() {
       if (error) throw error;
       return data as any;
     },
-    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   /** Actual commission EARNED in the window (ledger-backed) — not the wallet balance. */
@@ -513,7 +517,9 @@ export function AgentProductsServicesReport() {
       for (const row of (data as any[]) || []) map[row.agent_id] = Number(row.commission_earned) || 0;
       return map;
     },
-    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const report = useMemo(() => {
@@ -573,7 +579,9 @@ export function AgentProductsServicesReport() {
       if (error) throw error;
       return data as unknown as ApsCumulative;
     },
-    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const cumulative = cumulativeQuery.data ?? null;
@@ -589,7 +597,9 @@ export function AgentProductsServicesReport() {
       if (error) throw error;
       return data as unknown as AgentPopulation;
     },
-    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
 
@@ -610,7 +620,9 @@ export function AgentProductsServicesReport() {
       if (error) throw error;
       return data as unknown as ApsReport;
     },
-    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const prevCommandCenterQuery = useQuery({
@@ -624,7 +636,9 @@ export function AgentProductsServicesReport() {
       if (error) throw error;
       return data as any;
     },
-    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const prevReport = useMemo(() => {
@@ -919,7 +933,7 @@ export function AgentProductsServicesReport() {
         </CardContent>
       </Card>
 
-      {reportQuery.isLoading && (
+      {reportQuery.isLoading && !report && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
           {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
         </div>
