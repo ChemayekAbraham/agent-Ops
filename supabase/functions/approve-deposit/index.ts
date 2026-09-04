@@ -199,6 +199,12 @@ Deno.serve(async (req) => {
     // it again for re-review and possible approval. Manager-only — the
     // same role that can approve/reject in the first place.
     if (action === 'reopen') {
+      if (!user) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
       const { data: isMgr } = await supabaseAdmin
         .from('user_roles')
         .select('role')
