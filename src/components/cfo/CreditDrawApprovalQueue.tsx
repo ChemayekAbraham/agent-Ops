@@ -5,14 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
-  Loader2, CheckCircle2, Banknote, Zap, Calendar, User, Pencil, X,
+  Loader2, CheckCircle2, Banknote, Zap, Calendar, User, X,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -49,7 +47,6 @@ export function CreditDrawApprovalQueue() {
   const [edits, setEdits] = useState<Record<string, { amount: string; months: string }>>({});
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
-  const [notes, setNotes] = useState<Record<string, string>>({});
   const [confirming, setConfirming] = useState<PendingDraw | null>(null);
 
   const { data: items = [], isLoading } = useQuery<PendingDraw[]>({
@@ -90,7 +87,7 @@ export function CreditDrawApprovalQueue() {
       const amount = e?.amount ? Math.round(Number(e.amount)) : draw.amount;
       const months = e?.months ? Math.round(Number(e.months)) : draw.duration_months;
       const { data, error } = await supabase.functions.invoke('cfo-approve-credit-draw', {
-        body: { draw_id: draw.id, action: 'approve', amount, duration_months: months, notes: notes[draw.id] || null },
+        body: { draw_id: draw.id, action: 'approve', amount, duration_months: months },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -122,7 +119,7 @@ export function CreditDrawApprovalQueue() {
     mutationFn: async (drawId: string) => {
       if (rejectReason.trim().length < 5) throw new Error('Enter a rejection reason (min 5 chars)');
       const { data, error } = await supabase.functions.invoke('cfo-approve-credit-draw', {
-        body: { draw_id: drawId, action: 'reject', rejection_reason: rejectReason, notes: notes[drawId] || null },
+        body: { draw_id: drawId, action: 'reject', rejection_reason: rejectReason },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -179,7 +176,6 @@ export function CreditDrawApprovalQueue() {
                     <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Access fee</th>
                     <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Total repay</th>
                     <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Daily charge</th>
-                    <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">CFO note</th>
                     <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
@@ -237,15 +233,6 @@ export function CreditDrawApprovalQueue() {
                         <td className="px-3 py-2 text-right font-semibold text-warning whitespace-nowrap">{fmt(terms.accessFee)}</td>
                         <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">{fmt(terms.totalPayable)}</td>
                         <td className="px-3 py-2 text-right whitespace-nowrap">{fmt(terms.dailyCharge)}</td>
-                        <td className="px-3 py-2">
-                          <Textarea
-                            placeholder="Optional"
-                            value={notes[item.id] || ''}
-                            onChange={ev => setNotes(p => ({ ...p, [item.id]: ev.target.value }))}
-                            rows={1}
-                            className="text-xs min-w-[140px]"
-                          />
-                        </td>
                         <td className="px-3 py-2">
                           {rejectingId === item.id ? (
                             <div className="space-y-1 min-w-[180px]">
