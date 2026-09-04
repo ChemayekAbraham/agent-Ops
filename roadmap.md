@@ -21,4 +21,4 @@
 - [x] Match the top-up PDF to the uploaded reference and send a UGX 50,000 test email for portfolio WSP-8102.
 - [ ] Fix preview build errors from /tmp/observability/build-errors.log (Supabase edge function TypeScript errors).
 
-- [ ] Agent Ops comprehensive daily report: attach a real PDF (jsPDF builder) instead of raw HTML, with validation and hard-fail behaviour.
+- [x] Agent Ops comprehensive daily report: attach a real PDF (jsPDF builder) instead of raw HTML, with validation and hard-fail behaviour.
