@@ -354,9 +354,9 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
   }));
 
   const ranked = rentRows
-    .map(r => ({ r, exp: perAgentExpected(r), got: Number(r.collected_today) || 0 }))
-    .filter(x => x.exp > 0)
-    .map(x => ({ ...x, rate: pctNum(x.got, x.exp) }));
+    .map((r: any) => ({ r, exp: perAgentExpected(r), got: Number(r.collected_today) || 0 }))
+    .filter((x: any) => x.exp > 0)
+    .map((x: any) => ({ ...x, rate: pctNum(x.got, x.exp) }));
 
   const behaviourRow = (x: { r: any; exp: number; got: number; rate: number }) => `<tr>
     <td>${esc(x.r.agent_name)}</td>
