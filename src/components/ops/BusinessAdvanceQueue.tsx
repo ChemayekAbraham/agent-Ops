@@ -27,7 +27,6 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import {
   CheckCircle2, XCircle, Loader2, Clock, Briefcase, MapPin, Banknote, UserCheck,
-  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AssignNearbyAgentDialog } from './AssignNearbyAgentDialog';
