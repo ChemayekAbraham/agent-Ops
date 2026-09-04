@@ -573,6 +573,8 @@ export default function CFODashboardPage() {
         );
       case 'wallet-activities':
         return <CFOWalletActivities />;
+      case 'general-payout-activities':
+        return <GeneralPayoutActivities />;
       case 'earnings-explainer':
         return <EarningsExplainer role="cfo" />;
       case 'sms-log':
