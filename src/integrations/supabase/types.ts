@@ -36660,8 +36660,11 @@ export type Database = {
       }
       tppo_period_snapshots: {
         Row: {
+          arrears_outstanding_ugx: number | null
           arrears_plan_count: number
           arrears_recovered_ugx: number
+          arrears_target_plan_count: number | null
+          arrears_target_ugx: number | null
           basis: Json
           collected_total_ugx: number
           collected_ugx: number
@@ -36677,8 +36680,11 @@ export type Database = {
           unallocated_ugx: number
         }
         Insert: {
+          arrears_outstanding_ugx?: number | null
           arrears_plan_count?: number
           arrears_recovered_ugx?: number
+          arrears_target_plan_count?: number | null
+          arrears_target_ugx?: number | null
           basis?: Json
           collected_total_ugx?: number
           collected_ugx?: number
@@ -36694,8 +36700,11 @@ export type Database = {
           unallocated_ugx?: number
         }
         Update: {
+          arrears_outstanding_ugx?: number | null
           arrears_plan_count?: number
           arrears_recovered_ugx?: number
+          arrears_target_plan_count?: number | null
+          arrears_target_ugx?: number | null
           basis?: Json
           collected_total_ugx?: number
           collected_ugx?: number
