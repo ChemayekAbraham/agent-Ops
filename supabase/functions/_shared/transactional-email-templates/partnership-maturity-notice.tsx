@@ -103,10 +103,10 @@ export function PartnershipMaturityNotice({
                     <td className="padding-mobile" style={{ padding: '30px 40px', borderBottom: '1px solid #f1f5f9' }}>
                       <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
                         <tbody><tr>
-                          <td align="left" valign="middle">
+                          <td align="left" style={{ verticalAlign: "middle" }}>
                             <Img src={logo_url} alt={`${company_name} Technologies Limited`} width="130" style={{ display: 'block', maxWidth: '130px', height: 'auto' }} />
                           </td>
-                          <td align="right" valign="middle" className="hide-mobile"
+                          <td align="right" style={{ verticalAlign: "middle" }} className="hide-mobile"
                             style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px' }}>
                             MATURITY NOTICE
                           </td>
@@ -164,7 +164,7 @@ export function PartnershipMaturityNotice({
                             <td style={{ backgroundColor: '#f5f0fe', padding: '18px 28px 14px 28px' }}>
                               <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
                                 <tbody><tr>
-                                  <td valign="middle" className="ref-col">
+                                  <td style={{ verticalAlign: "middle" }} className="ref-col">
                                     <p style={{ margin: '0 0 3px 0', color: '#7c3aed', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px' }}>
                                       Partnership Summary
                                     </p>
@@ -172,7 +172,7 @@ export function PartnershipMaturityNotice({
                                       {partnership_reference || '—'}
                                     </p>
                                   </td>
-                                  <td align="right" valign="middle" className="badge-col">
+                                  <td align="right" style={{ verticalAlign: "middle" }} className="badge-col">
                                     <span style={{ display: 'inline-block', backgroundColor: '#fef9c3', color: '#854d0e', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', padding: '6px 14px', borderRadius: '100px' }}>
                                       Approaching Maturity
                                     </span>
@@ -186,21 +186,21 @@ export function PartnershipMaturityNotice({
                               <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
                                 <tbody>
                                   <tr>
-                                    <td width="50%" valign="top" className="td-block mobile-padding-bottom" style={{ paddingBottom: '18px' }}>
+                                    <td width="50%" style={{ verticalAlign: "top" }} className="td-block mobile-padding-bottom" style={{ paddingBottom: '18px' }}>
                                       <p style={{ margin: '0 0 4px 0', color: '#9333ea', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Portfolio ID</p>
                                       <p style={{ margin: 0, color: '#1e1b4b', fontSize: '15px', fontWeight: 700 }}>{portfolio_id || '—'}</p>
                                     </td>
-                                    <td width="50%" valign="top" className="td-block" style={{ paddingBottom: '18px' }}>
+                                    <td width="50%" style={{ verticalAlign: "top" }} className="td-block" style={{ paddingBottom: '18px' }}>
                                       <p style={{ margin: '0 0 4px 0', color: '#9333ea', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Partnership Amount</p>
                                       <p style={{ margin: 0, color: '#1e1b4b', fontSize: '18px', fontWeight: 800 }}>{fmtAmount}</p>
                                     </td>
                                   </tr>
                                   <tr>
-                                    <td width="50%" valign="top" className="td-block mobile-padding-bottom" style={{ paddingBottom: '6px' }}>
+                                    <td width="50%" style={{ verticalAlign: "top" }} className="td-block mobile-padding-bottom" style={{ paddingBottom: '6px' }}>
                                       <p style={{ margin: '0 0 4px 0', color: '#9333ea', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Start Date</p>
                                       <p style={{ margin: 0, color: '#475569', fontSize: '14px', fontWeight: 600 }}>{start_date || '—'}</p>
                                     </td>
-                                    <td width="50%" valign="top" className="td-block" style={{ paddingBottom: '6px' }}>
+                                    <td width="50%" style={{ verticalAlign: "top" }} className="td-block" style={{ paddingBottom: '6px' }}>
                                       <p style={{ margin: '0 0 4px 0', color: '#9333ea', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Maturity Date</p>
                                       <p style={{ margin: 0, color: '#7b19d4', fontSize: '14px', fontWeight: 700 }}>{maturity_date || '—'}</p>
                                     </td>
@@ -230,18 +230,18 @@ export function PartnershipMaturityNotice({
                         <tbody><tr>
                           <td className="opt-inner" style={{ padding: '28px 30px' }}>
                             <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
-                              <tbody><tr valign="top">
-                                <td width="62" valign="top" className="circ-col" style={{ paddingRight: '18px' }}>
+                              <tbody><tr style={{ verticalAlign: "top" }}>
+                                <td width="62" style={{ verticalAlign: "top" }} className="circ-col" style={{ paddingRight: '18px' }}>
                                   <table border={0} cellPadding={0} cellSpacing={0} role="presentation">
                                     <tbody><tr>
-                                      <td align="center" valign="middle"
+                                      <td align="center" style={{ verticalAlign: "middle" }}
                                         style={{ width: '44px', height: '44px', backgroundColor: '#7b19d4', backgroundImage: 'linear-gradient(135deg, #7b19d4 0%, #a855f7 100%)', borderRadius: '50%' }}>
                                         <span style={{ color: '#ffffff', fontSize: '17px', fontWeight: 800, lineHeight: '44px', display: 'block', width: '44px', textAlign: 'center' }}>1</span>
                                       </td>
                                     </tr></tbody>
                                   </table>
                                 </td>
-                                <td valign="top" className="content-col">
+                                <td style={{ verticalAlign: "top" }} className="content-col">
                                   <p style={{ margin: '0 0 2px 0', color: '#7c3aed', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Option 01</p>
                                   <p style={{ margin: '0 0 10px 0', color: '#3b0764', fontSize: '17px', fontWeight: 800 }}>Renew Partnership</p>
                                   <p style={{ margin: '0 0 22px 0', color: '#64748b', fontSize: '14px', lineHeight: '23px' }}>
@@ -274,18 +274,18 @@ export function PartnershipMaturityNotice({
                         <tbody><tr>
                           <td className="opt-inner" style={{ padding: '28px 30px' }}>
                             <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
-                              <tbody><tr valign="top">
-                                <td width="62" valign="top" className="circ-col" style={{ paddingRight: '18px' }}>
+                              <tbody><tr style={{ verticalAlign: "top" }}>
+                                <td width="62" style={{ verticalAlign: "top" }} className="circ-col" style={{ paddingRight: '18px' }}>
                                   <table border={0} cellPadding={0} cellSpacing={0} role="presentation">
                                     <tbody><tr>
-                                      <td align="center" valign="middle"
+                                      <td align="center" style={{ verticalAlign: "middle" }}
                                         style={{ width: '44px', height: '44px', backgroundColor: '#21C45D', backgroundImage: 'linear-gradient(135deg, #16a34a 0%, #21C45D 100%)', borderRadius: '50%' }}>
                                         <span style={{ color: '#ffffff', fontSize: '17px', fontWeight: 800, lineHeight: '44px', display: 'block', width: '44px', textAlign: 'center' }}>2</span>
                                       </td>
                                     </tr></tbody>
                                   </table>
                                 </td>
-                                <td valign="top" className="content-col">
+                                <td style={{ verticalAlign: "top" }} className="content-col">
                                   <p style={{ margin: '0 0 2px 0', color: '#16a34a', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Option 02</p>
                                   <p style={{ margin: '0 0 10px 0', color: '#14532d', fontSize: '17px', fontWeight: 800 }}>Redeem Partnership Capital</p>
                                   <p style={{ margin: '0 0 22px 0', color: '#64748b', fontSize: '14px', lineHeight: '23px' }}>

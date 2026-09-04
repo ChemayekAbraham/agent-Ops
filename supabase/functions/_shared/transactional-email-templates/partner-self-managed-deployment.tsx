@@ -82,10 +82,10 @@ export function PartnerSelfManagedDeployment({
                   <td className="padding-mobile" style={headerCell}>
                     <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
                       <tbody><tr>
-                        <td align="left" valign="middle">
+                        <td align="left" style={{ verticalAlign: "middle" }}>
                           <Img src={logo_url} alt={`${company_name} Technologies Limited`} width="130" style={logoImg} />
                         </td>
-                        <td align="right" valign="middle" className="hide-mobile" style={secureLabel}>
+                        <td align="right" style={{ verticalAlign: "middle" }} className="hide-mobile" style={secureLabel}>
                           SELF-MANAGED DEPLOYMENT
                         </td>
                       </tr></tbody>
@@ -129,31 +129,31 @@ export function PartnerSelfManagedDeployment({
                             <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
                               <tbody>
                                 <tr>
-                                  <td width="50%" valign="top" className="td-block" style={{ paddingBottom: '18px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top" }} className="td-block" style={{ paddingBottom: '18px' }}>
                                     <Text style={fieldLabel}>Capital Deployed</Text>
                                     <Text style={fieldValue}>{fmtPrincipal}</Text>
                                   </td>
-                                  <td width="50%" valign="top" className="td-block" style={{ paddingBottom: '18px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top" }} className="td-block" style={{ paddingBottom: '18px' }}>
                                     <Text style={fieldLabel}>Monthly Return</Text>
                                     <Text style={{ ...fieldValue, color: '#059669' }}>+{fmtMonthly}</Text>
                                   </td>
                                 </tr>
                                 <tr>
-                                  <td width="50%" valign="top" className="td-block" style={{ paddingBottom: '18px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top" }} className="td-block" style={{ paddingBottom: '18px' }}>
                                     <Text style={fieldLabel}>Agreed Rate</Text>
                                     <Text style={fieldValueSub}>{roi_percentage}% per month</Text>
                                   </td>
-                                  <td width="50%" valign="top" className="td-block" style={{ paddingBottom: '18px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top" }} className="td-block" style={{ paddingBottom: '18px' }}>
                                     <Text style={fieldLabel}>Term</Text>
                                     <Text style={fieldValueSub}>{term_months} month{term_months === 1 ? '' : 's'}</Text>
                                   </td>
                                 </tr>
                                 <tr>
-                                  <td width="50%" valign="top" className="td-block" style={{ paddingBottom: '6px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top" }} className="td-block" style={{ paddingBottom: '6px' }}>
                                     <Text style={fieldLabel}>Deployment Date</Text>
                                     <Text style={fieldValueSub}>{deployment_date || '—'}</Text>
                                   </td>
-                                  <td width="50%" valign="top" className="td-block" style={{ paddingBottom: '6px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top" }} className="td-block" style={{ paddingBottom: '6px' }}>
                                     <Text style={fieldLabel}>First Payout</Text>
                                     <Text style={{ ...fieldValueSub, color: '#7b19d4', fontWeight: 700 }}>{first_payout_date || '—'}</Text>
                                   </td>
@@ -181,11 +181,11 @@ export function PartnerSelfManagedDeployment({
                             <tr key={i}>
                               <td style={{ ...tenantRow, ...(isLast ? { borderBottom: 'none' } : {}) }}>
                                 <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
-                                  <tbody><tr valign="middle">
-                                    <td width="44" valign="middle" style={{ paddingRight: '14px' }}>
+                                  <tbody><tr style={{ verticalAlign: "middle" }}>
+                                    <td width="44" style={{ verticalAlign: "middle" }} style={{ paddingRight: '14px' }}>
                                       <table border={0} cellPadding={0} cellSpacing={0} role="presentation">
                                         <tbody><tr>
-                                          <td align="center" valign="middle" style={avatarCell}>
+                                          <td align="center" style={{ verticalAlign: "middle" }} style={avatarCell}>
                                             {t.tenant_photo_url
                                               ? (
                                                 <Img
@@ -201,11 +201,11 @@ export function PartnerSelfManagedDeployment({
                                         </tr></tbody>
                                       </table>
                                     </td>
-                                    <td valign="middle" className="td-block" style={{ paddingBottom: '8px' }}>
+                                    <td style={{ verticalAlign: "middle" }} className="td-block" style={{ paddingBottom: '8px' }}>
                                       <Text style={tenantName}>{t.tenant_name || 'Tenant'}</Text>
                                       <Text style={tenantLocation}>{t.tenant_location || 'Location not provided'}</Text>
                                     </td>
-                                    <td align="right" valign="middle" className="td-block" style={{ paddingBottom: '8px' }}>
+                                    <td align="right" style={{ verticalAlign: "middle" }} className="td-block" style={{ paddingBottom: '8px' }}>
                                       <Text style={tenantAmount}>{formatAmount(t.principal, currency)}</Text>
                                     </td>
                                   </tr></tbody>
