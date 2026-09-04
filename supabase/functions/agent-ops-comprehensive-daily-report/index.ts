@@ -11,6 +11,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import { buildAgentOpsComprehensiveReportHtml } from './_lib/report.ts';
+import { buildComprehensiveReportPdf } from './_lib/pdf.ts';
 
 
 const corsHeaders = {
@@ -192,7 +193,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ ok: true, from: fromDate, to: toDate, recipients }), {
+    return new Response(JSON.stringify({
+      ok: true, from: fromDate, to: toDate, recipients,
+      pdf_attached: !!pdfBytes,
+      pdf_bytes: pdfBytes?.byteLength ?? 0,
+      attachment: pdfBytes ? filename : null,
+      pdf_error: pdfError,
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
