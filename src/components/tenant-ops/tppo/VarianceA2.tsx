@@ -219,10 +219,15 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
             </p>
             <p className="flex items-baseline justify-between gap-3">
               <span className="text-muted-foreground">Rate</span>
-              <span className={`shrink-0 tabular-nums ${signedClass(rateDeltaPct)}`}>
-                {signedPct(rateDeltaPct)}
+              <span
+                className={`shrink-0 tabular-nums ${
+                  anyDifferentBasis ? 'text-muted-foreground' : signedClass(rateDeltaPct)
+                }`}
+              >
+                {anyDifferentBasis ? '—' : signedPct(rateDeltaPct)}
               </span>
             </p>
+
           </div>
         </div>
       </div>
