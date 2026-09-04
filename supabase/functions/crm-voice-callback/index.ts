@@ -339,7 +339,7 @@ Deno.serve(async (req) => {
             ...(duration > 0 ? { duration_seconds: duration } : {}),
             ...(p.recordingUrl ? { recording_url: p.recordingUrl } : {}),
             // Backfill only what is still missing — never rewrite an outcome.
-            ...(!session.hangup_cause && hangupCause ? { hangup_cause: hangupCause } : {}),
+            ...(!(session as any).hangup_cause && hangupCause ? { hangup_cause: hangupCause } : {}),
             ...(costOf() !== null ? { cost_amount: costOf(), cost_currency: p.currencyCode || null } : {}),
 
           }
