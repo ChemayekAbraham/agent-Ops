@@ -458,10 +458,10 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
   </tr>`;
 
   const advRanked = advRows
-    .map(r => ({ r, rate: pctNum(Number(r.recovered) || 0, Number(r.principal) || 0) }))
-    .filter(x => (Number(x.r.principal) || 0) > 0);
-  const advBest = [...advRanked].sort((a, b) => b.rate - a.rate).slice(0, 5).map(x => advRow(x.r));
-  const advWorst = [...advRanked].sort((a, b) => a.rate - b.rate).slice(0, 5).map(x => advRow(x.r));
+    .map((r: any) => ({ r, rate: pctNum(Number(r.recovered) || 0, Number(r.principal) || 0) }))
+    .filter((x: any) => (Number(x.r.principal) || 0) > 0);
+  const advBest = [...advRanked].sort((a: any, b: any) => b.rate - a.rate).slice(0, 5).map((x: any) => advRow(x.r));
+  const advWorst = [...advRanked].sort((a: any, b: any) => a.rate - b.rate).slice(0, 5).map((x: any) => advRow(x.r));
 
   const page3 = `
     <h2 class="section-title">Agent Advances</h2>
