@@ -1,5 +1,7 @@
 import { useState, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import WelileLogo from '@/components/WelileLogo';
 import InstallAppCard from '@/components/InstallAppCard';
 import { Button } from '@/components/ui/button';
@@ -15,7 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Menu, Settings, Download, Home, Users, Wallet, Building2, Shield, ChevronDown, LogOut, Coins, Check, GraduationCap, Briefcase, UserRound, Bell } from 'lucide-react';
+import { Menu, Settings, Download, Home, Users, Wallet, Building2, Shield, ChevronDown, LogOut, Coins, Check, GraduationCap, Briefcase, UserRound, Bell, Star } from 'lucide-react';
 
 import { hapticTap } from '@/lib/haptics';
 import { AppRole } from '@/hooks/useAuth';
@@ -112,6 +114,32 @@ const DashboardHeader = memo(function DashboardHeader({
   const visibleRoles = availableRoles.filter((role) => role in roleConfigMap);
   const hasNonPublicRole = availableRoles.some((role) => !PUBLIC_ROLES.includes(role));
 
+  // Check if current user is an executive/admin or an explicitly designated Special Agent
+  const isExecutive = availableRoles.some((r) =>
+    ['manager', 'super_admin', 'operations', 'agent_operations', 'ceo', 'coo', 'cfo'].includes(r)
+  );
+
+  const { data: isSpecialAgent = false } = useQuery({
+    queryKey: ['user-is-special-agent-header'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+      const { data, error } = await supabase
+        .from('staff_permissions')
+        .select('user_id')
+        .eq('user_id', user.id)
+        .eq('permitted_dashboard', 'agents-space')
+        .is('revoked_at', null)
+        .maybeSingle();
+
+      if (error || !data) return false;
+      return true;
+    },
+    staleTime: 30_000,
+  });
+
+  const canAccessAgentsSpace = isExecutive || isSpecialAgent;
+  const showRolePicker = availableRoles.length > 1 || canAccessAgentsSpace;
 
   return (
     <>
@@ -123,7 +151,7 @@ const DashboardHeader = memo(function DashboardHeader({
               <WelileLogo showText={false} size="sm" variant="light" linkToHome={true} />
 
               {/* Tappable role badge — opens role picker */}
-              {availableRoles.length > 1 ? (
+              {showRolePicker ? (
                 <>
                   <div className="h-3.5 w-px bg-white/20" />
                   <Popover open={rolePickerOpen} onOpenChange={setRolePickerOpen}>
@@ -139,7 +167,7 @@ const DashboardHeader = memo(function DashboardHeader({
                     <PopoverContent 
                       align="start" 
                       sideOffset={8}
-                      className="w-48 p-1.5 rounded-2xl shadow-2xl border bg-primary-foreground backdrop-blur-xl"
+                      className="w-52 p-1.5 rounded-2xl shadow-2xl border bg-primary-foreground backdrop-blur-xl"
                     >
                       <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest px-2 pt-1 pb-1.5">
                         Switch Role
@@ -178,6 +206,21 @@ const DashboardHeader = memo(function DashboardHeader({
                           >
                             <span className="text-base">👤</span>
                             <span>My space</span>
+                          </button>
+                        </>
+                      )}
+                      {canAccessAgentsSpace && (
+                        <>
+                          <div className="my-1.5 h-px bg-border" />
+                          <button
+                            onClick={() => {
+                              setRolePickerOpen(false);
+                              navigate('/agents-space');
+                            }}
+                            className="w-full flex items-center gap-2.5 px-2.5 py-2.5 rounded-xl text-sm font-medium text-foreground hover:bg-muted active:scale-[0.98] transition-all touch-manipulation min-h-[44px]"
+                          >
+                            <span className="text-base">🎖️</span>
+                            <span>Agents' Space</span>
                           </button>
                         </>
                       )}

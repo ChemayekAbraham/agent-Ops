@@ -245,6 +245,7 @@ const AdminKycConsolePage = lazy(() => import('./pages/admin/KycConsole'));
 const RoleGuard = lazy(() => import('./components/auth/RoleGuard'));
 const ProxyAgentGuard = lazy(() => import('./components/auth/ProxyAgentGuard'));
 const ExecutiveHubPage = lazy(() => import('./pages/ExecutiveHub'));
+const AgentsSpacePage = lazy(() => import('./pages/AgentsSpace'));
 const AgentPerformanceReportPage = lazy(() => import('./pages/AgentPerformanceReport'));
 const AgentProductCategoryPage = lazy(() => import('./pages/AgentProductCategoryPage'));
 const ROITrendsPage = lazy(() => import('./components/executive/ROITrendsPage'));
@@ -696,6 +697,7 @@ function AppRoutes() {
               />
             ))}
           </Route>
+          <Route path="/agents-space" element={<AgentsSpacePage />} />
           <Route path="/agent-ops/reports/tenant-portfolio-performance" element={<RoleGuard allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']}><TppoPortfolioPerformanceReport /></RoleGuard>} />
           <Route path="/agent-performance-report" element={<AgentPerformanceReportPage />} />
           <Route path="/agent-ops/products/:slug" element={<RoleGuard allowedRoles={['ceo', 'cto', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']}><AgentProductCategoryPage /></RoleGuard>} />
