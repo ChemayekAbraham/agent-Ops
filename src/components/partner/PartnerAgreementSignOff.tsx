@@ -137,6 +137,9 @@ export default function PartnerAgreementSignOff({
           setRepPosition(def?.rep_position || '');
           setRepContact(def?.rep_contact || '');
           setSigDataUrl(undefined);
+          const storedAmount = Number(ag?.partnership_amount) || 0;
+          const effectiveAmount = storedAmount > 0 ? storedAmount : portfolioTotal;
+          setAmountInput(effectiveAmount > 0 ? String(effectiveAmount) : '');
           const base = ag?.countersigned_at ? new Date(ag.countersigned_at) : new Date();
           setStampDate(
             `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}-${String(base.getDate()).padStart(2, '0')}`,
