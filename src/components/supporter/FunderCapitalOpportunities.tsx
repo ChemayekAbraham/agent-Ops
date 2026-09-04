@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, memo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 import apartmentRentIllustration from '@/assets/apartment-rent-rafiki.svg.asset.json';
@@ -369,92 +369,119 @@ const BiggestOpportunitiesPanel = memo(function BiggestOpportunitiesPanel({
       </button>
 
 
-      <div className="flex items-center gap-x-3 gap-y-2 flex-wrap">
-        <div className="flex rounded-lg border border-border/60 overflow-hidden">
-          {(['district', 'landlord'] as const).map(k => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => { hapticTap(); setBreakdownBy(k); }}
-              className={`${segBtnClass(breakdownBy === k)} capitalize`}
-            >
-              {k}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] text-muted-foreground font-medium">Rank by</span>
-          <div className="flex rounded-lg border border-border/60 overflow-hidden">
-            {([
-              { k: 'rent' as const, label: 'Rent needed' },
-              { k: 'houses' as const, label: 'Houses' },
-            ]).map(o => (
-              <button
-                key={o.k}
-                type="button"
-                onClick={() => { hapticTap(); setBreakdownSort(o.k); }}
-                className={segBtnClass(breakdownSort === o.k)}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] text-muted-foreground font-medium">Show</span>
-          <div className="flex rounded-lg border border-border/60 overflow-hidden">
-            {([
-              { k: 6 as const, label: 'Top 6' },
-              { k: 12 as const, label: 'Top 12' },
-              { k: 0 as const, label: 'All' },
-            ]).map(o => (
-              <button
-                key={o.label}
-                type="button"
-                onClick={() => { hapticTap(); setBreakdownTopN(o.k); }}
-                className={segBtnClass(breakdownTopN === o.k)}
-              >
-                {o.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1.5 rounded-lg px-2.5 text-[11px] font-bold"
+                  onClick={() => { hapticTap(); onExportPdf(top, breakdownBy, breakdownSort); }}
+                >
+                  <Download className="h-3.5 w-3.5" /> PDF
+                </Button>
+              </div>
 
-      <div className="divide-y divide-border/50">
-        {top.map((r, i) => (
-          <div key={r.label} className="py-2.5 first:pt-0 last:pb-0 space-y-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[12px] font-bold text-foreground flex items-center gap-1.5 min-w-0">
-                <span className="text-[10px] font-black text-muted-foreground w-4 shrink-0 tabular-nums">
-                  {i + 1}
-                </span>
-                {breakdownBy === 'district'
-                  ? <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
-                  : <User className="h-3.5 w-3.5 text-primary shrink-0" />}
-                <span className="truncate">{r.label}</span>
-              </p>
-              <span className="text-[11px] font-semibold text-muted-foreground shrink-0 tabular-nums">
-                {r.house_count.toLocaleString()} houses
-              </span>
+              <div className="flex items-center gap-x-3 gap-y-2 flex-wrap">
+                <div className="flex rounded-lg border border-border/60 overflow-hidden">
+                  {(['district', 'landlord'] as const).map(k => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => { hapticTap(); setBreakdownBy(k); }}
+                      className={`${segBtnClass(breakdownBy === k)} capitalize`}
+                    >
+                      {k}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-muted-foreground font-medium">Rank by</span>
+                  <div className="flex rounded-lg border border-border/60 overflow-hidden">
+                    {([
+                      { k: 'rent' as const, label: 'Rent needed' },
+                      { k: 'houses' as const, label: 'Houses' },
+                    ]).map(o => (
+                      <button
+                        key={o.k}
+                        type="button"
+                        onClick={() => { hapticTap(); setBreakdownSort(o.k); }}
+                        className={segBtnClass(breakdownSort === o.k)}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-muted-foreground font-medium">Show</span>
+                  <div className="flex rounded-lg border border-border/60 overflow-hidden">
+                    {([
+                      { k: 6 as const, label: 'Top 6' },
+                      { k: 12 as const, label: 'Top 12' },
+                      { k: 0 as const, label: 'All' },
+                    ]).map(o => (
+                      <button
+                        key={o.label}
+                        type="button"
+                        onClick={() => { hapticTap(); setBreakdownTopN(o.k); }}
+                        className={segBtnClass(breakdownTopN === o.k)}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="divide-y divide-border/50">
+                {top.map((r, i) => (
+                  <div key={r.label} className="py-2.5 first:pt-0 last:pb-0 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[12px] font-bold text-foreground flex items-center gap-1.5 min-w-0">
+                        <span className="text-[10px] font-black text-muted-foreground w-4 shrink-0 tabular-nums">
+                          {i + 1}
+                        </span>
+                        {breakdownBy === 'district'
+                          ? <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+                          : <User className="h-3.5 w-3.5 text-primary shrink-0" />}
+                        <span className="truncate">{r.label}</span>
+                      </p>
+                      <span className="text-[11px] font-semibold text-muted-foreground shrink-0 tabular-nums">
+                        {r.house_count.toLocaleString()} houses
+                      </span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all"
+                        style={{
+                          width: `${Math.max(4, Math.round(((breakdownSort === 'rent'
+                            ? r.total_rent_needed / maxRent
+                            : r.house_count / maxHouses) * 100)))}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] font-medium">
+                      <span className="text-muted-foreground">{formatAmountCompact(r.total_rent_needed)} rent needed</span>
+                      <span className="text-success font-bold">{formatAmountCompact(r.monthly_return)} / month</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{
-                  width: `${Math.max(4, Math.round(((breakdownSort === 'rent'
-                    ? r.total_rent_needed / maxRent
-                    : r.house_count / maxHouses) * 100)))}%`,
-                }}
-              />
-            </div>
-            <div className="flex items-center justify-between text-[11px] font-medium">
-              <span className="text-muted-foreground">{formatAmountCompact(r.total_rent_needed)} rent needed</span>
-              <span className="text-success font-bold">{formatAmountCompact(r.monthly_return)} / month</span>
-            </div>
-          </div>
-        ))}
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 });
