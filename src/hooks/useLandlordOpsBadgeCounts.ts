@@ -21,12 +21,13 @@ export function useLandlordOpsBadgeCounts() {
     queryKey: ['exec-house-listings-pending-count'],
     staleTime: 60_000,
     queryFn: async () => {
-      const { count } = await housesAwaitingVerification(
+      const { count, error } = await housesAwaitingVerification(
         supabase
           .from('house_listings')
           .select('id', { count: 'exact', head: true }) as unknown as QueueFilterable,
       );
-      return count || 0;
+      if (error) throw error;
+      return count ?? 0;
     },
   });
 
@@ -34,12 +35,13 @@ export function useLandlordOpsBadgeCounts() {
     queryKey: ['landlord-ops-pending-verification-count'],
     staleTime: 30_000,
     queryFn: async () => {
-      const { count } = await landlordsAwaitingVerification(
+      const { count, error } = await landlordsAwaitingVerification(
         supabase
           .from('landlords')
           .select('id', { count: 'exact', head: true }) as unknown as QueueFilterable,
       );
-      return count || 0;
+      if (error) throw error;
+      return count ?? 0;
     },
   });
 
@@ -47,12 +49,13 @@ export function useLandlordOpsBadgeCounts() {
     queryKey: ['landlord-ops-lc1-pending-count'],
     staleTime: 30_000,
     queryFn: async () => {
-      const { count } = await lc1AwaitingVerification(
+      const { count, error } = await lc1AwaitingVerification(
         supabase
           .from('v_lc1_verification_inbox')
           .select('lc1_id', { count: 'exact', head: true }) as unknown as QueueFilterable,
       );
-      return count || 0;
+      if (error) throw error;
+      return count ?? 0;
     },
   });
 
@@ -60,12 +63,13 @@ export function useLandlordOpsBadgeCounts() {
     queryKey: ['landlord-ops-pipeline-pending-count'],
     staleTime: 30_000,
     queryFn: async () => {
-      const { count } = await rentRequestsAwaitingLandlordOps(
+      const { count, error } = await rentRequestsAwaitingLandlordOps(
         supabase
           .from('rent_requests')
           .select('id', { count: 'exact', head: true }) as unknown as QueueFilterable,
       );
-      return count || 0;
+      if (error) throw error;
+      return count ?? 0;
     },
   });
 
@@ -73,12 +77,13 @@ export function useLandlordOpsBadgeCounts() {
     queryKey: ['landlord-ops-payouts-pending-count'],
     staleTime: 30_000,
     queryFn: async () => {
-      const { count } = await payoutsAwaitingLandlordOps(
+      const { count, error } = await payoutsAwaitingLandlordOps(
         supabase
           .from('agent_landlord_payouts')
           .select('id', { count: 'exact', head: true }) as unknown as QueueFilterable,
       );
-      return count || 0;
+      if (error) throw error;
+      return count ?? 0;
     },
   });
 
@@ -86,10 +91,11 @@ export function useLandlordOpsBadgeCounts() {
     queryKey: ['landlord-ops-paid-landlords-count'],
     staleTime: 60_000,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('disbursement_records')
         .select('landlord_id')
         .not('landlord_id', 'is', null);
+      if (error) throw error;
       const set = new Set<string>();
       (data || []).forEach((r: { landlord_id: string | null }) => {
         if (r.landlord_id) set.add(r.landlord_id);
@@ -111,5 +117,23 @@ export function useLandlordOpsBadgeCounts() {
       pendingLc1.isLoading ||
       pendingPipeline.isLoading ||
       pendingPayouts.isLoading,
+    /**
+     * A queue that failed to load must never render as 0 — that reads as "no
+     * work" when it actually means "we could not ask". Per-queue so one failing
+     * table does not blank the others.
+     */
+    errors: {
+      houses: pendingHouses.error,
+      landlords: pendingLandlords.error,
+      lc1: pendingLc1.error,
+      pipeline: pendingPipeline.error,
+      payouts: pendingPayouts.error,
+    },
+    isError:
+      !!pendingHouses.error ||
+      !!pendingLandlords.error ||
+      !!pendingLc1.error ||
+      !!pendingPipeline.error ||
+      !!pendingPayouts.error,
   };
 }

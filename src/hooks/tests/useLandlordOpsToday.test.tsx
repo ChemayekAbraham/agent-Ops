@@ -23,7 +23,7 @@ interface Recorded {
 
 let recorded: Recorded[] = [];
 /** table -> rows (or { count }) the stub should resolve with */
-let responses: Record<string, { data?: unknown[]; count?: number }> = {};
+let responses: Record<string, { data?: unknown[]; count?: number; error?: { message: string } }> = {};
 
 function makeBuilder(table: string) {
   const entry: Recorded = { table, ops: [] };
@@ -31,7 +31,7 @@ function makeBuilder(table: string) {
 
   const result = () => {
     const r = responses[table] ?? {};
-    return { data: r.data ?? [], count: r.count ?? 0, error: null };
+    return { data: r.data ?? [], count: r.count ?? 0, error: r.error ?? null };
   };
 
   const builder: Record<string, unknown> = {};
@@ -350,5 +350,37 @@ describe('useLandlordOpsNewToday — must be a subset of the headline', () => {
     const localMidnight = new Date();
     localMidnight.setHours(0, 0, 0, 0);
     expect(since.getTime()).toBe(localMidnight.getTime());
+  });
+});
+
+describe('a queue we could not read must not render as zero', () => {
+  it('reports the failure per queue instead of resolving to 0', async () => {
+    // e.g. an RLS policy that hides rent_requests from this role. Previously
+    // `count || 0` swallowed this and the card read "0 awaiting sign-off",
+    // indistinguishable from an empty queue.
+    responses = {
+      rent_requests: { error: { message: 'permission denied for table rent_requests' } },
+      house_listings: { count: 7 },
+    };
+
+    const { result } = renderHook(() => useLandlordOpsBadgeCounts(), { wrapper });
+    await waitFor(() => expect(result.current.errors.pipeline).toBeTruthy());
+
+    expect(result.current.isError).toBe(true);
+    expect(String((result.current.errors.pipeline as { message: string }).message)).toContain(
+      'permission denied',
+    );
+    // One failing table must not blank the others.
+    await waitFor(() => expect(result.current.pendingHouses).toBe(7));
+    expect(result.current.errors.houses).toBeFalsy();
+  });
+
+  it('has no error when every queue is genuinely empty', async () => {
+    const { result } = renderHook(() => useLandlordOpsBadgeCounts(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.isError).toBe(false);
+    expect(result.current.pendingPipeline).toBe(0);
+    expect(result.current.pendingPayouts).toBe(0);
   });
 });
