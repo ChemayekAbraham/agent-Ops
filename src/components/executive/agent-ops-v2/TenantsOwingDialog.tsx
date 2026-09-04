@@ -34,6 +34,7 @@ type TenantsOwingRow = {
   in_term: boolean;
   is_owing: boolean;
   days_past_term: number;
+  is_new_today: boolean;
   last_paid_on: string | null;
 };
 
@@ -51,6 +52,7 @@ type TenantsOwingTotals = {
   current_in_term: number;
   daily_rate_all_owing: number;
   daily_rate_past_term: number;
+  schedule_basis: string;
 };
 
 type TenantsOwingResponse = {
@@ -58,6 +60,7 @@ type TenantsOwingResponse = {
   timezone: string;
   totals: TenantsOwingTotals;
   rows: TenantsOwingRow[];
+  schedule_basis: string;
   generated_at: string;
 };
 
@@ -242,6 +245,9 @@ export function TenantsOwingDialog({
                   </div>
                   <p className="text-lg font-bold mt-1">{formatUGX(num(totals?.scheduled_today))}</p>
                   <p className="text-[11px] text-muted-foreground">{num(totals?.scheduled_today_plans)} plans on their agreed schedule</p>
+                  {totals?.schedule_basis === 'pinned' && (
+                    <Badge variant="outline" className="text-[10px] mt-1">Fixed for the day</Badge>
+                  )}
                 </Card>
                 <Card className="p-3">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -381,9 +387,17 @@ export function TenantsOwingDialog({
                             <Badge variant="outline" className="text-[10px]">
                               Due today {formatUGX(num(row.scheduled_today))}
                             </Badge>
-                          ) : (
+                          ) : row.is_new_today ? (
+                            <Badge variant="outline" className="text-[10px]">
+                              Funded today · not on today's fixed target
+                            </Badge>
+                          ) : num(row.days_past_term) > 0 ? (
                             <Badge variant="destructive" className="text-[10px]">
                               {num(row.days_past_term)} days past term
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px]">
+                              Not on today's fixed target
                             </Badge>
                           )
                         ) : (
