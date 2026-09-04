@@ -15,11 +15,11 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell,
 } from 'recharts';
 import {
-  CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown,
+  CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown, AlertTriangle,
 } from 'lucide-react';
 import { ComprehensiveReportButton } from './ComprehensiveReportButton';
 import { NextSevenDaysExpected } from './NextSevenDaysExpected';
-import { format, startOfDay, endOfDay, subDays, startOfMonth, startOfYear, addDays } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay, subDays, startOfMonth, startOfYear, addDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 import { generateAgentCollectionsStatementPdf } from '@/lib/agentCollectionsStatementPdf';
@@ -83,6 +83,7 @@ interface CommandCenterData {
   totals: {
     collected: number; collections_count: number; active_agents: number; tenants_paid: number;
     avg_collection: number; requests_count: number; requests_amount: number; days: number;
+    expected_due: number; defaulted_to_date: number; defaulted_plans: number; defaulted_as_of: string; span_days: number;
   };
   series: { bucket: string; collected: number; collections_count: number; requests_amount: number; requests_count: number }[];
   peak_hours: { hour: number; amount: number; count: number }[];
@@ -92,6 +93,7 @@ interface CommandCenterData {
     expected_daily: number; expected: number; expected_source: 'history' | 'projected';
     last_collection_at: string | null;
   }[];
+  expected_daily: { day: string; expected_ugx: number; plans: number; elapsed: boolean }[];
   generated_at: string;
 }
 
@@ -207,7 +209,7 @@ export function AgentCollectionsCommandCenter() {
     [agents],
   );
 
-  const expectedTotal = agents.reduce((s, a) => s + a.expected, 0);
+  const expectedTotal = num(totals?.expected_due);
   const [exporting, setExporting] = useState(false);
 
   const exportStatementPdf = async () => {
@@ -222,7 +224,7 @@ export function AgentCollectionsCommandCenter() {
         generatedAt: data.generated_at,
         totals: {
           collected: num(data.totals?.collected),
-          expected: agents.reduce((s, a) => s + a.expected, 0),
+          expected: num(data.totals?.expected_due),
           collections_count: num(data.totals?.collections_count),
           avg_collection: num(data.totals?.avg_collection),
           active_agents: num(data.totals?.active_agents),
