@@ -31105,6 +31105,7 @@ export type Database = {
           reopen_reason: string | null
           reopened_at: string | null
           reopened_by: string | null
+          repayment_starts_on: string | null
           request_city: string | null
           request_country: string | null
           request_fee: number
@@ -31234,6 +31235,7 @@ export type Database = {
           reopen_reason?: string | null
           reopened_at?: string | null
           reopened_by?: string | null
+          repayment_starts_on?: string | null
           request_city?: string | null
           request_country?: string | null
           request_fee: number
@@ -31363,6 +31365,7 @@ export type Database = {
           reopen_reason?: string | null
           reopened_at?: string | null
           reopened_by?: string | null
+          repayment_starts_on?: string | null
           request_city?: string | null
           request_country?: string | null
           request_fee?: number
@@ -43493,6 +43496,7 @@ export type Database = {
           reopen_reason: string | null
           reopened_at: string | null
           reopened_by: string | null
+          repayment_starts_on: string | null
           request_city: string | null
           request_country: string | null
           request_fee: number
