@@ -107,6 +107,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
       scheduled: earlier?.scheduled_due_ugx ?? null,
       collected: earlier?.collected_ugx ?? null,
       rate: earlier?.collection_rate_pct ?? null,
+      arrearsTarget: earlier?.arrears_target_ugx ?? null,
       current: false,
       basisVersion: basisVersionOf(earlier),
     },
@@ -116,6 +117,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
       scheduled: report?.prior?.scheduled_due_ugx ?? null,
       collected: report?.prior?.collected_ugx ?? null,
       rate: report?.prior?.collection_rate_pct ?? null,
+      arrearsTarget: report?.prior?.arrears_target_ugx ?? null,
       current: false,
       basisVersion: basisVersionOf(report?.prior),
     },
@@ -125,6 +127,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
       scheduled: report?.scheduled_due_ugx ?? null,
       collected: report?.collected_ugx ?? null,
       rate: report?.collection_rate_pct ?? null,
+      arrearsTarget: report?.arrears_target_ugx ?? null,
       current: true,
       basisVersion: currentBasis,
     },
@@ -133,6 +136,13 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
   const anyDifferentBasis = rows.some((row) => row.differentBasis);
 
   const money = (value: number | null) => (value === null ? '—' : formatUGX(value));
+
+  const currentArrearsTarget = report?.arrears_target_ugx ?? null;
+  const priorArrearsTarget = report?.prior?.arrears_target_ugx ?? null;
+  const arrearsTargetDelta =
+    currentArrearsTarget !== null && priorArrearsTarget !== null
+      ? currentArrearsTarget - priorArrearsTarget
+      : null;
 
 
   return (
@@ -192,6 +202,10 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
                 <span className="shrink-0 tabular-nums">{money(row.collected)}</span>
               </p>
               <p className="flex items-baseline justify-between gap-3">
+                <span className="text-muted-foreground">Arrears target</span>
+                <span className="shrink-0 tabular-nums">{money(row.arrearsTarget)}</span>
+              </p>
+              <p className="flex items-baseline justify-between gap-3">
                 <span className="text-muted-foreground">Rate</span>
                 <span className="shrink-0 tabular-nums">
                   {row.differentBasis ? '—' : rateText(row.rate)}
@@ -218,6 +232,12 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
               </span>
             </p>
             <p className="flex items-baseline justify-between gap-3">
+              <span className="text-muted-foreground">Arrears target</span>
+              <span className={`shrink-0 tabular-nums ${signedClass(arrearsTargetDelta)}`}>
+                {arrearsTargetDelta === null ? '—' : signedMoney(arrearsTargetDelta)}
+              </span>
+            </p>
+            <p className="flex items-baseline justify-between gap-3">
               <span className="text-muted-foreground">Rate</span>
               <span
                 className={`shrink-0 tabular-nums ${
@@ -240,6 +260,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
               <th scope="col" className="py-2 pr-3 font-medium">Period</th>
               <th scope="col" className="py-2 pr-3 text-right font-medium">Scheduled due (own period)</th>
               <th scope="col" className="py-2 pr-3 text-right font-medium">Collected</th>
+              <th scope="col" className="py-2 pr-3 text-right font-medium">Arrears target</th>
               <th scope="col" className="py-2 text-right font-medium">Rate</th>
             </tr>
           </thead>
@@ -262,6 +283,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
                 </td>
                 <td className="py-2 pr-3 text-right tabular-nums">{money(row.scheduled)}</td>
                 <td className="py-2 pr-3 text-right tabular-nums">{money(row.collected)}</td>
+                <td className="py-2 pr-3 text-right tabular-nums">{money(row.arrearsTarget)}</td>
                 <td className="py-2 text-right tabular-nums">
                   {row.differentBasis ? '—' : rateText(row.rate)}
                 </td>
@@ -274,6 +296,9 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
               </td>
               <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">
                 —
+              </td>
+              <td className={`py-2 pr-3 text-right tabular-nums ${arrearsTargetDelta === null ? 'text-muted-foreground' : signedClass(arrearsTargetDelta)}`}>
+                {arrearsTargetDelta === null ? '—' : signedMoney(arrearsTargetDelta)}
               </td>
               <td
                 className={`py-2 text-right tabular-nums ${
