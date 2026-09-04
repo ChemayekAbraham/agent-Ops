@@ -462,9 +462,14 @@ export function TenantCallingCenter() {
                 <ListChecks className="h-4 w-4 text-primary" />
                 {activeQueueTab.label}
               </CardTitle>
-              <Badge variant="outline" className="text-[10px]">
-                {hub.total.toLocaleString()} rows
-              </Badge>
+              <div className="flex items-center gap-1.5">
+                {hub.isLoading && stableRows.length > 0 && (
+                  <span className="text-[10px] font-medium text-muted-foreground">Updating…</span>
+                )}
+                <Badge variant="outline" className="text-[10px]">
+                  {hub.total.toLocaleString()} rows
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent className="min-w-0 overflow-x-auto p-2 sm:p-3">
               {hub.error && (
@@ -478,7 +483,7 @@ export function TenantCallingCenter() {
                   <PhoneOutgoing className="mx-auto h-5 w-5 text-muted-foreground" />
                   <p className="mt-2 text-xs text-muted-foreground">No open calling cycle for tenants.</p>
                 </div>
-              ) : hub.isLoading ? (
+              ) : hub.isLoading && !displayRows.length ? (
                 <div className="space-y-2">
                   <Skeleton className="h-8 w-full" />
                   <Skeleton className="h-8 w-full" />
@@ -487,19 +492,20 @@ export function TenantCallingCenter() {
                 </div>
               ) : (
                 /* The Hub's own table renderer, same columns contract, same look.
-                   "Call" here reveals *and* dials through the Center's dialer. */
+                   The action opens the tenant details modal; the call starts there. */
                 <CallingHubTable
-                  columns={activeQueueTab.columns}
-                  rows={hub.rows}
+                  columns={leanColumns}
+                  rows={displayRows}
                   metricLabel={metricLabel}
                   revealed={revealedPhones}
                   revealing={dialer.starting || hub.reveal.isPending}
                   wipBlocked={hub.wipBlocked}
-                  onReveal={(row) => void dialer.dial(row)}
+                  onReveal={openDetails}
                   actionLabels={CALL_ACTION_LABELS}
                   actionIcon={Phone}
                 />
               )}
+
 
 
               {hub.total > hub.pageSize && (
