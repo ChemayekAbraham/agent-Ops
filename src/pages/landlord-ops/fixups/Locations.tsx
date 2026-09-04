@@ -1,11 +1,5 @@
-import { LocationReconciliationCard } from '@/components/executive/landlord-ops/LocationReconciliationCard';
-import { LocationHierarchyView } from '@/components/executive/landlord-ops/LocationHierarchyView';
+import { LandlordOpsDashboard } from '@/components/executive/LandlordOpsDashboard';
 
 export default function Locations() {
-  return (
-    <div className="space-y-4">
-      <LocationReconciliationCard />
-      <LocationHierarchyView />
-    </div>
-  );
+  return <LandlordOpsDashboard view="locations" hideOverview />;
 }
