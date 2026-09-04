@@ -354,7 +354,7 @@ export default function TasksList() {
         onOpenChange={setOpen}
         departments={departments}
         assignees={employees}
-        onCreated={() => void load()}
+        onCreated={() => void load({ silent: true })}
       />
     </div>
   );
