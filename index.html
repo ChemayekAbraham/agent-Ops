@@ -7,7 +7,24 @@
          opened welilereceipts.com link to welileapp.com triggers Chrome's legacy-domain-guard-allow
          "Did you mean welilereceipts.com?" lookalike interstitial (on legacy-domain-guard-allow
          about:blank) inside in-app browsers. Canonicalization for SEO is
-         handled by the <link rel="canonical"> tag below, not by redirecting. -->
+         handled by the <link rel="canonical"> tag below, not by redirecting.
+
+         welile.tech is the one exception: it's fully retired (see legacy-domain-guard-allow
+         mem/constraints/canonical-domain.md) but its DNS still resolves here, legacy-domain-guard-allow
+         so old links/bookmarks still load the live app on it — including a
+         broken Google/Apple sign-in, since that host was never registered as
+         an OAuth callback target. Unlike welilereceipts.com, welile.tech has legacy-domain-guard-allow
+         no character-level resemblance to welileapp.com under a different
+         TLD, so it doesn't trip Chrome's lookalike-domain interstitial and a
+         client-side redirect is safe here. Runs before every other script so
+         a welile.tech visitor never boots the app on the dead host. legacy-domain-guard-allow -->
+    <script>
+      (function () {
+        if (/(^|\.)welile\.tech$/i.test(window.location.hostname)) { // legacy-domain-guard-allow
+          window.location.replace('https://welileapp.com' + window.location.pathname + window.location.search + window.location.hash);
+        }
+      })();
+    </script>
     <!-- Google Tag Manager -->
     <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
     new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
