@@ -570,16 +570,34 @@ export function GeneralPayoutActivities() {
       {/* Filters & table */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <History className="h-4 w-4 text-muted-foreground" />
-            Payout records
-            {isFetching && !isLoading && (
-              <span className="text-xs font-normal text-muted-foreground">Updating…</span>
-            )}
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Period: {window.label}
-          </p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <History className="h-4 w-4 text-muted-foreground" />
+                Payout records
+                {isFetching && !isLoading && (
+                  <span className="text-xs font-normal text-muted-foreground">Updating…</span>
+                )}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Period: {window.label}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1.5 text-xs"
+              onClick={handleDownload}
+              disabled={downloading}
+            >
+              {downloading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5" />
+              )}
+              {downloading ? 'Preparing…' : 'Download Payout (CSV)'}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="border-b border-border bg-muted/30 px-4 py-3">
