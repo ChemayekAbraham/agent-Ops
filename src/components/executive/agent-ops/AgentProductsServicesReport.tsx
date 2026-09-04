@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { format, subDays, startOfMonth, startOfYear, differenceInCalendarDays } from 'date-fns';
+import { format, subDays, startOfMonth, startOfYear, differenceInCalendarDays, startOfDay, endOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -481,6 +481,21 @@ export function AgentProductsServicesReport() {
 
   const rawReport = reportQuery.data;
 
+  /** Fetch canonical schedule expectations from command center RPC (which derives from v_rent_plan_schedule). */
+  const commandCenterQuery = useQuery({
+    queryKey: ['agent-collections-command-center-aps', startOfDay(day).toISOString(), endOfDay(today).toISOString()],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_collections_command_center', {
+        p_start: startOfDay(day).toISOString(),
+        p_end: endOfDay(today).toISOString(),
+        p_bucket: 'day',
+      });
+      if (error) throw error;
+      return data as any;
+    },
+    staleTime: 60_000,
+  });
+
   /** Actual commission EARNED in the window (ledger-backed) — not the wallet balance. */
   const commissionQuery = useQuery({
     queryKey: ['agent-commission-earned', dayKey, todayKey],
@@ -500,15 +515,52 @@ export function AgentProductsServicesReport() {
   const report = useMemo(() => {
     if (!rawReport) return rawReport;
     const map = commissionQuery.data;
-    if (!map) return rawReport;
+    const cc = commandCenterQuery.data;
+
+    let rent = rawReport.rent;
+    let rent_rows = rawReport.rent_rows || [];
+
+    if (cc?.totals && Number(cc.totals.expected_due) !== undefined) {
+      const ccAgentMap: Record<string, { expected: number; expected_daily: number }> = {};
+      for (const a of cc.agents || []) {
+        ccAgentMap[a.agent_id] = {
+          expected: Number(a.expected) || 0,
+          expected_daily: Number(a.expected_daily) || 0,
+        };
+      }
+
+      const expectedDue = Number(cc.totals.expected_due) || 0;
+      const days = Math.max(1, rangeDays);
+      const dailyReceivable = rangeDays === 1 ? expectedDue : (expectedDue / days);
+
+      rent = {
+        ...rawReport.rent,
+        expected_cumulative: expectedDue,
+        daily_receivable: dailyReceivable,
+        expected_days: rangeDays,
+      };
+
+      rent_rows = rent_rows.map(r => {
+        const agentExp = ccAgentMap[r.agent_id];
+        if (!agentExp) return r;
+        return {
+          ...r,
+          expected_cumulative: agentExp.expected,
+          daily_receivable: rangeDays === 1 ? agentExp.expected : (agentExp.expected_daily || agentExp.expected / days),
+        };
+      });
+    }
+
     return {
       ...rawReport,
+      rent,
+      rent_rows,
       agent_float_rows: (rawReport.agent_float_rows || []).map(r => ({
         ...r,
-        commission_balance: Number(map[(r as any).agent_id] ?? 0),
+        commission_balance: Number(map?.[(r as any).agent_id] ?? 0),
       })),
     };
-  }, [rawReport, commissionQuery.data]);
+  }, [rawReport, commissionQuery.data, commandCenterQuery.data, rangeDays]);
 
   const cumulativeQuery = useQuery({
     queryKey: ['agent-products-cumulative', todayKey],
@@ -557,7 +609,40 @@ export function AgentProductsServicesReport() {
     staleTime: 60_000,
   });
 
-  const prevReport = prevQuery.data ?? null;
+  const prevCommandCenterQuery = useQuery({
+    queryKey: ['agent-collections-command-center-aps-prev', startOfDay(prevFrom).toISOString(), endOfDay(prevTo).toISOString()],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_collections_command_center', {
+        p_start: startOfDay(prevFrom).toISOString(),
+        p_end: endOfDay(prevTo).toISOString(),
+        p_bucket: 'day',
+      });
+      if (error) throw error;
+      return data as any;
+    },
+    staleTime: 60_000,
+  });
+
+  const prevReport = useMemo(() => {
+    const rawPrev = prevQuery.data;
+    if (!rawPrev) return null;
+    const prevCc = prevCommandCenterQuery.data;
+    if (!prevCc?.totals || Number(prevCc.totals.expected_due) === undefined) return rawPrev;
+
+    const expectedDue = Number(prevCc.totals.expected_due) || 0;
+    const days = Math.max(1, rangeDays);
+    const dailyReceivable = rangeDays === 1 ? expectedDue : (expectedDue / days);
+
+    return {
+      ...rawPrev,
+      rent: {
+        ...rawPrev.rent,
+        expected_cumulative: expectedDue,
+        daily_receivable: dailyReceivable,
+        expected_days: rangeDays,
+      },
+    };
+  }, [prevQuery.data, prevCommandCenterQuery.data, rangeDays]);
 
   /** Previous-period values for every KPI (falls back to the RPC's day-over-day fields). */
   const pop = useMemo(() => {
