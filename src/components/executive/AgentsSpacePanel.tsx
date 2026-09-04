@@ -13,6 +13,9 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
 import {
   Loader2, Plus, Clock, CheckCircle2, XCircle, HelpCircle, Wallet, Paperclip, Upload,
@@ -138,10 +141,24 @@ function StatusPill({ row }: { row: Requisition }) {
   );
 }
 
+const AGENTS_SPACE_CATEGORIES = [
+  'Salaries',
+  'Transport',
+  'Food',
+  'Office Rent',
+  'Internet',
+  'Airtime',
+  'Stationery',
+  'Property & Equipment',
+  'Eviction & Enforcement',
+  'Financial Agent Requisitions',
+  'Others',
+] as const;
+
 const EMPTY_FORM = {
-  title: '',
-  amount: '',
   category: '',
+  customTitle: '',
+  amount: '',
   needed_by: '',
   reason: '',
 };
@@ -441,33 +458,56 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
 
   const startResubmit = (row: Requisition) => {
     setResubmitId(row.id);
-    const cleanedCategory = (row.category ?? '').replace(/\[Agents Space\]\s*/i, '');
-    setForm({
-      title: row.title,
-      amount: String(row.amount),
-      category: cleanedCategory,
-      needed_by: row.needed_by ?? '',
-      reason: row.reason,
-    });
+    const cleanedCategory = (row.category ?? '').replace(/\[Agents Space\]\s*/i, '').trim();
+    const isPredefinedCat = AGENTS_SPACE_CATEGORIES.some((c) => c !== 'Others' && c.toLowerCase() === cleanedCategory.toLowerCase());
+    const isPredefinedTitle = AGENTS_SPACE_CATEGORIES.some((c) => c !== 'Others' && c.toLowerCase() === (row.title ?? '').toLowerCase());
+
+    if (isPredefinedCat) {
+      const match = AGENTS_SPACE_CATEGORIES.find((c) => c.toLowerCase() === cleanedCategory.toLowerCase())!;
+      setForm({
+        category: match,
+        customTitle: '',
+        amount: String(row.amount),
+        needed_by: row.needed_by ?? '',
+        reason: row.reason,
+      });
+    } else if (isPredefinedTitle) {
+      const match = AGENTS_SPACE_CATEGORIES.find((c) => c.toLowerCase() === (row.title ?? '').toLowerCase())!;
+      setForm({
+        category: match,
+        customTitle: '',
+        amount: String(row.amount),
+        needed_by: row.needed_by ?? '',
+        reason: row.reason,
+      });
+    } else {
+      setForm({
+        category: 'Others',
+        customTitle: row.title || cleanedCategory || '',
+        amount: String(row.amount),
+        needed_by: row.needed_by ?? '',
+        reason: row.reason,
+      });
+    }
     setOpenSubmit(true);
   };
 
   const submitRequisition = async () => {
     const amount = Number(form.amount);
-    if (!form.title.trim()) return toast.error('Enter a short title');
+    if (!form.category) return toast.error('Please select what this requisition is for');
+
+    const finalTitle = form.category === 'Others' ? form.customTitle.trim() : form.category;
+    if (!finalTitle) return toast.error('Please specify what this requisition is for');
     if (!Number.isFinite(amount) || amount <= 0) return toast.error('Enter a valid amount');
     if (form.reason.trim().length < 10) return toast.error('Explain the request in at least 10 characters');
 
-    const rawCategory = form.category.trim();
-    const taggedCategory = rawCategory
-      ? `[${AGENTS_SPACE_TAG}] ${rawCategory}`
-      : `[${AGENTS_SPACE_TAG}] Field Operations`;
+    const taggedCategory = `[${AGENTS_SPACE_TAG}] ${form.category === 'Others' ? (finalTitle || 'Others') : form.category}`;
 
     setSubmitting(true);
     const { error } = await invokeEdgeFunction('staff-requisition-submit', {
       body: {
         ...(resubmitId ? { requisition_id: resubmitId } : {}),
-        title: form.title.trim(),
+        title: finalTitle,
         amount,
         category: taggedCategory,
         needed_by: form.needed_by || null,
@@ -607,16 +647,40 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
                     Your request is routed for review and credited to your wallet once approved.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-3 pt-2">
+                <div className="space-y-4 pt-2">
                   <div className="space-y-2">
-                    <Label htmlFor="req-title">What is it for</Label>
-                    <Input
-                      id="req-title"
-                      value={form.title}
-                      onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                      placeholder="Field data bundles, fuel or operational logistics"
-                      className="rounded-xl"
-                    />
+                    <Label htmlFor="req-category">What is it for</Label>
+                    <Select
+                      value={form.category}
+                      onValueChange={(val) => setForm((f) => ({ ...f, category: val }))}
+                    >
+                      <SelectTrigger id="req-category" className="rounded-xl h-11 bg-background border-border">
+                        <SelectValue placeholder="Select a subcategory..." />
+                      </SelectTrigger>
+                      <SelectContent className="z-[300] bg-popover border-border">
+                        {AGENTS_SPACE_CATEGORIES.map((cat) => (
+                          <SelectItem key={cat} value={cat} className="cursor-pointer">
+                            {cat}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {form.category === 'Others' && (
+                      <div className="pt-1.5 space-y-1.5 animate-in fade-in-50 duration-200">
+                        <Label htmlFor="req-custom-title" className="text-xs text-muted-foreground font-medium">
+                          Specify what it is for
+                        </Label>
+                        <Input
+                          id="req-custom-title"
+                          value={form.customTitle}
+                          onChange={(e) => setForm((f) => ({ ...f, customTitle: e.target.value }))}
+                          placeholder="e.g. Field data bundles, fuel or operational logistics"
+                          className="rounded-xl h-11"
+                          autoFocus
+                        />
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="req-amount">Amount (UGX)</Label>
@@ -626,7 +690,7 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
                       value={form.amount}
                       onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value.replace(/[^0-9.]/g, '') }))}
                       placeholder="250000"
-                      className="rounded-xl"
+                      className="rounded-xl h-11"
                     />
                   </div>
                   <div className="space-y-2">
