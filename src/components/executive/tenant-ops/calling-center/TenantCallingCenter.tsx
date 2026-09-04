@@ -601,6 +601,17 @@ export function TenantCallingCenter() {
 
       </Tabs>
 
+      <TenantCallDetailsDialog
+        hub={hub}
+        row={detailsRow}
+        open={!!detailsRow}
+        starting={dialer.starting || hub.reveal.isPending}
+        canCall={!!detailsRow && detailsRow.state !== 'engaged'}
+        wipBlocked={hub.wipBlocked}
+        onCall={callFromDetails}
+        onClose={() => setDetailsRow(null)}
+      />
+
       <RecordOutcomeDialog
         hub={hub}
         attempt={formAttempt}
