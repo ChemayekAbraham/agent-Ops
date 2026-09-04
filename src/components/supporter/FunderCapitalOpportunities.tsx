@@ -475,10 +475,8 @@ export function FunderCapitalOpportunities() {
   // Empty-house funding calculator + breakdown UI state (display only)
   const [calcHouses, setCalcHouses] = useState(5);
   const [calcAmountInput, setCalcAmountInput] = useState('');
-  const [breakdownBy, setBreakdownBy] = useState<'district' | 'landlord'>('district');
   const [calcOpen, setCalcOpen] = useState(false);
-  const [breakdownSort, setBreakdownSort] = useState<'rent' | 'houses'>('rent');
-  const [breakdownTopN, setBreakdownTopN] = useState<6 | 12 | 0>(6); // 0 = all
+
   const [feeRatePct, setFeeRatePct] = useState(EMPTY_HOUSE_SERVICE_FEE_RATE * 100);
 
   // Export the currently ranked district/landlord breakdown as a PDF (display only)
