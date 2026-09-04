@@ -521,7 +521,7 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
 
   // ---------- Page 4: service centres ---------------------------------------
   const scRows = report.service_centre_rows || [];
-  const scTable = scRows.slice(0, 40).map(r => `<tr>
+  const scTable = scRows.slice(0, 40).map((r: any) => `<tr>
     <td>${esc(r.location_name || '—')}</td>
     <td><div class="agent-stack"><span class="agent-stack-item">${esc(r.agent_name)}</span>
       <span class="agent-stack-sub font-mono">${esc(r.agent_phone || '—')}</span></div></td>
@@ -572,11 +572,11 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
     byProduct.get(key)!.push(r);
   }
 
-  const productSummary = [...byProduct.entries()].flatMap(([label, rows]) => {
-    const issued = rows.filter(r => r.is_issued);
-    const value = issued.reduce((s, r) => s + (Number(r.value) || 0), 0);
-    const paid = issued.reduce((s, r) => s + (Number(r.paid) || 0), 0);
-    const out = issued.reduce((s, r) => s + pos(Number(r.outstanding) || 0), 0);
+  const productSummary = [...byProduct.entries()].flatMap(([label, rows]: [string, any[]]) => {
+    const issued = rows.filter((r: any) => r.is_issued);
+    const value = issued.reduce((s: number, r: any) => s + (Number(r.value) || 0), 0);
+    const paid = issued.reduce((s: number, r: any) => s + (Number(r.paid) || 0), 0);
+    const out = issued.reduce((s: number, r: any) => s + pos(Number(r.outstanding) || 0), 0);
     const parent = `<tr class="parent-row">
       <td>${esc(label)}</td>
       <td class="right num">${num(rows.length)}</td>
@@ -594,11 +594,11 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
       if (!byItem.has(k)) byItem.set(k, []);
       byItem.get(k)!.push(r);
     }
-    const children = [...byItem.entries()].map(([item, items]) => {
-      const iss = items.filter(r => r.is_issued);
-      const v = iss.reduce((s, r) => s + (Number(r.value) || 0), 0);
-      const p = iss.reduce((s, r) => s + (Number(r.paid) || 0), 0);
-      const o = iss.reduce((s, r) => s + pos(Number(r.outstanding) || 0), 0);
+    const children = [...byItem.entries()].map(([item, items]: [string, any[]]) => {
+      const iss = items.filter((r: any) => r.is_issued);
+      const v = iss.reduce((s: number, r: any) => s + (Number(r.value) || 0), 0);
+      const p = iss.reduce((s: number, r: any) => s + (Number(r.paid) || 0), 0);
+      const o = iss.reduce((s: number, r: any) => s + pos(Number(r.outstanding) || 0), 0);
       return `<tr class="child-row">
         <td>→ ${esc(item)}</td>
         <td class="right num">${num(items.length)}</td>
