@@ -675,10 +675,10 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
       <thead><tr><th>Indicator</th><th class="right">Value</th><th>Indicator</th><th class="right">Value</th></tr></thead>
       <tbody>
         <tr><td>Agents with activity in period</td><td class="right num">${num(floatRows.length)}</td>
-            <td>Agents that collected</td><td class="right num">${num(floatRows.filter(f => Number(f.collections_count) > 0).length)}</td></tr>
-        <tr><td>Total collected by agents</td><td class="right currency">${ugx(floatRows.reduce((s, f) => s + (Number(f.collections_amount) || 0), 0))}</td>
-            <td>Collection transactions</td><td class="right num">${num(floatRows.reduce((s, f) => s + (Number(f.collections_count) || 0), 0))}</td></tr>
-        <tr><td>Commission earned in period</td><td class="right currency">${ugx(floatRows.reduce((s, f) => s + (Number(f.commission_balance) || 0), 0))}</td>
+            <td>Agents that collected</td><td class="right num">${num(floatRows.filter((f: any) => Number(f.collections_count) > 0).length)}</td></tr>
+        <tr><td>Total collected by agents</td><td class="right currency">${ugx(floatRows.reduce((s: number, f: any) => s + (Number(f.collections_amount) || 0), 0))}</td>
+            <td>Collection transactions</td><td class="right num">${num(floatRows.reduce((s: number, f: any) => s + (Number(f.collections_count) || 0), 0))}</td></tr>
+        <tr><td>Commission earned in period</td><td class="right currency">${ugx(floatRows.reduce((s: number, f: any) => s + (Number(f.commission_balance) || 0), 0))}</td>
             <td>Leaderboard score</td><td class="right">${PENDING}</td></tr>
       </tbody>
     </table>
