@@ -262,11 +262,14 @@ export function StaffRequisitionQueue() {
     if (!error) {
       toast.success(
         actionType === 'approve'
-          ? 'Approved — the requisition moved forward'
+          ? (reduceMode
+            ? `Approved at the reduced amount of ${formatUGX(amount)}`
+            : 'Approved — the requisition moved forward')
           : actionType === 'reject'
             ? 'Requisition declined'
             : 'Sent back to the requester',
       );
+
       setActive(null);
       setComment('');
       await fetchAll();
