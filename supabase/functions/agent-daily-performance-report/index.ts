@@ -756,7 +756,7 @@ Deno.serve(async (req) => {
       const t = totalsOf(rows);
       if (body?.pdf === true) {
         const pdf = buildPdf(rows, t, dateStr);
-        return new Response(pdf, {
+        return new Response(pdf as unknown as BodyInit, {
           headers: {
             ...corsHeaders,
             "Content-Type": "application/pdf",
