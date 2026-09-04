@@ -440,10 +440,10 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
 
   // ---------- Page 3: advances ----------------------------------------------
   const advRows = report.advance_rows || [];
-  const recovered = advRows.reduce((s, r) => s + (Number(r.recovered) || 0), 0);
+  const recovered = advRows.reduce((s: number, r: any) => s + (Number(r.recovered) || 0), 0);
   const advOutstanding = pos(Number(adv.outstanding) || 0);
   const recoveryRate = pctNum(recovered, recovered + advOutstanding);
-  const agentsWithAdvances = new Set(advRows.map(r => r.agent_name)).size;
+  const agentsWithAdvances = new Set(advRows.map((r: any) => r.agent_name)).size;
 
   const advRow = (r: any) => `<tr>
     <td>${esc(r.agent_name)}</td>
