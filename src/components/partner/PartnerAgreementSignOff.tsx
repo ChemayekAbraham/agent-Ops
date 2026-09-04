@@ -231,7 +231,10 @@ export default function PartnerAgreementSignOff({
       // A changed stamp date must land in the stored/emailed PDF, so re-render
       // instead of resending the previously stored file.
       const stampChanged = !!stampDate && stampDate !== storedStamp;
-      if (alreadySigned && !stampChanged) {
+      // Same for an edited partnership amount — the stored PDF is stale.
+      const amountChanged =
+        (Number(amountInput) || 0) !== (Number(agreement?.partnership_amount) || 0);
+      if (alreadySigned && !stampChanged && !amountChanged) {
         const { data, error } = await supabase.functions.invoke('resend-partner-agreement-email', {
           body: { partnerId: partner.id },
         });
