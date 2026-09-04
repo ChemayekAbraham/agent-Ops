@@ -58,6 +58,22 @@ export function CFOReceivablesTracker() {
   const totalAdvanceOutstanding = totalAdvanceFees - totalAdvanceCollected;
   const advanceCollectionRate = totalAdvanceFees > 0 ? (totalAdvanceCollected / totalAdvanceFees) * 100 : 0;
 
+  // Headline KPI totals — must cover every matching rent plan, not just the
+  // most recent ones, or the "Funded"/"Rent Outstanding" cards silently
+  // undercount against uncapped figures shown elsewhere (e.g. Overdue).
+  const { data: totalsRows = [] } = useQuery({
+    queryKey: ['cfo-receivables-totals'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('rent_requests')
+        .select('rent_amount, amount_repaid, total_repayment, access_fee, request_fee, status')
+        .in('status', ['funded', 'disbursed', 'repaying', 'completed']);
+      if (error) throw error;
+      return (data || []) as Pick<Receivable, 'rent_amount' | 'amount_repaid' | 'total_repayment' | 'access_fee' | 'request_fee' | 'status'>[];
+    },
+    staleTime: 300_000,
+  });
+
   const { data: receivables, isLoading } = useQuery({
     queryKey: ['cfo-receivables'],
     queryFn: async () => {
@@ -106,8 +122,9 @@ export function CFOReceivablesTracker() {
 
   const rows = receivables || [];
 
-  // Revenue recognition calculations
-  const totals = rows.reduce((acc, r) => {
+  // Revenue recognition calculations — computed over the full uncapped set
+  // (totalsRows), not the recency-capped display list (rows).
+  const totals = totalsRows.reduce((acc, r) => {
     const totalFees = r.access_fee + r.request_fee;
     const grossRepayment = r.total_repayment > 0 ? r.total_repayment : r.rent_amount + totalFees;
     const repaymentRatio = grossRepayment > 0 ? r.amount_repaid / grossRepayment : 0;
@@ -139,8 +156,8 @@ export function CFOReceivablesTracker() {
   const totalRevenue = totals.totalAccessFees + totals.totalRequestFees;
   const recognitionRate = totalRevenue > 0 ? (totalRecognized / totalRevenue) * 100 : 0;
   const totalOutstanding = totals.totalFunded - totals.totalRepaid;
-  const fundedCount = rows.filter(r => r.status === 'funded').length;
-  const repayingCount = rows.filter(r => r.status === 'repaying').length;
+  const fundedCount = totalsRows.filter(r => r.status === 'funded').length;
+  const repayingCount = totalsRows.filter(r => r.status === 'repaying').length;
 
   const getStatusDot = (status: string) => {
     switch (status) {
@@ -163,7 +180,7 @@ export function CFOReceivablesTracker() {
           <TrendingUp className="h-3.5 w-3.5 text-primary" />
           Receivables & Revenue
         </h3>
-        <span className="text-[10px] text-muted-foreground">{rows.length} active</span>
+        <span className="text-[10px] text-muted-foreground">{fundedCount + repayingCount} active</span>
       </div>
 
       {/* Authoritative Total Receivables — single server-side definition, shared
