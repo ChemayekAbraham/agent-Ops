@@ -647,6 +647,11 @@ export function AgentCollectionsCommandCenter() {
           Expected is the sum of the instalments each tenant's agreed payment plan schedules inside this period. Plans that have run past their agreed end date, or that are already settled, raise no further expectation — their balances appear under Defaulted.
         </p>
       </Card>
+      <TenantsOwingDialog
+        asOf={totals?.defaulted_as_of ?? format(new Date(), 'yyyy-MM-dd')}
+        open={owingOpen}
+        onOpenChange={setOwingOpen}
+      />
         </>
       )}
     </div>
