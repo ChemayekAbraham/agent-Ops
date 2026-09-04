@@ -10,7 +10,7 @@ import { ShieldAlert, ArrowLeft, Home } from 'lucide-react';
 
 export default function AgentsSpacePage() {
   const navigate = useNavigate();
-  const { user, roles, isLoading: authLoading } = useAuth();
+  const { user, roles, loading: authLoading } = useAuth();
 
   // Check if user is an executive/admin/manager
   const isExecutive = (roles || []).some((r) =>

@@ -157,7 +157,7 @@ interface AgentsSpacePanelProps {
 }
 
 export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelProps) {
-  const { user, profile } = useAuth();
+  const { user, signOut } = useAuth();
   const [rows, setRows] = useState<Requisition[]>([]);
   const [profilesMap, setProfilesMap] = useState<Record<string, ProfileSummary>>({});
   const [events, setEvents] = useState<Record<string, ReqEvent[]>>({});
@@ -512,7 +512,7 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
     if (!error && data?.url) window.open(data.url, '_blank');
   };
 
-  const userName = profile?.full_name || user?.user_metadata?.full_name || 'Agent User';
+  const userName = (user?.user_metadata?.full_name as string | undefined) || 'Agent User';
   const initials = userName
     .split(' ')
     .filter(Boolean)
