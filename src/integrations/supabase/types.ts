@@ -43287,6 +43287,7 @@ export type Database = {
         Args: { p_report_id: string }
         Returns: undefined
       }
+      agent_ops_tenants_owing: { Args: { p_as_of?: string }; Returns: Json }
       agent_ops_whitelist_admin: {
         Args: { _user_id: string }
         Returns: boolean
