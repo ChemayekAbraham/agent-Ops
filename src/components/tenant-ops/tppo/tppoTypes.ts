@@ -18,6 +18,10 @@ export interface TppoZoneAReport {
   unallocated_ugx: number | null;
   cohort_plan_count: number | null;
   arrears_plan_count: number | null;
+  arrears_target_ugx?: number | null;
+  arrears_target_plan_count?: number | null;
+  arrears_outstanding_ugx?: number | null;
+  total_field_target_ugx?: number | null;
   prior: {
     period_start: string | null;
     period_end: string | null;
@@ -29,5 +33,9 @@ export interface TppoZoneAReport {
     unallocated_ugx: number | null;
     cohort_plan_count: number | null;
     arrears_plan_count: number | null;
+  arrears_target_ugx?: number | null;
+    arrears_target_plan_count?: number | null;
+    arrears_outstanding_ugx?: number | null;
+    total_field_target_ugx?: number | null;
   } | null;
 }
