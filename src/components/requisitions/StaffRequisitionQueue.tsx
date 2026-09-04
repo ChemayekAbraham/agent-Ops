@@ -148,10 +148,12 @@ export function StaffRequisitionQueue() {
 
   const [active, setActive] = useState<StaffRequisition | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'reject' | 'return_info'>('approve');
+  const [reduceMode, setReduceMode] = useState(false);
   const [comment, setComment] = useState('');
   const [amountOverride, setAmountOverride] = useState('');
   const [acting, setActing] = useState(false);
   const [retrying, setRetrying] = useState<string | null>(null);
+
 
   const fetchAll = useCallback(async () => {
     const [reqRes, budgetRes] = await Promise.all([
@@ -214,9 +216,10 @@ export function StaffRequisitionQueue() {
 
   const visible = buckets[tab];
 
-  const openAction = (row: StaffRequisition, type: 'approve' | 'reject' | 'return_info') => {
+  const openAction = (row: StaffRequisition, type: 'approve' | 'reject' | 'return_info', reduce = false) => {
     setActive(row);
     setActionType(type);
+    setReduceMode(reduce);
     setComment('');
     setAmountOverride(String(row.approved_amount ?? row.amount));
     void loadEvents(row.id);
@@ -233,6 +236,18 @@ export function StaffRequisitionQueue() {
       toast.error('Enter a valid amount');
       return;
     }
+    if (reduceMode) {
+      const requested = Number(active.approved_amount ?? active.amount);
+      if (amount >= requested) {
+        toast.error(`Enter an amount lower than ${formatUGX(requested)}`);
+        return;
+      }
+      if (comment.trim().length < 10) {
+        toast.error('Explain the reduction in at least 10 characters');
+        return;
+      }
+    }
+
     setActing(true);
     const { error } = await invokeEdgeFunction('staff-requisition-decide', {
       body: {
@@ -247,11 +262,14 @@ export function StaffRequisitionQueue() {
     if (!error) {
       toast.success(
         actionType === 'approve'
-          ? 'Approved — the requisition moved forward'
+          ? (reduceMode
+            ? `Approved at the reduced amount of ${formatUGX(amount)}`
+            : 'Approved — the requisition moved forward')
           : actionType === 'reject'
             ? 'Requisition declined'
             : 'Sent back to the requester',
       );
+
       setActive(null);
       setComment('');
       await fetchAll();
@@ -389,6 +407,10 @@ export function StaffRequisitionQueue() {
                 {isMine(row) && row.requester_id !== user?.id && (
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Button size="sm" onClick={() => openAction(row, 'approve')}>Approve</Button>
+                    <Button size="sm" variant="secondary" onClick={() => openAction(row, 'approve', true)}>
+                      Reduce requested amount
+                    </Button>
+
                     <Button size="sm" variant="outline" onClick={() => openAction(row, 'return_info')}>
                       Send back for info
                     </Button>
@@ -405,9 +427,10 @@ export function StaffRequisitionQueue() {
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {actionType === 'approve' ? 'Approve requisition'
+              {actionType === 'approve' ? (reduceMode ? 'Reduce requested amount' : 'Approve requisition')
                 : actionType === 'reject' ? 'Decline requisition'
                   : 'Send back for more information'}
+
             </DialogTitle>
             <DialogDescription>
               {active?.requisition_code} • {active?.title}
@@ -427,6 +450,11 @@ export function StaffRequisitionQueue() {
           {actionType === 'approve' && (
             <div className="space-y-2">
               <Label htmlFor="req-amount">Approved amount (UGX)</Label>
+              {reduceMode && active && (
+                <p className="text-xs text-muted-foreground">
+                  Requested: <b>{formatUGX(Number(active.approved_amount ?? active.amount))}</b> — enter a lower amount.
+                </p>
+              )}
               <Input
                 id="req-amount"
                 inputMode="numeric"
@@ -443,16 +471,17 @@ export function StaffRequisitionQueue() {
 
           <div className="space-y-2">
             <Label htmlFor="req-comment">
-              Comment {actionType === 'approve' ? '(optional)' : '(required, min 10 characters)'}
+              Comment {actionType === 'approve' && !reduceMode ? '(optional)' : '(required, min 10 characters)'}
             </Label>
             <Textarea
               id="req-comment"
               rows={3}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder={actionType === 'approve' ? 'Any note for the audit trail' : 'Explain your decision'}
+              placeholder={reduceMode ? 'Why is the amount being reduced?' : actionType === 'approve' ? 'Any note for the audit trail' : 'Explain your decision'}
             />
           </div>
+
 
           {active && (events[active.id]?.length ?? 0) > 0 && (
             <div className="space-y-2 rounded-xl border p-3">
