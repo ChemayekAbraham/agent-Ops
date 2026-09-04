@@ -408,29 +408,46 @@ export function TenantCallingCenter() {
               </div>
             </div>
 
-            <div className="mt-3 hidden border-t border-border/60 pt-3 lg:block">
-              <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
+            <div className="mt-3 border-t border-border/60 pt-3">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-8 gap-1.5 px-2 text-[11px] font-semibold text-muted-foreground"
+                onClick={() => setShowFilters((v) => !v)}
+                aria-expanded={showFilters}
+              >
                 <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
-                Filters
-              </p>
-              <CallingFilterBar
-                options={hub.filterOptions}
-                loading={hub.filterOptionsLoading}
-                error={hub.filterOptionsError}
-                selection={filters}
-                filteredTotal={hub.total}
-                onChange={(key, value) =>
-                  setFilters((prev) => {
-                    const next = { ...prev };
-                    if (value) next[key] = value;
-                    else delete next[key];
-                    return next;
-                  })
-                }
-                onClearAll={() => setFilters({})}
-              />
+                {showFilters ? 'Hide filters' : 'Filters'}
+                {Object.keys(filters).length > 0 && (
+                  <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                    {Object.keys(filters).length}
+                  </Badge>
+                )}
+              </Button>
+              {showFilters && (
+                <div className="mt-2">
+                  <CallingFilterBar
+                    options={hub.filterOptions}
+                    loading={hub.filterOptionsLoading}
+                    error={hub.filterOptionsError}
+                    selection={filters}
+                    filteredTotal={hub.total}
+                    onChange={(key, value) =>
+                      setFilters((prev) => {
+                        const next = { ...prev };
+                        if (value) next[key] = value;
+                        else delete next[key];
+                        return next;
+                      })
+                    }
+                    onClearAll={() => setFilters({})}
+                  />
+                </div>
+              )}
             </div>
           </div>
+
 
           {hub.wipBlocked && (
             <p className="flex items-start gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-[11px] font-semibold text-amber-700">
