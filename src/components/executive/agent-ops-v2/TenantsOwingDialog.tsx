@@ -144,11 +144,14 @@ export function TenantsOwingDialog({
   }, [filteredRows]);
 
   // Total of the amount shown in each row's right-hand column, across every
-  // filtered row (not just the ones currently rendered).
-  const displayedColumnTotal = useMemo(
-    () => filteredRows.reduce((sum, r) => sum + num(r.is_owing ? r.arrears : r.scheduled_today), 0),
-    [filteredRows],
-  );
+  // filtered row (not just the ones currently rendered). The active filter tab
+  // determines which figure is summed so the tile matches the tab's intent.
+  const displayedColumnTotal = useMemo(() => {
+    if (filter === 'scheduled') return filteredRows.reduce((sum, r) => sum + num(r.scheduled_today), 0);
+    if (filter === 'arrears' || filter === 'past_term')
+      return filteredRows.reduce((sum, r) => sum + num(r.arrears), 0);
+    return filteredRows.reduce((sum, r) => sum + num(r.is_owing ? r.arrears : r.scheduled_today), 0);
+  }, [filteredRows, filter]);
 
 
   const downloadCsv = () => {
