@@ -559,9 +559,11 @@ export function TenantCallingCenter() {
         </TabsContent>
 
         {/* ------------------------------------------------------- History */}
-        <TabsContent value="history" className="mt-4">
+        <TabsContent value="history" className="mt-4 space-y-4">
+          <TenantCallsReport />
           <TenantCallCenterHistory />
         </TabsContent>
+
 
         {/* ------------------------------------------------------ Settings */}
         <TabsContent value="settings" className="mt-4 space-y-3">
