@@ -67,16 +67,6 @@ import {
 // match across dashboards. Sourced from the shared fence module, which mirrors the
 // database view `public.v_merchant_payout_queue` exactly.
 const CASHOUT_QUEUE_STATUSES = MERCHANT_QUEUE_STATUSES as unknown as string[];
-const CLAIM_WINDOW_MINUTES = 15;
-const CLAIM_WINDOW_MS = CLAIM_WINDOW_MINUTES * 60 * 1000;
-// A merchant's own claim is NEVER force-released by the browser: they may already
-// have sent the money outside the system and must always be able to confirm with
-// proof. The 15-minute figure is only a soft "please finish" prompt. Returning a
-// row to the pool is the sole responsibility of the server cron
-// (`release_stale_cashout_claims`, 45 minutes, zero settlement progress), so the
-// queue must use the SAME window when deciding what is available to others —
-// otherwise a still-paying merchant's request is offered to a second merchant.
-const QUEUE_RECLAIM_WINDOW_MS = 45 * 60 * 1000;
 
 type PayoutChannel = 'momo' | 'cash' | 'bank';
 
@@ -136,7 +126,6 @@ const MERCHANT_OPTIONS = ['mtn', 'airtel', 'momo_other', 'bank', 'cash'];
 const sanitizeOrTerm = (t: string) => t.replace(/[(),*%]/g, ' ').trim();
 
 interface QueueFilterOpts {
-  cutoffIso: string;
   status: 'all' | 'standard' | 'landlord';
   merchant: string;
   minAmount: number | null;
@@ -178,10 +167,12 @@ function applyQueueFilters(q: any, o: QueueFilterOpts) {
   // returned by the merchant queue, even if its status column were somehow
   // left in a queue state by a failed follow-up write.
   q = applyMerchantQueueFence(q);
-  // Available = unclaimed OR a claim the server cron would already have released
-  // (>45 min, no settlement progress). Excludes rows
-  // currently claimed by anyone (including me — those live in "Claimed by you").
-  q = q.or(`assigned_cashout_agent_id.is.null,dispatched_at.lt.${o.cutoffIso}`);
+  // Available = unclaimed only. There is no time-based auto-release any more —
+  // a claim stays with whoever took it until they confirm it (telecom
+  // confirmation SMS can be delayed well past any fixed window) or a human
+  // (FinOps/CFO) manually releases it. Excludes rows currently claimed by
+  // anyone (including me — those live in "Claimed by you").
+  q = q.is('assigned_cashout_agent_id', null);
 
   // Authorized payout categories (CFO permission matrix). Only surface rows in
   // the categories mapped to this agent.
@@ -365,9 +356,6 @@ export function AgentCashPayoutsTab() {
   // claimed cash-out as soon as the claim commits.
   const claimedSectionRef = useRef<HTMLDivElement | null>(null);
   const scrollToClaimed = useRef(false);
-  // Live clock (1s) used to drive the claim countdown and lock the queue while a
-  // claim is in progress. Only ticks while the agent actually holds a claim.
-  const [nowTs, setNowTs] = useState(() => Date.now());
 
   // ---- Pending Queue advanced filters & sorting ----
   const [queueSearch, setQueueSearch] = useState('');
@@ -670,14 +658,13 @@ export function AgentCashPayoutsTab() {
   const { data: availableTotal = 0 } = useQuery({
     queryKey: ['cashout-queue-available-total', isCashoutAgent?.id, categoryOrClause, channelProviderOrClause, frozenUserIds],
     queryFn: async () => {
-      const cutoffIso = new Date(Date.now() - QUEUE_RECLAIM_WINDOW_MS).toISOString();
       let q = supabase
         .from('withdrawal_requests')
         .select('id', { count: 'exact', head: true })
         .in('status', CASHOUT_QUEUE_STATUSES)
         .is('processed_at', null)
         .is('fin_ops_reference', null)
-        .or(`assigned_cashout_agent_id.is.null,dispatched_at.lt.${cutoffIso}`);
+        .is('assigned_cashout_agent_id', null);
       if (categoryOrClause) q = q.or(categoryOrClause);
       if (channelProviderOrClause) q = q.or(channelProviderOrClause);
       if (frozenUserIds.length) {
@@ -697,10 +684,9 @@ export function AgentCashPayoutsTab() {
   const { data: queueCounts } = useQuery({
     queryKey: ['cashout-queue-counts', isCashoutAgent?.id, queueStatus, queueMerchant, minAmount, maxAmount, fromIso, toIso, debouncedSearch, categoryOrClause, channelProviderOrClause, frozenUserIds, proxyPriorityEnforced, blockingUrgentProxy?.id, landlordPriorityEnforced, blockingUrgentLandlord?.id],
     queryFn: async () => {
-      const cutoffIso = new Date(Date.now() - QUEUE_RECLAIM_WINDOW_MS).toISOString();
       const searchUserIds = debouncedSearch.trim() ? await resolveSearchUserIds(debouncedSearch) : null;
       const base = {
-        cutoffIso, status: queueStatus, merchant: queueMerchant,
+        status: queueStatus, merchant: queueMerchant,
         minAmount, maxAmount, fromIso, toIso, searchUserIds, searchTerm: debouncedSearch.trim(), categoryOrClause, channelProviderOrClause, frozenUserIds,
       };
       const landlordOnly = landlordPriorityEnforced && !!blockingUrgentLandlord;
@@ -725,14 +711,11 @@ export function AgentCashPayoutsTab() {
   const { data: queuePage, isLoading: loadingAll, isFetching: fetchingQueue, isError: queueError, refetch: refetchQueue } = useQuery({
     queryKey: ['cashout-queue-page', isCashoutAgent?.id, channelTab, queueStatus, queueMerchant, minAmount, maxAmount, fromIso, toIso, debouncedSearch, queueSort, page, categoryOrClause, channelProviderOrClause, frozenUserIds, proxyPriorityEnforced, blockingUrgentProxy?.id, landlordPriorityEnforced, blockingUrgentLandlord?.id],
     queryFn: async () => {
-      // NOTE: we intentionally do NOT release other agents' expired claims here.
-      // Cross-agent releases from the browser caused paid-out withdrawals to
-      // reappear in the queue. The server cron (`release_stale_cashout_claims`)
-      // handles pool-wide releases safely with progress guards.
-      const cutoffIso = new Date(Date.now() - QUEUE_RECLAIM_WINDOW_MS).toISOString();
+      // There is no time-based release any more: a claim only becomes available
+      // again when a human (FinOps/CFO) explicitly clears assigned_cashout_agent_id.
       const searchUserIds = debouncedSearch.trim() ? await resolveSearchUserIds(debouncedSearch) : null;
       const opts: QueueFilterOpts = {
-        cutoffIso, status: queueStatus, merchant: queueMerchant,
+        status: queueStatus, merchant: queueMerchant,
         minAmount, maxAmount, fromIso, toIso, channel: channelTab,
         searchUserIds, searchTerm: debouncedSearch.trim(), categoryOrClause, channelProviderOrClause, frozenUserIds,
       };
@@ -1065,16 +1048,6 @@ export function AgentCashPayoutsTab() {
     }
   }, [myActiveClaims]);
 
-  // While the agent holds a claim, tick every second so the countdown updates and
-  // the queue stays locked. When the window elapses we release & refresh so the
-  // request returns to the pool and the agent can claim a new one.
-  useEffect(() => {
-    if (myActiveClaims.length === 0) return;
-    setNowTs(Date.now());
-    const tick = setInterval(() => setNowTs(Date.now()), 1000);
-    return () => clearInterval(tick);
-  }, [myActiveClaims.length]);
-
   // Claim a withdrawal request — ATOMIC: only succeeds if no one else has claimed it.
   // The `.is('assigned_cashout_agent_id', null)` guard makes the UPDATE a single-row
   // race-safe operation. If two agents click "Claim" at the same instant, only the
@@ -1301,25 +1274,12 @@ export function AgentCashPayoutsTab() {
   const filteredPending = channelCounts.all;
 
   // A merchant agent may only hold ONE claim at a time. While a claim is open the
-  // whole queue is locked so they must finish (or let it time out) before taking
-  // another. The remaining time drives a live countdown shown on the claim.
+  // whole queue is locked so they must finish it before taking another — there is
+  // no time-based release (telecom confirmation delays made a fixed window
+  // unreliable; a still-paying merchant's request must never be offered to a
+  // second merchant). The only way out is confirming with proof, or a human
+  // (FinOps/CFO) manually releasing the claim.
   const hasActiveClaim = myActiveClaims.length > 0;
-  const activeClaimRemainingMs = hasActiveClaim
-    ? (() => {
-        const earliest = myActiveClaims.reduce((min: number, w: any) => {
-          const t = w.dispatched_at ? new Date(w.dispatched_at).getTime() : 0;
-          return t && t < min ? t : min;
-        }, Infinity);
-        if (!Number.isFinite(earliest)) return CLAIM_WINDOW_MS;
-        return Math.max(0, earliest + CLAIM_WINDOW_MS - nowTs);
-      })()
-    : 0;
-  const activeClaimCountdown = (() => {
-    const total = Math.ceil(activeClaimRemainingMs / 1000);
-    const m = Math.floor(total / 60);
-    const s = total % 60;
-    return `${m}:${String(s).padStart(2, '0')}`;
-  })();
   const totalPages = Math.max(1, Math.ceil(pageCount / PAGE_SIZE));
   const rangeStart = pageCount === 0 ? 0 : page * PAGE_SIZE + 1;
   const rangeEnd = Math.min(pageCount, page * PAGE_SIZE + pageRows.length);
@@ -1362,20 +1322,16 @@ export function AgentCashPayoutsTab() {
                 <UserCheck className="h-4 w-4 shrink-0" />
                 Claimed by you · {myActiveClaims.length}
               </span>
-              <Badge className={cn(
-                'ml-auto h-5 px-2 gap-1 text-[11px] text-white normal-case tracking-normal whitespace-nowrap shrink-0',
-                activeClaimRemainingMs <= 60_000
-                  ? 'bg-red-600 hover:bg-red-600'
-                  : 'bg-amber-500 hover:bg-amber-500',
-              )}>
+              <Badge className="ml-auto h-5 px-2 gap-1 text-[11px] text-white normal-case tracking-normal whitespace-nowrap shrink-0 bg-amber-500 hover:bg-amber-500">
                 <Clock className="h-3 w-3 shrink-0" />{' '}
-                {activeClaimRemainingMs > 0 ? `${activeClaimCountdown} left to confirm` : 'Confirm now — no time limit'}
+                Awaiting your confirmation
               </Badge>
             </CardTitle>
             <p className="text-xs text-amber-700/80 dark:text-amber-400/80 mt-1">
-              Finish this first — the queue stays locked until you confirm. If you have already sent the
-              money, you can still confirm with proof even after the timer reaches zero; this claim is
-              never taken from you automatically.
+              Finish this first — the queue stays locked until you confirm, with no time limit. Telecom
+              providers can take a while to send the confirmation message — if you've already sent the
+              money, wait for it and confirm with proof whenever it arrives; this claim is never taken
+              from you automatically or reassigned to anyone else.
             </p>
           </CardHeader>
           <CardContent className="space-y-2.5">
@@ -1790,7 +1746,7 @@ export function AgentCashPayoutsTab() {
                 Queue locked — finish your current claim
               </p>
               <p className="text-xs text-amber-700/80 dark:text-amber-400/80">
-                Complete it or wait for the timer ({activeClaimCountdown}) before claiming another. Tap to jump to it.
+                Complete it before claiming another — there's no time limit. Tap to jump to it.
               </p>
             </div>
           </button>
