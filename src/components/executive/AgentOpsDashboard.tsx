@@ -623,7 +623,7 @@ function AgentOpsSideNav({
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
-    SIDE_GROUPS.forEach((g) => { init[g.title] = !!g.defaultOpen; });
+    SIDE_GROUPS.forEach((g) => { init[g.title] = false; });
     return init;
   });
   const toggleGroup = (title: string) =>
