@@ -217,9 +217,15 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
             ))}
             <tr className="font-medium">
               <td className="py-2 pr-3">Increase / decrease</td>
-              <td className="py-2 pr-3 text-right tabular-nums">{signedMoney(report?.scheduled_delta_ugx)}</td>
-              <td className="py-2 pr-3 text-right tabular-nums">{signedMoney(report?.collected_delta_ugx)}</td>
-              <td className="py-2 text-right tabular-nums">{signedPp(variance)}</td>
+              <td className={`py-2 pr-3 text-right tabular-nums ${signedClass(report?.scheduled_delta_ugx)}`}>
+                {signedMoney(report?.scheduled_delta_ugx)}
+              </td>
+              <td className={`py-2 pr-3 text-right tabular-nums ${signedClass(report?.collected_delta_ugx)}`}>
+                {signedMoney(report?.collected_delta_ugx)}
+              </td>
+              <td className={`py-2 text-right tabular-nums ${signedClass(variance)}`}>
+                {signedPp(variance)}
+              </td>
             </tr>
           </tbody>
         </table>
