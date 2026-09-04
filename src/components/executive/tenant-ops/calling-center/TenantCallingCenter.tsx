@@ -39,8 +39,8 @@ import {
   Square,
 } from 'lucide-react';
 import { KPICard } from '../../KPICard';
-import { useCcCallingHub, type CcFilterSelection } from '@/hooks/useCcCallingHub';
-import { CALLING_TABS, type CallingTabKey } from '@/components/ops/calling/callingHubColumns';
+import { useCcCallingHub, type CcFilterSelection, type CcRow } from '@/hooks/useCcCallingHub';
+import { CALLING_TABS, type CallingTabKey, type CallingColumnKey } from '@/components/ops/calling/callingHubColumns';
 import { CallingHubTable } from '@/components/ops/calling/CallingHubTable';
 import { RecordOutcomeDialog } from '@/components/ops/calling/RecordOutcomeDialog';
 import { CallingFilterBar } from '@/components/ops/calling/CallingFilterBar';
@@ -48,6 +48,7 @@ import { FollowupsDuePanel } from '@/components/ops/calling/FollowupsDuePanel';
 import { OpenAttemptQueue } from '@/components/ops/calling/OpenAttemptQueue';
 import { LiveCallPanel } from './LiveCallPanel';
 import { TenantCallCenterHistory } from './TenantCallCenterHistory';
+import { TenantCallDetailsDialog } from './TenantCallDetailsDialog';
 import {
   AUTO_CAP_CHOICES,
   DEFAULT_AUTO_CAP,
@@ -64,14 +65,29 @@ const AUTO_LABEL: Record<string, string> = {
   finished: 'Run finished',
 };
 
-/** Presentation-only: the Center's primary action reveals *and* dials. */
+/** Presentation-only: the Center's primary action opens the tenant details modal. */
 const CALL_ACTION_LABELS = {
-  compact: 'Call',
-  full: 'Call',
-  compactOpen: 'View',
-  fullOpen: 'View call details',
-  title: 'Call this tenant',
+  compact: 'Open',
+  full: 'Open',
+  compactOpen: 'Open',
+  fullOpen: 'Open tenant details',
+  title: 'Open tenant details and call',
 };
+
+/**
+ * Declutter: the Center's list carries only what is needed to pick the next
+ * tenant. Everything else about that tenant lives in the details modal.
+ */
+const CENTER_COLUMNS = new Set<CallingColumnKey>([
+  'name',
+  'phone',
+  'metric',
+  'attempts',
+  'callback_due',
+  'feedback_category',
+  'park_reason',
+  'actions',
+]);
 
 /** Tenant Ops palette per queue state — colour only, order unchanged. */
 const TAB_ACCENT: Record<string, string> = {
@@ -101,6 +117,9 @@ export function TenantCallingCenter() {
   const [filters, setFilters] = useState<CcFilterSelection>({});
   const [autoCap, setAutoCap] = useState(DEFAULT_AUTO_CAP);
   const [formAttempt, setFormAttempt] = useState<{ id: string; cycle_row_id: string; name: string } | null>(null);
+  /** Tenant chosen from the list — details first, calling from inside the modal. */
+  const [detailsRow, setDetailsRow] = useState<CcRow | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
@@ -135,6 +154,28 @@ export function TenantCallingCenter() {
 
   const metricLabel = hub.rows[0]?.metric_label ?? 'Metric';
   const activeQueueTab = CALLING_TABS.find((t) => t.key === queueState) ?? CALLING_TABS[0];
+  const leanColumns = useMemo(
+    () => activeQueueTab.columns.filter((c) => CENTER_COLUMNS.has(c)),
+    [activeQueueTab],
+  );
+
+  /**
+   * Background refresh without flicker: while a refetch is in flight the list
+   * keeps showing what it already had, so the officer never loses their place.
+   */
+  const [stableRows, setStableRows] = useState<CcRow[]>([]);
+  useEffect(() => {
+    if (!hub.isLoading) setStableRows(hub.rows);
+  }, [hub.isLoading, hub.rows]);
+  const displayRows = hub.isLoading && stableRows.length ? stableRows : hub.rows;
+
+  /** The list only opens details; the call itself starts inside the modal. */
+  const openDetails = (row: CcRow) => setDetailsRow(row);
+  const callFromDetails = (row: CcRow) => {
+    setDetailsRow(null);
+    void dialer.dial(row);
+  };
+
   /**
    * Same shape the Hub feeds its table: the row currently on the line keeps its
    * revealed number visible until the outcome is recorded.
@@ -367,29 +408,46 @@ export function TenantCallingCenter() {
               </div>
             </div>
 
-            <div className="mt-3 hidden border-t border-border/60 pt-3 lg:block">
-              <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
+            <div className="mt-3 border-t border-border/60 pt-3">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-8 gap-1.5 px-2 text-[11px] font-semibold text-muted-foreground"
+                onClick={() => setShowFilters((v) => !v)}
+                aria-expanded={showFilters}
+              >
                 <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
-                Filters
-              </p>
-              <CallingFilterBar
-                options={hub.filterOptions}
-                loading={hub.filterOptionsLoading}
-                error={hub.filterOptionsError}
-                selection={filters}
-                filteredTotal={hub.total}
-                onChange={(key, value) =>
-                  setFilters((prev) => {
-                    const next = { ...prev };
-                    if (value) next[key] = value;
-                    else delete next[key];
-                    return next;
-                  })
-                }
-                onClearAll={() => setFilters({})}
-              />
+                {showFilters ? 'Hide filters' : 'Filters'}
+                {Object.keys(filters).length > 0 && (
+                  <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                    {Object.keys(filters).length}
+                  </Badge>
+                )}
+              </Button>
+              {showFilters && (
+                <div className="mt-2">
+                  <CallingFilterBar
+                    options={hub.filterOptions}
+                    loading={hub.filterOptionsLoading}
+                    error={hub.filterOptionsError}
+                    selection={filters}
+                    filteredTotal={hub.total}
+                    onChange={(key, value) =>
+                      setFilters((prev) => {
+                        const next = { ...prev };
+                        if (value) next[key] = value;
+                        else delete next[key];
+                        return next;
+                      })
+                    }
+                    onClearAll={() => setFilters({})}
+                  />
+                </div>
+              )}
             </div>
           </div>
+
 
           {hub.wipBlocked && (
             <p className="flex items-start gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2 text-[11px] font-semibold text-amber-700">
@@ -404,9 +462,14 @@ export function TenantCallingCenter() {
                 <ListChecks className="h-4 w-4 text-primary" />
                 {activeQueueTab.label}
               </CardTitle>
-              <Badge variant="outline" className="text-[10px]">
-                {hub.total.toLocaleString()} rows
-              </Badge>
+              <div className="flex items-center gap-1.5">
+                {hub.isLoading && stableRows.length > 0 && (
+                  <span className="text-[10px] font-medium text-muted-foreground">Updating…</span>
+                )}
+                <Badge variant="outline" className="text-[10px]">
+                  {hub.total.toLocaleString()} rows
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent className="min-w-0 overflow-x-auto p-2 sm:p-3">
               {hub.error && (
@@ -420,7 +483,7 @@ export function TenantCallingCenter() {
                   <PhoneOutgoing className="mx-auto h-5 w-5 text-muted-foreground" />
                   <p className="mt-2 text-xs text-muted-foreground">No open calling cycle for tenants.</p>
                 </div>
-              ) : hub.isLoading ? (
+              ) : hub.isLoading && !displayRows.length ? (
                 <div className="space-y-2">
                   <Skeleton className="h-8 w-full" />
                   <Skeleton className="h-8 w-full" />
@@ -429,19 +492,20 @@ export function TenantCallingCenter() {
                 </div>
               ) : (
                 /* The Hub's own table renderer, same columns contract, same look.
-                   "Call" here reveals *and* dials through the Center's dialer. */
+                   The action opens the tenant details modal; the call starts there. */
                 <CallingHubTable
-                  columns={activeQueueTab.columns}
-                  rows={hub.rows}
+                  columns={leanColumns}
+                  rows={displayRows}
                   metricLabel={metricLabel}
                   revealed={revealedPhones}
                   revealing={dialer.starting || hub.reveal.isPending}
                   wipBlocked={hub.wipBlocked}
-                  onReveal={(row) => void dialer.dial(row)}
+                  onReveal={openDetails}
                   actionLabels={CALL_ACTION_LABELS}
                   actionIcon={Phone}
                 />
               )}
+
 
 
               {hub.total > hub.pageSize && (
@@ -536,6 +600,17 @@ export function TenantCallingCenter() {
         </TabsContent>
 
       </Tabs>
+
+      <TenantCallDetailsDialog
+        hub={hub}
+        row={detailsRow}
+        open={!!detailsRow}
+        starting={dialer.starting || hub.reveal.isPending}
+        canCall={!!detailsRow && detailsRow.state !== 'engaged'}
+        wipBlocked={hub.wipBlocked}
+        onCall={callFromDetails}
+        onClose={() => setDetailsRow(null)}
+      />
 
       <RecordOutcomeDialog
         hub={hub}
