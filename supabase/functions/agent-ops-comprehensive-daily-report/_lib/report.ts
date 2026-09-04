@@ -206,13 +206,13 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
   const adv = report.advances;
   const sc = report.service_centres;
 
-  const subAgents = (report.new_agent_rows || []).filter(r => r.agent_type === 'sub-agent').length;
+  const subAgents = (report.new_agent_rows || []).filter((r: any) => r.agent_type === 'sub-agent').length;
   const rentRows = report.rent_rows || [];
   const expectedTotal = Number(rent.expected_cumulative) || 0;
   const collected = Number(rent.collected_today) || 0;
   const outstandingRent = pos(Number(rent.outstanding) || 0);
   const collectionRate = pctNum(collected, expectedTotal);
-  const agentsCollected = rentRows.filter(r => Number(r.collected_today) > 0).length;
+  const agentsCollected = rentRows.filter((r: any) => Number(r.collected_today) > 0).length;
   const agentsShort = rentRows.length - agentsCollected;
 
   // Canonical network figures. The reporting RPC's `agents.*` block counts a
