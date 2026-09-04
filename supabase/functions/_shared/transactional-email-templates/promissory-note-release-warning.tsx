@@ -73,7 +73,7 @@ export function PromissoryNoteReleaseWarning({
                 </td></tr>
                 <tr><td style={{ padding: '10px 36px 0' }}>
                   <Heading as="h1" style={h1}>
-                    Your reserved tenants are released in {days_left} day{days_left === 1 ? '' : 's'}
+                    Your reserved tenants are released in {String(days_left)} day{days_left === 1 ? '' : 's'}
                   </Heading>
                   <Text style={sub}>
                     Hello {partner_name}, the tenants held under your pledge of <strong>{fmt(amount, currency)}</strong> are
