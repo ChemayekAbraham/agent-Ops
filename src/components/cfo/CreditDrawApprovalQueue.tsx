@@ -21,7 +21,7 @@ import { TreasuryImpactBanner } from './TreasuryImpactBanner';
 
 const MONTHLY_RATE = 0.33;
 const fmt = (n: number) =>
-  new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(n);
+  `UGX ${new Intl.NumberFormat('en-UG', { maximumFractionDigits: 0 }).format(n)}`;
 
 function calcTerms(amount: number, months: number) {
   const days = months * 30;
