@@ -106,15 +106,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       items: [
         { label: 'Home', icon: Home, id: 'overview' },
         { label: 'Payroll Release', icon: Banknote, id: 'payroll-release' },
-        {
-          label: 'Send Money',
-          icon: Wallet,
-          id: 'wallet-payout-group',
-          children: [
-            { label: 'Send Money', icon: Wallet, id: 'wallet-payout' },
-            { label: 'General Payout', icon: Receipt, id: 'general-payout' },
-          ],
-        },
+        { label: 'Send Money', icon: Wallet, id: 'wallet-payout' },
         { label: 'Standing Orders', icon: RefreshCw, id: 'standing-orders' },
         { label: 'Wallet Activities', icon: ClipboardList, id: 'wallet-activities' },
         { label: 'How Did They Earn?', icon: ClipboardList, id: 'earnings-explainer' },
