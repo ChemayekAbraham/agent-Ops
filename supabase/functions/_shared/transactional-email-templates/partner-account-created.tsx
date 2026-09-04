@@ -106,21 +106,21 @@ export function PartnerAccountCreated({
                             <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
                               <tbody>
                                 <tr>
-                                  <td width="50%" style={{ verticalAlign: "top" }} className="td-block mobile-padding-bottom" style={{ paddingBottom: '20px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '20px' }} className="td-block mobile-padding-bottom" >
                                     <Text style={docKey}>Account Email</Text>
                                     <Text style={docValStrong}>{partner_email || '—'}</Text>
                                   </td>
-                                  <td width="50%" style={{ verticalAlign: "top" }} className="td-block" style={{ paddingBottom: '20px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '20px' }} className="td-block" >
                                     <Text style={docKey}>Partner Reference</Text>
                                     <Text style={docValStrong}>{partner_reference || '—'}</Text>
                                   </td>
                                 </tr>
                                 <tr>
-                                  <td width="50%" style={{ verticalAlign: "top" }} className="td-block mobile-padding-bottom" style={{ paddingBottom: '20px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '20px' }} className="td-block mobile-padding-bottom" >
                                     <Text style={docKey}>Partnership Agreement</Text>
                                     <Text style={docValBody}>Pre-filled from your form — sent separately</Text>
                                   </td>
-                                  <td width="50%" style={{ verticalAlign: "top" }} className="td-block" style={{ paddingBottom: '20px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '20px' }} className="td-block" >
                                     <Text style={docKey}>Next Step</Text>
                                     <Text style={docValBody}>Sign in and review your dashboard</Text>
                                   </td>

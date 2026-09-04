@@ -162,37 +162,37 @@ export function PartnerSelfManagedCycleEnded({
                             <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
                               <tbody>
                                 <tr>
-                                  <td width="50%" style={{ verticalAlign: "top" }} className="td-block" style={{ paddingBottom: '18px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '18px' }} className="td-block" >
                                     <Text style={fieldLabel}>Principal Deployed</Text>
                                     <Text style={fieldValue}>{fmtPrincipal}</Text>
                                   </td>
-                                  <td width="50%" style={{ verticalAlign: "top" }} className="td-block" style={{ paddingBottom: '18px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '18px' }} className="td-block" >
                                     <Text style={fieldLabel}>Returns Earned</Text>
                                     <Text style={{ ...fieldValue, color: '#059669' }}>+{fmtReturns}</Text>
                                   </td>
                                 </tr>
                                 <tr>
-                                  <td width="50%" style={{ verticalAlign: "top" }} className="td-block" style={{ paddingBottom: '18px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '18px' }} className="td-block" >
                                     <Text style={fieldLabel}>Cycle Start</Text>
                                     <Text style={fieldValueSub}>{cycle_start_date || '—'}</Text>
                                   </td>
-                                  <td width="50%" style={{ verticalAlign: "top" }} className="td-block" style={{ paddingBottom: '18px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '18px' }} className="td-block" >
                                     <Text style={fieldLabel}>Cycle End</Text>
                                     <Text style={fieldValueSub}>{cycle_end_date || '—'}</Text>
                                   </td>
                                 </tr>
                                 <tr>
-                                  <td width="50%" style={{ verticalAlign: "top" }} className="td-block" style={{ paddingBottom: '6px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '6px' }} className="td-block" >
                                     <Text style={fieldLabel}>Monthly Payout Equivalent</Text>
                                     <Text style={fieldValueSub}>{fmtMonthly}</Text>
                                   </td>
-                                  <td width="50%" style={{ verticalAlign: "top" }} className="td-block" style={{ paddingBottom: '6px' }}>
+                                  <td width="50%" style={{ verticalAlign: "top", paddingBottom: '6px' }} className="td-block" >
                                     <Text style={fieldLabel}>Action Deadline</Text>
                                     <Text style={{ ...fieldValueSub, color: '#7b19d4', fontWeight: 700 }}>{next_action_deadline || '—'}</Text>
                                   </td>
                                 </tr>
                                 <tr>
-                                  <td width="100%" style={{ verticalAlign: "top" }} colSpan={2} style={{ paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
+                                  <td width="100%" style={{ verticalAlign: "top", paddingTop: '16px', borderTop: '1px solid #e2e8f0' }} colSpan={2} >
                                     <Text style={totalLabel}>Total Available Value</Text>
                                     <Text style={totalValue}>{fmtTotal}</Text>
                                   </td>
@@ -223,7 +223,7 @@ export function PartnerSelfManagedCycleEnded({
                               <td style={{ ...tenantRow, ...(isLast ? { borderBottom: 'none' } : {}) }}>
                                 <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
                                   <tbody><tr style={{ verticalAlign: "middle" }}>
-                                    <td width="44" style={{ verticalAlign: "middle" }} style={{ paddingRight: '14px' }}>
+                                    <td width="44" style={{ verticalAlign: "middle", paddingRight: '14px' }} >
                                       <table border={0} cellPadding={0} cellSpacing={0} role="presentation">
                                         <tbody><tr>
                                           <td align="center" style={{ verticalAlign: "middle" }} style={avatarCell}>
@@ -232,11 +232,11 @@ export function PartnerSelfManagedCycleEnded({
                                         </tr></tbody>
                                       </table>
                                     </td>
-                                    <td style={{ verticalAlign: "middle" }} className="td-block" style={{ paddingBottom: '8px' }}>
+                                    <td style={{ verticalAlign: "middle", paddingBottom: '8px' }} className="td-block" >
                                       <Text style={tenantName}>{tenant.tenant_name || '—'}</Text>
                                       <Text style={tenantLocation}>{tenant.tenant_location || 'Location not provided'}</Text>
                                     </td>
-                                    <td align="right" style={{ verticalAlign: "middle" }} className="td-block" style={{ paddingBottom: '8px' }}>
+                                    <td align="right" style={{ verticalAlign: "middle", paddingBottom: '8px' }} className="td-block" >
                                       <Text style={tenantAmount}>{formatAmount(tenant.amount_paid, currency)}</Text>
                                       <span style={{ ...statusBadge, backgroundColor: colors.bg, color: colors.text }}>
                                         {(tenant.payment_status || 'unpaid').toUpperCase()}
@@ -269,10 +269,10 @@ export function PartnerSelfManagedCycleEnded({
                         <td style={{ padding: '22px 24px' }}>
                           <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
                             <tbody><tr style={{ verticalAlign: "top" }}>
-                              <td width="44" style={{ verticalAlign: "top" }} style={{ paddingRight: '16px' }}>
+                              <td width="44" style={{ verticalAlign: "top", paddingRight: '16px' }} >
                                 <table border={0} cellPadding={0} cellSpacing={0} role="presentation">
                                   <tbody><tr>
-                                    <td align="center" style={{ verticalAlign: "middle" }} style={{ ...optionIcon, backgroundColor: '#7b19d4' }}>
+                                    <td align="center" style={{ verticalAlign: "middle", ...optionIcon, backgroundColor: '#7b19d4' }} >
                                       <span style={optionIconText}>1</span>
                                     </td>
                                   </tr></tbody>
@@ -307,10 +307,10 @@ export function PartnerSelfManagedCycleEnded({
                         <td style={{ padding: '22px 24px' }}>
                           <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
                             <tbody><tr style={{ verticalAlign: "top" }}>
-                              <td width="44" style={{ verticalAlign: "top" }} style={{ paddingRight: '16px' }}>
+                              <td width="44" style={{ verticalAlign: "top", paddingRight: '16px' }} >
                                 <table border={0} cellPadding={0} cellSpacing={0} role="presentation">
                                   <tbody><tr>
-                                    <td align="center" style={{ verticalAlign: "middle" }} style={{ ...optionIcon, backgroundColor: '#16a34a' }}>
+                                    <td align="center" style={{ verticalAlign: "middle", ...optionIcon, backgroundColor: '#16a34a' }} >
                                       <span style={optionIconText}>2</span>
                                     </td>
                                   </tr></tbody>
@@ -345,10 +345,10 @@ export function PartnerSelfManagedCycleEnded({
                         <td style={{ padding: '22px 24px' }}>
                           <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
                             <tbody><tr style={{ verticalAlign: "top" }}>
-                              <td width="44" style={{ verticalAlign: "top" }} style={{ paddingRight: '16px' }}>
+                              <td width="44" style={{ verticalAlign: "top", paddingRight: '16px' }} >
                                 <table border={0} cellPadding={0} cellSpacing={0} role="presentation">
                                   <tbody><tr>
-                                    <td align="center" style={{ verticalAlign: "middle" }} style={{ ...optionIcon, backgroundColor: '#64748b' }}>
+                                    <td align="center" style={{ verticalAlign: "middle", ...optionIcon, backgroundColor: '#64748b' }} >
                                       <span style={optionIconText}>3</span>
                                     </td>
                                   </tr></tbody>

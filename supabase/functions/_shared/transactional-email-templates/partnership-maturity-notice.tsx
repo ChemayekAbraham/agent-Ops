@@ -186,21 +186,21 @@ export function PartnershipMaturityNotice({
                               <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
                                 <tbody>
                                   <tr>
-                                    <td width="50%" style={{ verticalAlign: "top" }} className="td-block mobile-padding-bottom" style={{ paddingBottom: '18px' }}>
+                                    <td width="50%" style={{ verticalAlign: "top", paddingBottom: '18px' }} className="td-block mobile-padding-bottom" >
                                       <p style={{ margin: '0 0 4px 0', color: '#9333ea', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Portfolio ID</p>
                                       <p style={{ margin: 0, color: '#1e1b4b', fontSize: '15px', fontWeight: 700 }}>{portfolio_id || '—'}</p>
                                     </td>
-                                    <td width="50%" style={{ verticalAlign: "top" }} className="td-block" style={{ paddingBottom: '18px' }}>
+                                    <td width="50%" style={{ verticalAlign: "top", paddingBottom: '18px' }} className="td-block" >
                                       <p style={{ margin: '0 0 4px 0', color: '#9333ea', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Partnership Amount</p>
                                       <p style={{ margin: 0, color: '#1e1b4b', fontSize: '18px', fontWeight: 800 }}>{fmtAmount}</p>
                                     </td>
                                   </tr>
                                   <tr>
-                                    <td width="50%" style={{ verticalAlign: "top" }} className="td-block mobile-padding-bottom" style={{ paddingBottom: '6px' }}>
+                                    <td width="50%" style={{ verticalAlign: "top", paddingBottom: '6px' }} className="td-block mobile-padding-bottom" >
                                       <p style={{ margin: '0 0 4px 0', color: '#9333ea', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Start Date</p>
                                       <p style={{ margin: 0, color: '#475569', fontSize: '14px', fontWeight: 600 }}>{start_date || '—'}</p>
                                     </td>
-                                    <td width="50%" style={{ verticalAlign: "top" }} className="td-block" style={{ paddingBottom: '6px' }}>
+                                    <td width="50%" style={{ verticalAlign: "top", paddingBottom: '6px' }} className="td-block" >
                                       <p style={{ margin: '0 0 4px 0', color: '#9333ea', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Maturity Date</p>
                                       <p style={{ margin: 0, color: '#7b19d4', fontSize: '14px', fontWeight: 700 }}>{maturity_date || '—'}</p>
                                     </td>
@@ -231,7 +231,7 @@ export function PartnershipMaturityNotice({
                           <td className="opt-inner" style={{ padding: '28px 30px' }}>
                             <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
                               <tbody><tr style={{ verticalAlign: "top" }}>
-                                <td width="62" style={{ verticalAlign: "top" }} className="circ-col" style={{ paddingRight: '18px' }}>
+                                <td width="62" style={{ verticalAlign: "top", paddingRight: '18px' }} className="circ-col" >
                                   <table border={0} cellPadding={0} cellSpacing={0} role="presentation">
                                     <tbody><tr>
                                       <td align="center" style={{ verticalAlign: "middle" }}
@@ -275,7 +275,7 @@ export function PartnershipMaturityNotice({
                           <td className="opt-inner" style={{ padding: '28px 30px' }}>
                             <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
                               <tbody><tr style={{ verticalAlign: "top" }}>
-                                <td width="62" style={{ verticalAlign: "top" }} className="circ-col" style={{ paddingRight: '18px' }}>
+                                <td width="62" style={{ verticalAlign: "top", paddingRight: '18px' }} className="circ-col" >
                                   <table border={0} cellPadding={0} cellSpacing={0} role="presentation">
                                     <tbody><tr>
                                       <td align="center" style={{ verticalAlign: "middle" }}
