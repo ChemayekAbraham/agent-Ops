@@ -90,15 +90,14 @@ export default function PartnerAgreementSignOff({
           // Build a draft agreement from the profile + saved payout method so the
           // stamp date, rep fields and preview all render. The record is created
           // when the admin counter-signs.
-          const [{ data: prof }, { data: method }, { data: pf }] = await Promise.all([
+          const [{ data: prof }, { data: method }] = await Promise.all([
             supabase.from('profiles').select('full_name, phone, email, national_id, landmark').eq('id', partner.id).maybeSingle(),
             supabase.from('saved_payout_methods').select('*').eq('user_id', partner.id)
               .order('is_default', { ascending: false })
               .limit(1).maybeSingle(),
-            supabase.from('investor_portfolios').select('investment_amount').eq('investor_id', partner.id),
           ]);
           if (cancelled) return;
-          const total = (pf || []).reduce((s: number, r: any) => s + (Number(r.investment_amount) || 0), 0);
+          const total = portfolioTotal;
           setIsDraft(true);
           setMissing(null);
           setAgreement({
