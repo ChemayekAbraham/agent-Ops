@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
+import { UGANDA_DISTRICTS, CITY_TO_DISTRICT } from '@/lib/ugandaDistricts';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
@@ -20,6 +21,27 @@ import { EmptyHouseDetailSheet, housePlace, type HouseOpportunity } from '@/comp
 
 
 const PAGE_SIZE = 20;
+
+/**
+ * Listings carry free-typed district text (typos, appended notes, city names).
+ * Resolve each raw value back to an official Uganda district so the filter list
+ * shows real districts only.
+ */
+const officialDistrict = (raw: string | null | undefined): string | null => {
+  const cleaned = (raw ?? '').trim();
+  if (!cleaned) return null;
+  const key = cleaned.toLowerCase();
+  if (CITY_TO_DISTRICT[key]) return CITY_TO_DISTRICT[key];
+  const exact = UGANDA_DISTRICTS.find((d) => d.toLowerCase() === key);
+  if (exact) return exact;
+  const cityPrefix = Object.keys(CITY_TO_DISTRICT).find((c) => key.startsWith(c));
+  if (cityPrefix) return CITY_TO_DISTRICT[cityPrefix];
+  // Longest district name that the typed text starts with, e.g. "Kampalakfide ihdjb" → Kampala.
+  const prefixed = UGANDA_DISTRICTS
+    .filter((d) => key.startsWith(d.toLowerCase()))
+    .sort((a, b) => b.length - a.length)[0];
+  return prefixed ?? null;
+};
 
 const placeOf = (h: HouseOpportunity) =>
   [h.village, h.sub_county, h.district].filter(Boolean).join(', ') || h.region || 'Location on file';
@@ -166,7 +188,9 @@ export function EmptyHouseOpportunitiesSheet({
         p_search: debounced || null,
         p_limit: PAGE_SIZE,
         p_offset: page * PAGE_SIZE,
-        p_district: district === 'all' ? null : district,
+        // ILIKE pattern so an official district also matches free-typed variants
+        // stored on listings ("Kampala…", "Wakiso xyz").
+        p_district: district === 'all' ? null : `${district}%`,
         p_verified_only: verifiedOnly,
         p_gps_only: mapPinOnly || Boolean(nearMe),
         p_min_rent: minRent ? Number(minRent) : null,
@@ -186,7 +210,14 @@ export function EmptyHouseOpportunitiesSheet({
     },
   });
 
-  const districtOptions = data?.districts ?? [];
+  const districtOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const raw of data?.districts ?? []) {
+      const official = officialDistrict(raw);
+      if (official) set.add(official);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [data?.districts]);
   const activeFilterCount =
     (district !== 'all' ? 1 : 0) + (verifiedOnly ? 1 : 0) + (mapPinOnly ? 1 : 0) +
     (minRent ? 1 : 0) + (maxRent ? 1 : 0) + (nearMe ? 1 : 0);
