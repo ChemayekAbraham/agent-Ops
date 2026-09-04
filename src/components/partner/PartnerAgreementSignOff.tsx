@@ -331,7 +331,10 @@ export default function PartnerAgreementSignOff({
                 )}
                 <section className="space-y-1.5">
                   <p className="text-xs font-semibold text-foreground">{isDraft ? 'Partner details (from profile)' : 'Partner submitted'}</p>
-                  <ReadRow label="Partnership amount" value={`UGX ${(Number(agreement.partnership_amount) || 0).toLocaleString('en-US')}`} />
+                  <ReadRow
+                    label="Partnership amount"
+                    value={`UGX ${(Number(amountInput) || Number(agreement.partnership_amount) || 0).toLocaleString('en-US')}`}
+                  />
                   <ReadRow label="National ID / Passport" value={agreement.national_id || '—'} />
                   <ReadRow label="Address" value={agreement.address || '—'} />
                   <ReadRow
