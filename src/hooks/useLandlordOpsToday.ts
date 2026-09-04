@@ -29,6 +29,15 @@ import { supabase } from '@/integrations/supabase/client';
  */
 export const LISTING_REJECTION_CHARGE = 4000;
 
+/**
+ * Bonus credited to the agent when a listing is verified. Mirrors
+ * `LISTING_BONUS` in `supabase/functions/credit-listing-bonus`; the authoritative
+ * figure is the `amount` written onto the `listing_bonus_approvals` row, so use
+ * that wherever a real decision is being displayed and this only to describe
+ * what a pending decision will do.
+ */
+export const LISTING_VERIFICATION_BONUS = 2000;
+
 export type LandlordOpsDecisionKind = 'verified' | 'rejected';
 
 export interface LandlordOpsDecision {

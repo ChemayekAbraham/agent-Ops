@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { X, CheckCircle2, Info, Loader2, Clock } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Info, Loader2, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
+import { formatUGX } from '@/lib/rentCalculations';
+import {
+  LISTING_REJECTION_CHARGE,
+  LISTING_VERIFICATION_BONUS,
+} from '@/hooks/useLandlordOpsToday';
 
 interface DecisionDrawerProps {
   onClose?: () => void;
@@ -53,7 +58,7 @@ export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawer
         .from('house_listings')
         .select(`
           id, title, house_category, monthly_rent, address, district, village, region,
-          image_urls, created_at, status, verified, agent_id,
+          latitude, longitude, image_urls, created_at, status, verified, agent_id,
           agent:profiles!house_listings_agent_id_fkey(full_name, phone)
         `)
         .eq('id', decideId!)
@@ -81,8 +86,39 @@ export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawer
         photosCount: ((realListing.image_urls as string[] | null) ?? []).length,
         imageUrl: ((realListing.image_urls as string[] | null) ?? [])[0] ?? null,
         status: realListing.verified ? 'Verified' : realListing.status || 'Pending',
+        hasGps: realListing.latitude != null && realListing.longitude != null,
+        hasAddress: !!(realListing.address || realListing.village || realListing.district),
+        hasUnitDetails: Number(realListing.monthly_rent) > 0 && !!realListing.house_category,
       }
     : null;
+
+  /** Photos, GPS, address and unit details are checks, not claims — each is read
+   *  off the listing so a thin submission cannot present as fully evidenced. */
+  const REQUIRED_PHOTOS = 3;
+  const checks = displayItem
+    ? [
+        {
+          label: `Property photos (minimum ${REQUIRED_PHOTOS})`,
+          pass: displayItem.photosCount >= REQUIRED_PHOTOS,
+          detail: `${displayItem.photosCount}/${REQUIRED_PHOTOS}`,
+        },
+        {
+          label: 'Location/GPS captured',
+          pass: displayItem.hasGps,
+          detail: displayItem.hasGps ? 'present' : 'missing',
+        },
+        {
+          label: 'Address on file',
+          pass: displayItem.hasAddress,
+          detail: displayItem.hasAddress ? 'present' : 'missing',
+        },
+        {
+          label: 'Unit details (category, rent)',
+          pass: displayItem.hasUnitDetails,
+          detail: displayItem.hasUnitDetails ? 'present' : 'incomplete',
+        },
+      ]
+    : [];
 
   /**
    * Runs the same two paths the verification queue uses, so a decision made here
@@ -256,37 +292,27 @@ export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawer
             <div className="space-y-2.5">
               <h4 className="font-bold text-xs text-foreground tracking-tight">Evidence checklist</h4>
               <div className="space-y-2 rounded-xl border border-border p-3 bg-card text-xs">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <span>Property photos (minimum 3)</span>
+                {checks.map((check) => (
+                  <div key={check.label} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {check.pass ? (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-amber-600 shrink-0" />
+                      )}
+                      <span className={check.pass ? undefined : 'text-amber-700 dark:text-amber-500'}>
+                        {check.label}
+                      </span>
+                    </div>
+                    <span
+                      className={`text-[11px] font-semibold ${
+                        check.pass ? 'text-emerald-600' : 'text-amber-600'
+                      }`}
+                    >
+                      {check.detail}
+                    </span>
                   </div>
-                  <span className="text-[11px] font-semibold text-emerald-600">{displayItem!.photosCount}/3</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <span>Location/GPS verified</span>
-                  </div>
-                  <span className="text-[11px] font-semibold text-emerald-600">1/1</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <span>Address matches location</span>
-                  </div>
-                  <span className="text-[11px] font-semibold text-emerald-600">1/1</span>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <span>Unit details (beds, rooms, rent)</span>
-                  </div>
-                  <span className="text-[11px] font-semibold text-emerald-600">1/1</span>
-                </div>
+                ))}
 
                 <div className="flex items-center justify-between pt-1 border-t border-border/60">
                   <label htmlFor="noIssues" className="flex items-center gap-2 cursor-pointer text-muted-foreground hover:text-foreground">
@@ -316,7 +342,9 @@ export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawer
                   <RadioGroupItem value="verify" id="decide-verify" className="mt-0.5 text-emerald-600" />
                   <div className="space-y-0.5 text-xs">
                     <p className="font-semibold text-foreground">Verify and credit agent</p>
-                    <p className="text-[11px] text-emerald-600 font-medium">Agent wallet: + UGX 2,000</p>
+                    <p className="text-[11px] text-emerald-600 font-medium">
+                      Agent wallet: + {formatUGX(LISTING_VERIFICATION_BONUS)}
+                    </p>
                   </div>
                 </label>
 
@@ -330,8 +358,10 @@ export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawer
                 >
                   <RadioGroupItem value="reject" id="decide-reject" className="mt-0.5 text-rose-600" />
                   <div className="space-y-0.5 text-xs">
-                    <p className="font-semibold text-foreground">Reject and recover</p>
-                    <p className="text-[11px] text-rose-600 font-medium">Agent wallet: - UGX 2,000</p>
+                    <p className="font-semibold text-foreground">Reject and charge</p>
+                    <p className="text-[11px] text-rose-600 font-medium">
+                      Agent wallet: - {formatUGX(LISTING_REJECTION_CHARGE)}
+                    </p>
                   </div>
                 </label>
               </RadioGroup>
@@ -405,8 +435,12 @@ export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawer
           <Info className="h-3 w-3 text-sky-500 shrink-0 mt-0.5" />
           <span>
             {decision === 'verify'
-              ? "Marks the listing verified and credits the listing bonus to the field agent's commission wallet."
-              : 'Marks the listing rejected, notifies the agent and applies the standard UGX 4,000 rejection charge to their wallet.'}
+              ? `Marks the listing verified and credits ${formatUGX(
+                  LISTING_VERIFICATION_BONUS,
+                )} to the field agent's commission wallet.`
+              : `Marks the listing rejected, notifies the agent and applies the standard ${formatUGX(
+                  LISTING_REJECTION_CHARGE,
+                )} rejection charge to their wallet.`}
           </span>
         </div>
       </div>
