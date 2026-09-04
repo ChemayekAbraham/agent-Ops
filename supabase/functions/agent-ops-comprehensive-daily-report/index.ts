@@ -174,7 +174,7 @@ Deno.serve(async (req) => {
     form.set('html', failureNote ? failureNote + html : html);
     form.set('o:tag', 'agent-ops-comprehensive-daily');
     if (pdfBytes) {
-      form.append('attachment', new Blob([pdfBytes], { type: 'application/pdf' }), filename);
+      form.append('attachment', new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' }), filename);
     }
 
 
