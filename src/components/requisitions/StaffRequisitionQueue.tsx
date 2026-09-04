@@ -148,10 +148,12 @@ export function StaffRequisitionQueue() {
 
   const [active, setActive] = useState<StaffRequisition | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'reject' | 'return_info'>('approve');
+  const [reduceMode, setReduceMode] = useState(false);
   const [comment, setComment] = useState('');
   const [amountOverride, setAmountOverride] = useState('');
   const [acting, setActing] = useState(false);
   const [retrying, setRetrying] = useState<string | null>(null);
+
 
   const fetchAll = useCallback(async () => {
     const [reqRes, budgetRes] = await Promise.all([
