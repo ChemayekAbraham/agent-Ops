@@ -449,7 +449,7 @@ export function EmptyHouseOpportunitiesSheet({
     <>
     <Sheet open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
       <SheetContent side="bottom" className="h-[96vh] overflow-y-auto p-0">
-        <div className="sticky top-0 z-20 bg-background border-b px-4 py-3">
+        <div className="bg-background border-b px-4 py-3">
           <SheetHeader className="text-left space-y-1">
             <SheetTitle className="flex items-center gap-2 text-base">
               <Home className="h-4 w-4 text-primary" /> Empty house opportunities
