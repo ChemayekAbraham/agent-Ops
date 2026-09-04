@@ -912,7 +912,7 @@ export default function MyWork({ embedded = false }: MyWorkProps) {
         departments={departments}
         fixedAssigneeStaffId={staff.id}
         defaultDepartmentId={staff.current_assignment?.department_id ?? null}
-        onCreated={() => void load()}
+        onCreated={() => void load({ silent: true })}
       />
 
       {notePrompt && (
