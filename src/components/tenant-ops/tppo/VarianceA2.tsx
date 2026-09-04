@@ -156,6 +156,12 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
           <span className="tabular-nums">{rateText(priorRate)}</span>
         </p>
         <p className="text-xs text-muted-foreground">each on its own period&apos;s schedule</p>
+        {anyDifferentBasis && (
+          <p className="text-xs text-muted-foreground">
+            Periods marked different basis were computed before the schedule was corrected and are not comparable.
+          </p>
+        )}
+
       </div>
 
       {/* Mobile: the same rows stacked, so nothing is clipped at 360px. */}
