@@ -167,6 +167,7 @@ const LandlordSignup = lazy(() => import('./pages/LandlordSignup'));
 const PayRentInstallmentsGuide = lazy(() => import('./pages/PayRentInstallmentsGuide'));
 const CostOfRentingGuide = lazy(() => import('./pages/CostOfRentingGuide'));
 const NeighborhoodComparisonGuide = lazy(() => import('./pages/NeighborhoodComparisonGuide'));
+const Brochure = lazy(() => import('./pages/Brochure'));
 
 const RegisterTenantPublic = lazy(() => import('./pages/RegisterTenantPublic'));
 const RegisterPartnerPublic = lazy(() => import('./pages/RegisterPartnerPublic'));
@@ -559,6 +560,7 @@ function AppRoutes() {
           <Route path="/connect-ai" element={<ConnectAI />} />
           <Route path="/mcp-tool-test" element={<McpToolTest />} />
           <Route path="/public-tools" element={<PublicToolsDocs />} />
+          <Route path="/brochure" element={<Brochure />} />
           <Route path="/install-diagnostics" element={<InstallDiagnostics />} />
           <Route path="/login-diagnostics" element={<LoginDiagnostics />} />
           <Route path="/support-report/:token" element={<SupportReport />} />
