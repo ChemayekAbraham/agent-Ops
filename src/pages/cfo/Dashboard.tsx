@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { ArrowLeft, Wallet, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, ShieldCheck } from 'lucide-react';
 import walletSecurityIllustration from '@/assets/undraw_wallet_diag.svg.asset.json';
 
 import { toast } from 'sonner';
@@ -194,32 +194,6 @@ export default function CFODashboardPage() {
       case 'wallet-payout':
         return (
           <div className="space-y-5">
-            {/* ── Page header ── */}
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="min-w-0">
-                <button
-                  onClick={() => setActiveTab('overview')}
-                  className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground mb-3 transition-colors"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back to Treasury
-                </button>
-                <div className="flex items-center gap-2.5">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
-                    <Wallet className="h-5 w-5" />
-                  </span>
-                  <h1 className="text-2xl font-bold tracking-tight truncate">
-                    Pay Out to Any User's Wallet
-                  </h1>
-                </div>
-                <p className="text-sm text-muted-foreground mt-2 max-w-2xl leading-relaxed">
-                  Search a user by name or phone number, enter the amount, and credit or debit their
-                  wallet instantly. Use “Share Payouts PDF” to send a list of everyone you've paid
-                  out via WhatsApp.
-                </p>
-              </div>
-            </div>
-
             <DirectCreditTool />
 
             {/* ── Security assurance card ── */}
