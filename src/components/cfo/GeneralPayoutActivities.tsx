@@ -177,6 +177,116 @@ export function GeneralPayoutActivities() {
   const hasFilters =
     nameFilter.trim() || categoryFilter.trim() || typeFilter !== 'all' || destinationFilter !== 'all';
 
+  const [downloading, setDownloading] = useState(false);
+
+  // Export ALL records matching the current period + filters (ignores pagination).
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      let profileIds: string[] | null = null;
+      if (nameFilter.trim()) {
+        const { data: profiles, error: profileErr } = await supabase
+          .from('profiles')
+          .select('id')
+          .ilike('full_name', `%${nameFilter.trim()}%`)
+          .limit(1000);
+        if (profileErr) throw profileErr;
+        profileIds = (profiles ?? []).map((p: any) => p.id);
+      }
+
+      const buildQuery = () => {
+        let q = supabase
+          .from('platform_wallet_corrections')
+          .select('id, operation, amount, evidence, reference_id, created_at, target_user_id, metadata')
+          .gte('created_at', window.from.toISOString())
+          .lte('created_at', window.to.toISOString());
+        if (profileIds && profileIds.length) q = q.in('target_user_id', profileIds);
+        if (categoryFilter.trim()) {
+          const term = `%${categoryFilter.trim()}%`;
+          q = q.or(`metadata->>category_label.ilike.${term},evidence.ilike.${term}`);
+        }
+        if (typeFilter !== 'all') q = q.eq('operation', typeFilter);
+        if (destinationFilter !== 'all') q = q.eq('metadata->>recipient_type', destinationFilter);
+        return q.order('created_at', { ascending: false });
+      };
+
+      // Page through in chunks of 1000 so large exports are not truncated.
+      const allRows: PayoutRow[] = [];
+      if (!profileIds || profileIds.length) {
+        const CHUNK = 1000;
+        for (let from = 0; ; from += CHUNK) {
+          const { data: chunk, error: chunkErr } = await buildQuery().range(from, from + CHUNK - 1);
+          if (chunkErr) throw chunkErr;
+          allRows.push(...((chunk ?? []) as unknown as PayoutRow[]));
+          if (!chunk || chunk.length < CHUNK) break;
+        }
+      }
+
+      if (allRows.length === 0) {
+        toast.error('No payouts to export for the selected filters.');
+        return;
+      }
+
+      const ids = Array.from(new Set(allRows.map((r) => r.target_user_id).filter(Boolean)));
+      const names: Record<string, { full_name: string | null; phone: string | null }> = {};
+      for (let i = 0; i < ids.length; i += 500) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, phone')
+          .in('id', ids.slice(i, i + 500));
+        for (const p of profiles ?? []) {
+          names[(p as any).id] = { full_name: (p as any).full_name, phone: (p as any).phone };
+        }
+      }
+
+      const esc = (v: unknown) => {
+        const s = v == null ? '' : String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+
+      const header = [
+        'Date', 'Recipient', 'Phone', 'Type', 'Destination', 'Category',
+        'Amount (UGX)', 'Status', 'Reference', 'Notes',
+      ];
+      const lines = allRows.map((r) => {
+        const meta = (r.metadata ?? {}) as Record<string, unknown>;
+        const recipient = names[r.target_user_id];
+        return [
+          format(new Date(r.created_at), 'yyyy-MM-dd HH:mm'),
+          esc(recipient?.full_name ?? ''),
+          esc(recipient?.phone ?? ''),
+          r.operation === 'credit' ? 'Sent' : 'Taken out',
+          meta.recipient_type === 'operational_wallet' ? 'Operational float' : 'User wallet',
+          esc((meta.category_label as string) ?? ''),
+          Number(r.amount || 0),
+          'Completed',
+          esc(r.reference_id ?? ''),
+          esc(r.evidence ?? ''),
+        ].join(',');
+      });
+
+      const totalAmount = allRows.reduce((s, r) => s + Number(r.amount || 0), 0);
+      lines.push('');
+      lines.push(['', '', '', '', '', 'TOTAL', totalAmount, '', '', ''].join(','));
+
+      const csv = `\uFEFF${header.join(',')}\n${lines.join('\n')}`;
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `welile-payouts-${iso(window.from)}-to-${iso(window.to)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${allRows.length} payouts to CSV`);
+    } catch (err: any) {
+      toast.error('Could not export payouts', { description: err?.message });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const { data, isLoading, isFetching, error } = useQuery({
     queryKey: [
       'cfo-general-payout-activities',
