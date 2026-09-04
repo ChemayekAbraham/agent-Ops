@@ -407,6 +407,10 @@ export function StaffRequisitionQueue() {
                 {isMine(row) && row.requester_id !== user?.id && (
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Button size="sm" onClick={() => openAction(row, 'approve')}>Approve</Button>
+                    <Button size="sm" variant="secondary" onClick={() => openAction(row, 'approve', true)}>
+                      Reduce requested amount
+                    </Button>
+
                     <Button size="sm" variant="outline" onClick={() => openAction(row, 'return_info')}>
                       Send back for info
                     </Button>
