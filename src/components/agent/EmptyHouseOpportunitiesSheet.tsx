@@ -188,7 +188,9 @@ export function EmptyHouseOpportunitiesSheet({
         p_search: debounced || null,
         p_limit: PAGE_SIZE,
         p_offset: page * PAGE_SIZE,
-        p_district: district === 'all' ? null : district,
+        // ILIKE pattern so an official district also matches free-typed variants
+        // stored on listings ("Kampala…", "Wakiso xyz").
+        p_district: district === 'all' ? null : `${district}%`,
         p_verified_only: verifiedOnly,
         p_gps_only: mapPinOnly || Boolean(nearMe),
         p_min_rent: minRent ? Number(minRent) : null,
