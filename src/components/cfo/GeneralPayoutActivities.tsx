@@ -239,47 +239,78 @@ export function GeneralPayoutActivities() {
         }
       }
 
-      const esc = (v: unknown) => {
-        const s = v == null ? '' : String(v);
-        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-      };
+      const totalAmount = allRows.reduce((s, r) => s + Number(r.amount || 0), 0);
 
-      const header = [
-        'Date', 'Recipient', 'Phone', 'Type', 'Destination', 'Category',
-        'Amount (UGX)', 'Status', 'Reference', 'Notes',
-      ];
-      const lines = allRows.map((r) => {
-        const meta = (r.metadata ?? {}) as Record<string, unknown>;
-        const recipient = names[r.target_user_id];
-        return [
-          format(new Date(r.created_at), 'yyyy-MM-dd HH:mm'),
-          esc(recipient?.full_name ?? ''),
-          esc(recipient?.phone ?? ''),
-          r.operation === 'credit' ? 'Sent' : 'Taken out',
-          meta.recipient_type === 'operational_wallet' ? 'Operational float' : 'User wallet',
-          esc((meta.category_label as string) ?? ''),
-          Number(r.amount || 0),
-          'Completed',
-          esc(r.reference_id ?? ''),
-          esc(r.evidence ?? ''),
-        ].join(',');
+      const { default: jsPDF } = await import('jspdf');
+      const autoTableMod: any = await import('jspdf-autotable');
+      const autoTable = autoTableMod.default || autoTableMod;
+
+      const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(15);
+      doc.text('Welile — General Payout Activities', 12, 14);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(90);
+      doc.text(`Period: ${window.label}`, 12, 20);
+      doc.text(`Generated: ${format(new Date(), 'dd MMM yyyy, HH:mm')}`, 12, 25);
+      doc.text(
+        `Payouts: ${allRows.length}    Total: UGX ${totalAmount.toLocaleString('en-UG')}`,
+        12,
+        30,
+      );
+      doc.setTextColor(0);
+
+      autoTable(doc, {
+        startY: 34,
+        head: [[
+          'Date', 'Recipient', 'Phone', 'Type', 'Destination', 'Category',
+          'Amount (UGX)', 'Reference', 'Notes',
+        ]],
+        body: allRows.map((r) => {
+          const meta = (r.metadata ?? {}) as Record<string, unknown>;
+          const recipient = names[r.target_user_id];
+          return [
+            format(new Date(r.created_at), 'dd MMM yyyy HH:mm'),
+            recipient?.full_name ?? '—',
+            recipient?.phone ?? '',
+            r.operation === 'credit' ? 'Sent' : 'Taken out',
+            meta.recipient_type === 'operational_wallet' ? 'Operational float' : 'User wallet',
+            (meta.category_label as string) ?? '',
+            Number(r.amount || 0).toLocaleString('en-UG'),
+            r.reference_id ?? '',
+            (r.evidence ?? '').slice(0, 120),
+          ];
+        }),
+        foot: [[
+          '', '', '', '', '', 'TOTAL',
+          totalAmount.toLocaleString('en-UG'), '', '',
+        ]],
+        styles: { fontSize: 7.5, cellPadding: 1.6, overflow: 'linebreak' },
+        headStyles: { fillColor: [108, 33, 196], textColor: 255, fontStyle: 'bold' },
+        footStyles: { fillColor: [243, 238, 252], textColor: [40, 20, 70], fontStyle: 'bold' },
+        columnStyles: {
+          6: { halign: 'right', fontStyle: 'bold' },
+        },
+        alternateRowStyles: { fillColor: [248, 246, 252] },
+        didDrawPage: () => {
+          const pageCount = doc.getNumberOfPages();
+          doc.setFontSize(8);
+          doc.setTextColor(120);
+          doc.text(
+            `Page ${doc.getCurrentPageInfo().pageNumber} of ${pageCount}`,
+            pageWidth - 12,
+            doc.internal.pageSize.getHeight() - 6,
+            { align: 'right' },
+          );
+          doc.setTextColor(0);
+        },
       });
 
-      const totalAmount = allRows.reduce((s, r) => s + Number(r.amount || 0), 0);
-      lines.push('');
-      lines.push(['', '', '', '', '', 'TOTAL', totalAmount, '', '', ''].join(','));
-
-      const csv = `\uFEFF${header.join(',')}\n${lines.join('\n')}`;
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `welile-payouts-${iso(window.from)}-to-${iso(window.to)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success(`Exported ${allRows.length} payouts to CSV`);
+      doc.save(`welile-payouts-${iso(window.from)}-to-${iso(window.to)}.pdf`);
+      toast.success(`Exported ${allRows.length} payouts to PDF`);
     } catch (err: any) {
       toast.error('Could not export payouts', { description: err?.message });
     } finally {
@@ -595,7 +626,7 @@ export function GeneralPayoutActivities() {
               ) : (
                 <Download className="h-3.5 w-3.5" />
               )}
-              {downloading ? 'Preparing…' : 'Download Payout (CSV)'}
+              {downloading ? 'Preparing…' : 'Download Payout (PDF)'}
             </Button>
           </div>
         </CardHeader>
