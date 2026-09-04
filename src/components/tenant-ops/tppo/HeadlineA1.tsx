@@ -36,6 +36,11 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
   const cohortCount = report?.cohort_plan_count ?? null;
   const arrearsCount = report?.arrears_plan_count ?? null;
   const scheduled = report?.scheduled_due_ugx ?? null;
+  const arrearsTarget = report?.arrears_target_ugx ?? null;
+  const arrearsTargetCount = report?.arrears_target_plan_count ?? null;
+  const arrearsOutstanding = report?.arrears_outstanding_ugx ?? null;
+  const totalFieldTarget = report?.total_field_target_ugx ?? null;
+
   const rate = report?.collection_rate_pct ?? null;
   const threshold = report?.threshold_pct ?? null;
   const below = report?.below_threshold ?? null;
