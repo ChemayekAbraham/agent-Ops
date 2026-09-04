@@ -331,6 +331,8 @@ export function FunderCapitalOpportunities() {
   // Export the currently ranked district/landlord breakdown as a PDF (display only)
   const exportRankingPdf = useCallback(async (
     rows: Array<{ label: string; house_count: number; total_rent_needed: number; monthly_return: number }>,
+    breakdownBy: BreakdownBy,
+    breakdownSort: BreakdownSort,
   ) => {
     try {
       const [{ default: JsPDF }, { default: autoTable }] = await Promise.all([
@@ -374,7 +376,8 @@ export function FunderCapitalOpportunities() {
     } catch {
       toast.error('Could not generate the PDF. Please try again.');
     }
-  }, [breakdownBy, breakdownSort]);
+  }, []);
+
 
   // Shared calculator derivation — used by the calculator UI and to pre-fill the picker
   const computeScenario = useCallback((amountInput: string, houseCount: number) => {
