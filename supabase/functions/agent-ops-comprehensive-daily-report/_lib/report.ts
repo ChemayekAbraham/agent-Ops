@@ -643,7 +643,7 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
 
   // ---------- Page 6: agent performance -------------------------------------
   const floatRows = report.agent_float_rows || [];
-  const rentByAgent = new Map(rentRows.map(r => [r.agent_id, r]));
+  const rentByAgent = new Map(rentRows.map((r: any) => [r.agent_id, r]));
   const perf = floatRows
     .map((f: any) => {
       const r: any = rentByAgent.get(f.agent_id);
