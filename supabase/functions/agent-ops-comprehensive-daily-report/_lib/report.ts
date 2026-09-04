@@ -645,15 +645,15 @@ export function buildAgentOpsComprehensiveReportHtml(input: AgentOpsReportInput)
   const floatRows = report.agent_float_rows || [];
   const rentByAgent = new Map(rentRows.map(r => [r.agent_id, r]));
   const perf = floatRows
-    .map(f => {
+    .map((f: any) => {
       const r: any = rentByAgent.get(f.agent_id);
       const exp = r ? perAgentExpected(r) : 0;
       const got = Number(f.collections_amount) || 0;
       return { f, r, exp, rate: pctNum(got, exp), got };
     })
-    .sort((a, b) => (b.rate - a.rate) || (b.got - a.got))
+    .sort((a: any, b: any) => (b.rate - a.rate) || (b.got - a.got))
     .slice(0, 40)
-    .map((x, i) => `<tr>
+    .map((x: any, i: number) => `<tr>
       <td class="right num">${i + 1}</td>
       <td>${esc(x.f.agent_name)}</td>
       <td class="font-mono">${esc(x.f.phone || '—')}</td>
