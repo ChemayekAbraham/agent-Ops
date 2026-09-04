@@ -143,6 +143,14 @@ export function TenantsOwingDialog({
     );
   }, [filteredRows]);
 
+  // Total of the amount shown in each row's right-hand column, across every
+  // filtered row (not just the ones currently rendered).
+  const displayedColumnTotal = useMemo(
+    () => filteredRows.reduce((sum, r) => sum + num(r.is_owing ? r.arrears : r.scheduled_today), 0),
+    [filteredRows],
+  );
+
+
   const downloadCsv = () => {
     const columns: { key: keyof TenantsOwingRow; label: string }[] = [
       { key: 'tenant_name', label: 'tenant_name' },
@@ -311,7 +319,29 @@ export function TenantsOwingDialog({
                 <span className="font-semibold">{formatUGX(filteredTotals.outstanding)}</span>
               </div>
 
+              {/* Column total for the current tab */}
+              <Card className="p-3 border-primary/30 bg-primary/5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs text-muted-foreground">
+                      {filter === 'scheduled'
+                        ? 'Total scheduled today'
+                        : filter === 'arrears'
+                          ? 'Total arrears'
+                          : filter === 'past_term'
+                            ? 'Total arrears past agreed term'
+                            : 'Total amount shown'}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      All {filteredRows.length} matching tenants, including rows not yet loaded
+                    </p>
+                  </div>
+                  <p className="text-xl font-bold tabular-nums shrink-0">{formatUGX(displayedColumnTotal)}</p>
+                </div>
+              </Card>
+
               {/* List */}
+
               {filteredRows.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-6 text-center">No tenants match the current filter.</p>
               ) : (
