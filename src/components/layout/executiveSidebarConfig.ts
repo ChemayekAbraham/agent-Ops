@@ -342,6 +342,12 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       ],
     },
     {
+      title: 'Reports',
+      items: [
+        { label: 'Submitted Reports', icon: FileText, id: 'submitted-reports', access: HR_ACCESS },
+      ],
+    },
+    {
       title: 'Performance',
       icon: TrendingUp,
       collapsible: true,
@@ -353,6 +359,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Metric Definitions', icon: Gauge, id: 'hr-metrics', route: '/hr/dashboard/metrics', access: HR_ACCESS },
       ],
     },
+
     {
       title: 'Administration',
       icon: Shield,
