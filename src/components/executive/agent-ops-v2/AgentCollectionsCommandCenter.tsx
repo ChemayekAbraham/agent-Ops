@@ -18,17 +18,19 @@ import {
   CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown,
 } from 'lucide-react';
 import { ComprehensiveReportButton } from './ComprehensiveReportButton';
+import { NextSevenDaysExpected } from './NextSevenDaysExpected';
 import { format, startOfDay, endOfDay, subDays, startOfMonth, startOfYear, addDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 import { generateAgentCollectionsStatementPdf } from '@/lib/agentCollectionsStatementPdf';
 
-type PresetKey = 'today' | 'yesterday' | 'five' | 'weekend' | 'month' | 'year' | 'custom';
+type PresetKey = 'today' | 'yesterday' | 'five' | 'next7' | 'weekend' | 'month' | 'year' | 'custom';
 
 const PRESETS: { key: PresetKey; label: string }[] = [
   { key: 'today', label: 'Today' },
   { key: 'yesterday', label: 'Yesterday' },
   { key: 'five', label: 'Last 5 days' },
+  { key: 'next7', label: 'Next 7 days' },
   { key: 'weekend', label: 'Weekend' },
   { key: 'month', label: 'This month' },
   { key: 'year', label: 'This year' },
@@ -54,6 +56,10 @@ function resolveRange(preset: PresetKey, custom?: DateRange): { start: Date; end
     }
     case 'five':
       return { start: startOfDay(subDays(now, 4)), end: endOfDay(now), bucket: 'day' };
+    case 'next7':
+      // Forward-looking tab: the window is tomorrow → +7 days. The command
+      // center RPC is not queried for it; NextSevenDaysExpected renders instead.
+      return { start: startOfDay(addDays(now, 1)), end: endOfDay(addDays(now, 7)), bucket: 'day' };
     case 'weekend': {
       const w = lastWeekend(now);
       return { start: w.start, end: w.end, bucket: 'hour' };
@@ -134,6 +140,7 @@ export function AgentCollectionsCommandCenter() {
       if (error) throw error;
       return data as unknown as CommandCenterData;
     },
+    enabled: preset !== 'next7',
     refetchInterval: 60_000,
     staleTime: 20_000,
   });
@@ -306,7 +313,7 @@ export function AgentCollectionsCommandCenter() {
       </div>
 
       <p className="text-[11px] text-muted-foreground">
-        {format(start, 'dd MMM yyyy h:mm a')} → {format(end, 'dd MMM yyyy h:mm a')} · grouped by {bucket} · East Africa Time
+        {format(start, 'dd MMM yyyy h:mm a')} → {format(end, 'dd MMM yyyy h:mm a')} · {preset === 'next7' ? 'forecast per day' : `grouped by ${bucket}`} · East Africa Time
         {data?.generated_at ? ` · updated ${format(new Date(data.generated_at), 'h:mm:ss a')}` : ''}
       </p>
 
@@ -316,6 +323,10 @@ export function AgentCollectionsCommandCenter() {
         </Card>
       )}
 
+      {preset === 'next7' ? (
+        <NextSevenDaysExpected />
+      ) : (
+        <>
       {/* KPI strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Card className="p-3">
@@ -578,6 +589,8 @@ export function AgentCollectionsCommandCenter() {
           range; days without a snapshot fall back to the agent's current daily target.
         </p>
       </Card>
+        </>
+      )}
     </div>
   );
 }
