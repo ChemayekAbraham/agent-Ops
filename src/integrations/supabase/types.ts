@@ -43218,6 +43218,7 @@ export type Database = {
           live_plan: boolean
         }[]
       }
+      agent_ops_collection_target: { Args: { p_as_of?: string }; Returns: Json }
       agent_ops_compute_snapshot: {
         Args: { p_granularity: string; p_period_start: string }
         Returns: string
