@@ -1212,20 +1212,20 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
         </div>
         {/* Bulk review controls for Agent Ops and COO */}
         {allowBulkActions && filtered.length > 0 && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-2 p-2 rounded-lg bg-muted/50 border">
-            <label className="flex items-center gap-2 cursor-pointer text-sm">
-              <Checkbox
-                checked={selectedIds.size === filtered.length && filtered.length > 0}
-                onCheckedChange={toggleSelectAll}
-              />
-              Select all ({filtered.length})
-            </label>
-            {selectedIds.size > 0 && (
+          selectedIds.size > 0 ? (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-1.5 p-2 rounded-lg bg-primary/5 border border-primary/20">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold select-none">
+                <Checkbox
+                  checked={selectedIds.size === filtered.length && filtered.length > 0}
+                  onCheckedChange={toggleSelectAll}
+                />
+                <span>Selected ({selectedIds.size} of {filtered.length})</span>
+              </label>
               <div className="flex items-center gap-2">
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-8 text-xs gap-1"
+                  className="h-7 text-xs gap-1"
                   disabled={processing}
                   onClick={() => setBulkRejectOpen(true)}
                 >
@@ -1234,7 +1234,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                 </Button>
                 <Button
                   size="sm"
-                  className="h-8 text-xs gap-1"
+                  className="h-7 text-xs gap-1"
                   disabled={processing}
                   onClick={handleBulkApprove}
                 >
@@ -1242,8 +1242,18 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                   Approve selected ({selectedIds.size})
                 </Button>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="flex items-center mt-1">
+              <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground py-0.5 select-none">
+                <Checkbox
+                  checked={false}
+                  onCheckedChange={toggleSelectAll}
+                />
+                <span>Select all ({filtered.length})</span>
+              </label>
+            </div>
+          )
         )}
         {bulkRejectOpen && (
           <div className="mt-2 space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
