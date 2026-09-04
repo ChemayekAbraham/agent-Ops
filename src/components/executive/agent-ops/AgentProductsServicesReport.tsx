@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { format, subDays, startOfMonth, startOfYear, differenceInCalendarDays } from 'date-fns';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { format, subDays, startOfMonth, startOfYear, differenceInCalendarDays, startOfDay, endOfDay, isSameDay } from 'date-fns';
 import { toast } from 'sonner';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -441,9 +441,11 @@ function PagedTable<T extends Record<string, any>>({
 
 export function AgentProductsServicesReport() {
   const { user } = useAuth();
-  // `day` is the cumulative window START. Every window runs from `day` up to today.
-  const [day, setDay] = useState<Date>(() => new Date());
-  const [activePreset, setActivePreset] = useState<string>('today');
+  const [mode, setMode] = useState<'single' | 'range'>('single');
+  const [singleDate, setSingleDate] = useState<Date>(() => new Date());
+  const [rangeFrom, setRangeFrom] = useState<Date>(() => subDays(new Date(), 6));
+  const [rangeTo, setRangeTo] = useState<Date>(() => new Date());
+  const [activeRangePreset, setActiveRangePreset] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [actorName, setActorName] = useState('');
 
@@ -457,89 +459,153 @@ export function AgentProductsServicesReport() {
     return () => { cancelled = true; };
   }, [user?.id, user?.email]);
 
-  const dayKey = toDateKey(day);
-  const today = useMemo(() => new Date(), []);
-  const todayKey = toDateKey(today);
-  const rangeDays = Math.max(1, differenceInCalendarDays(today, day) + 1);
-  const isRange = rangeDays > 1;
+  const startDate = mode === 'single' ? singleDate : rangeFrom;
+  const endDate = mode === 'single' ? singleDate : rangeTo;
+
+  const dayKey = toDateKey(startDate);
+  const endDateKey = toDateKey(endDate);
+  const rangeDays = Math.max(1, differenceInCalendarDays(endDate, startDate) + 1);
+  const isRange = mode === 'range' || rangeDays > 1;
   const periodLabel = isRange
-    ? `${format(day, 'dd MMM yyyy')} – ${format(today, 'dd MMM yyyy')} · ${num(rangeDays)} days cumulative`
-    : format(today, 'dd MMM yyyy');
+    ? `${format(startDate, 'dd MMM yyyy')} – ${format(endDate, 'dd MMM yyyy')} · ${num(rangeDays)} days cumulative`
+    : format(startDate, 'dd MMM yyyy');
 
   const reportQuery = useQuery({
-    queryKey: ['agent-products-services-report', dayKey, todayKey],
+    queryKey: ['agent-products-services-report', dayKey, endDateKey],
     queryFn: async (): Promise<ApsReport> => {
       const { data, error } = await supabase.rpc('get_agent_products_services_report' as any, {
-        p_date: todayKey,
+        p_date: endDateKey,
         p_from: dayKey,
       });
       if (error) throw error;
       return data as unknown as ApsReport;
     },
-    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const rawReport = reportQuery.data;
 
+  /** Fetch canonical schedule expectations from command center RPC (which derives from v_rent_plan_schedule). */
+  const commandCenterQuery = useQuery({
+    queryKey: ['agent-collections-command-center-aps', startOfDay(startDate).toISOString(), endOfDay(endDate).toISOString()],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_collections_command_center', {
+        p_start: startOfDay(startDate).toISOString(),
+        p_end: endOfDay(endDate).toISOString(),
+        p_bucket: 'day',
+      });
+      if (error) throw error;
+      return data as any;
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
   /** Actual commission EARNED in the window (ledger-backed) — not the wallet balance. */
   const commissionQuery = useQuery({
-    queryKey: ['agent-commission-earned', dayKey, todayKey],
+    queryKey: ['agent-commission-earned', dayKey, endDateKey],
     queryFn: async (): Promise<Record<string, number>> => {
       const { data, error } = await supabase.rpc('get_agent_commission_earned' as any, {
         p_from: dayKey,
-        p_to: todayKey,
+        p_to: endDateKey,
       });
       if (error) throw error;
       const map: Record<string, number> = {};
       for (const row of (data as any[]) || []) map[row.agent_id] = Number(row.commission_earned) || 0;
       return map;
     },
-    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const report = useMemo(() => {
     if (!rawReport) return rawReport;
     const map = commissionQuery.data;
-    if (!map) return rawReport;
+    const cc = commandCenterQuery.data;
+
+    let rent = rawReport.rent;
+    let rent_rows = rawReport.rent_rows || [];
+
+    if (cc?.totals && Number(cc.totals.expected_due) !== undefined) {
+      const ccAgentMap: Record<string, { expected: number; expected_daily: number }> = {};
+      for (const a of cc.agents || []) {
+        ccAgentMap[a.agent_id] = {
+          expected: Number(a.expected) || 0,
+          expected_daily: Number(a.expected_daily) || 0,
+        };
+      }
+
+      const expectedDue = Number(cc.totals.expected_due) || 0;
+      const days = Math.max(1, rangeDays);
+      const dailyReceivable = rangeDays === 1 ? expectedDue : (expectedDue / days);
+
+      rent = {
+        ...rawReport.rent,
+        expected_cumulative: expectedDue,
+        daily_receivable: dailyReceivable,
+        expected_days: rangeDays,
+      };
+
+      rent_rows = rent_rows.map(r => {
+        const agentExp = ccAgentMap[r.agent_id];
+        if (!agentExp) return r;
+        return {
+          ...r,
+          expected_cumulative: agentExp.expected,
+          daily_receivable: rangeDays === 1 ? agentExp.expected : (agentExp.expected_daily || agentExp.expected / days),
+        };
+      });
+    }
+
     return {
       ...rawReport,
+      rent,
+      rent_rows,
       agent_float_rows: (rawReport.agent_float_rows || []).map(r => ({
         ...r,
-        commission_balance: Number(map[(r as any).agent_id] ?? 0),
+        commission_balance: Number(map?.[(r as any).agent_id] ?? 0),
       })),
     };
-  }, [rawReport, commissionQuery.data]);
+  }, [rawReport, commissionQuery.data, commandCenterQuery.data, rangeDays]);
 
   const cumulativeQuery = useQuery({
-    queryKey: ['agent-products-cumulative', todayKey],
+    queryKey: ['agent-products-cumulative', endDateKey],
     queryFn: async (): Promise<ApsCumulative> => {
-      const { data, error } = await supabase.rpc('get_agent_products_cumulative' as any, { p_date: todayKey });
+      const { data, error } = await supabase.rpc('get_agent_products_cumulative' as any, { p_date: endDateKey });
       if (error) throw error;
       return data as unknown as ApsCumulative;
     },
-    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const cumulative = cumulativeQuery.data ?? null;
 
   /** Canonical operational agent population (main vs sub, active vs inactive). */
   const populationQuery = useQuery({
-    queryKey: ['agent-operational-population', dayKey, todayKey],
+    queryKey: ['agent-operational-population', dayKey, endDateKey],
     queryFn: async (): Promise<AgentPopulation> => {
       const { data, error } = await supabase.rpc('get_agent_operational_population' as any, {
-        p_as_of: todayKey,
+        p_as_of: endDateKey,
         p_from: dayKey,
       });
       if (error) throw error;
       return data as unknown as AgentPopulation;
     },
-    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
 
   // ===== Dynamic period-over-period baseline: the equal-length window immediately before =====
-  const prevFrom = useMemo(() => subDays(day, rangeDays), [day, rangeDays]);
-  const prevTo = useMemo(() => subDays(day, 1), [day]);
+  const prevFrom = useMemo(() => subDays(startDate, rangeDays), [startDate, rangeDays]);
+  const prevTo = useMemo(() => subDays(startDate, 1), [startDate]);
   const prevFromKey = toDateKey(prevFrom);
   const prevToKey = toDateKey(prevTo);
   const compareLabel = apsCompareLabel(rangeDays);
@@ -554,10 +620,47 @@ export function AgentProductsServicesReport() {
       if (error) throw error;
       return data as unknown as ApsReport;
     },
-    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
-  const prevReport = prevQuery.data ?? null;
+  const prevCommandCenterQuery = useQuery({
+    queryKey: ['agent-collections-command-center-aps-prev', startOfDay(prevFrom).toISOString(), endOfDay(prevTo).toISOString()],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_collections_command_center', {
+        p_start: startOfDay(prevFrom).toISOString(),
+        p_end: endOfDay(prevTo).toISOString(),
+        p_bucket: 'day',
+      });
+      if (error) throw error;
+      return data as any;
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+  const prevReport = useMemo(() => {
+    const rawPrev = prevQuery.data;
+    if (!rawPrev) return null;
+    const prevCc = prevCommandCenterQuery.data;
+    if (!prevCc?.totals || Number(prevCc.totals.expected_due) === undefined) return rawPrev;
+
+    const expectedDue = Number(prevCc.totals.expected_due) || 0;
+    const days = Math.max(1, rangeDays);
+    const dailyReceivable = rangeDays === 1 ? expectedDue : (expectedDue / days);
+
+    return {
+      ...rawPrev,
+      rent: {
+        ...rawPrev.rent,
+        expected_cumulative: expectedDue,
+        daily_receivable: dailyReceivable,
+        expected_days: rangeDays,
+      },
+    };
+  }, [prevQuery.data, prevCommandCenterQuery.data, rangeDays]);
 
   /** Previous-period values for every KPI (falls back to the RPC's day-over-day fields). */
   const pop = useMemo(() => {
@@ -606,7 +709,7 @@ export function AgentProductsServicesReport() {
         cumulative,
         prev: prevReport,
       });
-      downloadBlob(blob, isRange ? `agent-products-services-${dayKey}_to_${todayKey}.pdf` : `agent-products-services-${todayKey}.pdf`);
+      downloadBlob(blob, isRange ? `agent-products-services-${dayKey}_to_${endDateKey}.pdf` : `agent-products-services-${dayKey}.pdf`);
       toast.success(isRange ? 'Cumulative report downloaded' : 'Daily report downloaded');
     } catch (err: any) {
       toast.error(err?.message || 'Could not generate the report');
@@ -615,23 +718,8 @@ export function AgentProductsServicesReport() {
     }
   };
 
-  type PresetKind = 'today' | 'yesterday' | 'd7' | 'd14' | 'd30' | 'd90' | 'y1' | 'month' | 'year' | 'all';
-  const setPreset = (kind: PresetKind) => {
-    setActivePreset(kind);
-    const now = new Date();
-    if (kind === 'today') setDay(now);
-    if (kind === 'yesterday') setDay(subDays(now, 1));
-    if (kind === 'd7') setDay(subDays(now, 7));
-    if (kind === 'd14') setDay(subDays(now, 14));
-    if (kind === 'd30') setDay(subDays(now, 30));
-    if (kind === 'd90') setDay(subDays(now, 90));
-    if (kind === 'y1') setDay(subDays(now, 365));
-    if (kind === 'month') setDay(startOfMonth(now));
-    if (kind === 'year') setDay(startOfYear(now));
-    if (kind === 'all') setDay(new Date(2015, 0, 1));
-  };
-
-  const longPresets = [
+  type RangePresetKind = 'd7' | 'd14' | 'd30' | 'd90' | 'y1' | 'month' | 'year' | 'all';
+  const rangePresets: [RangePresetKind, string][] = [
     ['d7', 'Last 7 days'],
     ['d14', 'Last 14 days'],
     ['d30', 'Last 30 days'],
@@ -640,8 +728,23 @@ export function AgentProductsServicesReport() {
     ['month', 'This month'],
     ['year', 'This year'],
     ['all', 'All time'],
-  ] as const;
-  const activeLongLabel = longPresets.find(([k]) => k === activePreset)?.[1];
+  ];
+
+  const applyRangePreset = (kind: RangePresetKind) => {
+    setActiveRangePreset(kind);
+    const now = new Date();
+    setRangeTo(now);
+    if (kind === 'd7') setRangeFrom(subDays(now, 6));
+    if (kind === 'd14') setRangeFrom(subDays(now, 13));
+    if (kind === 'd30') setRangeFrom(subDays(now, 29));
+    if (kind === 'd90') setRangeFrom(subDays(now, 89));
+    if (kind === 'y1') setRangeFrom(subDays(now, 364));
+    if (kind === 'month') setRangeFrom(startOfMonth(now));
+    if (kind === 'year') setRangeFrom(startOfYear(now));
+    if (kind === 'all') setRangeFrom(new Date(2015, 0, 1));
+  };
+
+  const activeRangePresetLabel = rangePresets.find(([k]) => k === activeRangePreset)?.[1];
 
   const bikes = report?.bikes;
   const phones = report?.phones;
@@ -675,47 +778,162 @@ export function AgentProductsServicesReport() {
           </div>
         </CardHeader>
         <CardContent className="p-3 pt-0">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {([['today', 'Today'], ['yesterday', 'Yesterday']] as const).map(([k, l]) => (
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Mode Selector */}
+            <div className="inline-flex items-center rounded-lg bg-muted/60 p-0.5 border">
               <Button
-                key={k}
+                type="button"
                 size="sm"
-                variant={activePreset === k ? 'default' : 'secondary'}
-                className="h-7 text-[11px]"
-                onClick={() => setPreset(k)}
-              >{l}</Button>
-            ))}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant={activeLongLabel ? 'default' : 'secondary'} className="h-7 text-[11px]">
-                  {activeLongLabel || 'Select Period'}
-                  <ChevronDown className="h-3.5 w-3.5 ml-1" />
+                variant={mode === 'single' ? 'default' : 'ghost'}
+                className="h-7 px-2.5 text-[11px] font-medium"
+                onClick={() => setMode('single')}
+              >
+                Single Day
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={mode === 'range' ? 'default' : 'ghost'}
+                className="h-7 px-2.5 text-[11px] font-medium"
+                onClick={() => {
+                  setMode('range');
+                  if (!activeRangePreset) {
+                    applyRangePreset('d7');
+                  }
+                }}
+              >
+                Cumulative / Range
+              </Button>
+            </div>
+
+            <div className="h-4 w-px bg-border hidden sm:block" />
+
+            {/* Controls for Single Day mode */}
+            {mode === 'single' && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Button
+                  size="sm"
+                  variant={isSameDay(singleDate, new Date()) ? 'default' : 'secondary'}
+                  className="h-7 text-[11px]"
+                  onClick={() => setSingleDate(new Date())}
+                >
+                  Today
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="z-[200]">
-                {longPresets.map(([k, l]) => (
-                  <DropdownMenuItem key={k} className="text-[12px]" onClick={() => setPreset(k)}>{l}</DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button size="sm" variant="outline" className="h-7 text-[11px]">
-                  <CalendarIcon className="h-3.5 w-3.5 mr-1" />From {format(day, 'dd MMM yyyy')}
+                <Button
+                  size="sm"
+                  variant={isSameDay(singleDate, subDays(new Date(), 1)) ? 'default' : 'secondary'}
+                  className="h-7 text-[11px]"
+                  onClick={() => setSingleDate(subDays(new Date(), 1))}
+                >
+                  Yesterday
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 z-[200]" align="start">
-                <Calendar mode="single" selected={day} onSelect={(d) => d && setDay(d)} disabled={(d) => d > today} initialFocus className="p-3 pointer-events-auto" />
-              </PopoverContent>
-            </Popover>
-            <span className="text-[10px] text-muted-foreground">
-              {isRange ? `Totals accumulate from ${format(day, 'dd MMM yyyy')} to today` : 'Showing today only'}
-            </span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="outline" className="h-7 text-[11px] font-medium">
+                      <CalendarIcon className="h-3.5 w-3.5 mr-1" />
+                      {format(singleDate, 'dd MMM yyyy')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 z-[200]" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={singleDate}
+                      onSelect={(d) => d && setSingleDate(d)}
+                      disabled={(d) => d > new Date()}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+                <span className="text-[10px] text-muted-foreground">
+                  Showing single daily report for {format(singleDate, 'dd MMM yyyy')}
+                </span>
+              </div>
+            )}
+
+            {/* Controls for Range / Cumulative mode */}
+            {mode === 'range' && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant={activeRangePreset ? 'default' : 'secondary'} className="h-7 text-[11px]">
+                      {activeRangePresetLabel || 'Select Period'}
+                      <ChevronDown className="h-3.5 w-3.5 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="z-[200]">
+                    {rangePresets.map(([k, l]) => (
+                      <DropdownMenuItem
+                        key={k}
+                        className="text-[12px]"
+                        onClick={() => applyRangePreset(k)}
+                      >
+                        {l}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="outline" className="h-7 text-[11px]">
+                      <CalendarIcon className="h-3.5 w-3.5 mr-1" />
+                      From {format(rangeFrom, 'dd MMM yyyy')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 z-[200]" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={rangeFrom}
+                      onSelect={(d) => {
+                        if (d) {
+                          setRangeFrom(d);
+                          if (d > rangeTo) setRangeTo(d);
+                          setActiveRangePreset(null);
+                        }
+                      }}
+                      disabled={(d) => d > new Date()}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button size="sm" variant="outline" className="h-7 text-[11px]">
+                      <CalendarIcon className="h-3.5 w-3.5 mr-1" />
+                      To {format(rangeTo, 'dd MMM yyyy')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 z-[200]" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={rangeTo}
+                      onSelect={(d) => {
+                        if (d) {
+                          setRangeTo(d);
+                          if (d < rangeFrom) setRangeFrom(d);
+                          setActiveRangePreset(null);
+                        }
+                      }}
+                      disabled={(d) => d > new Date()}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                <span className="text-[10px] text-muted-foreground">
+                  Totals accumulate from {format(rangeFrom, 'dd MMM yyyy')} to {format(rangeTo, 'dd MMM yyyy')} ({num(rangeDays)} days)
+                </span>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {reportQuery.isLoading && (
+      {reportQuery.isLoading && !report && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
           {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
         </div>
@@ -782,7 +1000,7 @@ export function AgentProductsServicesReport() {
           ) : populationQuery.data ? (
             <TotalAgentsComposition
               population={populationQuery.data}
-              asOf={format(today, 'dd MMM yyyy')}
+              asOf={format(endDate, 'dd MMM yyyy')}
             />
           ) : null}
 
@@ -791,7 +1009,7 @@ export function AgentProductsServicesReport() {
           <Card>
             <CardHeader className="p-3 pb-1">
               <CardTitle className="text-xs font-bold">
-                Cumulative build-up to {format(today, 'dd MMM yyyy')}
+                Cumulative build-up to {format(endDate, 'dd MMM yyyy')}
               </CardTitle>
               <p className="text-[10px] text-muted-foreground">
                 Totals accumulated from 7, 30, 90 and 365 days ago up to the reporting date

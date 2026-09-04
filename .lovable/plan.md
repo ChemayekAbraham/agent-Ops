@@ -1,63 +1,48 @@
-# AOPS-EXP-01 — Report only: what the "Expected" tile touches
+# Fix: Comprehensive Agent Ops report email must attach a real PDF
 
-No changes proposed. This document is a verified file/line report.
+## What is actually happening
 
-## 1. Every file that calls or references `get_agent_collections_command_center`
+Traced end to end:
 
-| File | Line(s) | What it is |
-|---|---|---|
-| `src/components/executive/agent-ops-v2/AgentCollectionsCommandCenter.tsx` | 135 | The RPC call itself: `supabase.rpc('get_agent_collections_command_center', { p_start, p_end, p_bucket })` |
-| `src/components/executive/FleetPerformanceStats.tsx` | 719, 727 | Comment (719) and a second RPC call site (727) — the Fleet page reuses the same RPC for its EXPECTED / COLLECTED / COLLECTION RATE cards |
-| `src/integrations/supabase/types.ts` | 45775 | Generated type entry for the RPC (auto-generated file) |
+1. **Cron** — pg_cron job `agent-ops-comprehensive-daily-report-midnight-eat` (jobid 18342), schedule `0 21 * * *` (00:00 EAT), `net.http_post` to the edge function `agent-ops-comprehensive-daily-report`. No change needed here.
+2. **Data** — `get_agent_products_services_report` (current + previous window) and `get_agent_operational_population`. No change needed.
+3. **HTML** — `supabase/functions/agent-ops-comprehensive-daily-report/_lib/report.ts` builds the report HTML (with `_lib/agentOpsReportStyles.ts`).
+4. **The bug** — `index.ts` line 121 attaches the HTML string as the "PDF":
+   `form.append('attachment', new Blob([html], { type: 'text/html; charset=utf-8' }), filename)`
+   and the filename itself ends in `.html`. There is no PDF step at all: the email body is the report and the attachment is the same HTML again.
+5. **Already present but never called** — `_lib/pdf.ts` exports `buildComprehensiveReportPdf(...) : Uint8Array`, a complete jsPDF + jspdf-autotable renderer built from the *same* RPC payload as the HTML builder (header band, KPI sections, rent/advance/service-centre/product tables, page footers, `doc.output('arraybuffer')`). It is imported by nothing. This is the renderer to reuse.
 
-Callers of the component (mount points, not RPC callers): `src/components/executive/AgentOpsDashboard.tsx` line 23 (import) and line 323 (`case 'performance': return <AgentCollectionsCommandCenter />`); `src/pages/coo/Dashboard.tsx` line 10 (import) and line 153 (render).
+## One constraint worth stating plainly
 
-## 2. Expressions behind the "Expected" tile
+Supabase Edge (Deno) cannot run Chromium, so a literal "render this HTML string to PDF" step is not available in-stack. The two honest options are:
 
-File: `src/components/executive/agent-ops-v2/AgentCollectionsCommandCenter.tsx`
+- **A (recommended, no new dependency or secret):** attach the PDF produced by the existing `_lib/pdf.ts` renderer, and keep the HTML report as the email body — so the HTML stays the source of truth for content/figures and the attachment reconciles to it, section for section. This is exactly the pattern already used by `tenant-products-services-report` (pdf-lib) and `agent-growth-daily-report` / `agent-daily-performance-report` (jsPDF).
+- **B (only if pixel-identical HTML layout in the PDF is required):** call an external HTML-to-PDF API (e.g. a hosted Chromium service). That needs a new secret (`HTML_TO_PDF_API_KEY` + endpoint) and adds an outbound dependency to the nightly job. No such service exists in the project today.
 
-- The displayed number comes from a **client-side sum over the per-agent array**, not a totals field:
-  - Line 210: `const expectedTotal = agents.reduce((s, a) => s + a.expected, 0);`
-  - Each `a.expected` is coerced at line 178: `expected: num(a.expected),`
-  - Rendered at line 339: `{formatUGX(expectedTotal)}`
-- The "% of expected" progress bar:
-  - Line 263: `const coverage = expectedTotal > 0 ? Math.round((collectedTotal / expectedTotal) * 100) : null;` (with `collectedTotal` at line 262: `num(totals?.collected)`)
-  - Bar at line 341: `<Progress value={Math.min(100, coverage ?? 0)} className="h-1.5" />`
-  - Caption at line 342: `` `${coverage}% of expected` `` (or "No expectation on record" when null)
-- The same sum is also used for the PDF statement export at line 225: `expected: agents.reduce((s, a) => s + a.expected, 0),`
+The plan below implements **A**. Say the word and I will switch to B.
 
-## 3. The four-tile row and its wrapper
+## Changes
 
-File: `src/components/executive/agent-ops-v2/AgentCollectionsCommandCenter.tsx`
+**Single file: `supabase/functions/agent-ops-comprehensive-daily-report/index.ts`**
 
-- Line 331: `<div className="grid grid-cols-2 lg:grid-cols-4 gap-3">` — the KPI strip wrapper (a plain CSS grid, not a dedicated component).
-- Tiles, each a `<Card className="p-3">`: Collected lines 332–336, Expected lines 337–344, Active agents lines 345–349, New rent requests lines 350–354.
-- Adding a fifth tile is trivially easy: it is a plain grid with four sibling `<Card>` children. Changing to `lg:grid-cols-5` and adding one more `<Card>` is all that is required; there is no fixed-column constraint beyond that class.
+- Import `buildComprehensiveReportPdf` from `./_lib/pdf.ts`.
+- After the HTML is built, render the PDF from the same `report` / `population` / dates / `periodLabel` inputs.
+- Validate the bytes before use: length > 1000 and the first five bytes are `%PDF-`. Log `pdf_bytes` and the signature check result.
+- Attachment: `new Blob([pdfBytes], { type: 'application/pdf' })` with filename
+  `Welile_Agent_Ops_Comprehensive_<date|from_to_to>.pdf`.
+- `text` body copy updated to say the report is attached as a PDF.
+- **Hard failure behaviour:** wrap rendering in try/catch. On any render error or failed signature/size validation, never fall back to HTML-as-PDF. Instead `console.error` the reason and send the email with **no attachment** plus a clear in-body note ("Automated PDF generation failed — the full report is in this email body."), and return `{ ok: true, pdf_attached: false, pdf_error: <message> }` so the failure is visible in function logs. The report itself still reaches recipients — consistent with the other daily reports, which prefer degraded delivery over silence.
+- Keep `dry_run` (add `pdf_bytes` / `pdf_ok` / `attachment` to its JSON) and keep the `pdf: true` inline-HTML preview branch, renaming its response field/behaviour so it no longer implies PDF: it will return the PDF binary with `Content-Type: application/pdf` for manual verification, and a new `preview_html: true` keeps the inline HTML preview.
 
-## 4. Every other repo reference to `v_agent_daily_eligibility` or `agent_daily_eligibility_history`
+No other file changes. Cron, schedule, recipients, RPCs, report definitions and the HTML builder all stay exactly as they are.
 
-- `src/components/executive/AgentDailyOverviewReportButton.tsx` line 140: `.from('v_agent_daily_eligibility')`
-- `src/components/payments/WithdrawFlow.tsx` line 297: `.from('v_agent_daily_eligibility' as any)` (line 318 is a comment about its `today_pct`)
-- `src/components/wallet/SendMoneyDialog.tsx` line 159: `.from('v_agent_daily_eligibility')`
-- `src/hooks/useAgentCapacityMap.ts` line 364: `.from('agent_daily_eligibility_history')` (lines 56, 308, 421 are comments referencing the view)
-- `src/hooks/useAgentEligibilityHistory.ts` lines 32 and 66: `.from('agent_daily_eligibility_history')`
-- `src/lib/agentRentCollectionsPdf.ts` line 76: `.from('agent_daily_eligibility_history')`
-- `src/components/agent/PriorityCollectionQueue.tsx` line 60: comment only
-- `src/lib/collectibleRentRequests.ts` lines 4, 28: comments only (mirrors the view's law)
-- `src/integrations/supabase/types.ts`: generated type entries (auto-generated)
+## Secrets / env vars involved
 
-## 5. Client-side recomputation of expected — yes, two places
+Existing only, no new ones: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `MAILGUN_API_KEY`, `MAILGUN_DOMAIN`, `MAILGUN_API_BASE`.
 
-**a) In the Command Center itself** — the tile is a pure sum of RPC `agents[].expected` (line 210), so no per-day multiplication happens in this component. Any daily×days multiplication is inside the RPC.
+## Verification
 
-**b) In FleetPerformanceStats.tsx there IS TypeScript multiplication of a daily figure by a day count:**
-- Line 758: `const expected = (expectedByAgent[id] || 0) * days;` — per-agent row expected.
-- Line 800: `const localExpected = rows.reduce((s, r) => s + r.expected, 0);` — sums those multiplied rows (note: line 802–803 shows the headline EXPECTED card actually prefers the RPC: `totalExpected = commandCenter ? commandCenter.agents.reduce(...) : localExpected`).
-- Lines 961–963: `expectedPerDay = Object.values(expectedByAgent).reduce(...)` (sum of daily targets).
-- Trend series multiplies: line 973 `const expectedPerHour = expectedPerDay / 24;`, line 989 `expected: expectedPerDay * dCount`, line 998 `expected: expectedPerDay`.
-- The daily input itself is computed client-side from `rent_requests`, NOT from the RPC: `fetchExpectedDailyByAgent` (lines 356–378) paginates `supabase.from('rent_requests').select('agent_id, daily_repayment').in('status', ACTIVE_RENT_STATUSES)` and sums `daily_repayment` per agent.
-
-## Not found / notes
-
-- `totals.expected` does not exist anywhere in the frontend; confirmed the Expected tile never reads a totals field — it always sums `agents[].expected` (or, on FleetPerformanceStats, falls back to the locally multiplied figure when the RPC hasn't loaded).
-- No other file references the RPC string.
+- `deno check` on the function.
+- Deploy, then invoke with `{ "date": "<yesterday>", "dry_run": true }` and confirm `pdf_ok: true` with a sensible byte size.
+- Invoke with `{ "date": "<yesterday>", "pdf": true }` and confirm the response body starts with `%PDF-`.
+- Invoke with `{ "date": "<yesterday>", "recipients": ["<test address>"] }` and confirm the delivered attachment opens as a PDF and reconciles with the HTML body figures.

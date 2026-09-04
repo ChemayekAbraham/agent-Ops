@@ -449,7 +449,7 @@ export function EmptyHouseOpportunitiesSheet({
     <>
     <Sheet open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
       <SheetContent side="bottom" className="h-[96vh] overflow-y-auto p-0">
-        <div className="sticky top-0 z-20 bg-background border-b px-4 py-3">
+        <div className="bg-background border-b px-4 py-3">
           <SheetHeader className="text-left space-y-1">
             <SheetTitle className="flex items-center gap-2 text-base">
               <Home className="h-4 w-4 text-primary" /> Empty house opportunities
@@ -473,7 +473,7 @@ export function EmptyHouseOpportunitiesSheet({
           </SheetHeader>
 
           {projection && createdNotes.length === 0 && !createdNote && (
-            <div className="mt-2 rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3 py-2">
+            <div className="mt-10 rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3 py-2">
               <p className="text-[11px] leading-snug">
                 <span className="font-semibold">Your plan:</span> fund{' '}
                 <span className="font-semibold">{projection.houses.toLocaleString()} {projection.houses === 1 ? 'house' : 'houses'}</span>
@@ -487,6 +487,69 @@ export function EmptyHouseOpportunitiesSheet({
             </div>
           )}
         </div>
+
+        {/* Summary — pinned at the top of the sheet, not floating */}
+        {!createdNote && createdNotes.length === 0 && (
+          <div className="border-b bg-background px-4 py-3 space-y-2">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-muted-foreground">
+                {picked.length} house{picked.length === 1 ? '' : 's'} · one month of rent
+              </span>
+              <span className="font-bold">{formatUGX(rentTotal)}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-xl bg-emerald-500/10 px-3 py-2">
+              <span className="text-[11px] font-semibold text-emerald-700">{isPartner ? 'You earn' : 'Partner earns'} 15% per month</span>
+              <span className="text-sm font-bold text-emerald-600">{formatUGX(monthlyReturn)}</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground text-center">
+              {formatUGX(annualReturn)} over 12 months, paid monthly from what the tenant repays.
+            </p>
+            {isPartner ? (
+              <div className="space-y-2">
+                <div>
+                  <Label className="text-[11px]">Promised funding date (optional)</Label>
+                  <Input
+                    type="date"
+                    value={promisedDate}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => setPromisedDate(e.target.value)}
+                    className="mt-0.5 h-10 text-xs"
+                  />
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Booked houses are held for you for 7 days. If they are not funded by then they go back
+                    to the open empty-house list and we notify you by SMS and email.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    className="h-11 gap-2 text-xs font-semibold"
+                    onClick={handleSubmit}
+                    disabled={submitting || fundingNow}
+                  >
+                    {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
+                    {submitting ? 'Booking…' : 'Promise a date'}
+                  </Button>
+                  <Button
+                    className="h-11 gap-2 text-xs font-semibold"
+                    onClick={handleFundNow}
+                    disabled={submitting || fundingNow}
+                  >
+                    {fundingNow ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    {fundingNow ? 'Submitting…' : 'Fund now'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button className="w-full h-11 gap-2 font-semibold" onClick={handleSubmit} disabled={submitting}>
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {submitting ? 'Creating…' : 'Create note for these houses'}
+              </Button>
+            )}
+          </div>
+        )}
+
+
 
         {createdNotes.length > 0 ? (
           <div className="p-4 space-y-4">
@@ -1035,67 +1098,7 @@ export function EmptyHouseOpportunitiesSheet({
           </div>
         )}
 
-        {/* Sticky summary */}
-        {!createdNote && createdNotes.length === 0 && (
-          <div className="sticky bottom-0 z-20 border-t bg-background/95 backdrop-blur px-4 py-3 space-y-2">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-muted-foreground">
-                {picked.length} house{picked.length === 1 ? '' : 's'} · one month of rent
-              </span>
-              <span className="font-bold">{formatUGX(rentTotal)}</span>
-            </div>
-            <div className="flex items-center justify-between rounded-xl bg-emerald-500/10 px-3 py-2">
-              <span className="text-[11px] font-semibold text-emerald-700">{isPartner ? 'You earn' : 'Partner earns'} 15% per month</span>
-              <span className="text-sm font-bold text-emerald-600">{formatUGX(monthlyReturn)}</span>
-            </div>
-            <p className="text-[10px] text-muted-foreground text-center">
-              {formatUGX(annualReturn)} over 12 months, paid monthly from what the tenant repays.
-            </p>
-            {isPartner ? (
-              <div className="space-y-2">
-                <div>
-                  <Label className="text-[11px]">Promised funding date (optional)</Label>
-                  <Input
-                    type="date"
-                    value={promisedDate}
-                    min={new Date().toISOString().split('T')[0]}
-                    onChange={(e) => setPromisedDate(e.target.value)}
-                    className="mt-0.5 h-10 text-xs"
-                  />
-                  <p className="mt-1 text-[10px] text-muted-foreground">
-                    Booked houses are held for you for 7 days. If they are not funded by then they go back
-                    to the open empty-house list and we notify you by SMS and email.
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    variant="outline"
-                    className="h-11 gap-2 text-xs font-semibold"
-                    onClick={handleSubmit}
-                    disabled={submitting || fundingNow}
-                  >
-                    {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
-                    {submitting ? 'Booking…' : 'Promise a date'}
-                  </Button>
-                  <Button
-                    className="h-11 gap-2 text-xs font-semibold"
-                    onClick={handleFundNow}
-                    disabled={submitting || fundingNow}
-                  >
-                    {fundingNow ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                    {fundingNow ? 'Submitting…' : 'Fund now'}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button className="w-full h-11 gap-2 font-semibold" onClick={handleSubmit} disabled={submitting}>
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                {submitting ? 'Creating…' : 'Create note for these houses'}
-              </Button>
-            )}
 
-          </div>
-        )}
 
       </SheetContent>
     </Sheet>
