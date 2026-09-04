@@ -187,6 +187,17 @@ export interface PayablesPredictiveForecast {
     method_note: string;
     source: string;
   };
+  /**
+   * Obligations with no contractual due date and no daily amount — wallet
+   * balances are payable on demand, so there is nothing to place on a timeline.
+   * Still part of Total Payables; excluded only from the forecast.
+   */
+  unscheduled?: {
+    items: number;
+    amount: number;
+    by_product: Record<string, number>;
+    note?: string;
+  };
 }
 
 export interface PayablesAccuracyHorizon {
