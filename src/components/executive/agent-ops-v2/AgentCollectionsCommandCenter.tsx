@@ -360,6 +360,9 @@ export function AgentCollectionsCommandCenter() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><AlertTriangle className="h-3.5 w-3.5" /> Defaulted</div>
           <p className="text-lg font-bold mt-1 text-destructive">{formatUGX(num(totals?.defaulted_to_date))}</p>
           <p className="text-[11px] text-muted-foreground">{num(totals?.defaulted_plans)} plans · as at {totals?.defaulted_as_of}</p>
+          <Button size="sm" variant="outline" className="h-7 mt-2 text-[11px] w-full" onClick={() => setOwingOpen(true)}>
+            View all tenants owing
+          </Button>
         </Card>
       </div>
 
