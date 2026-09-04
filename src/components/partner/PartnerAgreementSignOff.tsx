@@ -56,6 +56,10 @@ export default function PartnerAgreementSignOff({
   const [sigDataUrl, setSigDataUrl] = useState<string | undefined>();
   // Editable stamp / execution date shown on the contract and the Welile stamp.
   const [stampDate, setStampDate] = useState<string>('');
+  // Editable partnership amount printed on the contract. Prefilled from the
+  // agreement row, falling back to the partner's portfolio total when the
+  // stored snapshot is empty/zero (legacy rows captured before the amount).
+  const [amountInput, setAmountInput] = useState<string>('');
 
   useEffect(() => {
     if (!open || !partner) return;
