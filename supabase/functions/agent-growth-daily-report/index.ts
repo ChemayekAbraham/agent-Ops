@@ -683,7 +683,7 @@ function buildHtml(activity: DailyActivity, weekly: WeeklyForecast, prettyDate: 
   </div></body></html>`;
 }
 
-async function run(admin: ReturnType<typeof createClient>, reportDate: string, force: boolean) {
+async function run(admin: any, reportDate: string, force: boolean) {
   // reportDate is the EAT calendar day being reported (yesterday by default).
   if (!force) {
     const { data: existing } = await admin

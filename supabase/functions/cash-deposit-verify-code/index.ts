@@ -149,7 +149,7 @@ async function sendSMS(phone: string, message: string): Promise<SmsOutcome> {
 }
 
 async function logSmsAttempts(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   ctx: { phone: string; message: string; userId?: string | null; name?: string | null; referenceId?: string | null; source: string },
   outcome: SmsOutcome,
 ): Promise<void> {
@@ -191,7 +191,7 @@ const fmtUGX = (n: number) =>
 //   3. auth.users.user_metadata.phone / phone_number (sign-up metadata)
 // Returns the first non-empty value that normalizes to a valid E.164 number.
 async function resolveDepositorPhone(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   userId: string,
   authUser: { phone?: string | null; user_metadata?: Record<string, unknown> | null },
 ): Promise<{ phone: string; fullName: string | null; source: string }> {
@@ -223,7 +223,7 @@ async function resolveDepositorPhone(
 
 // Append an audit-trail event. Never throws — auditing must not break the flow.
 async function logEvent(
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   row: {
     verification_id?: string | null;
     deposit_request_id?: string | null;

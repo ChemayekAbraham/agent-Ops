@@ -1319,7 +1319,7 @@ async function sendSmsViaAfricasTalking(
   phone: string,
   message: string,
   logCtx?: {
-    admin: ReturnType<typeof createClient>;
+    admin: any;
     recipientUserId?: string | null;
     recipientName?: string | null;
     referenceId?: string | null;
