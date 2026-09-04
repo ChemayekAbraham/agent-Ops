@@ -94,6 +94,22 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
     },
   });
 
+  // One period further back than `data.prior`, so the variance table can show
+  // the two closed periods alongside the still-counting current one.
+  const earlierAnchor = data?.prior?.period_start ? priorAnchor(data.prior.period_start) : null;
+  const { data: earlier } = useQuery({
+    queryKey: ['tppo-report-zone-a', granularity, earlierAnchor],
+    enabled: Boolean(earlierAnchor),
+    queryFn: async (): Promise<TppoZoneAReport> => {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('tppo_get_report_zone_a', {
+        p_granularity: granularity,
+        p_anchor: earlierAnchor as string,
+      });
+      if (rpcError) throw rpcError;
+      return (rpcData ?? {}) as unknown as TppoZoneAReport;
+    },
+  });
+
   const periodStart = data?.period_start ?? null;
   const periodEnd = data?.period_end ?? null;
   const submitted = data?.status === 'submitted';
