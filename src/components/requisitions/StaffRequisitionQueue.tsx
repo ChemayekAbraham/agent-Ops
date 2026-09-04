@@ -450,6 +450,11 @@ export function StaffRequisitionQueue() {
           {actionType === 'approve' && (
             <div className="space-y-2">
               <Label htmlFor="req-amount">Approved amount (UGX)</Label>
+              {reduceMode && active && (
+                <p className="text-xs text-muted-foreground">
+                  Requested: <b>{formatUGX(Number(active.approved_amount ?? active.amount))}</b> — enter a lower amount.
+                </p>
+              )}
               <Input
                 id="req-amount"
                 inputMode="numeric"
@@ -466,16 +471,17 @@ export function StaffRequisitionQueue() {
 
           <div className="space-y-2">
             <Label htmlFor="req-comment">
-              Comment {actionType === 'approve' ? '(optional)' : '(required, min 10 characters)'}
+              Comment {actionType === 'approve' && !reduceMode ? '(optional)' : '(required, min 10 characters)'}
             </Label>
             <Textarea
               id="req-comment"
               rows={3}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder={actionType === 'approve' ? 'Any note for the audit trail' : 'Explain your decision'}
+              placeholder={reduceMode ? 'Why is the amount being reduced?' : actionType === 'approve' ? 'Any note for the audit trail' : 'Explain your decision'}
             />
           </div>
+
 
           {active && (events[active.id]?.length ?? 0) > 0 && (
             <div className="space-y-2 rounded-xl border p-3">
