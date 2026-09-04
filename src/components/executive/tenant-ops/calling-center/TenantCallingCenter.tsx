@@ -39,8 +39,8 @@ import {
   Square,
 } from 'lucide-react';
 import { KPICard } from '../../KPICard';
-import { useCcCallingHub, type CcFilterSelection } from '@/hooks/useCcCallingHub';
-import { CALLING_TABS, type CallingTabKey } from '@/components/ops/calling/callingHubColumns';
+import { useCcCallingHub, type CcFilterSelection, type CcRow } from '@/hooks/useCcCallingHub';
+import { CALLING_TABS, type CallingTabKey, type CallingColumnKey } from '@/components/ops/calling/callingHubColumns';
 import { CallingHubTable } from '@/components/ops/calling/CallingHubTable';
 import { RecordOutcomeDialog } from '@/components/ops/calling/RecordOutcomeDialog';
 import { CallingFilterBar } from '@/components/ops/calling/CallingFilterBar';
@@ -48,6 +48,7 @@ import { FollowupsDuePanel } from '@/components/ops/calling/FollowupsDuePanel';
 import { OpenAttemptQueue } from '@/components/ops/calling/OpenAttemptQueue';
 import { LiveCallPanel } from './LiveCallPanel';
 import { TenantCallCenterHistory } from './TenantCallCenterHistory';
+import { TenantCallDetailsDialog } from './TenantCallDetailsDialog';
 import {
   AUTO_CAP_CHOICES,
   DEFAULT_AUTO_CAP,
