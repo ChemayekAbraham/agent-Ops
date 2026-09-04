@@ -8,13 +8,20 @@ import {
   Target, Banknote, Percent, Loader2, ArrowUpDown, ArrowUp, ArrowDown,
   Search, Share2, ChevronDown, ChevronLeft, ChevronRight, X, Download, Receipt,
   Info, AlertTriangle, Eye, SlidersHorizontal, ShieldCheck, CheckCircle2,
-  RotateCcw,
+  RotateCcw, Check,
 } from 'lucide-react';
 import { CalendarRange } from 'lucide-react';
 import { format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 import {
   Tooltip as UiTooltip,
   TooltipContent as UiTooltipContent,
@@ -1067,8 +1074,75 @@ export function FleetPerformanceStats({
             PDF
           </button>
         </div>
-        {/* Period selector: horizontally scrollable strip on small screens, wraps on desktop */}
-        <div className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+        {/* Mobile period selector: compact folded dropdown */}
+        <div className="flex sm:hidden items-center gap-1.5 w-full justify-between">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="h-8 px-2.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 border border-border/70 bg-card text-foreground shadow-xs active:scale-95 transition-all"
+              >
+                <CalendarRange className="h-3.5 w-3.5 text-primary" />
+                <span className="truncate max-w-[140px]">
+                  {period === 'custom'
+                    ? (customRange?.from ? `${format(customRange.from, 'MMM d')}${customRange.to ? ` – ${format(customRange.to, 'MMM d')}` : ''}` : 'Custom range')
+                    : PERIODS.find((p) => p.key === period)?.label || 'Period'}
+                </span>
+                <ChevronDown className="h-3 w-3 text-muted-foreground opacity-70 ml-0.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48 p-1 z-50 bg-popover border border-border shadow-md">
+              {PERIODS.map((p) => (
+                <DropdownMenuItem
+                  key={p.key}
+                  onClick={() => setPeriod(p.key)}
+                  className={cn(
+                    'text-xs py-2 px-2.5 cursor-pointer flex items-center justify-between rounded-md transition-colors',
+                    period === p.key ? 'bg-primary/10 text-primary font-semibold' : 'text-foreground hover:bg-accent/50'
+                  )}
+                >
+                  <span>{p.label}</span>
+                  {period === p.key && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Popover open={rangeOpen} onOpenChange={setRangeOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                onClick={() => setPeriod('custom')}
+                className={`h-8 px-2.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-all ${
+                  period === 'custom'
+                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    : 'bg-muted/70 text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                <CalendarRange className="h-3.5 w-3.5" />
+                <span>{period === 'custom' && customRange?.from ? `${format(customRange.from, 'MMM d')}` : 'Pick dates'}</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] p-0 z-50 bg-popover border border-border shadow-md" align="end">
+              <Calendar
+                mode="range"
+                selected={customRange}
+                onSelect={(r) => {
+                  setCustomRange(r);
+                  if (r?.from) setPeriod('custom');
+                  if (r?.from && r?.to) setRangeOpen(false);
+                }}
+                numberOfMonths={1}
+                disabled={{ after: new Date() }}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* Desktop Period selector: full horizontal buttons strip */}
+        <div className="hidden sm:flex items-center gap-1 flex-wrap">
           <button
             type="button"
             onClick={() =>
@@ -1087,7 +1161,7 @@ export function FleetPerformanceStats({
               })
             }
             disabled={loading || rows.length === 0}
-            className="hidden h-7 px-2.5 rounded-lg text-[11px] font-semibold sm:inline-flex items-center gap-1 bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-40 shrink-0"
+            className="h-7 px-2.5 rounded-lg text-[11px] font-semibold inline-flex items-center gap-1 bg-foreground text-background hover:opacity-90 transition-opacity disabled:opacity-40 shrink-0"
           >
             <Share2 className="h-3.5 w-3.5" />
             Share PDF
@@ -1147,9 +1221,9 @@ export function FleetPerformanceStats({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
             <Stat
-              icon={<Target className="h-3.5 w-3.5" />}
+              icon={<Target className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
               label="Expected"
               value={formatUGX(totalExpected)}
               tone="text-violet-600"
@@ -1160,7 +1234,7 @@ export function FleetPerformanceStats({
               onSecondary={() => openExpected()}
             />
             <Stat
-              icon={<Banknote className="h-3.5 w-3.5" />}
+              icon={<Banknote className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
               label="Collected"
               value={formatUGX(totalCollected)}
               tone="text-primary"
@@ -1180,8 +1254,8 @@ export function FleetPerformanceStats({
               onSecondary={() => openDrill()}
             />
             <Stat
-              icon={<Percent className="h-3.5 w-3.5" />}
-              label="Collection rate"
+              icon={<Percent className="h-3 w-3 sm:h-3.5 sm:w-3.5" />}
+              label="% Rate"
               value={`${rate}%`}
               tone={rateTone}
               onClick={() => focusMetric('rate')}
@@ -1436,7 +1510,6 @@ function KpiAgentAccordion({
 }
 
 function Stat({
-
   icon,
   label,
   value,
@@ -1473,73 +1546,75 @@ function Stat({
       title={onClick ? clickHint : undefined}
       onClick={onClick}
       onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
-      className={`rounded-lg border bg-card p-2 ${onClick ? 'cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-colors' : ''} ${active ? 'border-primary ring-1 ring-primary/30' : 'border-border'}`}
+      className={`rounded-lg border bg-card p-2 sm:p-2.5 flex flex-col justify-between min-h-[76px] ${onClick ? 'cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-colors active:scale-[0.98]' : ''} ${active ? 'border-primary ring-1 ring-primary/30' : 'border-border'}`}
     >
-      <div className={`flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide ${tone}`}>
-        {icon}
-        <span className="truncate">{label}</span>
-        {info && !formula && (
-          <UiTooltipProvider delayDuration={100}>
-            <UiTooltip>
-              <UiTooltipTrigger asChild>
-                <button
-                  type="button"
-                  aria-label={`${label} data source`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="ml-0.5 inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <Info className="h-3 w-3" />
-                </button>
-              </UiTooltipTrigger>
-              <UiTooltipContent side="top" className="max-w-[16rem] text-[11px] leading-snug">
-                {info}
-              </UiTooltipContent>
-            </UiTooltip>
-          </UiTooltipProvider>
-        )}
-        {formula && (
-          <UiTooltipProvider delayDuration={100}>
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  aria-label={`${label} formula`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="ml-0.5 inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                >
-                  <Info className="h-3 w-3" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent side="top" align="center" className="w-72 p-3 text-xs">
-                <p className="font-mono font-semibold text-foreground">{formula.equation}</p>
-                <div className="mt-2 space-y-2">
-                  {formula.components.map((c, i) => (
-                    <div key={i} className="rounded-md bg-muted/60 p-2">
-                      <p className="font-semibold text-foreground">{c.label}</p>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">{c.description}</p>
-                    </div>
-                  ))}
-                </div>
-                {formula.footnote && (
-                  <p className="mt-2 text-[10px] text-muted-foreground leading-snug border-t border-border pt-2">
-                    {formula.footnote}
-                  </p>
-                )}
-              </PopoverContent>
-            </Popover>
-          </UiTooltipProvider>
-        )}
-      </div>
-      <div
-        className={`mt-0.5 text-sm font-extrabold tabular-nums text-foreground truncate ${onClick ? 'underline decoration-dotted decoration-muted-foreground/40 underline-offset-2' : ''}`}
-      >
-        {value}
+      <div>
+        <div className={`flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider ${tone} leading-tight`}>
+          <span className="shrink-0">{icon}</span>
+          <span className="truncate">{label}</span>
+          {info && !formula && (
+            <UiTooltipProvider delayDuration={100}>
+              <UiTooltip>
+                <UiTooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={`${label} data source`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="ml-0.5 inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-primary shrink-0"
+                  >
+                    <Info className="h-3 w-3" />
+                  </button>
+                </UiTooltipTrigger>
+                <UiTooltipContent side="top" className="max-w-[16rem] text-[11px] leading-snug">
+                  {info}
+                </UiTooltipContent>
+              </UiTooltip>
+            </UiTooltipProvider>
+          )}
+          {formula && (
+            <UiTooltipProvider delayDuration={100}>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={`${label} formula`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="ml-0.5 inline-flex items-center justify-center rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground focus:outline-none focus:ring-1 focus:ring-primary shrink-0"
+                  >
+                    <Info className="h-3 w-3" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent side="top" align="center" className="w-72 p-3 text-xs">
+                  <p className="font-mono font-semibold text-foreground">{formula.equation}</p>
+                  <div className="mt-2 space-y-2">
+                    {formula.components.map((c, i) => (
+                      <div key={i} className="rounded-md bg-muted/60 p-2">
+                        <p className="font-semibold text-foreground">{c.label}</p>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">{c.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {formula.footnote && (
+                    <p className="mt-2 text-[10px] text-muted-foreground leading-snug border-t border-border pt-2">
+                      {formula.footnote}
+                    </p>
+                  )}
+                </PopoverContent>
+              </Popover>
+            </UiTooltipProvider>
+          )}
+        </div>
+        <div
+          className={`mt-1 text-[11px] sm:text-sm font-bold tabular-nums text-foreground leading-tight break-words ${onClick ? 'underline decoration-dotted decoration-muted-foreground/40 underline-offset-2' : ''}`}
+        >
+          {value}
+        </div>
       </div>
       {secondaryLabel && onSecondary && (
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onSecondary(); }}
-          className="mt-1 text-[10px] font-semibold text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-primary focus:outline-none focus:ring-1 focus:ring-primary rounded"
+          className="mt-1 text-[9px] sm:text-[10px] font-medium text-muted-foreground hover:text-primary transition-colors text-left truncate underline decoration-dotted"
         >
           {secondaryLabel}
         </button>
