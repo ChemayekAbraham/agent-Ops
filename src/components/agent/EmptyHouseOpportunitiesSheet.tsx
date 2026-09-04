@@ -473,7 +473,7 @@ export function EmptyHouseOpportunitiesSheet({
           </SheetHeader>
 
           {projection && createdNotes.length === 0 && !createdNote && (
-            <div className="mt-5 rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3 py-2">
+            <div className="mt-10 rounded-xl border border-emerald-500/25 bg-emerald-500/5 px-3 py-2">
               <p className="text-[11px] leading-snug">
                 <span className="font-semibold">Your plan:</span> fund{' '}
                 <span className="font-semibold">{projection.houses.toLocaleString()} {projection.houses === 1 ? 'house' : 'houses'}</span>
