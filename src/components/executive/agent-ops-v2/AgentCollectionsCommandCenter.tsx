@@ -344,6 +344,8 @@ export function AgentCollectionsCommandCenter() {
           <div className="mt-1.5">
             <Progress value={Math.min(100, coverage ?? 0)} className="h-1.5" />
             <p className="text-[11px] text-muted-foreground mt-1">{coverage === null ? 'No expectation on record' : `${coverage}% of expected`}</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Fixed at the start of each day · does not move intraday</p>
+
           </div>
         </Card>
         <Card className="p-3">
