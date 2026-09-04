@@ -7,6 +7,7 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useHorizontalSwipe } from '@/hooks/useHorizontalSwipe';
 import { executiveSidebarConfig } from '@/components/layout/executiveSidebarConfig';
+import { TenantOpsLandlordFloatTimeline } from '@/components/executive/TenantOpsLandlordFloatTimeline';
 import ExecutiveDashboardLayout from '@/components/layout/ExecutiveDashboardLayout';
 import { ChannelBalanceTracker } from '@/components/cfo/ChannelBalanceTracker';
 import { ErrorCorrectionAuditPanel } from '@/components/cfo/ErrorCorrectionAuditPanel';
@@ -75,6 +76,7 @@ import { CFOAgentRequisitions } from '@/components/cfo/CFOAgentRequisitions';
 import { EmployeeRequisitionLinksPanel } from '@/components/financial-ops/EmployeeRequisitionLinksPanel';
 import { EmployeeRequisitionQueuePanel } from '@/components/financial-ops/EmployeeRequisitionQueuePanel';
 import { RentCollectionsFeed } from '@/components/cfo/RentCollectionsFeed';
+import { TenantSelfRepaymentsPanel } from '@/components/reporting/TenantSelfRepaymentsPanel';
 import { AgentPerformanceRankings } from '@/components/cfo/AgentPerformanceRankings';
 import { AgentFloatManagement } from '@/components/cfo/AgentFloatManagement';
 import { LedgerHealthPanel } from '@/components/cfo/LedgerHealthPanel';
@@ -476,6 +478,8 @@ export default function CFODashboardPage() {
         );
       case 'advance-repayments':
         return <CFOAdvancesManager />;
+      case 'landlord-float-timeline':
+        return <TenantOpsLandlordFloatTimeline />;
       case 'approval-audit':
         return <ManagerApprovalAudit />;
       case 'agent-requisitions':
@@ -507,6 +511,8 @@ export default function CFODashboardPage() {
         );
       case 'rent-collections':
         return <RentCollectionsFeed />;
+      case 'tenant-self-repayments':
+        return <TenantSelfRepaymentsPanel audience="finance" />;
       case 'agent-rankings':
         return <AgentPerformanceRankings />;
       case 'float-management':

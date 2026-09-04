@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Home, Loader2, Search, SlidersHorizontal, Check, Share2, ShieldCheck, MapPin, Users, Phone, MessageSquare, Navigation, ImageIcon, Eye, Clock, CheckCircle2, UserCheck, Wallet, X } from 'lucide-react';
+import { Home, Loader2, Search, SlidersHorizontal, Check, Share2, ShieldCheck, MapPin, Users, Phone, MessageSquare, Navigation, ImageIcon, Eye, Clock, CheckCircle2, UserCheck, Wallet, X, CalendarDays } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -125,6 +125,10 @@ export function EmptyHouseOpportunitiesSheet({
   >([]);
   const [splitPerHouse, setSplitPerHouse] = useState(true);
   const [detailHouse, setDetailHouse] = useState<HouseOpportunity | null>(null);
+  // Partner mode only: "Promise a date" holds the houses for 7 days.
+  const [promisedDate, setPromisedDate] = useState('');
+  const [fundingNow, setFundingNow] = useState(false);
+
 
 
   const partnerName = isPartner ? (selfName || '').trim() : joinPersonName(nameParts);
@@ -307,6 +311,7 @@ export function EmptyHouseOpportunitiesSheet({
           amount,
           contribution_type: contributionType === 'monthly' ? 'monthly' : 'once_off',
         };
+        if (isPartner && promisedDate) payload.promised_funding_date = promisedDate;
         if (contributionType === 'monthly') {
           payload.deduction_day = String(Number(deductionDay));
           const now = new Date();
@@ -328,8 +333,12 @@ export function EmptyHouseOpportunitiesSheet({
         void supabase.functions
           .invoke('notify-promissory-note-pledge', { body: { note_id: result.note.id } })
           .catch(() => {});
+        void supabase.functions
+          .invoke('notify-house-booking', { body: { note_id: result.note.id } })
+          .catch(() => {});
         return result.note;
       };
+
 
       if (splitPerHouse && picked.length > 1) {
         const made: { id: string; activation_token?: string; label: string; amount: number }[] = [];
@@ -357,6 +366,72 @@ export function EmptyHouseOpportunitiesSheet({
       setSubmitting(false);
     }
   };
+
+  /**
+   * Partner mode only — book the picked houses and immediately submit the funding
+   * through the existing house-support path (operational review, then release to
+   * the landlords). No money moves in the client.
+   */
+  const handleFundNow = async () => {
+    if (fundingNow || submitting) return;
+    setErrorMsg(null);
+    if (picked.length === 0) {
+      const msg = 'Pick at least one empty house first';
+      setErrorMsg(msg);
+      toast.error(msg);
+      return;
+    }
+
+    setFundingNow(true);
+    try {
+      const houseIds = picked.map((h) => h.house_id);
+      const { data, error } = await supabase.rpc('agent_create_promissory_note_for_houses', {
+        p_payload: {
+          partner_name: (selfName || '').trim(),
+          whatsapp_number: (selfPhone || '').trim(),
+          phone_number: (selfPhone || '').trim() || null,
+          email: (selfEmail || '').trim() || null,
+          amount: rentTotal,
+          contribution_type: 'once_off',
+        },
+        p_house_ids: houseIds,
+      });
+      if (error) throw error;
+      const note = ((data ?? {}) as { note?: { id: string } }).note;
+      if (!note) throw new Error('Booking was not created');
+
+      const { error: fundErr } = await supabase.rpc('funder_fund_booked_houses', {
+        p_house_ids: houseIds,
+        p_term_months: 1,
+        p_idempotency_key: `fund-${note.id}`,
+      });
+      if (fundErr) throw fundErr;
+
+      void supabase.functions.invoke('notify-house-booking', { body: { note_id: note.id } }).catch(() => {});
+      toast.success(
+        `Funding submitted for ${picked.length} house${picked.length === 1 ? '' : 's'} — it goes for operational review, then agents place tenants.`,
+      );
+      window.dispatchEvent(new Event('supporter-contribution-changed'));
+      setSelected({});
+      void refetch();
+      onOpenChange(false);
+    } catch (err: unknown) {
+      const raw = String((err as { message?: string })?.message || 'Failed to fund these houses');
+      const msg = raw.includes('HOUSES_UNAVAILABLE')
+        ? 'Some selected houses are no longer empty. Refresh the list and pick again.'
+        : raw.includes('AGREEMENT_REQUIRED')
+          ? 'Please sign your partnership agreement before funding houses.'
+          : raw.includes('INSUFFICIENT') || raw.includes('BALANCE')
+            ? 'Your balance is not enough for these houses. Add funds or promise a date instead.'
+            : raw;
+      setErrorMsg(msg);
+      toast.error(msg);
+      if (raw.includes('HOUSES_UNAVAILABLE')) { setSelected({}); void refetch(); }
+    } finally {
+      setFundingNow(false);
+    }
+  };
+
 
   const handleShare = async () => {
     if (!createdNote?.activation_token) return;
@@ -976,10 +1051,49 @@ export function EmptyHouseOpportunitiesSheet({
             <p className="text-[10px] text-muted-foreground text-center">
               {formatUGX(annualReturn)} over 12 months, paid monthly from what the tenant repays.
             </p>
-            <Button className="w-full h-11 gap-2 font-semibold" onClick={handleSubmit} disabled={submitting}>
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-              {submitting ? 'Creating…' : 'Create note for these houses'}
-            </Button>
+            {isPartner ? (
+              <div className="space-y-2">
+                <div>
+                  <Label className="text-[11px]">Promised funding date (optional)</Label>
+                  <Input
+                    type="date"
+                    value={promisedDate}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => setPromisedDate(e.target.value)}
+                    className="mt-0.5 h-10 text-xs"
+                  />
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Booked houses are held for you for 7 days. If they are not funded by then they go back
+                    to the open empty-house list and we notify you by SMS and email.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="outline"
+                    className="h-11 gap-2 text-xs font-semibold"
+                    onClick={handleSubmit}
+                    disabled={submitting || fundingNow}
+                  >
+                    {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
+                    {submitting ? 'Booking…' : 'Promise a date'}
+                  </Button>
+                  <Button
+                    className="h-11 gap-2 text-xs font-semibold"
+                    onClick={handleFundNow}
+                    disabled={submitting || fundingNow}
+                  >
+                    {fundingNow ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    {fundingNow ? 'Submitting…' : 'Fund now'}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button className="w-full h-11 gap-2 font-semibold" onClick={handleSubmit} disabled={submitting}>
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {submitting ? 'Creating…' : 'Create note for these houses'}
+              </Button>
+            )}
+
           </div>
         )}
 

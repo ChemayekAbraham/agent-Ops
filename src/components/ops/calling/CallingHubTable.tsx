@@ -71,6 +71,8 @@ export function CallingHubTable({
   revealing,
   wipBlocked,
   onReveal,
+  actionLabels,
+  actionIcon: ActionIcon = Eye,
 }: {
   columns: CallingColumnKey[];
   rows: CcRow[];
@@ -79,7 +81,21 @@ export function CallingHubTable({
   revealing: boolean;
   wipBlocked: boolean;
   onReveal: (row: CcRow) => void;
+  /**
+   * Presentation-only override of the primary action's wording. Defaults keep
+   * the Calling Hub's existing "Reveal number" copy untouched; the Calling
+   * Center passes "Call" because the same action also dials.
+   */
+  actionLabels?: { compact: string; full: string; compactOpen: string; fullOpen: string; title: string };
+  actionIcon?: React.ComponentType<{ className?: string }>;
 }) {
+  const labels = actionLabels ?? {
+    compact: 'Reveal',
+    full: 'Reveal number',
+    compactOpen: 'View',
+    fullOpen: 'View call details',
+    title: 'Reveal number',
+  };
   if (!rows.length) {
     return <p className="px-1 py-6 text-center text-xs text-muted-foreground">No rows on this tab.</p>;
   }
@@ -101,15 +117,16 @@ export function CallingHubTable({
             ? 'Record the outcome of your open calls before revealing another number.'
             : isOpen
               ? 'View the revealed number and call details again'
-              : 'Reveal number'
+              : labels.title
         }
         onClick={() => onReveal(row)}
       >
-        <Eye className="mr-1 h-3 w-3" />
-        {full ? (isOpen ? 'View call details' : 'Reveal number') : isOpen ? 'View' : 'Reveal'}
+        <ActionIcon className="mr-1 h-3 w-3" />
+        {full ? (isOpen ? labels.fullOpen : labels.full) : isOpen ? labels.compactOpen : labels.compact}
       </Button>
     );
   };
+
 
 
   const whatsappLink = (row: CcRow, full: boolean) => {

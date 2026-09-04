@@ -128,6 +128,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Money In',
       items: [
         { label: 'Rent Collections', icon: Receipt, id: 'rent-collections' },
+        { label: 'Tenant Self-Repayments', icon: Receipt, id: 'tenant-self-repayments' },
         { label: 'Investor Returns', icon: TrendingUp, id: 'roi-requests' },
         { label: 'Partner Top-ups', icon: TrendingUp, id: 'partner-topups' },
       ],
@@ -137,6 +138,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       items: [
       { label: 'Rent Payouts', icon: Banknote, id: 'rent-payouts' },
         { label: 'Landlord Payout Float', icon: Home, id: 'landlord-payout-float' },
+        { label: 'Float Timeline', icon: History, id: 'landlord-float-timeline' },
         { label: 'Already Funded Landlords', icon: Landmark, id: 'already-funded-landlords' },
         { label: 'Agent Commissions', icon: Banknote, id: 'commissions' },
         { label: 'Withdrawals', icon: Wallet, id: 'withdrawals' },
@@ -225,6 +227,9 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Partner Finance', icon: Receipt, id: 'partner-finance' },
         { label: 'Partner Top-ups', icon: TrendingUp, id: 'partner-topups' },
         { label: 'Staff Performance', icon: UserCheck, id: 'staff-performance' },
+        { label: 'Global Verification Center', icon: ShieldCheck, id: 'global-verification' },
+        { label: 'Welile Operations', icon: Landmark, id: 'welile-operations' },
+        { label: 'Approval History', icon: History, id: 'approval-history' },
         { label: 'Service Centre Vetting', icon: Building2, id: 'service-centres' },
         { label: 'Manual Requisitions', icon: ClipboardList, id: 'manual-requisitions' },
         { label: 'Funder Rent Plans', icon: Eye, id: 'funder-rent-plans', route: '/coo/funder-rent-plans' },
@@ -295,6 +300,8 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Revenue & Growth', icon: TrendingUp, id: 'revenue' },
         { label: 'Revenue Recognition', icon: Gauge, id: 'revenue-recognition' },
         { label: 'Users & Coverage', icon: Globe, id: 'users' },
+        { label: 'Global Verification Center', icon: ShieldCheck, id: 'global-verification' },
+        { label: 'Welile Operations', icon: Landmark, id: 'welile-operations' },
         { label: 'Financial Health', icon: Shield, id: 'financial' },
         { label: 'Requisitions', icon: ClipboardList, id: 'requisitions' },
         { label: 'Payroll Approvals', icon: Banknote, id: 'ceo-pay-approvals', route: '/approvals' },
@@ -335,6 +342,12 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       ],
     },
     {
+      title: 'Reports',
+      items: [
+        { label: 'Submitted Reports', icon: FileText, id: 'submitted-reports', access: HR_ACCESS },
+      ],
+    },
+    {
       title: 'Performance',
       icon: TrendingUp,
       collapsible: true,
@@ -346,6 +359,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Metric Definitions', icon: Gauge, id: 'hr-metrics', route: '/hr/dashboard/metrics', access: HR_ACCESS },
       ],
     },
+
     {
       title: 'Administration',
       icon: Shield,
@@ -355,6 +369,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Requisitions', icon: ClipboardList, id: 'requisitions', access: HR_ACCESS },
         { label: 'Platform Users', icon: UserCog, id: 'user-management', route: '/platform-users', access: HR_ACCESS },
         { label: 'Audit Trail', icon: FileText, id: 'audit', access: HR_ACCESS },
+        { label: 'Approval History', icon: History, id: 'approval-history', access: HR_ACCESS },
       ],
     },
   ],

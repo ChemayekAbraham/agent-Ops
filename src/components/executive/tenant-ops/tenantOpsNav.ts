@@ -22,6 +22,7 @@ import {
   Copy,
   Home,
   FileText,
+  Headphones,
   PhoneCall,
   AlertTriangle,
   type LucideIcon,
@@ -33,7 +34,7 @@ import type { TenantOpsClassicView } from '../TenantOpsDashboard';
  * view keys (so selecting one simply drives `TenantOpsDashboard`) or one of the
  * shell-owned keys below.
  */
-export type TenantOpsShellOnlyView = 'home' | 'phone-duplicates' | 'calling-hub';
+export type TenantOpsShellOnlyView = 'home' | 'phone-duplicates' | 'calling-hub' | 'calling-center';
 export type TenantOpsViewKey = TenantOpsShellOnlyView | TenantOpsClassicView;
 
 /** Actions that are not views — they open a sheet or leave the dashboard. */
@@ -68,9 +69,6 @@ export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
     icon: Shield,
     keywords: ['verify', 'users'],
     children: [
-      { key: 'global-verification', label: 'Global Verification Center', icon: Shield, keywords: ['landlords', 'lc1', 'chairperson', 'requests', 'country'] },
-      { key: 'welile-operations', label: 'Welile Operations', icon: Landmark, keywords: ['users', 'tenants', 'landlords', 'agents', 'partners', 'profiles'] },
-      { key: 'phone-duplicates', label: 'Phone Duplicates', icon: Copy, keywords: ['duplicate', 'phone', 'fraud', 'same number'] },
       { key: 'registration-review', label: 'Review Registration', icon: FileSearch, keywords: ['edit tenant', 'registration', 'details'] },
     ],
   },
@@ -83,21 +81,17 @@ export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
       { key: 'pipeline', label: 'Review Requests', icon: ClipboardList, keywords: ['approve', 'vet', 'queue', 'pipeline'] },
       { key: 'daily', label: 'Daily Payments', icon: CalendarCheck, keywords: ['today', 'paid', 'unpaid'] },
       { key: 'calling-hub', label: 'Calling Hub', icon: PhoneCall, keywords: ['call', 'calls', 'phone', 'follow up', 'pending', 'closed', 'missed calls'] },
+      { key: 'calling-center', label: 'Calling Center', icon: Headphones, keywords: ['call centre', 'call center', 'dial', 'auto call', 'sequential', 'live call', 'voice'] },
       { key: 'missed', label: 'Missed Days', icon: CalendarX2, keywords: ['behind', 'arrears', 'late'] },
       { key: 'backlog-analysis', label: 'Backlog Analysis', icon: AlertTriangle, keywords: ['overdue', 'backlog', 'arrears', 'recovery', 'ageing', 'aging'] },
       { key: 'behavior', label: 'Tenant Behavior', icon: Activity, keywords: ['risk', 'score', 'patterns'] },
-      { key: 'history', label: 'Approval History', icon: History, keywords: ['log', 'approvals', 'rejections'] },
       { key: 'all-requests', label: 'All Requests', icon: Table2, keywords: ['table', 'every request'] },
       { key: 'link-agent', label: 'Link Agent', icon: Link2, keywords: ['assign', 'agent', 'tenant'] },
       { key: 'transfer-audit', label: 'Transfer Audit', icon: Shield, keywords: ['geo', 'transfers', 'link history'] },
-      { key: 'collect-rent', label: 'Collect Rent', icon: HandCoins, keywords: ['charge', 'wallet', 'payment'] },
       { key: 'agent-tenants', label: 'Search by Agent', icon: Users, keywords: ['find tenants', 'agent'] },
-      { key: 'advance-requests', label: 'Business Advances', icon: Banknote, keywords: ['advance', 'rent history'] },
-      { key: 'agent-allocations', label: 'Agent Allocations', icon: Network, keywords: ['per agent', 'repayment'] },
-      { key: 'landlord-float', label: 'Agent Landlord Float', icon: Landmark, keywords: ['float', 'earmarks', 'payout'] },
-      { key: 'landlord-float-timeline', label: 'Float Timeline', icon: History, keywords: ['allocation history', 'reference'] },
       { key: 'location-browser', label: 'Browse by Location', icon: MapPin, keywords: ['country', 'region', 'district', 'ward'] },
       { key: 'daily-repayments-report', label: 'Daily Rent Repayments', icon: HandCoins, keywords: ['ledger', 'repayments', 'day'] },
+      { key: 'tenant-self-repayments', label: 'Tenant Self-Repayments', icon: HandCoins, keywords: ['self pay', 'tenant paid', 'deposit', 'own rent', 'self repayment'] },
     ],
   },
   {
@@ -195,6 +189,16 @@ export const TENANT_OPS_VIEW_KEYS = new Set<string>(TENANT_OPS_SEARCH_INDEX.map(
 export const TENANT_OPS_TRANSIENT_VIEW_KEYS = new Set<string>([
   'tenant-detail',
   'tenant-location-browser',
+  // Relocated to other dashboards (no sidebar entry here any more) but still
+  // reachable from the Extract Center's "open the view" links inside Classic.
+  'history',
+  'agent-allocations',
+  'landlord-float',
+  'landlord-float-timeline',
+  'collect-rent',
+  'advance-requests',
+  'global-verification',
+  'welile-operations',
 ]);
 
 /** Is this a destination the shell may render (sidebar entry or drill-down)? */

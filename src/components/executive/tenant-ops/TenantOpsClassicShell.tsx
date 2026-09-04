@@ -6,6 +6,7 @@ import { TenantOpsSidebar } from './TenantOpsSidebar';
 import { TenantOpsTopBar } from './TenantOpsTopBar';
 import { TenantOpsHome } from './TenantOpsHome';
 import { CallingHub } from '@/components/ops/calling';
+import { TenantCallingCenter } from './calling-center/TenantCallingCenter';
 import { TenantPhoneDuplicatePanel } from '@/components/ops/TenantPhoneDuplicatePanel';
 import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 
@@ -82,6 +83,7 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
       );
     }
     if (active === 'calling-hub') return <CallingHub subjectType="tenant" />;
+    if (active === 'calling-center') return <TenantCallingCenter />;
     if (active === 'phone-duplicates') return <TenantPhoneDuplicatePanel variant="full" />;
     return (
       <TenantOpsDashboard

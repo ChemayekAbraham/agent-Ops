@@ -5,6 +5,24 @@ interface HeadlineA1Props {
   report?: TppoZoneAReport | null;
 }
 
+function shortDate(iso?: string | null): string {
+  if (!iso) return '—';
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(y, m - 1, d)));
+}
+
+function periodLabel(start?: string | null, end?: string | null): string {
+  if (!start) return '—';
+  if (!end || end === start) return shortDate(start);
+  return `${shortDate(start)} – ${shortDate(end)}`;
+}
+
+
 
 /**
  * A1 · HEADLINE. Every figure is rendered as supplied by tppo_get_report_zone_a;
@@ -26,8 +44,15 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
   const hasRate = rate !== null && rate !== undefined;
   const atOrAbove = hasRate && below === false;
 
+  const priorRate = report?.prior?.collection_rate_pct ?? null;
+
   return (
     <section aria-label="A1 headline" className="rounded-xl border border-primary/25 bg-primary/5 p-4 shadow-sm">
+      <p className="mb-2 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <span>{periodLabel(report?.period_start, report?.period_end)}</span>
+        {provisional && <span className="font-medium normal-case text-primary">still counting</span>}
+      </p>
+
       <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3 sm:gap-y-1">
         <span className="break-words text-2xl font-semibold tabular-nums text-foreground">
           {collected === null ? '—' : formatUGX(collected)}
@@ -65,6 +90,14 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
           )}
         </p>
         <p>{threshold === null ? 'threshold —' : `threshold ${threshold.toFixed(1)}%`}</p>
+        {report?.prior?.period_start && (
+          <p>
+            {`last closed period ${periodLabel(report.prior.period_start, report.prior.period_end)} — `}
+            <span className="tabular-nums text-foreground">
+              {priorRate === null ? '—' : `${priorRate.toFixed(1)}%`}
+            </span>
+          </p>
+        )}
       </div>
 
       <div className="mt-4 space-y-2 border-t border-border pt-3 text-sm text-muted-foreground sm:space-y-1">
