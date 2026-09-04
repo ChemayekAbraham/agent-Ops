@@ -98,7 +98,7 @@ function fmtDate(iso: string | null) {
   return new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-function StatusPill({ row }: { row: Requisition }) {
+function StatusPill({ row, mode = 'agent' }: { row: Requisition; mode?: 'agent' | 'ops' }) {
   if (row.stage === 'approved') {
     return (
       <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold text-xs">
@@ -117,6 +117,14 @@ function StatusPill({ row }: { row: Requisition }) {
     return (
       <Badge variant="outline" className="border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400 font-semibold text-xs">
         <HelpCircle className="mr-1 h-3 w-3" /> Needs your update
+      </Badge>
+    );
+  }
+  // For agent view, do not expose internal approval routing hops
+  if (mode === 'agent') {
+    return (
+      <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold text-xs">
+        <Clock className="mr-1 h-3 w-3" /> Under review
       </Badge>
     );
   }
@@ -619,12 +627,12 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
           </h1>
         </div>
 
-        {/* Workflow Info & Submit Action Banner */}
-        <Card className="rounded-2xl border-border bg-card p-5 sm:p-6 shadow-sm">
+        {/* Submit Action Banner */}
+        <Card className="rounded-2xl border-border bg-card p-4 sm:p-6 shadow-sm">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1.5">
-              <p className="text-xs sm:text-sm font-medium text-foreground">
-                Your requests are reviewed in this order: <span className="font-bold text-primary">Agent Ops → COO → CFO</span>.
+            <div className="space-y-1">
+              <p className="text-xs sm:text-sm font-semibold text-foreground">
+                Request funding for field activities
               </p>
               <p className="text-xs text-muted-foreground">
                 On final approval the amount is credited straight to your wallet.
@@ -644,7 +652,7 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
                 <DialogHeader>
                   <DialogTitle>{resubmitId ? 'Update and resubmit' : 'New requisition'}</DialogTitle>
                   <DialogDescription>
-                    Your request is routed for review and credited to your wallet once approved.
+                    Submit your request for review. Once approved, the funds will be credited to your wallet.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 pt-2">
@@ -763,7 +771,7 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
                             {row.requisition_code}
                           </span>
                           <h3 className="font-bold text-base text-foreground">{row.title}</h3>
-                          <StatusPill row={row} />
+                          <StatusPill row={row} mode="agent" />
                         </div>
                         <p className="text-xs text-muted-foreground">
                           Requested on {fmtDate(row.created_at)}
@@ -858,39 +866,8 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
                             Update &amp; Resubmit
                           </Button>
                         )}
-
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => loadEvents(row.id)}
-                          className="text-xs text-muted-foreground hover:text-foreground h-8"
-                        >
-                          {rowEvents ? 'Hide audit history' : 'View history'}
-                        </Button>
                       </div>
                     </div>
-
-                    {/* Audit Trail */}
-                    {rowEvents && (
-                      <div className="pt-2 border-t border-border/40 space-y-2">
-                        <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                          Review History
-                        </p>
-                        <div className="space-y-1.5 pl-2 border-l-2 border-primary/20">
-                          {rowEvents.map((ev) => (
-                            <div key={ev.id} className="text-xs text-muted-foreground">
-                              <span className="font-semibold text-foreground">{ev.actor_name || 'System'}</span>
-                              {' · '}
-                              <span className="capitalize">{ev.action}</span>
-                              {ev.comment && <span className="italic"> — "{ev.comment}"</span>}
-                              <span className="text-[10px] text-muted-foreground/70 ml-1">
-                                ({fmtDate(ev.created_at)})
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </Card>
                 );
               })}
@@ -1378,7 +1355,7 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
                             <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-muted text-muted-foreground border border-border">
                               {row.requisition_code}
                             </span>
-                            <StatusPill row={row} />
+                            <StatusPill row={row} mode="ops" />
                           </div>
 
                           <h3 className="font-semibold text-sm text-foreground">{row.title}</h3>
