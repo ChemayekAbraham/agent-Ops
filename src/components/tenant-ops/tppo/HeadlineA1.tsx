@@ -90,6 +90,14 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
           )}
         </p>
         <p>{threshold === null ? 'threshold —' : `threshold ${threshold.toFixed(1)}%`}</p>
+        {report?.prior?.period_start && (
+          <p>
+            {`last closed period ${periodLabel(report.prior.period_start, report.prior.period_end)} — `}
+            <span className="tabular-nums text-foreground">
+              {priorRate === null ? '—' : `${priorRate.toFixed(1)}%`}
+            </span>
+          </p>
+        )}
       </div>
 
       <div className="mt-4 space-y-2 border-t border-border pt-3 text-sm text-muted-foreground sm:space-y-1">
