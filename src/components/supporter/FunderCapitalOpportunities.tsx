@@ -333,6 +333,7 @@ const BiggestOpportunitiesPanel = memo(function BiggestOpportunitiesPanel({
   const [breakdownBy, setBreakdownBy] = useState<BreakdownBy>('district');
   const [breakdownSort, setBreakdownSort] = useState<BreakdownSort>('rent');
   const [breakdownTopN, setBreakdownTopN] = useState<6 | 12 | 0>(6); // 0 = all
+  const [expanded, setExpanded] = useState(false);
 
   const top = useMemo(() => {
     const rows = breakdownBy === 'district' ? districts : landlords;
@@ -351,20 +352,22 @@ const BiggestOpportunitiesPanel = memo(function BiggestOpportunitiesPanel({
 
   return (
     <div className="rounded-xl bg-card border border-border/60 p-3.5 space-y-3">
-      <div className="flex items-center justify-between gap-2">
+      <button
+        type="button"
+        onClick={() => { hapticTap(); setExpanded(v => !v); }}
+        className="w-full flex items-center justify-between gap-2 text-left"
+        aria-expanded={expanded}
+      >
         <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-wider">
           Biggest opportunities
         </p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-7 gap-1.5 rounded-lg px-2.5 text-[11px] font-bold"
-          onClick={() => { hapticTap(); onExportPdf(top, breakdownBy, breakdownSort); }}
-        >
-          <Download className="h-3.5 w-3.5" /> PDF
-        </Button>
-      </div>
+        {expanded ? (
+          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        )}
+      </button>
+
 
       <div className="flex items-center gap-x-3 gap-y-2 flex-wrap">
         <div className="flex rounded-lg border border-border/60 overflow-hidden">
