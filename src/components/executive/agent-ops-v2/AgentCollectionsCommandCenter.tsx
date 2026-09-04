@@ -98,6 +98,15 @@ interface CommandCenterData {
   generated_at: string;
 }
 
+interface CollectionTargetData {
+  as_of: string; timezone: string;
+  collectible_today: number; collectible_plans: number;
+  on_schedule_daily: number; on_schedule_plans: number;
+  past_term_daily: number; past_term_plans: number;
+  scheduled_today: number; scheduled_today_plans: number;
+  arrears_to_date: number; generated_at: string;
+}
+
 const num = (v: any) => Number(v ?? 0);
 const compact = (v: number) =>
   v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `${Math.round(v / 1_000)}K` : `${v}`;
