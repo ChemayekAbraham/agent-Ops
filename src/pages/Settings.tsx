@@ -675,7 +675,7 @@ export default function Settings() {
                   </Collapsible>
 
                   
-                  <SettingsRow label="Skip Welcome Screen" description={preferences.skipSplash ? 'Goes straight to dashboard' : 'Shows welcome first'} icon={RotateCcw}><Switch checked={preferences.skipSplash} onCheckedChange={(c) => { updatePreference('skipSplash', c); toast.success(c ? 'Splash skipped' : 'Splash enabled'); }} /></SettingsRow>
+                  
                   </CardContent>
                 </Card>
 
