@@ -13,7 +13,7 @@ import { PARTNER_OPS_ATTENTION_ITEM_IDS } from './executiveSidebarConfig';
 import { useQuery } from '@tanstack/react-query';
 import type { SidebarSection, SidebarItem } from './executiveSidebarConfig';
 import { useStaffPermissions } from '@/hooks/useStaffPermissions';
-import { GlossaryButton } from '@/components/shared/GlossaryButton';
+
 import { BudgetDepartmentNotificationBell } from '@/components/budget/BudgetDepartmentNotificationBell';
 import { MissionBanner } from '@/components/mission/MissionBanner';
 
