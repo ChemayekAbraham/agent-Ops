@@ -173,8 +173,8 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
         });
       }
       toast.success('Contact details filled in');
-    } catch (err: any) {
-      toast.error(String(err?.message || 'Contact book is not available on this device'));
+    } catch (err) {
+      toast.error(String((err as { message?: string }).message || 'Contact book is not available on this device'));
     }
   };
 
