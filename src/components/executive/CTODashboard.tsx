@@ -11,6 +11,7 @@ import { InfrastructureHealthMonitor } from './InfrastructureHealthMonitor';
 import { CTOEmailsOverview } from './CTOEmailsOverview';
 import { CTOCommunicationOverview } from './CTOCommunicationOverview';
 import { SmsDeliveryLogViewer } from './SmsDeliveryLogViewer';
+import { VoiceApiCallLogViewer } from './VoiceApiCallLogViewer';
 import { SmsExceptionsManager } from './SmsExceptionsManager';
 import { BroadcastStatusPanel } from './BroadcastStatusPanel';
 import RunBackupNowButton from '@/components/admin/RunBackupNowButton';
