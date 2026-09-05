@@ -185,10 +185,7 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
         )}
 
         <p className="pt-2 text-xs italic">
-          Scheduled is the sum of instalments the agreed payment plans fall due in this period.
-          Plans past their agreed end date schedule nothing further; recovery against them is
-          reported beside the rate, not inside it. Once a day is closed its scheduled figure is
-          fixed and does not move.
+          Scheduled is the sum of instalments the agreed payment plans fall due in this period, on each plan's own cadence. A tenant onboarded today with repayment starting later contributes from their first due date onward, not before. Plans past their agreed end date schedule nothing further; recovery against them is reported beside the rate, not inside it. Once a day is closed its scheduled figure is fixed and does not move.
         </p>
       </div>
     </section>
