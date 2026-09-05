@@ -47,8 +47,11 @@ try {
   if (isIOS && isStandalone) {
     document.documentElement.classList.add('ios-standalone');
   }
-  const userForced = localStorage.getItem('welile-no-blur') === '1';
-  if (userForced || isAndroid) {
+  const noBlurPref = localStorage.getItem('welile-no-blur');
+  const userForced = noBlurPref === '1';
+  // Explicit opt-out ('0') wins over every automatic heuristic below.
+  const userOptedOut = noBlurPref === '0';
+  if (userForced || (isAndroid && !userOptedOut)) {
     document.documentElement.classList.add('no-backdrop-blur');
     document.documentElement.classList.add('android-compositor-safe');
   }
@@ -66,7 +69,7 @@ try {
   const isLowEnd =
     (typeof deviceMemory === 'number' && deviceMemory <= 3) ||
     (typeof cores === 'number' && cores <= 4);
-  if (isLowEnd || prefersReducedMotion || saveData) {
+  if (!userOptedOut && (isLowEnd || prefersReducedMotion || saveData)) {
     document.documentElement.classList.add('lite-mode');
     // Lite devices also get the compositor-safe path even on non-Android.
     document.documentElement.classList.add('android-compositor-safe');

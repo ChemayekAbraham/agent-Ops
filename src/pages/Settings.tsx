@@ -211,6 +211,11 @@ export default function Settings() {
   const { fontSize, setFontSize } = useFontSize();
   const { intensity: hapticIntensity, setIntensity: setHapticIntensity } = useHapticSettings();
   const { reducedMotion, setReducedMotion } = useReducedMotion();
+  // Reflects what is actually applied to the page (the app also switches this
+  // on automatically for low-end phones), not just what the user last picked.
+  const [reduceGraphics, setReduceGraphics] = useState<boolean>(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('no-backdrop-blur')
+  );
   const { preferences, updatePreference } = useAppPreferences();
   
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -768,15 +773,22 @@ export default function Settings() {
 
                     <SettingsRow label="Reduce Graphics" description="Fix screen tearing on older phones" icon={Zap}>
                       <Switch
-                        checked={typeof window !== 'undefined' && localStorage.getItem('welile-no-blur') === '1'}
+                        checked={reduceGraphics}
                         onCheckedChange={(c) => {
+                          setReduceGraphics(c);
+                          const root = document.documentElement;
                           if (c) {
                             localStorage.setItem('welile-no-blur', '1');
-                            document.documentElement.classList.add('no-backdrop-blur');
+                            root.classList.add('no-backdrop-blur');
+                            root.classList.add('android-compositor-safe');
                             toast.success('Reduced graphics on');
                           } else {
-                            localStorage.removeItem('welile-no-blur');
-                            document.documentElement.classList.remove('no-backdrop-blur');
+                            // '0' is an explicit opt-out: it also overrides the
+                            // automatic low-end/Android detection on next launch.
+                            localStorage.setItem('welile-no-blur', '0');
+                            root.classList.remove('no-backdrop-blur');
+                            root.classList.remove('android-compositor-safe');
+                            root.classList.remove('lite-mode');
                             toast.success('Full graphics restored');
                           }
                         }}
