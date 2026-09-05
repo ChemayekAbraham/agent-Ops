@@ -531,9 +531,6 @@ export default function ExecutiveDashboardLayout({
           />
         </div>
 
-        {/* Glossary — shared team vocabulary */}
-        <GlossaryButton variant="header" className="shrink-0" />
-
         {/* Department budget cycle notices (only for departments the user can access).
             The CFO dashboard has a single unified bell (CFOApprovalNotificationsBell),
             which already includes budget notices — so no second bell there.
