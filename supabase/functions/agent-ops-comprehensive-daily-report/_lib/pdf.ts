@@ -474,6 +474,26 @@ export function buildComprehensiveReportPdf(input: {
       num(livePlans),
     ]],
     rightFrom: 0,
+    colColors: { 1: SUCCESS, 2: DANGER, 3: PRIMARY },
+  });
+
+  const topRent = [...rentRows]
+    .sort((a, b) => perAgentExpected(b) - perAgentExpected(a))
+    .slice(0, 12);
+  barChart({
+    title: 'Expected obligation against actual collections',
+    subtitle: 'Twelve agents carrying the largest scheduled obligation in the reporting window (UGX).',
+    series: [
+      { label: 'Expected scheduled obligation', color: NEUTRAL_LINE },
+      { label: 'Actual paid amount', color: SUCCESS },
+      { label: 'Missed financial shortfall', color: DANGER },
+    ],
+    points: topRent.map((r) => {
+      const exp = perAgentExpected(r);
+      const got = Number(r.collected_today) || 0;
+      return { label: String(r.agent_name ?? '—'), values: [exp, got, pos(exp - got)] };
+    }),
+    valueFormat: ugx,
   });
 
   sectionTitle('Agent Collection Performance');
@@ -491,6 +511,7 @@ export function buildComprehensiveReportPdf(input: {
           exp > 0 ? `${pctNum(got, exp).toFixed(1)}%` : '—', num(r.avg_days_outstanding),
         ];
       }),
+    colColors: { 4: SUCCESS, 5: DANGER, 6: PRIMARY },
     empty: 'No live rent receivables in this period.',
   });
 
@@ -506,6 +527,7 @@ export function buildComprehensiveReportPdf(input: {
       recovered + advOutstanding > 0 ? `${pctNum(recovered, recovered + advOutstanding).toFixed(1)}%` : '—',
     ]],
     rightFrom: 0,
+    colColors: { 2: SUCCESS, 3: WARNING, 4: DANGER, 7: SUCCESS },
   });
 
   sectionTitle('Advance Portfolio Detail');
@@ -521,8 +543,11 @@ export function buildComprehensiveReportPdf(input: {
         pct(Number(r.recovered) || 0, Number(r.principal) || 0),
         day(r.issued_at), String(r.status ?? 'unknown').replace(/_/g, ' '),
       ]),
+    colColors: { 3: SUCCESS, 4: DANGER, 6: PRIMARY },
+    statusCol: 8,
     empty: 'No advances recorded in this window.',
   });
+
 
 
   // ── Page 4 — service centres ──────────────────────────────────────────────
