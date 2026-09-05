@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -133,10 +133,10 @@ export function VoiceApiCallLogViewer() {
   });
 
   const { data: page_, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['voice-call-log', range, statusFilter, search.trim(), page],
+    queryKey: ['voice-call-log', range, statusFilter, debouncedSearch, page],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_voice_call_log', {
-        p_search: search.trim() || null,
+        p_search: debouncedSearch || null,
         p_status: statusFilter,
         p_from: bounds.from,
         p_to: bounds.to,
@@ -159,6 +159,14 @@ export function VoiceApiCallLogViewer() {
     },
     staleTime: 120_000,
   });
+
+  const statusOptions = useMemo(() => {
+    const seen = new Set<string>();
+    (stats?.by_status || []).forEach((s) => { if (s.status) seen.add(String(s.status).toLowerCase()); });
+    FALLBACK_STATUSES.forEach((s) => seen.add(s));
+    if (statusFilter !== 'all') seen.add(statusFilter);
+    return Array.from(seen).sort();
+  }, [stats?.by_status, statusFilter]);
 
   const rows = page_?.rows || [];
   const total = page_?.total || 0;
@@ -323,8 +331,9 @@ export function VoiceApiCallLogViewer() {
               <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
                 <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {STATUS_OPTIONS.map((s) => (
-                    <SelectItem key={s} value={s}>{s === 'all' ? 'All statuses' : prettyStatus(s)}</SelectItem>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  {statusOptions.map((s) => (
+                    <SelectItem key={s} value={s}>{prettyStatus(s)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
