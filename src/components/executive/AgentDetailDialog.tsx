@@ -191,7 +191,12 @@ export function AgentDetailDialog({ agentId, open, onOpenChange }: Props) {
                 <TabsContent value="landlords" className="mt-3">
                   <LandlordsList items={data.assignments} />
                 </TabsContent>
+
+                <TabsContent value="promissory" className="mt-3">
+                  {agentId && <AgentPromissoryNotesSection agentId={agentId} />}
+                </TabsContent>
               </Tabs>
+
             </div>
           </ScrollArea>
         )}
