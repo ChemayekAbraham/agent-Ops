@@ -95,11 +95,21 @@ export function TppoPlanDetailTable({
       ) : data ? (
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-foreground">
-              {`Scheduled ${granularity === 'day' ? 'today' : 'this period'} — ${formatUGX(
-                data.totals.scheduled_total,
-              )}`}
-            </h3>
+            <button
+              type="button"
+              onClick={() => setCollapsed((c) => !c)}
+              className="flex items-center gap-1.5 text-left touch-manipulation"
+              aria-expanded={!collapsed}
+            >
+              <ChevronDown
+                className={`h-4 w-4 text-muted-foreground transition-transform ${collapsed ? '-rotate-90' : ''}`}
+              />
+              <h3 className="text-sm font-semibold text-foreground">
+                {`Scheduled ${granularity === 'day' ? 'today' : 'this period'} — ${formatUGX(
+                  data.totals.scheduled_total,
+                )}`}
+              </h3>
+            </button>
             <div className="flex items-center gap-2">
               <Badge variant="outline">
                 {data.schedule_basis === 'pinned' ? 'Fixed for the day' : 'Live'}
@@ -115,6 +125,8 @@ export function TppoPlanDetailTable({
               </Button>
             </div>
           </div>
+          {!collapsed && (
+          <>
           <p className="mt-1 text-[11px] text-muted-foreground">
             {`${data.period_start} to ${data.period_end} · Africa/Kampala`}
             {data.period_open && ` · counted through ${data.scheduled_through} — period still open`}
@@ -200,6 +212,8 @@ export function TppoPlanDetailTable({
                 {`Load more · ${remaining} remaining`}
               </Button>
             </div>
+          )}
+          </>
           )}
         </>
       ) : null}
