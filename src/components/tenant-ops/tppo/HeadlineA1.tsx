@@ -132,7 +132,7 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
         )}
 
         <p className="text-[11px] text-muted-foreground mt-2">
-          Due on agreed plans is what the payment plans schedule in this period. Arrears target is the daily rate of plans that have passed their agreed end date and schedule nothing further. The two cover different plans and do not overlap. Arrears outstanding is a running balance, not a target for this period.
+          Due on agreed plans is what each tenant's payment plan falls due in this period, at their own daily, weekly or monthly cadence. Arrears brought forward is what was already owed when the period opened. Arrears outstanding is what is owed now — if a tenant misses a payment today it lands here, and it becomes tomorrow's brought-forward figure.
         </p>
 
         <p>{threshold === null ? 'threshold —' : `threshold ${threshold.toFixed(1)}%`}</p>
