@@ -24,6 +24,8 @@ import {
   type CcHistoryRow,
 } from '@/hooks/useCcCallHistory';
 import { generateTenantCallsReportPdf } from '@/lib/tenantCallsReportPdf';
+import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
 
 type Preset = 'today' | 'yesterday' | 'custom';
 
@@ -70,6 +72,8 @@ function windowFor(preset: Preset, fromDay: string, toDay: string) {
 }
 
 export function TenantCallsReport() {
+  const { user } = useAuth();
+  const { profile } = useProfile();
   const [preset, setPreset] = useState<Preset>('today');
   const [fromDay, setFromDay] = useState(isoDay(new Date()));
   const [toDay, setToDay] = useState(isoDay(new Date()));
@@ -103,6 +107,13 @@ export function TenantCallsReport() {
   const exportPdf = async () => {
     setBusy(true);
     try {
+      const generatedAt = new Date();
+      const metadataName = user?.user_metadata?.full_name;
+      const generatedBy = profile?.full_name?.trim() || (typeof metadataName === 'string' ? metadataName.trim() : '');
+      const email = profile?.email?.trim() || user?.email?.trim() || '';
+      if (!generatedBy || !email) {
+        throw new Error('Your account name and email must be available before generating this report.');
+      }
       const blob = await generateTenantCallsReportPdf(
         win.label,
         [
@@ -130,6 +141,12 @@ export function TenantCallsReport() {
             .join('\n'),
           officer: r.officer,
         })),
+        {
+          generatedBy,
+          email,
+          generatedAt,
+          reportPeriod: win.label,
+        },
       );
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
