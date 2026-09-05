@@ -6,7 +6,7 @@ import { fetchShadowConfig, shouldSample } from "../_shared/shadowConfig.ts";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { resolveManagedProxy } from "../_shared/partnership-emails.ts";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
-import { learnDepositNumber, toLast9 } from "../_shared/depositNumberLearning.ts";
+import { learnDepositNumber, toLast9, learnDepositName } from "../_shared/depositNumberLearning.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -203,12 +203,16 @@ Deno.serve(async (req) => {
     }
     const userId = user.id;
 
-    const { target_user_id, amount: rawAmount, reason, operation, wallet_category, platform_category, financial_impact, category_label, sub_category, recipient_type, allow_overdraw: rawAllowOverdraw, solvency_bypass_reason: rawSolvencyReason, gmail_transaction_id: rawGmailTxId, gmail_message_id: rawGmailMsgId, email_tid: rawEmailTid, manual_credit: rawManualCredit, source_phone: rawSourcePhone } = body;
+    const { target_user_id, amount: rawAmount, reason, operation, wallet_category, platform_category, financial_impact, category_label, sub_category, recipient_type, allow_overdraw: rawAllowOverdraw, solvency_bypass_reason: rawSolvencyReason, gmail_transaction_id: rawGmailTxId, gmail_message_id: rawGmailMsgId, email_tid: rawEmailTid, manual_credit: rawManualCredit, source_phone: rawSourcePhone, source_name: rawSourceName } = body;
     // Phone number seen on the email receipt that this credit came from. When
     // Financial Ops manually routes a deposit sent from a number that is not on
     // the recipient's account, we learn it (below) so the NEXT deposit from that
     // number auto-credits instead of returning to the manual queue.
     const sourcePhoneLast9 = toLast9(typeof rawSourcePhone === "string" ? rawSourcePhone : null);
+    // Payer NAME seen on the email receipt (MTN till receipts carry only a
+    // name, never a phone). Same idea as sourcePhoneLast9, keyed by name
+    // instead — see learnDepositName below.
+    const sourceName = typeof rawSourceName === "string" && rawSourceName.trim() ? rawSourceName.trim() : null;
     // The manual CFO Direct Credit / Withdraw tool sets `manual_credit: true`.
     // Manual payouts must ALWAYS be allowed — any user, any time, any category,
     // any sub-category, countless times — so they are NEVER subject to the
@@ -1017,7 +1021,25 @@ Deno.serve(async (req) => {
       }
     }
 
-
+    // ── Learn the depositor's NAME (manual Financial Ops routing) ────────
+    // MTN till/merchant "received" SMS never carries a phone — only whatever
+    // name is on the payer's SIM. This is the name-keyed counterpart of the
+    // phone-learning block above: once a human has confirmed "this name pays
+    // on behalf of this user", the next receipt from that exact name
+    // auto-credits instantly instead of waiting for another manual route.
+    // Names collide far more than phone numbers, so learnDepositName freezes
+    // (never guesses) the moment the same name is ever linked to a second,
+    // different user.
+    if (op === "credit" && sourceName) {
+      await learnDepositName(adminClient, {
+        userId: target_user_id,
+        name: sourceName,
+        source: "manual_route",
+        gmailTransactionId: gmailTxId,
+        createdBy: userId,
+        notes: `manual route ref=${refId}`,
+      });
+    }
 
     // ── Send Partner Wallet Deposit email on ROI payouts (mirrors approve-wallet-operation) ──
     if (op === "credit" && (walletCat === "roi_wallet_credit" || platformCat === "roi_expense")) {

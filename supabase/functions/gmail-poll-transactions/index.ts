@@ -9,6 +9,8 @@ import {
   resolveUsersByKnownPhone,
   resolveUniqueUserByKnownPhone,
   learnDepositNumber,
+  resolveUniqueUserByKnownName,
+  normalizeDepositorName,
 } from "../_shared/depositNumberLearning.ts";
 
 const corsHeaders = {
@@ -2332,56 +2334,93 @@ async function _tryAutoCreditOperationalFloat(
           });
         }
       } else {
-        // ── Fuzzy/near-match tier ────────────────────────────────────────
-        // No EXACT name match at all (nameMatches.length === 0). MTN's
-        // SIM-registered name often differs slightly from the platform
-        // profile — try a looser, order-independent token match, but treat
-        // any hit as a SUGGESTION only: never auto-credit off a fuzzy match.
-        // This just gives Financial Ops (or the payer) a concrete lead
-        // instead of the receipt disappearing into a bare "no_user_match"
-        // with nothing to act on.
-        const fuzzyCandidates = await resolveFuzzyNameCandidates(supabase, rawName);
-        if (fuzzyCandidates.length === 1) {
-          const candidate = fuzzyCandidates[0];
-          console.log(
-            `[gmail-poll] MTN name fuzzy-match (not auto-credited): "${rawName}" ≈ ` +
-            `"${candidate.full_name}" user=${candidate.id}`,
-          );
-          await logDepositDecision(supabase, {
-            source: 'matcher',
-            decision: 'flagged_for_review',
-            reason: 'name_fuzzy_match_needs_confirmation',
-            amount: parsed.amount ?? null,
-            metadata: {
-              gmail_message_id: gmailMessageId,
-              raw_name: rawName,
-              candidate_user_id: candidate.id,
-              candidate_full_name: candidate.full_name,
-            },
-          });
-          const { data: fuzzyGmailRow } = await supabase
-            .from('gmail_transactions')
-            .select('id')
-            .eq('gmail_message_id', gmailMessageId)
-            .maybeSingle();
-          if (fuzzyGmailRow?.id) {
-            await raisePossibleUserMatchAlert(supabase, {
-              gmailRowId: String(fuzzyGmailRow.id),
+        // ── Learned-name tier ─────────────────────────────────────────────
+        // No EXACT profile match (the payer is a third party depositing on
+        // someone else's behalf — their name will never be in `profiles` at
+        // all). Before falling back to the weak fuzzy-suggestion tier, check
+        // whether Financial Ops has already confirmed this exact name by
+        // hand before. `resolveUniqueUserByKnownName` only ever returns a hit
+        // while the name is UNCONTESTED — the instant this same name is ever
+        // manually routed to a second, different user, learnDepositName
+        // freezes it project-wide and this tier stops firing for it, so a
+        // real name collision can never silently auto-credit the wrong
+        // wallet. See `_shared/depositNumberLearning.ts`.
+        const learnedHit = await resolveUniqueUserByKnownName(supabase, normalizeDepositorName(rawName));
+        if (learnedHit) {
+          profile = { id: learnedHit.user_id, phone: learnedHit.phone, full_name: learnedHit.full_name, email: learnedHit.email } as any;
+          matchMethod = 'name';
+          nameMatchAudit = {
+            raw_name: rawName,
+            total_candidates: 1,
+            candidates: [{
+              id: learnedHit.user_id,
+              full_name: learnedHit.full_name,
+              phone_last4: null,
+              has_phone: !!learnedHit.phone,
+              last_sign_in_at: null,
+              last_sign_in_ms: 0,
+              selected: true,
+            }],
+            tiebreaker: 'learned-name-match',
+            tiebreaker_pool: 'single',
+            confidence: 'high',
+            confidence_score: 0.9,
+            confidence_reasons: ['payer name previously confirmed by Financial Ops and never contested'],
+          };
+          console.log(`[gmail-poll] learned-name match: "${rawName}" → user=${profile.id} (uncontested)`);
+        } else {
+          // ── Fuzzy/near-match tier ──────────────────────────────────────
+          // No EXACT name match at all (nameMatches.length === 0) and no
+          // uncontested learned-name hit either. MTN's SIM-registered name
+          // often differs slightly from the platform profile — try a
+          // looser, order-independent token match, but treat any hit as a
+          // SUGGESTION only: never auto-credit off a fuzzy match. This just
+          // gives Financial Ops (or the payer) a concrete lead instead of
+          // the receipt disappearing into a bare "no_user_match" with
+          // nothing to act on.
+          const fuzzyCandidates = await resolveFuzzyNameCandidates(supabase, rawName);
+          if (fuzzyCandidates.length === 1) {
+            const candidate = fuzzyCandidates[0];
+            console.log(
+              `[gmail-poll] MTN name fuzzy-match (not auto-credited): "${rawName}" ≈ ` +
+              `"${candidate.full_name}" user=${candidate.id}`,
+            );
+            await logDepositDecision(supabase, {
+              source: 'matcher',
+              decision: 'flagged_for_review',
+              reason: 'name_fuzzy_match_needs_confirmation',
               amount: parsed.amount ?? null,
-              transactionId: parsed.transaction_id ?? null,
-              rawName,
-              candidateUserId: candidate.id,
-              candidateName: candidate.full_name,
+              metadata: {
+                gmail_message_id: gmailMessageId,
+                raw_name: rawName,
+                candidate_user_id: candidate.id,
+                candidate_full_name: candidate.full_name,
+              },
+            });
+            const { data: fuzzyGmailRow } = await supabase
+              .from('gmail_transactions')
+              .select('id')
+              .eq('gmail_message_id', gmailMessageId)
+              .maybeSingle();
+            if (fuzzyGmailRow?.id) {
+              await raisePossibleUserMatchAlert(supabase, {
+                gmailRowId: String(fuzzyGmailRow.id),
+                amount: parsed.amount ?? null,
+                transactionId: parsed.transaction_id ?? null,
+                rawName,
+                candidateUserId: candidate.id,
+                candidateName: candidate.full_name,
+              });
+            }
+          } else {
+            await logDepositDecision(supabase, {
+              source: 'matcher',
+              decision: 'skipped',
+              reason: fuzzyCandidates.length > 1 ? 'name_fuzzy_ambiguous' : 'name_no_match',
+              amount: parsed.amount ?? null,
+              metadata: { gmail_message_id: gmailMessageId, raw_name: rawName, candidate_count: fuzzyCandidates.length },
             });
           }
-        } else {
-          await logDepositDecision(supabase, {
-            source: 'matcher',
-            decision: 'skipped',
-            reason: fuzzyCandidates.length > 1 ? 'name_fuzzy_ambiguous' : 'name_no_match',
-            amount: parsed.amount ?? null,
-            metadata: { gmail_message_id: gmailMessageId, raw_name: rawName, candidate_count: fuzzyCandidates.length },
-          });
         }
       }
     }
@@ -2596,7 +2635,9 @@ async function _tryAutoCreditOperationalFloat(
       deposit_purpose: 'operational_float',
       auto_approved: true,
       auto_match_audit: auditMeta,
-      notes: '[auto] Created from incoming Gmail MoMo receipt — phone matched a known user; credited to Operational Float.',
+      notes: nameMatchAudit?.tiebreaker === 'learned-name-match'
+        ? `[auto] Created from incoming Gmail MoMo receipt — payer name "${cp}" previously confirmed by Financial Ops (uncontested); credited to Operational Float.`
+        : '[auto] Created from incoming Gmail MoMo receipt — phone matched a known user; credited to Operational Float.',
     })
     .select('id')
     .single();

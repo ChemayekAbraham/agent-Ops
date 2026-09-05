@@ -1731,6 +1731,11 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
         gmail_message_id: row.gmail_message_id ?? null,
         email_tid: effectiveReference,
         source_phone: sourcePhone,
+        // Payer name as MTN/Airtel reported it (till receipts carry only a
+        // name, never a phone) — lets the backend learn "this name pays on
+        // behalf of this user" so the next receipt from the same name
+        // auto-credits instead of returning to this manual queue.
+        source_name: row.counterparty || null,
       };
       // ── Authoritative backend pre-flight ──────────────────────────
       // Re-checks credited status from the DB (not React Query cache)
