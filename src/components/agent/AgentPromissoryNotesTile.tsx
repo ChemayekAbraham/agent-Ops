@@ -63,6 +63,45 @@ export function AgentPromissoryNotesTile({ agentId, onSeeAll }: { agentId: strin
   const [recorded, setRecorded] = useState('');
   const [due, setDue] = useState('');
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const downloadReport = async () => {
+    hapticTap();
+    setExporting(true);
+    try {
+      const [{ data: rows, error }, { data: auth }] = await Promise.all([
+        supabase
+          .from('promissory_notes')
+          .select('partner_name, amount, status, created_at, recorded_on, fulfilment_due_on, phone_number, whatsapp_number, email, contribution_type, total_collected')
+          .eq('agent_id', agentId)
+          .order('created_at', { ascending: false }),
+        supabase.auth.getUser(),
+      ]);
+      if (error) throw error;
+      if (!rows?.length) { toast.error('No notes to include in the report'); return; }
+
+      let generatedByName: string | null = null;
+      const uid = auth?.user?.id;
+      if (uid) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', uid)
+          .maybeSingle();
+        generatedByName = profile?.full_name ?? null;
+      }
+
+      await downloadPromissoryNotesReportPdf(rows as never[], {
+        generatedByName,
+        generatedByEmail: auth?.user?.email ?? null,
+      });
+      toast.success('Report downloaded');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not build the report');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const { data: notes, isLoading } = useQuery({
     queryKey: ['agent-promissory-notes-tile', agentId],
