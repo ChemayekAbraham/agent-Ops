@@ -735,8 +735,23 @@ export default function Settings() {
                       </CollapsibleTrigger>
                       <CollapsibleContent className="space-y-2 pt-1">
                         <p className="text-[11px] text-muted-foreground">Adjust the size of text throughout the app.</p>
-                        <RadioGroup value={fontSize} onValueChange={(v) => setFontSize(v as any)} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          {fontSizeOptions.map((opt) => (<Label key={opt.value} htmlFor={opt.value} className={cn("flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm", fontSize === opt.value ? 'border-primary bg-primary/10' : 'border-border/50')}><RadioGroupItem value={opt.value} id={opt.value} /><div><p className="font-medium text-xs">{opt.label}</p><p className="text-[10px] text-muted-foreground">{opt.description}</p></div></Label>))}
+                        <RadioGroup value={fontSize} onValueChange={(v) => setFontSize(v as any)} className="space-y-2">
+                          {fontSizeOptions.map((opt) => (
+                            <Label
+                              key={opt.value}
+                              htmlFor={opt.value}
+                              className={cn(
+                                "flex items-center justify-between gap-3 p-3 min-h-[48px] rounded-xl border cursor-pointer transition-colors hover:bg-muted/30",
+                                fontSize === opt.value ? 'border-primary bg-primary/10' : 'border-border/50'
+                              )}
+                            >
+                              <div>
+                                <p className="font-medium text-sm">{opt.label}</p>
+                                <p className="text-[11px] text-muted-foreground">{opt.description}</p>
+                              </div>
+                              <RadioGroupItem value={opt.value} id={opt.value} />
+                            </Label>
+                          ))}
                         </RadioGroup>
                       </CollapsibleContent>
                     </Collapsible>
