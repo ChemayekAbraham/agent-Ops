@@ -77,42 +77,53 @@ export function TppoPlanDetailTable({
     },
   });
 
-  // Promissory notes recorded by agents, grouped by agent name so each agent's
-  // taken notes and promised dates show next to their tenants.
-  const { data: notesByAgent } = useQuery({
-    queryKey: ['tppo-plan-detail-promissory-notes'],
+  // Promissory notes attached to individual rent plans, so each plan's own note
+  // shows inline on its row next to the arrears figure.
+  type PlanNote = {
+    partner: string;
+    amount: number;
+    taken: string | null;
+    promised: string | null;
+    followUp: string | null;
+    intentStatus: string | null;
+  };
+  const { data: notesByPlan } = useQuery({
+    queryKey: ['tppo-plan-detail-promissory-notes-by-plan'],
     staleTime: 300_000,
-    queryFn: async (): Promise<Record<string, { count: number; nextDue: string | null; lastTaken: string | null }>> => {
+    queryFn: async (): Promise<Record<string, PlanNote[]>> => {
+      const { data: intents, error: intentError } = await supabase
+        .from('promissory_note_plan_intents')
+        .select('note_id, rent_request_id, amount, status')
+        .order('created_at', { ascending: false })
+        .limit(2000);
+      if (intentError) throw intentError;
+      const list = (intents ?? []).filter((i) => i.rent_request_id && i.note_id);
+      if (list.length === 0) return {};
+      const noteIds = Array.from(new Set(list.map((i) => i.note_id as string)));
       const { data: notes, error: notesError } = await supabase
         .from('promissory_notes')
-        .select('agent_id, recorded_on, created_at, fulfilment_due_on, status')
-        .in('status', ['pending', 'activated'])
-        .order('created_at', { ascending: false })
-        .limit(1000);
+        .select('id, partner_name, amount, recorded_on, created_at, fulfilment_due_on, follow_up_status, status')
+        .in('id', noteIds);
       if (notesError) throw notesError;
-      const list = notes ?? [];
-      const agentIds = Array.from(new Set(list.map((n) => n.agent_id).filter(Boolean))) as string[];
-      if (agentIds.length === 0) return {};
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', agentIds);
-      const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name ?? '']));
-      const out: Record<string, { count: number; nextDue: string | null; lastTaken: string | null }> = {};
-      for (const n of list) {
-        const name = nameById.get(n.agent_id as string);
-        if (!name) continue;
-        const entry = out[name] ?? { count: 0, nextDue: null, lastTaken: null };
-        entry.count += 1;
-        const due = n.fulfilment_due_on as string | null;
-        if (due && (!entry.nextDue || due < entry.nextDue)) entry.nextDue = due;
-        const taken = ((n.recorded_on as string | null) ?? (n.created_at as string | null))?.slice(0, 10) ?? null;
-        if (taken && (!entry.lastTaken || taken > entry.lastTaken)) entry.lastTaken = taken;
-        out[name] = entry;
+      const noteById = new Map((notes ?? []).map((n) => [n.id as string, n]));
+      const out: Record<string, PlanNote[]> = {};
+      for (const i of list) {
+        const n = noteById.get(i.note_id as string);
+        if (!n) continue;
+        const planId = i.rent_request_id as string;
+        (out[planId] ??= []).push({
+          partner: (n.partner_name as string | null) ?? 'Partner',
+          amount: Number(i.amount ?? n.amount ?? 0),
+          taken: ((n.recorded_on as string | null) ?? (n.created_at as string | null))?.slice(0, 10) ?? null,
+          promised: (n.fulfilment_due_on as string | null) ?? null,
+          followUp: (n.follow_up_status as string | null) ?? null,
+          intentStatus: (i.status as string | null) ?? null,
+        });
       }
       return out;
     },
   });
+
 
   const rows = data?.rows ?? [];
   const agentNames = Array.from(new Set(rows.map((r) => r.agent_name))).sort((a, b) =>
