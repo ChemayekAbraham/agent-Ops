@@ -86,11 +86,9 @@ export function buildComprehensiveReportPdf(input: {
 
   let cursor = margin;
   let pageStarted = false;
+  let lastHeader: { title: string; meta: [string, string][] } = { title: '', meta: [] };
 
-  /** Document header, exactly as on each template page. */
-  const pageHeader = (title: string, meta: [string, string][]) => {
-    if (pageStarted) doc.addPage();
-    pageStarted = true;
+  const drawHeader = (title: string, meta: [string, string][]) => {
     let y = margin;
 
     doc.setFont('helvetica', 'bold');
@@ -119,8 +117,17 @@ export function buildComprehensiveReportPdf(input: {
     doc.setDrawColor(...TEXT_MAIN);
     doc.setLineWidth(0.7);
     doc.line(margin, y, pageWidth - margin, y);
-    cursor = y + 7;
+    return y + 7;
   };
+
+  /** Document header, exactly as on each template page. */
+  const pageHeader = (title: string, meta: [string, string][]) => {
+    if (pageStarted) doc.addPage();
+    pageStarted = true;
+    lastHeader = { title, meta };
+    cursor = drawHeader(title, meta);
+  };
+
 
   const sectionSubtitle = (text: string) => {
     doc.setFont('helvetica', 'normal');
