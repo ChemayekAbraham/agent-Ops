@@ -560,7 +560,9 @@ export function buildComprehensiveReportPdf(input: {
       num(sc.monthly_target), pct(n(sc.new_this_month), n(sc.monthly_target)),
     ]],
     rightFrom: 0,
+    colColors: { 1: WARNING, 2: SUCCESS, 5: PRIMARY },
   });
+
 
   sectionTitle('Service Centers and Managing Agent Assignments');
   table({
