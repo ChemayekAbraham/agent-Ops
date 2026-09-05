@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  ArrowLeft, Bell, BellOff, CheckCheck, Loader2, RefreshCw, Wallet, Home,
+  ArrowLeft, Bell, BellOff, CheckCheck, ChevronDown, Loader2, RefreshCw, Wallet, Home,
   ShieldAlert, Info, MessageSquare,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,6 +48,7 @@ export default function NotificationsScreen() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>('unread');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const { data: notifications = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['my-notifications', user?.id],
@@ -183,13 +184,27 @@ export default function NotificationsScreen() {
           visible.map(n => {
             const { Icon, tint } = visualFor(n.type);
             const unread = !n.is_read;
+            const expanded = expandedId === n.id;
             return (
               <Card
                 key={n.id}
-                onClick={() => unread && markRead.mutate([n.id])}
+                role="button"
+                tabIndex={0}
+                aria-expanded={expanded}
+                onClick={() => {
+                  setExpandedId(expanded ? null : n.id);
+                  if (unread) markRead.mutate([n.id]);
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setExpandedId(expanded ? null : n.id);
+                    if (unread) markRead.mutate([n.id]);
+                  }
+                }}
                 className={cn(
-                  'rounded-2xl transition-colors',
-                  unread ? 'border-primary/40 bg-primary/[0.04] cursor-pointer' : 'bg-card',
+                  'rounded-2xl transition-colors cursor-pointer',
+                  unread ? 'border-primary/40 bg-primary/[0.04]' : 'bg-card',
                 )}
               >
                 <CardContent className="p-4 flex gap-3">
@@ -198,19 +213,30 @@ export default function NotificationsScreen() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start gap-2">
-                      <p className="text-sm font-semibold flex-1 break-words">
+                      <p className={cn('text-sm font-semibold flex-1 break-words', !expanded && 'line-clamp-2')}>
                         {n.title?.trim() || 'Notification'}
                       </p>
                       {unread && <span className="mt-1.5 h-2 w-2 rounded-full bg-primary shrink-0" />}
+                      <ChevronDown
+                        className={cn(
+                          'h-4 w-4 shrink-0 mt-0.5 text-muted-foreground transition-transform',
+                          expanded && 'rotate-180',
+                        )}
+                      />
                     </div>
                     {n.message && (
-                      <p className="text-xs text-muted-foreground mt-1 whitespace-pre-line break-words">
+                      <p
+                        className={cn(
+                          'text-xs text-muted-foreground mt-1 whitespace-pre-line break-words',
+                          !expanded && 'line-clamp-2',
+                        )}
+                      >
                         {n.message}
                       </p>
                     )}
                     <div className="flex flex-wrap items-center gap-2 mt-2">
                       <span className="text-[11px] text-muted-foreground" title={absolute(n.created_at)}>
-                        {relative(n.created_at)}
+                        {expanded ? absolute(n.created_at) : relative(n.created_at)}
                       </span>
                       {n.type && (
                         <Badge variant="outline" className="text-[10px] capitalize">
@@ -223,6 +249,7 @@ export default function NotificationsScreen() {
               </Card>
             );
           })
+
         )}
       </main>
     </div>
