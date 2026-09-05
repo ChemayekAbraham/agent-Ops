@@ -163,9 +163,9 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
       const picked = await pickContact();
       if (!picked) return;
       if (picked.phone) {
-        const digits = picked.phone.replace(/\D/g, '').slice(0, 10);
-        if (!whatsappNumber) setWhatsappNumber(digits);
-        else if (!phoneNumber) setPhoneNumber(digits);
+        const num = cleanPhoneInput(picked.phone);
+        if (!whatsappNumber) setWhatsappNumber(num);
+        else if (!phoneNumber) setPhoneNumber(num);
       }
       if (picked.email && !email.trim()) setEmail(picked.email);
       if (picked.name) {
