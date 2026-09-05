@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -60,6 +61,7 @@ export function TppoPlanDetailTable({
 }) {
   const [shown, setShown] = useState(PAGE);
   const [selected, setSelected] = useState<{ id: string; name: string } | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
 
   const { data, isPending, isError, error } = useQuery({
     queryKey: ['tppo-plan-detail', granularity, anchor],
