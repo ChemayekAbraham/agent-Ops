@@ -106,11 +106,18 @@ function fmtMoney(amount: number | null | undefined, currency = 'UGX') {
 
 export function VoiceApiCallLogViewer() {
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [range, setRange] = useState('30d');
   const [page, setPage] = useState(0);
 
+  useEffect(() => {
+    const t = setTimeout(() => { setDebouncedSearch(search.trim()); setPage(0); }, 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const bounds = useMemo(() => rangeBounds(range), [range]);
+
 
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
     queryKey: ['voice-call-stats', range],
