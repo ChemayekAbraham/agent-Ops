@@ -532,7 +532,7 @@ export default function ExecutiveDashboardLayout({
         </div>
 
         {/* Glossary — shared team vocabulary */}
-        <GlossaryButton variant="header" />
+        <GlossaryButton variant="header" className="shrink-0" />
 
         {/* Department budget cycle notices (only for departments the user can access).
             The CFO dashboard has a single unified bell (CFOApprovalNotificationsBell),
@@ -542,22 +542,24 @@ export default function ExecutiveDashboardLayout({
         {role !== 'cfo' && role !== 'cmo' && (
           <BudgetDepartmentNotificationBell
             dashboard={role}
-            className="text-primary-foreground hover:bg-white/10 hover:text-primary-foreground"
+            className="text-primary-foreground hover:bg-white/10 hover:text-primary-foreground shrink-0"
           />
         )}
 
 
         {/* Role-specific header actions (notifications, etc.) */}
-        {headerActions}
+        <div className="shrink-0 flex items-center">
+          {headerActions}
+        </div>
 
         {/* Sign Out */}
         <button
           type="button"
           onClick={() => signOut()}
-          className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg bg-background text-primary text-xs font-semibold shadow-sm hover:bg-background/90 transition-colors whitespace-nowrap"
+          className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg bg-background text-primary text-xs font-semibold shadow-sm hover:bg-background/90 transition-colors whitespace-nowrap shrink-0"
           style={{ touchAction: 'manipulation' }}
         >
-          <LogOut className="h-3.5 w-3.5" />
+          <LogOut className="h-3.5 w-3.5 shrink-0" />
           <span className="hidden sm:inline">Sign Out</span>
         </button>
       </header>
