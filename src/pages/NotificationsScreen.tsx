@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  ArrowLeft, Bell, BellOff, CheckCheck, Loader2, RefreshCw, Wallet, Home,
+  ArrowLeft, Bell, BellOff, CheckCheck, ChevronDown, Loader2, RefreshCw, Wallet, Home,
   ShieldAlert, Info, MessageSquare,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
