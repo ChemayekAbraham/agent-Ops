@@ -36721,6 +36721,75 @@ export type Database = {
         }
         Relationships: []
       }
+      tppo_period_snapshots_archive: {
+        Row: {
+          archive_reason: string
+          archived_at: string
+          arrears_outstanding_ugx: number | null
+          arrears_plan_count: number | null
+          arrears_recovered_ugx: number | null
+          arrears_target_plan_count: number | null
+          arrears_target_ugx: number | null
+          basis: Json | null
+          collected_total_ugx: number | null
+          collected_ugx: number | null
+          computed_at: string | null
+          frozen_at: string | null
+          granularity: string | null
+          period_end: string | null
+          period_start: string | null
+          plan_count: number | null
+          provisional: boolean | null
+          scheduled_due_ugx: number | null
+          snapshot_id: string | null
+          unallocated_ugx: number | null
+        }
+        Insert: {
+          archive_reason: string
+          archived_at?: string
+          arrears_outstanding_ugx?: number | null
+          arrears_plan_count?: number | null
+          arrears_recovered_ugx?: number | null
+          arrears_target_plan_count?: number | null
+          arrears_target_ugx?: number | null
+          basis?: Json | null
+          collected_total_ugx?: number | null
+          collected_ugx?: number | null
+          computed_at?: string | null
+          frozen_at?: string | null
+          granularity?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          plan_count?: number | null
+          provisional?: boolean | null
+          scheduled_due_ugx?: number | null
+          snapshot_id?: string | null
+          unallocated_ugx?: number | null
+        }
+        Update: {
+          archive_reason?: string
+          archived_at?: string
+          arrears_outstanding_ugx?: number | null
+          arrears_plan_count?: number | null
+          arrears_recovered_ugx?: number | null
+          arrears_target_plan_count?: number | null
+          arrears_target_ugx?: number | null
+          basis?: Json | null
+          collected_total_ugx?: number | null
+          collected_ugx?: number | null
+          computed_at?: string | null
+          frozen_at?: string | null
+          granularity?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          plan_count?: number | null
+          provisional?: boolean | null
+          scheduled_due_ugx?: number | null
+          snapshot_id?: string | null
+          unallocated_ugx?: number | null
+        }
+        Relationships: []
+      }
       tppo_report_actions: {
         Row: {
           carried_from_action_id: string | null
