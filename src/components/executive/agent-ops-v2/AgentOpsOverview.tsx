@@ -193,15 +193,12 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
             {format(start, 'dd MMM yyyy')} → {format(end, 'dd MMM yyyy')} · daily aggregates across all agents.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <OpsDateRangeFilter
-            preset={preset}
-            custom={custom}
-            onPresetChange={setPreset}
-            onCustomChange={setCustom}
-            className="contents"
-          />
-        </div>
+        <OpsDateRangeFilter
+          preset={preset}
+          custom={custom}
+          onPresetChange={setPreset}
+          onCustomChange={setCustom}
+        />
       </div>
 
 

@@ -264,7 +264,18 @@ export default function ManagerLogin() {
   // Access password overlay
   if (selectedManager && !mustChangePassword) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative">
+        <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/')}
+            className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
         <div className="w-full max-w-sm space-y-6">
           <div className="text-center space-y-3">
             <div className="mx-auto w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center ring-2 ring-primary/10">
@@ -320,7 +331,18 @@ export default function ManagerLogin() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative">
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/')}
+          className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted"
+          aria-label="Close"
+        >
+          <X className="h-5 w-5" />
+        </Button>
+      </div>
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center space-y-3">
           <div className="mx-auto w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">

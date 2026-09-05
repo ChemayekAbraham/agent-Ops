@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowRight, ArrowUp, Minus } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
+import { Badge } from '@/components/ui/badge';
 import type { TppoZoneAReport } from '@/components/tenant-ops/tppo/tppoTypes';
 
 interface VarianceA2Props {
@@ -7,6 +8,18 @@ interface VarianceA2Props {
   /** One period older than `report.prior` — same RPC, anchored a period earlier. */
   earlier?: TppoZoneAReport | null;
 }
+
+/**
+ * basis_version lives in each snapshot's `basis` JSON. Periods computed before the
+ * schedule correction carry 1 (or carry no basis at all), corrected ones carry 2.
+ */
+function basisVersionOf(source: unknown): number {
+  const basis = (source as { basis?: unknown } | null | undefined)?.basis;
+  const raw = (basis as { basis_version?: unknown } | null | undefined)?.basis_version;
+  const parsed = typeof raw === 'string' ? Number(raw) : raw;
+  return typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : 1;
+}
+
 
 function shortDate(iso?: string | null): string {
   if (!iso) return '—';
@@ -85,6 +98,8 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
 
   // Oldest closed period first, the still-counting current period last. The
   // labels come from the RPC, so this shuffles by itself as each day closes.
+  const currentBasis = basisVersionOf(report);
+
   const rows = [
     {
       key: 'earlier',
@@ -92,7 +107,9 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
       scheduled: earlier?.scheduled_due_ugx ?? null,
       collected: earlier?.collected_ugx ?? null,
       rate: earlier?.collection_rate_pct ?? null,
+      arrearsTarget: earlier?.arrears_target_ugx ?? null,
       current: false,
+      basisVersion: basisVersionOf(earlier),
     },
     {
       key: 'prior',
@@ -100,7 +117,9 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
       scheduled: report?.prior?.scheduled_due_ugx ?? null,
       collected: report?.prior?.collected_ugx ?? null,
       rate: report?.prior?.collection_rate_pct ?? null,
+      arrearsTarget: report?.prior?.arrears_target_ugx ?? null,
       current: false,
+      basisVersion: basisVersionOf(report?.prior),
     },
     {
       key: 'current',
@@ -108,11 +127,23 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
       scheduled: report?.scheduled_due_ugx ?? null,
       collected: report?.collected_ugx ?? null,
       rate: report?.collection_rate_pct ?? null,
+      arrearsTarget: report?.arrears_target_ugx ?? null,
       current: true,
+      basisVersion: currentBasis,
     },
-  ];
+  ].map((row) => ({ ...row, differentBasis: row.basisVersion !== currentBasis }));
+
+  const anyDifferentBasis = rows.some((row) => row.differentBasis);
 
   const money = (value: number | null) => (value === null ? '—' : formatUGX(value));
+
+  const currentArrearsTarget = report?.arrears_target_ugx ?? null;
+  const priorArrearsTarget = report?.prior?.arrears_target_ugx ?? null;
+  const arrearsTargetDelta =
+    currentArrearsTarget !== null && priorArrearsTarget !== null
+      ? currentArrearsTarget - priorArrearsTarget
+      : null;
+
 
   return (
     <section aria-label="A2 variance on prior period" className="rounded-xl border border-border bg-card p-4 shadow-sm">
@@ -135,6 +166,12 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
           <span className="tabular-nums">{rateText(priorRate)}</span>
         </p>
         <p className="text-xs text-muted-foreground">each on its own period&apos;s schedule</p>
+        {anyDifferentBasis && (
+          <p className="text-xs text-muted-foreground">
+            Periods marked different basis were computed before the schedule was corrected and are not comparable.
+          </p>
+        )}
+
       </div>
 
       {/* Mobile: the same rows stacked, so nothing is clipped at 360px. */}
@@ -146,8 +183,13 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
               row.current ? 'border-primary/30 bg-primary/5' : 'border-border/60'
             }`}
           >
-            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               <span>{row.label}</span>
+              {row.differentBasis && (
+                <Badge variant="outline" className="text-[10px] font-medium normal-case">
+                  different basis
+                </Badge>
+              )}
               {row.current && <span className="font-medium normal-case text-primary">still counting</span>}
             </p>
             <div className="mt-2 space-y-1 text-sm">
@@ -160,12 +202,19 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
                 <span className="shrink-0 tabular-nums">{money(row.collected)}</span>
               </p>
               <p className="flex items-baseline justify-between gap-3">
+                <span className="text-muted-foreground">Arrears target</span>
+                <span className="shrink-0 tabular-nums">{money(row.arrearsTarget)}</span>
+              </p>
+              <p className="flex items-baseline justify-between gap-3">
                 <span className="text-muted-foreground">Rate</span>
-                <span className="shrink-0 tabular-nums">{rateText(row.rate)}</span>
+                <span className="shrink-0 tabular-nums">
+                  {row.differentBasis ? '—' : rateText(row.rate)}
+                </span>
               </p>
             </div>
           </div>
         ))}
+
 
         <div className="rounded-md border border-border p-3 font-medium">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Increase / decrease</p>
@@ -183,11 +232,22 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
               </span>
             </p>
             <p className="flex items-baseline justify-between gap-3">
-              <span className="text-muted-foreground">Rate</span>
-              <span className={`shrink-0 tabular-nums ${signedClass(rateDeltaPct)}`}>
-                {signedPct(rateDeltaPct)}
+              <span className="text-muted-foreground">Arrears target</span>
+              <span className={`shrink-0 tabular-nums ${signedClass(arrearsTargetDelta)}`}>
+                {arrearsTargetDelta === null ? '—' : signedMoney(arrearsTargetDelta)}
               </span>
             </p>
+            <p className="flex items-baseline justify-between gap-3">
+              <span className="text-muted-foreground">Rate</span>
+              <span
+                className={`shrink-0 tabular-nums ${
+                  anyDifferentBasis ? 'text-muted-foreground' : signedClass(rateDeltaPct)
+                }`}
+              >
+                {anyDifferentBasis ? '—' : signedPct(rateDeltaPct)}
+              </span>
+            </p>
+
           </div>
         </div>
       </div>
@@ -200,6 +260,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
               <th scope="col" className="py-2 pr-3 font-medium">Period</th>
               <th scope="col" className="py-2 pr-3 text-right font-medium">Scheduled due (own period)</th>
               <th scope="col" className="py-2 pr-3 text-right font-medium">Collected</th>
+              <th scope="col" className="py-2 pr-3 text-right font-medium">Arrears target</th>
               <th scope="col" className="py-2 text-right font-medium">Rate</th>
             </tr>
           </thead>
@@ -211,13 +272,21 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
               >
                 <td className="py-2 pr-3">
                   <span className={row.current ? 'font-medium text-foreground' : ''}>{row.label}</span>
+                  {row.differentBasis && (
+                    <Badge variant="outline" className="ml-2 text-[10px] font-medium">
+                      different basis
+                    </Badge>
+                  )}
                   {row.current && (
                     <span className="ml-2 text-xs text-primary">still counting</span>
                   )}
                 </td>
                 <td className="py-2 pr-3 text-right tabular-nums">{money(row.scheduled)}</td>
                 <td className="py-2 pr-3 text-right tabular-nums">{money(row.collected)}</td>
-                <td className="py-2 text-right tabular-nums">{rateText(row.rate)}</td>
+                <td className="py-2 pr-3 text-right tabular-nums">{money(row.arrearsTarget)}</td>
+                <td className="py-2 text-right tabular-nums">
+                  {row.differentBasis ? '—' : rateText(row.rate)}
+                </td>
               </tr>
             ))}
             <tr className="font-medium">
@@ -228,9 +297,17 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
               <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">
                 —
               </td>
-              <td className={`py-2 text-right tabular-nums ${signedClass(rateDeltaPct)}`}>
-                {signedPct(rateDeltaPct)}
+              <td className={`py-2 pr-3 text-right tabular-nums ${arrearsTargetDelta === null ? 'text-muted-foreground' : signedClass(arrearsTargetDelta)}`}>
+                {arrearsTargetDelta === null ? '—' : signedMoney(arrearsTargetDelta)}
               </td>
+              <td
+                className={`py-2 text-right tabular-nums ${
+                  anyDifferentBasis ? 'text-muted-foreground' : signedClass(rateDeltaPct)
+                }`}
+              >
+                {anyDifferentBasis ? '—' : signedPct(rateDeltaPct)}
+              </td>
+
             </tr>
           </tbody>
         </table>

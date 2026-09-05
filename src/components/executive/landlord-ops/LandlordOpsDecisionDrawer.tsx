@@ -21,6 +21,28 @@ interface DecisionDrawerProps {
   className?: string;
 }
 
+/** Shape of the single listing the drawer decides on. Declared explicitly so the
+ *  generated Supabase types don't have to be inferred through the embed. */
+interface DrawerListing {
+  id: string;
+  title: string | null;
+  house_category: string | null;
+  monthly_rent: number | null;
+  address: string | null;
+  district: string | null;
+  village: string | null;
+  region: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  image_urls: string[] | null;
+  created_at: string | null;
+  status: string | null;
+  verified: boolean | null;
+  agent_id: string | null;
+  agent: { full_name?: string | null; phone?: string | null } | null;
+}
+
+
 export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawerProps) {
   const [params, setParams] = useSearchParams();
   const qc = useQueryClient();
@@ -50,11 +72,19 @@ export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawer
   // `?decide=` carries a house_listings UUID. Anything else is a bad link — we
   // show a not-found state rather than inventing a listing to decide on.
   const isUuid = !!decideId && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(decideId);
-  const { data: realListing, isLoading } = useQuery({
+  const { data: realListing, isLoading } = useQuery<DrawerListing | null>({
     queryKey: ['landlord-ops-drawer-item', decideId],
     enabled: isUuid,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as unknown as {
+        from: (t: string) => {
+          select: (s: string) => {
+            eq: (c: string, v: string) => {
+              maybeSingle: () => Promise<{ data: DrawerListing | null; error: { message: string } | null }>;
+            };
+          };
+        };
+      })
         .from('house_listings')
         .select(`
           id, title, house_category, monthly_rent, address, district, village, region,
@@ -63,10 +93,12 @@ export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawer
         `)
         .eq('id', decideId!)
         .maybeSingle();
+
       if (error) throw error;
-      return data;
+      return (data as unknown as DrawerListing | null) ?? null;
     },
   });
+
 
   const displayItem = realListing
     ? {

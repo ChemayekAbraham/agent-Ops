@@ -7,7 +7,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { FileDown, Loader2 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { FileDown, Loader2, Calendar, ChevronDown } from 'lucide-react';
 import {
   generateTenantOpsToolReportPdf,
   tenantOpsToolReportTitle,
@@ -15,7 +23,7 @@ import {
   type TenantOpsTool,
 } from '@/lib/generateTenantOpsToolReportPdf';
 
-type Preset = 'all' | 'today' | '7d' | '30d' | 'month';
+type Preset = 'today' | '7d' | '30d' | 'month' | 'all' | 'custom';
 
 const PRESETS: { key: Preset; label: string }[] = [
   { key: 'today', label: 'Today' },
@@ -23,6 +31,7 @@ const PRESETS: { key: Preset; label: string }[] = [
   { key: '30d', label: 'Last 30 days' },
   { key: 'month', label: 'This month' },
   { key: 'all', label: 'All time' },
+  { key: 'custom', label: 'Custom range…' },
 ];
 
 interface Props {
@@ -50,6 +59,7 @@ export function TenantOpsReportToolbar({
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const resolveRange = (): { from: string | null; to: string | null } => {
     if (dateFrom || dateTo) {
@@ -112,50 +122,87 @@ export function TenantOpsReportToolbar({
   };
 
   return (
-    <div className={`rounded-lg border border-border bg-muted/30 p-3 space-y-2 ${className || ''}`}>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Report period</span>
-        {PRESETS.map(p => (
-          <Button
-            key={p.key}
-            type="button"
-            size="sm"
-            variant={!dateFrom && !dateTo && preset === p.key ? 'default' : 'outline'}
-            className="h-7 px-2 text-[11px]"
-            onClick={() => { setPreset(p.key); setDateFrom(''); setDateTo(''); }}
-          >
-            {p.label}
-          </Button>
-        ))}
-        <Badge variant="secondary" className="text-[10px] font-bold">
-          {tenantOpsToolStatusLabel(tool)}: {status && status !== 'all' ? status.replace(/_/g, ' ') : 'All'}
-        </Badge>
-        {typeof visibleCount === 'number' && (
-          <Badge variant="outline" className="text-[10px]">{visibleCount.toLocaleString()} on screen</Badge>
-        )}
-      </div>
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="space-y-1">
-          <Label className="text-[10px] text-muted-foreground">From</Label>
-          <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="h-8 w-[150px] text-xs" />
+    <div className={`rounded-lg border border-border bg-muted/30 p-2.5 sm:p-3 transition-all ${className || ''}`}>
+      <Collapsible open={open} onOpenChange={setOpen} className="space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground shrink-0 flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5 text-primary" />
+              Report period
+            </Label>
+            <Select
+              value={preset}
+              onValueChange={(val) => {
+                setPreset(val as Preset);
+                if (val === 'custom') {
+                  setOpen(true);
+                } else {
+                  setDateFrom('');
+                  setDateTo('');
+                }
+              }}
+            >
+              <SelectTrigger className="h-8 text-xs w-[130px] sm:w-[140px] bg-background border-border font-medium">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PRESETS.map((p) => (
+                  <SelectItem key={p.key} value={p.key} className="text-xs">
+                    {p.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0">
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="h-8 px-2 rounded-md border border-border/70 bg-background hover:bg-muted text-[11px] font-semibold text-muted-foreground inline-flex items-center gap-1 transition-colors"
+                title={open ? 'Hide details' : 'Show date picker & export options'}
+              >
+                <span className="hidden sm:inline">{open ? 'Less' : 'More / PDF'}</span>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+              </button>
+            </CollapsibleTrigger>
+          </div>
         </div>
-        <div className="space-y-1">
-          <Label className="text-[10px] text-muted-foreground">To</Label>
-          <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="h-8 w-[150px] text-xs" />
-        </div>
-        {(dateFrom || dateTo) && (
-          <Button type="button" size="sm" variant="ghost" className="h-8 text-[11px]" onClick={() => { setDateFrom(''); setDateTo(''); }}>
-            Clear dates
-          </Button>
-        )}
-        <Button type="button" size="sm" className="h-8 text-xs gap-1.5 ml-auto" onClick={handleExport} disabled={exporting}>
-          {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
-          Export PDF
-        </Button>
-      </div>
-      <p className="text-[10px] text-muted-foreground">
-        The PDF exports exactly what these filters match — {tenantOpsToolReportTitle(tool).toLowerCase()}, with totals calculated from the same records.
-      </p>
+
+        <CollapsibleContent className="space-y-2.5 pt-1">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Badge variant="secondary" className="text-[10px] font-bold">
+              {tenantOpsToolStatusLabel(tool)}: {status && status !== 'all' ? status.replace(/_/g, ' ') : 'All'}
+            </Badge>
+            {typeof visibleCount === 'number' && (
+              <Badge variant="outline" className="text-[10px]">{visibleCount.toLocaleString()} on screen</Badge>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground">From</Label>
+              <Input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPreset('custom'); }} className="h-8 w-[140px] text-xs bg-background" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground">To</Label>
+              <Input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPreset('custom'); }} className="h-8 w-[140px] text-xs bg-background" />
+            </div>
+            {(dateFrom || dateTo) && (
+              <Button type="button" size="sm" variant="ghost" className="h-8 text-[11px]" onClick={() => { setDateFrom(''); setDateTo(''); setPreset('today'); }}>
+                Clear dates
+              </Button>
+            )}
+            <Button type="button" size="sm" className="h-8 text-xs gap-1.5 ml-auto" onClick={handleExport} disabled={exporting}>
+              {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
+              Export PDF
+            </Button>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            The PDF exports exactly what these filters match — {tenantOpsToolReportTitle(tool).toLowerCase()}, with totals calculated from the same records.
+          </p>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }

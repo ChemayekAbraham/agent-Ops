@@ -30,7 +30,6 @@ import {
 import { UserSearchPicker } from './UserSearchPicker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TreasuryImpactBanner } from './TreasuryImpactBanner';
-import { RecipientRoutingWarningBanner } from './RecipientRoutingWarningBanner';
 import { RentDisbursementQueue } from './RentDisbursementQueue';
 import { type LocationRecipient } from './PayByLocationRecipientPicker';
 import { BusinessAdvanceDisbursementQueue } from './BusinessAdvanceDisbursementQueue';
@@ -924,13 +923,6 @@ export function DirectCreditTool() {
               </div>
             </div>
           </div>
-        )}
-
-        {operation === 'debit' && (
-          <RecipientRoutingWarningBanner />
-        )}
-        {operation === 'credit' && (
-          <RecipientRoutingWarningBanner variant="compact" />
         )}
 
         <div>

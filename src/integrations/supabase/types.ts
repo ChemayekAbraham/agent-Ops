@@ -31105,6 +31105,8 @@ export type Database = {
           reopen_reason: string | null
           reopened_at: string | null
           reopened_by: string | null
+          repayment_frequency: string
+          repayment_starts_on: string | null
           request_city: string | null
           request_country: string | null
           request_fee: number
@@ -31234,6 +31236,8 @@ export type Database = {
           reopen_reason?: string | null
           reopened_at?: string | null
           reopened_by?: string | null
+          repayment_frequency?: string
+          repayment_starts_on?: string | null
           request_city?: string | null
           request_country?: string | null
           request_fee: number
@@ -31363,6 +31367,8 @@ export type Database = {
           reopen_reason?: string | null
           reopened_at?: string | null
           reopened_by?: string | null
+          repayment_frequency?: string
+          repayment_starts_on?: string | null
           request_city?: string | null
           request_country?: string | null
           request_fee?: number
@@ -36657,8 +36663,11 @@ export type Database = {
       }
       tppo_period_snapshots: {
         Row: {
+          arrears_outstanding_ugx: number | null
           arrears_plan_count: number
           arrears_recovered_ugx: number
+          arrears_target_plan_count: number | null
+          arrears_target_ugx: number | null
           basis: Json
           collected_total_ugx: number
           collected_ugx: number
@@ -36674,8 +36683,11 @@ export type Database = {
           unallocated_ugx: number
         }
         Insert: {
+          arrears_outstanding_ugx?: number | null
           arrears_plan_count?: number
           arrears_recovered_ugx?: number
+          arrears_target_plan_count?: number | null
+          arrears_target_ugx?: number | null
           basis?: Json
           collected_total_ugx?: number
           collected_ugx?: number
@@ -36691,8 +36703,11 @@ export type Database = {
           unallocated_ugx?: number
         }
         Update: {
+          arrears_outstanding_ugx?: number | null
           arrears_plan_count?: number
           arrears_recovered_ugx?: number
+          arrears_target_plan_count?: number | null
+          arrears_target_ugx?: number | null
           basis?: Json
           collected_total_ugx?: number
           collected_ugx?: number
@@ -36706,6 +36721,75 @@ export type Database = {
           provisional?: boolean
           scheduled_due_ugx?: number
           unallocated_ugx?: number
+        }
+        Relationships: []
+      }
+      tppo_period_snapshots_archive: {
+        Row: {
+          archive_reason: string
+          archived_at: string
+          arrears_outstanding_ugx: number | null
+          arrears_plan_count: number | null
+          arrears_recovered_ugx: number | null
+          arrears_target_plan_count: number | null
+          arrears_target_ugx: number | null
+          basis: Json | null
+          collected_total_ugx: number | null
+          collected_ugx: number | null
+          computed_at: string | null
+          frozen_at: string | null
+          granularity: string | null
+          period_end: string | null
+          period_start: string | null
+          plan_count: number | null
+          provisional: boolean | null
+          scheduled_due_ugx: number | null
+          snapshot_id: string | null
+          unallocated_ugx: number | null
+        }
+        Insert: {
+          archive_reason: string
+          archived_at?: string
+          arrears_outstanding_ugx?: number | null
+          arrears_plan_count?: number | null
+          arrears_recovered_ugx?: number | null
+          arrears_target_plan_count?: number | null
+          arrears_target_ugx?: number | null
+          basis?: Json | null
+          collected_total_ugx?: number | null
+          collected_ugx?: number | null
+          computed_at?: string | null
+          frozen_at?: string | null
+          granularity?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          plan_count?: number | null
+          provisional?: boolean | null
+          scheduled_due_ugx?: number | null
+          snapshot_id?: string | null
+          unallocated_ugx?: number | null
+        }
+        Update: {
+          archive_reason?: string
+          archived_at?: string
+          arrears_outstanding_ugx?: number | null
+          arrears_plan_count?: number | null
+          arrears_recovered_ugx?: number | null
+          arrears_target_plan_count?: number | null
+          arrears_target_ugx?: number | null
+          basis?: Json | null
+          collected_total_ugx?: number | null
+          collected_ugx?: number | null
+          computed_at?: string | null
+          frozen_at?: string | null
+          granularity?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          plan_count?: number | null
+          provisional?: boolean | null
+          scheduled_due_ugx?: number | null
+          snapshot_id?: string | null
+          unallocated_ugx?: number | null
         }
         Relationships: []
       }
@@ -37337,6 +37421,241 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_deposit_name_conflicts: {
+        Row: {
+          attempted_user_id: string
+          created_at: string
+          detected_via: string
+          existing_user_id: string | null
+          gmail_transaction_id: string | null
+          id: string
+          normalized_name: string
+          notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+        }
+        Insert: {
+          attempted_user_id: string
+          created_at?: string
+          detected_via: string
+          existing_user_id?: string | null
+          gmail_transaction_id?: string | null
+          id?: string
+          normalized_name: string
+          notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Update: {
+          attempted_user_id?: string
+          created_at?: string
+          detected_via?: string
+          existing_user_id?: string | null
+          gmail_transaction_id?: string | null
+          id?: string
+          normalized_name?: string
+          notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_deposit_name_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_gmail_transaction_id_fkey"
+            columns: ["gmail_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "gmail_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_deposit_names: {
+        Row: {
+          contested: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          linked_gmail_transaction_id: string | null
+          normalized_name: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          contested?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          linked_gmail_transaction_id?: string | null
+          normalized_name: string
+          source: string
+          user_id: string
+        }
+        Update: {
+          contested?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          linked_gmail_transaction_id?: string | null
+          normalized_name?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_deposit_names_linked_gmail_transaction_id_fkey"
+            columns: ["linked_gmail_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "gmail_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_names_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_names_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_names_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_names_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_names_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_names_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_names_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
       }
       user_deposit_number_conflicts: {
         Row: {
@@ -43218,6 +43537,7 @@ export type Database = {
           live_plan: boolean
         }[]
       }
+      agent_ops_collection_target: { Args: { p_as_of?: string }; Returns: Json }
       agent_ops_compute_snapshot: {
         Args: { p_granularity: string; p_period_start: string }
         Returns: string
@@ -43492,6 +43812,8 @@ export type Database = {
           reopen_reason: string | null
           reopened_at: string | null
           reopened_by: string | null
+          repayment_frequency: string
+          repayment_starts_on: string | null
           request_city: string | null
           request_country: string | null
           request_fee: number
@@ -51158,6 +51480,14 @@ export type Database = {
         }
         Returns: string
       }
+      rent_plan_schedule_days: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          due_on: string
+          rent_request_id: string
+        }[]
+      }
       rent_request_financials_unchanged: {
         Args: {
           _amount_repaid: number
@@ -51318,6 +51648,16 @@ export type Database = {
           is_self: boolean
           masked_email: string
           masked_phone: string
+        }[]
+      }
+      resolve_user_by_known_name: {
+        Args: { p_name: string }
+        Returns: {
+          email: string
+          full_name: string
+          match_count: number
+          phone: string
+          user_id: string
         }[]
       }
       resolve_user_by_known_phone: {
@@ -51776,6 +52116,14 @@ export type Database = {
           transaction_group_id: string
         }[]
       }
+      staff_requisition_reduce_amount: {
+        Args: {
+          p_new_amount: number
+          p_reason: string
+          p_requisition_id: string
+        }
+        Returns: Json
+      }
       staff_requisition_route: {
         Args: { _user_id: string }
         Returns: {
@@ -51988,6 +52336,14 @@ export type Database = {
           period_end: string
           period_start: string
         }[]
+      }
+      tppo_period_plan_detail: {
+        Args: { p_anchor?: string; p_granularity: string }
+        Returns: Json
+      }
+      tppo_plan_arrears_detail: {
+        Args: { p_as_at?: string; p_rent_request_id: string }
+        Returns: Json
       }
       tppo_projection_zone_a: {
         Args: { p_as_at: string; p_granularity: string }

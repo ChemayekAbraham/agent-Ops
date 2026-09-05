@@ -10,6 +10,7 @@ import { PeriodToggle, type TppoGranularity } from '@/components/tenant-ops/tppo
 import { HeadlineA1 } from '@/components/tenant-ops/tppo/HeadlineA1';
 import { VarianceA2 } from '@/components/tenant-ops/tppo/VarianceA2';
 import { ProjectionA3 } from '@/components/tenant-ops/tppo/ProjectionA3';
+import { TppoPlanDetailTable } from '@/components/executive/tppo/TppoPlanDetailTable';
 import {
   NarrativeCollections,
   type DraftAction,
@@ -321,6 +322,8 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
           </p>
         )}
       </section>
+
+      <TppoPlanDetailTable granularity={granularity} anchor={anchor} />
 
       <div className="grid gap-4 xl:grid-cols-2">
         <HeadlineA1 report={data} />

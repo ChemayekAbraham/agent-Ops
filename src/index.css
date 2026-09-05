@@ -923,15 +923,23 @@ input, textarea, select, button {
   html { font-size: 14px; }
 }
 
-/* Ensure all interactive elements meet 44px touch target */
-button, a, [role="button"], input, select, textarea, [tabindex] {
+/* Ensure interactive elements meet touch targets while keeping checkboxes compact */
+button:not([role="checkbox"]):not([role="radio"]):not(.no-min-tap),
+a,
+[role="button"]:not([role="checkbox"]):not([role="radio"]),
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea,
+[tabindex]:not([role="checkbox"]):not([role="radio"]) {
   min-height: 44px;
   min-width: 44px;
 }
 
-input[type="checkbox"], input[type="radio"] {
-  min-height: 20px;
-  min-width: 20px;
+input[type="checkbox"], input[type="radio"], [role="checkbox"] {
+  min-height: 16px !important;
+  min-width: 16px !important;
+  max-height: 16px !important;
+  max-width: 16px !important;
 }
 
 /* Prevent text overflow on small screens with UGX amounts */

@@ -16,7 +16,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { CheckCircle2, XCircle, Clock, MapPin, User, UserCheck, Home, Banknote, ArrowRight, ArrowRightLeft, Loader2, Search, MessageCircle, Phone, Pencil, Check, X, PhoneCall, ShieldCheck, AlertCircle, Image as ImageIcon, Camera, Cloud, HardDrive, RotateCcw, ArrowUpDown } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, MapPin, User, UserCheck, Home, Banknote, ArrowRight, ArrowRightLeft, Loader2, Search, MessageCircle, Phone, Pencil, Check, X, PhoneCall, ShieldCheck, AlertCircle, Image as ImageIcon, Camera, Cloud, HardDrive, RotateCcw, ArrowUpDown, ChevronDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { calculateRentRepayment } from '@/lib/rentCalculations';
 import { formatTenantSync } from '@/lib/tenantFilterSyncFormat';
 import { formatLocation, locationHaystack } from '@/lib/locationText';
@@ -262,6 +263,17 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       [id]: { ...{ called: false, acknowledged: false }, ...prev[id], [key]: value },
     }));
   };
+  const [expandedCardIds, setExpandedCardIds] = useState<Set<string>>(new Set());
+  const toggleCardExpanded = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setExpandedCardIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   // Open the detail sheet AND seed the sheet's landlord checklist from the ticks
   // the operator already made on the card (otherwise the sheet's checkboxes start
   // empty and the Approve button silently refuses with "Complete the checklist").
@@ -1200,20 +1212,20 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
         </div>
         {/* Bulk review controls for Agent Ops and COO */}
         {allowBulkActions && filtered.length > 0 && (
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-2 p-2 rounded-lg bg-muted/50 border">
-            <label className="flex items-center gap-2 cursor-pointer text-sm">
-              <Checkbox
-                checked={selectedIds.size === filtered.length && filtered.length > 0}
-                onCheckedChange={toggleSelectAll}
-              />
-              Select all ({filtered.length})
-            </label>
-            {selectedIds.size > 0 && (
+          selectedIds.size > 0 ? (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-1.5 p-2 rounded-lg bg-primary/5 border border-primary/20">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold select-none">
+                <Checkbox
+                  checked={selectedIds.size === filtered.length && filtered.length > 0}
+                  onCheckedChange={toggleSelectAll}
+                />
+                <span>Selected ({selectedIds.size} of {filtered.length})</span>
+              </label>
               <div className="flex items-center gap-2">
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-8 text-xs gap-1"
+                  className="h-7 text-xs gap-1"
                   disabled={processing}
                   onClick={() => setBulkRejectOpen(true)}
                 >
@@ -1222,7 +1234,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                 </Button>
                 <Button
                   size="sm"
-                  className="h-8 text-xs gap-1"
+                  className="h-7 text-xs gap-1"
                   disabled={processing}
                   onClick={handleBulkApprove}
                 >
@@ -1230,8 +1242,18 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                   Approve selected ({selectedIds.size})
                 </Button>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="flex items-center mt-1">
+              <label className="inline-flex items-center gap-1.5 cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground py-0.5 select-none">
+                <Checkbox
+                  checked={false}
+                  onCheckedChange={toggleSelectAll}
+                />
+                <span>Select all ({filtered.length})</span>
+              </label>
+            </div>
+          )
         )}
         {bulkRejectOpen && (
           <div className="mt-2 space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
@@ -1369,29 +1391,34 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
               const cl = getCardChecklist(req.id);
               const checklistDone = (cl.called ? 1 : 0) + (cl.acknowledged ? 1 : 0);
               const checklistComplete = checklistDone === 2;
+              const isExpanded = expandedCardIds.has(req.id);
+
               return (
               <div
                 key={req.id}
-                className="w-full text-left px-4 py-3 hover:bg-muted/40 transition-colors"
+                className="w-full text-left px-3.5 py-3 hover:bg-muted/30 transition-colors"
               >
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                {/* Bulk review selection checkbox */}
-                {allowBulkActions && (
-                  <Checkbox
-                    checked={selectedIds.has(req.id)}
-                    onCheckedChange={() => toggleSelect(req.id)}
-                    className="shrink-0"
-                  />
-                )}
-                <button
-                  onClick={() => openRequestDetail(req)}
-                  className="min-w-0 w-full sm:flex-1 text-left"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1 space-y-1">
+                {/* Header row: Checkbox + Tenant info + Amount + Fold Toggle */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2 min-w-0 flex-1">
+                    {/* Bulk review selection checkbox */}
+                    {allowBulkActions && (
+                      <Checkbox
+                        checked={selectedIds.has(req.id)}
+                        onCheckedChange={() => toggleSelect(req.id)}
+                        className="shrink-0 mt-0.5"
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => openRequestDetail(req)}
+                      className="text-left min-w-0 flex-1 group"
+                    >
                       <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                         <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="font-semibold text-sm break-words leading-tight">{req.tenant_name}</span>
+                        <span className="font-semibold text-sm break-words leading-tight group-hover:text-primary transition-colors">
+                          {req.tenant_name}
+                        </span>
                         {req.registration_type === 'outstanding_balance' && (
                           <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 border border-amber-500/30 shrink-0">
                             <AlertCircle className="h-2.5 w-2.5" />
@@ -1425,88 +1452,206 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                           </Tooltip>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 sm:gap-3 text-xs text-muted-foreground flex-wrap min-w-0">
-                        {req.landlord_id ? (
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            onClick={(e) => { e.stopPropagation(); setDrilldownLandlordId(req.landlord_id); }}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setDrilldownLandlordId(req.landlord_id); } }}
-                            className="flex items-center gap-1 text-primary hover:underline cursor-pointer"
-                            title="Open landlord profile"
-                          >
-                            <Home className="h-3 w-3" />
-                            {req.landlord_name}
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1">
-                            <Home className="h-3 w-3" />
-                            {req.landlord_name}
-                          </span>
-                        )}
-                        {(req.assigned_agent_id || req.agent_id) ? (
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            onClick={(e) => { e.stopPropagation(); setDrilldownAgentId(req.assigned_agent_id || req.agent_id); }}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setDrilldownAgentId(req.assigned_agent_id || req.agent_id); } }}
-                            className="flex items-center gap-1 text-primary hover:underline cursor-pointer"
-                            title="Open agent profile"
-                          >
-                            <UserCheck className="h-3 w-3" />
-                            {req.assigned_agent_name || req.agent_name || 'No Agent'}
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-primary">
-                            <UserCheck className="h-3 w-3" />
-                            No Agent
-                          </span>
-                        )}
-                        {(req.request_city || req.landlord_district || req.tenant_district) && (
-                          <span className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            {req.request_city || req.landlord_district || req.tenant_district}
-                          </span>
-                        )}
-                      </div>
-                      {/* WhatsApp quick contacts */}
-                      <div className="flex items-center gap-1 sm:gap-2 flex-wrap min-w-0">
-                        <WhatsAppButton phone={req.tenant_phone} name={req.tenant_name} label="Tenant" />
-                        <WhatsAppButton phone={req.landlord_phone} name={req.landlord_name} label="Landlord" />
-                        <WhatsAppButton phone={req.agent_phone} name={req.assigned_agent_name || req.agent_name} label="Agent" />
-                      </div>
+                    </button>
+                  </div>
+
+                  {/* Right side: Amount and Fold/Unfold Chevron */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="font-bold text-sm text-foreground tabular-nums">
+                      UGX {fmt(req.rent_amount)}
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => toggleCardExpanded(req.id, e)}
+                      className="h-7 w-7 p-0 rounded-full hover:bg-muted text-muted-foreground"
+                      title={isExpanded ? "Fold details" : "Unfold details"}
+                    >
+                      <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isExpanded && "rotate-180")} />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Foldable details section (unfolds on toggle) */}
+                {isExpanded && (
+                  <div className="mt-2.5 pt-2 border-t border-dashed border-border/60 space-y-2 text-xs animate-in fade-in-50 duration-150">
+                    <div className="flex items-center gap-2 sm:gap-3 text-muted-foreground flex-wrap min-w-0">
+                      {req.landlord_id ? (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); setDrilldownLandlordId(req.landlord_id); }}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setDrilldownLandlordId(req.landlord_id); } }}
+                          className="flex items-center gap-1 text-primary hover:underline cursor-pointer"
+                          title="Open landlord profile"
+                        >
+                          <Home className="h-3 w-3" />
+                          {req.landlord_name}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1">
+                          <Home className="h-3 w-3" />
+                          {req.landlord_name}
+                        </span>
+                      )}
+                      {(req.assigned_agent_id || req.agent_id) ? (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => { e.stopPropagation(); setDrilldownAgentId(req.assigned_agent_id || req.agent_id); }}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setDrilldownAgentId(req.assigned_agent_id || req.agent_id); } }}
+                          className="flex items-center gap-1 text-primary hover:underline cursor-pointer"
+                          title="Open agent profile"
+                        >
+                          <UserCheck className="h-3 w-3" />
+                          {req.assigned_agent_name || req.agent_name || 'No Agent'}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-primary">
+                          <UserCheck className="h-3 w-3" />
+                          No Agent
+                        </span>
+                      )}
+                      {(req.request_city || req.landlord_district || req.tenant_district) && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3" />
+                          {req.request_city || req.landlord_district || req.tenant_district}
+                        </span>
+                      )}
                     </div>
-                    <div className="text-right shrink-0 space-y-0.5">
-                      <p className="font-bold text-sm">UGX {fmt(req.rent_amount)}</p>
-                      <p className="text-[10px] text-muted-foreground font-mono">
-                        Submitted: {format(new Date(req.created_at), 'dd MMM yyyy, HH:mm')}
-                      </p>
+
+                    {/* WhatsApp quick contacts */}
+                    <div className="flex items-center gap-1 sm:gap-2 flex-wrap min-w-0">
+                      <WhatsAppButton phone={req.tenant_phone} name={req.tenant_name} label="Tenant" />
+                      <WhatsAppButton phone={req.landlord_phone} name={req.landlord_name} label="Landlord" />
+                      <WhatsAppButton phone={req.agent_phone} name={req.assigned_agent_name || req.agent_name} label="Agent" />
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono pt-1">
+                      <span>Submitted: {format(new Date(req.created_at), 'dd MMM yyyy, HH:mm')}</span>
                       {stage === 'pending' && (() => {
                         const expiryDate = new Date(new Date(req.created_at).getTime() + 30 * 24 * 60 * 60 * 1000);
                         const isPastExpiry = Date.now() > expiryDate.getTime();
                         return (
-                          <p className={`text-[10px] font-mono flex items-center justify-end gap-1 ${isPastExpiry ? 'text-destructive font-semibold' : 'text-amber-600 dark:text-amber-400'}`}>
+                          <span className={`font-mono flex items-center gap-1 ${isPastExpiry ? 'text-destructive font-semibold' : 'text-amber-600 dark:text-amber-400'}`}>
                             <Clock className="h-2.5 w-2.5 shrink-0" />
-                            <span>Expires: {format(expiryDate, 'dd MMM yyyy, HH:mm')}</span>
-                          </p>
+                            Expires: {format(expiryDate, 'dd MMM yyyy')}
+                          </span>
                         );
                       })()}
                     </div>
+
+                    {/* Inline landlord verification checklist */}
+                    {isLandlordStage && (
+                      <div className="mt-2 space-y-2 pt-2 border-t border-border/40">
+                        {checklistSyncStatus !== 'idle' && (
+                          <div className="flex items-center gap-1.5">
+                            {checklistSyncStatus === 'saving' && (
+                              <>
+                                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                <span className="text-[10px] font-medium text-muted-foreground">Saving…</span>
+                              </>
+                            )}
+                            {checklistSyncStatus === 'saved' && (
+                              <>
+                                <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                                <span className="text-[10px] font-medium text-emerald-600">
+                                  {checklistSavedAt && Date.now() - checklistSavedAt.getTime() < 5000
+                                    ? 'Saved'
+                                    : `Saved${checklistSavedAt ? ` · ${format(checklistSavedAt, 'h:mm a')}` : ''}`}
+                                </span>
+                              </>
+                            )}
+                            {checklistSyncStatus === 'failed' && (
+                              <>
+                                <AlertCircle className="h-3 w-3 text-destructive" />
+                                <span className="text-[10px] font-medium text-destructive">
+                                  Not saved to server — saved on this phone only
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        )}
+
+                        <div className={`flex items-center gap-2 rounded-lg px-3 py-2 border ${checklistComplete ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
+                          <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${checklistComplete ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>
+                            {checklistComplete ? '✓' : `${checklistDone}`}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-bold ${checklistComplete ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-800 dark:text-amber-300'}`}>
+                              {checklistComplete
+                                ? 'All done — tap Approve now'
+                                : `${checklistDone} of 2 done — finish the steps below`}
+                            </p>
+                            <div className="mt-1 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-300 ${checklistComplete ? 'bg-emerald-500 w-full' : checklistDone === 1 ? 'bg-amber-500 w-1/2' : 'bg-amber-500 w-0'}`}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl border border-purple-500/30 bg-purple-500/5 p-3 space-y-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-bold flex items-center gap-1.5 text-purple-700 dark:text-purple-300">
+                              <ShieldCheck className="h-4 w-4" />
+                              Do these 2 steps first
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); toggleCardCheck(req.id, 'called', !cl.called); }}
+                            className={`w-full flex items-center gap-3 rounded-xl border-2 p-2.5 text-left transition-colors ${cl.called ? 'border-emerald-500 bg-emerald-500/10' : 'border-border bg-background active:bg-muted'}`}
+                          >
+                            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${cl.called ? 'bg-emerald-500 text-white' : 'bg-muted text-foreground'}`}>
+                              {cl.called ? '✓' : '1'}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-xs font-semibold">I called the landlord</span>
+                              <span className="block text-[11px] text-muted-foreground">
+                                {req.landlord_phone ? `Call ${req.landlord_phone}, then tap here` : 'Call the landlord, then tap here'}
+                              </span>
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); toggleCardCheck(req.id, 'acknowledged', !cl.acknowledged); }}
+                            className={`w-full flex items-center gap-3 rounded-xl border-2 p-2.5 text-left transition-colors ${cl.acknowledged ? 'border-emerald-500 bg-emerald-500/10' : 'border-border bg-background active:bg-muted'}`}
+                          >
+                            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${cl.acknowledged ? 'bg-emerald-500 text-white' : 'bg-muted text-foreground'}`}>
+                              {cl.acknowledged ? '✓' : '2'}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-xs font-semibold">Landlord said Welile will pay</span>
+                              <span className="block text-[11px] text-muted-foreground">They understand Welile sends the rent, not the tenant</span>
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </button>
-                {/* Quick Actions */}
-                <div className="flex items-center justify-end gap-1 shrink-0 w-full sm:w-auto">
+                )}
+
+                {/* Bottom Action Row: Reject on far left, Approve on far right */}
+                <div className="flex items-center justify-between gap-4 w-full pt-2.5 mt-2 border-t border-border/40">
                   <Button
+                    type="button"
                     size="sm"
-                    variant="ghost"
+                    variant="outline"
                     onClick={(e) => { e.stopPropagation(); openRequestDetail(req); }}
                     disabled={quickProcessingId === req.id}
-                    className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
-                    title="Reject"
+                    className="h-8 px-3 text-xs font-semibold text-destructive border-destructive/30 hover:bg-destructive/10 hover:border-destructive active:scale-95 transition-all gap-1.5"
+                    title="Reject request"
                   >
-                    <XCircle className="h-4 w-4" />
+                    <XCircle className="h-3.5 w-3.5" />
+                    <span>Reject</span>
                   </Button>
+
                   <Button
+                    type="button"
                     size="sm"
                     onClick={(e) => handleQuickApprove(req, e)}
                     disabled={quickProcessingId === req.id || (isLandlordStage && !checklistComplete) || isRequestExpired(req.created_at, req.status, req.agent_verified)}
@@ -1517,124 +1662,16 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                         ? `Complete the landlord verification checklist (${checklistDone}/2)`
                         : undefined
                     }
-                    className="h-8 px-3 text-xs font-bold gap-1 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
+                    className="h-8 px-4 text-xs font-bold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 shadow-xs active:scale-95 transition-all"
                   >
                     {quickProcessingId === req.id ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     )}
-                    Approve
+                    <span>Approve</span>
                   </Button>
                 </div>
-              </div>
-              {/* Inline landlord verification checklist — status & progress shown
-                  before the Approve button is enabled (Landlord Ops stage only) */}
-              {isLandlordStage && (
-                <div className="mt-2 space-y-2">
-                  {/* Sync status — tells the operator whether their ticks reached the server */}
-                  {checklistSyncStatus !== 'idle' && (
-                    <div className="flex items-center gap-1.5">
-                      {checklistSyncStatus === 'saving' && (
-                        <>
-                          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                          <span className="text-[10px] font-medium text-muted-foreground">Saving…</span>
-                        </>
-                      )}
-                      {checklistSyncStatus === 'saved' && (
-                        <>
-                          <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                          <span className="text-[10px] font-medium text-emerald-600">
-                            {checklistSavedAt && Date.now() - checklistSavedAt.getTime() < 5000
-                              ? 'Saved'
-                              : `Saved${checklistSavedAt ? ` · ${format(checklistSavedAt, 'h:mm a')}` : ''}`}
-                          </span>
-                        </>
-                      )}
-                      {checklistSyncStatus === 'failed' && (
-                        <>
-                          <AlertCircle className="h-3 w-3 text-destructive" />
-                          <span className="text-[10px] font-medium text-destructive">
-                            Not saved to server — saved on this phone only
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Big visible progress indicator above the checklist */}
-                  <div className={`flex items-center gap-2 rounded-lg px-3 py-2 border ${checklistComplete ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
-                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${checklistComplete ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>
-                      {checklistComplete ? '✓' : `${checklistDone}`}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-bold ${checklistComplete ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-800 dark:text-amber-300'}`}>
-                        {checklistComplete
-                          ? 'All done — tap Approve now'
-                          : `${checklistDone} of 2 done — finish the steps below`}
-                      </p>
-                      {/* Progress bar */}
-                      <div className="mt-1 h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-300 ${checklistComplete ? 'bg-emerald-500 w-full' : checklistDone === 1 ? 'bg-amber-500 w-1/2' : 'bg-amber-500 w-0'}`}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-purple-500/30 bg-purple-500/5 p-3 space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold flex items-center gap-1.5 text-purple-700 dark:text-purple-300">
-                        <ShieldCheck className="h-4 w-4" />
-                        Do these 2 steps first
-                      </span>
-                    </div>
-
-                  {/* Step 1 — call the landlord. Whole box is tappable for easy phone use. */}
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); toggleCardCheck(req.id, 'called', !cl.called); }}
-                    className={`w-full flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-colors ${cl.called ? 'border-emerald-500 bg-emerald-500/10' : 'border-border bg-background active:bg-muted'}`}
-                  >
-                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${cl.called ? 'bg-emerald-500 text-white' : 'bg-muted text-foreground'}`}>
-                      {cl.called ? '✓' : '1'}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold">I called the landlord</span>
-                      <span className="block text-xs text-muted-foreground">
-                        {req.landlord_phone ? `Call ${req.landlord_phone}, then tap here` : 'Call the landlord, then tap here'}
-                      </span>
-                    </span>
-                  </button>
-
-                  {/* Step 2 — landlord agreed Welile pays. */}
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); toggleCardCheck(req.id, 'acknowledged', !cl.acknowledged); }}
-                    className={`w-full flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-colors ${cl.acknowledged ? 'border-emerald-500 bg-emerald-500/10' : 'border-border bg-background active:bg-muted'}`}
-                  >
-                    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${cl.acknowledged ? 'bg-emerald-500 text-white' : 'bg-muted text-foreground'}`}>
-                      {cl.acknowledged ? '✓' : '2'}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold">Landlord said Welile will pay</span>
-                      <span className="block text-xs text-muted-foreground">They understand Welile sends the rent, not the tenant</span>
-                    </span>
-                  </button>
-
-                  {/* Plain-language hint about the Approve button */}
-                  {checklistComplete ? (
-                    <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 text-center">
-                      Great — now tap the green Approve button above.
-                    </p>
-                  ) : (
-                    <p className="text-xs text-amber-700 dark:text-amber-300 text-center">
-                      Tap both boxes above to turn on the Approve button.
-                    </p>
-                  )}
-                </div>
-              </div>
-              )}
               </div>
               );
             })}

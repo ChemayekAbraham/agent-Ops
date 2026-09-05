@@ -109,52 +109,53 @@ export function NewTenantsWithoutRequestPanel() {
   }
 
   return (
-    <Card className="border-amber-300/60 bg-amber-50/40 dark:bg-amber-950/10">
-      <CardContent className="p-3 space-y-3">
-        <Collapsible open={open} onOpenChange={setOpen} className="space-y-3">
-          <div className="flex items-start justify-between gap-2">
-            <CollapsibleTrigger asChild>
-              <button
-                type="button"
-                className="flex items-start gap-2 min-w-0 text-left hover:opacity-90 transition-opacity cursor-pointer group flex-1"
-              >
-                <div className="p-1.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5">
+    <Card className="border-amber-300/60 bg-amber-50/40 dark:bg-amber-950/10 transition-all">
+      <CardContent className="p-2.5 sm:p-3">
+        <Collapsible open={open} onOpenChange={setOpen} className="space-y-2.5">
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="flex items-center justify-between w-full text-left hover:opacity-90 transition-opacity cursor-pointer group gap-2"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="p-1 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-400 shrink-0">
                   <UserPlus2 className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-                      New tenants without a rent request
-                    </p>
-                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
-                  </div>
-                  <p className="text-[11px] text-muted-foreground leading-snug">
-                    Tenants agents added to the platform but who have not yet had a rent request submitted.
-                    Follow up with the agent to capture the rent details.
+                  <p className="text-xs sm:text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                    New tenants without a rent request
                   </p>
                 </div>
-              </button>
-            </CollapsibleTrigger>
-            <Badge variant="primary" size="sm" className="shrink-0">{rows.length}</Badge>
-          </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Badge variant="primary" size="sm">{rows.length}</Badge>
+                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+              </div>
+            </button>
+          </CollapsibleTrigger>
 
-          {/* Always-visible summary stats */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-lg border border-border bg-card px-2 py-1.5">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tenants</p>
-              <p className="text-sm font-bold">{rows.length}</p>
-            </div>
-            <div className="rounded-lg border border-border bg-card px-2 py-1.5">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Agents</p>
-              <p className="text-sm font-bold">{agentCount}</p>
-            </div>
-            <div className="rounded-lg border border-border bg-card px-2 py-1.5">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Districts</p>
-              <p className="text-sm font-bold">{districtCount}</p>
-            </div>
-          </div>
+          <CollapsibleContent className="space-y-3 pt-1">
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              Tenants agents added to the platform but who have not yet had a rent request submitted.
+              Follow up with the agent to capture the rent details.
+            </p>
 
-          <CollapsibleContent className="space-y-3">
+            {/* Summary stats */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-lg border border-border bg-card px-2 py-1.5">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tenants</p>
+                <p className="text-sm font-bold">{rows.length}</p>
+              </div>
+              <div className="rounded-lg border border-border bg-card px-2 py-1.5">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Agents</p>
+                <p className="text-sm font-bold">{agentCount}</p>
+              </div>
+              <div className="rounded-lg border border-border bg-card px-2 py-1.5">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Districts</p>
+                <p className="text-sm font-bold">{districtCount}</p>
+              </div>
+            </div>
+
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
@@ -215,19 +216,19 @@ export function NewTenantsWithoutRequestPanel() {
                 )}
               </div>
             )}
-          </CollapsibleContent>
 
-          <CollapsibleTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg border bg-muted/30 px-3 py-2 text-xs font-semibold hover:bg-muted/50 cursor-pointer"
-            >
-              {open ? 'Fold all' : `Open all ${filtered.length}`}
-              <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
-            </Button>
-          </CollapsibleTrigger>
+            <CollapsibleTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border bg-muted/30 px-3 py-1.5 text-xs font-semibold hover:bg-muted/50 cursor-pointer"
+              >
+                Fold panel
+                <ChevronDown className="h-4 w-4 rotate-180" />
+              </Button>
+            </CollapsibleTrigger>
+          </CollapsibleContent>
         </Collapsible>
       </CardContent>
     </Card>

@@ -1,4 +1,4 @@
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { AgentOpsHomeView, type DateRange } from './agent-ops-v2/AgentOpsHomeView';
 import { AgentOpsBottomNav, type BottomTab } from './agent-ops-v2/AgentOpsBottomNav';
@@ -70,6 +70,7 @@ import { ApprovalHistoryLog } from './ApprovalHistoryLog';
 import { TenantRentCollector } from './TenantRentCollector';
 import { AgentAllocationReport } from './AgentAllocationReport';
 import { AdvanceHealthCard } from './agent-ops-v2/AdvanceHealthCard';
+import { AgentsSpacePanel } from './AgentsSpacePanel';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -79,7 +80,7 @@ import {
   ChevronLeft, Briefcase, TrendingUp, TrendingDown, UsersRound, PiggyBank, HandCoins, ShieldCheck, FileBarChart,
   LayoutGrid, ChevronDown, ToggleRight, Layers, Gauge, Target, Activity, Clock3
   , Coins, Megaphone, Lock, Store, MapPinned, Workflow, Package,
-  Bike, ShoppingBag, Signpost, Smartphone, PhoneCall, Loader2
+  Bike, ShoppingBag, Signpost, Smartphone, PhoneCall, Loader2, Sparkles
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -92,9 +93,10 @@ import {
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-type ActiveView = null | 'agent-ops-report' | 'comprehensive-report' | 'products-services-report' | 'sc-products' | 'pipeline' | 'pipeline-stages' | 'directory' | 'rent-capacity' | 'connector' | 'performance' | 'lifecycle' | 'tasks' | 'escalations' | 'service-centres' | 'sc-overview' | 'sc-directory' | 'sc-payouts' | 'sc-requests' | 'sc-operating-model' | 'sub-agents' | 'promote-tenant' | 'float-payouts' | 'leaderboard' | 'earnings' | 'transfers' | 'locked-transfers' | 'advances-analytics' | 'advance-requests' | 'active-advances' | 'advance-potential' | 'advance-limits' | 'advance-repayments' | 'balances' | 'lending-agents' | 'trust-capture' | 'feature-flags' | 'bulk-ops' | 'listing-campaign' | 'daily-collections-report' | 'advance-activity-correlation' | 'agent-service-centres' | 'agent-products-services' | 'guarantor-float' | 'rent-behaviour' | 'subagent-commission-whitelist' | 'partial-collections' | 'calling-hub' | 'portfolio-performance' | 'collect-rent' | 'agent-allocations' | 'approval-history' | 'tenant-self-repayments';
+type ActiveView = null | 'agents-space' | 'agent-ops-report' | 'comprehensive-report' | 'products-services-report' | 'sc-products' | 'pipeline' | 'pipeline-stages' | 'directory' | 'rent-capacity' | 'connector' | 'performance' | 'lifecycle' | 'tasks' | 'escalations' | 'service-centres' | 'sc-overview' | 'sc-directory' | 'sc-payouts' | 'sc-requests' | 'sc-operating-model' | 'sub-agents' | 'promote-tenant' | 'float-payouts' | 'leaderboard' | 'earnings' | 'transfers' | 'locked-transfers' | 'advances-analytics' | 'advance-requests' | 'active-advances' | 'advance-potential' | 'advance-limits' | 'advance-repayments' | 'balances' | 'lending-agents' | 'trust-capture' | 'feature-flags' | 'bulk-ops' | 'listing-campaign' | 'daily-collections-report' | 'advance-activity-correlation' | 'agent-service-centres' | 'agent-products-services' | 'guarantor-float' | 'rent-behaviour' | 'subagent-commission-whitelist' | 'partial-collections' | 'calling-hub' | 'portfolio-performance' | 'collect-rent' | 'agent-allocations' | 'approval-history' | 'tenant-self-repayments';
 
 const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; priority?: boolean }[] = [
+  { key: 'agents-space', icon: Wallet, label: "Agents' Space", color: 'bg-primary', priority: true },
   { key: 'agent-ops-report', icon: FileBarChart, label: 'Agent Operations Report', color: 'bg-emerald-700', priority: true },
   { key: 'portfolio-performance', icon: BarChart3, label: 'Portfolio Performance', color: 'bg-emerald-700', priority: true },
   { key: 'comprehensive-report', icon: FileBarChart, label: 'Comprehensive Report', color: 'bg-emerald-800', priority: true },
@@ -160,6 +162,7 @@ export function AgentOpsDashboard() {
   const [bottomTab, setBottomTab] = useState<BottomTab>('home');
   const [productSection, setProductSection] = useState<null | 'motor_bike' | 'smart_phone' | 'boutique' | 'signage' | 'advances'>(null);
   const [dateRange, setDateRange] = useState<DateRange>('24h');
+  const [sidebarWidth, setSidebarWidth] = useState(224); // default w-56
   const pendingAdvanceCount = usePendingAdvanceCount();
   const navigate = useNavigate();
 
@@ -309,6 +312,7 @@ export function AgentOpsDashboard() {
           </details>
         </div>
       );
+      case 'agents-space': return <AgentsSpacePanel mode="ops" onBack={() => setActiveView(null)} />;
       case 'feature-flags': return <AgentFeatureFlagsPanel onBack={() => setActiveView(null)} />;
       case 'bulk-ops': return <AgentBulkOpsConsole onBack={() => setActiveView(null)} />;
       case 'pipeline': return <AgentOpsPipelineHub />;
@@ -440,7 +444,8 @@ export function AgentOpsDashboard() {
 
   // Grouped sections for the "More" tab (mobile dropdown + grid)
   const MORE_GROUPS: { title: string; keys: ActiveView[] }[] = [
-    { title: 'Agents', keys: ['directory', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops'] },
+    { title: "Agents' Space", keys: ['agents-space'] },
+    { title: 'Agents', keys: ['agents-space', 'directory', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops'] },
     { title: 'Field Operations', keys: ['pipeline', 'pipeline-stages', 'rent-capacity', 'rent-behaviour', 'daily-collections-report', 'calling-hub', 'tasks', 'escalations', 'connector'] },
     { title: 'Service Centers', keys: ['sc-overview', 'service-centres', 'sc-directory', 'sc-payouts', 'sc-requests', 'sc-operating-model', 'sc-products'] },
     { title: 'Agent Products & Services', keys: ['agent-products-services'] },
@@ -452,14 +457,18 @@ export function AgentOpsDashboard() {
   // Main content region — sub-view when one is active, else the overview / more-grid.
   const contentRegion = activeView ? (
     <div className="space-y-4">
-      <button
-        onClick={() => setActiveView(null)}
-        className="flex items-center gap-2 text-sm font-semibold text-primary hover:underline lg:hidden"
-      >
-        <ChevronLeft className="h-4 w-4" />
-        Back to Agent Ops Overview
-      </button>
-      <h2 className="text-lg font-bold">{viewLabel}</h2>
+      {activeView !== 'agents-space' && (
+        <>
+          <button
+            onClick={() => setActiveView(null)}
+            className="flex items-center gap-2 text-sm font-semibold text-primary hover:underline lg:hidden"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back to Agent Ops Overview
+          </button>
+          <h2 className="text-lg font-bold">{viewLabel}</h2>
+        </>
+      )}
       {renderSubView()}
     </div>
   ) : bottomTab !== 'more' ? (
@@ -571,12 +580,14 @@ export function AgentOpsDashboard() {
       </div>
 
       {/* Body: persistent left sidebar (desktop) + content */}
-      <div className="lg:flex lg:gap-5 lg:items-start">
+      <div className="lg:flex lg:items-start">
         <AgentOpsSideNav
           activeView={activeView}
           onSelect={(k) => selectView(k)}
           onHome={() => { setBottomTab('home'); setActiveView(null); }}
+          style={{ width: sidebarWidth }}
         />
+        <SidebarResizer currentWidth={sidebarWidth} onChange={setSidebarWidth} />
         <div className="flex-1 min-w-0">{contentRegion}</div>
       </div>
 
@@ -584,6 +595,72 @@ export function AgentOpsDashboard() {
       <AgentOpsBottomNav active={bottomTab} onChange={handleBottomNav} />
 
       <UserProfileDialog open={!!selectedAgent} onOpenChange={(open) => !open && setSelectedAgent(null)} user={selectedAgent} />
+    </div>
+  );
+}
+
+/* ===================================================================
+ * SidebarResizer — drag handle between the sidebar and main content.
+ * Highlights on hover and lets the user widen/narrow the nav.
+ * =================================================================== */
+function SidebarResizer({
+  currentWidth,
+  onChange,
+  min = 180,
+  max = 480,
+}: {
+  currentWidth: number;
+  onChange: (width: number) => void;
+  min?: number;
+  max?: number;
+}) {
+  const [dragging, setDragging] = useState(false);
+  const startRef = useRef<{ x: number; width: number } | null>(null);
+
+  useEffect(() => {
+    if (!dragging) return;
+    const handleMove = (e: PointerEvent) => {
+      if (!startRef.current) return;
+      const delta = e.clientX - startRef.current.x;
+      const width = Math.max(min, Math.min(max, startRef.current.width + delta));
+      onChange(width);
+    };
+    const handleUp = () => {
+      setDragging(false);
+      startRef.current = null;
+    };
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+    return () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+    };
+  }, [dragging, min, max, onChange]);
+
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize sidebar"
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={currentWidth}
+      onPointerDown={(e) => {
+        e.preventDefault();
+        startRef.current = { x: e.clientX, width: currentWidth };
+        setDragging(true);
+      }}
+      className={cn(
+        'hidden lg:flex w-1.5 shrink-0 cursor-col-resize self-stretch items-center justify-center transition-colors',
+        dragging ? 'bg-primary/40' : 'hover:bg-primary/20'
+      )}
+    >
+      <div
+        className={cn(
+          'h-10 w-px rounded-full transition-colors',
+          dragging ? 'bg-primary' : 'bg-border group-hover:bg-primary/60'
+        )}
+      />
     </div>
   );
 }
@@ -597,16 +674,19 @@ function AgentOpsSideNav({
   activeView,
   onSelect,
   onHome,
+  style,
 }: {
   activeView: ActiveView;
   onSelect: (k: ActiveView) => void;
   onHome: () => void;
+  style?: React.CSSProperties;
 }) {
   const pendingAdvanceCount = usePendingAdvanceCount();
   // Priority stays pinned & always exposed on top. Every other group is
   // collapsible so the nav never over-scrolls. Agent Network sits right
   // below Priority and is open by default (this dashboard is agent-centric).
   const SIDE_GROUPS: { title: string; keys: ActiveView[]; pinned?: boolean; defaultOpen?: boolean }[] = [
+    { title: "Agents' Space", defaultOpen: true, keys: ['agents-space'] },
     { title: 'Agents', defaultOpen: false, keys: ['directory', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops'] },
     { title: 'Field Operations', defaultOpen: false, keys: ['pipeline', 'pipeline-stages', 'rent-capacity', 'rent-behaviour', 'daily-collections-report', 'partial-collections', 'tasks', 'escalations', 'connector', 'guarantor-float'] },
     { title: 'Service Centers', keys: ['sc-overview', 'service-centres', 'sc-directory', 'sc-payouts', 'sc-requests', 'sc-operating-model', 'sc-products'] },
@@ -618,7 +698,7 @@ function AgentOpsSideNav({
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
-    SIDE_GROUPS.forEach((g) => { init[g.title] = !!g.defaultOpen; });
+    SIDE_GROUPS.forEach((g) => { init[g.title] = false; });
     return init;
   });
   const toggleGroup = (title: string) =>
@@ -654,7 +734,10 @@ function AgentOpsSideNav({
   };
 
   return (
-    <aside className="hidden lg:flex flex-col w-56 shrink-0 sticky top-0 self-start max-h-[calc(100dvh-8.5rem)] overflow-y-auto pr-2">
+    <aside
+      style={style}
+      className="hidden lg:flex flex-col shrink-0 sticky top-0 self-start max-h-[calc(100dvh-8.5rem)] overflow-y-auto pr-2"
+    >
       <nav className="space-y-3 py-1">
         <button
           type="button"

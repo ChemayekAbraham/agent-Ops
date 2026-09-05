@@ -36,6 +36,11 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
   const cohortCount = report?.cohort_plan_count ?? null;
   const arrearsCount = report?.arrears_plan_count ?? null;
   const scheduled = report?.scheduled_due_ugx ?? null;
+  const arrearsTarget = report?.arrears_target_ugx ?? null;
+  const arrearsTargetCount = report?.arrears_target_plan_count ?? null;
+  const arrearsOutstanding = report?.arrears_outstanding_ugx ?? null;
+  const totalFieldTarget = report?.total_field_target_ugx ?? null;
+
   const rate = report?.collection_rate_pct ?? null;
   const threshold = report?.threshold_pct ?? null;
   const below = report?.below_threshold ?? null;
@@ -89,6 +94,47 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
             <span className="ml-2 text-foreground">provisional — period still open</span>
           )}
         </p>
+
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 mt-3">
+          <div className="rounded-md border px-3 py-2">
+            <p className="text-[11px] text-muted-foreground">Due on agreed plans</p>
+            <p className="text-sm font-semibold tabular-nums">
+              {scheduled === null ? '—' : formatUGX(scheduled)}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              {`${cohortCount ?? '—'} plans within term`}
+            </p>
+          </div>
+          {arrearsTarget !== null && arrearsTarget !== undefined ? (
+            <div className="rounded-md border px-3 py-2">
+              <p className="text-[11px] text-muted-foreground">Arrears brought forward</p>
+              <p className="text-sm font-semibold tabular-nums text-destructive">
+                {formatUGX(arrearsTarget)}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {`${arrearsTargetCount ?? '—'} plans owing at the start of this period`}
+              </p>
+            </div>
+          ) : (
+            <p className="text-[11px] text-muted-foreground">
+              Arrears brought forward not recorded for this period
+            </p>
+          )}
+        </div>
+
+        <p className="text-xs">
+          {`Due plus arrears brought forward — ${totalFieldTarget === null || totalFieldTarget === undefined ? '—' : formatUGX(totalFieldTarget)}`}
+        </p>
+        {arrearsOutstanding !== null && arrearsOutstanding !== undefined && (
+          <p className="text-[11px] text-muted-foreground">
+            {`Arrears outstanding to date — ${formatUGX(arrearsOutstanding)}`}
+          </p>
+        )}
+
+        <p className="text-[11px] text-muted-foreground mt-2">
+          Due on agreed plans is what each tenant's payment plan falls due in this period, at their own daily, weekly or monthly cadence. Arrears brought forward is what was already owed when the period opened. Arrears outstanding is what is owed now — if a tenant misses a payment today it lands here, and it becomes tomorrow's brought-forward figure.
+        </p>
+
         <p>{threshold === null ? 'threshold —' : `threshold ${threshold.toFixed(1)}%`}</p>
         {report?.prior?.period_start && (
           <p>
@@ -99,6 +145,7 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
           </p>
         )}
       </div>
+
 
       <div className="mt-4 space-y-2 border-t border-border pt-3 text-sm text-muted-foreground sm:space-y-1">
         <p>
@@ -138,8 +185,7 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
         )}
 
         <p className="pt-2 text-xs italic">
-          The headline rate is measured only on rent scheduled and recovered within term; arrears
-          recovery is reported beside it, not inside it.
+          Scheduled is the sum of instalments the agreed payment plans fall due in this period, on each plan's own cadence. A tenant onboarded today with repayment starting later contributes from their first due date onward, not before. Plans past their agreed end date schedule nothing further; recovery against them is reported beside the rate, not inside it. Once a day is closed its scheduled figure is fixed and does not move.
         </p>
       </div>
     </section>

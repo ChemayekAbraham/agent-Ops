@@ -1,5 +1,5 @@
-import { LandlordOpsExtractCenter } from '@/components/executive/landlord-ops/LandlordOpsExtractCenter';
+import { LandlordOpsDashboard } from '@/components/executive/LandlordOpsDashboard';
 
 export default function Reports() {
-  return <LandlordOpsExtractCenter activeView="reports" />;
+  return <LandlordOpsDashboard view="reports" hideOverview />;
 }

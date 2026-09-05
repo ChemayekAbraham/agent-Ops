@@ -427,7 +427,7 @@ export function AgentRentCapacityPanel({
         </div>
 
         {!compact && !isSectionCollapsed && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mt-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 sm:gap-2 mt-3">
             <Kpi
               icon={<TrendingUp className="h-3.5 w-3.5" />}
               label="Fleet Exposure"
@@ -554,12 +554,12 @@ function Kpi({
   tone: string;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-background/70 p-2.5">
-      <div className={`flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide ${tone}`}>
-        {icon}
-        {label}
+    <div className="rounded-xl border border-border bg-background/70 p-2 sm:p-2.5 flex flex-col justify-between min-h-[58px]">
+      <div className={`flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wide ${tone} leading-tight`}>
+        <span className="shrink-0">{icon}</span>
+        <span className="truncate">{label}</span>
       </div>
-      <div className="mt-0.5 text-sm font-extrabold tabular-nums text-foreground truncate">
+      <div className="mt-1 text-xs sm:text-sm font-bold tabular-nums text-foreground break-words leading-tight">
         {value}
       </div>
     </div>
