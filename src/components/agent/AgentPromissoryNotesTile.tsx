@@ -304,8 +304,27 @@ export function AgentPromissoryNotesTile({ agentId, onSeeAll }: { agentId: strin
               <div className="space-y-1.5">
                 <Label htmlFor="pn-due">Date promised</Label>
                 <Input id="pn-due" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
-              </div>
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="pn-followup">Follow-up</Label>
+              <Select value={followUp} onValueChange={setFollowUp}>
+                <SelectTrigger id="pn-followup"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {FOLLOW_UP_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="pn-followed-on">Last followed up</Label>
+              <Input id="pn-followed-on" type="date" value={followedOn} onChange={(e) => setFollowedOn(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="pn-follow-note">Follow-up note (optional)</Label>
+              <Textarea id="pn-follow-note" rows={2} value={followNote} onChange={(e) => setFollowNote(e.target.value)} />
+            </div>
+          </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)} disabled={saving}>Cancel</Button>
