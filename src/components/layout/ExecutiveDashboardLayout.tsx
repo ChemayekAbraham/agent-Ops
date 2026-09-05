@@ -13,7 +13,7 @@ import { PARTNER_OPS_ATTENTION_ITEM_IDS } from './executiveSidebarConfig';
 import { useQuery } from '@tanstack/react-query';
 import type { SidebarSection, SidebarItem } from './executiveSidebarConfig';
 import { useStaffPermissions } from '@/hooks/useStaffPermissions';
-import { GlossaryButton } from '@/components/shared/GlossaryButton';
+
 import { BudgetDepartmentNotificationBell } from '@/components/budget/BudgetDepartmentNotificationBell';
 import { MissionBanner } from '@/components/mission/MissionBanner';
 
@@ -530,9 +530,6 @@ export default function ExecutiveDashboardLayout({
             variant="header"
           />
         </div>
-
-        {/* Glossary — shared team vocabulary */}
-        <GlossaryButton variant="header" className="shrink-0" />
 
         {/* Department budget cycle notices (only for departments the user can access).
             The CFO dashboard has a single unified bell (CFOApprovalNotificationsBell),
