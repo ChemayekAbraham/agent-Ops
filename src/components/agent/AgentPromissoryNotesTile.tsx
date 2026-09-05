@@ -138,7 +138,7 @@ export function AgentPromissoryNotesTile({ agentId, onSeeAll }: { agentId: strin
     queryFn: async (): Promise<NoteRow[]> => {
       const { data, error } = await supabase
         .from('promissory_notes')
-        .select('id, partner_name, amount, status, created_at, recorded_on, fulfilment_due_on')
+        .select('id, partner_name, amount, status, created_at, recorded_on, fulfilment_due_on, follow_up_status, last_followed_up_on, follow_up_note')
         .eq('agent_id', agentId)
         .order('created_at', { ascending: false })
         .limit(5);
@@ -154,6 +154,9 @@ export function AgentPromissoryNotesTile({ agentId, onSeeAll }: { agentId: strin
     setAmount(String(n.amount ?? ''));
     setRecorded(toDateInput(n.recorded_on ?? n.created_at));
     setDue(toDateInput(n.fulfilment_due_on));
+    setFollowUp(n.follow_up_status ?? 'not_started');
+    setFollowedOn(toDateInput(n.last_followed_up_on));
+    setFollowNote(n.follow_up_note ?? '');
   };
 
   const save = async () => {
@@ -162,6 +165,11 @@ export function AgentPromissoryNotesTile({ agentId, onSeeAll }: { agentId: strin
     const amt = Number(amount);
     if (!Number.isFinite(amt) || amt <= 0) { toast.error('Enter a valid amount'); return; }
     if (recorded && due && due < recorded) { toast.error('The promised date cannot be before the date recorded'); return; }
+    const statusChanged = followUp !== (editing.follow_up_status ?? 'not_started');
+    const noteChanged = followNote.trim() !== (editing.follow_up_note ?? '');
+    const autoToday = new Date().toISOString().slice(0, 10);
+    const followedDate =
+      followedOn || ((statusChanged || noteChanged) && followUp !== 'not_started' ? autoToday : '');
     setSaving(true);
     try {
       const { error } = await supabase
@@ -171,6 +179,9 @@ export function AgentPromissoryNotesTile({ agentId, onSeeAll }: { agentId: strin
           amount: amt,
           recorded_on: recorded || null,
           fulfilment_due_on: due || null,
+          follow_up_status: followUp,
+          last_followed_up_on: followedDate || null,
+          follow_up_note: followNote.trim() || null,
         })
         .eq('id', editing.id)
         .select('id');
