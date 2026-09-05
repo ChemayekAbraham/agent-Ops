@@ -140,9 +140,12 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
     if (!(Number(amount) > 0)) missing.push('Promised amount');
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) missing.push('Valid email');
     if (phoneNumber.trim() && !isValidPhone(phoneNumber)) missing.push('Phone number (10 digits)');
+    if (!recordedOn) missing.push('Date recorded');
+    if (fulfilmentDueOn && recordedOn && fulfilmentDueOn < recordedOn) missing.push('Fulfilment date on or after the recording date');
     if (supportMode === 'self' && selectedPlanIds.length === 0) missing.push('At least one tenant rent plan');
     return missing;
   };
+
 
   const handleSubmit = async () => {
     if (submitting) return;
