@@ -60,6 +60,10 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
   const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState('');
   const [amount, setAmount] = useState('');
+  const todayIso = new Date().toISOString().split('T')[0];
+  // When the note was written down, and when the partner promises to fulfil it.
+  const [recordedOn, setRecordedOn] = useState(todayIso);
+  const [fulfilmentDueOn, setFulfilmentDueOn] = useState('');
   // True once the agent edits the amount by hand — after that, plan selections
   // never overwrite what they typed.
   const [amountTouched, setAmountTouched] = useState(false);
@@ -68,6 +72,36 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
   // Optional earmarking of ready-to-fund rent plans to this note.
   const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
   const [attached, setAttached] = useState<{ count: number; amount: number }>({ count: 0, amount: 0 });
+
+  /** Pull a name / phone / email straight from the phone's contact book. */
+  const handlePickContact = async (target: 'whatsapp' | 'phone') => {
+    try {
+      const { pickContact } = await import('@/lib/contactPicker');
+      const picked = await pickContact();
+      if (!picked) return;
+      if (picked.phone) {
+        const digits = picked.phone.replace(/\D/g, '').slice(0, 10);
+        if (target === 'whatsapp') setWhatsappNumber(digits);
+        else setPhoneNumber(digits);
+      }
+      if (picked.email && !email.trim()) setEmail(picked.email);
+      if (picked.name) {
+        setNameParts((prev) => {
+          if (prev.firstName.trim() || prev.lastName.trim()) return prev;
+          const parts = picked.name.split(/\s+/).filter(Boolean);
+          return {
+            firstName: parts[0] || '',
+            otherNames: parts.slice(1, -1).join(' '),
+            lastName: parts.length > 1 ? parts[parts.length - 1] : '',
+          };
+        });
+      }
+      toast.success('Contact details filled in');
+    } catch (err: any) {
+      toast.error(String(err?.message || 'Contact book is not available on this device'));
+    }
+  };
+
 
   const resetForm = () => {
     setNameParts({ firstName: '', otherNames: '', lastName: '' });
