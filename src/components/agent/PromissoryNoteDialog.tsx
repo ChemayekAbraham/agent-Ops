@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileText, Check, Share2, Loader2 } from 'lucide-react';
+import { FileText, Check, Share2, Loader2, BookUser } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -74,17 +74,18 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
   const [attached, setAttached] = useState<{ count: number; amount: number }>({ count: 0, amount: 0 });
 
   /** Pull a name / phone / email straight from the phone's contact book. */
-  const handlePickContact = async (target: 'whatsapp' | 'phone') => {
+  const handlePickContact = async (target: 'whatsapp' | 'phone' | 'email') => {
     try {
       const { pickContact } = await import('@/lib/contactPicker');
       const picked = await pickContact();
       if (!picked) return;
-      if (picked.phone) {
+      if (picked.phone && target !== 'email') {
         const digits = picked.phone.replace(/\D/g, '').slice(0, 10);
         if (target === 'whatsapp') setWhatsappNumber(digits);
         else setPhoneNumber(digits);
       }
-      if (picked.email && !email.trim()) setEmail(picked.email);
+      if (picked.email && (target === 'email' || !email.trim())) setEmail(picked.email);
+      if (target === 'email' && !picked.email) toast.info('That contact has no email saved');
       if (picked.name) {
         setNameParts((prev) => {
           if (prev.firstName.trim() || prev.lastName.trim()) return prev;
@@ -324,7 +325,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
             <div>
               <div className="flex items-center justify-between gap-1">
                 <Label className="text-xs">Email</Label>
-                <button type="button" onClick={() => handlePickContact('phone')} className="flex items-center gap-1 text-[10px] font-medium text-primary">
+                <button type="button" onClick={() => handlePickContact('email')} className="flex items-center gap-1 text-[10px] font-medium text-primary">
                   <BookUser className="h-3 w-3" /> Pick from contacts
                 </button>
               </div>
