@@ -22,10 +22,16 @@ const MUTED: RGB = [107, 114, 128];         // --text-muted
 const BG_HEADER: RGB = [249, 250, 251];     // --bg-header
 const BORDER: RGB = [229, 231, 235];        // --border-color
 const BORDER_DARK: RGB = [209, 213, 219];   // --border-dark
-const SUCCESS: RGB = [21, 128, 61];
-const DANGER: RGB = [185, 28, 28];
+const SUCCESS: RGB = [21, 128, 61];          // --status-success
+const SUCCESS_BG: RGB = [240, 253, 244];
+const WARNING: RGB = [180, 83, 9];           // --status-warning
+const WARNING_BG: RGB = [255, 251, 235];
+const DANGER: RGB = [185, 28, 28];           // --status-danger
+const DANGER_BG: RGB = [254, 242, 242];
+const NEUTRAL_LINE: RGB = [100, 116, 139];   // chart "expected" series
 const GROUP_BG: RGB = [250, 245, 255];
 const ZEBRA: RGB = [250, 250, 250];
+
 
 const n = (v: unknown) => Math.round(Number(v) || 0);
 const num = (v: unknown) => n(v).toLocaleString();
