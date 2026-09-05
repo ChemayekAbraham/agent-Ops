@@ -201,6 +201,12 @@ export function TppoPlanDetailTable({
           )}
         </>
       ) : null}
+
+      <TppoPlanArrearsDialog
+        rentRequestId={selected?.id ?? null}
+        tenantName={selected?.name}
+        onClose={() => setSelected(null)}
+      />
     </section>
   );
 }
