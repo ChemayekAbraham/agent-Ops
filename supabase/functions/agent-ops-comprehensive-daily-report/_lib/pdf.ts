@@ -573,8 +573,10 @@ export function buildComprehensiveReportPdf(input: {
       String(r.status ?? 'unknown').replace(/_/g, ' '),
     ]),
     rightFrom: 3,
+    statusCol: 6,
     empty: 'No service centre activity in this period.',
   });
+
 
   // ── Page 5 — products and services ────────────────────────────────────────
   pageHeader('Agent Products & Services', [['Period:', periodText], ['Section:', 'Product lines and recovery']]);
