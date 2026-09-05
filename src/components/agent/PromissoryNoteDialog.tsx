@@ -272,8 +272,9 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
       setCreatedNote(result.note);
       // Fire-and-forget: partner gets the pledge SMS + email (tenants + 12-month
       // earnings). A 10-minute cron sweep retries anything that fails here.
+      const noteId = (result.note as { id?: string }).id;
       void supabase.functions
-        .invoke('notify-promissory-note-pledge', { body: { note_id: (result.note as any).id } })
+        .invoke('notify-promissory-note-pledge', { body: { note_id: noteId } })
         .catch(() => {});
       setAttached({ count: Number(result.attached_count || 0), amount: Number(result.attached_amount || 0) });
       toast.success(
@@ -281,8 +282,13 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
           ? `Note created with ${result.attached_count} tenant plan${Number(result.attached_count) === 1 ? '' : 's'} attached`
           : 'Promissory note created',
       );
-    } catch (err: any) {
-      const raw = String(err?.message || err?.error_description || err?.details || 'Failed to create note');
+    } catch (err) {
+      const raw = String(
+        (err as { message?: string; error_description?: string; details?: string }).message ||
+        (err as { error_description?: string }).error_description ||
+        (err as { details?: string }).details ||
+        'Failed to create note',
+      );
       console.error('[PromissoryNoteDialog] create failed:', err);
       if (raw.includes('PLANS_UNAVAILABLE')) {
         setSelectedPlanIds([]);
