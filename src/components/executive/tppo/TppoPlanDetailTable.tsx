@@ -59,6 +59,7 @@ export function TppoPlanDetailTable({
   anchor: string;
 }) {
   const [shown, setShown] = useState(PAGE);
+  const [selected, setSelected] = useState<{ id: string; name: string } | null>(null);
 
   const { data, isPending, isError, error } = useQuery({
     queryKey: ['tppo-plan-detail', granularity, anchor],
