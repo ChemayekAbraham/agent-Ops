@@ -122,6 +122,8 @@ export function TenantCallingCenter() {
   /** Tenant chosen from the list — details first, calling from inside the modal. */
   const [detailsRow, setDetailsRow] = useState<CcRow | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  /** Second heavy History read is opt-in, so visiting the tab costs one query. */
+  const [fullHistoryOpen, setFullHistoryOpen] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
