@@ -93,8 +93,23 @@ export interface CcHistoryWindow {
  * silently truncated.
  */
 export function useCcCallHistory(subjectType: CcSubjectType, days = 30, window?: CcHistoryWindow) {
-  const fromIso = window?.fromIso ?? new Date(Date.now() - days * 86_400_000).toISOString();
+  /**
+   * The rolling window MUST be quantised, not taken from `Date.now()` on every
+   * render. An un-quantised bound produced a new value on each render, which
+   * produced a new query key, which triggered a new fetch, which re-rendered —
+   * the History tab refetched forever and hammered the database. Anchoring the
+   * bound to the start of the local day makes the key stable for the whole day
+   * (same records, same meaning) so the query resolves once and then caches.
+   */
+  const fromIso = useMemo(() => {
+    if (window?.fromIso) return window.fromIso;
+    const midnight = new Date();
+    midnight.setHours(0, 0, 0, 0);
+    midnight.setDate(midnight.getDate() - days);
+    return midnight.toISOString();
+  }, [window?.fromIso, days]);
   const toIso = window?.toIso ?? null;
+
 
   return useQuery({
     queryKey: ['cc-call-history', subjectType, fromIso, toIso],
