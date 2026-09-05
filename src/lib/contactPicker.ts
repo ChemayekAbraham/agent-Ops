@@ -21,7 +21,9 @@ export function isContactPickerSupported(): boolean {
 export interface PickedContact {
   name: string;
   phone: string;
+  email?: string;
 }
+
 
 /**
  * Normalise a phone number to Ugandan 10-digit format starting with 0
@@ -36,16 +38,27 @@ export function normaliseUgPhone(raw: string): string {
 }
 
 /**
- * Open the OS contact picker and return the first chosen name + phone.
- * Throws if cancelled or unsupported.
+ * Open the OS contact picker and return the first chosen name, phone and email.
+ * On Android Chrome the picker surfaces the phone's contacts, which include
+ * Google-account contacts (so a Gmail address can be picked straight from it).
+ * Throws if unsupported.
  */
 export async function pickContact(): Promise<PickedContact | null> {
   const contacts = (navigator as unknown as { contacts?: ContactsManager }).contacts;
   if (!contacts) throw new Error('Contact picker not supported on this device');
-  const result = await contacts.select(['name', 'tel'], { multiple: false });
+  let props = ['name', 'tel', 'email'];
+  try {
+    const supported = (await contacts.getProperties?.()) || props;
+    props = props.filter((p) => supported.includes(p));
+    if (props.length === 0) props = ['name', 'tel'];
+  } catch {
+    /* fall back to the default property list */
+  }
+  const result = await contacts.select(props, { multiple: false });
   if (!result || result.length === 0) return null;
   const c = result[0];
   const name = (c.name && c.name[0]) || '';
   const tel = (c.tel && c.tel[0]) || '';
-  return { name: name.trim(), phone: normaliseUgPhone(tel) };
+  const email = (c.email && c.email[0]) || '';
+  return { name: name.trim(), phone: normaliseUgPhone(tel), email: email.trim() || undefined };
 }

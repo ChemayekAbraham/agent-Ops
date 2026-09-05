@@ -28469,12 +28469,14 @@ export type Database = {
           created_at: string
           deduction_day: number | null
           email: string | null
+          fulfilment_due_on: string | null
           id: string
           next_deduction_date: string | null
           notes: string | null
           partner_name: string
           partner_user_id: string | null
           phone_number: string | null
+          recorded_on: string
           status: string
           support_mode: string
           total_collected: number
@@ -28493,12 +28495,14 @@ export type Database = {
           created_at?: string
           deduction_day?: number | null
           email?: string | null
+          fulfilment_due_on?: string | null
           id?: string
           next_deduction_date?: string | null
           notes?: string | null
           partner_name: string
           partner_user_id?: string | null
           phone_number?: string | null
+          recorded_on?: string
           status?: string
           support_mode?: string
           total_collected?: number
@@ -28517,12 +28521,14 @@ export type Database = {
           created_at?: string
           deduction_day?: number | null
           email?: string | null
+          fulfilment_due_on?: string | null
           id?: string
           next_deduction_date?: string | null
           notes?: string | null
           partner_name?: string
           partner_user_id?: string | null
           phone_number?: string | null
+          recorded_on?: string
           status?: string
           support_mode?: string
           total_collected?: number

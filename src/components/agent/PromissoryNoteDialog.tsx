@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileText, Check, Share2, Loader2 } from 'lucide-react';
+import { FileText, Check, Share2, Loader2, BookUser } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -60,6 +60,10 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
   const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState('');
   const [amount, setAmount] = useState('');
+  const todayIso = new Date().toISOString().split('T')[0];
+  // When the note was written down, and when the partner promises to fulfil it.
+  const [recordedOn, setRecordedOn] = useState(todayIso);
+  const [fulfilmentDueOn, setFulfilmentDueOn] = useState('');
   // True once the agent edits the amount by hand — after that, plan selections
   // never overwrite what they typed.
   const [amountTouched, setAmountTouched] = useState(false);
@@ -69,15 +73,49 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
   const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
   const [attached, setAttached] = useState<{ count: number; amount: number }>({ count: 0, amount: 0 });
 
+  /** Pull a name / phone / email straight from the phone's contact book. */
+  const handlePickContact = async (target: 'whatsapp' | 'phone' | 'email') => {
+    try {
+      const { pickContact } = await import('@/lib/contactPicker');
+      const picked = await pickContact();
+      if (!picked) return;
+      if (picked.phone && target !== 'email') {
+        const digits = picked.phone.replace(/\D/g, '').slice(0, 10);
+        if (target === 'whatsapp') setWhatsappNumber(digits);
+        else setPhoneNumber(digits);
+      }
+      if (picked.email && (target === 'email' || !email.trim())) setEmail(picked.email);
+      if (target === 'email' && !picked.email) toast.info('That contact has no email saved');
+      if (picked.name) {
+        setNameParts((prev) => {
+          if (prev.firstName.trim() || prev.lastName.trim()) return prev;
+          const parts = picked.name.split(/\s+/).filter(Boolean);
+          return {
+            firstName: parts[0] || '',
+            otherNames: parts.slice(1, -1).join(' '),
+            lastName: parts.length > 1 ? parts[parts.length - 1] : '',
+          };
+        });
+      }
+      toast.success('Contact details filled in');
+    } catch (err: any) {
+      toast.error(String(err?.message || 'Contact book is not available on this device'));
+    }
+  };
+
+
   const resetForm = () => {
     setNameParts({ firstName: '', otherNames: '', lastName: '' });
     setWhatsappNumber('');
     setPhoneNumber('');
     setEmail('');
     setAmount('');
+    setRecordedOn(todayIso);
+    setFulfilmentDueOn('');
     setAmountTouched(false);
     setContributionType('compounding');
     setDeductionDay('1');
+
     setCreatedNote(null);
     setErrorMsg(null);
 
@@ -103,9 +141,12 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
     if (!(Number(amount) > 0)) missing.push('Promised amount');
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) missing.push('Valid email');
     if (phoneNumber.trim() && !isValidPhone(phoneNumber)) missing.push('Phone number (10 digits)');
+    if (!recordedOn) missing.push('Date recorded');
+    if (fulfilmentDueOn && recordedOn && fulfilmentDueOn < recordedOn) missing.push('Fulfilment date on or after the recording date');
     if (supportMode === 'self' && selectedPlanIds.length === 0) missing.push('At least one tenant rent plan');
     return missing;
   };
+
 
   const handleSubmit = async () => {
     if (submitting) return;
@@ -127,6 +168,9 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
         phone_number: phoneNumber.trim() || null,
         email: email.trim() || null,
         amount: Number(amount),
+        recorded_on: recordedOn || todayIso,
+        fulfilment_due_on: fulfilmentDueOn || null,
+
         // DB validation trigger only accepts 'monthly' | 'once_off'.
         // "Compounding" is the UI label for the once-off (lump-sum) note.
         contribution_type: contributionType === 'monthly' ? 'monthly' : 'once_off',
@@ -232,6 +276,9 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
               <p className="text-xs text-muted-foreground">
                 {contributionType === 'monthly' ? `Monthly on day ${deductionDay}` : 'Once-off'} · <span className="text-primary font-semibold">{earningsLine}</span>
               </p>
+              <p className="text-[11px] text-muted-foreground">
+                Recorded {recordedOn}{fulfilmentDueOn ? ` · to be fulfilled by ${fulfilmentDueOn}` : ''}
+              </p>
               {attached.count > 0 && (
                 <p className="text-[11px] text-muted-foreground">
                   {attached.count} tenant plan{attached.count === 1 ? '' : 's'} earmarked ·{' '}
@@ -257,22 +304,53 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label className="text-xs">WhatsApp * <span className="text-muted-foreground">(10 digits)</span></Label>
+                <div className="flex items-center justify-between gap-1">
+                  <Label className="text-xs">WhatsApp * <span className="text-muted-foreground">(10 digits)</span></Label>
+                  <button type="button" onClick={() => handlePickContact('whatsapp')} className="flex items-center gap-1 text-[10px] font-medium text-primary">
+                    <BookUser className="h-3 w-3" /> Phone book
+                  </button>
+                </div>
                 <Input value={whatsappNumber} onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 10); setWhatsappNumber(v); }} placeholder="0780000000" type="tel" inputMode="numeric" className="mt-0.5 h-9" maxLength={10} minLength={10} />
                 {whatsappNumber && whatsappNumber.replace(/\D/g, '').length !== 10 && <p className="text-[10px] text-destructive mt-0.5">Must be exactly 10 digits</p>}
               </div>
               <div>
-                <Label className="text-xs">Phone <span className="text-muted-foreground">(10 digits)</span></Label>
+                <div className="flex items-center justify-between gap-1">
+                  <Label className="text-xs">Phone <span className="text-muted-foreground">(10 digits)</span></Label>
+                  <button type="button" onClick={() => handlePickContact('phone')} className="flex items-center gap-1 text-[10px] font-medium text-primary">
+                    <BookUser className="h-3 w-3" /> Phone book
+                  </button>
+                </div>
                 <Input value={phoneNumber} onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 10); setPhoneNumber(v); }} placeholder="0780000000" type="tel" inputMode="numeric" className="mt-0.5 h-9" maxLength={10} minLength={10} />
                 {phoneNumber && phoneNumber.replace(/\D/g, '').length !== 10 && <p className="text-[10px] text-destructive mt-0.5">Must be exactly 10 digits</p>}
               </div>
             </div>
 
             <div>
-              <Label className="text-xs">Email</Label>
-              <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com" type="email" className="mt-0.5 h-9" maxLength={255} />
+              <div className="flex items-center justify-between gap-1">
+                <Label className="text-xs">Email</Label>
+                <button type="button" onClick={() => handlePickContact('email')} className="flex items-center gap-1 text-[10px] font-medium text-primary">
+                  <BookUser className="h-3 w-3" /> Pick from contacts
+                </button>
+              </div>
+              <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com" type="email" inputMode="email" autoComplete="email" className="mt-0.5 h-9" maxLength={255} />
+              <p className="text-[10px] text-muted-foreground mt-0.5">Google contacts saved on this phone appear in the contact list.</p>
               {email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && <p className="text-[10px] text-destructive mt-0.5">Enter a valid email</p>}
             </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Date recorded *</Label>
+                <Input value={recordedOn} onChange={e => setRecordedOn(e.target.value)} type="date" max={todayIso} className="mt-0.5 h-9" />
+              </div>
+              <div>
+                <Label className="text-xs">Fulfilment date</Label>
+                <Input value={fulfilmentDueOn} onChange={e => setFulfilmentDueOn(e.target.value)} type="date" min={recordedOn || todayIso} className="mt-0.5 h-9" />
+                {fulfilmentDueOn && recordedOn && fulfilmentDueOn < recordedOn && (
+                  <p className="text-[10px] text-destructive mt-0.5">Must be on or after the recording date</p>
+                )}
+              </div>
+            </div>
+
 
             <div>
               <Label className="text-xs">Promised Amount (UGX) *</Label>
