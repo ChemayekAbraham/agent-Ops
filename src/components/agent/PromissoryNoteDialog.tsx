@@ -35,8 +35,15 @@ interface PromissoryNoteDialogProps {
 }
 
 const phoneDigits = (v: string) => v.replace(/\D/g, '');
-const isValidPhone = (v: string) => phoneDigits(v).length === 10;
+/** Keep what the person typed/pasted, just drop junk characters. */
+const cleanPhoneInput = (v: string) => v.replace(/[^\d+\s()\-.]/g, '').slice(0, 24);
+/** Accepts any international number: 7–15 digits (E.164 range). */
+const isValidPhone = (v: string) => {
+  const d = phoneDigits(v);
+  return d.length >= 7 && d.length <= 15;
+};
 const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+
 
 type StepKey = 'who' | 'contact' | 'promise' | 'tenants' | 'review';
 
