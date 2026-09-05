@@ -600,6 +600,72 @@ export function AgentOpsDashboard() {
 }
 
 /* ===================================================================
+ * SidebarResizer — drag handle between the sidebar and main content.
+ * Highlights on hover and lets the user widen/narrow the nav.
+ * =================================================================== */
+function SidebarResizer({
+  currentWidth,
+  onChange,
+  min = 180,
+  max = 480,
+}: {
+  currentWidth: number;
+  onChange: (width: number) => void;
+  min?: number;
+  max?: number;
+}) {
+  const [dragging, setDragging] = useState(false);
+  const startRef = useRef<{ x: number; width: number } | null>(null);
+
+  useEffect(() => {
+    if (!dragging) return;
+    const handleMove = (e: PointerEvent) => {
+      if (!startRef.current) return;
+      const delta = e.clientX - startRef.current.x;
+      const width = Math.max(min, Math.min(max, startRef.current.width + delta));
+      onChange(width);
+    };
+    const handleUp = () => {
+      setDragging(false);
+      startRef.current = null;
+    };
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+    return () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+    };
+  }, [dragging, min, max, onChange]);
+
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize sidebar"
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={currentWidth}
+      onPointerDown={(e) => {
+        e.preventDefault();
+        startRef.current = { x: e.clientX, width: currentWidth };
+        setDragging(true);
+      }}
+      className={cn(
+        'hidden lg:flex w-1.5 shrink-0 cursor-col-resize self-stretch items-center justify-center transition-colors',
+        dragging ? 'bg-primary/40' : 'hover:bg-primary/20'
+      )}
+    >
+      <div
+        className={cn(
+          'h-10 w-px rounded-full transition-colors',
+          dragging ? 'bg-primary' : 'bg-border group-hover:bg-primary/60'
+        )}
+      />
+    </div>
+  );
+}
+
+/* ===================================================================
  * AgentOpsSideNav — persistent desktop left navigation for the Agent
  * Ops Dashboard. Mirrors the mobile "All sections" menu but always
  * visible on lg+. Advances is pinned to the top (Priority group).
