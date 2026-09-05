@@ -77,6 +77,43 @@ export function TppoPlanDetailTable({
     },
   });
 
+  // Promissory notes recorded by agents, grouped by agent name so each agent's
+  // taken notes and promised dates show next to their tenants.
+  const { data: notesByAgent } = useQuery({
+    queryKey: ['tppo-plan-detail-promissory-notes'],
+    staleTime: 300_000,
+    queryFn: async (): Promise<Record<string, { count: number; nextDue: string | null; lastTaken: string | null }>> => {
+      const { data: notes, error: notesError } = await supabase
+        .from('promissory_notes')
+        .select('agent_id, recorded_on, created_at, fulfilment_due_on, status')
+        .in('status', ['pending', 'activated'])
+        .order('created_at', { ascending: false })
+        .limit(1000);
+      if (notesError) throw notesError;
+      const list = notes ?? [];
+      const agentIds = Array.from(new Set(list.map((n) => n.agent_id).filter(Boolean))) as string[];
+      if (agentIds.length === 0) return {};
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', agentIds);
+      const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name ?? '']));
+      const out: Record<string, { count: number; nextDue: string | null; lastTaken: string | null }> = {};
+      for (const n of list) {
+        const name = nameById.get(n.agent_id as string);
+        if (!name) continue;
+        const entry = out[name] ?? { count: 0, nextDue: null, lastTaken: null };
+        entry.count += 1;
+        const due = n.fulfilment_due_on as string | null;
+        if (due && (!entry.nextDue || due < entry.nextDue)) entry.nextDue = due;
+        const taken = ((n.recorded_on as string | null) ?? (n.created_at as string | null))?.slice(0, 10) ?? null;
+        if (taken && (!entry.lastTaken || taken > entry.lastTaken)) entry.lastTaken = taken;
+        out[name] = entry;
+      }
+      return out;
+    },
+  });
+
   const rows = data?.rows ?? [];
   const agentNames = Array.from(new Set(rows.map((r) => r.agent_name))).sort((a, b) =>
     a.localeCompare(b),
@@ -184,6 +221,7 @@ export function TppoPlanDetailTable({
                     )}
                   </div>
                 </TableHead>
+                <TableHead>Promissory notes</TableHead>
                 <TableHead className="text-right">Daily amount</TableHead>
                 <TableHead className="text-right">Scheduled</TableHead>
                 <TableHead className="text-right">Arrears</TableHead>
@@ -199,6 +237,20 @@ export function TppoPlanDetailTable({
                   <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                   <TableCell>{row.tenant_name}</TableCell>
                   <TableCell>{row.agent_name}</TableCell>
+                  <TableCell className="text-xs">
+                    {(() => {
+                      const n = notesByAgent?.[row.agent_name];
+                      if (!n) return <span className="text-muted-foreground">—</span>;
+                      return (
+                        <div className="leading-tight">
+                          <span className="font-medium">{`${n.count} note${n.count === 1 ? '' : 's'}`}</span>
+                          <div className="text-[10px] text-muted-foreground">
+                            {`Taken ${n.lastTaken ?? '—'} · Promised ${n.nextDue ?? '—'}`}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </TableCell>
                   <TableCell className={moneyCell}>{formatUGX(row.daily_amount)}</TableCell>
                   <TableCell className={moneyCell}>{formatUGX(row.scheduled_in_period)}</TableCell>
                   <TableCell className={moneyCell}>
@@ -229,6 +281,7 @@ export function TppoPlanDetailTable({
                   {agentFilter === 'all' ? 'TOTAL' : `TOTAL · ${agentFilter}`}
                 </TableCell>
                 <TableCell>{`${shownTotals.plans} plans`}</TableCell>
+                <TableCell />
                 <TableCell />
                 <TableCell className={`${moneyCell} font-semibold`}>
                   {formatUGX(shownTotals.scheduled)}
