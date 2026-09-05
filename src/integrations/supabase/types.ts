@@ -52096,6 +52096,10 @@ export type Database = {
         Args: { p_anchor?: string; p_granularity: string }
         Returns: Json
       }
+      tppo_plan_arrears_detail: {
+        Args: { p_as_at?: string; p_rent_request_id: string }
+        Returns: Json
+      }
       tppo_projection_zone_a: {
         Args: { p_as_at: string; p_granularity: string }
         Returns: Json
