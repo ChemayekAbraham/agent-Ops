@@ -288,6 +288,14 @@ export function buildComprehensiveReportPdf(input: {
             data.cell.styles.fontStyle = 'bold';
           }
         }
+        if (opts.rowToneCol === data.column.index) {
+          const tone = opts.rowTones?.[data.row.index];
+          if (tone) {
+            data.cell.styles.textColor = tone;
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+
         if (opts.statusCol === data.column.index) {
           const tone = statusTone(String(data.cell.raw ?? ''));
           data.cell.styles.textColor = tone;
