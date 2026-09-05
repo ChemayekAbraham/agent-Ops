@@ -229,10 +229,10 @@ const RoleSwitcher = memo(function RoleSwitcher({ currentRole, availableRoles, o
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all duration-150 touch-manipulation min-h-[32px] bg-white/15 text-white hover:bg-white/25">
-            <span className="text-sm">{currentConfig.emoji}</span>
-            <span className="hidden sm:inline">{currentConfig.shortLabel}</span>
-            <ChevronDown className="h-3 w-3 opacity-70" />
+          <button className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 touch-manipulation min-h-[32px] bg-white/15 text-white hover:bg-white/25 max-w-full min-w-0">
+            <span className="text-sm shrink-0">{currentConfig.emoji}</span>
+            <span className="truncate">{currentConfig.shortLabel}</span>
+            <ChevronDown className="h-3 w-3 opacity-70 shrink-0" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="center" className="min-w-[200px] max-h-[400px] overflow-y-auto">
