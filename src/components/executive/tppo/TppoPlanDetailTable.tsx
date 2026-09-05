@@ -167,7 +167,9 @@ export function TppoPlanDetailTable({
                 <TableCell className={`${moneyCell} font-semibold`}>
                   {formatUGX(data.totals.scheduled_total)}
                 </TableCell>
-                <TableCell />
+                <TableCell className={`${moneyCell} font-semibold ${data.totals.arrears_total > 0 ? 'text-destructive' : ''}`}>
+                  {formatUGX(data.totals.arrears_total)}
+                </TableCell>
                 <TableCell />
                 <TableCell />
                 <TableCell />
