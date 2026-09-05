@@ -456,13 +456,26 @@ export function buildComprehensiveReportPdf(input: {
   matrix.push(['Receivable', 'Issued value against collected', ugx(prodValue), `${ugx(prodPaid)} collected`]);
   matrix.push(['Recovery', 'Collected against issued value', pct(prodPaid, prodValue), '—']);
 
+  const matrixTones: Record<number, RGB> = {};
+  matrix.forEach((row, i) => {
+    if (groupRows.includes(i)) return;
+    const label = `${row[0]} ${row[1]}`.toLowerCase();
+    if (/(shortfall|outstanding|exposure|overdue|missed|ageing|inactive)/.test(label)) matrixTones[i] = DANGER;
+    else if (/(pending|pipeline|receivable|applications)/.test(label)) matrixTones[i] = WARNING;
+    else if (/(collected|recovered|recovery|target|footprint|coverage|active)/.test(label)) matrixTones[i] = SUCCESS;
+    else matrixTones[i] = PRIMARY_DARK;
+  });
+
   table({
     head: ['Metric category', 'Key performance indicator', 'Value / total', 'Target / performance'],
     body: matrix,
     rightFrom: 2,
     groupRows,
     fontSize: 7.6,
+    rowTones: matrixTones,
+    rowToneCol: 2,
   });
+
 
   noteBox('Authoritative business definitions and methodology', [
     '• Agent: a person with at least one rent request they are actively collecting for.',
