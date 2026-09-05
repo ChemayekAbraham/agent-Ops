@@ -246,8 +246,8 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
     try {
       const payload: Record<string, string | number | null> = {
         partner_name: partnerName.trim(),
-        whatsapp_number: whatsappNumber.trim(),
-        phone_number: phoneNumber.trim() || null,
+        whatsapp_number: normalizeWa(whatsappNumber),
+        phone_number: phoneNumber.trim() ? normalizeWa(phoneNumber) : null,
         email: email.trim() || null,
         amount: Number(amount),
         recorded_on: recordedOn || todayIso,
