@@ -318,14 +318,17 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
 
   const handleShareLink = async () => {
     if (!createdNote) return;
-    let activationLink = `${getPublicOrigin()}/activate?token=${createdNote.activation_token}`;
+    const token = (createdNote as { activation_token?: string }).activation_token;
+    let activationLink = `${getPublicOrigin()}/activate?token=${token}`;
     try {
       const { createShortLink } = await import('@/lib/createShortLink');
       const { data: { user: u } } = await (await import('@/integrations/supabase/client')).supabase.auth.getUser();
-      if (u) {
-        activationLink = await createShortLink(u.id, '/activate', { token: createdNote.activation_token });
+      if (u && token) {
+        activationLink = await createShortLink(u.id, '/activate', { token });
       }
-    } catch {}
+    } catch {
+      void 0;
+    }
     const shareText = `Hi ${partnerName}, activate your Welile funding account and start earning 15% Returns! ${activationLink}`;
     if (navigator.share) {
       navigator.share({ title: 'Welile Funding', text: shareText, url: activationLink }).catch(() => {});
