@@ -21,7 +21,9 @@ export function isContactPickerSupported(): boolean {
 export interface PickedContact {
   name: string;
   phone: string;
+  email?: string;
 }
+
 
 /**
  * Normalise a phone number to Ugandan 10-digit format starting with 0
