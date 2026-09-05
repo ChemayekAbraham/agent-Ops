@@ -300,22 +300,53 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
 
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label className="text-xs">WhatsApp * <span className="text-muted-foreground">(10 digits)</span></Label>
+                <div className="flex items-center justify-between gap-1">
+                  <Label className="text-xs">WhatsApp * <span className="text-muted-foreground">(10 digits)</span></Label>
+                  <button type="button" onClick={() => handlePickContact('whatsapp')} className="flex items-center gap-1 text-[10px] font-medium text-primary">
+                    <BookUser className="h-3 w-3" /> Phone book
+                  </button>
+                </div>
                 <Input value={whatsappNumber} onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 10); setWhatsappNumber(v); }} placeholder="0780000000" type="tel" inputMode="numeric" className="mt-0.5 h-9" maxLength={10} minLength={10} />
                 {whatsappNumber && whatsappNumber.replace(/\D/g, '').length !== 10 && <p className="text-[10px] text-destructive mt-0.5">Must be exactly 10 digits</p>}
               </div>
               <div>
-                <Label className="text-xs">Phone <span className="text-muted-foreground">(10 digits)</span></Label>
+                <div className="flex items-center justify-between gap-1">
+                  <Label className="text-xs">Phone <span className="text-muted-foreground">(10 digits)</span></Label>
+                  <button type="button" onClick={() => handlePickContact('phone')} className="flex items-center gap-1 text-[10px] font-medium text-primary">
+                    <BookUser className="h-3 w-3" /> Phone book
+                  </button>
+                </div>
                 <Input value={phoneNumber} onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 10); setPhoneNumber(v); }} placeholder="0780000000" type="tel" inputMode="numeric" className="mt-0.5 h-9" maxLength={10} minLength={10} />
                 {phoneNumber && phoneNumber.replace(/\D/g, '').length !== 10 && <p className="text-[10px] text-destructive mt-0.5">Must be exactly 10 digits</p>}
               </div>
             </div>
 
             <div>
-              <Label className="text-xs">Email</Label>
-              <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com" type="email" className="mt-0.5 h-9" maxLength={255} />
+              <div className="flex items-center justify-between gap-1">
+                <Label className="text-xs">Email</Label>
+                <button type="button" onClick={() => handlePickContact('phone')} className="flex items-center gap-1 text-[10px] font-medium text-primary">
+                  <BookUser className="h-3 w-3" /> Pick from contacts
+                </button>
+              </div>
+              <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com" type="email" inputMode="email" autoComplete="email" className="mt-0.5 h-9" maxLength={255} />
+              <p className="text-[10px] text-muted-foreground mt-0.5">Google contacts saved on this phone appear in the contact list.</p>
               {email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && <p className="text-[10px] text-destructive mt-0.5">Enter a valid email</p>}
             </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs">Date recorded *</Label>
+                <Input value={recordedOn} onChange={e => setRecordedOn(e.target.value)} type="date" max={todayIso} className="mt-0.5 h-9" />
+              </div>
+              <div>
+                <Label className="text-xs">Fulfilment date</Label>
+                <Input value={fulfilmentDueOn} onChange={e => setFulfilmentDueOn(e.target.value)} type="date" min={recordedOn || todayIso} className="mt-0.5 h-9" />
+                {fulfilmentDueOn && recordedOn && fulfilmentDueOn < recordedOn && (
+                  <p className="text-[10px] text-destructive mt-0.5">Must be on or after the recording date</p>
+                )}
+              </div>
+            </div>
+
 
             <div>
               <Label className="text-xs">Promised Amount (UGX) *</Label>
