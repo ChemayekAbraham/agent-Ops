@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatUGX } from '@/lib/rentCalculations';
+import { downloadTppoPlanDetailPdf } from '@/lib/tppoPlanDetailPdf';
 
 interface TppoPlanDetailRow {
   rent_request_id: string;
@@ -95,9 +96,20 @@ export function TppoPlanDetailTable({
                 data.totals.scheduled_total,
               )}`}
             </h3>
-            <Badge variant="outline">
-              {data.schedule_basis === 'pinned' ? 'Fixed for the day' : 'Live'}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline">
+                {data.schedule_basis === 'pinned' ? 'Fixed for the day' : 'Live'}
+              </Badge>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isPending || rows.length === 0}
+                onClick={() => downloadTppoPlanDetailPdf(data)}
+              >
+                Download PDF
+              </Button>
+            </div>
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
             {`${data.period_start} to ${data.period_end} · Africa/Kampala`}
