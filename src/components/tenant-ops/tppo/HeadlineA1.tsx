@@ -107,17 +107,17 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
           </div>
           {arrearsTarget !== null && arrearsTarget !== undefined ? (
             <div className="rounded-md border px-3 py-2">
-              <p className="text-[11px] text-muted-foreground">Arrears target</p>
+              <p className="text-[11px] text-muted-foreground">Arrears brought forward</p>
               <p className="text-sm font-semibold tabular-nums text-destructive">
                 {formatUGX(arrearsTarget)}
               </p>
               <p className="text-[11px] text-muted-foreground">
-                {`${arrearsTargetCount ?? '—'} plans past their agreed end date`}
+                {`${arrearsTargetCount ?? '—'} plans owing at the start of this period`}
               </p>
             </div>
           ) : (
             <p className="text-[11px] text-muted-foreground">
-              Arrears target not recorded for this period
+              Arrears brought forward not recorded for this period
             </p>
           )}
         </div>
