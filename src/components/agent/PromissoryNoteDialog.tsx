@@ -276,6 +276,9 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
               <p className="text-xs text-muted-foreground">
                 {contributionType === 'monthly' ? `Monthly on day ${deductionDay}` : 'Once-off'} · <span className="text-primary font-semibold">{earningsLine}</span>
               </p>
+              <p className="text-[11px] text-muted-foreground">
+                Recorded {recordedOn}{fulfilmentDueOn ? ` · to be fulfilled by ${fulfilmentDueOn}` : ''}
+              </p>
               {attached.count > 0 && (
                 <p className="text-[11px] text-muted-foreground">
                   {attached.count} tenant plan{attached.count === 1 ? '' : 's'} earmarked ·{' '}
