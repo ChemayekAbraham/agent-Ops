@@ -234,9 +234,15 @@ export function PartnerPortfolioCompounded({
                     <Text style={introText}>
                       We are pleased to confirm the successful compounding of your portfolio (<span style={portfolioIdAccent}>{portfolio_id}</span>) with {company_name} Technologies Limited.
                     </Text>
-                    <Text style={{ ...introText, margin: 0 }}>
-                      On the <strong>{compoundDateLabel}</strong>, in accordance with your existing agreement, your portfolio of <strong>{formattedInitial}</strong> earned a {roiLabel} return (<strong>{formattedReturn}</strong>). This brings your new total portfolio value to <strong>{formattedNewTotal}</strong>.
+                    <Text style={{ ...introText, margin: showOriginalContribution ? undefined : 0 }}>
+                      On the <strong>{compoundDateLabel}</strong>, in accordance with your existing agreement, your portfolio value of <strong>{formattedOpening}</strong> earned a {roiLabel} return (<strong>{formattedReturn}</strong>). This brings your new total portfolio value to <strong>{formattedNewTotal}</strong>.
                     </Text>
+                    {showOriginalContribution && (
+                      <Text style={{ ...introText, margin: 0 }}>
+                        Your original contribution was <strong>{formattedInitial}</strong>. The value above includes every return compounded in previous cycles.
+                      </Text>
+                    )}
+
                   </td>
                 </tr>
 
