@@ -508,7 +508,7 @@ export default function ExecutiveDashboardLayout({
         {/* Mobile hamburger */}
         <button
           type="button"
-          className="lg:hidden p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+          className="lg:hidden p-1.5 rounded-lg hover:bg-white/10 transition-colors shrink-0"
           onClick={() => setDrawerOpen(true)}
           style={{ touchAction: 'manipulation' }}
         >
@@ -521,7 +521,7 @@ export default function ExecutiveDashboardLayout({
         </div>
 
         {/* Center: Role Switcher */}
-        <div className="flex-1 flex justify-center min-w-0">
+        <div className="flex-1 flex justify-center min-w-0 overflow-hidden px-1">
           <RoleSwitcher
             currentRole={role as AppRole}
             availableRoles={roles}
