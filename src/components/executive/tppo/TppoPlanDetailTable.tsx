@@ -282,6 +282,7 @@ export function TppoPlanDetailTable({
                 </TableCell>
                 <TableCell>{`${shownTotals.plans} plans`}</TableCell>
                 <TableCell />
+                <TableCell />
                 <TableCell className={`${moneyCell} font-semibold`}>
                   {formatUGX(shownTotals.scheduled)}
                 </TableCell>
