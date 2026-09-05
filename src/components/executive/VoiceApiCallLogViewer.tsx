@@ -63,9 +63,10 @@ const RANGE_OPTIONS = [
   { value: 'all', label: 'All time' },
 ];
 
-const STATUS_OPTIONS = [
-  'all', 'ringing', 'answered', 'completed', 'busy', 'no_answer', 'failed', 'rejected', 'cancelled',
+const FALLBACK_STATUSES = [
+  'initiating', 'ringing', 'completed', 'not_answered', 'failed', 'cancelled',
 ];
+
 
 function rangeBounds(range: string): { from: string | null; to: string | null } {
   const now = new Date();
