@@ -27,6 +27,9 @@ interface NoteRow {
   created_at: string;
   recorded_on: string | null;
   fulfilment_due_on: string | null;
+  follow_up_status: string | null;
+  last_followed_up_on: string | null;
+  follow_up_note: string | null;
 }
 
 const statusClass: Record<string, string> = {
@@ -35,6 +38,26 @@ const statusClass: Record<string, string> = {
   fulfilled: 'bg-blue-100 text-blue-800 border-blue-300',
   cancelled: 'bg-muted text-muted-foreground border-border',
 };
+
+const FOLLOW_UP_OPTIONS: { value: string; label: string }[] = [
+  { value: 'not_started', label: 'Not started' },
+  { value: 'in_progress', label: 'Following up' },
+  { value: 'awaiting_payment', label: 'Awaiting payment' },
+  { value: 'unreachable', label: 'Could not reach' },
+  { value: 'done', label: 'Closed' },
+];
+
+const followUpLabel = (v?: string | null) =>
+  FOLLOW_UP_OPTIONS.find((o) => o.value === (v ?? 'not_started'))?.label ?? 'Not started';
+
+const followUpClass: Record<string, string> = {
+  not_started: 'bg-muted text-muted-foreground border-border',
+  in_progress: 'bg-sky-100 text-sky-800 border-sky-300',
+  awaiting_payment: 'bg-amber-100 text-amber-800 border-amber-300',
+  unreachable: 'bg-rose-100 text-rose-800 border-rose-300',
+  done: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+};
+
 
 function fmtDate(v?: string | null) {
   if (!v) return '—';
