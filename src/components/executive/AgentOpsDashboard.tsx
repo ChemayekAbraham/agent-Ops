@@ -162,6 +162,7 @@ export function AgentOpsDashboard() {
   const [bottomTab, setBottomTab] = useState<BottomTab>('home');
   const [productSection, setProductSection] = useState<null | 'motor_bike' | 'smart_phone' | 'boutique' | 'signage' | 'advances'>(null);
   const [dateRange, setDateRange] = useState<DateRange>('24h');
+  const [sidebarWidth, setSidebarWidth] = useState(224); // default w-56
   const pendingAdvanceCount = usePendingAdvanceCount();
   const navigate = useNavigate();
 
