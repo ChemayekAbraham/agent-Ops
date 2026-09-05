@@ -13,7 +13,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { FileText, Pencil, Loader2, CalendarCheck, CalendarClock, Download } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { FileText, Pencil, Loader2, CalendarCheck, CalendarClock, Download, PhoneCall } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { hapticTap } from '@/lib/haptics';
 import { toast } from 'sonner';
@@ -27,6 +29,9 @@ interface NoteRow {
   created_at: string;
   recorded_on: string | null;
   fulfilment_due_on: string | null;
+  follow_up_status: string | null;
+  last_followed_up_on: string | null;
+  follow_up_note: string | null;
 }
 
 const statusClass: Record<string, string> = {
@@ -35,6 +40,26 @@ const statusClass: Record<string, string> = {
   fulfilled: 'bg-blue-100 text-blue-800 border-blue-300',
   cancelled: 'bg-muted text-muted-foreground border-border',
 };
+
+const FOLLOW_UP_OPTIONS: { value: string; label: string }[] = [
+  { value: 'not_started', label: 'Not started' },
+  { value: 'in_progress', label: 'Following up' },
+  { value: 'awaiting_payment', label: 'Awaiting payment' },
+  { value: 'unreachable', label: 'Could not reach' },
+  { value: 'done', label: 'Closed' },
+];
+
+const followUpLabel = (v?: string | null) =>
+  FOLLOW_UP_OPTIONS.find((o) => o.value === (v ?? 'not_started'))?.label ?? 'Not started';
+
+const followUpClass: Record<string, string> = {
+  not_started: 'bg-muted text-muted-foreground border-border',
+  in_progress: 'bg-sky-100 text-sky-800 border-sky-300',
+  awaiting_payment: 'bg-amber-100 text-amber-800 border-amber-300',
+  unreachable: 'bg-rose-100 text-rose-800 border-rose-300',
+  done: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+};
+
 
 function fmtDate(v?: string | null) {
   if (!v) return '—';
@@ -62,6 +87,9 @@ export function AgentPromissoryNotesTile({ agentId, onSeeAll }: { agentId: strin
   const [amount, setAmount] = useState('');
   const [recorded, setRecorded] = useState('');
   const [due, setDue] = useState('');
+  const [followUp, setFollowUp] = useState('not_started');
+  const [followedOn, setFollowedOn] = useState('');
+  const [followNote, setFollowNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
 
@@ -110,7 +138,7 @@ export function AgentPromissoryNotesTile({ agentId, onSeeAll }: { agentId: strin
     queryFn: async (): Promise<NoteRow[]> => {
       const { data, error } = await supabase
         .from('promissory_notes')
-        .select('id, partner_name, amount, status, created_at, recorded_on, fulfilment_due_on')
+        .select('id, partner_name, amount, status, created_at, recorded_on, fulfilment_due_on, follow_up_status, last_followed_up_on, follow_up_note')
         .eq('agent_id', agentId)
         .order('created_at', { ascending: false })
         .limit(5);
@@ -126,6 +154,9 @@ export function AgentPromissoryNotesTile({ agentId, onSeeAll }: { agentId: strin
     setAmount(String(n.amount ?? ''));
     setRecorded(toDateInput(n.recorded_on ?? n.created_at));
     setDue(toDateInput(n.fulfilment_due_on));
+    setFollowUp(n.follow_up_status ?? 'not_started');
+    setFollowedOn(toDateInput(n.last_followed_up_on));
+    setFollowNote(n.follow_up_note ?? '');
   };
 
   const save = async () => {
@@ -134,6 +165,11 @@ export function AgentPromissoryNotesTile({ agentId, onSeeAll }: { agentId: strin
     const amt = Number(amount);
     if (!Number.isFinite(amt) || amt <= 0) { toast.error('Enter a valid amount'); return; }
     if (recorded && due && due < recorded) { toast.error('The promised date cannot be before the date recorded'); return; }
+    const statusChanged = followUp !== (editing.follow_up_status ?? 'not_started');
+    const noteChanged = followNote.trim() !== (editing.follow_up_note ?? '');
+    const autoToday = new Date().toISOString().slice(0, 10);
+    const followedDate =
+      followedOn || ((statusChanged || noteChanged) && followUp !== 'not_started' ? autoToday : '');
     setSaving(true);
     try {
       const { error } = await supabase
@@ -143,6 +179,9 @@ export function AgentPromissoryNotesTile({ agentId, onSeeAll }: { agentId: strin
           amount: amt,
           recorded_on: recorded || null,
           fulfilment_due_on: due || null,
+          follow_up_status: followUp,
+          last_followed_up_on: followedDate || null,
+          follow_up_note: followNote.trim() || null,
         })
         .eq('id', editing.id)
         .select('id');
@@ -205,6 +244,9 @@ export function AgentPromissoryNotesTile({ agentId, onSeeAll }: { agentId: strin
                       <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${statusClass[n.status ?? 'pending'] ?? statusClass.pending}`}>
                         {n.status ?? 'pending'}
                       </Badge>
+                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${followUpClass[n.follow_up_status ?? 'not_started'] ?? followUpClass.not_started}`}>
+                        {followUpLabel(n.follow_up_status)}
+                      </Badge>
                     </div>
                     <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
@@ -213,7 +255,13 @@ export function AgentPromissoryNotesTile({ agentId, onSeeAll }: { agentId: strin
                       <span className="inline-flex items-center gap-1">
                         <CalendarClock className="h-3 w-3" /> Promised {fmtDate(n.fulfilment_due_on)}
                       </span>
+                      <span className="inline-flex items-center gap-1">
+                        <PhoneCall className="h-3 w-3" /> Followed up {fmtDate(n.last_followed_up_on)}
+                      </span>
                     </div>
+                    {n.follow_up_note && (
+                      <p className="mt-0.5 text-[11px] text-muted-foreground truncate">{n.follow_up_note}</p>
+                    )}
                     <p className="mt-0.5 text-xs font-bold tabular-nums">{formatUGX(n.amount ?? 0)}</p>
                   </div>
                   {(n.status ?? 'pending') === 'pending' && (
@@ -256,8 +304,27 @@ export function AgentPromissoryNotesTile({ agentId, onSeeAll }: { agentId: strin
               <div className="space-y-1.5">
                 <Label htmlFor="pn-due">Date promised</Label>
                 <Input id="pn-due" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
-              </div>
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="pn-followup">Follow-up</Label>
+              <Select value={followUp} onValueChange={setFollowUp}>
+                <SelectTrigger id="pn-followup"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {FOLLOW_UP_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="pn-followed-on">Last followed up</Label>
+              <Input id="pn-followed-on" type="date" value={followedOn} onChange={(e) => setFollowedOn(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="pn-follow-note">Follow-up note (optional)</Label>
+              <Textarea id="pn-follow-note" rows={2} value={followNote} onChange={(e) => setFollowNote(e.target.value)} />
+            </div>
+          </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)} disabled={saving}>Cancel</Button>

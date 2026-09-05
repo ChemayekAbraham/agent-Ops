@@ -28469,8 +28469,11 @@ export type Database = {
           created_at: string
           deduction_day: number | null
           email: string | null
+          follow_up_note: string | null
+          follow_up_status: string
           fulfilment_due_on: string | null
           id: string
+          last_followed_up_on: string | null
           next_deduction_date: string | null
           notes: string | null
           partner_name: string
@@ -28495,8 +28498,11 @@ export type Database = {
           created_at?: string
           deduction_day?: number | null
           email?: string | null
+          follow_up_note?: string | null
+          follow_up_status?: string
           fulfilment_due_on?: string | null
           id?: string
+          last_followed_up_on?: string | null
           next_deduction_date?: string | null
           notes?: string | null
           partner_name: string
@@ -28521,8 +28527,11 @@ export type Database = {
           created_at?: string
           deduction_day?: number | null
           email?: string | null
+          follow_up_note?: string | null
+          follow_up_status?: string
           fulfilment_due_on?: string | null
           id?: string
+          last_followed_up_on?: string | null
           next_deduction_date?: string | null
           notes?: string | null
           partner_name?: string
