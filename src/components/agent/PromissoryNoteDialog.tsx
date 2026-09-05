@@ -116,9 +116,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
   const currentStep = steps[stepIndex];
   const isLastStep = stepIndex === steps.length - 1;
 
-  const phoneDigits = (v: string) => v.replace(/\D/g, '');
-  const isValidPhone = (v: string) => phoneDigits(v).length === 10;
-  const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+
 
   const nameValidation = validatePersonNameParts(nameParts);
 
