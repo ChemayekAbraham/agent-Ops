@@ -144,6 +144,8 @@ export function AgentDetailDialog({ agentId, open, onOpenChange }: Props) {
                   <TabsTrigger value="commissions" className="text-xs">Payouts</TabsTrigger>
                   <TabsTrigger value="ops" className="text-xs">Ops</TabsTrigger>
                   <TabsTrigger value="landlords" className="text-xs">Landlords</TabsTrigger>
+                  <TabsTrigger value="promissory" className="text-xs">Promissory Notes</TabsTrigger>
+
                 </TabsList>
 
                 <TabsContent value="evaluation" className="mt-3">
