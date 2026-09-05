@@ -1,0 +1,185 @@
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { formatUGX } from '@/lib/rentCalculations';
+
+interface TppoPlanDetailRow {
+  rent_request_id: string;
+  tenant_name: string;
+  agent_name: string;
+  daily_amount: number;
+  scheduled_in_period: number;
+  arrears: number;
+  plan_total: number;
+  repaid: number;
+  term_start: string;
+  obligation_end: string;
+}
+
+interface TppoPlanDetailReport {
+  granularity: string;
+  period_start: string;
+  period_end: string;
+  scheduled_through: string;
+  period_open: boolean;
+  schedule_basis: 'pinned' | 'live';
+  timezone: string;
+  totals: {
+    plans: number;
+    scheduled_total: number;
+    arrears_total: number;
+    plans_in_arrears: number;
+  };
+  rows: TppoPlanDetailRow[];
+  generated_at: string;
+}
+
+const PAGE = 50;
+const moneyCell = 'text-right tabular-nums';
+
+export function TppoPlanDetailTable({
+  granularity,
+  anchor,
+}: {
+  granularity: string;
+  anchor: string;
+}) {
+  const [shown, setShown] = useState(PAGE);
+
+  const { data, isPending, isError, error } = useQuery({
+    queryKey: ['tppo-plan-detail', granularity, anchor],
+    staleTime: 60_000,
+    queryFn: async (): Promise<TppoPlanDetailReport> => {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('tppo_period_plan_detail', {
+        p_granularity: granularity,
+        p_anchor: anchor,
+      });
+      if (rpcError) throw rpcError;
+      return (rpcData ?? {}) as unknown as TppoPlanDetailReport;
+    },
+  });
+
+  const rows = data?.rows ?? [];
+  const visible = rows.slice(0, shown);
+  const remaining = rows.length - visible.length;
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
+      {isPending ? (
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-64" />
+          <Skeleton className="h-4 w-48" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      ) : isError ? (
+        <p className="text-sm text-destructive">
+          Could not load the plan detail: {(error as Error)?.message ?? 'unknown error'}
+        </p>
+      ) : data ? (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-foreground">
+              {`Scheduled ${granularity === 'day' ? 'today' : 'this period'} — ${formatUGX(
+                data.totals.scheduled_total,
+              )}`}
+            </h3>
+            <Badge variant="outline">
+              {data.schedule_basis === 'pinned' ? 'Fixed for the day' : 'Live'}
+            </Badge>
+          </div>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            {`${data.period_start} to ${data.period_end} · Africa/Kampala`}
+            {data.period_open && ` · counted through ${data.scheduled_through} — period still open`}
+          </p>
+
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            Every plan whose agreed schedule falls due in this period. Plans past their agreed end
+            date schedule nothing and are not listed here; their balances sit in opening arrears.
+          </p>
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10">#</TableHead>
+                <TableHead>Tenant</TableHead>
+                <TableHead>Agent</TableHead>
+                <TableHead className="text-right">Daily amount</TableHead>
+                <TableHead className="text-right">Scheduled</TableHead>
+                <TableHead className="text-right">Arrears</TableHead>
+                <TableHead className="text-right">Plan total</TableHead>
+                <TableHead className="text-right">Repaid</TableHead>
+                <TableHead>Term start</TableHead>
+                <TableHead>Obligation end</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visible.map((row, index) => (
+                <TableRow key={row.rent_request_id}>
+                  <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                  <TableCell>{row.tenant_name}</TableCell>
+                  <TableCell>{row.agent_name}</TableCell>
+                  <TableCell className={moneyCell}>{formatUGX(row.daily_amount)}</TableCell>
+                  <TableCell className={moneyCell}>{formatUGX(row.scheduled_in_period)}</TableCell>
+                  <TableCell className={moneyCell}>
+                    {row.arrears > 0 ? (
+                      <span className="text-destructive">{formatUGX(row.arrears)}</span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className={moneyCell}>{formatUGX(row.plan_total)}</TableCell>
+                  <TableCell className={moneyCell}>{formatUGX(row.repaid)}</TableCell>
+                  <TableCell>{row.term_start}</TableCell>
+                  <TableCell>{row.obligation_end}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell />
+                <TableCell className="font-semibold">TOTAL</TableCell>
+                <TableCell>{`${data.totals.plans} plans`}</TableCell>
+                <TableCell />
+                <TableCell className={`${moneyCell} font-semibold`}>
+                  {formatUGX(data.totals.scheduled_total)}
+                </TableCell>
+                <TableCell />
+                <TableCell />
+                <TableCell />
+                <TableCell />
+                <TableCell />
+              </TableRow>
+            </TableFooter>
+          </Table>
+
+          {remaining > 0 && (
+            <div className="mt-3 flex justify-center">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShown((s) => s + PAGE)}
+              >
+                {`Load more · ${remaining} remaining`}
+              </Button>
+            </div>
+          )}
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+export default TppoPlanDetailTable;
