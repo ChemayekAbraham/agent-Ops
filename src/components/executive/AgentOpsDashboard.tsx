@@ -1,4 +1,4 @@
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { AgentOpsHomeView, type DateRange } from './agent-ops-v2/AgentOpsHomeView';
 import { AgentOpsBottomNav, type BottomTab } from './agent-ops-v2/AgentOpsBottomNav';
@@ -162,6 +162,7 @@ export function AgentOpsDashboard() {
   const [bottomTab, setBottomTab] = useState<BottomTab>('home');
   const [productSection, setProductSection] = useState<null | 'motor_bike' | 'smart_phone' | 'boutique' | 'signage' | 'advances'>(null);
   const [dateRange, setDateRange] = useState<DateRange>('24h');
+  const [sidebarWidth, setSidebarWidth] = useState(224); // default w-56
   const pendingAdvanceCount = usePendingAdvanceCount();
   const navigate = useNavigate();
 
@@ -579,12 +580,14 @@ export function AgentOpsDashboard() {
       </div>
 
       {/* Body: persistent left sidebar (desktop) + content */}
-      <div className="lg:flex lg:gap-5 lg:items-start">
+      <div className="lg:flex lg:items-start">
         <AgentOpsSideNav
           activeView={activeView}
           onSelect={(k) => selectView(k)}
           onHome={() => { setBottomTab('home'); setActiveView(null); }}
+          style={{ width: sidebarWidth }}
         />
+        <SidebarResizer currentWidth={sidebarWidth} onChange={setSidebarWidth} />
         <div className="flex-1 min-w-0">{contentRegion}</div>
       </div>
 
@@ -592,6 +595,72 @@ export function AgentOpsDashboard() {
       <AgentOpsBottomNav active={bottomTab} onChange={handleBottomNav} />
 
       <UserProfileDialog open={!!selectedAgent} onOpenChange={(open) => !open && setSelectedAgent(null)} user={selectedAgent} />
+    </div>
+  );
+}
+
+/* ===================================================================
+ * SidebarResizer — drag handle between the sidebar and main content.
+ * Highlights on hover and lets the user widen/narrow the nav.
+ * =================================================================== */
+function SidebarResizer({
+  currentWidth,
+  onChange,
+  min = 180,
+  max = 480,
+}: {
+  currentWidth: number;
+  onChange: (width: number) => void;
+  min?: number;
+  max?: number;
+}) {
+  const [dragging, setDragging] = useState(false);
+  const startRef = useRef<{ x: number; width: number } | null>(null);
+
+  useEffect(() => {
+    if (!dragging) return;
+    const handleMove = (e: PointerEvent) => {
+      if (!startRef.current) return;
+      const delta = e.clientX - startRef.current.x;
+      const width = Math.max(min, Math.min(max, startRef.current.width + delta));
+      onChange(width);
+    };
+    const handleUp = () => {
+      setDragging(false);
+      startRef.current = null;
+    };
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+    return () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+    };
+  }, [dragging, min, max, onChange]);
+
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize sidebar"
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={currentWidth}
+      onPointerDown={(e) => {
+        e.preventDefault();
+        startRef.current = { x: e.clientX, width: currentWidth };
+        setDragging(true);
+      }}
+      className={cn(
+        'hidden lg:flex w-1.5 shrink-0 cursor-col-resize self-stretch items-center justify-center transition-colors',
+        dragging ? 'bg-primary/40' : 'hover:bg-primary/20'
+      )}
+    >
+      <div
+        className={cn(
+          'h-10 w-px rounded-full transition-colors',
+          dragging ? 'bg-primary' : 'bg-border group-hover:bg-primary/60'
+        )}
+      />
     </div>
   );
 }
@@ -605,10 +674,12 @@ function AgentOpsSideNav({
   activeView,
   onSelect,
   onHome,
+  style,
 }: {
   activeView: ActiveView;
   onSelect: (k: ActiveView) => void;
   onHome: () => void;
+  style?: React.CSSProperties;
 }) {
   const pendingAdvanceCount = usePendingAdvanceCount();
   // Priority stays pinned & always exposed on top. Every other group is
@@ -663,7 +734,10 @@ function AgentOpsSideNav({
   };
 
   return (
-    <aside className="hidden lg:flex flex-col w-56 shrink-0 sticky top-0 self-start max-h-[calc(100dvh-8.5rem)] overflow-y-auto pr-2">
+    <aside
+      style={style}
+      className="hidden lg:flex flex-col shrink-0 sticky top-0 self-start max-h-[calc(100dvh-8.5rem)] overflow-y-auto pr-2"
+    >
       <nav className="space-y-3 py-1">
         <button
           type="button"
