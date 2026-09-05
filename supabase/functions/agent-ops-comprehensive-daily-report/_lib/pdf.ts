@@ -205,11 +205,22 @@ export function buildComprehensiveReportPdf(input: {
     const rightFrom = opts.rightFrom ?? 2;
     const columnStyles: Record<number, Any> = {};
     for (let i = rightFrom; i < opts.head.length; i += 1) columnStyles[i] = { halign: 'right' };
+    const startPage = (doc as Any).getCurrentPageInfo().pageNumber;
     autoTable(doc, {
       startY: cursor,
       head: [opts.head],
       body: opts.body,
-      margin: { left: margin, right: margin, top: margin + 20, bottom: 18 },
+      margin: { left: margin, right: margin, top: margin + 22, bottom: 18 },
+      didDrawPage: (data: Any) => {
+        const pageNo = data.pageNumber ?? (doc as Any).getCurrentPageInfo().pageNumber;
+        if (pageNo > startPage && lastHeader.title) {
+          drawHeader(lastHeader.title, [
+            ...lastHeader.meta.filter(([l]) => !/^section/i.test(l)),
+            ['Section:', 'continued'],
+          ]);
+        }
+      },
+
       styles: {
         font: 'helvetica',
         fontSize: opts.fontSize ?? 7.4,
