@@ -605,10 +605,12 @@ function AgentOpsSideNav({
   activeView,
   onSelect,
   onHome,
+  style,
 }: {
   activeView: ActiveView;
   onSelect: (k: ActiveView) => void;
   onHome: () => void;
+  style?: React.CSSProperties;
 }) {
   const pendingAdvanceCount = usePendingAdvanceCount();
   // Priority stays pinned & always exposed on top. Every other group is
