@@ -36,7 +36,7 @@ import PersonNameFields from '@/components/shared/PersonNameFields';
 import NameCompletionReminder from '@/components/notifications/NameCompletionReminder';
 import { OtpVerificationStep } from '@/components/auth/OtpVerificationStep';
 
-const WalletCard = lazy(() => import('@/components/wallet/WalletCard').then(m => ({ default: m.WalletCard })));
+
 const DiagnosticsSection = lazy(() => import('@/components/settings/DiagnosticsSection'));
 const PinSecuritySection = lazy(() => import('@/components/settings/PinSecuritySection'));
 const BiometricSecuritySection = lazy(() => import('@/components/settings/BiometricSecuritySection'));
@@ -631,7 +631,6 @@ export default function Settings() {
                           <MobileMoneyNameCard userId={user.id} />
                         </LazySection>
                       )}
-                      <LazySection name="Wallet"><WalletCard /></LazySection>
                     </div>
                   )}
 
