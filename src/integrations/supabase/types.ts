@@ -52011,6 +52011,10 @@ export type Database = {
           period_start: string
         }[]
       }
+      tppo_period_plan_detail: {
+        Args: { p_anchor?: string; p_granularity: string }
+        Returns: Json
+      }
       tppo_projection_zone_a: {
         Args: { p_as_at: string; p_granularity: string }
         Returns: Json
