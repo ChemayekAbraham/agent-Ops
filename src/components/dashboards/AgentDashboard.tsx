@@ -1201,6 +1201,11 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             )}
 
 
+            {/* Promissory notes — date recorded, date promised, partner, quick edit */}
+            {!isMerchant && (
+              <AgentPromissoryNotesTile agentId={user.id} onSeeAll={() => setPromissoryListOpen(true)} />
+            )}
+
             {/* 2) Today's collected total — single most useful at-a-glance number */}
             {!isMerchant && <FieldCollectDailyTotals live />}
 
