@@ -374,18 +374,20 @@ export function buildComprehensiveReportPdf(input: {
 
   sectionTitle('Advance Portfolio Detail');
   table({
-    head: ['Agent', 'Phone', 'Principal', 'Repaid', 'Outstanding', 'Installment', 'Recovery', 'Issued', 'Status'],
+    head: ['Agent', 'Phone', 'Principal (UGX)', 'Repaid (UGX)', 'Outstanding (UGX)', 'Installment (UGX)', 'Recovery', 'Issued', 'Status'],
     body: [...advRows]
       .sort((a, b) => pos(Number(b.outstanding)) - pos(Number(a.outstanding)))
       .slice(0, 30)
       .map((r) => [
-        String(r.agent_name ?? '—'), String(r.phone ?? '—'), ugx(r.principal), ugx(r.recovered),
-        ugx(pos(Number(r.outstanding))), ugx(r.installment),
+        String(r.agent_name ?? '—'), String(r.phone ?? '—'),
+        num(r.principal), num(r.recovered),
+        num(pos(Number(r.outstanding))), num(r.installment),
         pct(Number(r.recovered) || 0, Number(r.principal) || 0),
         day(r.issued_at), String(r.status ?? 'unknown').replace(/_/g, ' '),
       ]),
     empty: 'No advances recorded in this window.',
   });
+
 
   // ── Page 4 — service centres ──────────────────────────────────────────────
   pageHeader('Service Centers', [['Period:', periodText], ['Section:', 'Service centre network']]);
