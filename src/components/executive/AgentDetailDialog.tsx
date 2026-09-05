@@ -12,6 +12,8 @@ import {
   CheckCircle2, XCircle, AlertTriangle, Receipt, Award, Activity,
 } from 'lucide-react';
 import { AgentEvaluationSection } from './AgentEvaluationSection';
+import { AgentPromissoryNotesSection } from './AgentPromissoryNotesSection';
+
 
 type Props = {
   agentId: string | null;
