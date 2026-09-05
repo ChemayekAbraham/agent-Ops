@@ -237,6 +237,20 @@ export function TppoPlanDetailTable({
                   <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                   <TableCell>{row.tenant_name}</TableCell>
                   <TableCell>{row.agent_name}</TableCell>
+                  <TableCell className="text-xs">
+                    {(() => {
+                      const n = notesByAgent?.[row.agent_name];
+                      if (!n) return <span className="text-muted-foreground">—</span>;
+                      return (
+                        <div className="leading-tight">
+                          <span className="font-medium">{`${n.count} note${n.count === 1 ? '' : 's'}`}</span>
+                          <div className="text-[10px] text-muted-foreground">
+                            {`Taken ${n.lastTaken ?? '—'} · Promised ${n.nextDue ?? '—'}`}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </TableCell>
                   <TableCell className={moneyCell}>{formatUGX(row.daily_amount)}</TableCell>
                   <TableCell className={moneyCell}>{formatUGX(row.scheduled_in_period)}</TableCell>
                   <TableCell className={moneyCell}>
