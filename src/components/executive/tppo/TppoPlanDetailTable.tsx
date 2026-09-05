@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/table';
 import { formatUGX } from '@/lib/rentCalculations';
 import { downloadTppoPlanDetailPdf } from '@/lib/tppoPlanDetailPdf';
+import { TppoPlanArrearsDialog } from './TppoPlanArrearsDialog';
 
 interface TppoPlanDetailRow {
   rent_request_id: string;
