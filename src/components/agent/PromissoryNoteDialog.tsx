@@ -15,8 +15,6 @@ import {
   ChevronLeft,
   User,
   Phone,
-  Mail,
-  CalendarDays,
   Banknote,
   ListChecks,
   CircleCheck,
