@@ -665,7 +665,10 @@ function AgentOpsSideNav({
   };
 
   return (
-    <aside className="hidden lg:flex flex-col w-56 shrink-0 sticky top-0 self-start max-h-[calc(100dvh-8.5rem)] overflow-y-auto pr-2">
+    <aside
+      style={style}
+      className="hidden lg:flex flex-col shrink-0 sticky top-0 self-start max-h-[calc(100dvh-8.5rem)] overflow-y-auto pr-2"
+    >
       <nav className="space-y-3 py-1">
         <button
           type="button"
