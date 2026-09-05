@@ -87,6 +87,9 @@ export function AgentPromissoryNotesTile({ agentId, onSeeAll }: { agentId: strin
   const [amount, setAmount] = useState('');
   const [recorded, setRecorded] = useState('');
   const [due, setDue] = useState('');
+  const [followUp, setFollowUp] = useState('not_started');
+  const [followedOn, setFollowedOn] = useState('');
+  const [followNote, setFollowNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
 
