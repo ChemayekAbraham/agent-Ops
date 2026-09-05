@@ -141,6 +141,7 @@ import { AgentTenantRentRequestsList } from '@/components/agent/AgentTenantRentR
 import { ShareRentRecorderCard } from '@/components/agent/ShareRentRecorderCard';
 import { TodayCollectionsCard } from '@/components/agent/TodayCollectionsCard';
 import { AgentPriorityGrid } from '@/components/agent/AgentPriorityGrid';
+import { AgentPromissoryNotesTile } from '@/components/agent/AgentPromissoryNotesTile';
 import { MERCHANT_RESTRICTION_MESSAGE, useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 import { MerchantDashboardHome } from '@/components/agent/MerchantDashboardHome';
 import { AgentTenantInlineList } from '@/components/agent/AgentTenantInlineList';
@@ -1200,6 +1201,11 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               </Card>
             )}
 
+
+            {/* Promissory notes — date recorded, date promised, partner, quick edit */}
+            {!isMerchant && (
+              <AgentPromissoryNotesTile agentId={user.id} onSeeAll={() => setPromissoryListOpen(true)} />
+            )}
 
             {/* 2) Today's collected total — single most useful at-a-glance number */}
             {!isMerchant && <FieldCollectDailyTotals live />}
