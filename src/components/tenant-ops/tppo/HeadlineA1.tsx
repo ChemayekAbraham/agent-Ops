@@ -123,7 +123,7 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
         </div>
 
         <p className="text-xs">
-          {`Total field target — ${totalFieldTarget === null || totalFieldTarget === undefined ? '—' : formatUGX(totalFieldTarget)}`}
+          {`Due plus arrears brought forward — ${totalFieldTarget === null || totalFieldTarget === undefined ? '—' : formatUGX(totalFieldTarget)}`}
         </p>
         {arrearsOutstanding !== null && arrearsOutstanding !== undefined && (
           <p className="text-[11px] text-muted-foreground">
