@@ -160,22 +160,29 @@ export function TppoPlanDetailTable({
                 <TableHead className="w-10">#</TableHead>
                 <TableHead>Tenant</TableHead>
                 <TableHead>
-                  <select
-                    value={agentFilter}
-                    onChange={(e) => {
-                      setAgentFilter(e.target.value);
-                      setShown(PAGE);
-                    }}
-                    className="w-full max-w-[160px] cursor-pointer rounded-md border border-transparent bg-transparent text-xs font-medium text-muted-foreground hover:border-border focus:outline-none focus:ring-1 focus:ring-ring"
-                    aria-label="Filter by agent"
-                  >
-                    <option value="all">Agent (All)</option>
-                    {agentNames.map((name) => (
-                      <option key={name} value={name}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={agentFilter}
+                      onChange={(e) => {
+                        setAgentFilter(e.target.value);
+                        setShown(PAGE);
+                      }}
+                      className="w-full max-w-[160px] cursor-pointer rounded-md border border-transparent bg-transparent text-xs font-medium text-muted-foreground hover:border-border focus:outline-none focus:ring-1 focus:ring-ring"
+                      aria-label="Filter by agent"
+                    >
+                      <option value="all">Agent (All)</option>
+                      {agentNames.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                    {agentFilter === 'all' && (
+                      <span className="text-[10px] text-muted-foreground">
+                        {agentNames.length}
+                      </span>
+                    )}
+                  </div>
                 </TableHead>
                 <TableHead className="text-right">Daily amount</TableHead>
                 <TableHead className="text-right">Scheduled</TableHead>
