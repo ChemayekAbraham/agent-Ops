@@ -221,6 +221,7 @@ export function TppoPlanDetailTable({
                     )}
                   </div>
                 </TableHead>
+                <TableHead>Promissory notes</TableHead>
                 <TableHead className="text-right">Daily amount</TableHead>
                 <TableHead className="text-right">Scheduled</TableHead>
                 <TableHead className="text-right">Arrears</TableHead>
