@@ -145,11 +145,18 @@ export function TppoPlanDetailTable({
                   <TableCell className={moneyCell}>{formatUGX(row.daily_amount)}</TableCell>
                   <TableCell className={moneyCell}>{formatUGX(row.scheduled_in_period)}</TableCell>
                   <TableCell className={moneyCell}>
-                    {row.arrears > 0 ? (
-                      <span className="text-destructive">{formatUGX(row.arrears)}</span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setSelected({ id: row.rent_request_id, name: row.tenant_name })}
+                      className="underline decoration-dotted underline-offset-2 hover:decoration-solid touch-manipulation"
+                      title="See where this arrears comes from"
+                    >
+                      {row.arrears > 0 ? (
+                        <span className="text-destructive">{formatUGX(row.arrears)}</span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </button>
                   </TableCell>
                   <TableCell className={moneyCell}>{formatUGX(row.plan_total)}</TableCell>
                   <TableCell className={moneyCell}>{formatUGX(row.repaid)}</TableCell>
