@@ -48649,6 +48649,21 @@ export type Database = {
         Args: { p_entity_id: string; p_entity_type: string }
         Returns: Json
       }
+      get_voice_call_log: {
+        Args: {
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      get_voice_call_stats: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
       get_wallet_bucket_totals: { Args: never; Returns: Json }
       get_wallet_holder_activity_counts: {
         Args: { p_user_ids: string[] }
@@ -52553,6 +52568,10 @@ export type Database = {
           _rejection_reason?: string
         }
         Returns: Json
+      }
+      voice_call_log_authorized: {
+        Args: { _user_id: string }
+        Returns: boolean
       }
       void_ledger_entry: {
         Args: { p_ledger_id: string; p_reason: string }
