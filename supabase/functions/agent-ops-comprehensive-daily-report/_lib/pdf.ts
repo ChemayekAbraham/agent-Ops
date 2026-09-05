@@ -264,12 +264,35 @@ export function buildComprehensiveReportPdf(input: {
       columnStyles,
       theme: 'plain',
       didParseCell: (data: Any) => {
-        if (data.section === 'body' && opts.groupRows?.includes(data.row.index)) {
+        if (data.section !== 'body') return;
+        if (opts.groupRows?.includes(data.row.index)) {
           data.cell.styles.fillColor = GROUP_BG;
           data.cell.styles.textColor = PRIMARY_DARK;
           data.cell.styles.fontStyle = 'bold';
+          return;
+        }
+        if (opts.boldRows?.includes(data.row.index)) {
+          data.cell.styles.fillColor = BG_HEADER;
+          data.cell.styles.fontStyle = 'bold';
+        }
+        const colColor = opts.colColors?.[data.column.index];
+        if (colColor) {
+          const text = String(data.cell.raw ?? '');
+          const zero = /^(—|UGX 0|0|0\.0%)$/.test(text.trim());
+          if (!zero) {
+            data.cell.styles.textColor = colColor;
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+        if (opts.statusCol === data.column.index) {
+          const tone = statusTone(String(data.cell.raw ?? ''));
+          data.cell.styles.textColor = tone;
+          data.cell.styles.fillColor = toneBg(tone);
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.halign = 'center';
         }
       },
+
     });
     cursor = (doc as Any).lastAutoTable.finalY + 7;
   };
