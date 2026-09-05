@@ -172,11 +172,23 @@ export function AgentPromissoryNotesTile({ agentId, onSeeAll }: { agentId: strin
                 <p className="text-[11px] text-muted-foreground leading-tight">Date recorded · date promised · partner</p>
               </div>
             </div>
-            {onSeeAll && (
-              <Button variant="ghost" size="sm" className="h-8 text-xs shrink-0" onClick={() => { hapticTap(); onSeeAll(); }}>
-                See all
+            <div className="flex items-center gap-1 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={downloadReport}
+                disabled={exporting}
+              >
+                {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                <span className="ml-1 hidden sm:inline">Report</span>
               </Button>
-            )}
+              {onSeeAll && (
+                <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { hapticTap(); onSeeAll(); }}>
+                  See all
+                </Button>
+              )}
+            </div>
           </div>
 
           {isLoading ? (
