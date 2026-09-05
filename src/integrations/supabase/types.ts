@@ -31105,6 +31105,7 @@ export type Database = {
           reopen_reason: string | null
           reopened_at: string | null
           reopened_by: string | null
+          repayment_frequency: string
           repayment_starts_on: string | null
           request_city: string | null
           request_country: string | null
@@ -31235,6 +31236,7 @@ export type Database = {
           reopen_reason?: string | null
           reopened_at?: string | null
           reopened_by?: string | null
+          repayment_frequency?: string
           repayment_starts_on?: string | null
           request_city?: string | null
           request_country?: string | null
@@ -31365,6 +31367,7 @@ export type Database = {
           reopen_reason?: string | null
           reopened_at?: string | null
           reopened_by?: string | null
+          repayment_frequency?: string
           repayment_starts_on?: string | null
           request_city?: string | null
           request_country?: string | null
@@ -43574,6 +43577,7 @@ export type Database = {
           reopen_reason: string | null
           reopened_at: string | null
           reopened_by: string | null
+          repayment_frequency: string
           repayment_starts_on: string | null
           request_city: string | null
           request_country: string | null
@@ -51240,6 +51244,14 @@ export type Database = {
           p_prev_request_id: string
         }
         Returns: string
+      }
+      rent_plan_schedule_days: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          due_on: string
+          rent_request_id: string
+        }[]
       }
       rent_request_financials_unchanged: {
         Args: {
