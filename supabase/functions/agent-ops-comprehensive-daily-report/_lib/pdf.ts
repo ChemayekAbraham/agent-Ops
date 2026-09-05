@@ -211,8 +211,8 @@ export function buildComprehensiveReportPdf(input: {
       head: [opts.head],
       body: opts.body,
       margin: { left: margin, right: margin, top: margin + 22, bottom: 18 },
-      didDrawPage: (data: Any) => {
-        const pageNo = data.pageNumber ?? (doc as Any).getCurrentPageInfo().pageNumber;
+      didDrawPage: () => {
+        const pageNo = (doc as Any).getCurrentPageInfo().pageNumber;
         if (pageNo > startPage && lastHeader.title) {
           drawHeader(lastHeader.title, [
             ...lastHeader.meta.filter(([l]) => !/^section/i.test(l)),
