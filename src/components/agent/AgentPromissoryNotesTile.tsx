@@ -13,10 +13,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { FileText, Pencil, Loader2, CalendarCheck, CalendarClock } from 'lucide-react';
+import { FileText, Pencil, Loader2, CalendarCheck, CalendarClock, Download } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { hapticTap } from '@/lib/haptics';
 import { toast } from 'sonner';
+import { downloadPromissoryNotesReportPdf } from '@/lib/promissoryNotesReportPdf';
 
 interface NoteRow {
   id: string;
