@@ -250,18 +250,26 @@ export function TppoPlanDetailTable({
                   <TableCell>{row.agent_name}</TableCell>
                   <TableCell className="text-xs">
                     {(() => {
-                      const n = notesByAgent?.[row.agent_name];
-                      if (!n) return <span className="text-muted-foreground">—</span>;
+                      const planNotes = notesByPlan?.[row.rent_request_id];
+                      if (!planNotes?.length) return <span className="text-muted-foreground">—</span>;
+                      const extra = planNotes.length - 1;
+                      const n = planNotes[0];
                       return (
                         <div className="leading-tight">
-                          <span className="font-medium">{`${n.count} note${n.count === 1 ? '' : 's'}`}</span>
+                          <span className="font-medium">{n.partner}</span>
+                          <span className="ml-1 tabular-nums text-muted-foreground">{formatUGX(n.amount)}</span>
                           <div className="text-[10px] text-muted-foreground">
-                            {`Taken ${n.lastTaken ?? '—'} · Promised ${n.nextDue ?? '—'}`}
+                            {`Taken ${n.taken ?? '—'} · Promised ${n.promised ?? '—'}`}
+                            {n.followUp ? ` · ${n.followUp.replace(/_/g, ' ')}` : ''}
                           </div>
+                          {extra > 0 && (
+                            <div className="text-[10px] text-muted-foreground">{`+${extra} more note${extra === 1 ? '' : 's'}`}</div>
+                          )}
                         </div>
                       );
                     })()}
                   </TableCell>
+
                   <TableCell className={moneyCell}>{formatUGX(row.daily_amount)}</TableCell>
                   <TableCell className={moneyCell}>{formatUGX(row.scheduled_in_period)}</TableCell>
                   <TableCell className={moneyCell}>
