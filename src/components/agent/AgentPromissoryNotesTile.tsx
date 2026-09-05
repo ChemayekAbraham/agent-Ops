@@ -244,6 +244,9 @@ export function AgentPromissoryNotesTile({ agentId, onSeeAll }: { agentId: strin
                       <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${statusClass[n.status ?? 'pending'] ?? statusClass.pending}`}>
                         {n.status ?? 'pending'}
                       </Badge>
+                      <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${followUpClass[n.follow_up_status ?? 'not_started'] ?? followUpClass.not_started}`}>
+                        {followUpLabel(n.follow_up_status)}
+                      </Badge>
                     </div>
                     <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
                       <span className="inline-flex items-center gap-1">
@@ -252,7 +255,13 @@ export function AgentPromissoryNotesTile({ agentId, onSeeAll }: { agentId: strin
                       <span className="inline-flex items-center gap-1">
                         <CalendarClock className="h-3 w-3" /> Promised {fmtDate(n.fulfilment_due_on)}
                       </span>
+                      <span className="inline-flex items-center gap-1">
+                        <PhoneCall className="h-3 w-3" /> Followed up {fmtDate(n.last_followed_up_on)}
+                      </span>
                     </div>
+                    {n.follow_up_note && (
+                      <p className="mt-0.5 text-[11px] text-muted-foreground truncate">{n.follow_up_note}</p>
+                    )}
                     <p className="mt-0.5 text-xs font-bold tabular-nums">{formatUGX(n.amount ?? 0)}</p>
                   </div>
                   {(n.status ?? 'pending') === 'pending' && (
