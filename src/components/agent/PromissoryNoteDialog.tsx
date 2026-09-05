@@ -109,9 +109,12 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
     setPhoneNumber('');
     setEmail('');
     setAmount('');
+    setRecordedOn(todayIso);
+    setFulfilmentDueOn('');
     setAmountTouched(false);
     setContributionType('compounding');
     setDeductionDay('1');
+
     setCreatedNote(null);
     setErrorMsg(null);
 
