@@ -580,12 +580,14 @@ export function AgentOpsDashboard() {
       </div>
 
       {/* Body: persistent left sidebar (desktop) + content */}
-      <div className="lg:flex lg:gap-5 lg:items-start">
+      <div className="lg:flex lg:items-start">
         <AgentOpsSideNav
           activeView={activeView}
           onSelect={(k) => selectView(k)}
           onHome={() => { setBottomTab('home'); setActiveView(null); }}
+          style={{ width: sidebarWidth }}
         />
+        <SidebarResizer currentWidth={sidebarWidth} onChange={setSidebarWidth} />
         <div className="flex-1 min-w-0">{contentRegion}</div>
       </div>
 
