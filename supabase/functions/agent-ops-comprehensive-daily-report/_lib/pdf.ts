@@ -192,6 +192,15 @@ export function buildComprehensiveReportPdf(input: {
     cursor += h + 6;
   };
 
+  const statusTone = (raw: string): RGB => {
+    const s = raw.toLowerCase();
+    if (/(overdue|default|reject|fail|suspend|inactive)/.test(s)) return DANGER;
+    if (/(pending|review|await|requested|warn|partial)/.test(s)) return WARNING;
+    if (/(active|approved|paid|verified|operational|complete|cleared)/.test(s)) return SUCCESS;
+    return MUTED;
+  };
+  const toneBg = (tone: RGB): RGB => (tone === DANGER ? DANGER_BG : tone === WARNING ? WARNING_BG : tone === SUCCESS ? SUCCESS_BG : BG_HEADER);
+
   const table = (opts: {
     head: string[];
     body: (string | number)[][];
@@ -199,7 +208,14 @@ export function buildComprehensiveReportPdf(input: {
     rightFrom?: number;
     groupRows?: number[];
     fontSize?: number;
+    /** Per-column text colour, mirroring the template's coloured figures. */
+    colColors?: Record<number, RGB>;
+    /** Column rendered as a tinted status badge. */
+    statusCol?: number;
+    /** Rows rendered bold as period totals. */
+    boldRows?: number[];
   }) => {
+
     if (!opts.body.length) {
       doc.setFont('helvetica', 'italic');
       doc.setFontSize(8.2);
