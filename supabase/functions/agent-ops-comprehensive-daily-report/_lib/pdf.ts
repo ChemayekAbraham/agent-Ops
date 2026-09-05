@@ -290,7 +290,8 @@ export function buildComprehensiveReportPdf(input: {
         }
         if (opts.rowToneCol === data.column.index) {
           const tone = opts.rowTones?.[data.row.index];
-          if (tone) {
+          const placeholder = /^(—|UGX 0|0|0\.0%)$/.test(String(data.cell.raw ?? '').trim());
+          if (tone && !placeholder) {
             data.cell.styles.textColor = tone;
             data.cell.styles.fontStyle = 'bold';
           }
