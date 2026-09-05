@@ -26,6 +26,8 @@ import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import { PromissoryPlanMatcher } from '@/components/agent/PromissoryPlanMatcher';
+import { normalizeWa } from '@/lib/whatsapp';
+
 
 interface PromissoryNoteDialogProps {
   open: boolean;
