@@ -597,8 +597,10 @@ export function buildComprehensiveReportPdf(input: {
       const out = issued.reduce((s, r) => s + pos(Number(r.outstanding) || 0), 0);
       return [label, num(rows.length), num(issued.length), num(rows.length - issued.length), ugx(value), ugx(paid), ugx(out), pct(paid, value)];
     }),
+    colColors: { 5: SUCCESS, 6: DANGER, 7: PRIMARY },
     empty: 'No product applications in this period.',
   });
+
 
   if (population) {
     sectionTitle('Network Position');
