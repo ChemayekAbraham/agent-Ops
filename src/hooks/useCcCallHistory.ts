@@ -15,7 +15,8 @@
  * filter. A single malformed/blocked embed used to fail the whole read, which
  * showed up as an empty History tab even though the records existed.
  */
-import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { CcOutcome, CcSeverity, CcSubjectType } from '@/hooks/useCcCallingHub';
 
@@ -284,6 +285,14 @@ export function useCcCallHistory(subjectType: CcSubjectType, days = 30, window?:
         };
       });
     },
-    staleTime: 30_000,
+    // Cached long enough that flipping between tabs, or between the report and
+    // the list, re-reads nothing; the outcome mutations already invalidate.
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    // Window changes keep the previous rows on screen instead of flickering.
+    placeholderData: keepPreviousData,
   });
 }
