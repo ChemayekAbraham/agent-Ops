@@ -46,6 +46,10 @@ export function CTODashboard({ activeTab }: { activeTab?: string }) {
   if (activeTab === 'sms-delivery') {
     return <SmsDeliveryLogViewer />;
   }
+  if (activeTab === 'voice-calls') {
+    return <VoiceApiCallLogViewer />;
+  }
+
   if (activeTab === 'sms-exceptions') {
     return <SmsExceptionsManager />;
   }
