@@ -218,17 +218,23 @@ export function TppoPlanDetailTable({
             <TableFooter>
               <TableRow>
                 <TableCell />
-                <TableCell className="font-semibold">TOTAL</TableCell>
-                <TableCell>{`${data.totals.plans} plans`}</TableCell>
+                <TableCell className="font-semibold">
+                  {agentFilter === 'all' ? 'TOTAL' : `TOTAL · ${agentFilter}`}
+                </TableCell>
+                <TableCell>{`${shownTotals.plans} plans`}</TableCell>
                 <TableCell />
                 <TableCell className={`${moneyCell} font-semibold`}>
-                  {formatUGX(data.totals.scheduled_total)}
+                  {formatUGX(shownTotals.scheduled)}
                 </TableCell>
-                <TableCell className={`${moneyCell} font-semibold ${data.totals.arrears_total > 0 ? 'text-destructive' : ''}`}>
-                  {formatUGX(data.totals.arrears_total)}
+                <TableCell className={`${moneyCell} font-semibold ${shownTotals.arrears > 0 ? 'text-destructive' : ''}`}>
+                  {formatUGX(shownTotals.arrears)}
                 </TableCell>
-                <TableCell />
-                <TableCell />
+                <TableCell className={`${moneyCell} font-semibold`}>
+                  {formatUGX(shownTotals.planTotal)}
+                </TableCell>
+                <TableCell className={`${moneyCell} font-semibold`}>
+                  {formatUGX(shownTotals.repaid)}
+                </TableCell>
                 <TableCell />
                 <TableCell />
               </TableRow>
