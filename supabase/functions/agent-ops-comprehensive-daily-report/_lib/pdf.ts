@@ -214,7 +214,11 @@ export function buildComprehensiveReportPdf(input: {
     statusCol?: number;
     /** Rows rendered bold as period totals. */
     boldRows?: number[];
+    /** Per-row colour applied to `rowToneCol`, keyed by body row index. */
+    rowTones?: Record<number, RGB>;
+    rowToneCol?: number;
   }) => {
+
 
     if (!opts.body.length) {
       doc.setFont('helvetica', 'italic');
