@@ -48,6 +48,7 @@ export default function NotificationsScreen() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>('unread');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const { data: notifications = [], isLoading, isFetching, refetch } = useQuery({
     queryKey: ['my-notifications', user?.id],
