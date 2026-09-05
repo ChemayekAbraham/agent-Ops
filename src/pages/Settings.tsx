@@ -795,8 +795,23 @@ export default function Settings() {
                         </span>
                       </CollapsibleTrigger>
                       <CollapsibleContent className="space-y-2 pt-1">
-                        <RadioGroup value={reducedMotion} onValueChange={(v) => { setReducedMotion(v as any); toast.success(v === 'reduce' ? 'Animations reduced' : v === 'no-preference' ? 'Animations on' : 'Following system'); }} className="grid grid-cols-1 gap-2">
-                          {reducedMotionOptions.map((opt) => (<Label key={opt.value} htmlFor={`motion-${opt.value}`} className={cn("flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm", reducedMotion === opt.value ? 'border-primary bg-primary/10' : 'border-border/50')}><RadioGroupItem value={opt.value} id={`motion-${opt.value}`} /><div><p className="font-medium text-xs">{opt.label}</p><p className="text-[10px] text-muted-foreground">{opt.description}</p></div></Label>))}
+                        <RadioGroup value={reducedMotion} onValueChange={(v) => { setReducedMotion(v as any); toast.success(v === 'reduce' ? 'Animations reduced' : v === 'no-preference' ? 'Animations on' : 'Following system'); }} className="space-y-2">
+                          {reducedMotionOptions.map((opt) => (
+                            <Label
+                              key={opt.value}
+                              htmlFor={`motion-${opt.value}`}
+                              className={cn(
+                                "flex items-center justify-between gap-3 p-3 min-h-[48px] rounded-xl border cursor-pointer transition-colors hover:bg-muted/30",
+                                reducedMotion === opt.value ? 'border-primary bg-primary/10' : 'border-border/50'
+                              )}
+                            >
+                              <div>
+                                <p className="font-medium text-sm">{opt.label}</p>
+                                <p className="text-[11px] text-muted-foreground">{opt.description}</p>
+                              </div>
+                              <RadioGroupItem value={opt.value} id={`motion-${opt.value}`} />
+                            </Label>
+                          ))}
                         </RadioGroup>
                       </CollapsibleContent>
                     </Collapsible>
