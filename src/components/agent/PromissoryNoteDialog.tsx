@@ -26,6 +26,8 @@ import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import { PromissoryPlanMatcher } from '@/components/agent/PromissoryPlanMatcher';
+import { normalizeWa } from '@/lib/whatsapp';
+
 
 interface PromissoryNoteDialogProps {
   open: boolean;
@@ -35,8 +37,15 @@ interface PromissoryNoteDialogProps {
 }
 
 const phoneDigits = (v: string) => v.replace(/\D/g, '');
-const isValidPhone = (v: string) => phoneDigits(v).length === 10;
+/** Keep what the person typed/pasted, just drop junk characters. */
+const cleanPhoneInput = (v: string) => v.replace(/[^\d+\s()\-.]/g, '').slice(0, 24);
+/** Accepts any international number: 7–15 digits (E.164 range). */
+const isValidPhone = (v: string) => {
+  const d = phoneDigits(v);
+  return d.length >= 7 && d.length <= 15;
+};
 const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+
 
 type StepKey = 'who' | 'contact' | 'promise' | 'tenants' | 'review';
 
@@ -156,9 +165,9 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
       const picked = await pickContact();
       if (!picked) return;
       if (picked.phone) {
-        const digits = picked.phone.replace(/\D/g, '').slice(0, 10);
-        if (!whatsappNumber) setWhatsappNumber(digits);
-        else if (!phoneNumber) setPhoneNumber(digits);
+        const num = cleanPhoneInput(picked.phone);
+        if (!whatsappNumber) setWhatsappNumber(num);
+        else if (!phoneNumber) setPhoneNumber(num);
       }
       if (picked.email && !email.trim()) setEmail(picked.email);
       if (picked.name) {
@@ -239,8 +248,8 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
     try {
       const payload: Record<string, string | number | null> = {
         partner_name: partnerName.trim(),
-        whatsapp_number: whatsappNumber.trim(),
-        phone_number: phoneNumber.trim() || null,
+        whatsapp_number: normalizeWa(whatsappNumber),
+        phone_number: phoneNumber.trim() ? normalizeWa(phoneNumber) : null,
         email: email.trim() || null,
         amount: Number(amount),
         recorded_on: recordedOn || todayIso,
@@ -421,23 +430,27 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
         <div className="space-y-3">
           <div className="space-y-1">
             <Label htmlFor="promissory-whatsapp" className="text-xs">
-              WhatsApp number <span className="text-muted-foreground">(10 digits)</span>
+              WhatsApp number <span className="text-muted-foreground">(any country)</span>
             </Label>
             <Input
               id="promissory-whatsapp"
               value={whatsappNumber}
-              onChange={(e) => {
-                const v = e.target.value.replace(/\D/g, '').slice(0, 10);
-                setWhatsappNumber(v);
+              onChange={(e) => setWhatsappNumber(cleanPhoneInput(e.target.value))}
+              onPaste={(e) => {
+                e.preventDefault();
+                setWhatsappNumber(cleanPhoneInput(e.clipboardData.getData('text')));
               }}
-              placeholder="0780000000"
+              placeholder="0780000000 or +44 7700 900123"
               type="tel"
-              inputMode="numeric"
+              inputMode="tel"
+              autoComplete="tel"
+              autoCorrect="off"
+              spellCheck={false}
               className="h-11"
-              maxLength={10}
+              maxLength={24}
             />
             {showStepErrors && !isValidPhone(whatsappNumber) && (
-              <p className="text-[11px] text-destructive">Enter a valid 10-digit number</p>
+              <p className="text-[11px] text-destructive">Enter a valid phone number (with country code if outside Uganda)</p>
             )}
           </div>
 
@@ -448,18 +461,22 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
             <Input
               id="promissory-phone"
               value={phoneNumber}
-              onChange={(e) => {
-                const v = e.target.value.replace(/\D/g, '').slice(0, 10);
-                setPhoneNumber(v);
+              onChange={(e) => setPhoneNumber(cleanPhoneInput(e.target.value))}
+              onPaste={(e) => {
+                e.preventDefault();
+                setPhoneNumber(cleanPhoneInput(e.clipboardData.getData('text')));
               }}
-              placeholder="0780000000"
+              placeholder="0780000000 or +254 712 345678"
               type="tel"
-              inputMode="numeric"
+              inputMode="tel"
+              autoComplete="tel"
+              autoCorrect="off"
+              spellCheck={false}
               className="h-11"
-              maxLength={10}
+              maxLength={24}
             />
             {showStepErrors && phoneNumber.trim() && !isValidPhone(phoneNumber) && (
-              <p className="text-[11px] text-destructive">Enter a valid 10-digit number</p>
+              <p className="text-[11px] text-destructive">Enter a valid phone number (with country code if outside Uganda)</p>
             )}
           </div>
 
@@ -470,11 +487,18 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
             <Input
               id="promissory-email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value.trim())}
+              onPaste={(e) => {
+                e.preventDefault();
+                setEmail(e.clipboardData.getData('text').trim());
+              }}
               placeholder="email@example.com"
               type="email"
               inputMode="email"
               autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               className="h-11"
               maxLength={255}
             />
@@ -482,6 +506,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self' 
               <p className="text-[11px] text-destructive">Enter a valid email</p>
             )}
           </div>
+
         </div>
       </CardContent>
     </Card>
