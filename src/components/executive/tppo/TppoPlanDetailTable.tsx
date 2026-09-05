@@ -85,6 +85,17 @@ export function TppoPlanDetailTable({
     agentFilter === 'all' ? rows : rows.filter((r) => r.agent_name === agentFilter);
   const visible = filteredRows.slice(0, shown);
   const remaining = filteredRows.length - visible.length;
+  // Footer sums reflect only the rows currently displayed (agent filter applied).
+  const shownTotals = filteredRows.reduce(
+    (acc, r) => ({
+      plans: acc.plans + 1,
+      scheduled: acc.scheduled + r.scheduled_in_period,
+      arrears: acc.arrears + r.arrears,
+      planTotal: acc.planTotal + r.plan_total,
+      repaid: acc.repaid + r.repaid,
+    }),
+    { plans: 0, scheduled: 0, arrears: 0, planTotal: 0, repaid: 0 },
+  );
 
   return (
     <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
