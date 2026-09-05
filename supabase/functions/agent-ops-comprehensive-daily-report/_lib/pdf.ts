@@ -297,6 +297,97 @@ export function buildComprehensiveReportPdf(input: {
     cursor = (doc as Any).lastAutoTable.finalY + 7;
   };
 
+  /**
+   * Bordered chart block with grouped bars — the print equivalent of the
+   * template's Chart.js canvases (grey = expected, green = collected,
+   * red = shortfall).
+   */
+  const barChart = (opts: {
+    title: string;
+    subtitle: string;
+    series: { label: string; color: RGB }[];
+    points: { label: string; values: number[] }[];
+    valueFormat?: (v: number) => string;
+  }) => {
+    if (!opts.points.length) return;
+    const blockH = 62;
+    if (cursor + blockH > footerY - 6) {
+      pageHeader(lastHeader.title, [
+        ...lastHeader.meta.filter(([l]) => !/^section/i.test(l)),
+        ['Section:', 'continued'],
+      ]);
+    }
+    const top = cursor;
+    doc.setDrawColor(...BORDER);
+    doc.setLineWidth(0.2);
+    doc.rect(margin, top, contentW, blockH, 'S');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.6);
+    doc.setTextColor(...TEXT_MAIN);
+    doc.text(opts.title, margin + 4, top + 6);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...MUTED);
+    doc.text(opts.subtitle, margin + 4, top + 10.4);
+
+    // Legend
+    let lx = margin + 4;
+    const ly = top + 15;
+    opts.series.forEach((s) => {
+      doc.setFillColor(...s.color);
+      doc.rect(lx, ly - 2.2, 2.6, 2.6, 'F');
+      doc.setFontSize(6.6);
+      doc.setTextColor(...TEXT_BODY);
+      doc.text(s.label, lx + 3.8, ly);
+      lx += 3.8 + doc.getTextWidth(s.label) + 7;
+    });
+
+    const plotTop = top + 19;
+    const plotBottom = top + blockH - 10;
+    const plotLeft = margin + 4;
+    const plotRight = pageWidth - margin - 4;
+    const plotH = plotBottom - plotTop;
+    const max = Math.max(1, ...opts.points.flatMap((p) => p.values));
+
+    // Gridlines
+    doc.setDrawColor(...BORDER);
+    doc.setLineWidth(0.15);
+    for (let g = 0; g <= 4; g += 1) {
+      const y = plotBottom - (plotH * g) / 4;
+      doc.line(plotLeft, y, plotRight, y);
+    }
+    doc.setDrawColor(...BORDER_DARK);
+    doc.setLineWidth(0.3);
+    doc.line(plotLeft, plotBottom, plotRight, plotBottom);
+
+    const slot = (plotRight - plotLeft) / opts.points.length;
+    const barW = Math.min(4.2, (slot - 2) / opts.series.length);
+    opts.points.forEach((p, i) => {
+      const groupW = barW * opts.series.length;
+      const x0 = plotLeft + slot * i + (slot - groupW) / 2;
+      p.values.forEach((v, si) => {
+        const h = Math.max(0.4, (Math.max(0, v) / max) * plotH);
+        doc.setFillColor(...opts.series[si].color);
+        doc.rect(x0 + barW * si, plotBottom - h, barW, h, 'F');
+      });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(5.6);
+      doc.setTextColor(...MUTED);
+      const label = p.label.length > 12 ? `${p.label.slice(0, 11)}.` : p.label;
+      doc.text(label, x0 + groupW / 2, plotBottom + 3.4, { align: 'center' });
+    });
+
+    // Max-value axis annotation
+    doc.setFontSize(5.8);
+    doc.setTextColor(...MUTED);
+    doc.text((opts.valueFormat ?? num)(max), plotRight, plotTop - 1.2, { align: 'right' });
+
+    cursor = top + blockH + 6;
+  };
+
+
+
   // ── Page 1 — cover, executive narrative, KPI matrix ───────────────────────
   pageHeader('Agent Operations Comprehensive Report', [
     ['Reporting Period:', periodText],
