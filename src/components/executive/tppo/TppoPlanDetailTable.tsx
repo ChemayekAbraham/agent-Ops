@@ -62,6 +62,7 @@ export function TppoPlanDetailTable({
   const [shown, setShown] = useState(PAGE);
   const [selected, setSelected] = useState<{ id: string; name: string } | null>(null);
   const [collapsed, setCollapsed] = useState(false);
+  const [agentFilter, setAgentFilter] = useState<string>('all');
 
   const { data, isPending, isError, error } = useQuery({
     queryKey: ['tppo-plan-detail', granularity, anchor],
@@ -77,8 +78,13 @@ export function TppoPlanDetailTable({
   });
 
   const rows = data?.rows ?? [];
-  const visible = rows.slice(0, shown);
-  const remaining = rows.length - visible.length;
+  const agentNames = Array.from(new Set(rows.map((r) => r.agent_name))).sort((a, b) =>
+    a.localeCompare(b),
+  );
+  const filteredRows =
+    agentFilter === 'all' ? rows : rows.filter((r) => r.agent_name === agentFilter);
+  const visible = filteredRows.slice(0, shown);
+  const remaining = filteredRows.length - visible.length;
 
   return (
     <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
@@ -142,7 +148,24 @@ export function TppoPlanDetailTable({
               <TableRow>
                 <TableHead className="w-10">#</TableHead>
                 <TableHead>Tenant</TableHead>
-                <TableHead>Agent</TableHead>
+                <TableHead>
+                  <select
+                    value={agentFilter}
+                    onChange={(e) => {
+                      setAgentFilter(e.target.value);
+                      setShown(PAGE);
+                    }}
+                    className="w-full max-w-[160px] cursor-pointer rounded-md border border-transparent bg-transparent text-xs font-medium text-muted-foreground hover:border-border focus:outline-none focus:ring-1 focus:ring-ring"
+                    aria-label="Filter by agent"
+                  >
+                    <option value="all">Agent (All)</option>
+                    {agentNames.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </TableHead>
                 <TableHead className="text-right">Daily amount</TableHead>
                 <TableHead className="text-right">Scheduled</TableHead>
                 <TableHead className="text-right">Arrears</TableHead>
