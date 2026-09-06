@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 import {
   Users, UserPlus, Activity, FileText, Home, Wallet, Banknote, TrendingDown,
-  TrendingUp, ArrowRight, UsersRound, Network, Coins, Hourglass, Receipt, Trophy,
+  TrendingUp, ArrowRight, UsersRound, Coins, Hourglass, Receipt, Trophy,
   RefreshCw,
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
