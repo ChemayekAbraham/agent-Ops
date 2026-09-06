@@ -42,6 +42,14 @@ const cycleLabel = (f: string | null) => {
   return 'Daily';
 };
 
+const expectedInstallment = (daily: number | null, cycle: string | null) => {
+  const d = Number(daily || 0);
+  const v = (cycle || 'daily').toLowerCase();
+  if (v.startsWith('week')) return d * 7;
+  if (v.startsWith('month')) return d * 30;
+  return d;
+};
+
 const ratingTone = (pct: number | null) =>
   pct === null ? 'text-muted-foreground'
     : pct >= 90 ? 'text-emerald-600'
