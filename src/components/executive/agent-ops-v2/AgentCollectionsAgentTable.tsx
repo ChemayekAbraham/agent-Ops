@@ -102,12 +102,25 @@ function AgentCollectionsDrilldown({
   });
 
   const rows = data ?? [];
-  const total = rows.reduce((s, r) => s + r.amount, 0);
+  const [tenantSearch, setTenantSearch] = useState('');
+  const tenantFiltered = useMemo(() => {
+    const q = tenantSearch.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(r =>
+      r.tenantName.toLowerCase().includes(q) ||
+      (r.tenantPhone ?? '').toLowerCase().includes(q)
+    );
+  }, [rows, tenantSearch]);
+
+  const total = tenantFiltered.reduce((s, r) => s + r.amount, 0);
+  const totalExpected = tenantFiltered.reduce((s, r) => s + r.expectedAmount, 0);
+  const totalBalance = tenantFiltered.reduce((s, r) => s + r.balance, 0);
 
   const exportCsv = () => {
-    if (rows.length === 0) return;
+    const sourceRows = tenantFiltered.length ? tenantFiltered : rows;
+    if (sourceRows.length === 0) return;
     const header = ['Tenant', 'Phone', 'Amount collected', 'Expected', 'Balance', 'Total outstanding', 'Cycle', 'Collected at'];
-    const body = rows.map(r => [
+    const body = sourceRows.map(r => [
       r.tenantName,
       r.tenantPhone ?? '',
       r.amount,
