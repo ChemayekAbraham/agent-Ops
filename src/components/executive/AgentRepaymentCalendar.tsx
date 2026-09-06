@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { CalendarDays, ChevronDown, ChevronUp } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
 import { cn } from '@/lib/utils';
 
@@ -25,7 +25,7 @@ interface DayCell { day: string; amount: number; count: number }
  * Source of truth is agent_collections — no projections, no estimates.
  */
 export function AgentRepaymentCalendar({ agentId }: { agentId: string }) {
-  const [expanded, setExpanded] = useState(false);
+  const [monthIndex, setMonthIndex] = useState(0); // 0 = newest month
 
   const { data, isLoading } = useQuery({
     queryKey: ['agent-repayment-calendar', agentId],
