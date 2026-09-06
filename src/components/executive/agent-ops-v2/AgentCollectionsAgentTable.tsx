@@ -102,12 +102,25 @@ function AgentCollectionsDrilldown({
   });
 
   const rows = data ?? [];
-  const total = rows.reduce((s, r) => s + r.amount, 0);
+  const [tenantSearch, setTenantSearch] = useState('');
+  const tenantFiltered = useMemo(() => {
+    const q = tenantSearch.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter(r =>
+      r.tenantName.toLowerCase().includes(q) ||
+      (r.tenantPhone ?? '').toLowerCase().includes(q)
+    );
+  }, [rows, tenantSearch]);
+
+  const total = tenantFiltered.reduce((s, r) => s + r.amount, 0);
+  const totalExpected = tenantFiltered.reduce((s, r) => s + r.expectedAmount, 0);
+  const totalBalance = tenantFiltered.reduce((s, r) => s + r.balance, 0);
 
   const exportCsv = () => {
-    if (rows.length === 0) return;
+    const sourceRows = tenantFiltered.length ? tenantFiltered : rows;
+    if (sourceRows.length === 0) return;
     const header = ['Tenant', 'Phone', 'Amount collected', 'Expected', 'Balance', 'Total outstanding', 'Cycle', 'Collected at'];
-    const body = rows.map(r => [
+    const body = sourceRows.map(r => [
       r.tenantName,
       r.tenantPhone ?? '',
       r.amount,
@@ -142,14 +155,24 @@ function AgentCollectionsDrilldown({
           <Badge variant="outline" className="text-[10px]">
             {format(start, 'dd MMM yyyy')} – {format(end, 'dd MMM yyyy')}
           </Badge>
-          <span>{rows.length} records</span>
+          <span>{tenantFiltered.length} records</span>
           <span className="font-semibold text-emerald-600">{formatUGX(total)} collected</span>
           <span className="font-semibold text-destructive">
-            {formatUGX(Math.max(0, agent.expected - total))} balance
+            {formatUGX(totalBalance)} balance
           </span>
-          <Button size="sm" variant="outline" className="h-8 text-xs ml-auto" disabled={rows.length === 0} onClick={exportCsv}>
+          <Button size="sm" variant="outline" className="h-8 text-xs ml-auto" disabled={tenantFiltered.length === 0} onClick={exportCsv}>
             <FileDown className="h-3.5 w-3.5 mr-1" /> Export CSV
           </Button>
+        </div>
+
+        <div className="relative">
+          <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={tenantSearch}
+            onChange={e => setTenantSearch(e.target.value)}
+            placeholder="Search tenant"
+            className="h-8 pl-7 text-xs"
+          />
         </div>
 
         {isLoading ? (
@@ -158,11 +181,13 @@ function AgentCollectionsDrilldown({
           <p className="py-8 text-center text-sm text-destructive">{(error as any)?.message || 'Could not load records'}</p>
         ) : rows.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">No collections recorded in this period.</p>
+        ) : tenantFiltered.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">No tenants match your search.</p>
         ) : (
           <>
             {/* Mobile cards */}
             <div className="space-y-2 md:hidden">
-              {rows.map(r => (
+              {tenantFiltered.map(r => (
                 <div key={r.id} className="rounded-lg border p-2.5">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -208,7 +233,7 @@ function AgentCollectionsDrilldown({
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map(r => (
+                  {tenantFiltered.map(r => (
                     <tr key={r.id} className="border-t hover:bg-accent/30">
                       <td className="p-2">
                         <p className="font-medium">{r.tenantName}</p>
@@ -229,10 +254,10 @@ function AgentCollectionsDrilldown({
                 </tbody>
                 <tfoot>
                   <tr className="border-t bg-muted/40 font-semibold">
-                    <td className="p-2">Total · {rows.length} records</td>
+                    <td className="p-2">Total · {tenantFiltered.length} records</td>
                     <td className="p-2 text-right tabular-nums">{formatUGX(total)}</td>
-                    <td className="p-2 text-right tabular-nums">{formatUGX(rows.reduce((s, r) => s + r.expectedAmount, 0))}</td>
-                    <td className="p-2 text-right tabular-nums">{formatUGX(rows.reduce((s, r) => s + r.balance, 0))}</td>
+                    <td className="p-2 text-right tabular-nums">{formatUGX(totalExpected)}</td>
+                    <td className="p-2 text-right tabular-nums">{formatUGX(totalBalance)}</td>
                     <td colSpan={3} />
                   </tr>
                 </tfoot>
