@@ -208,10 +208,14 @@ function AgentCollectionsDrilldown({
                     </div>
                     <p className="text-sm font-semibold tabular-nums text-emerald-600">{formatUGX(r.amount)}</p>
                   </div>
-                  <div className="mt-1.5 grid grid-cols-3 gap-2 text-[11px]">
+                  <div className="mt-1.5 grid grid-cols-4 gap-2 text-[11px]">
+                    <div>
+                      <p className="text-muted-foreground">Expected</p>
+                      <p className="font-medium tabular-nums">{formatUGX(r.expectedAmount)}</p>
+                    </div>
                     <div>
                       <p className="text-muted-foreground">Balance</p>
-                      <p className="font-medium tabular-nums text-destructive">{r.planBalance === null ? '—' : formatUGX(r.planBalance)}</p>
+                      <p className="font-medium tabular-nums text-destructive">{formatUGX(r.balance)}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Outstanding</p>
