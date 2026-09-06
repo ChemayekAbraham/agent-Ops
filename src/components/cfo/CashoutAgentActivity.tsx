@@ -50,15 +50,31 @@ export function CashoutAgentActivity() {
     queryKey: ['cashout-agent-payouts', agentIds.join(',')],
     queryFn: async () => {
       if (agentIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from('withdrawal_requests')
-        .select('id, user_id, amount, status, payout_method, fin_ops_reference, fin_ops_approved_at, fin_ops_approved_by, fin_ops_verified_by, processed_at, processed_by, created_at')
-        .in('processed_by', agentIds)
-        .in('status', COMPLETED_STATUSES)
-        .order('processed_at', { ascending: false })
-        .limit(500);
-      if (error) throw error;
-      return data || [];
+      // PostgREST caps any single response at 1,000 rows, and this query used
+      // to ask for only 500 — so the KPIs and per-agent stats below were
+      // computed from a fraction of the network's payouts. Page through until
+      // a short page comes back. The `id` tiebreaker on the sort matters:
+      // processed_at is not unique, so without it rows can repeat or vanish
+      // across page boundaries.
+      const PAGE = 1000;
+      const out: any[] = [];
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('withdrawal_requests')
+          .select('id, user_id, amount, status, payout_method, fin_ops_reference, fin_ops_approved_at, fin_ops_approved_by, fin_ops_verified_by, processed_at, processed_by, created_at')
+          .in('processed_by', agentIds)
+          .in('status', COMPLETED_STATUSES)
+          .order('processed_at', { ascending: false })
+          .order('id', { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        const rows = data || [];
+        out.push(...rows);
+        if (rows.length < PAGE) break;
+        // Safety valve against runaway loops.
+        if (out.length >= 50_000) break;
+      }
+      return out;
     },
     enabled: agentIds.length > 0,
     staleTime: 30_000,
@@ -73,12 +89,21 @@ export function CashoutAgentActivity() {
     queryKey: ['cashout-payout-beneficiaries', beneficiaryIds.join(',')],
     queryFn: async () => {
       if (beneficiaryIds.length === 0) return [];
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone')
-        .in('id', beneficiaryIds);
-      if (error) throw error;
-      return data || [];
+      // Now that the payout list is complete this spans well over a thousand
+      // distinct beneficiaries, which a single .in() cannot carry: the id list
+      // overruns the request URL, and the response would be cut at PostgREST's
+      // 1,000-row ceiling anyway. Look them up in chunks and stitch together.
+      const CHUNK = 200;
+      const out: any[] = [];
+      for (let i = 0; i < beneficiaryIds.length; i += CHUNK) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, phone')
+          .in('id', beneficiaryIds.slice(i, i + CHUNK));
+        if (error) throw error;
+        out.push(...(data || []));
+      }
+      return out;
     },
     enabled: beneficiaryIds.length > 0,
     staleTime: 60_000,
