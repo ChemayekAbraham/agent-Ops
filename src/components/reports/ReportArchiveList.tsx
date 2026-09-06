@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
+import { downloadArchivedReportPdf } from '@/lib/archivedReportPdf';
 
 type ArchiveRow = {
   id: string;
@@ -99,6 +100,19 @@ function ReportDetailDialog({
           <DialogTitle className="text-center text-base">{row?.title ?? 'Archived report'}</DialogTitle>
         </DialogHeader>
 
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={isLoading || !payload || !row}
+            onClick={() => {
+              if (row && payload) void downloadArchivedReportPdf(row, payload);
+            }}
+          >
+            Download PDF
+          </Button>
+        </div>
+
         {row && (
           <p className="text-center text-[11px] text-muted-foreground">
             {row.source_label ?? row.source ?? '—'} · {row.period_start ?? '—'} to {row.period_end ?? '—'} ·
@@ -184,21 +198,23 @@ function ReportDetailDialog({
   );
 }
 
-export function ReportArchiveList() {
+export function ReportArchiveList({ source }: { source?: string } = {}) {
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [granularityFilter, setGranularityFilter] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<ArchiveRow | null>(null);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['report-archive'],
+    queryKey: ['report-archive', source ?? null],
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('report_archive')
         .select(
           'id, source, source_label, granularity, period_start, period_end, title, summary, submitted_by_name, submitted_at'
-        )
+        );
+      if (source) query = query.eq('source', source);
+      const { data, error } = await query
         .order('submitted_at', { ascending: false })
         .limit(500);
       if (error) throw error;
@@ -269,27 +285,29 @@ export function ReportArchiveList() {
 
       <Card>
         <CardContent className="space-y-3 p-3">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              className="h-8 text-xs"
-              variant={sourceFilter === null ? 'default' : 'outline'}
-              onClick={() => setSourceFilter(null)}
-            >
-              All
-            </Button>
-            {sourceLabels.map((label) => (
+          {!source && (
+            <div className="flex flex-wrap gap-2">
               <Button
-                key={label}
                 size="sm"
                 className="h-8 text-xs"
-                variant={sourceFilter === label ? 'default' : 'outline'}
-                onClick={() => setSourceFilter(label)}
+                variant={sourceFilter === null ? 'default' : 'outline'}
+                onClick={() => setSourceFilter(null)}
               >
-                {label}
+                All
               </Button>
-            ))}
-          </div>
+              {sourceLabels.map((label) => (
+                <Button
+                  key={label}
+                  size="sm"
+                  className="h-8 text-xs"
+                  variant={sourceFilter === label ? 'default' : 'outline'}
+                  onClick={() => setSourceFilter(label)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-2">
             {GRANULARITIES.map((g) => (
