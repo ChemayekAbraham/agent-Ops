@@ -15,7 +15,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell,
 } from 'recharts';
 import {
-  CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown,
+  CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown, Receipt,
 } from 'lucide-react';
 import { ComprehensiveReportButton } from './ComprehensiveReportButton';
 import { AgentCollectionsAgentTable } from './AgentCollectionsAgentTable';
