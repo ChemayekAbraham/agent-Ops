@@ -530,15 +530,38 @@ function PartialCollectionsOverview() {
     staleTime: 60_000,
     queryFn: async () => {
       const since = startOfDay(subDays(new Date(), DAYS - 1));
-      const { data: cols, error } = await supabase
-        .from('agent_collections')
-        .select('id, amount, created_at, tenant_id, rent_request_id')
-        .gte('created_at', since.toISOString())
-        .gt('amount', 0)
-        .limit(5000);
-      if (error) throw error;
+      const today = startOfDay(new Date());
+      const sinceStr = format(since, 'yyyy-MM-dd');
+      const todayStr = format(today, 'yyyy-MM-dd');
+
+      const [{ data: cols, error: colsErr }, { data: expectedRows, error: expErr }] = await Promise.all([
+        supabase
+          .from('agent_collections')
+          .select('id, amount, created_at, tenant_id, rent_request_id')
+          .gte('created_at', since.toISOString())
+          .gt('amount', 0)
+          .limit(5000),
+        supabase
+          .from('agent_expected_day_plans')
+          .select('day, rent_request_id')
+          .gte('day', sinceStr)
+          .lte('day', todayStr)
+          .limit(20000),
+      ]);
+      if (colsErr) throw colsErr;
+      if (expErr) throw expErr;
+
       const rows = (cols || []) as any[];
-      if (rows.length === 0) return { series: [], full: 0, partial: 0, shortfall: 0 };
+
+      const expectedByDay = new Map<string, number>();
+      for (const e of (expectedRows || []) as any[]) {
+        const key = String(e.day).slice(0, 10);
+        expectedByDay.set(key, (expectedByDay.get(key) || 0) + 1);
+      }
+
+      if (rows.length === 0 && expectedByDay.size === 0) {
+        return { series: [], full: 0, partial: 0, missed: 0, shortfall: 0 };
+      }
 
       const tenantIds = Array.from(new Set(rows.map(r => r.tenant_id).filter(Boolean)));
       const { data: plans } = await supabase
@@ -559,12 +582,12 @@ function PartialCollectionsOverview() {
         return freq === 'weekly' ? daily * 7 : freq === 'monthly' ? daily * 30 : daily;
       };
 
-      const buckets = new Map<string, { label: string; full: number; partial: number; shortfall: number }>();
+      const buckets = new Map<string, { label: string; full: number; partial: number; missed: number; shortfall: number }>();
       for (let i = DAYS - 1; i >= 0; i--) {
         const d = subDays(new Date(), i);
-        buckets.set(format(d, 'yyyy-MM-dd'), { label: format(d, 'd MMM'), full: 0, partial: 0, shortfall: 0 });
+        buckets.set(format(d, 'yyyy-MM-dd'), { label: format(d, 'd MMM'), full: 0, partial: 0, missed: 0, shortfall: 0 });
       }
-      let full = 0, partial = 0, shortfall = 0;
+      let full = 0, partial = 0, missed = 0, shortfall = 0;
       for (const r of rows) {
         const key = format(new Date(r.created_at), 'yyyy-MM-dd');
         const b = buckets.get(key);
@@ -579,34 +602,41 @@ function PartialCollectionsOverview() {
           b.full += 1; full += 1;
         }
       }
-      return { series: Array.from(buckets.values()), full, partial, shortfall };
+      for (const [key, b] of buckets) {
+        const expCount = expectedByDay.get(key) || 0;
+        b.missed = Math.max(0, expCount - b.full - b.partial);
+        missed += b.missed;
+      }
+      return { series: Array.from(buckets.values()), full, partial, missed, shortfall };
     },
   });
 
-  const total = (data?.full || 0) + (data?.partial || 0);
+  const total = (data?.full || 0) + (data?.partial || 0) + (data?.missed || 0);
   const partialPct = total ? Math.round(((data?.partial || 0) / total) * 100) : 0;
+  const missedPct = total ? Math.round(((data?.missed || 0) / total) * 100) : 0;
 
   return (
     <Card className="rounded-2xl border-border/50 p-3 sm:p-4 w-full">
       <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
         <div>
-          <h3 className="text-sm font-semibold">Partial Collection Overview</h3>
+          <h3 className="text-sm font-semibold">Collection Quality Overview</h3>
           <p className="text-[11px] text-muted-foreground">
-            Payments that met the tenant's due amount versus those that fell short · last {DAYS} days
+            Full, partial and missed expected payments · last {DAYS} days
           </p>
         </div>
         {!isLoading && total > 0 && (
-          <div className="flex items-center gap-3 text-[11px]">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
             <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{fmtNum(data?.full || 0)} full</span>
-            <span className="text-amber-600 dark:text-amber-400 font-semibold">{fmtNum(data?.partial || 0)} partial ({partialPct}%)</span>
-            <span className="text-red-600 dark:text-red-400 font-semibold">Short {fmtMoney(data?.shortfall || 0)}</span>
+            <span className="text-amber-500 dark:text-amber-400 font-semibold">{fmtNum(data?.partial || 0)} partial ({partialPct}%)</span>
+            <span className="text-red-500 dark:text-red-400 font-semibold">{fmtNum(data?.missed || 0)} missed ({missedPct}%)</span>
+            <span className="text-rose-600 dark:text-rose-400 font-semibold">Short {fmtMoney(data?.shortfall || 0)}</span>
           </div>
         )}
       </div>
       {isLoading ? (
         <Skeleton className="h-56 w-full" />
       ) : !data || total === 0 ? (
-        <p className="text-xs text-muted-foreground p-4 text-center">No collections recorded in the last {DAYS} days.</p>
+        <p className="text-xs text-muted-foreground p-4 text-center">No collections or expected payments recorded in the last {DAYS} days.</p>
       ) : (
         <div className="h-56 sm:h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
@@ -619,8 +649,9 @@ function PartialCollectionsOverview() {
                 formatter={(v: number, name: string) => [fmtNum(v), name]}
               />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="full" stackId="c" name="Full payment" fill="hsl(160 84% 39%)" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="partial" stackId="c" name="Partial payment" fill="hsl(38 92% 50%)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="full" stackId="c" name="Full payment" fill="#22c55e" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="partial" stackId="c" name="Partial payment" fill="#f59e0b" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="missed" stackId="c" name="Missed payment" fill="#ef4444" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
