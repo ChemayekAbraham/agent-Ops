@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { AgentEligibilityHistoryStrip } from './AgentEligibilityHistoryStrip';
+import { AgentRepaymentCalendar } from './AgentRepaymentCalendar';
 import { AgentBioEditor } from './AgentBioEditor';
 
 interface Props {
@@ -93,6 +94,7 @@ function TargetCards({ agentId, dailyTarget }: { agentId: string | null; dailyTa
         ))}
       </div>
       {agentId && <AgentEligibilityHistoryStrip agentId={agentId} />}
+      {agentId && <AgentRepaymentCalendar agentId={agentId} />}
     </div>
   );
 }
