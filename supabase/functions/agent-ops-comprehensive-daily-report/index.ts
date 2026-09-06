@@ -12,6 +12,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import { buildAgentOpsComprehensiveReportHtml } from './_lib/report.ts';
 import { buildComprehensiveReportPdf } from './_lib/pdf.ts';
+import { buildReportSummaryEmail } from './_lib/emailSummary.ts';
 
 
 const corsHeaders = {
@@ -158,20 +159,20 @@ Deno.serve(async (req) => {
       ? `Welile Agent Ops - Comprehensive Report (${toDate})`
       : `Welile Agent Ops - Comprehensive Report (${fromDate} to ${toDate})`;
 
-    const failureNote = pdfError
-      ? '<div style="margin:16px;padding:12px 14px;border:1px solid #f0b4b4;background:#fdf1f1;color:#8a1c1c;font:13px/1.5 Arial,sans-serif;">'
-        + '<strong>Automated PDF generation failed.</strong> The full report is in this email body. '
-        + `Technical detail: ${pdfError.replace(/[<>&]/g, '')}</div>`
-      : '';
+    // The email body is a SHORT summary; the full report travels as the PDF.
+    const summary = buildReportSummaryEmail({
+      report, population, fromDate, toDate,
+      periodLabel: fromDate === toDate ? 'Daily (previous day)' : 'Custom range',
+      attachmentName: pdfBytes ? filename : null,
+      pdfError,
+    } as never);
 
     const form = new FormData();
     form.set('from', DEFAULT_FROM);
     recipients.forEach((r) => form.append('to', r));
     form.set('subject', subject);
-    form.set('text', pdfBytes
-      ? `${subject}\n\nThe full report is in this email and attached as a PDF file.`
-      : `${subject}\n\nAutomated PDF generation failed, so no attachment is included. The full report is in this email body.`);
-    form.set('html', failureNote ? failureNote + html : html);
+    form.set('text', summary.text);
+    form.set('html', summary.html);
     form.set('o:tag', 'agent-ops-comprehensive-daily');
     if (pdfBytes) {
       form.append('attachment', new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' }), filename);

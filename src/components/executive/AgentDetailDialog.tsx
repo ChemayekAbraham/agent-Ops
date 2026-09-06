@@ -12,6 +12,8 @@ import {
   CheckCircle2, XCircle, AlertTriangle, Receipt, Award, Activity,
 } from 'lucide-react';
 import { AgentEvaluationSection } from './AgentEvaluationSection';
+import { AgentPromissoryNotesSection } from './AgentPromissoryNotesSection';
+
 
 type Props = {
   agentId: string | null;
@@ -144,6 +146,8 @@ export function AgentDetailDialog({ agentId, open, onOpenChange }: Props) {
                   <TabsTrigger value="commissions" className="text-xs">Payouts</TabsTrigger>
                   <TabsTrigger value="ops" className="text-xs">Ops</TabsTrigger>
                   <TabsTrigger value="landlords" className="text-xs">Landlords</TabsTrigger>
+                  <TabsTrigger value="promissory" className="text-xs">Promissory Notes</TabsTrigger>
+
                 </TabsList>
 
                 <TabsContent value="evaluation" className="mt-3">
@@ -189,7 +193,12 @@ export function AgentDetailDialog({ agentId, open, onOpenChange }: Props) {
                 <TabsContent value="landlords" className="mt-3">
                   <LandlordsList items={data.assignments} />
                 </TabsContent>
+
+                <TabsContent value="promissory" className="mt-3">
+                  {agentId && <AgentPromissoryNotesSection agentId={agentId} />}
+                </TabsContent>
               </Tabs>
+
             </div>
           </ScrollArea>
         )}

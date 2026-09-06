@@ -37,6 +37,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserAvatar } from '@/components/UserAvatar';
 import { downloadAuditPdf } from '@/lib/pdfAuditReport';
 import { formatUGX } from '@/lib/rentCalculations';
+import { CollectionsRhythmCharts } from '@/components/executive/agent-ops-v2/CollectionsRhythmCharts';
 
 const PAGE_SIZE = 15;
 
@@ -371,7 +372,7 @@ export function AgentRentBehaviourPanel() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<RentBehaviourRow | null>(null);
   const [detailTab, setDetailTab] = useState('overview');
-  const [fromDate, setFromDate] = useState(() => isoDaysAgo(29));
+  const [fromDate, setFromDate] = useState(() => todayIso());
   const [toDate, setToDate] = useState(() => todayIso());
   const [sortKey, setSortKey] = useState<SortKey>('recent');
   const [searchInput, setSearchInput] = useState('');
@@ -589,6 +590,10 @@ export function AgentRentBehaviourPanel() {
             </button>
           )}
         </div>
+
+        <CollectionsRhythmCharts from={fromDate} to={toDate} />
+
+
 
 
         {isLoading ? (

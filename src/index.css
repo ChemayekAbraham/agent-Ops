@@ -1525,3 +1525,15 @@ body.a11y-large [aria-expanded] { padding-top: 12px; padding-bottom: 12px; }
     --uib-speed: 2.4s;
   }
 }
+
+/* In-app "Reduce motion" choice (Settings → Accessibility → Motion).
+   Mirrors the OS-level prefers-reduced-motion behaviour for users whose
+   phone setting says otherwise. */
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}

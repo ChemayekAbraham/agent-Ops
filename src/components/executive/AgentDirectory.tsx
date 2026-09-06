@@ -93,7 +93,7 @@ export function AgentDirectory() {
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [type, setType] = useState<'all' | 'agent' | 'sub_agent'>('all');
-  const [status, setStatus] = useState<'all' | 'active' | 'inactive' | 'frozen'>('all');
+  const [status, setStatus] = useState<'all' | 'active' | 'inactive' | 'frozen'>('active');
   const [page, setPage] = useState(0);
   const [openAgentId, setOpenAgentId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'region'>('list');

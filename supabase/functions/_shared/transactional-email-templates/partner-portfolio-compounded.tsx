@@ -103,10 +103,24 @@ export function PartnerPortfolioCompounded({
   const retNum = Number(String(return_amount).replace(/,/g, '')) || 0
   const newTotalNum = Number(String(new_total_partnership_value).replace(/,/g, '')) || (principalNum + retNum)
 
+  // The return for this cycle is earned on the portfolio value AT THE START of
+  // the cycle (principal plus every return compounded in earlier cycles) — NOT
+  // on the original contribution. Senders historically passed the original
+  // contribution as `initial_partnership_amount`, which made the sentence read
+  // "your portfolio of 250,000 earned a 20% return (206,400)". Derive the true
+  // opening balance from the arithmetic that always holds: new total − return.
+  const openingNum = newTotalNum > 0 && retNum > 0 && newTotalNum - retNum > 0
+    ? newTotalNum - retNum
+    : principalNum
+  const showOriginalContribution =
+    principalNum > 0 && Math.round(principalNum) !== Math.round(openingNum)
+
   const formattedInitial = formatAmount(Math.round(principalNum), currency)
+  const formattedOpening = formatAmount(Math.round(openingNum), currency)
   const formattedReturn = formatAmount(Math.round(retNum), currency)
   const formattedNewTotal = formatAmount(Math.round(newTotalNum), currency)
-  const roiLabel = resolveRoiLabel(roi_percentage, roi_return, principalNum)
+  const roiLabel = resolveRoiLabel(roi_percentage, roi_return, openingNum)
+
 
   const compoundDateLabel = compound_date || contribution_date || creation_date || 'the date shown above'
 
@@ -220,9 +234,15 @@ export function PartnerPortfolioCompounded({
                     <Text style={introText}>
                       We are pleased to confirm the successful compounding of your portfolio (<span style={portfolioIdAccent}>{portfolio_id}</span>) with {company_name} Technologies Limited.
                     </Text>
-                    <Text style={{ ...introText, margin: 0 }}>
-                      On the <strong>{compoundDateLabel}</strong>, in accordance with your existing agreement, your portfolio of <strong>{formattedInitial}</strong> earned a {roiLabel} return (<strong>{formattedReturn}</strong>). This brings your new total portfolio value to <strong>{formattedNewTotal}</strong>.
+                    <Text style={{ ...introText, margin: showOriginalContribution ? undefined : 0 }}>
+                      On the <strong>{compoundDateLabel}</strong>, in accordance with your existing agreement, your portfolio value of <strong>{formattedOpening}</strong> earned a {roiLabel} return (<strong>{formattedReturn}</strong>). This brings your new total portfolio value to <strong>{formattedNewTotal}</strong>.
                     </Text>
+                    {showOriginalContribution && (
+                      <Text style={{ ...introText, margin: 0 }}>
+                        Your original contribution was <strong>{formattedInitial}</strong>. The value above includes every return compounded in previous cycles.
+                      </Text>
+                    )}
+
                   </td>
                 </tr>
 

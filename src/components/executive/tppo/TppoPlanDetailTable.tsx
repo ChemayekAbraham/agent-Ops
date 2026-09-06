@@ -77,6 +77,54 @@ export function TppoPlanDetailTable({
     },
   });
 
+  // Promissory notes attached to individual rent plans, so each plan's own note
+  // shows inline on its row next to the arrears figure.
+  type PlanNote = {
+    partner: string;
+    amount: number;
+    taken: string | null;
+    promised: string | null;
+    followUp: string | null;
+    intentStatus: string | null;
+  };
+  const { data: notesByPlan } = useQuery({
+    queryKey: ['tppo-plan-detail-promissory-notes-by-plan'],
+    staleTime: 300_000,
+    queryFn: async (): Promise<Record<string, PlanNote[]>> => {
+      const { data: intents, error: intentError } = await supabase
+        .from('promissory_note_plan_intents')
+        .select('note_id, rent_request_id, amount, status')
+        .order('created_at', { ascending: false })
+        .limit(2000);
+      if (intentError) throw intentError;
+      const list = (intents ?? []).filter((i) => i.rent_request_id && i.note_id);
+      if (list.length === 0) return {};
+      const noteIds = Array.from(new Set(list.map((i) => i.note_id as string)));
+      const { data: notes, error: notesError } = await supabase
+        .from('promissory_notes')
+        .select('id, partner_name, amount, recorded_on, created_at, fulfilment_due_on, follow_up_status, status')
+        .in('id', noteIds);
+      if (notesError) throw notesError;
+      const noteById = new Map((notes ?? []).map((n) => [n.id as string, n]));
+      const out: Record<string, PlanNote[]> = {};
+      for (const i of list) {
+        const n = noteById.get(i.note_id as string);
+        if (!n) continue;
+        const planId = i.rent_request_id as string;
+        (out[planId] ??= []).push({
+          partner: (n.partner_name as string | null) ?? 'Partner',
+          amount: Number(i.amount ?? n.amount ?? 0),
+          taken: ((n.recorded_on as string | null) ?? (n.created_at as string | null))?.slice(0, 10) ?? null,
+          promised: (n.fulfilment_due_on as string | null) ?? null,
+          followUp: (n.follow_up_status as string | null) ?? null,
+          intentStatus: (i.status as string | null) ?? null,
+        });
+      }
+      return out;
+    },
+  });
+
+
   const rows = data?.rows ?? [];
   const agentNames = Array.from(new Set(rows.map((r) => r.agent_name))).sort((a, b) =>
     a.localeCompare(b),
@@ -135,8 +183,21 @@ export function TppoPlanDetailTable({
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={isPending || rows.length === 0}
-                onClick={() => downloadTppoPlanDetailPdf(data)}
+                disabled={isPending || filteredRows.length === 0}
+                onClick={() =>
+                  agentFilter === 'all'
+                    ? downloadTppoPlanDetailPdf(data)
+                    : downloadTppoPlanDetailPdf(data, {
+                        agentName: agentFilter,
+                        rows: filteredRows,
+                        totals: {
+                          plans: shownTotals.plans,
+                          scheduled_total: shownTotals.scheduled,
+                          arrears_total: shownTotals.arrears,
+                          plans_in_arrears: filteredRows.filter((r) => r.arrears > 0).length,
+                        },
+                      })
+                }
               >
                 Download PDF
               </Button>
@@ -160,23 +221,31 @@ export function TppoPlanDetailTable({
                 <TableHead className="w-10">#</TableHead>
                 <TableHead>Tenant</TableHead>
                 <TableHead>
-                  <select
-                    value={agentFilter}
-                    onChange={(e) => {
-                      setAgentFilter(e.target.value);
-                      setShown(PAGE);
-                    }}
-                    className="w-full max-w-[160px] cursor-pointer rounded-md border border-transparent bg-transparent text-xs font-medium text-muted-foreground hover:border-border focus:outline-none focus:ring-1 focus:ring-ring"
-                    aria-label="Filter by agent"
-                  >
-                    <option value="all">Agent (All)</option>
-                    {agentNames.map((name) => (
-                      <option key={name} value={name}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={agentFilter}
+                      onChange={(e) => {
+                        setAgentFilter(e.target.value);
+                        setShown(PAGE);
+                      }}
+                      className="w-full max-w-[160px] cursor-pointer rounded-md border border-transparent bg-transparent text-xs font-medium text-muted-foreground hover:border-border focus:outline-none focus:ring-1 focus:ring-ring"
+                      aria-label="Filter by agent"
+                    >
+                      <option value="all">Agent (All)</option>
+                      {agentNames.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                    {agentFilter === 'all' && (
+                      <span className="text-[10px] text-muted-foreground">
+                        {agentNames.length}
+                      </span>
+                    )}
+                  </div>
                 </TableHead>
+                <TableHead>Promissory notes</TableHead>
                 <TableHead className="text-right">Daily amount</TableHead>
                 <TableHead className="text-right">Scheduled</TableHead>
                 <TableHead className="text-right">Arrears</TableHead>
@@ -192,6 +261,28 @@ export function TppoPlanDetailTable({
                   <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                   <TableCell>{row.tenant_name}</TableCell>
                   <TableCell>{row.agent_name}</TableCell>
+                  <TableCell className="text-xs">
+                    {(() => {
+                      const planNotes = notesByPlan?.[row.rent_request_id];
+                      if (!planNotes?.length) return <span className="text-muted-foreground">—</span>;
+                      const extra = planNotes.length - 1;
+                      const n = planNotes[0];
+                      return (
+                        <div className="leading-tight">
+                          <span className="font-medium">{n.partner}</span>
+                          <span className="ml-1 tabular-nums text-muted-foreground">{formatUGX(n.amount)}</span>
+                          <div className="text-[10px] text-muted-foreground">
+                            {`Taken ${n.taken ?? '—'} · Promised ${n.promised ?? '—'}`}
+                            {n.followUp ? ` · ${n.followUp.replace(/_/g, ' ')}` : ''}
+                          </div>
+                          {extra > 0 && (
+                            <div className="text-[10px] text-muted-foreground">{`+${extra} more note${extra === 1 ? '' : 's'}`}</div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </TableCell>
+
                   <TableCell className={moneyCell}>{formatUGX(row.daily_amount)}</TableCell>
                   <TableCell className={moneyCell}>{formatUGX(row.scheduled_in_period)}</TableCell>
                   <TableCell className={moneyCell}>
@@ -222,6 +313,7 @@ export function TppoPlanDetailTable({
                   {agentFilter === 'all' ? 'TOTAL' : `TOTAL · ${agentFilter}`}
                 </TableCell>
                 <TableCell>{`${shownTotals.plans} plans`}</TableCell>
+                <TableCell />
                 <TableCell />
                 <TableCell className={`${moneyCell} font-semibold`}>
                   {formatUGX(shownTotals.scheduled)}

@@ -5,7 +5,7 @@ import {
   Crown, LayoutDashboard, Globe, DollarSign, UserCog, Truck, Layers, MinusCircle, Receipt,
   ShieldCheck, GraduationCap, Mail, FolderOpen, CalendarCheck, Landmark, KeyRound, SlidersHorizontal, HandCoins, Snowflake, ShoppingBag, MonitorSmartphone
   , Gauge, Download, ShieldAlert,
-  Eye, Trash2, PhoneCall, History, RefreshCw,
+  Eye, Trash2, PhoneCall, History, RefreshCw, Archive,
 } from 'lucide-react';
 import type { AppRole } from '@/hooks/auth/types';
 
@@ -79,6 +79,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'API Management', icon: Code, id: 'api' },
         { label: 'Communication', icon: Mail, id: 'communication' },
         { label: 'OTP / SMS Logs', icon: MessageSquare, id: 'sms-delivery' },
+        { label: 'Voice API Calls', icon: PhoneCall, id: 'voice-calls' },
         { label: 'SMS Exceptions', icon: ShieldCheck, id: 'sms-exceptions' },
         { label: 'Broadcast Status', icon: Megaphone, id: 'broadcast-status' },
         { label: 'Security Logs', icon: Lock, id: 'security' },
@@ -346,6 +347,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Reports',
       items: [
         { label: 'Submitted Reports', icon: FileText, id: 'submitted-reports', access: HR_ACCESS },
+        { label: 'Report Archive', icon: Archive, id: 'report-archive', access: HR_ACCESS },
       ],
     },
     {

@@ -13,11 +13,11 @@ import { PendingRequestsDialog } from './PendingRequestsDialog';
 import { TransactionReceipt } from './TransactionReceipt';
 import { UserDepositRequests } from './UserDepositRequests';
 import { WithdrawRequestDialog } from './WithdrawRequestDialog';
-import { UserWithdrawalRequests } from './UserWithdrawalRequests';
+
 import { AnimatedBalance } from './AnimatedBalance';
 import { WalletBreakdown } from './WalletBreakdown';
 import { WalletStatement } from './WalletStatement';
-import { MyReferralsCount } from './MyReferralsCount';
+
 
 import { RecentAutoCharges } from './RecentAutoCharges';
 import { PendingMovesStrip } from './PendingMovesStrip';
@@ -236,8 +236,6 @@ export function WalletCard() {
           {/* Recent Auto-Deductions */}
           <RecentAutoCharges />
 
-          {/* My Referrals Count */}
-          <MyReferralsCount />
 
 
 
@@ -247,7 +245,7 @@ export function WalletCard() {
 
       {/* User's Requests */}
       <UserDepositRequests />
-      <UserWithdrawalRequests />
+
 
       <SendMoneyDialog open={sendOpen} onOpenChange={setSendOpen} />
       <DepositFlow open={depositOpen} onOpenChange={setDepositOpen} />

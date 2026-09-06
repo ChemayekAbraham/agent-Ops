@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -8,13 +8,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { format, subDays, startOfDay, endOfDay, startOfMonth, startOfYear, addDays } from 'date-fns';
 import {
-  ResponsiveContainer, AreaChart, Area,
+  ResponsiveContainer, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis,
   CartesianGrid, Tooltip, Legend,
 } from 'recharts';
 import {
   Users, UserPlus, Activity, FileText, Home, Wallet, Banknote, TrendingDown,
-  TrendingUp, ArrowRight, UsersRound, Network, Coins, Hourglass, Receipt, Trophy,
+  TrendingUp, ArrowRight, Coins, Hourglass, Receipt, Trophy,
   RefreshCw,
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -57,7 +57,7 @@ interface KpiTileProps {
   spark?: number[];
   onClick?: () => void;
   loading?: boolean;
-  subtitle?: string;
+  subtitle?: ReactNode;
 }
 
 function KpiTile({ title, value, delta, icon: Icon, accent, onClick, loading, subtitle }: KpiTileProps) {
@@ -169,6 +169,27 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
     staleTime: 60_000,
   });
 
+  // Range-scoped expected vs collected (same source as the Collections Command
+  // Center) so "Pending Collections" moves with the selected window instead of
+  // showing the whole-book outstanding figure.
+  const { data: windowTotals, isLoading: windowLoading } = useQuery({
+    queryKey: ['agent-ops-overview', 'window-pending', startIso, endIso],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_collections_command_center', {
+        p_start: startIso,
+        p_end: endIso,
+        p_bucket: 'day',
+      });
+      if (error) throw error;
+      const t = (data as any)?.totals || {};
+      return {
+        expected: Number(t.expected_due || 0),
+        collected: Number(t.collected || 0),
+      };
+    },
+    staleTime: 60_000,
+  });
+
   const k = data?.kpis || ({} as Record<string, number>);
   const trend = trendPayload?.trend || data?.trend || [];
 
@@ -203,12 +224,15 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
 
 
       {/* Row A — network KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
         <KpiTile
           title="Total Agents"
-          value={fmtNum(k.total_agents || 0)}
-          delta={pctDelta(k.total_agents || 0, k.total_agents_prev || 0)}
-          subtitle={`+${fmtNum(k.new_agents_curr || 0)} new ${phrase}`}
+          value={fmtNum((k.total_agents || 0) + (k.total_subagents || 0))}
+          delta={pctDelta(
+            (k.total_agents || 0) + (k.total_subagents || 0),
+            (k.total_agents_prev || 0) + (k.total_subagents_prev || 0)
+          )}
+          subtitle={`+${fmtNum((k.new_agents_curr || 0) + (k.new_subagents_curr || 0))} new ${phrase}`}
           icon={Users}
           accent="bg-primary"
           onClick={() => onOpenSection('directory')}
@@ -216,9 +240,12 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
         />
         <KpiTile
           title="Active Agents"
-          value={fmtNum(k.active_agents_curr || 0)}
-          delta={pctDelta(k.active_agents_curr || 0, k.active_agents_prev || 0)}
-          subtitle={`of ${fmtNum(k.total_agents || 0)} agents`}
+          value={fmtNum((k.active_agents_curr || 0) + (k.active_subagents_curr || 0))}
+          delta={pctDelta(
+            (k.active_agents_curr || 0) + (k.active_subagents_curr || 0),
+            (k.active_agents_prev || 0) + (k.active_subagents_prev || 0)
+          )}
+          subtitle={`${fmtNum(k.active_agents_curr || 0)} agents · ${fmtNum(k.active_subagents_curr || 0)} sub-agents active`}
           icon={Activity}
           accent="bg-emerald-600"
           spark={trendData.map((t) => t.activeAgents)}
@@ -226,55 +253,25 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
           loading={isLoading}
         />
         <KpiTile
-          title="Total Sub-Agents"
-          value={fmtNum(k.total_subagents || 0)}
-          delta={pctDelta(k.total_subagents || 0, k.total_subagents_prev || 0)}
-          subtitle={`+${fmtNum(k.new_subagents_curr || 0)} new ${phrase}`}
-          icon={UsersRound}
-          accent="bg-sky-600"
-          onClick={() => onOpenSection('sub-agents')}
-          loading={isLoading}
-        />
-        <KpiTile
-          title="Active Sub-Agents"
-          value={fmtNum(k.active_subagents_curr || 0)}
-          delta={pctDelta(k.active_subagents_curr || 0, k.active_subagents_prev || 0)}
-          subtitle={`of ${fmtNum(k.total_subagents || 0)} sub-agents`}
-          icon={Network}
-          accent="bg-indigo-600"
-          onClick={() => onOpenSection('sub-agents')}
+          title="Inactive Agents"
+          value={fmtNum(
+            ((k.total_agents || 0) + (k.total_subagents || 0)) -
+            ((k.active_agents_curr || 0) + (k.active_subagents_curr || 0))
+          )}
+          delta={pctDelta(
+            ((k.total_agents || 0) + (k.total_subagents || 0)) -
+            ((k.active_agents_curr || 0) + (k.active_subagents_curr || 0)),
+            ((k.total_agents_prev || 0) + (k.total_subagents_prev || 0)) -
+            ((k.active_agents_prev || 0) + (k.active_subagents_prev || 0))
+          )}
+          subtitle={`${fmtNum((k.total_agents || 0) - (k.active_agents_curr || 0))} agents · ${fmtNum((k.total_subagents || 0) - (k.active_subagents_curr || 0))} sub-agents inactive`}
+          icon={UserPlus}
+          accent="bg-slate-500"
+          onClick={() => onOpenSection('directory')}
           loading={isLoading}
         />
       </div>
 
-      {/* Agent Status summary */}
-      <Card className="rounded-2xl border-border/50 p-3 sm:p-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-xl bg-amber-500 flex items-center justify-center shrink-0">
-              <Users className="h-4 w-4 text-white" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold">Agent Status</h3>
-              <p className="text-[11px] text-muted-foreground">Agents vs sub-agents across the network</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-4 sm:gap-8">
-            <div>
-              <p className="text-[11px] text-muted-foreground">Sub-Agents</p>
-              <p className="text-lg sm:text-xl font-bold tabular-nums">{fmtNum(k.total_subagents || 0)}</p>
-            </div>
-            <div>
-              <p className="text-[11px] text-muted-foreground">Agents</p>
-              <p className="text-lg sm:text-xl font-bold tabular-nums">{fmtNum(k.total_agents || 0)}</p>
-            </div>
-            <div>
-              <p className="text-[11px] text-muted-foreground">Total Combined</p>
-              <p className="text-lg sm:text-xl font-bold tabular-nums">{fmtNum((k.total_subagents || 0) + (k.total_agents || 0))}</p>
-            </div>
-          </div>
-        </div>
-      </Card>
 
       {/* Row A2 — money KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
@@ -295,13 +292,21 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
         />
         <KpiTile
           title="Pending Collections"
-          value={fmtMoney(k.pending_collections || 0)}
-          subtitle="Outstanding on live rent plans"
+          value={fmtMoney(Math.max(0, (windowTotals?.expected || 0) - (windowTotals?.collected || 0)))}
+          subtitle={
+            <>
+              Unpaid of{' '}
+              <span className="font-semibold text-foreground">
+                {fmtMoney(windowTotals?.expected || 0)}
+              </span>{' '}
+              expected {phrase}
+            </>
+          }
           icon={Hourglass}
           accent="bg-rose-600"
           spark={trendData.map((t) => t.pending)}
           onClick={() => onOpenSection('allocation-report')}
-          loading={isLoading}
+          loading={isLoading || windowLoading}
         />
         <KpiTile
           title="Total Collections"
@@ -366,8 +371,8 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
       {/* Latest rent requests */}
       <LatestRentRequests onViewAll={() => onOpenSection('pipeline')} />
 
-      {/* Highest pending collections */}
-      <TopPendingAgents onViewAll={() => onOpenSection('pipeline')} />
+      {/* Partial vs full collections */}
+      <PartialCollectionsOverview />
 
       {/* Top performers */}
       <TopPerformers rows={data?.top_performers || []} loading={isLoading} phrase={phrase} />
@@ -417,14 +422,30 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
         .order('created_at', { ascending: false })
         .limit(5);
       if (!data || data.length === 0) return [];
-      const ids = Array.from(new Set(data.flatMap((r: any) => [r.agent_id, r.tenant_id]).filter(Boolean)));
+      const agentIds = Array.from(new Set(data.map((r: any) => r.agent_id).filter(Boolean)));
+      const { data: links } = agentIds.length
+        ? await supabase
+            .from('agent_subagents')
+            .select('sub_agent_id, parent_agent_id, status')
+            .in('sub_agent_id', agentIds)
+            .in('status', ['verified', 'accepted', 'active'])
+        : { data: [] as any[] };
+      const parentMap = new Map((links || []).map((l: any) => [l.sub_agent_id, l.parent_agent_id]));
+      const ids = Array.from(new Set([
+        ...data.flatMap((r: any) => [r.agent_id, r.tenant_id]),
+        ...parentMap.values(),
+      ].filter(Boolean)));
       const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', ids);
       const pm = new Map((profs || []).map((p: any) => [p.id, p.full_name]));
       return data.map((r: any) => ({
         ...r,
         agent_name: pm.get(r.agent_id) || '—',
+        parent_agent_name: parentMap.has(r.agent_id)
+          ? (pm.get(parentMap.get(r.agent_id)) || '—')
+          : null,
         tenant_name: pm.get(r.tenant_id) || '—',
       }));
+
     },
     staleTime: 60_000,
   });
@@ -473,7 +494,15 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
                     {format(new Date(r.created_at), 'd MMM HH:mm')}
                   </TableCell>
                   <TableCell className="font-medium max-w-[140px] truncate">{r.tenant_name}</TableCell>
-                  <TableCell className="hidden sm:table-cell max-w-[140px] truncate text-muted-foreground">{r.agent_name}</TableCell>
+                  <TableCell className="hidden sm:table-cell max-w-[180px] text-muted-foreground">
+                    <span className="block truncate font-semibold text-foreground">{r.agent_name}</span>
+                    {r.parent_agent_name && (
+                      <span className="block truncate text-[10px] text-muted-foreground/80">
+                        Parent: {r.parent_agent_name}
+                      </span>
+                    )}
+                  </TableCell>
+
                   <TableCell>
                     <Badge variant={statusTone(r.status) as any} className="text-[10px] whitespace-nowrap capitalize">
                       {formatStatus(r.status)}
@@ -494,83 +523,137 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
 
 // ---------- Top performers (agents + sub-agents) ----------
 
-function TopPendingAgents({ onViewAll }: { onViewAll: () => void }) {
+function PartialCollectionsOverview() {
+  const DAYS = 14;
   const { data, isLoading } = useQuery({
-    queryKey: ['agent-ops-top-pending-agents'],
-    queryFn: async () => {
-      const { data: rents } = await supabase
-        .from('rent_requests')
-        .select('agent_id, total_repayment, amount_repaid, daily_repayment, status, agent_payment_status')
-        .in('status', ['funded', 'repaying'])
-        .limit(5000);
-      if (!rents || rents.length === 0) return [];
-      const agg = new Map<string, { pending: number; tenants: number; daily: number }>();
-      for (const r of rents as any[]) {
-        if (!r.agent_id) continue;
-        if ((r.agent_payment_status || 'paying') === 'not_paying') continue;
-        const pending = Math.max(0, Number(r.total_repayment || 0) - Number(r.amount_repaid || 0));
-        if (pending <= 0) continue;
-        const cur = agg.get(r.agent_id) || { pending: 0, tenants: 0, daily: 0 };
-        cur.pending += pending;
-        cur.tenants += 1;
-        cur.daily += Number(r.daily_repayment || 0);
-        agg.set(r.agent_id, cur);
-      }
-      const top = Array.from(agg.entries())
-        .sort((a, b) => b[1].pending - a[1].pending)
-        .slice(0, 5);
-      if (top.length === 0) return [];
-      const { data: profs } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', top.map(([id]) => id));
-      const pm = new Map((profs || []).map((p: any) => [p.id, p.full_name]));
-      return top.map(([id, v]) => ({ agent_id: id, name: pm.get(id) || '—', ...v }));
-    },
+    queryKey: ['agent-ops-partial-vs-full', DAYS],
     staleTime: 60_000,
+    queryFn: async () => {
+      const since = startOfDay(subDays(new Date(), DAYS - 1));
+      const today = startOfDay(new Date());
+      const sinceStr = format(since, 'yyyy-MM-dd');
+      const todayStr = format(today, 'yyyy-MM-dd');
+
+      const [{ data: cols, error: colsErr }, { data: expectedRows, error: expErr }] = await Promise.all([
+        supabase
+          .from('agent_collections')
+          .select('id, amount, created_at, tenant_id, rent_request_id')
+          .gte('created_at', since.toISOString())
+          .gt('amount', 0)
+          .limit(5000),
+        supabase
+          .from('agent_expected_day_plans')
+          .select('day, rent_request_id')
+          .gte('day', sinceStr)
+          .lte('day', todayStr)
+          .limit(20000),
+      ]);
+      if (colsErr) throw colsErr;
+      if (expErr) throw expErr;
+
+      const rows = (cols || []) as any[];
+
+      const expectedByDay = new Map<string, number>();
+      for (const e of (expectedRows || []) as any[]) {
+        const key = String(e.day).slice(0, 10);
+        expectedByDay.set(key, (expectedByDay.get(key) || 0) + 1);
+      }
+
+      if (rows.length === 0 && expectedByDay.size === 0) {
+        return { series: [], full: 0, partial: 0, missed: 0, shortfall: 0 };
+      }
+
+      const tenantIds = Array.from(new Set(rows.map(r => r.tenant_id).filter(Boolean)));
+      const { data: plans } = await supabase
+        .from('rent_requests')
+        .select('id, tenant_id, daily_repayment, repayment_frequency')
+        .in('tenant_id', tenantIds.slice(0, 500));
+      const byId = new Map<string, any>();
+      const byTenant = new Map<string, any>();
+      for (const p of (plans || []) as any[]) {
+        byId.set(p.id, p);
+        if (!byTenant.has(p.tenant_id)) byTenant.set(p.tenant_id, p);
+      }
+      const expectedFor = (r: any): number => {
+        const p = (r.rent_request_id && byId.get(r.rent_request_id)) || byTenant.get(r.tenant_id);
+        if (!p) return 0;
+        const daily = Number(p.daily_repayment || 0);
+        const freq = String(p.repayment_frequency || 'daily');
+        return freq === 'weekly' ? daily * 7 : freq === 'monthly' ? daily * 30 : daily;
+      };
+
+      const buckets = new Map<string, { label: string; full: number; partial: number; missed: number; shortfall: number }>();
+      for (let i = DAYS - 1; i >= 0; i--) {
+        const d = subDays(new Date(), i);
+        buckets.set(format(d, 'yyyy-MM-dd'), { label: format(d, 'd MMM'), full: 0, partial: 0, missed: 0, shortfall: 0 });
+      }
+      let full = 0, partial = 0, missed = 0, shortfall = 0;
+      for (const r of rows) {
+        const key = format(new Date(r.created_at), 'yyyy-MM-dd');
+        const b = buckets.get(key);
+        if (!b) continue;
+        const exp = expectedFor(r);
+        const amt = Number(r.amount || 0);
+        if (exp > 0 && amt < exp - 1) {
+          b.partial += 1; partial += 1;
+          const gap = exp - amt;
+          b.shortfall += gap; shortfall += gap;
+        } else {
+          b.full += 1; full += 1;
+        }
+      }
+      for (const [key, b] of buckets) {
+        const expCount = expectedByDay.get(key) || 0;
+        b.missed = Math.max(0, expCount - b.full - b.partial);
+        missed += b.missed;
+      }
+      return { series: Array.from(buckets.values()), full, partial, missed, shortfall };
+    },
   });
+
+  const total = (data?.full || 0) + (data?.partial || 0) + (data?.missed || 0);
+  const partialPct = total ? Math.round(((data?.partial || 0) / total) * 100) : 0;
+  const missedPct = total ? Math.round(((data?.missed || 0) / total) * 100) : 0;
 
   return (
     <Card className="rounded-2xl border-border/50 p-3 sm:p-4 w-full">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
         <div>
-          <h3 className="text-sm font-semibold">Highest Pending Collections</h3>
-          <p className="text-[11px] text-muted-foreground">Top 5 agents by outstanding tenant repayments</p>
+          <h3 className="text-sm font-semibold">Collection Quality Overview</h3>
+          <p className="text-[11px] text-muted-foreground">
+            Full, partial and missed expected payments · last {DAYS} days
+          </p>
         </div>
-        <Button size="sm" variant="outline" onClick={onViewAll} className="gap-1">
-          View all <ArrowRight className="h-3.5 w-3.5" />
-        </Button>
+        {!isLoading && total > 0 && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{fmtNum(data?.full || 0)} full</span>
+            <span className="text-amber-500 dark:text-amber-400 font-semibold">{fmtNum(data?.partial || 0)} partial ({partialPct}%)</span>
+            <span className="text-red-500 dark:text-red-400 font-semibold">{fmtNum(data?.missed || 0)} missed ({missedPct}%)</span>
+            <span className="text-rose-600 dark:text-rose-400 font-semibold">Short {fmtMoney(data?.shortfall || 0)}</span>
+          </div>
+        )}
       </div>
       {isLoading ? (
-        <Skeleton className="h-32 w-full" />
-      ) : !data || data.length === 0 ? (
-        <p className="text-xs text-muted-foreground p-4 text-center">No pending repayments.</p>
+        <Skeleton className="h-56 w-full" />
+      ) : !data || total === 0 ? (
+        <p className="text-xs text-muted-foreground p-4 text-center">No collections or expected payments recorded in the last {DAYS} days.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8">#</TableHead>
-                <TableHead>Agent</TableHead>
-                <TableHead className="hidden sm:table-cell text-right">Tenants</TableHead>
-                <TableHead className="hidden md:table-cell text-right">Daily due</TableHead>
-                <TableHead className="text-right">Pending</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.map((r: any, i: number) => (
-                <TableRow key={r.agent_id}>
-                  <TableCell className="text-xs font-bold text-muted-foreground tabular-nums">{i + 1}</TableCell>
-                  <TableCell className="font-medium max-w-[160px] truncate">{r.name}</TableCell>
-                  <TableCell className="hidden sm:table-cell text-right tabular-nums text-xs">{fmtNum(r.tenants)}</TableCell>
-                  <TableCell className="hidden md:table-cell text-right tabular-nums text-xs text-muted-foreground">{fmtMoney(r.daily)}</TableCell>
-                  <TableCell className="text-right font-semibold tabular-nums text-xs text-red-600 dark:text-red-400">
-                    {fmtMoney(r.pending)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <div className="h-56 sm:h-64 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data.series} barCategoryGap="20%">
+              <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+              <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+              <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+              <Tooltip
+                contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                formatter={(v: number, name: string) => [fmtNum(v), name]}
+              />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="full" stackId="c" name="Full payment" fill="#22c55e" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="partial" stackId="c" name="Partial payment" fill="#f59e0b" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="missed" stackId="c" name="Missed payment" fill="#ef4444" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       )}
     </Card>

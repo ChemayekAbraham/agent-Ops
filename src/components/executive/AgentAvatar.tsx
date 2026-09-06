@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { User } from 'lucide-react';
+import BoringAvatar from 'boring-avatars';
+import { MARBLE_COLORS } from '@/components/UserAvatar';
 import { cn } from '@/lib/utils';
 
 interface AgentAvatarProps {
@@ -9,9 +10,9 @@ interface AgentAvatarProps {
 }
 
 /**
- * Agent avatar with graceful fallback: shows the photo when available and it
- * loads successfully; otherwise renders a neutral default placeholder (user
- * silhouette). Covers both "no picture" and "picture failed to load" cases.
+ * Agent avatar: shows the real photo when one exists and loads successfully;
+ * otherwise renders a per-person generated avatar (same look as the rest of
+ * the app) instead of a generic silhouette.
  */
 export function AgentAvatar({ src, name, className }: AgentAvatarProps) {
   const [failed, setFailed] = useState(false);
@@ -33,8 +34,9 @@ export function AgentAvatar({ src, name, className }: AgentAvatarProps) {
           className="h-full w-full object-cover"
         />
       ) : (
-        <User className="h-1/2 w-1/2" strokeWidth={2} />
+        <BoringAvatar size="100%" name={name || 'agent'} variant="marble" colors={MARBLE_COLORS} />
       )}
     </div>
   );
 }
+

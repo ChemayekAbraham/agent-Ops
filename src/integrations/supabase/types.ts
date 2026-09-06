@@ -28469,12 +28469,17 @@ export type Database = {
           created_at: string
           deduction_day: number | null
           email: string | null
+          follow_up_note: string | null
+          follow_up_status: string
+          fulfilment_due_on: string | null
           id: string
+          last_followed_up_on: string | null
           next_deduction_date: string | null
           notes: string | null
           partner_name: string
           partner_user_id: string | null
           phone_number: string | null
+          recorded_on: string
           status: string
           support_mode: string
           total_collected: number
@@ -28493,12 +28498,17 @@ export type Database = {
           created_at?: string
           deduction_day?: number | null
           email?: string | null
+          follow_up_note?: string | null
+          follow_up_status?: string
+          fulfilment_due_on?: string | null
           id?: string
+          last_followed_up_on?: string | null
           next_deduction_date?: string | null
           notes?: string | null
           partner_name: string
           partner_user_id?: string | null
           phone_number?: string | null
+          recorded_on?: string
           status?: string
           support_mode?: string
           total_collected?: number
@@ -28517,12 +28527,17 @@ export type Database = {
           created_at?: string
           deduction_day?: number | null
           email?: string | null
+          follow_up_note?: string | null
+          follow_up_status?: string
+          fulfilment_due_on?: string | null
           id?: string
+          last_followed_up_on?: string | null
           next_deduction_date?: string | null
           notes?: string | null
           partner_name?: string
           partner_user_id?: string | null
           phone_number?: string | null
+          recorded_on?: string
           status?: string
           support_mode?: string
           total_collected?: number
@@ -30890,6 +30905,33 @@ export type Database = {
           },
         ]
       }
+      rent_request_change_estimate: {
+        Row: {
+          built_at: string
+          confidence: string
+          estimated_last_change_at: string
+          rent_request_id: string
+          source: string
+          was_damaged: boolean
+        }
+        Insert: {
+          built_at?: string
+          confidence: string
+          estimated_last_change_at: string
+          rent_request_id: string
+          source: string
+          was_damaged: boolean
+        }
+        Update: {
+          built_at?: string
+          confidence?: string
+          estimated_last_change_at?: string
+          rent_request_id?: string
+          source?: string
+          was_damaged?: boolean
+        }
+        Relationships: []
+      }
       rent_request_deletions: {
         Row: {
           agent_id: string | null
@@ -31726,6 +31768,57 @@ export type Database = {
             referencedColumns: ["rent_request_id"]
           },
         ]
+      }
+      report_archive: {
+        Row: {
+          created_at: string
+          granularity: string
+          id: string
+          payload: Json
+          period_end: string
+          period_start: string
+          source: string
+          source_label: string
+          source_ref: string | null
+          submitted_at: string
+          submitted_by: string | null
+          submitted_by_name: string | null
+          summary: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          granularity: string
+          id?: string
+          payload: Json
+          period_end: string
+          period_start: string
+          source: string
+          source_label: string
+          source_ref?: string | null
+          submitted_at?: string
+          submitted_by?: string | null
+          submitted_by_name?: string | null
+          summary?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          granularity?: string
+          id?: string
+          payload?: Json
+          period_end?: string
+          period_start?: string
+          source?: string
+          source_label?: string
+          source_ref?: string | null
+          submitted_at?: string
+          submitted_by?: string | null
+          submitted_by_name?: string | null
+          summary?: string | null
+          title?: string
+        }
+        Relationships: []
       }
       requisition_links: {
         Row: {
@@ -43543,6 +43636,10 @@ export type Database = {
         Returns: string
       }
       agent_ops_directory_guard: { Args: never; Returns: string }
+      agent_ops_dormant_agents_arrears: {
+        Args: { p_as_of?: string; p_silent_days?: number }
+        Returns: Json
+      }
       agent_ops_issue_agent_product: {
         Args: {
           p_agent_id: string
@@ -43999,6 +44096,20 @@ export type Database = {
       archive_dead_letter_batch: {
         Args: { _dead_letter_id: number }
         Returns: undefined
+      }
+      archive_report: {
+        Args: {
+          p_granularity: string
+          p_payload: Json
+          p_period_end: string
+          p_period_start: string
+          p_source: string
+          p_source_label: string
+          p_source_ref?: string
+          p_summary?: string
+          p_title: string
+        }
+        Returns: string
       }
       assert_agent_collections_report_access: { Args: never; Returns: boolean }
       assert_merchant_capacity_override_admin: { Args: never; Returns: string }
@@ -46258,6 +46369,10 @@ export type Database = {
         }[]
       }
       get_agent_campaign_dashboard: { Args: never; Returns: Json }
+      get_agent_collection_records: {
+        Args: { p_agent_id: string; p_end: string; p_start: string }
+        Returns: Json
+      }
       get_agent_collections_command_center: {
         Args: { p_bucket?: string; p_end: string; p_start: string }
         Returns: Json
@@ -48632,6 +48747,21 @@ export type Database = {
       get_user_wallet_view: { Args: { p_user_id: string }; Returns: Json }
       get_verification_reversal_preview: {
         Args: { p_entity_id: string; p_entity_type: string }
+        Returns: Json
+      }
+      get_voice_call_log: {
+        Args: {
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      get_voice_call_stats: {
+        Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
       get_wallet_bucket_totals: { Args: never; Returns: Json }
@@ -52538,6 +52668,10 @@ export type Database = {
           _rejection_reason?: string
         }
         Returns: Json
+      }
+      voice_call_log_authorized: {
+        Args: { _user_id: string }
+        Returns: boolean
       }
       void_ledger_entry: {
         Args: { p_ledger_id: string; p_reason: string }

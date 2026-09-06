@@ -2,7 +2,7 @@ import ExecutiveDashboardLayout from '@/components/layout/ExecutiveDashboardLayo
 import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import { CMODashboard } from '@/components/executive/CMODashboard';
 import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWorkspace';
-import { MerchandiseOrderNotificationsBell } from '@/components/executive/MerchandiseOrderNotificationsBell';
+import { CMONotificationsBell } from '@/components/executive/CMONotificationsBell';
 
 export default function CMODashboardPage() {
   const [activeTab, setActiveTab] = usePersistedActiveTab('cmo');
@@ -12,7 +12,7 @@ export default function CMODashboardPage() {
       role="cmo"
       activeTab={activeTab}
       onTabChange={setActiveTab}
-      headerActions={<MerchandiseOrderNotificationsBell onJump={setActiveTab} />}
+      headerActions={<CMONotificationsBell onJump={setActiveTab} />}
     >
       {activeTab === 'requisitions' ? (
         <RequisitionsWorkspace />
@@ -22,3 +22,4 @@ export default function CMODashboardPage() {
     </ExecutiveDashboardLayout>
   );
 }
+
