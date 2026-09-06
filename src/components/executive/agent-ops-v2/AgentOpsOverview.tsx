@@ -169,6 +169,27 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
     staleTime: 60_000,
   });
 
+  // Range-scoped expected vs collected (same source as the Collections Command
+  // Center) so "Pending Collections" moves with the selected window instead of
+  // showing the whole-book outstanding figure.
+  const { data: windowTotals, isLoading: windowLoading } = useQuery({
+    queryKey: ['agent-ops-overview', 'window-pending', startIso, endIso],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_collections_command_center', {
+        p_start: startIso,
+        p_end: endIso,
+        p_bucket: 'day',
+      });
+      if (error) throw error;
+      const t = (data as any)?.totals || {};
+      return {
+        expected: Number(t.expected_due || 0),
+        collected: Number(t.collected || 0),
+      };
+    },
+    staleTime: 60_000,
+  });
+
   const k = data?.kpis || ({} as Record<string, number>);
   const trend = trendPayload?.trend || data?.trend || [];
 
@@ -271,13 +292,13 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
         />
         <KpiTile
           title="Pending Collections"
-          value={fmtMoney(k.pending_collections || 0)}
-          subtitle="Outstanding on live rent plans"
+          value={fmtMoney(Math.max(0, (windowTotals?.expected || 0) - (windowTotals?.collected || 0)))}
+          subtitle={`Unpaid of ${fmtMoney(windowTotals?.expected || 0)} expected ${phrase}`}
           icon={Hourglass}
           accent="bg-rose-600"
           spark={trendData.map((t) => t.pending)}
           onClick={() => onOpenSection('allocation-report')}
-          loading={isLoading}
+          loading={isLoading || windowLoading}
         />
         <KpiTile
           title="Total Collections"
