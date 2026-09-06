@@ -167,7 +167,7 @@ function AgentCollectionsDrilldown({
             {format(start, 'dd MMM yyyy')} – {format(end, 'dd MMM yyyy')}
           </Badge>
           <span>{rows.length} records</span>
-          <span className="font-semibold text-foreground">{formatUGX(total)} collected</span>
+          <span className="font-semibold text-emerald-600">{formatUGX(total)} collected</span>
           <Button size="sm" variant="outline" className="h-8 text-xs ml-auto" disabled={rows.length === 0} onClick={exportCsv}>
             <FileDown className="h-3.5 w-3.5 mr-1" /> Export CSV
           </Button>
@@ -190,16 +190,16 @@ function AgentCollectionsDrilldown({
                       <p className="text-sm font-medium truncate">{r.tenantName}</p>
                       <p className="text-[11px] text-muted-foreground">{format(new Date(r.createdAt), 'dd MMM h:mm a')}</p>
                     </div>
-                    <p className="text-sm font-semibold tabular-nums">{formatUGX(r.amount)}</p>
+                    <p className="text-sm font-semibold tabular-nums text-emerald-600">{formatUGX(r.amount)}</p>
                   </div>
                   <div className="mt-1.5 grid grid-cols-3 gap-2 text-[11px]">
                     <div>
                       <p className="text-muted-foreground">Balance</p>
-                      <p className="font-medium tabular-nums">{r.planBalance === null ? '—' : formatUGX(r.planBalance)}</p>
+                      <p className="font-medium tabular-nums text-destructive">{r.planBalance === null ? '—' : formatUGX(r.planBalance)}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Outstanding</p>
-                      <p className="font-medium tabular-nums">{formatUGX(r.tenantOutstanding)}</p>
+                      <p className="font-medium tabular-nums text-primary">{formatUGX(r.tenantOutstanding)}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Cycle</p>
@@ -230,9 +230,9 @@ function AgentCollectionsDrilldown({
                         <p className="font-medium">{r.tenantName}</p>
                         {r.tenantPhone && <p className="text-[10px] text-muted-foreground">{r.tenantPhone}</p>}
                       </td>
-                      <td className="p-2 text-right font-semibold tabular-nums">{formatUGX(r.amount)}</td>
-                      <td className="p-2 text-right tabular-nums">{r.planBalance === null ? '—' : formatUGX(r.planBalance)}</td>
-                      <td className="p-2 text-right tabular-nums">{formatUGX(r.tenantOutstanding)}</td>
+                      <td className="p-2 text-right font-semibold tabular-nums text-emerald-600">{formatUGX(r.amount)}</td>
+                      <td className="p-2 text-right tabular-nums text-destructive">{r.planBalance === null ? '—' : formatUGX(r.planBalance)}</td>
+                      <td className="p-2 text-right tabular-nums text-primary">{formatUGX(r.tenantOutstanding)}</td>
                       <td className="p-2">
                         <Badge variant="outline" className="text-[10px]">{r.cycle}</Badge>
                       </td>
