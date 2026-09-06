@@ -155,14 +155,24 @@ function AgentCollectionsDrilldown({
           <Badge variant="outline" className="text-[10px]">
             {format(start, 'dd MMM yyyy')} – {format(end, 'dd MMM yyyy')}
           </Badge>
-          <span>{rows.length} records</span>
+          <span>{tenantFiltered.length} records</span>
           <span className="font-semibold text-emerald-600">{formatUGX(total)} collected</span>
           <span className="font-semibold text-destructive">
-            {formatUGX(Math.max(0, agent.expected - total))} balance
+            {formatUGX(totalBalance)} balance
           </span>
-          <Button size="sm" variant="outline" className="h-8 text-xs ml-auto" disabled={rows.length === 0} onClick={exportCsv}>
+          <Button size="sm" variant="outline" className="h-8 text-xs ml-auto" disabled={tenantFiltered.length === 0} onClick={exportCsv}>
             <FileDown className="h-3.5 w-3.5 mr-1" /> Export CSV
           </Button>
+        </div>
+
+        <div className="relative">
+          <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={tenantSearch}
+            onChange={e => setTenantSearch(e.target.value)}
+            placeholder="Search tenant"
+            className="h-8 pl-7 text-xs"
+          />
         </div>
 
         {isLoading ? (
