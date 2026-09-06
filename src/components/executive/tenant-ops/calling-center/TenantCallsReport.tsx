@@ -297,6 +297,16 @@ export function TenantCallsReport() {
                 <FileText className="mr-1.5 h-3.5 w-3.5" />
                 {busy ? 'Building…' : 'PDF'}
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs font-semibold"
+                onClick={archiveReport}
+                disabled={archiving || isLoading || rows.length === 0}
+              >
+                <Archive className="mr-1.5 h-3.5 w-3.5" />
+                {archiving ? 'Archiving…' : 'Archive report'}
+              </Button>
             </div>
           </div>
 
