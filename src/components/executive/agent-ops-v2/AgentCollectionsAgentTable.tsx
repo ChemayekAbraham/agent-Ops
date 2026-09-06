@@ -181,6 +181,8 @@ function AgentCollectionsDrilldown({
           <p className="py-8 text-center text-sm text-destructive">{(error as any)?.message || 'Could not load records'}</p>
         ) : rows.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">No collections recorded in this period.</p>
+        ) : tenantFiltered.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">No tenants match your search.</p>
         ) : (
           <>
             {/* Mobile cards */}
