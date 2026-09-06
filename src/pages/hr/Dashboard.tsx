@@ -66,6 +66,7 @@ export default function HRDashboard() {
       case 'approval-history': return <ApprovalHistoryLog />;
       case 'departments': return <HRDepartments />;
       case 'submitted-reports': return <HRSubmittedReports />;
+      case 'report-archive': return <ReportArchiveList />;
       default: return <HROverview onNavigate={setActiveSection} />;
     }
   };
