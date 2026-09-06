@@ -146,8 +146,6 @@ export function AgentRepaymentCalendar({ agentId }: { agentId: string }) {
   const idx = Math.min(Math.max(monthIndex, 0), months.length - 1);
   const mo = months[idx];
 
-  const selected = selectedDay ? (data ?? []).length >= 0 ? selectedDay : null : null;
-
   return (
     <div className="mt-2 rounded-lg border border-border bg-background/70 p-2">
       <div className="min-w-0">
@@ -233,7 +231,7 @@ export function AgentRepaymentCalendar({ agentId }: { agentId: string }) {
         </div>
 
         <div className="rounded-md border border-border bg-background p-2 lg:w-[40%]">
-          <DaySummary agentId={agentId} day={selected} />
+          <DaySummary agentId={agentId} day={selectedDay} />
         </div>
       </div>
     </div>
