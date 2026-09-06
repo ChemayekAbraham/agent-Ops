@@ -99,11 +99,16 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
                   className="flex items-baseline justify-between gap-3 py-2 text-sm"
                 >
                   <span className="text-foreground">{period.label ?? '—'}</span>
-                  <span className="shrink-0 tabular-nums text-foreground">
-                    {available && period.projected_ugx !== null && period.projected_ugx !== undefined
-                      ? formatUGX(period.projected_ugx)
-                      : '—'}
-                  </span>
+                  <div className="flex items-baseline gap-4">
+                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                      {period.plans !== null && period.plans !== undefined ? period.plans : '—'}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-foreground">
+                      {available && period.projected_ugx !== null && period.projected_ugx !== undefined
+                        ? formatUGX(period.projected_ugx)
+                        : '—'}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
