@@ -108,6 +108,7 @@ export function SubmitGate({
     if (busy) return;
     if (!canSubmit || !periodStart || !periodEnd) return;
     setBusy(true);
+    setArchiveFailed(false);
 
     try {
       const { data: auth } = await supabase.auth.getUser();
