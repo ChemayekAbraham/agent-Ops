@@ -112,6 +112,15 @@ export function DormantAgentsDialog({
                 {d}+ days
               </Button>
             ))}
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs ml-auto"
+              disabled={isPending || agents.length === 0}
+              onClick={() => data && downloadDormantAgentsPdf(data as DormantAgentsReport)}
+            >
+              <FileDown className="h-3.5 w-3.5 mr-1" /> Download PDF
+            </Button>
           </div>
 
           {error && (
