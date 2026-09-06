@@ -381,6 +381,12 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
           void queryClient.invalidateQueries({ queryKey: ['tppo-narrative-collections'] });
         }}
       />
+
+      <div className="flex items-center gap-2 border-b border-border/60 pb-2 pt-1">
+        <FileText className="h-4 w-4 text-primary" aria-hidden="true" />
+        <h2 className="text-sm font-bold text-foreground">Past reports</h2>
+      </div>
+      <ReportArchiveList source="tppo" />
     </div>
   );
 }
