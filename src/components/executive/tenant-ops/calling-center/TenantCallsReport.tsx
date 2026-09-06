@@ -82,6 +82,19 @@ export function TenantCallsReport() {
   const [archiving, setArchiving] = useState(false);
 
   const win = useMemo(() => windowFor(preset, fromDay, toDay), [preset, fromDay, toDay]);
+  const periodDays = useMemo(() => {
+    if (preset === 'today') {
+      const d = isoDay(new Date());
+      return { startDay: d, endDay: d };
+    }
+    if (preset === 'yesterday') {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      const day = isoDay(d);
+      return { startDay: day, endDay: day };
+    }
+    return { startDay: fromDay, endDay: toDay };
+  }, [preset, fromDay, toDay]);
   const { data, isLoading, error } = useCcCallHistory('tenant', 30, { fromIso: win.fromIso, toIso: win.toIso });
 
   const rows = useMemo(
