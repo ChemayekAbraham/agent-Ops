@@ -204,6 +204,42 @@ export function SubmitGate({
       });
       if (freezeError) throw freezeError;
 
+      try {
+        const { data: zoneA } = await supabase.rpc('tppo_get_report_zone_a', {
+          p_granularity: granularity,
+          p_anchor: anchor,
+        });
+
+        const payload = {
+          report_id: targetReportId,
+          granularity,
+          period_start: periodStart,
+          period_end: periodEnd,
+          anchor,
+          zone_a: zoneA,
+          narrative: state.note.trim(),
+          actions: actionRows,
+          carried_close_outs: closeOutRows,
+          submitted_at: new Date().toISOString(),
+        };
+
+        const { error: archiveError } = await supabase.rpc('archive_report', {
+          p_source: 'tppo',
+          p_source_label: 'Portfolio Performance',
+          p_granularity: granularity,
+          p_period_start: periodStart,
+          p_period_end: periodEnd,
+          p_title: `Portfolio Performance — ${granularity} ${periodStart}`,
+          p_payload: payload,
+          p_summary: state.note.trim().slice(0, 280),
+          p_source_ref: targetReportId,
+        });
+
+        setArchiveFailed(Boolean(archiveError));
+      } catch {
+        setArchiveFailed(true);
+      }
+
       // Notify last: nothing is raised to the COO for a report that failed to submit.
       // A notification failure never rolls back or retries the submission.
       const { error: notifyError } = await supabase.rpc(
