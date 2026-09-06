@@ -37,6 +37,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserAvatar } from '@/components/UserAvatar';
 import { downloadAuditPdf } from '@/lib/pdfAuditReport';
 import { formatUGX } from '@/lib/rentCalculations';
+import { CollectionsRhythmCharts } from '@/components/executive/agent-ops-v2/CollectionsRhythmCharts';
 
 const PAGE_SIZE = 15;
 
