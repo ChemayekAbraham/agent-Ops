@@ -494,96 +494,15 @@ export function AgentCollectionsCommandCenter() {
       </Card>
 
       {/* Agents by collections vs expected */}
-      <Card className="p-3">
-        <div className="flex flex-wrap items-center gap-2 mb-2">
-          <h3 className="text-sm font-semibold mr-auto">Agents by collections vs expected</h3>
-          <Badge variant="outline" className="text-[10px]">{filteredAgents.length} agents</Badge>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 text-xs"
-            disabled={!data || exporting || isLoading}
-            onClick={exportStatementPdf}
-          >
-            <FileDown className="h-3.5 w-3.5 mr-1" />
-            {exporting ? 'Preparing…' : 'Financial statement (PDF)'}
-          </Button>
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search agent"
-              className="h-8 pl-7 text-xs w-48"
-            />
-          </div>
-        </div>
+      <AgentCollectionsAgentTable
+        agents={filteredAgents}
+        isLoading={isLoading}
+        start={start}
+        end={end}
+        exporting={exporting}
+        onExportStatement={exportStatementPdf}
+      />
 
-        {isLoading ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">Loading collections…</p>
-        ) : filteredAgents.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">No agents match this range.</p>
-        ) : (
-          <>
-            <div className="space-y-2">
-              {filteredAgents.slice(0, visibleAgents).map((a, i) => (
-                <div
-                  key={a.agent_id}
-                  className="rounded-lg border bg-card/60 p-2.5 flex items-start gap-3 hover:bg-accent/40 transition-colors"
-                >
-                  <div className="h-7 w-7 shrink-0 rounded-full bg-muted grid place-items-center text-[11px] font-semibold text-muted-foreground">
-                    {i + 1}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{a.name}</p>
-                        <p className="text-[11px] text-muted-foreground truncate">
-                          {a.phone ? `${a.phone} · ` : ''}{a.collections_count} payments · {a.tenants_paid}/{a.active_tenants} tenants paid
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-bold">{formatUGX(a.collected)}</p>
-                        <p className="text-[11px] text-muted-foreground">of {formatUGX(a.expected)}</p>
-                      </div>
-                    </div>
-                    <div className="mt-2 flex items-center gap-2">
-                      <Progress value={Math.min(100, a.pct ?? 0)} className="h-2 flex-1" />
-                      <span
-                        className={cn(
-                          'text-[11px] font-semibold w-12 text-right',
-                          a.pct === null ? 'text-muted-foreground'
-                            : a.pct >= 90 ? 'text-emerald-600'
-                            : a.pct >= 50 ? 'text-amber-600' : 'text-destructive',
-                        )}
-                      >
-                        {a.pct === null ? '—' : `${a.pct}%`}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-1.5">
-                      {a.last_collection_at && (
-                        <Badge variant="outline" className="text-[10px]">
-                          Last {format(new Date(a.last_collection_at), 'dd MMM h:mm a')}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {visibleAgents < filteredAgents.length && (
-              <div className="pt-3 text-center">
-                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setVisibleAgents(v => v + 10)}>
-                  Load more · {filteredAgents.length - visibleAgents} remaining
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-        <p className="text-[11px] text-muted-foreground mt-2">
-          Expected is the sum of the instalments each tenant's agreed payment plan schedules inside this period. Plans that have run past their agreed end date, or that are already settled, raise no further expectation.
-        </p>
-      </Card>
         </>
       )}
     </div>
