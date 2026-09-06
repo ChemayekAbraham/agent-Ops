@@ -12,7 +12,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, FileDown } from 'lucide-react';
+import { downloadDormantAgentsPdf, type DormantAgentsReport } from '@/lib/dormantAgentsPdf';
 
 type DormantTenant = {
   rent_request_id: string;
