@@ -219,9 +219,12 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
         />
         <KpiTile
           title="Active Agents"
-          value={fmtNum(k.active_agents_curr || 0)}
-          delta={pctDelta(k.active_agents_curr || 0, k.active_agents_prev || 0)}
-          subtitle={`of ${fmtNum(k.total_agents || 0)} agents`}
+          value={fmtNum((k.active_agents_curr || 0) + (k.active_subagents_curr || 0))}
+          delta={pctDelta(
+            (k.active_agents_curr || 0) + (k.active_subagents_curr || 0),
+            (k.active_agents_prev || 0) + (k.active_subagents_prev || 0)
+          )}
+          subtitle={`of ${fmtNum((k.total_agents || 0) + (k.total_subagents || 0))} agents`}
           icon={Activity}
           accent="bg-emerald-600"
           spark={trendData.map((t) => t.activeAgents)}
