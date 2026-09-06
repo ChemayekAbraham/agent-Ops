@@ -15,12 +15,10 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell,
 } from 'recharts';
 import {
-  CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown, AlertTriangle,
+  CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown,
 } from 'lucide-react';
 import { ComprehensiveReportButton } from './ComprehensiveReportButton';
 import { NextSevenDaysExpected } from './NextSevenDaysExpected';
-import { TenantsOwingDialog } from './TenantsOwingDialog';
-import { DormantAgentsDialog } from './DormantAgentsDialog';
 import { format, parseISO, startOfDay, endOfDay, subDays, startOfMonth, startOfYear, addDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
@@ -137,8 +135,6 @@ export function AgentCollectionsCommandCenter() {
   const [custom, setCustom] = useState<DateRange | undefined>();
   const [search, setSearch] = useState('');
   const [visibleAgents, setVisibleAgents] = useState(10);
-  const [owingOpen, setOwingOpen] = useState(false);
-  const [dormantOpen, setDormantOpen] = useState(false);
   const qc = useQueryClient();
 
   const { start, end, bucket } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
@@ -381,17 +377,6 @@ export function AgentCollectionsCommandCenter() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><TrendingUp className="h-3.5 w-3.5" /> New rent requests</div>
           <p className="text-lg font-bold mt-1">{num(totals?.requests_count)}</p>
           <p className="text-[11px] text-muted-foreground">{formatUGX(num(totals?.requests_amount))} requested</p>
-        </Card>
-        <Card className="p-3">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground"><AlertTriangle className="h-3.5 w-3.5" /> Defaulted</div>
-          <p className="text-lg font-bold mt-1 text-destructive">{formatUGX(num(totals?.defaulted_to_date))}</p>
-          <p className="text-[11px] text-muted-foreground">{num(totals?.defaulted_plans)} plans · as at {totals?.defaulted_as_of}</p>
-          <Button size="sm" variant="outline" className="h-7 mt-2 text-[11px] w-full" onClick={() => setOwingOpen(true)}>
-            View all tenants owing
-          </Button>
-          <Button size="sm" variant="outline" className="h-7 mt-1 text-[11px] w-full" onClick={() => setDormantOpen(true)}>
-            Agents gone quiet
-          </Button>
         </Card>
       </div>
 
@@ -645,15 +630,9 @@ export function AgentCollectionsCommandCenter() {
           </>
         )}
         <p className="text-[11px] text-muted-foreground mt-2">
-          Expected is the sum of the instalments each tenant's agreed payment plan schedules inside this period. Plans that have run past their agreed end date, or that are already settled, raise no further expectation — their balances appear under Defaulted.
+          Expected is the sum of the instalments each tenant's agreed payment plan schedules inside this period. Plans that have run past their agreed end date, or that are already settled, raise no further expectation.
         </p>
       </Card>
-      <TenantsOwingDialog
-        asOf={totals?.defaulted_as_of ?? format(new Date(), 'yyyy-MM-dd')}
-        open={owingOpen}
-        onOpenChange={setOwingOpen}
-      />
-      <DormantAgentsDialog asOf={totals?.defaulted_as_of ?? format(new Date(), 'yyyy-MM-dd')} open={dormantOpen} onOpenChange={setDormantOpen} />
         </>
       )}
     </div>
