@@ -372,7 +372,7 @@ export function AgentRentBehaviourPanel() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<RentBehaviourRow | null>(null);
   const [detailTab, setDetailTab] = useState('overview');
-  const [fromDate, setFromDate] = useState(() => isoDaysAgo(29));
+  const [fromDate, setFromDate] = useState(() => todayIso());
   const [toDate, setToDate] = useState(() => todayIso());
   const [sortKey, setSortKey] = useState<SortKey>('recent');
   const [searchInput, setSearchInput] = useState('');
