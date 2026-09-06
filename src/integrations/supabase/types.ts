@@ -30905,6 +30905,33 @@ export type Database = {
           },
         ]
       }
+      rent_request_change_estimate: {
+        Row: {
+          built_at: string
+          confidence: string
+          estimated_last_change_at: string
+          rent_request_id: string
+          source: string
+          was_damaged: boolean
+        }
+        Insert: {
+          built_at?: string
+          confidence: string
+          estimated_last_change_at: string
+          rent_request_id: string
+          source: string
+          was_damaged: boolean
+        }
+        Update: {
+          built_at?: string
+          confidence?: string
+          estimated_last_change_at?: string
+          rent_request_id?: string
+          source?: string
+          was_damaged?: boolean
+        }
+        Relationships: []
+      }
       rent_request_deletions: {
         Row: {
           agent_id: string | null
