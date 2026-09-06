@@ -97,14 +97,6 @@ interface CommandCenterData {
   generated_at: string;
 }
 
-interface CollectionTargetData {
-  as_of: string; timezone: string;
-  collectible_today: number; collectible_plans: number;
-  on_schedule_daily: number; on_schedule_plans: number;
-  past_term_daily: number; past_term_plans: number;
-  scheduled_today: number; scheduled_today_plans: number;
-  arrears_to_date: number; generated_at: string;
-}
 
 const num = (v: any) => Number(v ?? 0);
 const compact = (v: number) =>
@@ -157,19 +149,6 @@ export function AgentCollectionsCommandCenter() {
   });
 
   const totals = data?.totals;
-
-  const { data: target } = useQuery({
-    queryKey: ['agent-ops-collection-target', totals?.defaulted_as_of ?? 'today'],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('agent_ops_collection_target', {
-        p_as_of: totals?.defaulted_as_of ?? format(new Date(), 'yyyy-MM-dd'),
-      });
-      if (error) throw error;
-      return data as unknown as CollectionTargetData;
-    },
-    enabled: preset !== 'next7',
-    staleTime: 60_000,
-  });
 
   // Live refresh when collections or rent requests change
   useEffect(() => {
@@ -380,34 +359,6 @@ export function AgentCollectionsCommandCenter() {
         </Card>
       </div>
 
-      {target && (
-        <Card className="p-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Banknote className="h-4 w-4 text-primary" />
-              <h3 className="text-sm font-semibold">Field collection target today</h3>
-            </div>
-            <Badge variant="outline" className="text-[10px]">Separate from Expected</Badge>
-          </div>
-          <p className="text-2xl font-bold tabular-nums">{formatUGX(num(target.collectible_today))}</p>
-          <p className="text-[11px] text-muted-foreground">{target.collectible_plans} tenants in arrears · their combined daily instalment rate</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
-            <div className="rounded-md border px-3 py-2">
-              <p className="text-[11px] text-muted-foreground">On their agreed schedule</p>
-              <p className="text-sm font-semibold tabular-nums">{formatUGX(num(target.on_schedule_daily))}</p>
-              <p className="text-[10px] text-muted-foreground">{target.on_schedule_plans} tenants · still inside their term</p>
-            </div>
-            <div className="rounded-md border px-3 py-2">
-              <p className="text-[11px] text-muted-foreground">Past their agreed end date</p>
-              <p className="text-sm font-semibold tabular-nums text-destructive">{formatUGX(num(target.past_term_daily))}</p>
-              <p className="text-[10px] text-muted-foreground">{target.past_term_plans} tenants · plan has run out, balance still owed</p>
-            </div>
-          </div>
-          <p className="text-[11px] text-muted-foreground mt-2">
-            Expected above is {formatUGX(num(target.scheduled_today))} — only what the agreed payment plans schedule for today, across {target.scheduled_today_plans} plans. This target is a different measure: it adds the daily rate of every tenant already in arrears, including those whose plan has passed its end date and schedules nothing further. Use Expected to judge plan performance, and this figure to set what the field teams chase. Never add the two together.
-          </p>
-        </Card>
-      )}
 
       {/* Expected collections per day */}
       {data?.expected_daily && data.expected_daily.length > 0 && (
