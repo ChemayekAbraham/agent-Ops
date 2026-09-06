@@ -203,7 +203,7 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
 
 
       {/* Row A — network KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3">
         <KpiTile
           title="Total Agents"
           value={fmtNum((k.total_agents || 0) + (k.total_subagents || 0))}
