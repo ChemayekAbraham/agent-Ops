@@ -116,31 +116,58 @@ function AgentCollectionsDrilldown({
   const totalExpected = tenantFiltered.reduce((s, r) => s + r.expectedAmount, 0);
   const totalBalance = tenantFiltered.reduce((s, r) => s + r.balance, 0);
 
-  const exportCsv = () => {
+  const [exporting, setExporting] = useState(false);
+
+  const exportPdf = async () => {
     const sourceRows = tenantFiltered.length ? tenantFiltered : rows;
     if (sourceRows.length === 0) return;
-    const header = ['Tenant', 'Phone', 'Amount collected', 'Expected', 'Balance', 'Total outstanding', 'Cycle', 'Collected at'];
-    const body = sourceRows.map(r => [
-      r.tenantName,
-      r.tenantPhone ?? '',
-      r.amount,
-      r.expectedAmount,
-      r.balance,
-      r.tenantOutstanding,
-      r.cycle,
-      format(new Date(r.createdAt), 'dd MMM yyyy HH:mm'),
-    ]);
-    const csv = [header, ...body]
-      .map(line => line.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${agent.name || 'agent'}-collections-${format(start, 'yyyyMMdd')}-${format(end, 'yyyyMMdd')}.csv`.replace(/\s+/g, '-');
-    link.click();
-    URL.revokeObjectURL(url);
-    toast.success('Collection records exported');
+    setExporting(true);
+    try {
+      const [{ default: jsPDF }, autoTableMod] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable'),
+      ]);
+      const autoTable = (autoTableMod as any).default ?? autoTableMod;
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+
+      doc.setFontSize(14);
+      doc.text(`${agent.name || 'Agent'} — collection records`, 40, 40);
+      doc.setFontSize(9);
+      doc.text(
+        `${format(start, 'dd MMM yyyy')} – ${format(end, 'dd MMM yyyy')}  ·  ${sourceRows.length} records  ·  Collected ${formatUGX(total)}  ·  Balance ${formatUGX(totalBalance)}  ·  Expected ${formatUGX(totalExpected)}`,
+        40,
+        58,
+      );
+
+      autoTable(doc, {
+        startY: 74,
+        head: [['Tenant', 'Phone', 'Collected', 'Expected', 'Balance', 'Total outstanding', 'Cycle', 'Collected at']],
+        body: sourceRows.map(r => [
+          r.tenantName,
+          r.tenantPhone ?? '—',
+          formatUGX(r.amount),
+          formatUGX(r.expectedAmount),
+          formatUGX(r.balance),
+          formatUGX(r.tenantOutstanding),
+          r.cycle,
+          format(new Date(r.createdAt), 'dd MMM yyyy HH:mm'),
+        ]),
+        styles: { fontSize: 8, cellPadding: 4 },
+        headStyles: { fillColor: [30, 41, 59], textColor: 255, fontSize: 8 },
+        columnStyles: { 1: { cellWidth: 90 } },
+      });
+
+      doc.save(
+        `${agent.name || 'agent'}-collections-${format(start, 'yyyyMMdd')}-${format(end, 'yyyyMMdd')}.pdf`.replace(/\s+/g, '-'),
+      );
+      toast.success('Collection records exported');
+    } catch (e) {
+      toast.error('Could not create the PDF');
+    } finally {
+      setExporting(false);
+    }
   };
+
 
   return (
     <Dialog open onOpenChange={o => { if (!o) onClose(); }}>
