@@ -57,7 +57,7 @@ interface KpiTileProps {
   spark?: number[];
   onClick?: () => void;
   loading?: boolean;
-  subtitle?: string;
+  subtitle?: ReactNode;
 }
 
 function KpiTile({ title, value, delta, icon: Icon, accent, onClick, loading, subtitle }: KpiTileProps) {
