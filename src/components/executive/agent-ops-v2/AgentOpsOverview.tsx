@@ -231,6 +231,24 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
           onClick={() => onOpenSection('directory')}
           loading={isLoading}
         />
+        <KpiTile
+          title="Inactive Agents"
+          value={fmtNum(
+            ((k.total_agents || 0) + (k.total_subagents || 0)) -
+            ((k.active_agents_curr || 0) + (k.active_subagents_curr || 0))
+          )}
+          delta={pctDelta(
+            ((k.total_agents || 0) + (k.total_subagents || 0)) -
+            ((k.active_agents_curr || 0) + (k.active_subagents_curr || 0)),
+            ((k.total_agents_prev || 0) + (k.total_subagents_prev || 0)) -
+            ((k.active_agents_prev || 0) + (k.active_subagents_prev || 0))
+          )}
+          subtitle={`${fmtNum((k.total_agents || 0) - (k.active_agents_curr || 0))} agents · ${fmtNum((k.total_subagents || 0) - (k.active_subagents_curr || 0))} sub-agents inactive`}
+          icon={UserPlus}
+          accent="bg-slate-500"
+          onClick={() => onOpenSection('directory')}
+          loading={isLoading}
+        />
       </div>
 
 
