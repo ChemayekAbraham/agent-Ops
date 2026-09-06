@@ -42,6 +42,14 @@ const cycleLabel = (f: string | null) => {
   return 'Daily';
 };
 
+const expectedInstallment = (daily: number | null, cycle: string | null) => {
+  const d = Number(daily || 0);
+  const v = (cycle || 'daily').toLowerCase();
+  if (v.startsWith('week')) return d * 7;
+  if (v.startsWith('month')) return d * 30;
+  return d;
+};
+
 const ratingTone = (pct: number | null) =>
   pct === null ? 'text-muted-foreground'
     : pct >= 90 ? 'text-emerald-600'
@@ -53,8 +61,9 @@ interface DrillRow {
   tenantName: string;
   tenantPhone: string | null;
   amount: number;
+  expectedAmount: number;
   createdAt: string;
-  planBalance: number | null;
+  balance: number;
   tenantOutstanding: number;
   cycle: string;
 }
@@ -79,14 +88,14 @@ function AgentCollectionsDrilldown({
       const tenantIds = Array.from(new Set(rows.map(r => r.tenant_id).filter(Boolean))) as string[];
 
       const profileById = new Map<string, { name: string; phone: string | null }>();
-      const planByTenant = new Map<string, { balance: number; outstanding: number; cycle: string }>();
+      const planByTenant = new Map<string, { dailyRepayment: number; outstanding: number; cycle: string }>();
 
       if (tenantIds.length > 0) {
         const [{ data: profs }, { data: plans }] = await Promise.all([
           supabase.from('profiles').select('id, full_name, phone').in('id', tenantIds),
           supabase
             .from('rent_requests')
-            .select('tenant_id, total_repayment, amount_repaid, repayment_frequency, created_at, status')
+            .select('tenant_id, total_repayment, amount_repaid, daily_repayment, repayment_frequency, created_at, status')
             .in('tenant_id', tenantIds)
             .in('status', ['funded', 'repaying', 'active', 'disbursed', 'completed'])
             .order('created_at', { ascending: false }),
@@ -99,7 +108,7 @@ function AgentCollectionsDrilldown({
           const prev = planByTenant.get(p.tenant_id);
           if (!prev) {
             planByTenant.set(p.tenant_id, {
-              balance: remaining,
+              dailyRepayment: Number(p.daily_repayment ?? 0),
               outstanding: remaining,
               cycle: cycleLabel(p.repayment_frequency),
             });
@@ -112,13 +121,16 @@ function AgentCollectionsDrilldown({
       return rows.map(r => {
         const prof = r.tenant_id ? profileById.get(r.tenant_id) : undefined;
         const plan = r.tenant_id ? planByTenant.get(r.tenant_id) : undefined;
+        const expected = plan ? expectedInstallment(plan.dailyRepayment, plan.cycle) : 0;
+        const amount = Number(r.amount) || 0;
         return {
           id: r.id,
           tenantName: prof?.name ?? 'Tenant',
           tenantPhone: prof?.phone ?? null,
-          amount: Number(r.amount) || 0,
+          amount,
+          expectedAmount: expected,
           createdAt: r.created_at,
-          planBalance: plan ? plan.balance : null,
+          balance: Math.max(0, expected - amount),
           tenantOutstanding: plan?.outstanding ?? 0,
           cycle: plan?.cycle ?? '—',
         };
@@ -131,12 +143,13 @@ function AgentCollectionsDrilldown({
 
   const exportCsv = () => {
     if (rows.length === 0) return;
-    const header = ['Tenant', 'Phone', 'Amount collected', 'Plan balance', 'Total outstanding', 'Cycle', 'Collected at'];
+    const header = ['Tenant', 'Phone', 'Amount collected', 'Expected', 'Balance', 'Total outstanding', 'Cycle', 'Collected at'];
     const body = rows.map(r => [
       r.tenantName,
       r.tenantPhone ?? '',
       r.amount,
-      r.planBalance ?? '',
+      r.expectedAmount,
+      r.balance,
       r.tenantOutstanding,
       r.cycle,
       format(new Date(r.createdAt), 'dd MMM yyyy HH:mm'),
@@ -195,10 +208,14 @@ function AgentCollectionsDrilldown({
                     </div>
                     <p className="text-sm font-semibold tabular-nums text-emerald-600">{formatUGX(r.amount)}</p>
                   </div>
-                  <div className="mt-1.5 grid grid-cols-3 gap-2 text-[11px]">
+                  <div className="mt-1.5 grid grid-cols-4 gap-2 text-[11px]">
+                    <div>
+                      <p className="text-muted-foreground">Expected</p>
+                      <p className="font-medium tabular-nums">{formatUGX(r.expectedAmount)}</p>
+                    </div>
                     <div>
                       <p className="text-muted-foreground">Balance</p>
-                      <p className="font-medium tabular-nums text-destructive">{r.planBalance === null ? '—' : formatUGX(r.planBalance)}</p>
+                      <p className="font-medium tabular-nums text-destructive">{formatUGX(r.balance)}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Outstanding</p>
@@ -220,6 +237,7 @@ function AgentCollectionsDrilldown({
                   <tr className="text-left">
                     <th className="p-2 font-medium">Tenant</th>
                     <th className="p-2 font-medium text-right">Collected</th>
+                    <th className="p-2 font-medium text-right">Expected</th>
                     <th className="p-2 font-medium text-right">Balance</th>
                     <th className="p-2 font-medium text-right">Outstanding</th>
                     <th className="p-2 font-medium">Cycle</th>
@@ -234,7 +252,8 @@ function AgentCollectionsDrilldown({
                         {r.tenantPhone && <p className="text-[10px] text-muted-foreground">{r.tenantPhone}</p>}
                       </td>
                       <td className="p-2 text-right font-semibold tabular-nums text-emerald-600">{formatUGX(r.amount)}</td>
-                      <td className="p-2 text-right tabular-nums text-destructive">{r.planBalance === null ? '—' : formatUGX(r.planBalance)}</td>
+                      <td className="p-2 text-right tabular-nums">{formatUGX(r.expectedAmount)}</td>
+                      <td className="p-2 text-right tabular-nums text-destructive">{formatUGX(r.balance)}</td>
                       <td className="p-2 text-right tabular-nums text-primary">{formatUGX(r.tenantOutstanding)}</td>
                       <td className="p-2">
                         <Badge variant="outline" className="text-[10px]">{r.cycle}</Badge>
@@ -249,7 +268,9 @@ function AgentCollectionsDrilldown({
                   <tr className="border-t bg-muted/40 font-semibold">
                     <td className="p-2">Total · {rows.length} records</td>
                     <td className="p-2 text-right tabular-nums">{formatUGX(total)}</td>
-                    <td colSpan={4} />
+                    <td className="p-2 text-right tabular-nums">{formatUGX(rows.reduce((s, r) => s + r.expectedAmount, 0))}</td>
+                    <td className="p-2 text-right tabular-nums">{formatUGX(rows.reduce((s, r) => s + r.balance, 0))}</td>
+                    <td colSpan={3} />
                   </tr>
                 </tfoot>
               </table>
