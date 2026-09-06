@@ -231,16 +231,6 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
           onClick={() => onOpenSection('directory')}
           loading={isLoading}
         />
-        <KpiTile
-          title="Total Sub-Agents"
-          value={fmtNum(k.total_subagents || 0)}
-          delta={pctDelta(k.total_subagents || 0, k.total_subagents_prev || 0)}
-          subtitle={`${fmtNum(k.active_subagents_curr || 0)} active`}
-          icon={UsersRound}
-          accent="bg-sky-600"
-          onClick={() => onOpenSection('sub-agents')}
-          loading={isLoading}
-        />
       </div>
 
 
