@@ -461,7 +461,15 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
                     {format(new Date(r.created_at), 'd MMM HH:mm')}
                   </TableCell>
                   <TableCell className="font-medium max-w-[140px] truncate">{r.tenant_name}</TableCell>
-                  <TableCell className="hidden sm:table-cell max-w-[140px] truncate text-muted-foreground">{r.agent_name}</TableCell>
+                  <TableCell className="hidden sm:table-cell max-w-[180px] text-muted-foreground">
+                    <span className="block truncate">{r.agent_name}</span>
+                    {r.parent_agent_name && (
+                      <span className="block truncate text-[10px] text-muted-foreground/80">
+                        Parent: {r.parent_agent_name}
+                      </span>
+                    )}
+                  </TableCell>
+
                   <TableCell>
                     <Badge variant={statusTone(r.status) as any} className="text-[10px] whitespace-nowrap capitalize">
                       {formatStatus(r.status)}
