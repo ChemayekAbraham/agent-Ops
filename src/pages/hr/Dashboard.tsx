@@ -10,6 +10,7 @@ import HRDepartments from '@/components/hr/HRDepartments';
 import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWorkspace';
 import { ApprovalHistoryLog } from '@/components/executive/ApprovalHistoryLog';
 import HRSubmittedReports from '@/components/hr/HRSubmittedReports';
+import { ReportArchiveList } from '@/components/reports/ReportArchiveList';
 
 export default function HRDashboard() {
   const [activeSection, setActiveSection] = usePersistedActiveTab('hr');
