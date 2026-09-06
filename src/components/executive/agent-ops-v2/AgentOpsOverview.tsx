@@ -389,14 +389,30 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
         .order('created_at', { ascending: false })
         .limit(5);
       if (!data || data.length === 0) return [];
-      const ids = Array.from(new Set(data.flatMap((r: any) => [r.agent_id, r.tenant_id]).filter(Boolean)));
+      const agentIds = Array.from(new Set(data.map((r: any) => r.agent_id).filter(Boolean)));
+      const { data: links } = agentIds.length
+        ? await supabase
+            .from('agent_subagents')
+            .select('sub_agent_id, parent_agent_id, status')
+            .in('sub_agent_id', agentIds)
+            .in('status', ['verified', 'accepted', 'active'])
+        : { data: [] as any[] };
+      const parentMap = new Map((links || []).map((l: any) => [l.sub_agent_id, l.parent_agent_id]));
+      const ids = Array.from(new Set([
+        ...data.flatMap((r: any) => [r.agent_id, r.tenant_id]),
+        ...parentMap.values(),
+      ].filter(Boolean)));
       const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', ids);
       const pm = new Map((profs || []).map((p: any) => [p.id, p.full_name]));
       return data.map((r: any) => ({
         ...r,
         agent_name: pm.get(r.agent_id) || '—',
+        parent_agent_name: parentMap.has(r.agent_id)
+          ? (pm.get(parentMap.get(r.agent_id)) || '—')
+          : null,
         tenant_name: pm.get(r.tenant_id) || '—',
       }));
+
     },
     staleTime: 60_000,
   });
