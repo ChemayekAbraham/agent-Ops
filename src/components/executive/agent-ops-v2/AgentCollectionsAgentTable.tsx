@@ -88,14 +88,14 @@ function AgentCollectionsDrilldown({
       const tenantIds = Array.from(new Set(rows.map(r => r.tenant_id).filter(Boolean))) as string[];
 
       const profileById = new Map<string, { name: string; phone: string | null }>();
-      const planByTenant = new Map<string, { balance: number; outstanding: number; cycle: string }>();
+      const planByTenant = new Map<string, { dailyRepayment: number; outstanding: number; cycle: string }>();
 
       if (tenantIds.length > 0) {
         const [{ data: profs }, { data: plans }] = await Promise.all([
           supabase.from('profiles').select('id, full_name, phone').in('id', tenantIds),
           supabase
             .from('rent_requests')
-            .select('tenant_id, total_repayment, amount_repaid, repayment_frequency, created_at, status')
+            .select('tenant_id, total_repayment, amount_repaid, daily_repayment, repayment_frequency, created_at, status')
             .in('tenant_id', tenantIds)
             .in('status', ['funded', 'repaying', 'active', 'disbursed', 'completed'])
             .order('created_at', { ascending: false }),
@@ -108,7 +108,7 @@ function AgentCollectionsDrilldown({
           const prev = planByTenant.get(p.tenant_id);
           if (!prev) {
             planByTenant.set(p.tenant_id, {
-              balance: remaining,
+              dailyRepayment: Number(p.daily_repayment ?? 0),
               outstanding: remaining,
               cycle: cycleLabel(p.repayment_frequency),
             });
@@ -121,13 +121,16 @@ function AgentCollectionsDrilldown({
       return rows.map(r => {
         const prof = r.tenant_id ? profileById.get(r.tenant_id) : undefined;
         const plan = r.tenant_id ? planByTenant.get(r.tenant_id) : undefined;
+        const expected = plan ? expectedInstallment(plan.dailyRepayment, plan.cycle) : 0;
+        const amount = Number(r.amount) || 0;
         return {
           id: r.id,
           tenantName: prof?.name ?? 'Tenant',
           tenantPhone: prof?.phone ?? null,
-          amount: Number(r.amount) || 0,
+          amount,
+          expectedAmount: expected,
           createdAt: r.created_at,
-          planBalance: plan ? plan.balance : null,
+          balance: Math.max(0, expected - amount),
           tenantOutstanding: plan?.outstanding ?? 0,
           cycle: plan?.cycle ?? '—',
         };
