@@ -523,83 +523,106 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
 
 // ---------- Top performers (agents + sub-agents) ----------
 
-function TopPendingAgents({ onViewAll }: { onViewAll: () => void }) {
+function PartialCollectionsOverview() {
+  const DAYS = 14;
   const { data, isLoading } = useQuery({
-    queryKey: ['agent-ops-top-pending-agents'],
-    queryFn: async () => {
-      const { data: rents } = await supabase
-        .from('rent_requests')
-        .select('agent_id, total_repayment, amount_repaid, daily_repayment, status, agent_payment_status')
-        .in('status', ['funded', 'repaying'])
-        .limit(5000);
-      if (!rents || rents.length === 0) return [];
-      const agg = new Map<string, { pending: number; tenants: number; daily: number }>();
-      for (const r of rents as any[]) {
-        if (!r.agent_id) continue;
-        if ((r.agent_payment_status || 'paying') === 'not_paying') continue;
-        const pending = Math.max(0, Number(r.total_repayment || 0) - Number(r.amount_repaid || 0));
-        if (pending <= 0) continue;
-        const cur = agg.get(r.agent_id) || { pending: 0, tenants: 0, daily: 0 };
-        cur.pending += pending;
-        cur.tenants += 1;
-        cur.daily += Number(r.daily_repayment || 0);
-        agg.set(r.agent_id, cur);
-      }
-      const top = Array.from(agg.entries())
-        .sort((a, b) => b[1].pending - a[1].pending)
-        .slice(0, 5);
-      if (top.length === 0) return [];
-      const { data: profs } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('id', top.map(([id]) => id));
-      const pm = new Map((profs || []).map((p: any) => [p.id, p.full_name]));
-      return top.map(([id, v]) => ({ agent_id: id, name: pm.get(id) || '—', ...v }));
-    },
+    queryKey: ['agent-ops-partial-vs-full', DAYS],
     staleTime: 60_000,
+    queryFn: async () => {
+      const since = startOfDay(subDays(new Date(), DAYS - 1));
+      const { data: cols, error } = await supabase
+        .from('agent_collections')
+        .select('id, amount, created_at, tenant_id, rent_request_id')
+        .gte('created_at', since.toISOString())
+        .gt('amount', 0)
+        .limit(5000);
+      if (error) throw error;
+      const rows = (cols || []) as any[];
+      if (rows.length === 0) return { series: [], full: 0, partial: 0, shortfall: 0 };
+
+      const tenantIds = Array.from(new Set(rows.map(r => r.tenant_id).filter(Boolean)));
+      const { data: plans } = await supabase
+        .from('rent_requests')
+        .select('id, tenant_id, daily_repayment, repayment_frequency')
+        .in('tenant_id', tenantIds.slice(0, 500));
+      const byId = new Map<string, any>();
+      const byTenant = new Map<string, any>();
+      for (const p of (plans || []) as any[]) {
+        byId.set(p.id, p);
+        if (!byTenant.has(p.tenant_id)) byTenant.set(p.tenant_id, p);
+      }
+      const expectedFor = (r: any): number => {
+        const p = (r.rent_request_id && byId.get(r.rent_request_id)) || byTenant.get(r.tenant_id);
+        if (!p) return 0;
+        const daily = Number(p.daily_repayment || 0);
+        const freq = String(p.repayment_frequency || 'daily');
+        return freq === 'weekly' ? daily * 7 : freq === 'monthly' ? daily * 30 : daily;
+      };
+
+      const buckets = new Map<string, { label: string; full: number; partial: number; shortfall: number }>();
+      for (let i = DAYS - 1; i >= 0; i--) {
+        const d = subDays(new Date(), i);
+        buckets.set(format(d, 'yyyy-MM-dd'), { label: format(d, 'd MMM'), full: 0, partial: 0, shortfall: 0 });
+      }
+      let full = 0, partial = 0, shortfall = 0;
+      for (const r of rows) {
+        const key = format(new Date(r.created_at), 'yyyy-MM-dd');
+        const b = buckets.get(key);
+        if (!b) continue;
+        const exp = expectedFor(r);
+        const amt = Number(r.amount || 0);
+        if (exp > 0 && amt < exp - 1) {
+          b.partial += 1; partial += 1;
+          const gap = exp - amt;
+          b.shortfall += gap; shortfall += gap;
+        } else {
+          b.full += 1; full += 1;
+        }
+      }
+      return { series: Array.from(buckets.values()), full, partial, shortfall };
+    },
   });
+
+  const total = (data?.full || 0) + (data?.partial || 0);
+  const partialPct = total ? Math.round(((data?.partial || 0) / total) * 100) : 0;
 
   return (
     <Card className="rounded-2xl border-border/50 p-3 sm:p-4 w-full">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
         <div>
-          <h3 className="text-sm font-semibold">Highest Pending Collections</h3>
-          <p className="text-[11px] text-muted-foreground">Top 5 agents by outstanding tenant repayments</p>
+          <h3 className="text-sm font-semibold">Partial Collection Overview</h3>
+          <p className="text-[11px] text-muted-foreground">
+            Payments that met the tenant's due amount versus those that fell short · last {DAYS} days
+          </p>
         </div>
-        <Button size="sm" variant="outline" onClick={onViewAll} className="gap-1">
-          View all <ArrowRight className="h-3.5 w-3.5" />
-        </Button>
+        {!isLoading && total > 0 && (
+          <div className="flex items-center gap-3 text-[11px]">
+            <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{fmtNum(data?.full || 0)} full</span>
+            <span className="text-amber-600 dark:text-amber-400 font-semibold">{fmtNum(data?.partial || 0)} partial ({partialPct}%)</span>
+            <span className="text-red-600 dark:text-red-400 font-semibold">Short {fmtMoney(data?.shortfall || 0)}</span>
+          </div>
+        )}
       </div>
       {isLoading ? (
-        <Skeleton className="h-32 w-full" />
-      ) : !data || data.length === 0 ? (
-        <p className="text-xs text-muted-foreground p-4 text-center">No pending repayments.</p>
+        <Skeleton className="h-56 w-full" />
+      ) : !data || total === 0 ? (
+        <p className="text-xs text-muted-foreground p-4 text-center">No collections recorded in the last {DAYS} days.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8">#</TableHead>
-                <TableHead>Agent</TableHead>
-                <TableHead className="hidden sm:table-cell text-right">Tenants</TableHead>
-                <TableHead className="hidden md:table-cell text-right">Daily due</TableHead>
-                <TableHead className="text-right">Pending</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.map((r: any, i: number) => (
-                <TableRow key={r.agent_id}>
-                  <TableCell className="text-xs font-bold text-muted-foreground tabular-nums">{i + 1}</TableCell>
-                  <TableCell className="font-medium max-w-[160px] truncate">{r.name}</TableCell>
-                  <TableCell className="hidden sm:table-cell text-right tabular-nums text-xs">{fmtNum(r.tenants)}</TableCell>
-                  <TableCell className="hidden md:table-cell text-right tabular-nums text-xs text-muted-foreground">{fmtMoney(r.daily)}</TableCell>
-                  <TableCell className="text-right font-semibold tabular-nums text-xs text-red-600 dark:text-red-400">
-                    {fmtMoney(r.pending)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <div className="h-56 sm:h-64 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={data.series} barCategoryGap="20%">
+              <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+              <XAxis dataKey="label" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+              <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+              <Tooltip
+                contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                formatter={(v: number, name: string) => [fmtNum(v), name]}
+              />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="full" stackId="c" name="Full payment" fill="hsl(160 84% 39%)" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="partial" stackId="c" name="Partial payment" fill="hsl(38 92% 50%)" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       )}
     </Card>
