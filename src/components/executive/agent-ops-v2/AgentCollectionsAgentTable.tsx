@@ -187,7 +187,7 @@ function AgentCollectionsDrilldown({
           <>
             {/* Mobile cards */}
             <div className="space-y-2 md:hidden">
-              {rows.map(r => (
+              {tenantFiltered.map(r => (
                 <div key={r.id} className="rounded-lg border p-2.5">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
