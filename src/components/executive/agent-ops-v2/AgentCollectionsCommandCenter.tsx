@@ -389,6 +389,9 @@ export function AgentCollectionsCommandCenter() {
           <Button size="sm" variant="outline" className="h-7 mt-2 text-[11px] w-full" onClick={() => setOwingOpen(true)}>
             View all tenants owing
           </Button>
+          <Button size="sm" variant="outline" className="h-7 mt-1 text-[11px] w-full" onClick={() => setDormantOpen(true)}>
+            Agents gone quiet
+          </Button>
         </Card>
       </div>
 
