@@ -99,6 +99,19 @@ function ReportDetailDialog({
           <DialogTitle className="text-center text-base">{row?.title ?? 'Archived report'}</DialogTitle>
         </DialogHeader>
 
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={isLoading || !payload || !row}
+            onClick={() => {
+              if (row && payload) void downloadArchivedReportPdf(row, payload);
+            }}
+          >
+            Download PDF
+          </Button>
+        </div>
+
         {row && (
           <p className="text-center text-[11px] text-muted-foreground">
             {row.source_label ?? row.source ?? '—'} · {row.period_start ?? '—'} to {row.period_end ?? '—'} ·
