@@ -18,6 +18,8 @@ import {
   CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown,
 } from 'lucide-react';
 import { ComprehensiveReportButton } from './ComprehensiveReportButton';
+import { AgentCollectionsAgentTable } from './AgentCollectionsAgentTable';
+
 import { NextSevenDaysExpected } from './NextSevenDaysExpected';
 import { format, parseISO, startOfDay, endOfDay, subDays, startOfMonth, startOfYear, addDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
