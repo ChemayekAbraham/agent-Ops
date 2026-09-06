@@ -206,9 +206,12 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
         <KpiTile
           title="Total Agents"
-          value={fmtNum(k.total_agents || 0)}
-          delta={pctDelta(k.total_agents || 0, k.total_agents_prev || 0)}
-          subtitle={`+${fmtNum(k.new_agents_curr || 0)} new ${phrase}`}
+          value={fmtNum((k.total_agents || 0) + (k.total_subagents || 0))}
+          delta={pctDelta(
+            (k.total_agents || 0) + (k.total_subagents || 0),
+            (k.total_agents_prev || 0) + (k.total_subagents_prev || 0)
+          )}
+          subtitle={`+${fmtNum((k.new_agents_curr || 0) + (k.new_subagents_curr || 0))} new ${phrase}`}
           icon={Users}
           accent="bg-primary"
           onClick={() => onOpenSection('directory')}
