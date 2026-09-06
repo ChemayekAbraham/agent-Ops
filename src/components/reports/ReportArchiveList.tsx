@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
+import { downloadArchivedReportPdf } from '@/lib/archivedReportPdf';
 
 type ArchiveRow = {
   id: string;
