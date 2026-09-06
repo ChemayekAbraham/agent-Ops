@@ -31769,6 +31769,57 @@ export type Database = {
           },
         ]
       }
+      report_archive: {
+        Row: {
+          created_at: string
+          granularity: string
+          id: string
+          payload: Json
+          period_end: string
+          period_start: string
+          source: string
+          source_label: string
+          source_ref: string | null
+          submitted_at: string
+          submitted_by: string | null
+          submitted_by_name: string | null
+          summary: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          granularity: string
+          id?: string
+          payload: Json
+          period_end: string
+          period_start: string
+          source: string
+          source_label: string
+          source_ref?: string | null
+          submitted_at?: string
+          submitted_by?: string | null
+          submitted_by_name?: string | null
+          summary?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          granularity?: string
+          id?: string
+          payload?: Json
+          period_end?: string
+          period_start?: string
+          source?: string
+          source_label?: string
+          source_ref?: string | null
+          submitted_at?: string
+          submitted_by?: string | null
+          submitted_by_name?: string | null
+          summary?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       requisition_links: {
         Row: {
           created_at: string
@@ -44045,6 +44096,20 @@ export type Database = {
       archive_dead_letter_batch: {
         Args: { _dead_letter_id: number }
         Returns: undefined
+      }
+      archive_report: {
+        Args: {
+          p_granularity: string
+          p_payload: Json
+          p_period_end: string
+          p_period_start: string
+          p_source: string
+          p_source_label: string
+          p_source_ref?: string
+          p_summary?: string
+          p_title: string
+        }
+        Returns: string
       }
       assert_agent_collections_report_access: { Args: never; Returns: boolean }
       assert_merchant_capacity_override_admin: { Args: never; Returns: string }
