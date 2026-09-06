@@ -176,6 +176,64 @@ export function TenantCallsReport() {
     }
   };
 
+  const archiveReport = async () => {
+    setArchiving(true);
+    try {
+      const { startDay, endDay } = periodDays;
+      const payload = {
+        label: win.label,
+        stats: [
+          { label: 'Total calls', value: String(stats.total) },
+          { label: 'Engaged / answered', value: String(stats.engaged) },
+          { label: 'Missed / unanswered', value: String(stats.missed) },
+          { label: 'Open (unrecorded)', value: String(stats.open) },
+          { label: 'Feedback recorded', value: String(stats.feedback) },
+        ],
+        rows: rows.map((r) => ({
+          when: stamp(r.recordedAt ?? r.revealedAt),
+          tenant: r.subjectName,
+          tenantPhone: r.subjectPhone,
+          agent: r.agentName,
+          agentPhone: r.agentPhone,
+          status: statusLabel(r),
+          category: r.categoryLabel,
+          comment: r.comment ?? r.voidReason,
+          context: [
+            r.dailyRepayment != null ? `Daily ${ugx(r.dailyRepayment)}` : null,
+            r.outstandingBalance != null ? `Balance ${ugx(r.outstandingBalance)}` : null,
+            r.planStatus ? `Plan ${r.planStatus}` : null,
+          ]
+            .filter(Boolean)
+            .join('\n'),
+          officer: r.officer,
+        })),
+        metadata: {
+          generatedBy: profile?.full_name?.trim() || (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : ''),
+          email: profile?.email?.trim() || user?.email?.trim() || '',
+          generatedAt: new Date().toISOString(),
+          reportPeriod: win.label,
+        },
+      };
+      const { error: rpcError } = await supabase.rpc('archive_report', {
+        p_source: 'call_centre',
+        p_source_label: 'Tenant Calls Report',
+        p_granularity: 'day',
+        p_period_start: startDay,
+        p_period_end: endDay,
+        p_title: `Tenant Calls Report — ${startDay}`,
+        p_payload: payload,
+        p_summary: null,
+        p_source_ref: null,
+      });
+      if (rpcError) throw rpcError;
+      toast.success('Report archived. It will appear in HR · Report Archive.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not archive the report');
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   const barColor = (name: string) =>
     name.startsWith('Engaged') || name.startsWith('Callback')
       ? 'hsl(var(--primary))'
