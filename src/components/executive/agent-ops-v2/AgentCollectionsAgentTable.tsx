@@ -61,8 +61,9 @@ interface DrillRow {
   tenantName: string;
   tenantPhone: string | null;
   amount: number;
+  expectedAmount: number;
   createdAt: string;
-  planBalance: number | null;
+  balance: number;
   tenantOutstanding: number;
   cycle: string;
 }
