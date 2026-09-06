@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { AlertTriangle, BarChart3, FileText, PhoneCall, PhoneMissed, PhoneOutgoing } from 'lucide-react';
+import { AlertTriangle, Archive, BarChart3, FileText, PhoneCall, PhoneMissed, PhoneOutgoing } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { KPICard } from '../../KPICard';
