@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 import {
   Users, UserPlus, Activity, FileText, Home, Wallet, Banknote, TrendingDown,
-  TrendingUp, ArrowRight, UsersRound, Network, Coins, Hourglass, Receipt, Trophy,
+  TrendingUp, ArrowRight, UsersRound, Coins, Hourglass, Receipt, Trophy,
   RefreshCw,
 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -238,16 +238,6 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
           subtitle={`${fmtNum(k.active_subagents_curr || 0)} active`}
           icon={UsersRound}
           accent="bg-sky-600"
-          onClick={() => onOpenSection('sub-agents')}
-          loading={isLoading}
-        />
-        <KpiTile
-          title="Active Sub-Agents"
-          value={fmtNum(k.active_subagents_curr || 0)}
-          delta={pctDelta(k.active_subagents_curr || 0, k.active_subagents_prev || 0)}
-          subtitle={`of ${fmtNum(k.total_subagents || 0)} sub-agents`}
-          icon={Network}
-          accent="bg-indigo-600"
           onClick={() => onOpenSection('sub-agents')}
           loading={isLoading}
         />
