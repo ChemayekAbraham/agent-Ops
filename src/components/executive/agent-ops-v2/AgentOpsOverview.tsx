@@ -235,7 +235,7 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
           title="Total Sub-Agents"
           value={fmtNum(k.total_subagents || 0)}
           delta={pctDelta(k.total_subagents || 0, k.total_subagents_prev || 0)}
-          subtitle={`+${fmtNum(k.new_subagents_curr || 0)} new ${phrase}`}
+          subtitle={`${fmtNum(k.active_subagents_curr || 0)} active`}
           icon={UsersRound}
           accent="bg-sky-600"
           onClick={() => onOpenSection('sub-agents')}
