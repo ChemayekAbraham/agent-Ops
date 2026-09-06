@@ -46369,6 +46369,10 @@ export type Database = {
         }[]
       }
       get_agent_campaign_dashboard: { Args: never; Returns: Json }
+      get_agent_collection_records: {
+        Args: { p_agent_id: string; p_end: string; p_start: string }
+        Returns: Json
+      }
       get_agent_collections_command_center: {
         Args: { p_bucket?: string; p_end: string; p_start: string }
         Returns: Json
