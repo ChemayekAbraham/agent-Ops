@@ -275,18 +275,34 @@ export function CashoutAgentManager() {
   const { data: payouts = [] } = useQuery({
     queryKey: ['merchant-agent-payouts', dateBounds.from, dateBounds.to],
     queryFn: async () => {
-      let q = supabase
-        .from('withdrawal_requests')
-        .select('id, amount, payout_method, status, created_at, processed_at, fin_ops_reference, assigned_cashout_agent_id, user_id, mobile_money_name, mobile_money_number')
-        .in('status', COMPLETED_STATUSES)
-        .not('assigned_cashout_agent_id', 'is', null)
-        .order('processed_at', { ascending: false })
-        .limit(2000);
-      if (dateBounds.from) q = q.gte('processed_at', dateBounds.from);
-      if (dateBounds.to) q = q.lte('processed_at', dateBounds.to);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data || [];
+      // PostgREST caps any single response at 1,000 rows no matter what
+      // .limit() asks for, so the KPIs froze at "1000 payouts" once the network
+      // crossed that many. Page through until a short page comes back so every
+      // completed payout is counted. Ordering carries an `id` tiebreaker —
+      // processed_at alone is not unique and would let rows repeat or vanish
+      // across page boundaries.
+      const PAGE = 1000;
+      const out: any[] = [];
+      for (let from = 0; ; from += PAGE) {
+        let q = supabase
+          .from('withdrawal_requests')
+          .select('id, amount, payout_method, status, created_at, processed_at, fin_ops_reference, assigned_cashout_agent_id, user_id, mobile_money_name, mobile_money_number')
+          .in('status', COMPLETED_STATUSES)
+          .not('assigned_cashout_agent_id', 'is', null)
+          .order('processed_at', { ascending: false })
+          .order('id', { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (dateBounds.from) q = q.gte('processed_at', dateBounds.from);
+        if (dateBounds.to) q = q.lte('processed_at', dateBounds.to);
+        const { data, error } = await q;
+        if (error) throw error;
+        const rows = data || [];
+        out.push(...rows);
+        if (rows.length < PAGE) break;
+        // Safety valve against runaway loops.
+        if (out.length >= 50_000) break;
+      }
+      return out;
     },
   });
 
