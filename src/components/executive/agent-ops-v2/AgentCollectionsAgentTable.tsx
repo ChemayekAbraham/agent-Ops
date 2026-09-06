@@ -237,6 +237,7 @@ function AgentCollectionsDrilldown({
                   <tr className="text-left">
                     <th className="p-2 font-medium">Tenant</th>
                     <th className="p-2 font-medium text-right">Collected</th>
+                    <th className="p-2 font-medium text-right">Expected</th>
                     <th className="p-2 font-medium text-right">Balance</th>
                     <th className="p-2 font-medium text-right">Outstanding</th>
                     <th className="p-2 font-medium">Cycle</th>
@@ -251,7 +252,8 @@ function AgentCollectionsDrilldown({
                         {r.tenantPhone && <p className="text-[10px] text-muted-foreground">{r.tenantPhone}</p>}
                       </td>
                       <td className="p-2 text-right font-semibold tabular-nums text-emerald-600">{formatUGX(r.amount)}</td>
-                      <td className="p-2 text-right tabular-nums text-destructive">{r.planBalance === null ? '—' : formatUGX(r.planBalance)}</td>
+                      <td className="p-2 text-right tabular-nums">{formatUGX(r.expectedAmount)}</td>
+                      <td className="p-2 text-right tabular-nums text-destructive">{formatUGX(r.balance)}</td>
                       <td className="p-2 text-right tabular-nums text-primary">{formatUGX(r.tenantOutstanding)}</td>
                       <td className="p-2">
                         <Badge variant="outline" className="text-[10px]">{r.cycle}</Badge>
@@ -266,7 +268,9 @@ function AgentCollectionsDrilldown({
                   <tr className="border-t bg-muted/40 font-semibold">
                     <td className="p-2">Total · {rows.length} records</td>
                     <td className="p-2 text-right tabular-nums">{formatUGX(total)}</td>
-                    <td colSpan={4} />
+                    <td className="p-2 text-right tabular-nums">{formatUGX(rows.reduce((s, r) => s + r.expectedAmount, 0))}</td>
+                    <td className="p-2 text-right tabular-nums">{formatUGX(rows.reduce((s, r) => s + r.balance, 0))}</td>
+                    <td colSpan={3} />
                   </tr>
                 </tfoot>
               </table>
