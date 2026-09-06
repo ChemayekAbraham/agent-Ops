@@ -43585,6 +43585,10 @@ export type Database = {
         Returns: string
       }
       agent_ops_directory_guard: { Args: never; Returns: string }
+      agent_ops_dormant_agents_arrears: {
+        Args: { p_as_of?: string; p_silent_days?: number }
+        Returns: Json
+      }
       agent_ops_issue_agent_product: {
         Args: {
           p_agent_id: string
