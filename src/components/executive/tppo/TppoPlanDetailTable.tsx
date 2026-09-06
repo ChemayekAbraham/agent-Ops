@@ -183,8 +183,21 @@ export function TppoPlanDetailTable({
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={isPending || rows.length === 0}
-                onClick={() => downloadTppoPlanDetailPdf(data)}
+                disabled={isPending || filteredRows.length === 0}
+                onClick={() =>
+                  agentFilter === 'all'
+                    ? downloadTppoPlanDetailPdf(data)
+                    : downloadTppoPlanDetailPdf(data, {
+                        agentName: agentFilter,
+                        rows: filteredRows,
+                        totals: {
+                          plans: shownTotals.plans,
+                          scheduled_total: shownTotals.scheduled,
+                          arrears_total: shownTotals.arrears,
+                          plans_in_arrears: filteredRows.filter((r) => r.arrears > 0).length,
+                        },
+                      })
+                }
               >
                 Download PDF
               </Button>
