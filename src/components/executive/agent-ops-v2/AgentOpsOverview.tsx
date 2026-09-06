@@ -247,34 +247,6 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
         />
       </div>
 
-      {/* Agent Status summary */}
-      <Card className="rounded-2xl border-border/50 p-3 sm:p-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-xl bg-amber-500 flex items-center justify-center shrink-0">
-              <Users className="h-4 w-4 text-white" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold">Agent Status</h3>
-              <p className="text-[11px] text-muted-foreground">Agents vs sub-agents across the network</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-4 sm:gap-8">
-            <div>
-              <p className="text-[11px] text-muted-foreground">Sub-Agents</p>
-              <p className="text-lg sm:text-xl font-bold tabular-nums">{fmtNum(k.total_subagents || 0)}</p>
-            </div>
-            <div>
-              <p className="text-[11px] text-muted-foreground">Agents</p>
-              <p className="text-lg sm:text-xl font-bold tabular-nums">{fmtNum(k.total_agents || 0)}</p>
-            </div>
-            <div>
-              <p className="text-[11px] text-muted-foreground">Total Combined</p>
-              <p className="text-lg sm:text-xl font-bold tabular-nums">{fmtNum((k.total_subagents || 0) + (k.total_agents || 0))}</p>
-            </div>
-          </div>
-        </div>
-      </Card>
 
       {/* Row A2 — money KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
