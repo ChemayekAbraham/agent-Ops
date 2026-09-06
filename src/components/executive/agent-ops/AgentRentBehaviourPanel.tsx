@@ -590,6 +590,10 @@ export function AgentRentBehaviourPanel() {
           )}
         </div>
 
+        <CollectionsRhythmCharts from={fromDate} to={toDate} />
+
+
+
 
         {isLoading ? (
           <div className="h-64 flex items-center justify-center text-muted-foreground">
