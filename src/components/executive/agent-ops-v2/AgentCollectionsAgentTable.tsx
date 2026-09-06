@@ -233,7 +233,7 @@ function AgentCollectionsDrilldown({
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map(r => (
+                  {tenantFiltered.map(r => (
                     <tr key={r.id} className="border-t hover:bg-accent/30">
                       <td className="p-2">
                         <p className="font-medium">{r.tenantName}</p>
@@ -254,10 +254,10 @@ function AgentCollectionsDrilldown({
                 </tbody>
                 <tfoot>
                   <tr className="border-t bg-muted/40 font-semibold">
-                    <td className="p-2">Total · {rows.length} records</td>
+                    <td className="p-2">Total · {tenantFiltered.length} records</td>
                     <td className="p-2 text-right tabular-nums">{formatUGX(total)}</td>
-                    <td className="p-2 text-right tabular-nums">{formatUGX(rows.reduce((s, r) => s + r.expectedAmount, 0))}</td>
-                    <td className="p-2 text-right tabular-nums">{formatUGX(rows.reduce((s, r) => s + r.balance, 0))}</td>
+                    <td className="p-2 text-right tabular-nums">{formatUGX(totalExpected)}</td>
+                    <td className="p-2 text-right tabular-nums">{formatUGX(totalBalance)}</td>
                     <td colSpan={3} />
                   </tr>
                 </tfoot>
