@@ -77,12 +77,19 @@ export function SubmitGate({
 }: SubmitGateProps) {
   const [busy, setBusy] = useState(false);
   const [notifyFailed, setNotifyFailed] = useState(false);
+  const [archiveFailed, setArchiveFailed] = useState(false);
   const failing = SUBMIT_CONDITIONS.filter((c) => !c.test(state));
   const canSubmit = failing.length === 0 && !submitted && Boolean(periodStart);
 
   const notifyNotice = notifyFailed ? (
     <p className="text-xs text-amber-600">
       The reviewer notification did not send. The submission stands.
+    </p>
+  ) : null;
+
+  const archiveNotice = archiveFailed ? (
+    <p className="text-xs text-amber-600">
+      Submitted and frozen, but the archived copy could not be saved. The report is still recorded.
     </p>
   ) : null;
 
