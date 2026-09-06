@@ -124,6 +124,7 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
               <thead>
                 <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <th scope="col" className="py-2 pr-3 font-medium">Period</th>
+                  <th scope="col" className="py-2 pr-3 text-right font-medium">Plans</th>
                   <th scope="col" className="py-2 text-right font-medium">Projected</th>
                 </tr>
               </thead>
@@ -132,6 +133,9 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
                   <tr key={period.period_index} className="border-b border-border/60">
                     <td className="py-2 pr-3 text-foreground">
                       {period.label ?? '—'}
+                    </td>
+                    <td className="py-2 pr-3 text-right tabular-nums text-foreground">
+                      {period.plans !== null && period.plans !== undefined ? period.plans : '—'}
                     </td>
                     <td className="py-2 text-right tabular-nums text-foreground">
                       {available && period.projected_ugx !== null && period.projected_ugx !== undefined
@@ -142,12 +146,16 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
                 ))}
                 <tr className="font-semibold">
                   <td className="py-2 pr-3">Total</td>
+                  <td className="py-2 pr-3" />
                   <td className="py-2 text-right tabular-nums">
                     {available ? formatUGX(rowSum) : '—'}
                   </td>
                 </tr>
               </tbody>
             </table>
+            <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+              What the agreed payment plans fall due on each of these days. A tenant whose repayment starts later contributes only from their first due date, and weekly or monthly plans appear on their due dates rather than spread across every day. This is scheduled rent, not a prediction of what will be collected.
+            </p>
           </div>
         </div>
       )}
