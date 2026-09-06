@@ -99,6 +99,7 @@ export function SubmitGate({
         <CardContent className="space-y-2 py-4 text-sm text-muted-foreground">
           <p>This report has been submitted and is read-only.</p>
           {notifyNotice}
+          {archiveNotice}
         </CardContent>
       </Card>
     );
