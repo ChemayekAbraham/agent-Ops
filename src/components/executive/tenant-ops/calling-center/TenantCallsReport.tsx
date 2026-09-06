@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { AlertTriangle, BarChart3, FileText, PhoneCall, PhoneMissed, PhoneOutgoing } from 'lucide-react';
+import { AlertTriangle, Archive, BarChart3, FileText, PhoneCall, PhoneMissed, PhoneOutgoing } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { KPICard } from '../../KPICard';
@@ -24,6 +24,7 @@ import {
   type CcHistoryRow,
 } from '@/hooks/useCcCallHistory';
 import { generateTenantCallsReportPdf } from '@/lib/tenantCallsReportPdf';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 
@@ -78,8 +79,22 @@ export function TenantCallsReport() {
   const [fromDay, setFromDay] = useState(isoDay(new Date()));
   const [toDay, setToDay] = useState(isoDay(new Date()));
   const [busy, setBusy] = useState(false);
+  const [archiving, setArchiving] = useState(false);
 
   const win = useMemo(() => windowFor(preset, fromDay, toDay), [preset, fromDay, toDay]);
+  const periodDays = useMemo(() => {
+    if (preset === 'today') {
+      const d = isoDay(new Date());
+      return { startDay: d, endDay: d };
+    }
+    if (preset === 'yesterday') {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      const day = isoDay(d);
+      return { startDay: day, endDay: day };
+    }
+    return { startDay: fromDay, endDay: toDay };
+  }, [preset, fromDay, toDay]);
   const { data, isLoading, error } = useCcCallHistory('tenant', 30, { fromIso: win.fromIso, toIso: win.toIso });
 
   const rows = useMemo(
@@ -161,6 +176,64 @@ export function TenantCallsReport() {
     }
   };
 
+  const archiveReport = async () => {
+    setArchiving(true);
+    try {
+      const { startDay, endDay } = periodDays;
+      const payload = {
+        label: win.label,
+        stats: [
+          { label: 'Total calls', value: String(stats.total) },
+          { label: 'Engaged / answered', value: String(stats.engaged) },
+          { label: 'Missed / unanswered', value: String(stats.missed) },
+          { label: 'Open (unrecorded)', value: String(stats.open) },
+          { label: 'Feedback recorded', value: String(stats.feedback) },
+        ],
+        rows: rows.map((r) => ({
+          when: stamp(r.recordedAt ?? r.revealedAt),
+          tenant: r.subjectName,
+          tenantPhone: r.subjectPhone,
+          agent: r.agentName,
+          agentPhone: r.agentPhone,
+          status: statusLabel(r),
+          category: r.categoryLabel,
+          comment: r.comment ?? r.voidReason,
+          context: [
+            r.dailyRepayment != null ? `Daily ${ugx(r.dailyRepayment)}` : null,
+            r.outstandingBalance != null ? `Balance ${ugx(r.outstandingBalance)}` : null,
+            r.planStatus ? `Plan ${r.planStatus}` : null,
+          ]
+            .filter(Boolean)
+            .join('\n'),
+          officer: r.officer,
+        })),
+        metadata: {
+          generatedBy: profile?.full_name?.trim() || (typeof user?.user_metadata?.full_name === 'string' ? user.user_metadata.full_name.trim() : ''),
+          email: profile?.email?.trim() || user?.email?.trim() || '',
+          generatedAt: new Date().toISOString(),
+          reportPeriod: win.label,
+        },
+      };
+      const { error: rpcError } = await supabase.rpc('archive_report', {
+        p_source: 'call_centre',
+        p_source_label: 'Tenant Calls Report',
+        p_granularity: 'day',
+        p_period_start: startDay,
+        p_period_end: endDay,
+        p_title: `Tenant Calls Report — ${startDay}`,
+        p_payload: payload,
+        p_summary: null,
+        p_source_ref: null,
+      });
+      if (rpcError) throw rpcError;
+      toast.success('Report archived. It will appear in HR · Report Archive.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not archive the report');
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   const barColor = (name: string) =>
     name.startsWith('Engaged') || name.startsWith('Callback')
       ? 'hsl(var(--primary))'
@@ -223,6 +296,16 @@ export function TenantCallsReport() {
               >
                 <FileText className="mr-1.5 h-3.5 w-3.5" />
                 {busy ? 'Building…' : 'PDF'}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs font-semibold"
+                onClick={archiveReport}
+                disabled={archiving || isLoading || rows.length === 0}
+              >
+                <Archive className="mr-1.5 h-3.5 w-3.5" />
+                {archiving ? 'Archiving…' : 'Archive report'}
               </Button>
             </div>
           </div>
