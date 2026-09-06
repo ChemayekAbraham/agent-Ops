@@ -20,6 +20,7 @@ import {
 import { ComprehensiveReportButton } from './ComprehensiveReportButton';
 import { NextSevenDaysExpected } from './NextSevenDaysExpected';
 import { TenantsOwingDialog } from './TenantsOwingDialog';
+import { DormantAgentsDialog } from './DormantAgentsDialog';
 import { format, parseISO, startOfDay, endOfDay, subDays, startOfMonth, startOfYear, addDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
@@ -137,6 +138,7 @@ export function AgentCollectionsCommandCenter() {
   const [search, setSearch] = useState('');
   const [visibleAgents, setVisibleAgents] = useState(10);
   const [owingOpen, setOwingOpen] = useState(false);
+  const [dormantOpen, setDormantOpen] = useState(false);
   const qc = useQueryClient();
 
   const { start, end, bucket } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
@@ -386,6 +388,9 @@ export function AgentCollectionsCommandCenter() {
           <p className="text-[11px] text-muted-foreground">{num(totals?.defaulted_plans)} plans · as at {totals?.defaulted_as_of}</p>
           <Button size="sm" variant="outline" className="h-7 mt-2 text-[11px] w-full" onClick={() => setOwingOpen(true)}>
             View all tenants owing
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 mt-1 text-[11px] w-full" onClick={() => setDormantOpen(true)}>
+            Agents gone quiet
           </Button>
         </Card>
       </div>
@@ -705,6 +710,7 @@ export function AgentCollectionsCommandCenter() {
         open={owingOpen}
         onOpenChange={setOwingOpen}
       />
+      <DormantAgentsDialog asOf={totals?.defaulted_as_of ?? format(new Date(), 'yyyy-MM-dd')} open={dormantOpen} onOpenChange={setDormantOpen} />
         </>
       )}
     </div>
