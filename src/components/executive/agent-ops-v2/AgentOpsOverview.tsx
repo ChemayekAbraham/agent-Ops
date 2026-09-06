@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -57,7 +57,7 @@ interface KpiTileProps {
   spark?: number[];
   onClick?: () => void;
   loading?: boolean;
-  subtitle?: string;
+  subtitle?: ReactNode;
 }
 
 function KpiTile({ title, value, delta, icon: Icon, accent, onClick, loading, subtitle }: KpiTileProps) {
@@ -293,7 +293,15 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
         <KpiTile
           title="Pending Collections"
           value={fmtMoney(Math.max(0, (windowTotals?.expected || 0) - (windowTotals?.collected || 0)))}
-          subtitle={`Unpaid of ${fmtMoney(windowTotals?.expected || 0)} expected ${phrase}`}
+          subtitle={
+            <>
+              Unpaid of{' '}
+              <span className="font-semibold text-foreground">
+                {fmtMoney(windowTotals?.expected || 0)}
+              </span>{' '}
+              expected {phrase}
+            </>
+          }
           icon={Hourglass}
           accent="bg-rose-600"
           spark={trendData.map((t) => t.pending)}
