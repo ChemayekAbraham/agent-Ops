@@ -474,66 +474,9 @@ export function AgentCollectionsCommandCenter() {
         </Card>
       )}
 
-      {/* Trend */}
-      <Card className="p-3">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold">Collections trend</h3>
-          <Badge variant="outline" className="text-[10px]">per {bucket}</Badge>
-        </div>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={series}>
-              <defs>
-                <linearGradient id="collGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.5} />
-                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-              <YAxis tickFormatter={compact} tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-              <Tooltip formatter={(v: any, n: any) => [formatUGX(Number(v)), n === 'collected' ? 'Collected' : n]} />
-              <Area type="monotone" dataKey="collected" stroke="hsl(var(--primary))" fill="url(#collGrad)" strokeWidth={2} name="Collected" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
+      {/* Collections trend and peak payment hours now live in Agent Ops → Rent Behaviour */}
 
-      {/* Peak hours */}
-      <Card className="p-3">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-amber-600" />
-            <h3 className="text-sm font-semibold">Peak payment hours</h3>
-          </div>
-          {topHour && topHour.amount > 0 && (
-            <Badge className="text-[10px] bg-amber-500/15 text-amber-700 border-amber-500/30">
-              Peak {hourLabel(topHour.hour)} · {formatUGX(topHour.amount)}
-            </Badge>
-          )}
-        </div>
-        <div className="h-56">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={peak}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="label" tick={{ fontSize: 9 }} interval={1} stroke="hsl(var(--muted-foreground))" />
-              <YAxis tickFormatter={compact} tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-              <Tooltip
-                formatter={(v: any) => formatUGX(Number(v))}
-                labelFormatter={(l: any) => `${l} (EAT)`}
-              />
-              <Bar dataKey="amount" name="Collected" radius={[3, 3, 0, 0]}>
-                {peak.map(p => (
-                  <Cell key={p.hour} fill={p.amount >= peakMax * 0.75 ? 'hsl(38 92% 50%)' : 'hsl(var(--primary))'} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <p className="text-[11px] text-muted-foreground mt-1">
-          Hour of day when tenants' rent payments are recorded, in East Africa Time.
-        </p>
-      </Card>
+
 
       {/* Collections vs rent requests */}
       <Card className="p-3 bg-muted/30">
