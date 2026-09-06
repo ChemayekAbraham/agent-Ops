@@ -710,6 +710,7 @@ export function AgentCollectionsCommandCenter() {
         open={owingOpen}
         onOpenChange={setOwingOpen}
       />
+      <DormantAgentsDialog asOf={totals?.defaulted_as_of ?? format(new Date(), 'yyyy-MM-dd')} open={dormantOpen} onOpenChange={setDormantOpen} />
         </>
       )}
     </div>
