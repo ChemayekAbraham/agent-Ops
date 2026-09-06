@@ -138,6 +138,7 @@ export function AgentCollectionsCommandCenter() {
   const [search, setSearch] = useState('');
   const [visibleAgents, setVisibleAgents] = useState(10);
   const [owingOpen, setOwingOpen] = useState(false);
+  const [dormantOpen, setDormantOpen] = useState(false);
   const qc = useQueryClient();
 
   const { start, end, bucket } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
