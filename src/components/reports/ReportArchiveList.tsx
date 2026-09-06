@@ -271,27 +271,29 @@ export function ReportArchiveList({ source }: { source?: string } = {}) {
 
       <Card>
         <CardContent className="space-y-3 p-3">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              className="h-8 text-xs"
-              variant={sourceFilter === null ? 'default' : 'outline'}
-              onClick={() => setSourceFilter(null)}
-            >
-              All
-            </Button>
-            {sourceLabels.map((label) => (
+          {!source && (
+            <div className="flex flex-wrap gap-2">
               <Button
-                key={label}
                 size="sm"
                 className="h-8 text-xs"
-                variant={sourceFilter === label ? 'default' : 'outline'}
-                onClick={() => setSourceFilter(label)}
+                variant={sourceFilter === null ? 'default' : 'outline'}
+                onClick={() => setSourceFilter(null)}
               >
-                {label}
+                All
               </Button>
-            ))}
-          </div>
+              {sourceLabels.map((label) => (
+                <Button
+                  key={label}
+                  size="sm"
+                  className="h-8 text-xs"
+                  variant={sourceFilter === label ? 'default' : 'outline'}
+                  onClick={() => setSourceFilter(label)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-2">
             {GRANULARITIES.map((g) => (
