@@ -24,6 +24,7 @@ import {
   type CcHistoryRow,
 } from '@/hooks/useCcCallHistory';
 import { generateTenantCallsReportPdf } from '@/lib/tenantCallsReportPdf';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 
