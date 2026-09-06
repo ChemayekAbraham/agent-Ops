@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { CalendarDays, ChevronDown, ChevronUp } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
 import { cn } from '@/lib/utils';
 
@@ -25,7 +25,7 @@ interface DayCell { day: string; amount: number; count: number }
  * Source of truth is agent_collections — no projections, no estimates.
  */
 export function AgentRepaymentCalendar({ agentId }: { agentId: string }) {
-  const [expanded, setExpanded] = useState(false);
+  const [monthIndex, setMonthIndex] = useState(0); // 0 = newest month
 
   const { data, isLoading } = useQuery({
     queryKey: ['agent-repayment-calendar', agentId],
@@ -142,67 +142,79 @@ export function AgentRepaymentCalendar({ agentId }: { agentId: string }) {
     return 'bg-emerald-200 text-emerald-900';
   };
 
-  const visible = expanded ? months : months.slice(0, 2);
+  const idx = Math.min(Math.max(monthIndex, 0), months.length - 1);
+  const mo = months[idx];
 
   return (
     <div className="mt-2 rounded-lg border border-border bg-background/70 p-2">
-      <div className="flex items-start justify-between gap-2 flex-wrap">
-        <div className="min-w-0">
-          <p className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground">
-            <CalendarDays className="h-3 w-3" />
-            Repayment calendar · since {totals.first}
-          </p>
-          <p className="text-[10px] text-muted-foreground tabular-nums">
-            <span className="font-semibold text-emerald-600">{formatUGX(totals.total)}</span> collected ·{' '}
-            {totals.count} payment{totals.count === 1 ? '' : 's'} · {totals.activeDays} active day
-            {totals.activeDays === 1 ? '' : 's'} · best {totals.best.day} ({formatUGX(totals.best.amount)})
-          </p>
-        </div>
-        {months.length > 2 && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
-            className="flex items-center gap-1 text-[10px] font-semibold text-primary shrink-0"
-          >
-            {expanded ? 'Show less' : `All ${months.length} months`}
-            {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-          </button>
-        )}
+      <div className="min-w-0">
+        <p className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground">
+          <CalendarDays className="h-3 w-3" />
+          Repayment calendar · since {totals.first}
+        </p>
+        <p className="text-[10px] text-muted-foreground tabular-nums">
+          <span className="font-semibold text-emerald-600">{formatUGX(totals.total)}</span> collected ·{' '}
+          {totals.count} payment{totals.count === 1 ? '' : 's'} · {totals.activeDays} active day
+          {totals.activeDays === 1 ? '' : 's'} · best {totals.best.day} ({formatUGX(totals.best.amount)})
+        </p>
       </div>
 
-      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {visible.map(mo => (
-          <div key={mo.key} className="rounded-md border border-border bg-background p-2">
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="text-[10px] font-semibold text-foreground truncate">{mo.label}</p>
-              <p className="text-[9px] text-muted-foreground tabular-nums shrink-0">
-                {formatUGX(mo.total)} · {mo.activeDays}d
-              </p>
-            </div>
-            <div className="grid grid-cols-7 gap-[2px] mt-1.5">
-              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-                <div key={i} className="text-[8px] text-muted-foreground text-center font-medium">{d}</div>
-              ))}
-              {mo.cells.map((cell, i) => cell === null ? (
-                <div key={`pad-${i}`} />
-              ) : (
-                <div
-                  key={cell.day}
-                  title={cell.amount > 0
-                    ? `${cell.day}: ${formatUGX(cell.amount)} from ${cell.count} payment${cell.count === 1 ? '' : 's'}`
-                    : `${cell.day}: no collection`}
-                  className={cn(
-                    'aspect-square rounded-[3px] flex items-center justify-center text-[8px] font-bold tabular-nums',
-                    tone(cell.amount),
-                  )}
-                >
-                  {Number(cell.day.slice(-2))}
-                </div>
-              ))}
-            </div>
+      <div className="mt-2 rounded-md border border-border bg-background p-2">
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            aria-label="Previous month"
+            disabled={idx >= months.length - 1}
+            onClick={(e) => { e.stopPropagation(); setMonthIndex(idx + 1); }}
+            className="h-6 w-6 rounded-md border border-border flex items-center justify-center disabled:opacity-30"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
+          <div className="text-center min-w-0">
+            <p className="text-[11px] font-semibold text-foreground truncate">{mo.label}</p>
+            <p className="text-[9px] text-muted-foreground tabular-nums">
+              {formatUGX(mo.total)} · {mo.activeDays} active day{mo.activeDays === 1 ? '' : 's'}
+            </p>
           </div>
-        ))}
+          <button
+            type="button"
+            aria-label="Next month"
+            disabled={idx <= 0}
+            onClick={(e) => { e.stopPropagation(); setMonthIndex(idx - 1); }}
+            className="h-6 w-6 rounded-md border border-border flex items-center justify-center disabled:opacity-30"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-7 gap-1 mt-2">
+          {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+            <div key={i} className="text-[9px] text-muted-foreground text-center font-medium">{d}</div>
+          ))}
+          {mo.cells.map((cell, i) => cell === null ? (
+            <div key={`pad-${i}`} />
+          ) : (
+            <div
+              key={cell.day}
+              title={cell.amount > 0
+                ? `${cell.day}: ${formatUGX(cell.amount)} from ${cell.count} payment${cell.count === 1 ? '' : 's'}`
+                : `${cell.day}: no collection`}
+              className={cn(
+                'aspect-square rounded-md flex flex-col items-center justify-center text-[9px] font-bold tabular-nums leading-tight',
+                tone(cell.amount),
+              )}
+            >
+              <span>{Number(cell.day.slice(-2))}</span>
+              {cell.amount > 0 && (
+                <span className="text-[7px] font-medium opacity-90 hidden sm:block">
+                  {Math.round(cell.amount / 1000)}k
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
+
 
       <div className="flex items-center justify-end gap-1 mt-1.5 text-[9px] text-muted-foreground">
         <span>less</span>
