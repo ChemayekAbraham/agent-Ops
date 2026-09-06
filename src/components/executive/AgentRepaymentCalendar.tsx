@@ -26,6 +26,7 @@ interface DayCell { day: string; amount: number; count: number }
  */
 export function AgentRepaymentCalendar({ agentId }: { agentId: string }) {
   const [monthIndex, setMonthIndex] = useState(0); // 0 = newest month
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['agent-repayment-calendar', agentId],
@@ -145,6 +146,8 @@ export function AgentRepaymentCalendar({ agentId }: { agentId: string }) {
   const idx = Math.min(Math.max(monthIndex, 0), months.length - 1);
   const mo = months[idx];
 
+  const selected = selectedDay ? (data ?? []).length >= 0 ? selectedDay : null : null;
+
   return (
     <div className="mt-2 rounded-lg border border-border bg-background/70 p-2">
       <div className="min-w-0">
@@ -159,72 +162,181 @@ export function AgentRepaymentCalendar({ agentId }: { agentId: string }) {
         </p>
       </div>
 
-      <div className="mt-2 rounded-md border border-border bg-background p-2">
-        <div className="flex items-center justify-between gap-2">
-          <button
-            type="button"
-            aria-label="Previous month"
-            disabled={idx >= months.length - 1}
-            onClick={(e) => { e.stopPropagation(); setMonthIndex(idx + 1); }}
-            className="h-6 w-6 rounded-md border border-border flex items-center justify-center disabled:opacity-30"
-          >
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </button>
-          <div className="text-center min-w-0">
-            <p className="text-[11px] font-semibold text-foreground truncate">{mo.label}</p>
-            <p className="text-[9px] text-muted-foreground tabular-nums">
-              {formatUGX(mo.total)} · {mo.activeDays} active day{mo.activeDays === 1 ? '' : 's'}
-            </p>
+      <div className="mt-2 flex flex-col gap-2 lg:flex-row">
+        <div className="rounded-md border border-border bg-background p-2 lg:w-[60%]">
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              aria-label="Previous month"
+              disabled={idx >= months.length - 1}
+              onClick={(e) => { e.stopPropagation(); setMonthIndex(idx + 1); }}
+              className="h-6 w-6 rounded-md border border-border flex items-center justify-center disabled:opacity-30"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <div className="text-center min-w-0">
+              <p className="text-[11px] font-semibold text-foreground truncate">{mo.label}</p>
+              <p className="text-[9px] text-muted-foreground tabular-nums">
+                {formatUGX(mo.total)} · {mo.activeDays} active day{mo.activeDays === 1 ? '' : 's'}
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="Next month"
+              disabled={idx <= 0}
+              onClick={(e) => { e.stopPropagation(); setMonthIndex(idx - 1); }}
+              className="h-6 w-6 rounded-md border border-border flex items-center justify-center disabled:opacity-30"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
           </div>
-          <button
-            type="button"
-            aria-label="Next month"
-            disabled={idx <= 0}
-            onClick={(e) => { e.stopPropagation(); setMonthIndex(idx - 1); }}
-            className="h-6 w-6 rounded-md border border-border flex items-center justify-center disabled:opacity-30"
-          >
-            <ChevronRight className="h-3.5 w-3.5" />
-          </button>
+
+          <div className="grid grid-cols-7 gap-1 mt-2">
+            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+              <div key={i} className="text-[9px] text-muted-foreground text-center font-medium">{d}</div>
+            ))}
+            {mo.cells.map((cell, i) => cell === null ? (
+              <div key={`pad-${i}`} className="h-9" />
+            ) : (
+              <button
+                key={cell.day}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setSelectedDay(cell.day); }}
+                title={cell.amount > 0
+                  ? `${cell.day}: ${formatUGX(cell.amount)} from ${cell.count} payment${cell.count === 1 ? '' : 's'}`
+                  : `${cell.day}: no collection`}
+                className={cn(
+                  'h-9 w-full rounded-md flex flex-col items-center justify-center text-[9px] font-bold tabular-nums leading-tight transition',
+                  tone(cell.amount),
+                  selectedDay === cell.day && 'ring-2 ring-primary ring-offset-1 ring-offset-background',
+                )}
+              >
+                <span>{Number(cell.day.slice(-2))}</span>
+                {cell.amount > 0 && (
+                  <span className="text-[7px] font-medium opacity-90">
+                    {Math.round(cell.amount / 1000)}k
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center justify-end gap-1 mt-1.5 text-[9px] text-muted-foreground">
+            <span>less</span>
+            <span className="h-2.5 w-2.5 rounded-[2px] bg-muted/50" />
+            <span className="h-2.5 w-2.5 rounded-[2px] bg-emerald-200" />
+            <span className="h-2.5 w-2.5 rounded-[2px] bg-emerald-400" />
+            <span className="h-2.5 w-2.5 rounded-[2px] bg-emerald-500" />
+            <span className="h-2.5 w-2.5 rounded-[2px] bg-emerald-600" />
+            <span>more</span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-1 mt-2">
-          {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-            <div key={i} className="text-[9px] text-muted-foreground text-center font-medium">{d}</div>
-          ))}
-          {mo.cells.map((cell, i) => cell === null ? (
-            <div key={`pad-${i}`} />
-          ) : (
-            <div
-              key={cell.day}
-              title={cell.amount > 0
-                ? `${cell.day}: ${formatUGX(cell.amount)} from ${cell.count} payment${cell.count === 1 ? '' : 's'}`
-                : `${cell.day}: no collection`}
-              className={cn(
-                'aspect-square rounded-md flex flex-col items-center justify-center text-[9px] font-bold tabular-nums leading-tight',
-                tone(cell.amount),
-              )}
-            >
-              <span>{Number(cell.day.slice(-2))}</span>
-              {cell.amount > 0 && (
-                <span className="text-[7px] font-medium opacity-90 hidden sm:block">
-                  {Math.round(cell.amount / 1000)}k
-                </span>
-              )}
+        <div className="rounded-md border border-border bg-background p-2 lg:w-[40%]">
+          <DaySummary agentId={agentId} day={selected} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface DayRecord {
+  id: string;
+  tenantName: string;
+  amount: number;
+  expected: number;
+  outstanding: number;
+  cycle: string;
+  time: string;
+}
+
+function DaySummary({ agentId, day }: { agentId: string; day: string | null }) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['agent-repayment-calendar-day', agentId, day],
+    enabled: !!agentId && !!day,
+    staleTime: 60_000,
+    queryFn: async (): Promise<DayRecord[]> => {
+      const start = new Date(`${day}T00:00:00+03:00`).toISOString();
+      const end = new Date(`${day}T23:59:59.999+03:00`).toISOString();
+      const { data: res, error: rpcErr } = await supabase.rpc('get_agent_collection_records', {
+        p_agent_id: agentId,
+        p_start: start,
+        p_end: end,
+      });
+      if (rpcErr) throw rpcErr;
+      const rows = (Array.isArray(res) ? res : []) as any[];
+      return rows.map((r) => ({
+        id: String(r.id),
+        tenantName: r.tenant_name || 'Tenant',
+        amount: Number(r.amount) || 0,
+        expected: Number(r.expected_amount) || 0,
+        outstanding: Number(r.tenant_outstanding) || 0,
+        cycle: r.cycle ? String(r.cycle) : '—',
+        time: new Intl.DateTimeFormat('en-GB', {
+          timeZone: KAMPALA, hour: '2-digit', minute: '2-digit',
+        }).format(new Date(r.created_at)),
+      }));
+    },
+  });
+
+  if (!day) {
+    return (
+      <p className="text-[10px] text-muted-foreground italic">
+        Select a day on the calendar to see the tenants paid for, amounts collected and balances for that day.
+      </p>
+    );
+  }
+  if (isLoading) return <p className="text-[10px] text-muted-foreground">Loading {day}…</p>;
+  if (error) return <p className="text-[10px] text-destructive">Could not load records for {day}.</p>;
+
+  const rows = data ?? [];
+  const collected = rows.reduce((s, r) => s + r.amount, 0);
+  const expected = rows.reduce((s, r) => s + r.expected, 0);
+  const balance = rows.reduce((s, r) => s + Math.max(0, r.expected - r.amount), 0);
+  const tenants = new Set(rows.map((r) => r.tenantName)).size;
+
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] font-semibold text-foreground">{day}</p>
+      <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+        <div className="rounded-md border border-border p-1.5">
+          <p className="text-[9px] text-muted-foreground">Tenants paid for</p>
+          <p className="text-sm font-bold tabular-nums text-foreground">{tenants}</p>
+        </div>
+        <div className="rounded-md border border-border p-1.5">
+          <p className="text-[9px] text-muted-foreground">Payments</p>
+          <p className="text-sm font-bold tabular-nums text-foreground">{rows.length}</p>
+        </div>
+        <div className="rounded-md border border-border p-1.5">
+          <p className="text-[9px] text-muted-foreground">Collected</p>
+          <p className="text-sm font-bold tabular-nums text-emerald-600">{formatUGX(collected)}</p>
+        </div>
+        <div className="rounded-md border border-border p-1.5">
+          <p className="text-[9px] text-muted-foreground">Balance</p>
+          <p className="text-sm font-bold tabular-nums text-destructive">{formatUGX(balance)}</p>
+        </div>
+      </div>
+      <p className="mt-1 text-[9px] text-muted-foreground tabular-nums">Expected that day: {formatUGX(expected)}</p>
+
+      {rows.length === 0 ? (
+        <p className="mt-2 text-[10px] text-muted-foreground italic">No collections recorded on this day.</p>
+      ) : (
+        <div className="mt-2 max-h-64 overflow-y-auto space-y-1">
+          {rows.map((r) => (
+            <div key={r.id} className="rounded-md border border-border p-1.5">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-[11px] font-semibold text-foreground truncate">{r.tenantName}</p>
+                <p className="text-[11px] font-bold tabular-nums text-emerald-600">{formatUGX(r.amount)}</p>
+              </div>
+              <p className="text-[9px] text-muted-foreground tabular-nums">
+                {r.time} · {r.cycle} · expected {formatUGX(r.expected)} · balance{' '}
+                <span className="text-destructive font-medium">{formatUGX(Math.max(0, r.expected - r.amount))}</span> ·
+                outstanding <span className="text-primary font-medium">{formatUGX(r.outstanding)}</span>
+              </p>
             </div>
           ))}
         </div>
-      </div>
-
-
-      <div className="flex items-center justify-end gap-1 mt-1.5 text-[9px] text-muted-foreground">
-        <span>less</span>
-        <span className="h-2.5 w-2.5 rounded-[2px] bg-muted/50" />
-        <span className="h-2.5 w-2.5 rounded-[2px] bg-emerald-200" />
-        <span className="h-2.5 w-2.5 rounded-[2px] bg-emerald-400" />
-        <span className="h-2.5 w-2.5 rounded-[2px] bg-emerald-500" />
-        <span className="h-2.5 w-2.5 rounded-[2px] bg-emerald-600" />
-        <span>more</span>
-      </div>
+      )}
     </div>
   );
 }
