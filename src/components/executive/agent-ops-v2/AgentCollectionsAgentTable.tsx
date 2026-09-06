@@ -143,12 +143,13 @@ function AgentCollectionsDrilldown({
 
   const exportCsv = () => {
     if (rows.length === 0) return;
-    const header = ['Tenant', 'Phone', 'Amount collected', 'Plan balance', 'Total outstanding', 'Cycle', 'Collected at'];
+    const header = ['Tenant', 'Phone', 'Amount collected', 'Expected', 'Balance', 'Total outstanding', 'Cycle', 'Collected at'];
     const body = rows.map(r => [
       r.tenantName,
       r.tenantPhone ?? '',
       r.amount,
-      r.planBalance ?? '',
+      r.expectedAmount,
+      r.balance,
       r.tenantOutstanding,
       r.cycle,
       format(new Date(r.createdAt), 'dd MMM yyyy HH:mm'),
