@@ -280,6 +280,7 @@ export function SubmitGate({
             </>
           )}
           {notifyNotice}
+          {archiveNotice}
         </div>
 
         {/* Mobile: the submit control is pinned to the bottom of the viewport. */}
