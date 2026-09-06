@@ -79,6 +79,7 @@ export function TenantCallsReport() {
   const [fromDay, setFromDay] = useState(isoDay(new Date()));
   const [toDay, setToDay] = useState(isoDay(new Date()));
   const [busy, setBusy] = useState(false);
+  const [archiving, setArchiving] = useState(false);
 
   const win = useMemo(() => windowFor(preset, fromDay, toDay), [preset, fromDay, toDay]);
   const { data, isLoading, error } = useCcCallHistory('tenant', 30, { fromIso: win.fromIso, toIso: win.toIso });
