@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { format, subDays, startOfDay, endOfDay, startOfMonth, startOfYear, addDays } from 'date-fns';
 import {
-  ResponsiveContainer, AreaChart, Area,
+  ResponsiveContainer, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis,
   CartesianGrid, Tooltip, Legend,
 } from 'recharts';
