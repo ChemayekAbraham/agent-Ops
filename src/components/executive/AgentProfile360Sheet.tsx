@@ -375,6 +375,81 @@ function Table({ head, rows, empty }: { head: string[]; rows: (string | number)[
   );
 }
 
+const FILTERS = ['all', 'active', 'pending', 'rejected', 'repaying'] as const;
+type RentFilter = (typeof FILTERS)[number];
+
+function statusMatches(filter: RentFilter, status: string = '') {
+  const s = status.toLowerCase();
+  if (filter === 'all') return true;
+  if (filter === 'active') return ['active', 'funded', 'repaying', 'approved'].includes(s);
+  if (filter === 'pending') return ['pending', 'in_review', 'review'].includes(s);
+  if (filter === 'rejected') return ['rejected', 'declined'].includes(s);
+  if (filter === 'repaying') return s === 'repaying';
+  return true;
+}
+
+function RentRequestsTable({ rows }: { rows: any[] }) {
+  const [filter, setFilter] = useState<RentFilter>('all');
+  const filtered = useMemo(() => rows.filter(r => statusMatches(filter, r.status)), [rows, filter]);
+  const countBy = (f: RentFilter) => (f === 'all' ? rows.length : rows.filter(r => statusMatches(f, r.status)).length);
+
+  if (!rows.length) return <p className="text-xs text-muted-foreground py-4 text-center">No rent requests</p>;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1.5">
+        {FILTERS.map(f => (
+          <Button
+            key={f}
+            type="button"
+            size="sm"
+            variant={filter === f ? 'default' : 'outline'}
+            className="h-7 text-[11px] capitalize"
+            onClick={() => setFilter(f)}
+          >
+            {f.replace('_', ' ')}
+            <span className="ml-1.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-background/20 px-1 text-[10px]">
+              {countBy(f)}
+            </span>
+          </Button>
+        ))}
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-muted-foreground bg-muted/40">
+              <th className="text-left font-medium py-2 px-3 whitespace-nowrap">Tenant</th>
+              <th className="text-left font-medium py-2 px-3 whitespace-nowrap">Status</th>
+              <th className="text-right font-medium py-2 px-3 whitespace-nowrap">Rent</th>
+              <th className="text-right font-medium py-2 px-3 whitespace-nowrap">Repaid</th>
+              <th className="text-right font-medium py-2 px-3 whitespace-nowrap">Daily</th>
+              <th className="text-left font-medium py-2 px-3 whitespace-nowrap">Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((r, i) => (
+              <tr key={i} className="border-t border-border/60">
+                <td className="py-2 px-3 whitespace-nowrap font-semibold text-foreground">{r.tenant_name ?? '—'}</td>
+                <td className="py-2 px-3 whitespace-nowrap capitalize text-muted-foreground">{r.status}</td>
+                <td className="py-2 px-3 whitespace-nowrap text-right tabular-nums text-foreground">{formatUGX(Number(r.rent_amount || 0))}</td>
+                <td className="py-2 px-3 whitespace-nowrap text-right tabular-nums text-emerald-600">{formatUGX(Number(r.amount_repaid || 0))}</td>
+                <td className="py-2 px-3 whitespace-nowrap text-right tabular-nums text-primary">{formatUGX(Number(r.daily_repayment || 0))}</td>
+                <td className="py-2 px-3 whitespace-nowrap text-muted-foreground">{dt(r.created_at)}</td>
+              </tr>
+            ))}
+            {!filtered.length && (
+              <tr>
+                <td colSpan={6} className="py-4 text-center text-xs text-muted-foreground">No {filter} rent plans</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[10px] text-muted-foreground text-center">Showing {filtered.length} of {rows.length} rent requests</p>
+    </div>
+  );
+}
+
 export function AgentProfile360Sheet({ agentId, onOpenChange, inline = false }: Props) {
   const [tab, setTab] = useState('overview');
   const [tenantPage, setTenantPage] = useState(0);
