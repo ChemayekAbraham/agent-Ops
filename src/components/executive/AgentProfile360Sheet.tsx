@@ -493,14 +493,7 @@ export function AgentProfile360Sheet({ agentId, onOpenChange, inline = false }: 
                   <Stat label="Pending" value={rr.pending ?? 0} />
                   <Stat label="Rejected" value={rr.rejected ?? 0} />
                 </div>
-                <Table
-                  head={['Tenant', 'Status', 'Rent', 'Repaid', 'Daily', 'Created']}
-                  rows={(rr.recent ?? []).map((r: any) => [
-                    r.tenant_name ?? '—', r.status, formatUGX(Number(r.rent_amount || 0)),
-                    formatUGX(Number(r.amount_repaid || 0)), formatUGX(Number(r.daily_repayment || 0)), dt(r.created_at),
-                  ])}
-                  empty="No rent requests"
-                />
+                <RentRequestsTable rows={rr.recent ?? []} />
               </TabsContent>
 
               <TabsContent value="collections" className="space-y-3 mt-3">
