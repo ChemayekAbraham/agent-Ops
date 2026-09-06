@@ -466,7 +466,7 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
                   </TableCell>
                   <TableCell className="font-medium max-w-[140px] truncate">{r.tenant_name}</TableCell>
                   <TableCell className="hidden sm:table-cell max-w-[180px] text-muted-foreground">
-                    <span className="block truncate">{r.agent_name}</span>
+                    <span className="block truncate font-semibold text-foreground">{r.agent_name}</span>
                     {r.parent_agent_name && (
                       <span className="block truncate text-[10px] text-muted-foreground/80">
                         Parent: {r.parent_agent_name}
