@@ -187,8 +187,9 @@ function AgentCollectionsDrilldown({
           <span className="font-semibold text-destructive">
             {formatUGX(totalBalance)} balance
           </span>
-          <Button size="sm" variant="outline" className="h-8 text-xs ml-auto" disabled={tenantFiltered.length === 0} onClick={exportCsv}>
-            <FileDown className="h-3.5 w-3.5 mr-1" /> Export CSV
+          <Button size="sm" variant="outline" className="h-8 text-xs ml-auto" disabled={tenantFiltered.length === 0 || exporting} onClick={exportPdf}>
+            <FileDown className="h-3.5 w-3.5 mr-1" /> {exporting ? 'Preparing…' : 'Export PDF'}
+
           </Button>
         </div>
 
