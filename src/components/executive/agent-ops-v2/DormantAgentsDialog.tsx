@@ -12,7 +12,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, FileDown } from 'lucide-react';
+import { downloadDormantAgentsPdf, type DormantAgentsReport } from '@/lib/dormantAgentsPdf';
 
 type DormantTenant = {
   rent_request_id: string;
@@ -112,6 +113,15 @@ export function DormantAgentsDialog({
                 {d}+ days
               </Button>
             ))}
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs ml-auto"
+              disabled={isPending || agents.length === 0}
+              onClick={() => data && downloadDormantAgentsPdf(data as DormantAgentsReport)}
+            >
+              <FileDown className="h-3.5 w-3.5 mr-1" /> Download PDF
+            </Button>
           </div>
 
           {error && (
