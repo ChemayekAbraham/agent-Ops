@@ -10,6 +10,7 @@ interface ProjectionPeriod {
   period_end: string | null;
   label: string | null;
   projected_ugx: number | null;
+  plans: number | null;
 }
 
 interface ProjectionA3Report {
@@ -58,7 +59,7 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
           Projection
         </h3>
         <p className="text-xs text-muted-foreground">
-          Read-only projection — no input, control or override
+          Read-only — scheduled on the agreed plans, no input, control or override
         </p>
       </div>
 
@@ -85,7 +86,7 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
               </p>
             )}
             <p className="text-sm text-muted-foreground">
-              {HORIZON_IN_WORDS[granularity]}
+              {HORIZON_IN_WORDS[granularity]} · scheduled on the agreed plans
             </p>
           </div>
 
