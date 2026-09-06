@@ -224,7 +224,7 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
             (k.active_agents_curr || 0) + (k.active_subagents_curr || 0),
             (k.active_agents_prev || 0) + (k.active_subagents_prev || 0)
           )}
-          subtitle={`of ${fmtNum((k.total_agents || 0) + (k.total_subagents || 0))} agents`}
+          subtitle={`${fmtNum(k.active_agents_curr || 0)} agents · ${fmtNum(k.active_subagents_curr || 0)} sub-agents active`}
           icon={Activity}
           accent="bg-emerald-600"
           spark={trendData.map((t) => t.activeAgents)}
