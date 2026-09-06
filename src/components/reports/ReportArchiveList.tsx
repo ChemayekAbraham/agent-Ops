@@ -184,21 +184,23 @@ function ReportDetailDialog({
   );
 }
 
-export function ReportArchiveList() {
+export function ReportArchiveList({ source }: { source?: string } = {}) {
   const [sourceFilter, setSourceFilter] = useState<string | null>(null);
   const [granularityFilter, setGranularityFilter] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<ArchiveRow | null>(null);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['report-archive'],
+    queryKey: ['report-archive', source ?? null],
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('report_archive')
         .select(
           'id, source, source_label, granularity, period_start, period_end, title, summary, submitted_by_name, submitted_at'
-        )
+        );
+      if (source) query = query.eq('source', source);
+      const { data, error } = await query
         .order('submitted_at', { ascending: false })
         .limit(500);
       if (error) throw error;
