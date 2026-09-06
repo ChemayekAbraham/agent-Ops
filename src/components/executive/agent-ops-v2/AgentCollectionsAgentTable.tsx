@@ -75,64 +75,27 @@ function AgentCollectionsDrilldown({
     queryKey: ['agent-ops-collections-drill', agent.agent_id, start.toISOString(), end.toISOString()],
     staleTime: 30_000,
     queryFn: async (): Promise<DrillRow[]> => {
-      const { data: cols, error: colErr } = await supabase
-        .from('agent_collections')
-        .select('id, tenant_id, amount, created_at')
-        .eq('agent_id', agent.agent_id)
-        .gte('created_at', start.toISOString())
-        .lte('created_at', end.toISOString())
-        .order('created_at', { ascending: false });
-      if (colErr) throw colErr;
+      const { data: res, error: rpcErr } = await supabase.rpc('get_agent_collection_records', {
+        p_agent_id: agent.agent_id,
+        p_start: start.toISOString(),
+        p_end: end.toISOString(),
+      });
+      if (rpcErr) throw rpcErr;
 
-      const rows = (cols || []).filter(r => Number(r.amount) > 0);
-      const tenantIds = Array.from(new Set(rows.map(r => r.tenant_id).filter(Boolean))) as string[];
-
-      const profileById = new Map<string, { name: string; phone: string | null }>();
-      const planByTenant = new Map<string, { dailyRepayment: number; outstanding: number; cycle: string }>();
-
-      if (tenantIds.length > 0) {
-        const [{ data: profs }, { data: plans }] = await Promise.all([
-          supabase.from('profiles').select('id, full_name, phone').in('id', tenantIds),
-          supabase
-            .from('rent_requests')
-            .select('tenant_id, total_repayment, amount_repaid, daily_repayment, repayment_frequency, created_at, status')
-            .in('tenant_id', tenantIds)
-            .in('status', ['funded', 'repaying', 'active', 'disbursed', 'completed'])
-            .order('created_at', { ascending: false }),
-        ]);
-        (profs || []).forEach((p: any) =>
-          profileById.set(p.id, { name: p.full_name || p.phone || 'Tenant', phone: p.phone ?? null }),
-        );
-        (plans || []).forEach((p: any) => {
-          const remaining = Math.max(0, Number(p.total_repayment ?? 0) - Number(p.amount_repaid ?? 0));
-          const prev = planByTenant.get(p.tenant_id);
-          if (!prev) {
-            planByTenant.set(p.tenant_id, {
-              dailyRepayment: Number(p.daily_repayment ?? 0),
-              outstanding: remaining,
-              cycle: cycleLabel(p.repayment_frequency),
-            });
-          } else {
-            prev.outstanding += remaining;
-          }
-        });
-      }
-
+      const rows = (Array.isArray(res) ? res : []) as any[];
       return rows.map(r => {
-        const prof = r.tenant_id ? profileById.get(r.tenant_id) : undefined;
-        const plan = r.tenant_id ? planByTenant.get(r.tenant_id) : undefined;
-        const expected = plan ? expectedInstallment(plan.dailyRepayment, plan.cycle) : 0;
         const amount = Number(r.amount) || 0;
+        const expected = Number(r.expected_amount) || 0;
         return {
-          id: r.id,
-          tenantName: prof?.name ?? 'Tenant',
-          tenantPhone: prof?.phone ?? null,
+          id: String(r.id),
+          tenantName: r.tenant_name || 'Tenant',
+          tenantPhone: r.tenant_phone ?? null,
           amount,
           expectedAmount: expected,
           createdAt: r.created_at,
           balance: Math.max(0, expected - amount),
-          tenantOutstanding: plan?.outstanding ?? 0,
-          cycle: plan?.cycle ?? '—',
+          tenantOutstanding: Number(r.tenant_outstanding) || 0,
+          cycle: cycleLabel(r.cycle ?? null),
         };
       });
     },
