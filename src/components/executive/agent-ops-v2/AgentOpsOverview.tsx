@@ -371,8 +371,8 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
       {/* Latest rent requests */}
       <LatestRentRequests onViewAll={() => onOpenSection('pipeline')} />
 
-      {/* Highest pending collections */}
-      <TopPendingAgents onViewAll={() => onOpenSection('pipeline')} />
+      {/* Partial vs full collections */}
+      <PartialCollectionsOverview />
 
       {/* Top performers */}
       <TopPerformers rows={data?.top_performers || []} loading={isLoading} phrase={phrase} />
