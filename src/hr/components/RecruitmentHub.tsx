@@ -1463,10 +1463,23 @@ export default function RecruitmentHub() {
   }
 
 
+  /** Candidate currently open in the talent-pool review panel. */
+  const [poolSelected, setPoolSelected] = useState<JobApplicationRow | null>(null);
+
+  const openPoolCv = async (path: string) => {
+    try {
+      const url = await getResumeUrl(path);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not open CV');
+    }
+  };
+
   const poolSpeculative = useMemo(
     () => poolRows.filter((r) => !(r.source ?? '').includes('?c=')),
     [poolRows],
   );
+
 
   const poolOptionSources = useMemo(
     () =>
@@ -1713,9 +1726,11 @@ export default function RecruitmentHub() {
         ) : (
           <Card className="divide-y divide-border">
             {poolVisible.map((row) => (
-              <div
+              <button
                 key={row.id}
-                className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                type="button"
+                onClick={() => setPoolSelected(row)}
+                className="w-full text-left flex flex-wrap items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{row.full_name || '—'}</p>
@@ -1734,11 +1749,23 @@ export default function RecruitmentHub() {
                     </p>
                   </div>
                 </div>
-              </div>
+              </button>
             ))}
           </Card>
         )}
+
+        {/* Read-only review of a pooled candidate. No decision buttons: the
+            talent pool is a sourcing list, decisions live on Applications. */}
+        <Sheet open={!!poolSelected} onOpenChange={(open) => !open && setPoolSelected(null)}>
+          <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+            <SheetHeader>
+              <SheetTitle>{poolSelected?.full_name || 'Candidate'}</SheetTitle>
+            </SheetHeader>
+            {poolSelected && <ApplicationDetail app={poolSelected} onOpenCv={openPoolCv} />}
+          </SheetContent>
+        </Sheet>
       </TabsContent>
+
     </Tabs>
 
     <AlertDialog
