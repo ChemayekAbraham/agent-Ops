@@ -966,7 +966,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
     try {
       // Always export against the complete server-side history.
       const allRows = await fetchAllRepayments();
-      const fullHistory = buildPlanRepaymentHistory(allRows);
+      const fullHistory = buildPlanRepaymentHistory(allRows, collectionHistory);
       const plans: TenantRepaymentPlanBlock[] = requests.map((req) => {
         const agg = fullHistory.get(req.id);
         return {
