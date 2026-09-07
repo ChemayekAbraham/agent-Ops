@@ -53,7 +53,7 @@ interface SubCategory {
   label: string;
 }
 
-interface PayoutCategory {
+export interface PayoutCategory {
   id: string;
   label: string;
   description: string;
