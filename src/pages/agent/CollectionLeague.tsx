@@ -340,6 +340,30 @@ export default function CollectionLeaguePage() {
                   ))}
                 </div>
               )}
+              {members.length > MEMBERS_PER_PAGE && (
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentMemberPage === 0}
+                    onClick={() => { hapticTap(); setMemberPage(currentMemberPage - 1); }}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />Previous
+                  </Button>
+                  <span className="text-[11px] text-muted-foreground">
+                    {currentMemberPage * MEMBERS_PER_PAGE + 1}–
+                    {currentMemberPage * MEMBERS_PER_PAGE + visibleMembers.length} of {members.length}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentMemberPage >= memberPageCount - 1}
+                    onClick={() => { hapticTap(); setMemberPage(currentMemberPage + 1); }}
+                  >
+                    Next<ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              )}
             </section>
 
             {/* Leaderboard */}
