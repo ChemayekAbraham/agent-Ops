@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { downloadAgentRentCollectionsPdf, type RangeKey } from '@/lib/agentRentCollectionsPdf';
+import { downloadLandlordAgreementTemplate } from '@/lib/landlordAgreementTemplatePdf';
 import { ChevronDown, FileText } from 'lucide-react';
 
 /**
@@ -176,41 +177,52 @@ export function AgentCapacityShareInline() {
 
   return (
     <>
-      {/* Dropdown entry point — pick daily card (PNG) or PDF for week/month/year */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            onClick={() => hapticTap()}
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
-          >
-            {pdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileImage className="h-4 w-4" />}
-            Download report
-            <ChevronDown className="h-3.5 w-3.5" />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
-          <DropdownMenuLabel>Rent collections report</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setOpen(true); hapticTap(); }}>
-            <FileImage className="h-4 w-4 mr-2" />
-            Daily card (image)
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem disabled={!!pdfBusy} onSelect={(e) => { e.preventDefault(); downloadPdf('weekly'); }}>
-            <FileText className="h-4 w-4 mr-2" />
-            Weekly (PDF)
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled={!!pdfBusy} onSelect={(e) => { e.preventDefault(); downloadPdf('monthly'); }}>
-            <FileText className="h-4 w-4 mr-2" />
-            Monthly (PDF)
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled={!!pdfBusy} onSelect={(e) => { e.preventDefault(); downloadPdf('yearly'); }}>
-            <FileText className="h-4 w-4 mr-2" />
-            Yearly (PDF)
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="flex flex-col items-start gap-2">
+        {/* Dropdown entry point — pick daily card (PNG) or PDF for week/month/year */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              onClick={() => hapticTap()}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
+            >
+              {pdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileImage className="h-4 w-4" />}
+              Download report
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuLabel>Rent collections report</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setOpen(true); hapticTap(); }}>
+              <FileImage className="h-4 w-4 mr-2" />
+              Daily card (image)
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem disabled={!!pdfBusy} onSelect={(e) => { e.preventDefault(); downloadPdf('weekly'); }}>
+              <FileText className="h-4 w-4 mr-2" />
+              Weekly (PDF)
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!!pdfBusy} onSelect={(e) => { e.preventDefault(); downloadPdf('monthly'); }}>
+              <FileText className="h-4 w-4 mr-2" />
+              Monthly (PDF)
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!!pdfBusy} onSelect={(e) => { e.preventDefault(); downloadPdf('yearly'); }}>
+              <FileText className="h-4 w-4 mr-2" />
+              Yearly (PDF)
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <button
+          type="button"
+          onClick={() => { hapticTap(); downloadLandlordAgreementTemplate(); }}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+        >
+          <FileText className="h-4 w-4" />
+          Download Landlord Agreement
+        </button>
+      </div>
 
       {/* Off-screen capture node — always mounted so PNG export works instantly */}
       <div aria-hidden style={{ position: 'fixed', left: -9999, top: 0, pointerEvents: 'none' }}>
