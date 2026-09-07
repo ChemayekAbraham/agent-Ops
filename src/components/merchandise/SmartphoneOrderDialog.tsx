@@ -152,9 +152,6 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
         <Tabs defaultValue="order" className="w-full">
           <TabsList className="w-full">
             <TabsTrigger value="order" className="flex-1">Apply</TabsTrigger>
-            <TabsTrigger value="tnc" className="flex-1">
-              <FileText className="h-3.5 w-3.5 mr-1.5" /> View T&amp;C
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="order" className="space-y-3 mt-3">
