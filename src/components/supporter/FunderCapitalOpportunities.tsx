@@ -1087,6 +1087,7 @@ export function FunderCapitalOpportunities() {
 
           </div>
         </div>
+        )}
 
         <EmptyHouseOpportunitiesSheet
           open={housePickerOpen}
