@@ -957,6 +957,13 @@ export function AgentAdvanceRequestForm({ open, onOpenChange }: AgentAdvanceRequ
             </div>
           )}
 
+          {submitError && (
+            <div className="flex items-start gap-2 rounded-xl border border-red-500/40 bg-red-500/10 p-3">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+              <p className="text-xs font-medium leading-snug text-red-600">{submitError}</p>
+            </div>
+          )}
+
           {/* Submit */}
           <Button
             className="w-full gap-2 bg-gradient-to-r from-purple-600 via-purple-500 to-pink-500 text-white rounded-full py-6 text-base font-semibold shadow-lg hover:opacity-90"
@@ -964,12 +971,13 @@ export function AgentAdvanceRequestForm({ open, onOpenChange }: AgentAdvanceRequ
             disabled={submitMutation.isPending}
           >
             {submitMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <><Loader2 className="h-4 w-4 animate-spin" /> Sending your request…</>
             ) : (
               <>Submit Request <ArrowRight className="h-4 w-4" /></>
             )}
           </Button>
         </div>
+
         </>
         )}
 
