@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { formatUGX } from '@/lib/rentCalculations';
 import { UGANDA_DISTRICTS, CITY_TO_DISTRICT } from '@/lib/ugandaDistricts';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
