@@ -84,7 +84,7 @@ export function AgentCollectionLeagueCard() {
 
   if (isLoading) {
     return (
-      <div className="animate-pulse rounded-2xl border border-primary/25 bg-primary/30 p-4" aria-label="Loading Collection League">
+      <div className="animate-pulse rounded-2xl border border-primary/25 bg-primary/20 p-4" aria-label="Loading Collection League">
         <div className="mb-5 flex items-center justify-between">
           <div className="h-4 w-32 rounded bg-muted" />
           <div className="h-4 w-4 rounded bg-muted" />
@@ -105,7 +105,7 @@ export function AgentCollectionLeagueCard() {
 
   if (isError || !data || data.error) {
     return (
-      <div className="rounded-2xl border border-primary/25 bg-primary/30 p-4">
+      <div className="rounded-2xl border border-primary/25 bg-primary/20 p-4">
         <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
           <Trophy className="h-4 w-4 text-primary" />
           Collection League
@@ -142,7 +142,7 @@ export function AgentCollectionLeagueCard() {
 
   return (
     <div
-      className="w-full rounded-2xl border border-primary/25 bg-primary/30 p-4 text-left transition-colors hover:bg-primary/40"
+      className="w-full rounded-2xl border border-primary/25 bg-primary/20 p-4 text-left transition-colors hover:bg-primary/30"
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >
       <Button
