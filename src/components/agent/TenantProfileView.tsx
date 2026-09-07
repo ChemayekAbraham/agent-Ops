@@ -204,6 +204,8 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
   const [profile, setProfile] = useState<TenantProfile | null>(null);
   const [requests, setRequests] = useState<RentRequestRow[]>([]);
   const [repayments, setRepayments] = useState<RepaymentRow[]>([]);
+  const [collectionHistory, setCollectionHistory] = useState<CollectionHistoryRow[]>([]);
+
   const [walletData, setWalletData] = useState<WalletData | null>(null);
   const [floatAllocations, setFloatAllocations] = useState<
     { date: string; amount: number; status: 'active' | 'reversed'; reason: string | null }[]
