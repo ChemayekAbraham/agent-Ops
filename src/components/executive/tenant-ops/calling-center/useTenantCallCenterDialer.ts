@@ -109,6 +109,7 @@ export function useTenantCallCenterDialer(hub: CcCallingHub) {
       if (starting) return;
       setStarting(true);
       settledRef.current = false;
+      abortRef.current = false;
       try {
         // Same reveal path as the Hub: opens (or reuses) the attempt row, then
         // asks the server for the number. No table read, no new attempt logic.
