@@ -147,6 +147,7 @@ function extractBankBeneficiary(text: string): {
 function parseTransaction(text: string): {
   amount?: number; fee?: number; balance?: number; transaction_id?: string;
   tx_date?: string; tx_time?: string; direction?: string; channel?: string; counterparty?: string;
+  counterparty_name?: string;
 } {
   const out: any = {};
   if (!text) return out;
@@ -309,7 +310,25 @@ function parseTransaction(text: string): {
   // number, so without this alternative the sender name — including the
   // "WELILE TECHNOLOGIES LIMITED" shape that identifies our own outbound
   // payouts echoing back into this inbox — was never captured.
-  const cpMatch = t.match(/\b(?:from|to|by)\s+([A-Z][A-Za-z'.\- ]{1,40}?)(?=\s+(?:on|at|UGX|USh|Shs|Bal|ID|TID|Ref|\.|,|256|\+256|0\d{9}|\d[*xX•·]{3,}\d{4}))/);
+  // MTN's "received" credit template phrases the sender as
+  // "from (NAME) 256XXXXXXXXX" — the name sits inside parens directly
+  // followed by the phone. The char right after "from " is "(", not
+  // [A-Z], so the generic name-capture below never matches this shape at
+  // all, and the plain-phone fallback below IT requires the phone
+  // immediately after "from ", not after "(NAME) " — so both silently
+  // failed and every receipt in this shape parsed with counterparty=null,
+  // even though the phone was sitting right there in the body. Capture the
+  // phone into counterparty (what the matcher keys on for an exact lookup)
+  // and the name into counterparty_name (used only as a fallback signal
+  // when the phone doesn't resolve to a known user).
+  const nameParenPhone = !out.counterparty
+    && t.match(/\b(?:from|to|by)\s*\(\s*([A-Za-z][A-Za-z'.\- ]{1,58}?)\s*\)\s*((?:\+?256|0)\d{9})\b/i);
+  if (nameParenPhone) {
+    out.counterparty = nameParenPhone[2];
+    out.counterparty_name = nameParenPhone[1].trim();
+  }
+
+  const cpMatch = !out.counterparty && t.match(/\b(?:from|to|by)\s+([A-Z][A-Za-z'.\- ]{1,40}?)(?=\s+(?:on|at|UGX|USh|Shs|Bal|ID|TID|Ref|\.|,|256|\+256|0\d{9}|\d[*xX•·]{3,}\d{4}))/);
   if (cpMatch) out.counterparty = cpMatch[1].trim();
   if (!out.counterparty) {
     const phoneCp = t.match(/\b(?:from|to|by)\s+((?:\+?256|0)\d{9})\b/);
@@ -2200,11 +2219,16 @@ async function _tryAutoCreditOperationalFloat(
   }
 
   // ── MTN MoMo fallback ────────────────────────────────────────────
-  // MTN "received" notification emails only include the sender's NAME,
-  // never the phone. Try a strict name match — only accept when EXACTLY
-  // one profile matches, to avoid mis-crediting on common names.
+  // Reached only when the phone (now correctly extracted from the
+  // "(NAME) 256XXXXXXXXX" shape above, or from the body-phone scan) didn't
+  // resolve to a known user — e.g. a third party depositing on someone
+  // else's behalf, or a first-time payer. Try a strict name match — only
+  // accept when EXACTLY one profile matches, to avoid mis-crediting on
+  // common names. Prefer the name captured alongside the phone
+  // (counterparty_name); fall back to counterparty itself for any other
+  // MTN shape that still puts a bare name there.
   if (!profile && parsed.channel === 'mtn_momo') {
-    const rawName = cp.replace(/\s+/g, ' ').trim();
+    const rawName = ((parsed as any).counterparty_name ?? cp).replace(/\s+/g, ' ').trim();
     // Must look like a real human name (≥ 2 words, ≥ 4 chars total, letters)
     if (rawName && /[A-Za-z]/.test(rawName) && rawName.split(' ').filter(Boolean).length >= 2 && rawName.length >= 4) {
       const { data: nameMatches } = await supabase
