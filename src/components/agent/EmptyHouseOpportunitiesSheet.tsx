@@ -1089,16 +1089,50 @@ export function EmptyHouseOpportunitiesSheet({
               </div>
             )}
 
-            {picked.length > 0 && (
+            {step === 'browse' && picked.length > 0 && (
+              <div className="sticky bottom-0 -mx-4 mt-2 border-t bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                <div className="flex items-center gap-3">
+                  <div className="relative shrink-0 rounded-xl bg-primary/10 p-2">
+                    <ShoppingCart className="h-5 w-5 text-primary" />
+                    <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                      {picked.length}
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {picked.length} house{picked.length === 1 ? '' : 's'} in cart · one month of rent
+                    </p>
+                    <p className="text-sm font-bold">{formatUGX(rentTotal)}</p>
+                  </div>
+                  <Button className="h-10 gap-1.5 text-xs font-semibold" onClick={() => setStep('checkout')}>
+                    Checkout <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            </>
+            )}
+
+            {step === 'checkout' && picked.length > 0 && (
               <div className="rounded-2xl border p-3 space-y-2">
-                <p className="text-xs font-bold">Earnings breakdown per house</p>
+                <p className="text-xs font-bold">Your cart · {picked.length} house{picked.length === 1 ? '' : 's'}</p>
                 <div className="space-y-1.5">
                   {picked.map((h) => {
                     const rent = Number(h.monthly_rent || 0);
                     const m = Math.round(rent * 0.15);
                     return (
                       <div key={h.house_id} className="rounded-xl bg-muted/40 px-3 py-2">
-                        <p className="text-[11px] font-semibold truncate">{h.title || housePlace(h)}</p>
+                        <div className="flex items-start gap-2">
+                          <p className="min-w-0 flex-1 text-[11px] font-semibold truncate">{h.title || housePlace(h)}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 shrink-0 gap-1 px-1.5 text-[10px] text-destructive"
+                            onClick={() => toggle(h)}
+                          >
+                            <X className="h-3 w-3" /> Remove
+                          </Button>
+                        </div>
                         <div className="mt-1 grid grid-cols-3 gap-2 text-[10px]">
                           <div>
                             <p className="text-muted-foreground">Rent (1 month)</p>
@@ -1123,6 +1157,9 @@ export function EmptyHouseOpportunitiesSheet({
                     {formatUGX(monthlyReturn)}/month · {formatUGX(annualReturn)} over 12 months
                   </span>
                 </div>
+                <Button variant="outline" className="w-full h-9 gap-1.5 text-xs" onClick={() => setStep('browse')}>
+                  <ArrowLeft className="h-3.5 w-3.5" /> Add more houses
+                </Button>
               </div>
             )}
 
@@ -1133,6 +1170,7 @@ export function EmptyHouseOpportunitiesSheet({
             )}
           </div>
         )}
+
 
 
 
