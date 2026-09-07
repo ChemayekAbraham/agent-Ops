@@ -87,8 +87,9 @@ export function TppoPlanDetailTable({
     },
   });
 
-  // Promissory notes attached to individual rent plans, so each plan's own note
-  // shows inline on its row next to the arrears figure.
+  // Promissory notes column is hidden for now. The query is retained and disabled
+  // so the column can be restored by removing `enabled: false` and re-adding its
+  // header and body cells. Do not delete this block.
   type PlanNote = {
     partner: string;
     amount: number;
@@ -97,9 +98,11 @@ export function TppoPlanDetailTable({
     followUp: string | null;
     intentStatus: string | null;
   };
-  const { data: notesByPlan } = useQuery({
+  const { data: _notesByPlan } = useQuery({
     queryKey: ['tppo-plan-detail-promissory-notes-by-plan'],
     staleTime: 300_000,
+    enabled: false,
+
     queryFn: async (): Promise<Record<string, PlanNote[]>> => {
       const { data: intents, error: intentError } = await supabase
         .from('promissory_note_plan_intents')
