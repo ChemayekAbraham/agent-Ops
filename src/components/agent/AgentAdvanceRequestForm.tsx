@@ -50,6 +50,14 @@ export function AgentAdvanceRequestForm({ open, onOpenChange }: AgentAdvanceRequ
   const [reason, setReason] = useState('');
   const [allocOpen, setAllocOpen] = useState(false);
   const [view, setView] = useState<'menu' | 'history' | 'request' | 'topup'>('menu');
+  // Post-submit confirmation shown inside the sheet (a toast alone is too easy to miss)
+  const [submitted, setSubmitted] = useState<null | {
+    principal: number;
+    cycleDays: number;
+    dailyPayment: number;
+    totalPayable: number;
+  }>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // History filters
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
@@ -98,7 +106,8 @@ export function AgentAdvanceRequestForm({ open, onOpenChange }: AgentAdvanceRequ
   useEffect(() => {
     if (open) {
       setView('menu');
-      // Reset filters when sheet opens fresh
+      setSubmitted(null);
+      setSubmitError(null);
       setDateFrom(undefined);
       setDateTo(undefined);
       setStatusFilter('all');
@@ -442,7 +451,11 @@ export function AgentAdvanceRequestForm({ open, onOpenChange }: AgentAdvanceRequ
       });
       if (error) throw error;
     },
+    onMutate: () => {
+      setSubmitError(null);
+    },
     onSuccess: () => {
+      setSubmitted({ principal, cycleDays, dailyPayment, totalPayable });
       toast.success('Advance request submitted for review');
       setAmount('');
       setReason('');
@@ -450,17 +463,14 @@ export function AgentAdvanceRequestForm({ open, onOpenChange }: AgentAdvanceRequ
       queryClient.invalidateQueries({ queryKey: ['my-advance-requests'] });
     },
     onError: (err: Error) => {
-      const msg = err.message || 'Request failed';
-      if (msg.includes('DUPLICATE_ACCOUNT_BLOCKED')) {
-        toast.error(msg.replace(/^.*DUPLICATE_ACCOUNT_BLOCKED:\s*/, ''), { duration: 10000 });
-        return;
-      }
-      if (msg.includes('ADVANCE_NO_ACTIVITY')) {
-        toast.error(msg.replace(/^.*ADVANCE_NO_ACTIVITY:\s*/, ''), { duration: 12000 });
-        return;
-      }
-      toast.error(msg);
+      const raw = err.message || 'Request failed';
+      const msg = raw
+        .replace(/^.*DUPLICATE_ACCOUNT_BLOCKED:\s*/, '')
+        .replace(/^.*ADVANCE_NO_ACTIVITY:\s*/, '');
+      setSubmitError(msg);
+      toast.error(msg, { duration: raw === msg ? 6000 : 12000 });
     },
+
   });
 
   return (
@@ -862,8 +872,60 @@ export function AgentAdvanceRequestForm({ open, onOpenChange }: AgentAdvanceRequ
           )}
         </div>
 
+        {/* Submitted — clear confirmation of what happens next */}
+        {submitted && (
+          <div className="mb-4 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="rounded-full bg-emerald-500/20 p-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-foreground">Request received</p>
+                <p className="text-xs text-muted-foreground leading-snug">
+                  We are reviewing your request for {formatUGX(submitted.principal)}. You will get an SMS as soon as it is approved.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-1.5 rounded-xl bg-background/80 p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Amount requested</span>
+                <span className="text-sm font-bold text-foreground">{formatUGX(submitted.principal)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Repayment period</span>
+                <span className="text-sm font-bold text-foreground">{submitted.cycleDays} days</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Daily repayment</span>
+                <span className="text-sm font-bold text-primary">{formatUGX(submitted.dailyPayment)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Total to repay</span>
+                <span className="text-sm font-bold text-foreground">{formatUGX(submitted.totalPayable)}</span>
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              Reviewed by Agent Ops, then Operations, then Finance. Keep collecting rent while you wait — it strengthens your request.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                variant="outline"
+                className="w-full rounded-full"
+                onClick={() => { setSubmitted(null); setView('history'); }}
+              >
+                <HistoryIcon className="mr-2 h-4 w-4" /> Track my requests
+              </Button>
+              <Button className="w-full rounded-full" onClick={() => onOpenChange(false)}>
+                Done
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Form */}
+        {!submitted && (
         <div className="rounded-2xl bg-muted/50 p-4 space-y-4 mb-4">
+
           {/* Amount */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Amount (UGX)</label>
@@ -947,6 +1009,13 @@ export function AgentAdvanceRequestForm({ open, onOpenChange }: AgentAdvanceRequ
             </div>
           )}
 
+          {submitError && (
+            <div className="flex items-start gap-2 rounded-xl border border-red-500/40 bg-red-500/10 p-3">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+              <p className="text-xs font-medium leading-snug text-red-600">{submitError}</p>
+            </div>
+          )}
+
           {/* Submit */}
           <Button
             className="w-full gap-2 bg-gradient-to-r from-purple-600 via-purple-500 to-pink-500 text-white rounded-full py-6 text-base font-semibold shadow-lg hover:opacity-90"
@@ -954,12 +1023,15 @@ export function AgentAdvanceRequestForm({ open, onOpenChange }: AgentAdvanceRequ
             disabled={submitMutation.isPending}
           >
             {submitMutation.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <><Loader2 className="h-4 w-4 animate-spin" /> Sending your request…</>
             ) : (
               <>Submit Request <ArrowRight className="h-4 w-4" /></>
             )}
           </Button>
         </div>
+        )}
+
+
         </>
         )}
 
