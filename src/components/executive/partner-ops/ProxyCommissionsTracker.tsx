@@ -266,7 +266,9 @@ export function ProxyCommissionsTracker() {
                       <TableHead>Proxy agent</TableHead>
                       <TableHead>Partner</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Action</TableHead>
                     </TableRow>
+
                   </TableHeader>
                   <TableBody>
                     {rows.map((r) => (
