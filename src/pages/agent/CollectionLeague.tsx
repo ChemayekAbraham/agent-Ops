@@ -128,6 +128,17 @@ export default function CollectionLeaguePage() {
   const [extraRows, setExtraRows] = useState<LeagueRow[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [exhausted, setExhausted] = useState(false);
+  const [memberPage, setMemberPage] = useState(0);
+
+  const MEMBERS_PER_PAGE = 10;
+  const members = data?.team_members ?? [];
+  const memberPageCount = Math.max(1, Math.ceil(members.length / MEMBERS_PER_PAGE));
+  const currentMemberPage = Math.min(memberPage, memberPageCount - 1);
+  const visibleMembers = members.slice(
+    currentMemberPage * MEMBERS_PER_PAGE,
+    currentMemberPage * MEMBERS_PER_PAGE + MEMBERS_PER_PAGE,
+  );
+
 
   const baseRows = data?.leaderboard ?? [];
   const rows = useMemo(() => {
