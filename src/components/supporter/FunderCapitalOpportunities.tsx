@@ -821,13 +821,13 @@ export function FunderCapitalOpportunities() {
           >
             <ToggleGroupItem
               value="rent"
-              className="flex-1 text-[10px] h-7 data-[state=on]:!bg-blue-600 data-[state=on]:!text-white"
+              className="flex-1 text-[10px] h-7 data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=off]:bg-muted/40 data-[state=off]:text-muted-foreground"
             >
               Rent first
             </ToggleGroupItem>
             <ToggleGroupItem
               value="houses"
-              className="flex-1 text-[10px] h-7 data-[state=on]:!bg-blue-600 data-[state=on]:!text-white"
+              className="flex-1 text-[10px] h-7 data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=off]:bg-muted/40 data-[state=off]:text-muted-foreground"
             >
               Houses first
             </ToggleGroupItem>
