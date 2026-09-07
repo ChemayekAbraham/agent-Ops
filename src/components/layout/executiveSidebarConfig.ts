@@ -250,6 +250,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Portfolio Performance', icon: BarChart3, id: 'reports-tenant-portfolio-performance', route: '/coo/reports/tenant-portfolio-performance' },
         { label: 'Financial Ops', icon: Wallet,        id: 'reports-financial-ops', route: '/coo/reports/financial-ops' },
         { label: 'System Overview', icon: Activity,    id: 'reports-system-overview', route: '/coo/reports/system-overview' },
+        { label: 'Platform Sales Officers', icon: Users, id: 'reports-platform-sales-officers', route: '/hr/reports/platform-sales-officers' },
       ],
     },
   ],

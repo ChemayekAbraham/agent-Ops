@@ -238,7 +238,7 @@ export default function PlatformSalesOfficersPage() {
         </div>
 
         <p className="text-sm text-muted-foreground">
-          {officers.length} officers · {totalNotes} notes created in this window
+          {officers.length} officers · {netTotal} net notes · {fundedTotal} funded · UGX {moneyTotal.toLocaleString('en-UG')} funded
         </p>
 
         {isLoading ? (
@@ -258,9 +258,13 @@ export default function PlatformSalesOfficersPage() {
                 <tr>
                   <th className="px-4 py-2 text-left font-medium">Officer</th>
                   <th className="px-4 py-2 text-right font-medium">Days elapsed</th>
-                  <th className="px-4 py-2 text-right font-medium">Notes created</th>
+                  <th className="px-4 py-2 text-right font-medium">Created</th>
                   <th className="px-4 py-2 text-right font-medium">Reversed</th>
+                  <th className="px-4 py-2 text-right font-medium">Net</th>
                   <th className="px-4 py-2 text-right font-medium">Registered</th>
+                  <th className="px-4 py-2 text-right font-medium">Funded</th>
+                  <th className="px-4 py-2 text-right font-medium">Money funded</th>
+                  <th className="px-4 py-2 text-right font-medium">Commission</th>
                   <th className="px-4 py-2 text-right font-medium">Average / day</th>
                 </tr>
               </thead>
@@ -268,15 +272,19 @@ export default function PlatformSalesOfficersPage() {
                 {officers.map((officer) => {
                   const average =
                     officer.daysElapsed > 0
-                      ? (officer.notesCreated / officer.daysElapsed).toFixed(1)
+                      ? (officer.netNotes / officer.daysElapsed).toFixed(1)
                       : '0.0';
                   return (
                     <tr key={officer.staff_id} className="border-t">
                       <td className="px-4 py-2 font-medium">{officer.staff_ref}</td>
                       <td className="px-4 py-2 text-right">{officer.daysElapsed}</td>
                       <td className="px-4 py-2 text-right">{officer.notesCreated}</td>
-                      <td className="px-4 py-2 text-right">—</td>
+                      <td className="px-4 py-2 text-right">{officer.reversals}</td>
+                      <td className="px-4 py-2 text-right">{officer.netNotes}</td>
                       <td className="px-4 py-2 text-right">{officer.partnerRegistered}</td>
+                      <td className="px-4 py-2 text-right">{officer.notesFunded}</td>
+                      <td className="px-4 py-2 text-right">UGX {officer.amountFunded.toLocaleString('en-UG')}</td>
+                      <td className="px-4 py-2 text-right">UGX {officer.commissionAccrued.toLocaleString('en-UG')}</td>
                       <td className="px-4 py-2 text-right">{average}</td>
                     </tr>
                   );
@@ -286,21 +294,12 @@ export default function PlatformSalesOfficersPage() {
           </div>
         )}
 
-        <div className="rounded-md border p-4 space-y-2">
-          <h2 className="text-sm font-semibold">Funded sales</h2>
-          <p className="text-sm">
-            <strong>SOURCE NOT WIRED</strong>
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Money received is not recorded against promissory notes — total_collected is zero on
-            every note in the book. Commission is accrued at note creation, not on receipt. Funded
-            sales, money received, funding rate and commission are therefore not shown.
-          </p>
-        </div>
-
         <p className="text-xs text-muted-foreground">
           Bands, targets and the officer-facing leaderboard are withheld pending a written decision
           by the Managing Director.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          as at {fundedAsAt ? formatKampalaDateTime(fundedAsAt) : '—'} · funded figures are never frozen
         </p>
       </div>
     </PersonalLayout>
