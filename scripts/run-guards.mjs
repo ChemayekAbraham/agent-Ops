@@ -24,7 +24,6 @@ const GUARDS = [
   ['guard-legacy-domain.mjs', 'legacy domain references'],
   ['guard-location-freetext.mjs', 'free-text admin location capture'],
   ['guard-canonical-tags.mjs', 'canonical tags'],
-  ['guard-mcp-deploy.mjs', 'generated MCP deploy imports'],
 ];
 
 const bar = '='.repeat(78);
