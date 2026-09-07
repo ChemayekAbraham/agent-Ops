@@ -46,6 +46,7 @@ import {
 } from 'lucide-react';
 import { hapticTap, hapticSuccess } from '@/lib/haptics';
 import { GlossaryButton } from '@/components/shared/GlossaryButton';
+import partnerContractAsset from '@/assets/welile-partner-contract.pdf.asset.json';
 
 interface AgentMenuDrawerProps {
   open: boolean;
