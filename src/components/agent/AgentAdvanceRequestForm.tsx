@@ -50,6 +50,14 @@ export function AgentAdvanceRequestForm({ open, onOpenChange }: AgentAdvanceRequ
   const [reason, setReason] = useState('');
   const [allocOpen, setAllocOpen] = useState(false);
   const [view, setView] = useState<'menu' | 'history' | 'request' | 'topup'>('menu');
+  // Post-submit confirmation shown inside the sheet (a toast alone is too easy to miss)
+  const [submitted, setSubmitted] = useState<null | {
+    principal: number;
+    cycleDays: number;
+    dailyPayment: number;
+    totalPayable: number;
+  }>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // History filters
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
