@@ -402,13 +402,24 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
           .from('user_roles')
           .select('role, enabled')
           .eq('user_id', tenantId),
+        // Agent-side collections for this tenant. Many collections never wrote a
+        // `repayments` row, so the per-plan history merges both sources (deduped)
+        // instead of showing an empty list.
+        supabase
+          .from('agent_collections')
+          .select('id, amount, created_at, rent_request_id')
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false })
+          .limit(500),
         // Allocations run inside the same burst instead of after it.
         user?.id ? loadAllocations() : Promise.resolve(null),
       ]);
 
-      const [rentRes, repaymentRes, walletRes, portfolioRes, ledgerRes, rolesRes] = settled.map((result, idx) =>
-        responseOrNull(result, ['rent requests', 'repayments', 'wallet', 'portfolio', 'ledger', 'roles', 'allocations'][idx]),
+      const [rentRes, repaymentRes, walletRes, portfolioRes, ledgerRes, rolesRes, collectionRes] = settled.map((result, idx) =>
+        responseOrNull(result, ['rent requests', 'repayments', 'wallet', 'portfolio', 'ledger', 'roles', 'collections', 'allocations'][idx]),
       );
+      setCollectionHistory(((collectionRes?.data as CollectionHistoryRow[]) || []));
+
 
       setRequests(((rentRes?.data as unknown as RentRequestRow[]) || []).map((req) => {
         const effective = getEffectiveRentRequestAmounts(req);
