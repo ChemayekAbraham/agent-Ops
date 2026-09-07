@@ -60,8 +60,10 @@ function resolvePeriod(
   anchor: Date,
   customFrom?: Date,
   customTo?: Date,
-): { from: Date; to: Date; label: string } {
+): { from: Date | null; to: Date | null; label: string } {
   switch (kind) {
+    case 'all':
+      return { from: null, to: null, label: 'All time' };
     case 'daily':
       return { from: startOfDay(anchor), to: endOfDay(anchor), label: format(anchor, 'd MMMM yyyy') };
     case 'weekly': {
