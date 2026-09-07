@@ -873,41 +873,83 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
    * Repayment history aggregated per rent plan.
    *
    * Accuracy rules:
-   * - only `repayments` rows whose `rent_request_id` matches the plan count towards
-   *   that plan (the repayments ledger is the source of truth for cash received);
+   * - both sources count: `repayments` rows and `agent_collections` rows carrying
+   *   this plan's `rent_request_id`. Many payments (field cash, wallet self-pay)
+   *   only ever produce a collection row, so using `repayments` alone under-reports;
+   * - when a collection and a repayment describe the same money (identical amount
+   *   within a 5-minute window) they are shown once — the collection wins because
+   *   it carries the channel/self-pay information;
+   * - a payment is tagged "Paid by tenant" when its collection row is an in-app
+   *   wallet movement or a recorded self-repayment; otherwise "Agent collected";
    * - the running balance is computed oldest-first as
-   *   `total_repayment − cumulative paid`, floored at 0, so each row shows the
-   *   balance that was left immediately after that payment;
-   * - when `amount_repaid` on the plan exceeds the sum of its repayment rows
-   *   (offline top-ups, system adjustments that never wrote a repayment row) the
-   *   difference is surfaced as an "other sources" note instead of being silently
-   *   folded into a payment row.
+   *   `total_repayment − cumulative paid`, floored at 0;
+   * - anything left over on `amount_repaid` after both sources is surfaced as an
+   *   "other sources" note instead of being folded into a payment row.
    */
   const buildPlanRepaymentHistory = (rows: RepaymentRow[]) => {
     const map = new Map<string, {
-      rows: { id: string; date: string; amount: number; remaining: number }[];
+      rows: { id: string; date: string; amount: number; remaining: number; selfPaid: boolean }[];
       ledgerPaid: number;
+      selfPaid: number;
       otherSources: number;
       remaining: number;
     }>();
 
+    const MATCH_WINDOW_MS = 5 * 60 * 1000;
+    const isSelfPaid = (c: { payment_method: string | null; notes: string | null }) =>
+      (c.payment_method || '').toLowerCase() === 'in_app_wallet' ||
+      /self[-\s]?repay/i.test(c.notes || '');
+
     for (const req of requests) {
       const totalDue = Number(req.total_repayment) || 0;
-      const planRows = rows
+
+      const planCollections = tenantCollections
+        .filter((c) => c.rent_request_id === req.id)
+        .map((c) => ({
+          id: `col-${c.id}`,
+          date: c.created_at,
+          amount: Number(c.amount) || 0,
+          selfPaid: isSelfPaid(c),
+        }));
+
+      // Repayment rows that are NOT already represented by a collection row.
+      const usedCollections = new Set<string>();
+      const extraRepayments = rows
         .filter((r) => r.rent_request_id === req.id)
-        .slice()
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        .filter((r) => {
+          const amount = Number(r.amount) || 0;
+          const t = new Date(r.created_at).getTime();
+          const twin = planCollections.find(
+            (c) =>
+              !usedCollections.has(c.id) &&
+              c.amount === amount &&
+              Math.abs(new Date(c.date).getTime() - t) <= MATCH_WINDOW_MS,
+          );
+          if (twin) {
+            usedCollections.add(twin.id);
+            return false;
+          }
+          return true;
+        })
+        .map((r) => ({
+          id: `rep-${r.id}`,
+          date: r.created_at,
+          amount: Number(r.amount) || 0,
+          // A repayment row with no matching collection is a wallet/ledger
+          // movement the tenant drove themselves.
+          selfPaid: true,
+        }));
+
+      const merged = [...planCollections, ...extraRepayments].sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+      );
 
       let cumulative = 0;
-      const built = planRows.map((r) => {
-        const amount = Number(r.amount) || 0;
-        cumulative += amount;
-        return {
-          id: String(r.id),
-          date: r.created_at,
-          amount,
-          remaining: Math.max(0, totalDue - cumulative),
-        };
+      let selfPaidTotal = 0;
+      const built = merged.map((r) => {
+        cumulative += r.amount;
+        if (r.selfPaid) selfPaidTotal += r.amount;
+        return { ...r, remaining: Math.max(0, totalDue - cumulative) };
       });
 
       const amountRepaid = Number(req.amount_repaid) || 0;
@@ -915,6 +957,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
         // newest-first for display
         rows: built.reverse(),
         ledgerPaid: cumulative,
+        selfPaid: selfPaidTotal,
         otherSources: Math.max(0, amountRepaid - cumulative),
         remaining: Math.max(0, totalDue - Math.max(cumulative, amountRepaid)),
       });
@@ -924,8 +967,9 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
 
   const planRepaymentHistory = useMemo(
     () => buildPlanRepaymentHistory(repayments),
-    [requests, repayments],
+    [requests, repayments, tenantCollections],
   );
+
 
   /** Export the full per-plan repayment history (all rows, not just loaded ones). */
   const handleExportRepaymentReport = async () => {
