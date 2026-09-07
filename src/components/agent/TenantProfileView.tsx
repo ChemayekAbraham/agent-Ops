@@ -954,9 +954,10 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
   };
 
   const planRepaymentHistory = useMemo(
-    () => buildPlanRepaymentHistory(repayments),
-    [requests, repayments],
+    () => buildPlanRepaymentHistory(repayments, collectionHistory),
+    [requests, repayments, collectionHistory],
   );
+
 
   /** Export the full per-plan repayment history (all rows, not just loaded ones). */
   const handleExportRepaymentReport = async () => {
