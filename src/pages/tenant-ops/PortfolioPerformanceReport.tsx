@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { BarChart3, CalendarRange, CheckCircle2, FileText, ArrowLeft, X } from 'lucide-react';
+import { addDays, addMonths, format, parseISO, subDays, subMonths } from 'date-fns';
+import { BarChart3, CalendarRange, CheckCircle2, ChevronLeft, ChevronRight, FileText, ArrowLeft, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -82,7 +83,7 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
   // Each period state holds its own record: the query key is the sole carrier of
   // state, so nothing (figure, text or draft) crosses between Daily/Weekly/Monthly.
   const [granularity, setGranularity] = useState<TppoGranularity>('day');
-  const anchor = kampalaToday();
+  const [anchor, setAnchor] = useState<string>(() => kampalaToday());
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['tppo-report-zone-a', granularity, anchor],
