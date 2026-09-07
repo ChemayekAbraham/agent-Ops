@@ -357,7 +357,7 @@ export function TppoPlanDetailTable({
           </Table>
 
           <p className="mt-2 text-[11px] text-muted-foreground">
-            {`${data.totals.plans_paid} of ${data.totals.plans} plans have paid ${
+            {`${agentFilter === 'all' ? '' : 'Across the whole period: '}${data.totals.plans_paid} of ${data.totals.plans} plans have paid ${
               data.granularity === 'day' ? 'today' : 'in this period'
             } · ${formatUGX(data.totals.paid_total)} received against ${formatUGX(
               data.totals.scheduled_total,
