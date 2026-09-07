@@ -299,6 +299,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
             <PayablesCardDrilldown />
           </div>
 
+          <GeneralPayoutActivities />
           <ServiceCentreReceivablesPanel />
         </Band>
 
