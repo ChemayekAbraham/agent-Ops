@@ -54,15 +54,49 @@ export function RecentApprovalsByCategory() {
     refetchOnWindowFocus: false,
     staleTime: 30_000,
     queryFn: async (): Promise<ApprovalRow[]> => {
-      const { data: rows, error: rowsErr } = await supabase
-        .from('platform_wallet_corrections')
-        .select('id, operation, amount, evidence, reference_id, created_at, created_by, target_user_id, metadata')
-        .eq('tool', 'cfo_direct_credit')
-        .order('created_at', { ascending: false })
-        .limit(RECENT_WINDOW);
-      if (rowsErr) throw rowsErr;
+      // Approvals live in TWO authoritative places:
+      //  1. platform_wallet_corrections — CFO Direct Credit tool
+      //  2. pending_wallet_operations   — the approval queues (ROI Payout,
+      //     rent disbursement, commissions …), approved via
+      //     approve-wallet-operation. These carry `category`, `status`,
+      //     `reviewed_by` and `reviewed_at` (the approval timestamp).
+      const [correctionsRes, opsRes] = await Promise.all([
+        supabase
+          .from('platform_wallet_corrections')
+          .select('id, operation, amount, evidence, reference_id, created_at, created_by, target_user_id, metadata')
+          .eq('tool', 'cfo_direct_credit')
+          .order('created_at', { ascending: false })
+          .limit(RECENT_WINDOW),
+        supabase
+          .from('pending_wallet_operations')
+          .select('id, category, amount, direction, description, reference_id, user_id, target_wallet_user_id, reviewed_by, reviewed_at, metadata, status')
+          .eq('status', 'approved')
+          .not('reviewed_at', 'is', null)
+          .order('reviewed_at', { ascending: false })
+          .limit(RECENT_WINDOW),
+      ]);
+      if (correctionsRes.error) throw correctionsRes.error;
+      if (opsRes.error) throw opsRes.error;
 
-      const list = (rows ?? []) as unknown as ApprovalRow[];
+      const corrections = (correctionsRes.data ?? []) as unknown as ApprovalRow[];
+      const opRows: ApprovalRow[] = (opsRes.data ?? []).map((o: any) => ({
+        id: o.id,
+        operation: o.direction === 'cash_out' ? 'debit' : 'credit',
+        amount: Number(o.amount ?? 0),
+        evidence: o.description ?? null,
+        reference_id: o.reference_id ?? null,
+        // The approval timestamp is the authoritative "when" for these rows.
+        created_at: o.reviewed_at,
+        created_by: o.reviewed_by ?? null,
+        target_user_id: o.target_wallet_user_id || o.user_id,
+        metadata: { ...(o.metadata ?? {}), category_id: o.category },
+        beneficiary: null,
+        approver: null,
+      }));
+
+      const list = [...corrections, ...opRows]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, RECENT_WINDOW * 2);
       const ids = Array.from(
         new Set(
           list
@@ -94,13 +128,22 @@ export function RecentApprovalsByCategory() {
       categories.map((c) => [c.id, [] as ApprovalRow[]]),
     );
     const byLabel = new Map(categories.map((c) => [normaliseLabel(c.label), c.id]));
+    const byId = new Map(categories.map((c) => [c.id, c.id]));
+    const byWalletCategory = new Map(categories.map((c) => [c.walletCategory, c.id]));
 
     for (const row of data ?? []) {
       const meta = row.metadata ?? {};
       const label = typeof meta.category_label === 'string' ? meta.category_label : '';
       const base = label.split('—')[0].split('/')[0];
+      // Queue rows carry the stored category value (e.g. `roi_payout`), which
+      // matches the dropdown category id / wallet category directly.
+      const storedId =
+        typeof meta.category_id === 'string' ? meta.category_id.trim().toLowerCase() : '';
       let categoryId =
-        byLabel.get(normaliseLabel(label)) ?? byLabel.get(normaliseLabel(base)) ?? null;
+        (storedId ? byId.get(storedId) ?? byWalletCategory.get(storedId) : null) ??
+        byLabel.get(normaliseLabel(label)) ??
+        byLabel.get(normaliseLabel(base)) ??
+        null;
 
       if (!categoryId) {
         const match = categories.find(
@@ -115,6 +158,7 @@ export function RecentApprovalsByCategory() {
     }
     return buckets;
   }, [data, categories]);
+
 
   const activeCategory = categories.find((c) => c.id === activeCategoryId) ?? categories[0];
   const activeRows = grouped[activeCategory?.id ?? ''] ?? [];
