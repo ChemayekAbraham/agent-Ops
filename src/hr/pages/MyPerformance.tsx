@@ -79,7 +79,7 @@ function getWindowDates(mode: WindowMode): { from: string; to: string; label: st
 }
 
 async function fetchPsoSeries(from: string, to: string): Promise<PsoRow[]> {
-  const { data, error } = (await supabase.rpc('pso_daily_series' as never, {
+  const { data, error } = (await supabase.rpc('pso_daily_series' as any, {
     p_from: from,
     p_to: to,
   })) as unknown as { data: PsoRow[] | null; error: { message: string } | null };
