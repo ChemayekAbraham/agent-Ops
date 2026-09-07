@@ -29,11 +29,14 @@ import { SelfPortfolioFundingCard } from '@/components/partner/SelfPortfolioFund
 import { HowItWorksSteps, type HowItWorksStep } from './HowItWorksSteps';
 import { EmptyHouseOpportunitiesSheet } from '@/components/agent/EmptyHouseOpportunitiesSheet';
 import { FunderBookedHousesPanel } from '@/components/supporter/FunderBookedHousesPanel';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 import { useProfile } from '@/hooks/useProfile';
 
 type OptionKey = 'managed' | 'direct' | 'angel';
 type ViewState = 'menu' | OptionKey;
+type FeedOrder = 'rent' | 'houses';
+
 
 // Configurable service/access fee on empty-house funding (rate on one-month funding).
 const EMPTY_HOUSE_SERVICE_FEE_RATE = 0;
@@ -506,6 +509,7 @@ export function FunderCapitalOpportunities() {
   const [calcHouses, setCalcHouses] = useState(5);
   const [calcAmountInput, setCalcAmountInput] = useState('');
   const [calcOpen, setCalcOpen] = useState(false);
+  const [feedOrder, setFeedOrder] = useState<FeedOrder>('rent');
 
   const [feeRatePct, setFeeRatePct] = useState(EMPTY_HOUSE_SERVICE_FEE_RATE * 100);
 
@@ -806,10 +810,31 @@ export function FunderCapitalOpportunities() {
             <h4 className="text-xs font-black text-foreground tracking-tight">
               Ready to fund rentals
             </h4>
-
           </div>
+
+          <ToggleGroup
+            type="single"
+            size="sm"
+            value={feedOrder}
+            onValueChange={(value) => value && setFeedOrder(value as FeedOrder)}
+            className="w-full"
+          >
+            <ToggleGroupItem
+              value="rent"
+              className="flex-1 text-[10px] h-7 data-[state=on]:!bg-blue-600 data-[state=on]:!text-white"
+            >
+              Rent first
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="houses"
+              className="flex-1 text-[10px] h-7 data-[state=on]:!bg-blue-600 data-[state=on]:!text-white"
+            >
+              Houses first
+            </ToggleGroupItem>
+          </ToggleGroup>
+
           {user?.id
-            ? <SelfPortfolioFundingCard partnerId={user.id} />
+            ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder={feedOrder} onFeedOrderChange={setFeedOrder} />
             : <p className="text-[11px] text-muted-foreground">Sign in to view tenant plans.</p>}
         </div>
 
