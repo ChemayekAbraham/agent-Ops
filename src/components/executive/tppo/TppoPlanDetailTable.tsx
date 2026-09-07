@@ -34,6 +34,21 @@ interface TppoPlanDetailRow {
   overpaid_in_period: number;
 }
 
+interface TppoPlanDetailArrearsPayment {
+  rent_request_id: string;
+  tenant_name: string;
+  agent_name: string;
+  paid_in_period: number;
+  arrears: number;
+  outstanding: number;
+  plan_total: number;
+  repaid: number;
+  daily_amount: number;
+  term_start: string;
+  obligation_end: string;
+  days_past_term: number;
+}
+
 interface TppoPlanDetailReport {
   granularity: string;
   period_start: string;
@@ -51,9 +66,14 @@ interface TppoPlanDetailReport {
     outstanding_total: number;
     overpaid_total: number;
     plans_paid: number;
+    arrears_paid_total: number;
+    arrears_paid_plans: number;
+    arrears_paid_agents: number;
+    collected_total: number;
   };
   rows: TppoPlanDetailRow[];
   paid_outside_schedule: number;
+  arrears_payments: TppoPlanDetailArrearsPayment[];
   generated_at: string;
 }
 
@@ -70,6 +90,8 @@ export function TppoPlanDetailTable({
   const [shown, setShown] = useState(PAGE);
   const [selected, setSelected] = useState<{ id: string; name: string } | null>(null);
   const [collapsed, setCollapsed] = useState(false);
+  const [arrearsCollapsed, setArrearsCollapsed] = useState(true);
+  const [arrearsShown, setArrearsShown] = useState(PAGE);
   const [agentFilter, setAgentFilter] = useState<string>('all');
 
   const { data, isPending, isError, error } = useQuery({
@@ -159,6 +181,10 @@ export function TppoPlanDetailTable({
     }),
     { plans: 0, scheduled: 0, arrears: 0, planTotal: 0, repaid: 0, paid: 0, outstanding: 0 },
   );
+
+  const arrearsRows = data?.arrears_payments ?? [];
+  const visibleArrears = arrearsRows.slice(0, arrearsShown);
+  const arrearsRemaining = arrearsRows.length - visibleArrears.length;
 
   return (
     <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
@@ -384,6 +410,122 @@ export function TppoPlanDetailTable({
               >
                 {`Load more · ${remaining} remaining`}
               </Button>
+            </div>
+          )}
+
+          <div className="mt-2">
+            <p className="text-sm font-medium">
+              {`Total collected ${granularity === 'day' ? 'today' : 'this period'} — ${formatUGX(data.totals.collected_total)}`}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              {`${formatUGX(data.totals.paid_total)} against ${granularity === 'day' ? "today's" : "this period's"} schedule · ${formatUGX(data.totals.arrears_paid_total)} against past arrears`}
+            </p>
+          </div>
+
+          {arrearsRows.length > 0 && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={() => setArrearsCollapsed((c) => !c)}
+                className="flex items-center gap-1.5 text-left touch-manipulation"
+                aria-expanded={!arrearsCollapsed}
+              >
+                <ChevronDown
+                  className={`h-4 w-4 text-muted-foreground transition-transform ${arrearsCollapsed ? '-rotate-90' : ''}`}
+                />
+                <div>
+                  <h3 className="text-sm font-semibold">
+                    {`Arrears settled ${granularity === 'day' ? 'today' : 'this period'} — ${formatUGX(data.totals.arrears_paid_total)}`}
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    {`${data.totals.arrears_paid_plans} tenants · ${data.totals.arrears_paid_agents} agents · these plans had nothing scheduled, so the money went straight against what they already owed`}
+                  </p>
+                </div>
+              </button>
+
+              {!arrearsCollapsed && (
+                <>
+                  <p className="mt-2 mb-1 text-[11px] text-muted-foreground">
+                    These tenants are past their agreed end date or otherwise had no instalment falling due, so nothing appears for them in the schedule above. Every shilling here reduces the arrears balance the moment it is recorded.
+                  </p>
+
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10">#</TableHead>
+                        <TableHead>Tenant</TableHead>
+                        <TableHead>Agent</TableHead>
+                        <TableHead className="text-right">Paid</TableHead>
+                        <TableHead className="text-right">Arrears now</TableHead>
+                        <TableHead className="text-right">Outstanding</TableHead>
+                        <TableHead className="text-right">Daily amount</TableHead>
+                        <TableHead className="text-right">Days past term</TableHead>
+                        <TableHead>Obligation end</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {visibleArrears.map((row, index) => (
+                        <TableRow key={row.rent_request_id}>
+                          <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                          <TableCell>
+                            <button
+                              type="button"
+                              onClick={() => setSelected({ id: row.rent_request_id, name: row.tenant_name })}
+                              className="underline decoration-dotted underline-offset-2 hover:decoration-solid touch-manipulation"
+                              title="See where this arrears comes from"
+                            >
+                              {row.tenant_name}
+                            </button>
+                          </TableCell>
+                          <TableCell>{row.agent_name}</TableCell>
+                          <TableCell className={`${moneyCell} text-emerald-600`}>
+                            {formatUGX(row.paid_in_period)}
+                          </TableCell>
+                          <TableCell className={moneyCell}>
+                            {row.arrears > 0 ? (
+                              <span className="text-destructive">{formatUGX(row.arrears)}</span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className={moneyCell}>{formatUGX(row.outstanding)}</TableCell>
+                          <TableCell className={moneyCell}>{formatUGX(row.daily_amount)}</TableCell>
+                          <TableCell className={moneyCell}>{row.days_past_term}</TableCell>
+                          <TableCell>{row.obligation_end}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                    <TableFooter>
+                      <TableRow>
+                        <TableCell />
+                        <TableCell className="font-semibold">TOTAL</TableCell>
+                        <TableCell>{`${data.totals.arrears_paid_plans} tenants`}</TableCell>
+                        <TableCell className={`${moneyCell} font-semibold`}>
+                          {formatUGX(data.totals.arrears_paid_total)}
+                        </TableCell>
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                        <TableCell />
+                      </TableRow>
+                    </TableFooter>
+                  </Table>
+
+                  {arrearsRemaining > 0 && (
+                    <div className="mt-3 flex justify-center">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setArrearsShown((s) => s + PAGE)}
+                      >
+                        {`Load more · ${arrearsRemaining} remaining`}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
           </>
