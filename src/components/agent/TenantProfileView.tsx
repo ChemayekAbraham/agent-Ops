@@ -190,6 +190,12 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
   const [profile, setProfile] = useState<TenantProfile | null>(null);
   const [requests, setRequests] = useState<RentRequestRow[]>([]);
   const [repayments, setRepayments] = useState<RepaymentRow[]>([]);
+  // Every field/wallet collection recorded for this tenant. Needed because many
+  // payments only ever land in `agent_collections` (no `repayments` row), and the
+  // self-repayment tag lives on the collection row.
+  const [tenantCollections, setTenantCollections] = useState<
+    { id: string; amount: number; created_at: string; rent_request_id: string | null; payment_method: string | null; notes: string | null }[]
+  >([]);
   const [walletData, setWalletData] = useState<WalletData | null>(null);
   const [floatAllocations, setFloatAllocations] = useState<
     { date: string; amount: number; status: 'active' | 'reversed'; reason: string | null }[]
