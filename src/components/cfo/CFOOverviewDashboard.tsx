@@ -421,7 +421,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           <AgentAdvancesStatsCard />
         </Band>
 
-        {/* ─────────── 5 · TOOLS & AUDIT TRAIL ─────────── */}
+        {/* ─────────── 6 · TOOLS & AUDIT TRAIL ─────────── */}
         {/* Lookup tools rather than at-a-glance numbers, so this band starts
             collapsed and no longer pushes the flow views below the fold. */}
         <Band
