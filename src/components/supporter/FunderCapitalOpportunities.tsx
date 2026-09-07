@@ -805,13 +805,6 @@ export function FunderCapitalOpportunities() {
 
         {/* Tenant rent plans awaiting funding — stacked cards with bulk selection */}
         <div className="pt-2 space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="w-1 h-5 rounded-full bg-primary" />
-            <h4 className="text-xs font-black text-foreground tracking-tight">
-              Ready to fund rentals
-            </h4>
-          </div>
-
           <ToggleGroup
             type="single"
             size="sm"
@@ -832,6 +825,13 @@ export function FunderCapitalOpportunities() {
               Empty houses without tenants yet
             </ToggleGroupItem>
           </ToggleGroup>
+
+          <div className="flex items-center gap-2">
+            <div className="w-1 h-5 rounded-full bg-primary" />
+            <h4 className="text-xs font-black text-foreground tracking-tight">
+              Ready to fund rentals
+            </h4>
+          </div>
 
           {user?.id
             ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder={feedOrder} onFeedOrderChange={setFeedOrder} />
