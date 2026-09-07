@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Smartphone, FileText, AlertTriangle, Loader2 } from 'lucide-react';
+import { Smartphone, AlertTriangle, Loader2 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import smartphonePromoAsset from '@/assets/smartphone-promo.jpg.asset.json';
 import { useSmartphoneCatalog, type SmartphoneOsType, type SmartphoneCatalogEntry } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
@@ -152,9 +152,6 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
         <Tabs defaultValue="order" className="w-full">
           <TabsList className="w-full">
             <TabsTrigger value="order" className="flex-1">Apply</TabsTrigger>
-            <TabsTrigger value="tnc" className="flex-1">
-              <FileText className="h-3.5 w-3.5 mr-1.5" /> View T&amp;C
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="order" className="space-y-3 mt-3">
@@ -286,6 +283,37 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               </div>
             )}
 
+            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3 text-sm">
+              <h4 className="font-semibold">Terms &amp; Conditions</h4>
+              <ol className="list-decimal pl-4 space-y-2 text-muted-foreground">
+                <li>
+                  <span className="font-medium text-foreground">Eligibility:</span> Open to active operational
+                  agents with 3+ active tenants and a National ID recorded on their Welile profile.
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Collection day:</span> you must present your
+                  National ID and a workplace photo. Both are captured and verified before the phone is released
+                  to you — no documents, no phone.
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Supplier:</span> Welile pays the registered
+                  supplier directly; you receive the phone, not cash.
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Repayment:</span> a fixed daily amount is
+                  deducted from your Welile Wallet over the period you choose (3, 6, 9 or 12 months).
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Grace period:</span> deductions begin 14 days
+                  after the phone is released.
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Late charge:</span> once you are 30 days behind
+                  schedule, UGX 50,000 is added to your balance each month until you catch up.
+                </li>
+              </ol>
+            </div>
+
             {paymentMethod === 'full' && price > 0 && (
               <div className="rounded-lg border border-border bg-muted/40 p-3 text-center space-y-1">
                 <p className="text-xs text-muted-foreground">Amount due in full</p>
@@ -333,38 +361,6 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
             </p>
           </TabsContent>
 
-          <TabsContent value="tnc" className="mt-3">
-            <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3 text-sm">
-              <h4 className="font-semibold">Terms &amp; Conditions</h4>
-              <ol className="list-decimal pl-4 space-y-2 text-muted-foreground">
-                <li>
-                  <span className="font-medium text-foreground">Eligibility:</span> Open to active operational
-                  agents with 3+ active tenants and a National ID recorded on their Welile profile.
-                </li>
-                <li>
-                  <span className="font-medium text-foreground">Collection day:</span> you must present your
-                  National ID and a workplace photo. Both are captured and verified before the phone is released
-                  to you — no documents, no phone.
-                </li>
-                <li>
-                  <span className="font-medium text-foreground">Supplier:</span> Welile pays the registered
-                  supplier directly; you receive the phone, not cash.
-                </li>
-                <li>
-                  <span className="font-medium text-foreground">Repayment:</span> a fixed daily amount is
-                  deducted from your Welile Wallet over the period you choose (3, 6, 9 or 12 months).
-                </li>
-                <li>
-                  <span className="font-medium text-foreground">Grace period:</span> deductions begin 14 days
-                  after the phone is released.
-                </li>
-                <li>
-                  <span className="font-medium text-foreground">Late charge:</span> once you are 30 days behind
-                  schedule, UGX 50,000 is added to your balance each month until you catch up.
-                </li>
-              </ol>
-            </div>
-          </TabsContent>
         </Tabs>
 
         <DialogFooter>
