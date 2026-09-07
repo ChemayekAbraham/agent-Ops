@@ -826,16 +826,20 @@ export function FunderCapitalOpportunities() {
             </ToggleGroupItem>
           </ToggleGroup>
 
-          <div className="flex items-center gap-2">
-            <div className="w-1 h-5 rounded-full bg-primary" />
-            <h4 className="text-xs font-black text-foreground tracking-tight">
-              Ready to fund rentals
-            </h4>
-          </div>
+          {feedOrder !== 'houses' && (
+            <>
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-5 rounded-full bg-primary" />
+                <h4 className="text-xs font-black text-foreground tracking-tight">
+                  Ready to fund rentals
+                </h4>
+              </div>
 
-          {user?.id
-            ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder={feedOrder} onFeedOrderChange={setFeedOrder} />
-            : <p className="text-[11px] text-muted-foreground">Sign in to view tenant plans.</p>}
+              {user?.id
+                ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder={feedOrder} onFeedOrderChange={setFeedOrder} />
+                : <p className="text-[11px] text-muted-foreground">Sign in to view tenant plans.</p>}
+            </>
+          )}
         </div>
 
         {/* Empty houses you can support — browse, pick, and create your promissory note */}
