@@ -872,8 +872,60 @@ export function AgentAdvanceRequestForm({ open, onOpenChange }: AgentAdvanceRequ
           )}
         </div>
 
+        {/* Submitted — clear confirmation of what happens next */}
+        {submitted && (
+          <div className="mb-4 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="rounded-full bg-emerald-500/20 p-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-foreground">Request received</p>
+                <p className="text-xs text-muted-foreground leading-snug">
+                  We are reviewing your request for {formatUGX(submitted.principal)}. You will get an SMS as soon as it is approved.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-1.5 rounded-xl bg-background/80 p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Amount requested</span>
+                <span className="text-sm font-bold text-foreground">{formatUGX(submitted.principal)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Repayment period</span>
+                <span className="text-sm font-bold text-foreground">{submitted.cycleDays} days</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Daily repayment</span>
+                <span className="text-sm font-bold text-primary">{formatUGX(submitted.dailyPayment)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Total to repay</span>
+                <span className="text-sm font-bold text-foreground">{formatUGX(submitted.totalPayable)}</span>
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-snug">
+              Reviewed by Agent Ops, then Operations, then Finance. Keep collecting rent while you wait — it strengthens your request.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                variant="outline"
+                className="w-full rounded-full"
+                onClick={() => { setSubmitted(null); setView('history'); }}
+              >
+                <HistoryIcon className="mr-2 h-4 w-4" /> Track my requests
+              </Button>
+              <Button className="w-full rounded-full" onClick={() => onOpenChange(false)}>
+                Done
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Form */}
+        {!submitted && (
         <div className="rounded-2xl bg-muted/50 p-4 space-y-4 mb-4">
+
           {/* Amount */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Amount (UGX)</label>
