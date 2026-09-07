@@ -1073,6 +1073,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         )}
         {activeTab === 'home' && !isMerchant && (
           <div className={cn("space-y-4", tabAnimClass)}>
+            {/* Collection League — weekly team competition */}
+            {!isMerchant && <AgentCollectionLeagueCard />}
+
             {/* Free Service Center qualification — permanent milestone tracker */}
             {!isMerchant && (
               <>
@@ -1213,9 +1216,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
 
             {/* 4) Live rating — today vs target + 7-day capacity tier */}
             {!isMerchant && <AgentRatingCard agentId={user.id} />}
-
-            {/* Collection League — weekly team competition */}
-            {!isMerchant && <AgentCollectionLeagueCard />}
 
             {/* 2b) Earnings summary — available rewards + lifetime total */}
             {!isMerchant && (
