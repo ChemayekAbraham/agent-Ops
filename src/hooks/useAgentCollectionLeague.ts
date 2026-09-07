@@ -71,6 +71,8 @@ export interface LeagueMember {
 export interface LeagueRow {
   rank: number;
   team_name: string;
+  /** Parent agent's profile photo for the team, when available. */
+  team_avatar_url?: string | null;
   performance_percentage: number | null;
   rank_change?: number | null;
   is_me: boolean;
