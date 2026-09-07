@@ -265,7 +265,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 <Label className="text-xs">Repayment period</Label>
                 <Select value={months} onValueChange={setMonths} disabled={hasOpenApplication}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a period" />
+                    <SelectValue placeholder="select a period" />
                   </SelectTrigger>
                   <SelectContent>
                     {PERIODS.map((p) => (
