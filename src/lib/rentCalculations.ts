@@ -39,11 +39,28 @@ export function calculateRequestFee(rentAmount: number): number {
 }
 
 /**
+ * BD-4 minimum access fee floor.
+ *
+ *   floor = [principal x (0.005 x days + 0.10) + 0.10 x registration] / 0.90
+ *
+ * Below roughly 24 days the 1.33 compounding curve does not cover the 10% agent
+ * commission (charged on total repayment, so it tracks principal rather than
+ * tenor) plus the 15% partner reward. This mirrors compute_rent_repayment() in
+ * the database exactly; the database is authoritative and enforces it via
+ * trg_enforce_rent_request_formula. Keep the two in step.
+ */
+export function calculateAccessFeeFloor(rentAmount: number, durationDays: number): number {
+  const requestFee = calculateRequestFee(rentAmount);
+  return Math.ceil((rentAmount * (0.005 * durationDays + 0.10) + 0.10 * requestFee) / 0.90);
+}
+
+/**
  * Calculate all rent repayment details
  * Supports any duration from 7-120 days
  */
 export function calculateRentRepayment(rentAmount: number, durationDays: number, monthlyRate: number = 0.33): RentCalculation {
-  const accessFee = calculateAccessFee(rentAmount, durationDays, monthlyRate);
+  const curveFee = calculateAccessFee(rentAmount, durationDays, monthlyRate);
+  const accessFee = Math.max(curveFee, calculateAccessFeeFloor(rentAmount, durationDays));
   const requestFee = calculateRequestFee(rentAmount);
   const totalRepayment = rentAmount + accessFee + requestFee;
   const dailyRepayment = Math.ceil(totalRepayment / durationDays);
