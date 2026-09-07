@@ -829,7 +829,7 @@ export function FunderCapitalOpportunities() {
               value="houses"
               className="flex-1 text-[10px] h-7 data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=off]:bg-muted/40 data-[state=off]:text-muted-foreground"
             >
-              Houses first
+              Empty houses without tenants yet
             </ToggleGroupItem>
           </ToggleGroup>
 
