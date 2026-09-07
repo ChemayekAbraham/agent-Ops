@@ -61,14 +61,20 @@ interface FundablePlan {
  * Partner funds approved rent plans straight from their operational float.
  * Privacy: tenant first name only, landlord name shown, no contact details ever leave the server.
  */
-export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
+export function SelfPortfolioFundingCard({
+  partnerId,
+  feedOrder,
+  onFeedOrderChange,
+}: {
+  partnerId: string;
+  feedOrder: FeedOrder;
+  onFeedOrderChange: (value: FeedOrder) => void;
+}) {
   const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [deployOpen, setDeployOpen] = useState(false);
   const [detailPlan, setDetailPlan] = useState<FundablePlan | null>(null);
   const [page, setPage] = useState(0);
-  // Both datasets always remain in one feed; this only chooses which group leads.
-  const [feedOrder, setFeedOrder] = useState<FeedOrder>('rent');
   const [houseSelected, setHouseSelected] = useState<string[]>([]);
   const [detailHouse, setDetailHouse] = useState<SupportableHouse | null>(null);
   // Short code arriving from a branded /s/<code> share link (?share=<code>).
@@ -208,7 +214,7 @@ export function SelfPortfolioFundingCard({ partnerId }: { partnerId: string }) {
     if (!sharedPlanId || plans.length === 0) return;
     const index = plans.findIndex((p) => p.rent_request_id === sharedPlanId);
     if (index < 0) return;
-    setFeedOrder('rent');
+    onFeedOrderChange('rent');
     setPage(Math.floor(index / PLANS_PER_PAGE));
 
     setDetailPlan(plans[index]);
