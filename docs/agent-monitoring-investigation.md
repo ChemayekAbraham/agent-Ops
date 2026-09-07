@@ -1,0 +1,278 @@
+# Agent Monitoring (Tenant Ops → Classic) — investigation report
+
+Investigation only. No UI, logic, data or navigation was changed.
+Source of truth: `src/components/executive/tenant-ops/AgentMonitoring.tsx`, views
+`v_tenant_daily_eligibility` / `v_rent_plan_schedule`, tables `rent_requests`,
+`agent_collections`, `repayments`, `rent_repayment_pauses`.
+
+---
+
+## 1. What it tracks today, and how the numbers are made
+
+One screen, one calendar day (Kampala time, day switcher + Today button).
+
+Data pulled per load:
+1. `v_tenant_daily_eligibility` → the set of rent plans considered "live and collectable".
+   The view keeps only `funded` / `repaying` plans, with a tenant, and excludes plans marked
+   `agent_payment_status = 'not_paying'`, plans with an active repayment pause, plans with a
+   float reversal, and plans whose landlord has already been settled.
+2. `rent_requests` rows with status `funded | disbursed | repaying`, then filtered down to the
+   eligible ids and to rows that have an `agent_id`.
+3. `agent_collections` rows created between 00:00 and 24:00 Kampala on the chosen day.
+4. Every `rent_requests` row's `agent_id` (all history) to count "requests" per agent.
+5. `profiles` for names, phones, created_at.
+
+Numbers shown:
+- **Tenants** = distinct `tenant_id` on the agent's eligible plans.
+- **Expected** = plain sum of `daily_repayment` across those plans (one day's worth).
+- **Collected** = sum of `agent_collections.amount` for that agent+tenant on that day only.
+- **Rate** = collected ÷ expected, capped at 100%.
+- **Requests** = lifetime count of rent requests carrying that agent id (any status).
+- **Status** = Full (collected ≥ expected), Partial (collected > 0), Critical (collected = 0).
+- KPI cards: number of agents in the filtered list, total expected, total collected — all
+  recomputed from the filtered rows, so they follow search/status/tab filters.
+
+Filters: free-text search (name/phone), status chips (all/full/partial/critical), day
+navigation, and the tab added recently ("All agents" vs "After 1 Aug 2026", using
+`profiles.created_at`). Agent row opens a dialog listing that agent's tenants
+(daily amount, collected today, plan status, total/repaid), and a tenant row opens the
+shared user drill-down drawer. There is no export/report from this screen.
+
+---
+
+## 2. Payment frequency — what the data actually supports
+
+`rent_requests.repayment_frequency` exists and, verified on production, is `daily` for
+**all 1,278** funded/repaying/completed plans. `repayment_starts_on` is populated for all of
+them, `duration_days > 0` for all of them. So today the platform is effectively daily-only;
+weekly/monthly plans are representable in the column but do not exist yet.
+
+Agent Monitoring **ignores** `repayment_frequency` entirely and treats `daily_repayment`
+as one day's obligation. That is correct today, and would silently overstate expectation the
+day a weekly or monthly plan is created.
+
+The canonical schedule logic already exists in `v_rent_plan_schedule`: term start =
+`repayment_starts_on` (fallback funded/disbursed/created date), term end = start +
+`duration_days` − 1, plus an "obligation end" that stops growing once a plan is fully repaid.
+Agent Monitoring does not use it.
+
+---
+
+## 3. How payments and their variants are handled today
+
+- **Payments** are recorded in two places: `agent_collections` (agent-collected, 10,779 rows)
+  and `repayments` (tenant self-payments and other channels, 5,515 rows). Both carry
+  `rent_request_id`; `rent_requests.amount_repaid` is the running total.
+- **Agent Monitoring only reads `agent_collections`.** Tenant self-payments in `repayments`
+  are invisible here, so a tenant who paid themselves makes the agent look Critical.
+- **Partial payments** are recorded (`is_partial`, `expected_amount`, `shortfall_amount` on
+  `agent_collections`; 638 partial rows in the last 30 days) but Agent Monitoring never reads
+  those columns — it only sums `amount` and infers "partial" from the day total.
+- **Advance / future coverage**: nothing. If a tenant pays 5 days at once, the day of payment
+  shows 500% (capped to 100%) and the next 4 days show Critical for that agent even though
+  the tenant is ahead. No notion of "already covered through date X".
+- **Overpayment**: no plan in production currently has `amount_repaid > total_repayment`, and
+  the screen has no handling either way.
+- **Missed payments / overdue**: not computed at all. There is no arrears figure, no
+  days-behind figure, and no cumulative expected-to-date. Only "did money arrive today".
+- **Pauses / not-paying / ended tenancies** are excluded upstream by the view (currently 42
+  live plans are `not_paying`, 0 active pauses), which is correct but invisible on screen —
+  an agent's tenant simply disappears with no explanation.
+
+---
+
+## 4. What is missing or misleading right now
+
+1. **Self-payments excluded** → agent performance understated. Biggest single distortion.
+2. **No cumulative position.** Measured on production, only 10 of 723 live plans are at or
+   ahead of a simple straight-line expectation; the screen cannot show that at all.
+3. **Prepayment punished, arrears invisible.** Both come from the same missing concept:
+   coverage-through-date.
+4. **1,188 `agent_collections` rows have no `rent_request_id`.** Any future
+   plan-level attribution must tolerate that; the current agent+tenant key hides the problem.
+5. **Collected is keyed on `agent_id + tenant_id`** for the day, so a payment collected by a
+   different agent for the same tenant is credited to whoever the plan is assigned to only if
+   ids match — cross-agent / sub-agent collections can land nowhere.
+6. **"Requests" column counts lifetime requests of any status**, including rejected and
+   deleted ones — it looks like a workload metric but is not.
+7. **Rate capped at 100%** hides over-collection.
+8. **Expected ignores whether the plan's term has started or ended** on the viewed day. For a
+   past date the screen uses today's eligible set, so historical days are re-scored against
+   today's population — historical accuracy is not reliable.
+9. **`disbursed` is in the status filter but not in the eligibility view**, so it has no
+   effect; a harmless inconsistency that makes the code misleading.
+10. **`amount_repaid` vs ledger drift** is already known (`v_rent_repaid_reconciliation`);
+    any figure derived from `amount_repaid` inherits it.
+
+---
+
+## 5. How reporting periods should respect payment frequency
+
+The clean rule, expressible with existing data:
+
+- A plan has a **term window** (`repayment_starts_on` … start + `duration_days` − 1) and an
+  **instalment size** and **instalment length** derived from `repayment_frequency`
+  (daily = 1 day, weekly = 7, monthly = 30/calendar month if ever introduced).
+- **Expected for any reporting window** = instalment size × number of that plan's instalment
+  due-dates that fall inside the window ∩ term window. For daily plans this collapses to
+  `daily_repayment × number of days in window`, which is what everyone expects.
+- **Never** multiply `daily_repayment` by window length for a non-daily plan, and never count
+  days outside the term window (before start, after end, or during a pause).
+- Weekly/monthly reporting should therefore be "sum of instalments due in the period", not
+  "daily × 7". Today the two agree, because every plan is daily.
+
+---
+
+## 6. Expected position as of any date vs actual
+
+Per plan, at date D (Kampala date):
+
+```
+elapsed_instalments = instalments due from term_start .. min(D, term_end)
+expected_to_date    = instalment_amount * elapsed_instalments   (capped at total_repayment)
+paid_to_date        = sum of agent_collections + repayments for the plan up to end of D
+arrears             = max(0, expected_to_date - paid_to_date)
+credit_ahead        = max(0, paid_to_date - expected_to_date)
+covered_through     = term_start + floor(paid_to_date / instalment_amount) - 1 instalment
+days_behind         = arrears / instalment_amount   (in instalments, not calendar days)
+outstanding         = max(0, total_repayment - paid_to_date)
+```
+
+Status then becomes honest and prepayment-safe:
+- **Ahead** — `covered_through > D`
+- **On track** — `covered_through == D` (or arrears = 0)
+- **Behind** — arrears > 0, banded (1, 2–3, 4–7, 8+ instalments)
+- **Settled** — outstanding = 0
+- **Excluded** — not_paying / paused / tenancy ended (shown with reason, not silently dropped)
+
+"Collected today" stays as it is — it answers a different question (field activity) and both
+figures should be visible side by side rather than one replacing the other.
+
+---
+
+## 7. Edge cases not currently considered
+
+- Plan whose term starts in the future (0 today, but possible) → expected must be 0, not one
+  daily amount.
+- Plan already fully repaid but still `repaying` → expected should stop at term/obligation end.
+- Payment recorded on a date after the term end (late catch-up) → must reduce arrears, not be
+  discarded.
+- Same tenant with two live plans → per-plan maths, then aggregate; tenant-level counts will
+  differ from plan-level counts and must be labelled.
+- Collection recorded by a sub-agent or a different agent than the plan owner.
+- Collection rows with no `rent_request_id` (1,188 today) → cannot be attributed to a plan.
+- Reversals (`agent_tenant_float_reversals`) and refunded/duplicate collections.
+- Pause that starts mid-period → expected should skip paused instalments; the pause table has
+  the dates but no per-day expansion.
+- Tenancy ended mid-period / plan moved to another agent mid-period → historical attribution
+  is not stored per day, so past days cannot be reconstructed exactly.
+- Timezone: everything must be Kampala-date based; mixing UTC dates shifts a full day.
+- Agent with collections but no eligible plans (already partly handled — they appear with
+  expected 0 and rate "—").
+
+---
+
+## 8. Data / model limitations (do not invent around these)
+
+- **No per-instalment schedule table.** There is no row per due date, so "which instalments
+  were due/paid" must be computed, and pauses can only be applied approximately.
+- **No historical agent↔plan assignment.** `rent_requests.agent_id` is current-state only, so
+  past-day agent league tables are approximations.
+- **No snapshot of daily expectation.** Yesterday's expected cannot be reproduced exactly
+  after a plan changes (there is an agent-side snapshot, `agent_daily_eligibility_history`,
+  but not a tenant/plan-level one).
+- **`amount_repaid` is a cache** with known reconciliation drift; sums of payment rows are
+  more trustworthy but need de-duplication (the reconciliation view already documents this).
+- **`repayment_frequency` is uniformly `daily`**, so any weekly/monthly behaviour is
+  untested; build the general rule but do not claim it is verified.
+- Nothing in the model expresses "expected payer" (tenant vs agent-collected), so an agent
+  cannot be fairly excused for a self-paying tenant without a business rule decision.
+
+---
+
+## 9. Simplest reliable approach (recommendation)
+
+Do the maths **once, in the database**, as a read-only view, and let the UI read it. This
+avoids duplicating rules across screens and keeps the client light.
+
+- One new view, e.g. `v_tenant_payment_position`, one row per live plan:
+  plan id, tenant, agent, frequency, instalment amount, term start/end, expected_to_date,
+  paid_to_date (agent_collections + repayments, de-duplicated), arrears, credit_ahead,
+  covered_through, outstanding, position band, exclusion reason.
+- Payments summed from the payment tables (not `amount_repaid`), with `repayments` included.
+- A second, period-parameterised RPC for reports: `(date_from, date_to)` → per-agent expected
+  in period, collected in period, arrears at period end, tenants ahead/on-track/behind.
+- The UI keeps its current day view and adds the position columns; nothing is recalculated in
+  the browser except filtering and totals.
+
+KPIs worth having (all derivable from the above): tenants on track / ahead / behind, total
+arrears, arrears-weighted agent ranking, collection rate for the period, prepaid coverage,
+number of excluded plans with reasons.
+
+Filtering/sieving: keep the existing search + status chips, and add (a) period selector
+(Today / This week / This month / Custom), (b) position band filter, (c) frequency filter
+(future-proofing), (d) "include self-payments" toggle so the old agent-only view remains
+available. Server-side where the row count justifies it; the current volumes (≈723 live
+plans, ≈650 eligible) are small enough for client-side filtering of a single fetched set.
+
+---
+
+## 10. UI/UX additions, preserving the current design
+
+- Keep the header, day switcher, three KPI cards, table and dialog exactly as they are.
+- Add a period selector next to the day switcher (Today stays the default).
+- Add columns to the existing table: **Expected to date**, **Paid to date**, **Arrears**,
+  **Ahead**, and change Status to the five honest bands — keeping the same badge component
+  and colour language (Full/Partial/Critical → Settled/On track/Ahead/Behind/Excluded).
+- In the agent dialog, per tenant: covered-through date, arrears, instalments behind, and a
+  reason chip when the plan is excluded.
+- One export button (CSV) on the table, reusing the report/archive pattern used elsewhere.
+- Uncap the rate display above 100% or show "over-collected" instead.
+- No navigation, permission, or styling changes.
+
+---
+
+## 11. Existing data vs needs clarification
+
+**Can be built now with existing data:** expected-to-date, paid-to-date (incl. self-payments),
+arrears, credit ahead, covered-through, outstanding, position bands, period expected/collected,
+per-agent aggregates, exclusion reasons, CSV export, all filters above.
+
+**Needs a business decision (not data):**
+- Should tenant self-payments count towards the agent's collection rate? (Recommend: shown
+  separately, included in the tenant's position, excluded from agent field-activity rate.)
+- Should prepayment credit be allowed to satisfy later days for the agent's daily target?
+- Grace period before a missed instalment becomes arrears (0 days? 1 day?).
+- How pauses affect expected (skip instalments vs extend term).
+- Whether "Requests" should be restricted to live/approved statuses.
+
+**Needs additional data (out of scope until agreed):**
+- Per-instalment schedule rows (for exact pause handling and non-daily plans).
+- Historical agent↔plan assignment / daily tenant-level snapshots (for accurate past days).
+- Back-filling `rent_request_id` on the 1,188 orphan collection rows.
+
+---
+
+## 12. Implementation-ready next step
+
+> Scope: RentFlow only. Read-only additions; do not change existing Agent Monitoring
+> behaviour, styling, navigation or any other screen.
+>
+> 1. Create read-only view `public.v_tenant_payment_position` (one row per plan with status
+>    `funded`/`repaying`, reusing the exclusion rules of `v_tenant_daily_eligibility` but
+>    reporting excluded plans with a reason instead of dropping them). Compute frequency-aware
+>    instalment size/length from `repayment_frequency`, term window from `repayment_starts_on`
+>    and `duration_days`, `paid_to_date` from de-duplicated `agent_collections` + `repayments`,
+>    then `expected_to_date`, `arrears`, `credit_ahead`, `covered_through`, `outstanding`,
+>    `position_band`. Grant `select` to `authenticated`; no writes, no triggers.
+> 2. Create RPC `get_agent_payment_position(p_date_from date, p_date_to date)` returning
+>    per-agent period expected, period collected (split agent-collected vs self-paid),
+>    arrears at period end, and tenant counts per position band. `security definer`,
+>    `set search_path = public`, restricted to ops/executive roles via the existing role helper.
+> 3. Extend `AgentMonitoring.tsx` only: add a period selector, position columns, position-band
+>    filter, self-payment toggle, CSV export, and per-tenant position rows in the existing
+>    dialog. Reuse existing components and tokens; keep the current tabs and day view intact.
+> 4. Confirm the five business questions in §11 before wiring grace periods or agent-credit
+>    rules; until answered, use grace = 0 and show self-payments separately.
+> 5. Verify with `npx tsgo --noEmit`, `npm run guard:all`, and spot-check three plans by hand
+>    against the view output before exposing the new columns.
