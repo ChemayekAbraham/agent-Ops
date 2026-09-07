@@ -28,7 +28,6 @@ import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilld
 import { ServiceCentreReceivablesPanel } from '@/components/cfo/ServiceCentreReceivablesPanel';
 import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
 import { GeneralPayoutActivities } from '@/components/cfo/GeneralPayoutActivities';
-import { RecentPayoutActivity } from '@/components/cfo/RecentPayoutActivity';
 
 
 
