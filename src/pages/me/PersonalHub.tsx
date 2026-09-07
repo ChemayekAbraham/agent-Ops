@@ -67,15 +67,8 @@ const HubCard = ({ to, icon: Icon, title, description, disabled, badges }: HubCa
   return <Link to={to} className={className}>{content}</Link>;
 };
 
-const CARDS = [
-  { to: '/your-profile', icon: User, title: 'My profile', description: 'Your personal details' },
-  { to: '/me/payslips', icon: FileText, title: 'My payslips', description: 'Your own pay records' },
-  { to: '/me/work', icon: Briefcase, title: 'My work', description: 'Tasks assigned to you' },
-  { to: '/me/tickets', icon: Ticket, title: 'Tickets', description: 'Raise a fault or pick one up' },
-  { to: '/me/requisitions', icon: Wallet, title: 'Make a requisition', description: 'Ask for funds — reviewed by your head, COO, then CFO' },
-  { to: '/notifications', icon: Bell, title: 'Notifications', description: 'Messages and alerts' },
-  { icon: FolderOpen, title: 'My documents', description: 'Your contracts, letters and certificates', to: '/me/documents' },
-];
+const CARDS = PERSONAL_NAV;
+
 
 const PersonalHub = () => {
   const [staffRecord, setStaffRecord] = useState<Employee | null>(null);
