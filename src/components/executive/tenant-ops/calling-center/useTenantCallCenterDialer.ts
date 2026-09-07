@@ -242,9 +242,31 @@ export function useTenantCallCenterDialer(hub: CcCallingHub) {
     setMode((m) => (m === 'awaiting_outcome' ? 'running' : m));
   }, []);
 
+  /**
+   * End Call. Two things have to happen, and neither may depend on the other:
+   *
+   *  1. the voice hook's own `end()` (flags + finalises the session row), and
+   *  2. the SDK's `hangup()` on the live leg — invoked here as well, because
+   *     once the hook has already settled its UI (e.g. a safety-net finalise
+   *     fired while the leg was still coming up) `end()` returns immediately and
+   *     would leave the telephone leg talking. This is the same primitive the
+   *     CRM Calling Centre hangs up with; nothing new.
+   *
+   * If the officer presses End while the leg is still being set up (token,
+   * registration, `crm_start_webrtc_call`), the dial in flight would otherwise
+   * ring the tenant *after* the hang-up and could never be ended again. The
+   * abort flag makes the pending start drop itself the moment it is live.
+   */
   const hangUp = useCallback(() => {
+    const settingUp =
+      starting || call.state === 'initializing' || call.state === 'calling';
+    if (settingUp) abortRef.current = true;
+
     if (!isTerminalCallState(call.state) && call.state !== 'idle') call.end();
-  }, [call]);
+
+    // Always drop the real leg, whatever the UI thinks the state is.
+    dropLeg(settingUp ? call.callId : null);
+  }, [call, starting, dropLeg]);
 
   const clearCurrent = useCallback(() => {
     hangUp();
