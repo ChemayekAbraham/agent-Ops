@@ -23,7 +23,7 @@ import { CashSourcesSheet } from '@/components/cfo/CashSourcesSheet';
 
 import { CFOActionsLog } from '@/components/cfo/CFOActionsLog';
 import { ReceiptNumberLookupPanel } from '@/components/financial-ops/ReceiptNumberLookupPanel';
-import { AgentAdvancesStatsCard } from '@/components/cfo/AgentAdvancesStatsCard';
+
 import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilldown';
 import { ServiceCentreReceivablesPanel } from '@/components/cfo/ServiceCentreReceivablesPanel';
 import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
@@ -411,17 +411,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           <GeneralPayoutActivities />
         </Band>
 
-        {/* ─────────── 5 · ADVANCES PORTFOLIO ─────────── */}
-        <Band
-          title="Advances Portfolio"
-          subtitle="Agent advances across the full book"
-          open={isOpen('advances')}
-          onToggle={() => toggleSection('advances')}
-        >
-          <AgentAdvancesStatsCard />
-        </Band>
-
-        {/* ─────────── 6 · TOOLS & AUDIT TRAIL ─────────── */}
+        {/* ─────────── 5 · TOOLS & AUDIT TRAIL ─────────── */}
         {/* Lookup tools rather than at-a-glance numbers, so this band starts
             collapsed and no longer pushes the flow views below the fold. */}
         <Band
@@ -528,7 +518,7 @@ function SectionToggle({ open, onToggle, label }: { open: boolean; onToggle: () 
 
 /**
  * A titled, collapsible band of the overview. Bands give the page a top-down
- * reading order (position → movement → payout activities → receivables/payables → advances →
+ * reading order (position → movement → payout activities → receivables/payables →
  * tools) and let the CFO fold away what they are not looking at.
  */
 function Band({ title, subtitle, open, onToggle, children }: {
