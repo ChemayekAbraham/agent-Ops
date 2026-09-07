@@ -157,12 +157,12 @@ export function FundInvestmentAccountDialog({ open, onOpenChange, account, onSuc
     onOpenChange(isOpen);
   };
 
-  // The server routes funds to the managed proxy agent's wallet unless the
-  // operator explicitly picked "Partner wallet + Personal deposit" (the only
-  // exempt combination). Mirror that here so the balance shown and the
-  // sufficiency check match the wallet that will actually be debited.
+  // The server only routes funds to the managed proxy agent's wallet when the
+  // operator did NOT explicitly pick a wallet (partner wallet or a searched
+  // user's wallet). Mirror that here so the balance shown and the sufficiency
+  // check match the wallet that will actually be debited.
   const managedProxyOverride = !!proxyAgent?.isManaged &&
-    !(paymentMethod === 'wallet' && fundSource === 'withdrawable') &&
+    paymentMethod !== 'wallet' &&
     paymentMethod !== 'user_wallet';
   const proxyWallet = proxyAgent ? { withdrawable: proxyAgent.withdrawable, float: proxyAgent.float } : null;
   const activeWallet = managedProxyOverride
@@ -172,6 +172,7 @@ export function FundInvestmentAccountDialog({ open, onOpenChange, account, onSuc
       : paymentMethod === 'user_wallet'
         ? selectedUserWallet
         : proxyWallet;
+
   const selectedBalance = activeWallet
     ? (fundSource === 'withdrawable' ? activeWallet.withdrawable : activeWallet.float)
     : null;
