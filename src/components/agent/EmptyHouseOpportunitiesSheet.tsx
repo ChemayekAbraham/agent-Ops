@@ -123,7 +123,6 @@ export function EmptyHouseOpportunitiesSheet({
   const [debounced, setDebounced] = useState('');
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Record<string, HouseOpportunity>>({});
-  const [showFilters, setShowFilters] = useState(true);
   const [district, setDistrict] = useState('all');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [mapPinOnly, setMapPinOnly] = useState(false);
