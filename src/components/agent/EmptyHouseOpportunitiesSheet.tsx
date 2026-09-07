@@ -778,7 +778,7 @@ export function EmptyHouseOpportunitiesSheet({
                     className="pl-9 h-10"
                   />
                 </div>
-                <Popover>
+                <Popover modal>
                   <PopoverTrigger asChild>
                     <Button
                       type="button"
@@ -791,7 +791,8 @@ export function EmptyHouseOpportunitiesSheet({
                   </PopoverTrigger>
                   <PopoverContent
                     align="end"
-                    className="w-[calc(100vw-2rem)] sm:w-[420px] rounded-2xl border bg-muted/30 p-3 space-y-3"
+                    collisionPadding={12}
+                    className="z-[200] max-h-[70vh] overflow-y-auto w-[calc(100vw-2rem)] sm:w-[420px] rounded-2xl border bg-popover p-3 space-y-3"
                   >
                     <div className="space-y-1">
                       <Label className="text-[11px] text-muted-foreground">Sort by</Label>
