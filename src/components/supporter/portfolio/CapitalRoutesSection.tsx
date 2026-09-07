@@ -17,9 +17,8 @@ export function CapitalRoutesSection({ className }: { className?: string }) {
           src={heroAsset.url}
           alt="Welile capital routes"
           className="absolute inset-0 -z-20 h-full w-full object-cover"
-          fetchpriority="high"
+          fetchPriority="high"
           decoding="async"
-          aria-hidden="true"
         />
         <div className="absolute inset-0 -z-10 bg-gradient-to-b from-black/15 via-black/60 to-black/95" />
         <div className="flex min-h-0 items-end px-4 pb-4 pt-4 md:items-center md:min-h-[clamp(280px,32vw,380px)] md:px-[clamp(20px,5.5vw,44px)] md:pb-[clamp(20px,5.5vw,44px)] md:pt-2">
