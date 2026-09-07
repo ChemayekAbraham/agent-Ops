@@ -300,7 +300,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           </div>
 
           <GeneralPayoutActivities />
-          <RecentPayoutActivity />
           <ServiceCentreReceivablesPanel />
         </Band>
 
