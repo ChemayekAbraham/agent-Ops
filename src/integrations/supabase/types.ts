@@ -52472,6 +52472,18 @@ export type Database = {
           staff_ref: string
         }[]
       }
+      pso_funded_summary: {
+        Args: { p_from: string; p_staff_id?: string; p_to: string }
+        Returns: {
+          amount_funded: number
+          as_at: string
+          commission_accrued: number
+          notes_funded: number
+          notes_in_cohort: number
+          staff_id: string
+          staff_ref: string
+        }[]
+      }
       purge_geo_coverage_cache: { Args: never; Returns: number }
       queue_tenant_rent_intake_notice: {
         Args: {
