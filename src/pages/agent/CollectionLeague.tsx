@@ -303,11 +303,11 @@ export default function CollectionLeaguePage() {
             {/* Members */}
             <section className="rounded-2xl border border-border bg-card p-4">
               <h2 className="text-sm font-semibold text-foreground mb-3">Team performance this week</h2>
-              {data.team_members.length === 0 ? (
+              {members.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No team members recorded for this week.</p>
               ) : (
                 <div className="space-y-2">
-                  {data.team_members.map((m) => (
+                  {visibleMembers.map((m) => (
                     <div key={m.agent_id} className="flex items-center gap-3 py-2 border-b border-border/60 last:border-0">
                       <Avatar className="h-9 w-9 shrink-0">
                         {m.avatar_url && <AvatarImage src={m.avatar_url} alt={m.name} />}
