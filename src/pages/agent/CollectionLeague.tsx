@@ -7,7 +7,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Trophy, TrendingUp, TrendingDown, Minus, Users, Flame, Medal, Crown, Loader2,
+  ArrowLeft, Trophy, TrendingUp, TrendingDown, Minus, Users, Flame, Medal, Crown, Loader2, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { hapticTap } from '@/lib/haptics';
