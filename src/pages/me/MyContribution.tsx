@@ -8,6 +8,9 @@
  * no point or payout figure is displayed or computed.
  */
 import { useQuery } from '@tanstack/react-query';
+import { ClipboardList, Info } from 'lucide-react';
+import PersonalLayout from '@/components/layout/PersonalLayout';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
