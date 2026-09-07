@@ -121,6 +121,42 @@ export function ProxyCommissionsTracker() {
   const totalCount = data?.total_count ?? 0;
   const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
+  const [confirm, setConfirm] = useState<{ row: TrackerRow; action: 'approve' | 'complete' } | null>(null);
+  const [working, setWorking] = useState(false);
+
+  const runAction = async () => {
+    if (!confirm) return;
+    const { row, action } = confirm;
+    setWorking(true);
+    try {
+      const { data: res, error } = await supabase.rpc(
+        (action === 'approve' ? 'approve_proxy_commission' : 'mark_proxy_commission_completed') as never,
+        { p_id: row.id, p_note: null } as never,
+      );
+      if (error) throw error;
+      const status = (res as { status?: string; reason?: string } | null)?.status;
+      const reason = (res as { reason?: string } | null)?.reason;
+      if (status === 'skipped') {
+        toast.error(
+          reason === 'not_pending'
+            ? 'This commission was already settled.'
+            : `Could not complete this action${reason ? ` (${reason})` : ''}.`,
+        );
+      } else if (action === 'approve') {
+        toast.success(`${formatUGX(Number(row.commission_amount))} sent to ${row.agent_name || 'the proxy agent'}.`);
+      } else {
+        toast.success('Marked as paid. No money was moved.');
+      }
+      setConfirm(null);
+      await refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Action failed');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+
   return (
     <div className="space-y-6">
       <Card>
