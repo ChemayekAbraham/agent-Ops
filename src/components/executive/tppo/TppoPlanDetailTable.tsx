@@ -29,6 +29,9 @@ interface TppoPlanDetailRow {
   repaid: number;
   term_start: string;
   obligation_end: string;
+  paid_in_period: number;
+  scheduled_outstanding: number;
+  overpaid_in_period: number;
 }
 
 interface TppoPlanDetailReport {
@@ -44,8 +47,13 @@ interface TppoPlanDetailReport {
     scheduled_total: number;
     arrears_total: number;
     plans_in_arrears: number;
+    paid_total: number;
+    outstanding_total: number;
+    overpaid_total: number;
+    plans_paid: number;
   };
   rows: TppoPlanDetailRow[];
+  paid_outside_schedule: number;
   generated_at: string;
 }
 
@@ -66,7 +74,9 @@ export function TppoPlanDetailTable({
 
   const { data, isPending, isError, error } = useQuery({
     queryKey: ['tppo-plan-detail', granularity, anchor],
-    staleTime: 60_000,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
     queryFn: async (): Promise<TppoPlanDetailReport> => {
       const { data: rpcData, error: rpcError } = await supabase.rpc('tppo_period_plan_detail', {
         p_granularity: granularity,
@@ -141,8 +151,10 @@ export function TppoPlanDetailTable({
       arrears: acc.arrears + r.arrears,
       planTotal: acc.planTotal + r.plan_total,
       repaid: acc.repaid + r.repaid,
+      paid: acc.paid + r.paid_in_period,
+      outstanding: acc.outstanding + r.scheduled_outstanding,
     }),
-    { plans: 0, scheduled: 0, arrears: 0, planTotal: 0, repaid: 0 },
+    { plans: 0, scheduled: 0, arrears: 0, planTotal: 0, repaid: 0, paid: 0, outstanding: 0 },
   );
 
   return (
@@ -195,6 +207,8 @@ export function TppoPlanDetailTable({
                           scheduled_total: shownTotals.scheduled,
                           arrears_total: shownTotals.arrears,
                           plans_in_arrears: filteredRows.filter((r) => r.arrears > 0).length,
+                          paid_total: shownTotals.paid,
+                          outstanding_total: shownTotals.outstanding,
                         },
                       })
                 }
@@ -211,8 +225,10 @@ export function TppoPlanDetailTable({
           </p>
 
           <p className="mt-3 text-[11px] text-muted-foreground">
-            Every plan whose agreed schedule falls due in this period. Plans past their agreed end
-            date schedule nothing and are not listed here; their balances sit in opening arrears.
+            Every plan whose agreed schedule falls due in this period. Scheduled is the contractual
+            amount and does not shrink when a tenant pays — Paid and Still due show that. Anything
+            still due when the day closes becomes arrears. Plans past their agreed end date schedule
+            nothing and are not listed here.
           </p>
 
           <Table>
@@ -245,9 +261,10 @@ export function TppoPlanDetailTable({
                     )}
                   </div>
                 </TableHead>
-                <TableHead>Promissory notes</TableHead>
                 <TableHead className="text-right">Daily amount</TableHead>
                 <TableHead className="text-right">Scheduled</TableHead>
+                <TableHead className="text-right">Paid</TableHead>
+                <TableHead className="text-right">Still due</TableHead>
                 <TableHead className="text-right">Arrears</TableHead>
                 <TableHead className="text-right">Plan total</TableHead>
                 <TableHead className="text-right">Repaid</TableHead>
@@ -261,30 +278,31 @@ export function TppoPlanDetailTable({
                   <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                   <TableCell>{row.tenant_name}</TableCell>
                   <TableCell>{row.agent_name}</TableCell>
-                  <TableCell className="text-xs">
-                    {(() => {
-                      const planNotes = notesByPlan?.[row.rent_request_id];
-                      if (!planNotes?.length) return <span className="text-muted-foreground">—</span>;
-                      const extra = planNotes.length - 1;
-                      const n = planNotes[0];
-                      return (
-                        <div className="leading-tight">
-                          <span className="font-medium">{n.partner}</span>
-                          <span className="ml-1 tabular-nums text-muted-foreground">{formatUGX(n.amount)}</span>
-                          <div className="text-[10px] text-muted-foreground">
-                            {`Taken ${n.taken ?? '—'} · Promised ${n.promised ?? '—'}`}
-                            {n.followUp ? ` · ${n.followUp.replace(/_/g, ' ')}` : ''}
-                          </div>
-                          {extra > 0 && (
-                            <div className="text-[10px] text-muted-foreground">{`+${extra} more note${extra === 1 ? '' : 's'}`}</div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </TableCell>
-
                   <TableCell className={moneyCell}>{formatUGX(row.daily_amount)}</TableCell>
                   <TableCell className={moneyCell}>{formatUGX(row.scheduled_in_period)}</TableCell>
+                  <TableCell className={moneyCell}>
+                    {row.paid_in_period > 0 ? (
+                      <span className="inline-flex items-center justify-end gap-1">
+                        <span className={row.overpaid_in_period > 0 ? 'text-emerald-600' : ''}>
+                          {formatUGX(row.paid_in_period)}
+                        </span>
+                        {row.overpaid_in_period > 0 && (
+                          <Badge variant="outline" className="text-[10px]">
+                            {`+${formatUGX(row.overpaid_in_period)} over`}
+                          </Badge>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className={moneyCell}>
+                    {row.scheduled_outstanding > 0 ? (
+                      <span className="text-foreground">{formatUGX(row.scheduled_outstanding)}</span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className={moneyCell}>
                     <button
                       type="button"
@@ -314,9 +332,14 @@ export function TppoPlanDetailTable({
                 </TableCell>
                 <TableCell>{`${shownTotals.plans} plans`}</TableCell>
                 <TableCell />
-                <TableCell />
                 <TableCell className={`${moneyCell} font-semibold`}>
                   {formatUGX(shownTotals.scheduled)}
+                </TableCell>
+                <TableCell className={`${moneyCell} font-semibold`}>
+                  {formatUGX(data.totals.paid_total)}
+                </TableCell>
+                <TableCell className={`${moneyCell} font-semibold`}>
+                  {formatUGX(data.totals.outstanding_total)}
                 </TableCell>
                 <TableCell className={`${moneyCell} font-semibold ${shownTotals.arrears > 0 ? 'text-destructive' : ''}`}>
                   {formatUGX(shownTotals.arrears)}
@@ -332,6 +355,21 @@ export function TppoPlanDetailTable({
               </TableRow>
             </TableFooter>
           </Table>
+
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            {`${data.totals.plans_paid} of ${data.totals.plans} plans have paid ${
+              data.granularity === 'day' ? 'today' : 'in this period'
+            } · ${formatUGX(data.totals.paid_total)} received against ${formatUGX(
+              data.totals.scheduled_total,
+            )} scheduled · ${formatUGX(data.totals.outstanding_total)} still due.`}
+          </p>
+          {data.paid_outside_schedule > 0 && (
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              {`A further ${formatUGX(
+                data.paid_outside_schedule,
+              )} was received from tenants with nothing scheduled in this period — payments against past arrears. Those plans are not listed above.`}
+            </p>
+          )}
 
           {remaining > 0 && (
             <div className="mt-3 flex justify-center">

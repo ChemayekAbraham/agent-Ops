@@ -11,6 +11,9 @@ export interface TppoPlanDetailRow {
   repaid: number;
   term_start: string;
   obligation_end: string;
+  paid_in_period: number;
+  scheduled_outstanding: number;
+  overpaid_in_period: number;
 }
 
 export interface TppoPlanDetailReport {
@@ -26,8 +29,13 @@ export interface TppoPlanDetailReport {
     scheduled_total: number;
     arrears_total: number;
     plans_in_arrears: number;
+    paid_total: number;
+    outstanding_total: number;
+    overpaid_total: number;
+    plans_paid: number;
   };
   rows: TppoPlanDetailRow[];
+  paid_outside_schedule: number;
   generated_at: string;
 }
 
@@ -42,6 +50,8 @@ export interface TppoPlanDetailPdfFilter {
     scheduled_total: number;
     arrears_total: number;
     plans_in_arrears: number;
+    paid_total: number;
+    outstanding_total: number;
   };
 }
 
@@ -113,6 +123,8 @@ export async function downloadTppoPlanDetailPdf(
     row.agent_name,
     formatUGX(row.daily_amount),
     formatUGX(row.scheduled_in_period),
+    row.paid_in_period > 0 ? formatUGX(row.paid_in_period) : '—',
+    row.scheduled_outstanding > 0 ? formatUGX(row.scheduled_outstanding) : '—',
     row.arrears > 0 ? formatUGX(row.arrears) : '—',
     formatUGX(row.plan_total),
     formatUGX(row.repaid),
@@ -127,6 +139,8 @@ export async function downloadTppoPlanDetailPdf(
     `${effectiveTotals.plans} plans`,
     '',
     formatUGX(effectiveTotals.scheduled_total),
+    formatUGX(effectiveTotals.paid_total),
+    formatUGX(effectiveTotals.outstanding_total),
     '',
     '',
     '',
@@ -139,7 +153,7 @@ export async function downloadTppoPlanDetailPdf(
   autoTable(doc, {
     startY: tableStartY,
     head: [[
-      '#', 'Tenant', 'Agent', 'Daily amount', 'Scheduled', 'Arrears',
+      '#', 'Tenant', 'Agent', 'Daily amount', 'Scheduled', 'Paid', 'Still due', 'Arrears',
       'Plan total', 'Repaid', 'Term start', 'Obligation end',
     ]],
     body,
@@ -153,6 +167,8 @@ export async function downloadTppoPlanDetailPdf(
       5: { halign: 'right' },
       6: { halign: 'right' },
       7: { halign: 'right' },
+      8: { halign: 'right' },
+      9: { halign: 'right' },
     },
     didParseCell: (hookData: any) => {
       if (hookData.section !== 'body') return;
@@ -161,7 +177,7 @@ export async function downloadTppoPlanDetailPdf(
         return;
       }
       const row = effectiveRows[hookData.row.index];
-      if (row && hookData.column.index === 5 && row.arrears > 0) {
+      if (row && hookData.column.index === 7 && row.arrears > 0) {
         hookData.cell.styles.textColor = RED;
       }
     },
