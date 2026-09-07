@@ -13,7 +13,18 @@ interface PsoRow {
   day: string;
   notes_created: number;
   notes_reversed: number;
+  net_notes: number;
   partner_registered: number;
+}
+
+interface PsoFundedSummary {
+  staff_id: string;
+  staff_ref: string;
+  notes_in_cohort: number;
+  notes_funded: number;
+  amount_funded: number;
+  commission_accrued: number;
+  as_at: string;
 }
 
 type WindowMode = 'DAILY' | 'WEEKLY' | 'MONTHLY';
@@ -51,6 +62,17 @@ function formatKampalaDisplay(d: Date | string): string {
     month: 'short',
     timeZone: 'Africa/Kampala',
   }).format(date);
+}
+
+function formatKampalaDateTime(iso: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Africa/Kampala',
+  }).format(new Date(iso));
 }
 
 function getWindowDates(mode: WindowMode): { from: string; to: string; label: string } {
@@ -116,19 +138,32 @@ export default function MyPerformancePage() {
 
   const todayStr = useMemo(() => formatKampalaDate(kampalaDate()), []);
 
-  const { todayCreated, periodSum, rollingAverage, periodAverage } = useMemo(() => {
+  const { todayNet, todayReversals, netSum, rollingAverage, periodAverage } = useMemo(() => {
     const todayRow = rows.find((r) => r.day === todayStr);
-    const sum = rows.reduce((acc, r) => acc + (r.notes_created ?? 0), 0);
+    const sum = rows.reduce((acc, r) => acc + (r.net_notes ?? 0), 0);
     const avg = rows.length ? (sum / rows.length).toFixed(1) : '0.0';
-    const rollingSum = rollingRows.reduce((acc, r) => acc + (r.notes_created ?? 0), 0);
+    const rollingSum = rollingRows.reduce((acc, r) => acc + (r.net_notes ?? 0), 0);
     const rollingAvg = rollingRows.length ? (rollingSum / rollingRows.length).toFixed(1) : '0.0';
     return {
-      todayCreated: todayRow?.notes_created ?? 0,
-      periodSum: sum,
+      todayNet: todayRow?.net_notes ?? 0,
+      todayReversals: todayRow?.notes_reversed ?? 0,
+      netSum: sum,
       periodAverage: avg,
       rollingAverage: rollingAvg,
     };
   }, [rows, rollingRows, todayStr]);
+
+  const { data: fundedSummary = null } = useQuery<PsoFundedSummary | null>({
+    queryKey: ['pso-funded-summary', from, to],
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('pso_funded_summary' as any, {
+        p_from: from,
+        p_to: to,
+      })) as unknown as { data: PsoFundedSummary[] | null; error: { message: string } | null };
+      if (error) throw new Error(error.message);
+      return data?.[0] ?? null;
+    },
+  });
 
   if (error && error.message.toLowerCase().includes('not permitted')) {
     return (
@@ -208,12 +243,12 @@ export default function MyPerformancePage() {
                 <div>
                   <MetricCard
                     label="Today, net of reversals"
-                    value={todayCreated.toString()}
+                    value={todayNet.toString()}
                     icon={FileText}
                     variant="default"
                   />
                   <p className="mt-1 text-[10px] text-muted-foreground">
-                    reversals are not wired — this figure is gross
+                    net of {todayReversals} reversals today
                   </p>
                 </div>
                 <div>
@@ -224,7 +259,7 @@ export default function MyPerformancePage() {
                     variant="default"
                   />
                   <p className="mt-1 text-[10px] text-muted-foreground">
-                    {periodSum} notes ÷ {rows.length} days elapsed, counted from your appointment date
+                    {netSum} net notes ÷ {rows.length} days elapsed, counted from your appointment date
                   </p>
                 </div>
                 <div>
@@ -265,6 +300,9 @@ export default function MyPerformancePage() {
                         Reversed
                       </th>
                       <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Net
+                      </th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                         Registered
                       </th>
                     </tr>
@@ -274,7 +312,8 @@ export default function MyPerformancePage() {
                       <tr key={row.day}>
                         <td className="px-4 py-2.5 tabular-nums">{formatKampalaDisplay(row.day)}</td>
                         <td className="px-4 py-2.5 tabular-nums">{row.notes_created ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums text-muted-foreground">—</td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.notes_reversed ?? 0}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.net_notes ?? 0}</td>
                         <td className="px-4 py-2.5 tabular-nums">{row.partner_registered ?? 0}</td>
                       </tr>
                     ))}
@@ -290,10 +329,18 @@ export default function MyPerformancePage() {
           <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Funded sales
           </h2>
-          <p className="text-sm font-bold">SOURCE NOT WIRED</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Money received is not recorded against promissory notes — total_collected is zero on every note in the book. Commission is accrued at note creation, not on receipt. Funded sales, money received, funding rate and commission are therefore not shown.
-          </p>
+          <div className="space-y-1 text-sm">
+            <p>Notes in cohort: {fundedSummary?.notes_in_cohort ?? 0}</p>
+            <p>Notes funded: {fundedSummary?.notes_funded ?? 0} of {fundedSummary?.notes_in_cohort ?? 0}</p>
+            <p>Money funded: UGX {(fundedSummary?.amount_funded ?? 0).toLocaleString('en-UG')}</p>
+            <p>Commission accrued: UGX {(fundedSummary?.commission_accrued ?? 0).toLocaleString('en-UG')}</p>
+            <p className="text-xs text-muted-foreground">
+              as at {fundedSummary ? formatKampalaDateTime(fundedSummary.as_at) : '—'} · a closed period keeps rising, so this figure is never frozen
+            </p>
+            <p className="text-xs text-muted-foreground">
+              funded means the booking carries a funded date, that is money actually deployed
+            </p>
+          </div>
         </div>
       </div>
     </PersonalLayout>

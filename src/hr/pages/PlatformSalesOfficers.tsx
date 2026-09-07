@@ -12,7 +12,29 @@ interface PsoRow {
   day: string;
   notes_created: number;
   notes_reversed: number;
+  net_notes: number;
   partner_registered: number;
+}
+
+interface PsoFundedSummary {
+  staff_id: string;
+  staff_ref: string;
+  notes_in_cohort: number;
+  notes_funded: number;
+  amount_funded: number;
+  commission_accrued: number;
+  as_at: string;
+}
+
+function formatKampalaDateTime(iso: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Africa/Kampala',
+  }).format(new Date(iso));
 }
 
 type WindowMode = 'DAILY' | 'WEEKLY' | 'MONTHLY';
@@ -91,7 +113,12 @@ interface OfficerSummary {
   staff_ref: string;
   daysElapsed: number;
   notesCreated: number;
+  reversals: number;
+  netNotes: number;
   partnerRegistered: number;
+  notesFunded: number;
+  amountFunded: number;
+  commissionAccrued: number;
 }
 
 export default function PlatformSalesOfficersPage() {
@@ -107,13 +134,31 @@ export default function PlatformSalesOfficersPage() {
     queryFn: () => fetchPsoSeries(from, to),
   });
 
+  const { data: fundedSummaries = [] } = useQuery<PsoFundedSummary[]>({
+    queryKey: ['pso-funded-summary-officers', from, to],
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('pso_funded_summary' as any, {
+        p_from: from,
+        p_to: to,
+      })) as unknown as { data: PsoFundedSummary[] | null; error: { message: string } | null };
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+
+  const fundedAsAt = fundedSummaries[0]?.as_at ?? null;
+
   const officers = useMemo<OfficerSummary[]>(() => {
+    const fundedById = new Map(fundedSummaries.map((s) => [s.staff_id, s]));
     const byId = new Map<string, OfficerSummary>();
     for (const row of rows) {
+      const funded = fundedById.get(row.staff_id);
       const existing = byId.get(row.staff_id);
       if (existing) {
         existing.daysElapsed += 1;
         existing.notesCreated += row.notes_created;
+        existing.reversals += row.notes_reversed;
+        existing.netNotes += row.net_notes;
         existing.partnerRegistered += row.partner_registered;
       } else {
         byId.set(row.staff_id, {
@@ -121,15 +166,30 @@ export default function PlatformSalesOfficersPage() {
           staff_ref: row.staff_ref,
           daysElapsed: 1,
           notesCreated: row.notes_created,
+          reversals: row.notes_reversed,
+          netNotes: row.net_notes,
           partnerRegistered: row.partner_registered,
+          notesFunded: funded?.notes_funded ?? 0,
+          amountFunded: funded?.amount_funded ?? 0,
+          commissionAccrued: funded?.commission_accrued ?? 0,
         });
       }
     }
     return Array.from(byId.values()).sort((a, b) => a.staff_ref.localeCompare(b.staff_ref));
-  }, [rows]);
+  }, [rows, fundedSummaries]);
 
-  const totalNotes = useMemo(
-    () => officers.reduce((sum, o) => sum + o.notesCreated, 0),
+  const netTotal = useMemo(
+    () => officers.reduce((sum, o) => sum + o.netNotes, 0),
+    [officers],
+  );
+
+  const fundedTotal = useMemo(
+    () => officers.reduce((sum, o) => sum + o.notesFunded, 0),
+    [officers],
+  );
+
+  const moneyTotal = useMemo(
+    () => officers.reduce((sum, o) => sum + o.amountFunded, 0),
     [officers],
   );
 
@@ -178,7 +238,7 @@ export default function PlatformSalesOfficersPage() {
         </div>
 
         <p className="text-sm text-muted-foreground">
-          {officers.length} officers · {totalNotes} notes created in this window
+          {officers.length} officers · {netTotal} net notes · {fundedTotal} funded · UGX {moneyTotal.toLocaleString('en-UG')} funded
         </p>
 
         {isLoading ? (
@@ -198,9 +258,13 @@ export default function PlatformSalesOfficersPage() {
                 <tr>
                   <th className="px-4 py-2 text-left font-medium">Officer</th>
                   <th className="px-4 py-2 text-right font-medium">Days elapsed</th>
-                  <th className="px-4 py-2 text-right font-medium">Notes created</th>
+                  <th className="px-4 py-2 text-right font-medium">Created</th>
                   <th className="px-4 py-2 text-right font-medium">Reversed</th>
+                  <th className="px-4 py-2 text-right font-medium">Net</th>
                   <th className="px-4 py-2 text-right font-medium">Registered</th>
+                  <th className="px-4 py-2 text-right font-medium">Funded</th>
+                  <th className="px-4 py-2 text-right font-medium">Money funded</th>
+                  <th className="px-4 py-2 text-right font-medium">Commission</th>
                   <th className="px-4 py-2 text-right font-medium">Average / day</th>
                 </tr>
               </thead>
@@ -208,15 +272,19 @@ export default function PlatformSalesOfficersPage() {
                 {officers.map((officer) => {
                   const average =
                     officer.daysElapsed > 0
-                      ? (officer.notesCreated / officer.daysElapsed).toFixed(1)
+                      ? (officer.netNotes / officer.daysElapsed).toFixed(1)
                       : '0.0';
                   return (
                     <tr key={officer.staff_id} className="border-t">
                       <td className="px-4 py-2 font-medium">{officer.staff_ref}</td>
                       <td className="px-4 py-2 text-right">{officer.daysElapsed}</td>
                       <td className="px-4 py-2 text-right">{officer.notesCreated}</td>
-                      <td className="px-4 py-2 text-right">—</td>
+                      <td className="px-4 py-2 text-right">{officer.reversals}</td>
+                      <td className="px-4 py-2 text-right">{officer.netNotes}</td>
                       <td className="px-4 py-2 text-right">{officer.partnerRegistered}</td>
+                      <td className="px-4 py-2 text-right">{officer.notesFunded}</td>
+                      <td className="px-4 py-2 text-right">UGX {officer.amountFunded.toLocaleString('en-UG')}</td>
+                      <td className="px-4 py-2 text-right">UGX {officer.commissionAccrued.toLocaleString('en-UG')}</td>
                       <td className="px-4 py-2 text-right">{average}</td>
                     </tr>
                   );
@@ -226,21 +294,12 @@ export default function PlatformSalesOfficersPage() {
           </div>
         )}
 
-        <div className="rounded-md border p-4 space-y-2">
-          <h2 className="text-sm font-semibold">Funded sales</h2>
-          <p className="text-sm">
-            <strong>SOURCE NOT WIRED</strong>
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Money received is not recorded against promissory notes — total_collected is zero on
-            every note in the book. Commission is accrued at note creation, not on receipt. Funded
-            sales, money received, funding rate and commission are therefore not shown.
-          </p>
-        </div>
-
         <p className="text-xs text-muted-foreground">
           Bands, targets and the officer-facing leaderboard are withheld pending a written decision
           by the Managing Director.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          as at {fundedAsAt ? formatKampalaDateTime(fundedAsAt) : '—'} · funded figures are never frozen
         </p>
       </div>
     </PersonalLayout>
