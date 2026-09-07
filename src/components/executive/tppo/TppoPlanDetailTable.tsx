@@ -182,6 +182,10 @@ export function TppoPlanDetailTable({
     { plans: 0, scheduled: 0, arrears: 0, planTotal: 0, repaid: 0, paid: 0, outstanding: 0 },
   );
 
+  const arrearsRows = data?.arrears_payments ?? [];
+  const visibleArrears = arrearsRows.slice(0, arrearsShown);
+  const arrearsRemaining = arrearsRows.length - visibleArrears.length;
+
   return (
     <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
       {isPending ? (
