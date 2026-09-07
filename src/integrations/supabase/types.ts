@@ -53709,9 +53709,10 @@ export type Database = {
           period_start: string
         }[]
       }
-      tppo_period_plan_detail:
-        | { Args: { p_anchor?: string; p_granularity?: string }; Returns: Json }
-        | { Args: { p_anchor?: string; p_granularity: string }; Returns: Json }
+      tppo_period_plan_detail: {
+        Args: { p_anchor?: string; p_granularity: string }
+        Returns: Json
+      }
       tppo_plan_arrears_detail: {
         Args: { p_as_at?: string; p_rent_request_id: string }
         Returns: Json

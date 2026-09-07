@@ -1,0 +1,1 @@
+drop function if exists public.tppo_period_plan_detail(date, text);
