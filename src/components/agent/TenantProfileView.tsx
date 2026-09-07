@@ -304,6 +304,33 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
   // Back-compat alias — post-action refreshes call this.
   const loadLastAllocation = loadAllocations;
 
+  /**
+   * All collections recorded against this tenant (any agent, any channel).
+   * Reversed allocations are dropped so a cancelled entry never shows as paid.
+   */
+  const loadTenantCollections = async () => {
+    const { data } = await supabase
+      .from('agent_collections')
+      .select('id, amount, created_at, rent_request_id, payment_method, notes')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .limit(500);
+    const rows = ((data || []) as any[]).filter(
+      (r) => !String(r.notes || '').toLowerCase().includes('[reversed'),
+    );
+    setTenantCollections(
+      rows.map((r) => ({
+        id: String(r.id),
+        amount: Number(r.amount) || 0,
+        created_at: r.created_at,
+        rent_request_id: r.rent_request_id ? String(r.rent_request_id) : null,
+        payment_method: r.payment_method ?? null,
+        notes: r.notes ?? null,
+      })),
+    );
+  };
+
+
   const aiId = generateWelileAiId(tenantId);
   const navigate = useNavigate();
 
