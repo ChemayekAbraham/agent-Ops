@@ -34,6 +34,21 @@ interface TppoPlanDetailRow {
   overpaid_in_period: number;
 }
 
+interface TppoPlanDetailArrearsPayment {
+  rent_request_id: string;
+  tenant_name: string;
+  agent_name: string;
+  paid_in_period: number;
+  arrears: number;
+  outstanding: number;
+  plan_total: number;
+  repaid: number;
+  daily_amount: number;
+  term_start: string;
+  obligation_end: string;
+  days_past_term: number;
+}
+
 interface TppoPlanDetailReport {
   granularity: string;
   period_start: string;
@@ -51,9 +66,14 @@ interface TppoPlanDetailReport {
     outstanding_total: number;
     overpaid_total: number;
     plans_paid: number;
+    arrears_paid_total: number;
+    arrears_paid_plans: number;
+    arrears_paid_agents: number;
+    collected_total: number;
   };
   rows: TppoPlanDetailRow[];
   paid_outside_schedule: number;
+  arrears_payments: TppoPlanDetailArrearsPayment[];
   generated_at: string;
 }
 
