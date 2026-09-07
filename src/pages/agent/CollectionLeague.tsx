@@ -7,7 +7,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Trophy, TrendingUp, TrendingDown, Minus, Users, Flame, Medal, Crown, Loader2,
+  ArrowLeft, Trophy, TrendingUp, TrendingDown, Minus, Users, Flame, Medal, Crown, Loader2, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { hapticTap } from '@/lib/haptics';
@@ -128,6 +128,17 @@ export default function CollectionLeaguePage() {
   const [extraRows, setExtraRows] = useState<LeagueRow[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [exhausted, setExhausted] = useState(false);
+  const [memberPage, setMemberPage] = useState(0);
+
+  const MEMBERS_PER_PAGE = 10;
+  const members = data?.team_members ?? [];
+  const memberPageCount = Math.max(1, Math.ceil(members.length / MEMBERS_PER_PAGE));
+  const currentMemberPage = Math.min(memberPage, memberPageCount - 1);
+  const visibleMembers = members.slice(
+    currentMemberPage * MEMBERS_PER_PAGE,
+    currentMemberPage * MEMBERS_PER_PAGE + MEMBERS_PER_PAGE,
+  );
+
 
   const baseRows = data?.leaderboard ?? [];
   const rows = useMemo(() => {
@@ -292,11 +303,11 @@ export default function CollectionLeaguePage() {
             {/* Members */}
             <section className="rounded-2xl border border-border bg-card p-4">
               <h2 className="text-sm font-semibold text-foreground mb-3">Team performance this week</h2>
-              {data.team_members.length === 0 ? (
+              {members.length === 0 ? (
                 <p className="text-xs text-muted-foreground">No team members recorded for this week.</p>
               ) : (
                 <div className="space-y-2">
-                  {data.team_members.map((m) => (
+                  {visibleMembers.map((m) => (
                     <div key={m.agent_id} className="flex items-center gap-3 py-2 border-b border-border/60 last:border-0">
                       <Avatar className="h-9 w-9 shrink-0">
                         {m.avatar_url && <AvatarImage src={m.avatar_url} alt={m.name} />}
@@ -327,6 +338,30 @@ export default function CollectionLeaguePage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+              {members.length > MEMBERS_PER_PAGE && (
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentMemberPage === 0}
+                    onClick={() => { hapticTap(); setMemberPage(currentMemberPage - 1); }}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />Previous
+                  </Button>
+                  <span className="text-[11px] text-muted-foreground">
+                    {currentMemberPage * MEMBERS_PER_PAGE + 1}–
+                    {currentMemberPage * MEMBERS_PER_PAGE + visibleMembers.length} of {members.length}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentMemberPage >= memberPageCount - 1}
+                    onClick={() => { hapticTap(); setMemberPage(currentMemberPage + 1); }}
+                  >
+                    Next<ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
                 </div>
               )}
             </section>
