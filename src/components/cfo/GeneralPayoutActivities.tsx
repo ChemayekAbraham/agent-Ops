@@ -607,7 +607,7 @@ export function GeneralPayoutActivities() {
               </>
             )}
 
-            {(periodKind === 'weekly' || periodKind === 'monthly' || periodKind === 'quarterly') && (
+            {canNavigate && (
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" className="h-9 px-2" onClick={() => navigate(-1)}>
                   <ChevronLeft className="h-4 w-4" />
