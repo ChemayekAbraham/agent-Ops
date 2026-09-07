@@ -31186,6 +31186,72 @@ export type Database = {
         }
         Relationships: []
       }
+      rent_repaid_reconciliation_snapshot: {
+        Row: {
+          agent_id: string | null
+          agent_name: string | null
+          amount_repaid: number | null
+          audit_rows: number | null
+          id: number
+          last_payment_at: string | null
+          ledger_rows: number | null
+          ledger_total: number | null
+          logged_edit_count: number | null
+          logged_edit_net: number | null
+          reconciliation_state: string | null
+          rent_request_id: string
+          snapshot_at: string
+          snapshot_reason: string
+          status: string | null
+          tenant_name: string | null
+          total_repayment: number | null
+          unbacked_by_ledger: number | null
+          unexplained: number | null
+        }
+        Insert: {
+          agent_id?: string | null
+          agent_name?: string | null
+          amount_repaid?: number | null
+          audit_rows?: number | null
+          id?: number
+          last_payment_at?: string | null
+          ledger_rows?: number | null
+          ledger_total?: number | null
+          logged_edit_count?: number | null
+          logged_edit_net?: number | null
+          reconciliation_state?: string | null
+          rent_request_id: string
+          snapshot_at?: string
+          snapshot_reason: string
+          status?: string | null
+          tenant_name?: string | null
+          total_repayment?: number | null
+          unbacked_by_ledger?: number | null
+          unexplained?: number | null
+        }
+        Update: {
+          agent_id?: string | null
+          agent_name?: string | null
+          amount_repaid?: number | null
+          audit_rows?: number | null
+          id?: number
+          last_payment_at?: string | null
+          ledger_rows?: number | null
+          ledger_total?: number | null
+          logged_edit_count?: number | null
+          logged_edit_net?: number | null
+          reconciliation_state?: string | null
+          rent_request_id?: string
+          snapshot_at?: string
+          snapshot_reason?: string
+          status?: string | null
+          tenant_name?: string | null
+          total_repayment?: number | null
+          unbacked_by_ledger?: number | null
+          unexplained?: number | null
+        }
+        Relationships: []
+      }
       rent_repayment_pauses: {
         Row: {
           created_at: string
