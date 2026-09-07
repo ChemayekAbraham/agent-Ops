@@ -31186,6 +31186,72 @@ export type Database = {
         }
         Relationships: []
       }
+      rent_repaid_reconciliation_snapshot: {
+        Row: {
+          agent_id: string | null
+          agent_name: string | null
+          amount_repaid: number | null
+          audit_rows: number | null
+          id: number
+          last_payment_at: string | null
+          ledger_rows: number | null
+          ledger_total: number | null
+          logged_edit_count: number | null
+          logged_edit_net: number | null
+          reconciliation_state: string | null
+          rent_request_id: string
+          snapshot_at: string
+          snapshot_reason: string
+          status: string | null
+          tenant_name: string | null
+          total_repayment: number | null
+          unbacked_by_ledger: number | null
+          unexplained: number | null
+        }
+        Insert: {
+          agent_id?: string | null
+          agent_name?: string | null
+          amount_repaid?: number | null
+          audit_rows?: number | null
+          id?: number
+          last_payment_at?: string | null
+          ledger_rows?: number | null
+          ledger_total?: number | null
+          logged_edit_count?: number | null
+          logged_edit_net?: number | null
+          reconciliation_state?: string | null
+          rent_request_id: string
+          snapshot_at?: string
+          snapshot_reason: string
+          status?: string | null
+          tenant_name?: string | null
+          total_repayment?: number | null
+          unbacked_by_ledger?: number | null
+          unexplained?: number | null
+        }
+        Update: {
+          agent_id?: string | null
+          agent_name?: string | null
+          amount_repaid?: number | null
+          audit_rows?: number | null
+          id?: number
+          last_payment_at?: string | null
+          ledger_rows?: number | null
+          ledger_total?: number | null
+          logged_edit_count?: number | null
+          logged_edit_net?: number | null
+          reconciliation_state?: string | null
+          rent_request_id?: string
+          snapshot_at?: string
+          snapshot_reason?: string
+          status?: string | null
+          tenant_name?: string | null
+          total_repayment?: number | null
+          unbacked_by_ledger?: number | null
+          unexplained?: number | null
+        }
+        Relationships: []
+      }
       rent_repayment_pauses: {
         Row: {
           created_at: string
@@ -49932,6 +49998,10 @@ export type Database = {
         | { Args: { p_user_id: string }; Returns: boolean }
       is_tenant_locked: { Args: { _user_id: string }; Returns: boolean }
       is_tenant_ops_staff: { Args: { _uid: string }; Returns: boolean }
+      is_treasury_waterfall_scope: {
+        Args: { p_rent_request_id: string }
+        Returns: boolean
+      }
       is_welile_staff: { Args: { _user_id: string }; Returns: boolean }
       is_withdrawal_hold_reviewer: {
         Args: { _user_id: string }
@@ -52069,6 +52139,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      record_rent_request_repayment_v2: {
+        Args: {
+          p_amount: number
+          p_source_id?: string
+          p_source_table?: string
+          p_tenant_id: string
+          p_transaction_group_id?: string
+        }
+        Returns: Json
+      }
       record_short_link_click: {
         Args: { p_code: string; p_referrer?: string; p_user_agent?: string }
         Returns: undefined
@@ -53112,6 +53192,8 @@ export type Database = {
         Args: { p_as_at: string; p_granularity: string }
         Returns: Json
       }
+      treasury_waterfall_go_live: { Args: never; Returns: string }
+      treasury_waterfall_go_live_at: { Args: never; Returns: string }
       trigger_agent_liability_for_unpaid_rents: {
         Args: never
         Returns: {
