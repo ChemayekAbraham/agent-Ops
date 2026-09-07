@@ -328,7 +328,33 @@ export function ProxyCommissionsTracker() {
                             {r.auto_approved && <Badge variant="secondary" className="w-fit">Automatic</Badge>}
                           </div>
                         </TableCell>
+                        <TableCell className="align-top text-right">
+                          {r.status === 'pending' ? (
+                            <div className="flex flex-col items-end gap-1.5 sm:flex-row sm:justify-end">
+                              <Button
+                                size="sm"
+                                className="gap-1.5"
+                                onClick={() => setConfirm({ row: r, action: 'approve' })}
+                              >
+                                <Send className="h-3.5 w-3.5" />
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1.5"
+                                onClick={() => setConfirm({ row: r, action: 'complete' })}
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Completed
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">No action needed</span>
+                          )}
+                        </TableCell>
                       </TableRow>
+
                     ))}
                   </TableBody>
                 </Table>
