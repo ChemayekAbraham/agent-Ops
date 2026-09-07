@@ -85,7 +85,6 @@ import { CFOAgentOpsFloatSender } from '@/components/cfo/CFOAgentOpsFloatSender'
 import { CFOImpactKPIStrip } from '@/components/cfo/CFOImpactKPIStrip';
 import { CFOWalletActivities } from '@/components/cfo/CFOWalletActivities';
 import { RecentApprovalsByCategory } from '@/components/cfo/RecentApprovalsByCategory';
-import { RecentPayoutActivity } from '@/components/cfo/RecentPayoutActivity';
 import { EarningsExplainer } from '@/components/shared/EarningsExplainer';
 import { AgentAllocationTracesPanel } from '@/components/cfo/AgentAllocationTracesPanel';
 import { PhantomCorrectionDriftPanel } from '@/components/cfo/PhantomCorrectionDriftPanel';
@@ -199,8 +198,6 @@ export default function CFODashboardPage() {
             <DirectCreditTool />
 
             <RecentApprovalsByCategory />
-
-            <RecentPayoutActivity />
 
             {/* ── Security assurance card ── */}
             <div className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6 shadow-sm">
