@@ -114,3 +114,4 @@
 - [Self-support float funding](mem://business-model/self-support-float-funding) — Partner self-support portfolios/top-ups debit operational float ONLY (tagged float_usage); approval edge fn must not pre-debit withdrawable; returns still pay withdrawable
 - [Tenant Calling Center](mem://features/ops/tenant-calling-center) — Tenant Ops Calling Center: CRM voice dialing + attended sequential runs over the unmodified cc_* spine; sibling to the Calling Hub
 - [Funder empty-house booking](mem://features/partner/funder-empty-house-booking) — Supporters book empty houses for 7 days, then Fund now or Promise a date; lapsed holds return to the open pool with SMS + email notices
+- [Proxy commission = marketing expense](mem://business-model/proxy-commission-marketing-expense) — Approving a 2%%/1%% proxy portfolio commission books the platform leg as `marketing_expense`; "Completed" posts no ledger entry
