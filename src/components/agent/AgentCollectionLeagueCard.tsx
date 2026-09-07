@@ -142,7 +142,7 @@ export function AgentCollectionLeagueCard() {
 
   return (
     <div
-      className="w-full rounded-2xl border border-primary/25 bg-primary/5 p-4 text-left transition-colors hover:bg-primary/10"
+      className="w-full rounded-2xl border border-primary/25 bg-primary/50 p-4 text-left transition-colors hover:bg-primary/60"
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >
       <Button
