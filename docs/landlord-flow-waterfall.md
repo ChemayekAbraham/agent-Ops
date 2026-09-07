@@ -103,3 +103,34 @@ that is settled as a business decision.
 
 Option B avoids the question entirely by leaving legacy plans on their existing
 path.
+
+## Transaction-boundary audit (`tenant-pay-rent`)
+
+`tenant-pay-rent` makes three separate RPC round-trips, **each its own database
+transaction**:
+
+| Line | Call | Transaction |
+|---|---|---|
+| 124 | `create_ledger_transaction` — wallet + platform legs | **T1** |
+| 167 | `record_rent_request_repayment` → becomes `..._v2` | **T2** |
+| 181 | `credit_agent_rent_commission` | **T3** |
+
+The function already reports `"partial: true"` at line 175 when T2 fails after T1
+succeeded. **This gap is pre-existing and long predates Phase 2.**
+
+**What the Phase 2 change does:** folds the repayment, the L7 sequencing
+assertion, the allocation spine and the Treasury component postings into **T2**,
+so those four either all commit or all roll back. Previously the waterfall would
+have been a fourth round-trip (T4) and could have left a payment with no
+allocation.
+
+**What remains open:** T1 (ledger legs) and T3 (commission) are still separate
+from T2.
+
+**Does Phase 2 make it worse? No.** It strictly reduces the number of independent
+failure boundaries in the repayment path, from a would-be four down to three, and
+adds no new cross-transaction dependency. The residual exposure is unchanged from
+today's production behaviour.
+
+**Closing it fully** would require folding all three calls into a single database
+function — a broad refactor of a live money path. **Not performed; not approved.**
