@@ -5305,6 +5305,45 @@ export type Database = {
           },
         ]
       }
+      agent_team_daily_collection_stats: {
+        Row: {
+          active_collectors: number
+          collected_amount: number
+          collection_count: number
+          created_at: string
+          expected_amount: number
+          id: string
+          parent_agent_id: string
+          stat_date: string
+          total_team_members: number
+          updated_at: string
+        }
+        Insert: {
+          active_collectors?: number
+          collected_amount?: number
+          collection_count?: number
+          created_at?: string
+          expected_amount?: number
+          id?: string
+          parent_agent_id: string
+          stat_date: string
+          total_team_members?: number
+          updated_at?: string
+        }
+        Update: {
+          active_collectors?: number
+          collected_amount?: number
+          collection_count?: number
+          created_at?: string
+          expected_amount?: number
+          id?: string
+          parent_agent_id?: string
+          stat_date?: string
+          total_team_members?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       agent_team_goals: {
         Row: {
           agent_id: string
@@ -5335,6 +5374,33 @@ export type Database = {
           target_earnings?: number
           target_registrations?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      agent_team_membership_history: {
+        Row: {
+          created_at: string
+          id: string
+          member_agent_id: string
+          parent_agent_id: string
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          member_agent_id: string
+          parent_agent_id: string
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          member_agent_id?: string
+          parent_agent_id?: string
+          valid_from?: string
+          valid_to?: string | null
         }
         Relationships: []
       }
@@ -43563,6 +43629,26 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: number
       }
+      agent_league_heat_level: {
+        Args: { p_collected: number; p_expected: number }
+        Returns: string
+      }
+      agent_league_team_parent: { Args: { p_user: string }; Returns: string }
+      agent_league_week_ranks: {
+        Args: { p_week_start: string }
+        Returns: {
+          active_collectors: number
+          active_rate: number
+          collected_amount: number
+          consistency: number
+          expected_amount: number
+          parent_agent_id: string
+          performance: number
+          team_rank: number
+          total_members: number
+        }[]
+      }
+      agent_league_week_start: { Args: { p_ts?: string }; Returns: string }
       agent_list_empty_house_opportunities: {
         Args: {
           p_district?: string
@@ -46369,6 +46455,15 @@ export type Database = {
         }[]
       }
       get_agent_campaign_dashboard: { Args: never; Returns: Json }
+      get_agent_collection_league_details: {
+        Args: { p_history_weeks?: number; p_week_start?: string }
+        Returns: Json
+      }
+      get_agent_collection_league_home: { Args: never; Returns: Json }
+      get_agent_collection_league_leaderboard: {
+        Args: { p_limit?: number; p_offset?: number; p_week_start?: string }
+        Returns: Json
+      }
       get_agent_collection_records: {
         Args: { p_agent_id: string; p_end: string; p_start: string }
         Returns: Json
@@ -51326,6 +51421,10 @@ export type Database = {
           difference: number
           previous_balance: number
         }[]
+      }
+      reconcile_agent_team_daily_stats: {
+        Args: { p_end?: string; p_start?: string }
+        Returns: number
       }
       reconcile_credited_deposit_profiles: { Args: never; Returns: number }
       reconcile_evidenced_withdrawal_settlements: { Args: never; Returns: Json }
