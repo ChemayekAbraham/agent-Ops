@@ -451,7 +451,11 @@ export function AgentAdvanceRequestForm({ open, onOpenChange }: AgentAdvanceRequ
       });
       if (error) throw error;
     },
+    onMutate: () => {
+      setSubmitError(null);
+    },
     onSuccess: () => {
+      setSubmitted({ principal, cycleDays, dailyPayment, totalPayable });
       toast.success('Advance request submitted for review');
       setAmount('');
       setReason('');
@@ -459,17 +463,14 @@ export function AgentAdvanceRequestForm({ open, onOpenChange }: AgentAdvanceRequ
       queryClient.invalidateQueries({ queryKey: ['my-advance-requests'] });
     },
     onError: (err: Error) => {
-      const msg = err.message || 'Request failed';
-      if (msg.includes('DUPLICATE_ACCOUNT_BLOCKED')) {
-        toast.error(msg.replace(/^.*DUPLICATE_ACCOUNT_BLOCKED:\s*/, ''), { duration: 10000 });
-        return;
-      }
-      if (msg.includes('ADVANCE_NO_ACTIVITY')) {
-        toast.error(msg.replace(/^.*ADVANCE_NO_ACTIVITY:\s*/, ''), { duration: 12000 });
-        return;
-      }
-      toast.error(msg);
+      const raw = err.message || 'Request failed';
+      const msg = raw
+        .replace(/^.*DUPLICATE_ACCOUNT_BLOCKED:\s*/, '')
+        .replace(/^.*ADVANCE_NO_ACTIVITY:\s*/, '');
+      setSubmitError(msg);
+      toast.error(msg, { duration: raw === msg ? 6000 : 12000 });
     },
+
   });
 
   return (
