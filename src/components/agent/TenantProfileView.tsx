@@ -866,40 +866,76 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
    * Repayment history aggregated per rent plan.
    *
    * Accuracy rules:
-   * - only `repayments` rows whose `rent_request_id` matches the plan count towards
-   *   that plan (the repayments ledger is the source of truth for cash received);
+   * - payments come from BOTH `repayments` (cash ledger) and `agent_collections`
+   *   (agent field collections). Many collections never wrote a repayment row, so
+   *   a repayments-only history showed "0 payments" on plans that were in fact
+   *   being collected. Collection rows that clearly mirror a repayment row (same
+   *   amount within 10 minutes) are dropped so nothing is counted twice;
    * - the running balance is computed oldest-first as
    *   `total_repayment − cumulative paid`, floored at 0, so each row shows the
    *   balance that was left immediately after that payment;
-   * - when `amount_repaid` on the plan exceeds the sum of its repayment rows
-   *   (offline top-ups, system adjustments that never wrote a repayment row) the
+   * - each row is tagged `self` when the tenant paid themselves (wallet /
+   *   deposit request / paid_by = the tenant) or `agent` when an agent collected;
+   * - when `amount_repaid` on the plan exceeds the sum of its payment rows the
    *   difference is surfaced as an "other sources" note instead of being silently
    *   folded into a payment row.
    */
-  const buildPlanRepaymentHistory = (rows: RepaymentRow[]) => {
+  const buildPlanRepaymentHistory = (
+    rows: RepaymentRow[],
+    collections: CollectionHistoryRow[] = [],
+  ) => {
     const map = new Map<string, {
-      rows: { id: string; date: string; amount: number; remaining: number }[];
+      rows: { id: string; date: string; amount: number; remaining: number; source: 'self' | 'agent' | 'recorded' }[];
       ledgerPaid: number;
       otherSources: number;
       remaining: number;
+      selfPaid: number;
     }>();
+
+    /** A tenant self-payment leaves its own fingerprint on the repayment row. */
+    const isSelfPaid = (r: RepaymentRow) =>
+      (!!r.paid_by && r.paid_by === tenantId) ||
+      (!!r.initiated_by && r.initiated_by === tenantId) ||
+      !!r.deposit_request_id ||
+      r.payment_method === 'in_app_wallet';
 
     for (const req of requests) {
       const totalDue = Number(req.total_repayment) || 0;
-      const planRows = rows
-        .filter((r) => r.rent_request_id === req.id)
-        .slice()
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      const planRepayments = rows.filter((r) => r.rent_request_id === req.id);
+      const planCollections = collections.filter((c) => c.rent_request_id === req.id);
+
+      type Merged = { id: string; created_at: string; amount: number; source: 'self' | 'agent' | 'recorded' };
+      const merged: Merged[] = planRepayments.map((r) => ({
+        id: String(r.id),
+        created_at: r.created_at,
+        amount: Number(r.amount) || 0,
+        source: isSelfPaid(r) ? 'self' : 'recorded',
+      }));
+
+      for (const c of planCollections) {
+        const amount = Number(c.amount) || 0;
+        const mirrored = planRepayments.some(
+          (r) =>
+            Math.abs((Number(r.amount) || 0) - amount) < 1 &&
+            Math.abs(new Date(r.created_at).getTime() - new Date(c.created_at).getTime()) < 10 * 60 * 1000,
+        );
+        if (mirrored) continue;
+        merged.push({ id: `col-${c.id}`, created_at: c.created_at, amount, source: 'agent' });
+      }
+
+      merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
       let cumulative = 0;
-      const built = planRows.map((r) => {
-        const amount = Number(r.amount) || 0;
-        cumulative += amount;
+      let selfPaid = 0;
+      const built = merged.map((r) => {
+        cumulative += r.amount;
+        if (r.source === 'self') selfPaid += r.amount;
         return {
-          id: String(r.id),
+          id: r.id,
           date: r.created_at,
-          amount,
+          amount: r.amount,
           remaining: Math.max(0, totalDue - cumulative),
+          source: r.source,
         };
       });
 
@@ -910,9 +946,11 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
         ledgerPaid: cumulative,
         otherSources: Math.max(0, amountRepaid - cumulative),
         remaining: Math.max(0, totalDue - Math.max(cumulative, amountRepaid)),
+        selfPaid,
       });
     }
     return map;
+
   };
 
   const planRepaymentHistory = useMemo(
