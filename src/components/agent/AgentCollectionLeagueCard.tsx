@@ -34,7 +34,12 @@ function formatCompactUGX(amount: number): string {
 }
 
 function formatDayDate(date: string): string {
-  const parsed = new Date(`${date}T12:00:00+03:00`);
+  if (!date || typeof date !== 'string') return 'Date unavailable';
+
+  const dateOnly = date.match(/^\d{4}-\d{2}-\d{2}$/);
+  const parsed = new Date(dateOnly ? `${date}T12:00:00+03:00` : date);
+  if (Number.isNaN(parsed.getTime())) return date;
+
   return new Intl.DateTimeFormat('en-UG', {
     weekday: 'long',
     day: 'numeric',
