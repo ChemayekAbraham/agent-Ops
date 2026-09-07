@@ -162,11 +162,32 @@ Deno.serve(async (req) => {
 
     const txGroupId = txnGroupId;
 
-    // 2. Call record_rent_request_repayment RPC (updates rent_requests, repayments, landlords)
+    // 2. Record the repayment AND allocate the instalment waterfall.
+    //
+    // record_rent_request_repayment_v2 wraps three steps in ONE database
+    // transaction: the L7 sequencing assertion, the original
+    // record_rent_request_repayment logic, and post_instalment_waterfall.
+    // Calling the waterfall as a separate RPC round-trip would NOT be atomic —
+    // a failure between the two would leave a payment with no allocation, or an
+    // allocation with no payment.
+    //
+    // Residual gap, deliberately not papered over: the ledger legs posted at
+    // step 1 above are still a SEPARATE transaction. That gap is pre-existing
+    // (see the "partial: true" response below, which long predates Phase 2) and
+    // closing it needs all three calls folded into one function.
+    //
+    // The waterfall is idempotent on (rent_request_id, source_table, source_id),
+    // so a retried payment cannot double-allocate or double-post.
+    //
     // Do NOT pass transaction_group_id here — the RPC's ledger entry is audit-only (no wallet trigger)
     const { error: rpcErr } = await supabaseAdmin.rpc(
-      "record_rent_request_repayment",
-      { p_tenant_id: tenantId, p_amount: payAmount }
+      "record_rent_request_repayment_v2",
+      {
+        p_tenant_id: tenantId,
+        p_amount: payAmount,
+        p_source_table: "tenant_pay_rent",
+        p_source_id: txnGroupId,
+      }
     );
 
     if (rpcErr) {

@@ -262,6 +262,39 @@ Deno.serve(async (req) => {
     });
 
     // ============================================================
+    // LANDLORD FLOW TREASURY RECOGNITION (Phase 2)
+    //
+    // The legs above recognise the PRINCIPAL only: DR A3 / CR A1. But the tenant
+    // owes total_repayment = principal + access fee + registration fee, and the
+    // repayment waterfall credits A3 for the WHOLE instalment. Without a fee
+    // receivable recognised here, A3 would be over-credited by exactly
+    // (access + registration) over the life of the plan.
+    //
+    //   DR A3  bridge.fee_receivable_created    = access + registration
+    //   CR L7  platform.treasury_fee_recognised = access + registration
+    //
+    // No cash moves: A1/A2/A5 are untouched. L7 is an accounting designation,
+    // not a second cash account. No L3 payable is created — the 15% Partner
+    // Reward stays allocation-only (BD-2).
+    //
+    // This ALSO establishes the L7 credit that the repayment waterfall later
+    // draws down. assert_funding_treasury_recognised() enforces that ordering,
+    // so a repayment cannot silently push L7 into an unexplained debit.
+    //
+    // Idempotent on rent_request_id; a retry returns 'already_recognised'.
+    // Non-fatal: funding must not fail because a reporting entry did not post.
+    const { data: treasuryRecognition, error: treasuryErr } = await serviceClient.rpc(
+      'recognise_funding_treasury',
+      { p_rent_request_id: rent_request_id },
+    )
+    if (treasuryErr) {
+      console.error('[fund-float] Treasury recognition failed:', treasuryErr.message,
+                    'rent_request:', rent_request_id)
+    } else {
+      console.log('[fund-float] Treasury recognition:', JSON.stringify(treasuryRecognition))
+    }
+
+    // ============================================================
     // AGENT BONUS: UGX 5,000 flat bonus for rent funded
     // ============================================================
     let bonusPaid = false
