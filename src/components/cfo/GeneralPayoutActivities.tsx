@@ -45,7 +45,7 @@ interface PayoutRow {
 }
 
 const PERIOD_OPTIONS: { value: PeriodKind; label: string }[] = [
-  { value: 'daily', label: 'Daily' },
+  { value: 'daily', label: 'All' },
   { value: 'weekly', label: 'Weekly' },
   { value: 'monthly', label: 'Monthly' },
   { value: 'quarterly', label: 'Quarterly' },
