@@ -27,7 +27,7 @@ const MIN_FUNDING = 50000;
 const MONTHLY_ROI_RATE = 15;
 const PLANS_PER_PAGE = 4;
 
-type FeedOrder = 'rent' | 'houses';
+export type FeedOrder = 'rent' | 'houses';
 
 
 
