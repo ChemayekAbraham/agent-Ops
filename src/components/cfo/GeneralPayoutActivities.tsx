@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 10;
 
-type PeriodKind = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'custom';
+type PeriodKind = 'all' | 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'custom';
 type TypeFilter = 'all' | 'credit' | 'debit';
 type DestinationFilter = 'all' | 'user' | 'operational_wallet';
 
@@ -45,11 +45,12 @@ interface PayoutRow {
 }
 
 const PERIOD_OPTIONS: { value: PeriodKind; label: string }[] = [
-  { value: 'daily', label: 'All' },
+  { value: 'daily', label: 'Daily' },
   { value: 'weekly', label: 'Weekly' },
   { value: 'monthly', label: 'Monthly' },
   { value: 'quarterly', label: 'Quarterly' },
   { value: 'custom', label: 'Custom' },
+  { value: 'all', label: 'All' },
 ];
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd');
