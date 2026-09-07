@@ -110,8 +110,8 @@ export function AgentDetailDialog({ agentId, open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden flex flex-col">
-        <DialogHeader className="px-4 sm:px-6 pt-4 pb-2 border-b border-border">
+      <DialogContent className="max-w-4xl max-h-[90vh] sm:max-h-[85vh] p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-4 sm:px-6 pt-4 pb-2 border-b border-border shrink-0">
           <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Activity className="h-5 w-5 text-primary" />
             Agent 360° Profile
@@ -119,13 +119,13 @@ export function AgentDetailDialog({ agentId, open, onOpenChange }: Props) {
         </DialogHeader>
 
         {isLoading || !data ? (
-          <div className="p-4 space-y-3">
+          <div className="p-4 space-y-3 flex-1 min-h-0 overflow-y-auto">
             <Skeleton className="h-24 w-full" />
             <Skeleton className="h-40 w-full" />
             <Skeleton className="h-40 w-full" />
           </div>
         ) : (
-          <ScrollArea className="flex-1">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
             <div className="p-4 sm:p-6 space-y-4">
               {/* Header card */}
               <ProfileHeader profile={data.profile} roles={data.roles} streak={data.streak} />
@@ -147,7 +147,6 @@ export function AgentDetailDialog({ agentId, open, onOpenChange }: Props) {
                   <TabsTrigger value="ops" className="text-xs">Ops</TabsTrigger>
                   <TabsTrigger value="landlords" className="text-xs">Landlords</TabsTrigger>
                   <TabsTrigger value="promissory" className="text-xs">Promissory Notes</TabsTrigger>
-
                 </TabsList>
 
                 <TabsContent value="evaluation" className="mt-3">
@@ -200,7 +199,7 @@ export function AgentDetailDialog({ agentId, open, onOpenChange }: Props) {
               </Tabs>
 
             </div>
-          </ScrollArea>
+          </div>
         )}
       </DialogContent>
     </Dialog>
