@@ -174,7 +174,7 @@ export function EmptyHouseOpportunitiesSheet({
     setWhatsappNumber(''); setPhoneNumber(''); setEmail('');
     setContributionType('compounding'); setDeductionDay('1');
     setErrorMsg(null); setCreatedNote(null); setCreatedNotes([]); setSplitPerHouse(true);
-    setShowFilters(true); setDistrict('all'); setVerifiedOnly(false); setMapPinOnly(false);
+    setDistrict('all'); setVerifiedOnly(false); setMapPinOnly(false);
     setMinRent(''); setMaxRent(''); setNearMe(null); setSort('recommended');
 
   };
