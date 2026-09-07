@@ -200,9 +200,9 @@ export function GeneralPayoutActivities() {
       const buildQuery = () => {
         let q = supabase
           .from('platform_wallet_corrections')
-          .select('id, operation, amount, evidence, reference_id, created_at, target_user_id, metadata')
-          .gte('created_at', window.from.toISOString())
-          .lte('created_at', window.to.toISOString());
+          .select('id, operation, amount, evidence, reference_id, created_at, target_user_id, metadata');
+        if (window.from) q = q.gte('created_at', window.from.toISOString());
+        if (window.to) q = q.lte('created_at', window.to.toISOString());
         if (profileIds && profileIds.length) q = q.in('target_user_id', profileIds);
         if (categoryFilter.trim()) {
           const term = `%${categoryFilter.trim()}%`;
