@@ -165,7 +165,6 @@ export function EmptyHouseOpportunitiesSheet({
     if (open && initialMaxRent && initialMaxRent > 0) {
       setMaxRent(String(Math.round(initialMaxRent)));
       setPage(0);
-      setShowFilters(true);
     }
   }, [open, initialMaxRent]);
 
