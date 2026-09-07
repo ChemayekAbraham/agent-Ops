@@ -423,6 +423,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
           .eq('user_id', tenantId),
         // Allocations run inside the same burst instead of after it.
         user?.id ? loadAllocations() : Promise.resolve(null),
+        loadTenantCollections(),
       ]);
 
       const [rentRes, repaymentRes, walletRes, portfolioRes, ledgerRes, rolesRes] = settled.map((result, idx) =>
