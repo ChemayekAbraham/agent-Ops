@@ -839,6 +839,7 @@ export function FunderCapitalOpportunities() {
         </div>
 
         {/* Empty houses you can support — browse, pick, and create your promissory note */}
+        {feedOrder === 'houses' && (
         <div className="pt-2 space-y-3">
           <div className="flex items-center gap-2">
             <div className="w-1 h-5 rounded-full bg-primary" />
@@ -1086,6 +1087,7 @@ export function FunderCapitalOpportunities() {
 
           </div>
         </div>
+        )}
 
         <EmptyHouseOpportunitiesSheet
           open={housePickerOpen}
