@@ -29,9 +29,13 @@ function kampalaWeekStart(offsetWeeks = 0): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
-function fmtDate(iso: string): string {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso || typeof iso !== 'string') return '—';
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
+
 
 function RankChange({ change }: { change: number | null | undefined }) {
   if (change == null) return <span className="text-[11px] text-muted-foreground">new</span>;
