@@ -197,6 +197,8 @@ export default function CFODashboardPage() {
           <div className="space-y-5">
             <DirectCreditTool />
 
+            <RecentApprovalsByCategory />
+
             <RecentPayoutActivity />
 
             {/* ── Security assurance card ── */}
