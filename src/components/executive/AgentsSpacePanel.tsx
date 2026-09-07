@@ -199,6 +199,7 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
   const [agentSearchResults, setAgentSearchResults] = useState<ProfileSummary[]>([]);
   const [searchingAgents, setSearchingAgents] = useState(false);
   const [togglingAgentId, setTogglingAgentId] = useState<string | null>(null);
+  const [deletingPermId, setDeletingPermId] = useState<string | null>(null);
 
   // Submit / Resubmit modal
   const [openSubmit, setOpenSubmit] = useState(false);
@@ -373,6 +374,22 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
       }
     }
     setTogglingAgentId(null);
+  };
+
+  const handleDeletePermission = async (permissionId: string) => {
+    setDeletingPermId(permissionId);
+    const { error } = await supabase
+      .from('staff_permissions')
+      .delete()
+      .eq('id', permissionId);
+
+    if (error) {
+      toast.error('Failed to remove permission record', { description: error.message });
+    } else {
+      toast.success('Restricted agent record removed');
+      await fetchPermissions();
+    }
+    setDeletingPermId(null);
   };
 
   // Buckets for Ops mode
@@ -1353,7 +1370,23 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {!isActive && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={deletingPermId === cap.id}
+                            onClick={() => void handleDeletePermission(cap.id)}
+                            className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10 rounded-xl transition-colors"
+                            title="Delete restricted record"
+                          >
+                            {deletingPermId === cap.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-destructive" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
                         {isToggling ? (
                           <Loader2 className="h-4 w-4 animate-spin text-primary" />
                         ) : (
