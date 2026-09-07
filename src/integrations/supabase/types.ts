@@ -1887,6 +1887,13 @@ export type Database = {
             foreignKeyName: "agent_collections_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_daily_eligibility"
             referencedColumns: ["rent_request_id"]
           },
@@ -3181,6 +3188,13 @@ export type Database = {
             foreignKeyName: "agent_float_withdrawals_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_float_withdrawals_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_daily_eligibility"
             referencedColumns: ["rent_request_id"]
           },
@@ -3587,6 +3601,13 @@ export type Database = {
             columns: ["rent_request_id"]
             isOneToOne: false
             referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_landlord_assignments_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
             referencedColumns: ["rent_request_id"]
           },
           {
@@ -5305,6 +5326,45 @@ export type Database = {
           },
         ]
       }
+      agent_team_daily_collection_stats: {
+        Row: {
+          active_collectors: number
+          collected_amount: number
+          collection_count: number
+          created_at: string
+          expected_amount: number
+          id: string
+          parent_agent_id: string
+          stat_date: string
+          total_team_members: number
+          updated_at: string
+        }
+        Insert: {
+          active_collectors?: number
+          collected_amount?: number
+          collection_count?: number
+          created_at?: string
+          expected_amount?: number
+          id?: string
+          parent_agent_id: string
+          stat_date: string
+          total_team_members?: number
+          updated_at?: string
+        }
+        Update: {
+          active_collectors?: number
+          collected_amount?: number
+          collection_count?: number
+          created_at?: string
+          expected_amount?: number
+          id?: string
+          parent_agent_id?: string
+          stat_date?: string
+          total_team_members?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       agent_team_goals: {
         Row: {
           agent_id: string
@@ -5335,6 +5395,33 @@ export type Database = {
           target_earnings?: number
           target_registrations?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      agent_team_membership_history: {
+        Row: {
+          created_at: string
+          id: string
+          member_agent_id: string
+          parent_agent_id: string
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          member_agent_id: string
+          parent_agent_id: string
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          member_agent_id?: string
+          parent_agent_id?: string
+          valid_from?: string
+          valid_to?: string | null
         }
         Relationships: []
       }
@@ -5939,6 +6026,105 @@ export type Database = {
           table_count?: number | null
         }
         Relationships: []
+      }
+      bd3_pricing_subsidy_population: {
+        Row: {
+          access_fee: number
+          agent_commission: number
+          duration_days: number
+          id: string
+          partner_reward: number
+          recorded_at: string
+          registration_fee: number
+          rent_amount: number
+          rent_request_id: string
+          shortfall: number
+          transaction_group_id: string | null
+        }
+        Insert: {
+          access_fee: number
+          agent_commission: number
+          duration_days: number
+          id?: string
+          partner_reward: number
+          recorded_at?: string
+          registration_fee: number
+          rent_amount: number
+          rent_request_id: string
+          shortfall: number
+          transaction_group_id?: string | null
+        }
+        Update: {
+          access_fee?: number
+          agent_commission?: number
+          duration_days?: number
+          id?: string
+          partner_reward?: number
+          recorded_at?: string
+          registration_fee?: number
+          rent_amount?: number
+          rent_request_id?: string
+          shortfall?: number
+          transaction_group_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bd3_pricing_subsidy_population_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bd3_pricing_subsidy_population_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bd3_pricing_subsidy_population_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "bd3_pricing_subsidy_population_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "bd3_pricing_subsidy_population_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "bd3_pricing_subsidy_population_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "bd3_pricing_subsidy_population_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "bd3_pricing_subsidy_population_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+        ]
       }
       blocked_signup_ips: {
         Row: {
@@ -8909,6 +9095,13 @@ export type Database = {
             foreignKeyName: "commission_accrual_ledger_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "commission_accrual_ledger_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_daily_eligibility"
             referencedColumns: ["rent_request_id"]
           },
@@ -9834,6 +10027,13 @@ export type Database = {
             columns: ["rent_request_id"]
             isOneToOne: false
             referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "default_recovery_ledger_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
             referencedColumns: ["rent_request_id"]
           },
           {
@@ -12372,6 +12572,13 @@ export type Database = {
             foreignKeyName: "fee_revenue_ledger_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "fee_revenue_ledger_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_daily_eligibility"
             referencedColumns: ["rent_request_id"]
           },
@@ -13426,6 +13633,7 @@ export type Database = {
           direction: string
           id: string
           idempotency_key: string | null
+          instalment_id: string | null
           ledger_scope: string
           linked_party: string | null
           matured_at: string | null
@@ -13435,6 +13643,7 @@ export type Database = {
           maturity_subject_id: string | null
           recipient_type: string | null
           reference_id: string | null
+          rent_request_id: string | null
           routing_source: string | null
           running_balance: number | null
           solvency_bypass_reason:
@@ -13461,6 +13670,7 @@ export type Database = {
           direction: string
           id?: string
           idempotency_key?: string | null
+          instalment_id?: string | null
           ledger_scope?: string
           linked_party?: string | null
           matured_at?: string | null
@@ -13470,6 +13680,7 @@ export type Database = {
           maturity_subject_id?: string | null
           recipient_type?: string | null
           reference_id?: string | null
+          rent_request_id?: string | null
           routing_source?: string | null
           running_balance?: number | null
           solvency_bypass_reason?:
@@ -13496,6 +13707,7 @@ export type Database = {
           direction?: string
           id?: string
           idempotency_key?: string | null
+          instalment_id?: string | null
           ledger_scope?: string
           linked_party?: string | null
           matured_at?: string | null
@@ -13505,6 +13717,7 @@ export type Database = {
           maturity_subject_id?: string | null
           recipient_type?: string | null
           reference_id?: string | null
+          rent_request_id?: string | null
           routing_source?: string | null
           running_balance?: number | null
           solvency_bypass_reason?:
@@ -17289,6 +17502,117 @@ export type Database = {
         }
         Relationships: []
       }
+      instalment_allocations: {
+        Row: {
+          access_fee_component: number
+          agent_commission_component: number | null
+          created_at: string
+          id: string
+          instalment_amount: number
+          instalment_date: string
+          instalment_id: string
+          partner_reward_component: number | null
+          platform_net_component: number | null
+          principal_component: number
+          registration_fee_component: number
+          rent_request_id: string
+          source_id: string | null
+          source_table: string | null
+          transaction_group_id: string | null
+        }
+        Insert: {
+          access_fee_component: number
+          agent_commission_component?: number | null
+          created_at?: string
+          id?: string
+          instalment_amount: number
+          instalment_date?: string
+          instalment_id?: string
+          partner_reward_component?: number | null
+          platform_net_component?: number | null
+          principal_component: number
+          registration_fee_component: number
+          rent_request_id: string
+          source_id?: string | null
+          source_table?: string | null
+          transaction_group_id?: string | null
+        }
+        Update: {
+          access_fee_component?: number
+          agent_commission_component?: number | null
+          created_at?: string
+          id?: string
+          instalment_amount?: number
+          instalment_date?: string
+          instalment_id?: string
+          partner_reward_component?: number | null
+          platform_net_component?: number | null
+          principal_component?: number
+          registration_fee_component?: number
+          rent_request_id?: string
+          source_id?: string | null
+          source_table?: string | null
+          transaction_group_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+        ]
+      }
       internship_applications: {
         Row: {
           availability_days_per_week: number | null
@@ -20422,6 +20746,13 @@ export type Database = {
             foreignKeyName: "ledger_anomaly_isolations_ledger_entry_id_fkey"
             columns: ["ledger_entry_id"]
             isOneToOne: true
+            referencedRelation: "v_g7_receivable_direction_defect"
+            referencedColumns: ["leg_id"]
+          },
+          {
+            foreignKeyName: "ledger_anomaly_isolations_ledger_entry_id_fkey"
+            columns: ["ledger_entry_id"]
+            isOneToOne: true
             referencedRelation: "v_general_ledger_effective"
             referencedColumns: ["id"]
           },
@@ -20657,14 +20988,17 @@ export type Database = {
         Row: {
           enforce_from: string
           id: boolean
+          mapped_balance_mode: string
         }
         Insert: {
           enforce_from?: string
           id?: boolean
+          mapped_balance_mode?: string
         }
         Update: {
           enforce_from?: string
           id?: boolean
+          mapped_balance_mode?: string
         }
         Relationships: []
       }
@@ -20698,6 +21032,39 @@ export type Database = {
           opened_at?: string | null
           opened_by?: string | null
           reason?: string | null
+        }
+        Relationships: []
+      }
+      ledger_mapped_balance_violations: {
+        Row: {
+          detected_at: string
+          id: string
+          leg_shape: string | null
+          mapped_credits: number
+          mapped_debits: number
+          residual: number
+          source_table: string | null
+          transaction_group_id: string
+        }
+        Insert: {
+          detected_at?: string
+          id?: string
+          leg_shape?: string | null
+          mapped_credits: number
+          mapped_debits: number
+          residual: number
+          source_table?: string | null
+          transaction_group_id: string
+        }
+        Update: {
+          detected_at?: string
+          id?: string
+          leg_shape?: string | null
+          mapped_credits?: number
+          mapped_debits?: number
+          residual?: number
+          source_table?: string | null
+          transaction_group_id?: string
         }
         Relationships: []
       }
@@ -20788,6 +21155,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "general_ledger"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledger_scope_reclassifications_ledger_entry_id_fkey"
+            columns: ["ledger_entry_id"]
+            isOneToOne: true
+            referencedRelation: "v_g7_receivable_direction_defect"
+            referencedColumns: ["leg_id"]
           },
           {
             foreignKeyName: "ledger_scope_reclassifications_ledger_entry_id_fkey"
@@ -21577,6 +21951,13 @@ export type Database = {
             columns: ["rent_request_id"]
             isOneToOne: false
             referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "location_requests_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
             referencedColumns: ["rent_request_id"]
           },
           {
@@ -23780,6 +24161,13 @@ export type Database = {
             columns: ["rent_request_id"]
             isOneToOne: false
             referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "offline_collection_submissions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
             referencedColumns: ["rent_request_id"]
           },
           {
@@ -28287,6 +28675,13 @@ export type Database = {
             foreignKeyName: "promissory_note_plan_intents_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "promissory_note_plan_intents_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_daily_eligibility"
             referencedColumns: ["rent_request_id"]
           },
@@ -28469,12 +28864,17 @@ export type Database = {
           created_at: string
           deduction_day: number | null
           email: string | null
+          follow_up_note: string | null
+          follow_up_status: string
+          fulfilment_due_on: string | null
           id: string
+          last_followed_up_on: string | null
           next_deduction_date: string | null
           notes: string | null
           partner_name: string
           partner_user_id: string | null
           phone_number: string | null
+          recorded_on: string
           status: string
           support_mode: string
           total_collected: number
@@ -28493,12 +28893,17 @@ export type Database = {
           created_at?: string
           deduction_day?: number | null
           email?: string | null
+          follow_up_note?: string | null
+          follow_up_status?: string
+          fulfilment_due_on?: string | null
           id?: string
+          last_followed_up_on?: string | null
           next_deduction_date?: string | null
           notes?: string | null
           partner_name: string
           partner_user_id?: string | null
           phone_number?: string | null
+          recorded_on?: string
           status?: string
           support_mode?: string
           total_collected?: number
@@ -28517,12 +28922,17 @@ export type Database = {
           created_at?: string
           deduction_day?: number | null
           email?: string | null
+          follow_up_note?: string | null
+          follow_up_status?: string
+          fulfilment_due_on?: string | null
           id?: string
+          last_followed_up_on?: string | null
           next_deduction_date?: string | null
           notes?: string | null
           partner_name?: string
           partner_user_id?: string | null
           phone_number?: string | null
+          recorded_on?: string
           status?: string
           support_mode?: string
           total_collected?: number
@@ -30776,6 +31186,72 @@ export type Database = {
         }
         Relationships: []
       }
+      rent_repaid_reconciliation_snapshot: {
+        Row: {
+          agent_id: string | null
+          agent_name: string | null
+          amount_repaid: number | null
+          audit_rows: number | null
+          id: number
+          last_payment_at: string | null
+          ledger_rows: number | null
+          ledger_total: number | null
+          logged_edit_count: number | null
+          logged_edit_net: number | null
+          reconciliation_state: string | null
+          rent_request_id: string
+          snapshot_at: string
+          snapshot_reason: string
+          status: string | null
+          tenant_name: string | null
+          total_repayment: number | null
+          unbacked_by_ledger: number | null
+          unexplained: number | null
+        }
+        Insert: {
+          agent_id?: string | null
+          agent_name?: string | null
+          amount_repaid?: number | null
+          audit_rows?: number | null
+          id?: number
+          last_payment_at?: string | null
+          ledger_rows?: number | null
+          ledger_total?: number | null
+          logged_edit_count?: number | null
+          logged_edit_net?: number | null
+          reconciliation_state?: string | null
+          rent_request_id: string
+          snapshot_at?: string
+          snapshot_reason: string
+          status?: string | null
+          tenant_name?: string | null
+          total_repayment?: number | null
+          unbacked_by_ledger?: number | null
+          unexplained?: number | null
+        }
+        Update: {
+          agent_id?: string | null
+          agent_name?: string | null
+          amount_repaid?: number | null
+          audit_rows?: number | null
+          id?: number
+          last_payment_at?: string | null
+          ledger_rows?: number | null
+          ledger_total?: number | null
+          logged_edit_count?: number | null
+          logged_edit_net?: number | null
+          reconciliation_state?: string | null
+          rent_request_id?: string
+          snapshot_at?: string
+          snapshot_reason?: string
+          status?: string | null
+          tenant_name?: string | null
+          total_repayment?: number | null
+          unbacked_by_ledger?: number | null
+          unexplained?: number | null
+        }
+        Relationships: []
+      }
       rent_repayment_pauses: {
         Row: {
           created_at: string
@@ -30864,6 +31340,13 @@ export type Database = {
             foreignKeyName: "rent_repayment_pauses_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_repayment_pauses_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_daily_eligibility"
             referencedColumns: ["rent_request_id"]
           },
@@ -30889,6 +31372,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      rent_request_change_estimate: {
+        Row: {
+          built_at: string
+          confidence: string
+          estimated_last_change_at: string
+          rent_request_id: string
+          source: string
+          was_damaged: boolean
+        }
+        Insert: {
+          built_at?: string
+          confidence: string
+          estimated_last_change_at: string
+          rent_request_id: string
+          source: string
+          was_damaged: boolean
+        }
+        Update: {
+          built_at?: string
+          confidence?: string
+          estimated_last_change_at?: string
+          rent_request_id?: string
+          source?: string
+          was_damaged?: boolean
+        }
+        Relationships: []
       }
       rent_request_deletions: {
         Row: {
@@ -31105,6 +31615,7 @@ export type Database = {
           reopen_reason: string | null
           reopened_at: string | null
           reopened_by: string | null
+          repayment_frequency: string
           repayment_starts_on: string | null
           request_city: string | null
           request_country: string | null
@@ -31235,6 +31746,7 @@ export type Database = {
           reopen_reason?: string | null
           reopened_at?: string | null
           reopened_by?: string | null
+          repayment_frequency?: string
           repayment_starts_on?: string | null
           request_city?: string | null
           request_country?: string | null
@@ -31365,6 +31877,7 @@ export type Database = {
           reopen_reason?: string | null
           reopened_at?: string | null
           reopened_by?: string | null
+          repayment_frequency?: string
           repayment_starts_on?: string | null
           request_city?: string | null
           request_country?: string | null
@@ -31705,6 +32218,13 @@ export type Database = {
             foreignKeyName: "repayments_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "repayments_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_daily_eligibility"
             referencedColumns: ["rent_request_id"]
           },
@@ -31723,6 +32243,57 @@ export type Database = {
             referencedColumns: ["rent_request_id"]
           },
         ]
+      }
+      report_archive: {
+        Row: {
+          created_at: string
+          granularity: string
+          id: string
+          payload: Json
+          period_end: string
+          period_start: string
+          source: string
+          source_label: string
+          source_ref: string | null
+          submitted_at: string
+          submitted_by: string | null
+          submitted_by_name: string | null
+          summary: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          granularity: string
+          id?: string
+          payload: Json
+          period_end: string
+          period_start: string
+          source: string
+          source_label: string
+          source_ref?: string | null
+          submitted_at?: string
+          submitted_by?: string | null
+          submitted_by_name?: string | null
+          summary?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          granularity?: string
+          id?: string
+          payload?: Json
+          period_end?: string
+          period_start?: string
+          source?: string
+          source_label?: string
+          source_ref?: string | null
+          submitted_at?: string
+          submitted_by?: string | null
+          submitted_by_name?: string | null
+          summary?: string | null
+          title?: string
+        }
+        Relationships: []
       }
       requisition_links: {
         Row: {
@@ -34662,6 +35233,13 @@ export type Database = {
             foreignKeyName: "subscription_charges_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "subscription_charges_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_daily_eligibility"
             referencedColumns: ["rent_request_id"]
           },
@@ -34808,6 +35386,13 @@ export type Database = {
             columns: ["rent_request_id"]
             isOneToOne: false
             referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "supporter_capital_ledger_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
             referencedColumns: ["rent_request_id"]
           },
           {
@@ -35093,6 +35678,13 @@ export type Database = {
             columns: ["rent_request_id"]
             isOneToOne: false
             referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "supporter_roi_payments_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
             referencedColumns: ["rent_request_id"]
           },
           {
@@ -35699,6 +36291,13 @@ export type Database = {
             foreignKeyName: "tenant_idle_states_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: true
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_idle_states_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
             referencedRelation: "v_tenant_daily_eligibility"
             referencedColumns: ["rent_request_id"]
           },
@@ -36013,6 +36612,13 @@ export type Database = {
             columns: ["rent_request_id"]
             isOneToOne: false
             referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_reassignment_audit_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
             referencedColumns: ["rent_request_id"]
           },
           {
@@ -36721,6 +37327,75 @@ export type Database = {
         }
         Relationships: []
       }
+      tppo_period_snapshots_archive: {
+        Row: {
+          archive_reason: string
+          archived_at: string
+          arrears_outstanding_ugx: number | null
+          arrears_plan_count: number | null
+          arrears_recovered_ugx: number | null
+          arrears_target_plan_count: number | null
+          arrears_target_ugx: number | null
+          basis: Json | null
+          collected_total_ugx: number | null
+          collected_ugx: number | null
+          computed_at: string | null
+          frozen_at: string | null
+          granularity: string | null
+          period_end: string | null
+          period_start: string | null
+          plan_count: number | null
+          provisional: boolean | null
+          scheduled_due_ugx: number | null
+          snapshot_id: string | null
+          unallocated_ugx: number | null
+        }
+        Insert: {
+          archive_reason: string
+          archived_at?: string
+          arrears_outstanding_ugx?: number | null
+          arrears_plan_count?: number | null
+          arrears_recovered_ugx?: number | null
+          arrears_target_plan_count?: number | null
+          arrears_target_ugx?: number | null
+          basis?: Json | null
+          collected_total_ugx?: number | null
+          collected_ugx?: number | null
+          computed_at?: string | null
+          frozen_at?: string | null
+          granularity?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          plan_count?: number | null
+          provisional?: boolean | null
+          scheduled_due_ugx?: number | null
+          snapshot_id?: string | null
+          unallocated_ugx?: number | null
+        }
+        Update: {
+          archive_reason?: string
+          archived_at?: string
+          arrears_outstanding_ugx?: number | null
+          arrears_plan_count?: number | null
+          arrears_recovered_ugx?: number | null
+          arrears_target_plan_count?: number | null
+          arrears_target_ugx?: number | null
+          basis?: Json | null
+          collected_total_ugx?: number | null
+          collected_ugx?: number | null
+          computed_at?: string | null
+          frozen_at?: string | null
+          granularity?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          plan_count?: number | null
+          provisional?: boolean | null
+          scheduled_due_ugx?: number | null
+          snapshot_id?: string | null
+          unallocated_ugx?: number | null
+        }
+        Relationships: []
+      }
       tppo_report_actions: {
         Row: {
           carried_from_action_id: string | null
@@ -37349,6 +38024,241 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_deposit_name_conflicts: {
+        Row: {
+          attempted_user_id: string
+          created_at: string
+          detected_via: string
+          existing_user_id: string | null
+          gmail_transaction_id: string | null
+          id: string
+          normalized_name: string
+          notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+        }
+        Insert: {
+          attempted_user_id: string
+          created_at?: string
+          detected_via: string
+          existing_user_id?: string | null
+          gmail_transaction_id?: string | null
+          id?: string
+          normalized_name: string
+          notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Update: {
+          attempted_user_id?: string
+          created_at?: string
+          detected_via?: string
+          existing_user_id?: string | null
+          gmail_transaction_id?: string | null
+          id?: string
+          normalized_name?: string
+          notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_deposit_name_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_attempted_user_id_fkey"
+            columns: ["attempted_user_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_existing_user_id_fkey"
+            columns: ["existing_user_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_name_conflicts_gmail_transaction_id_fkey"
+            columns: ["gmail_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "gmail_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_deposit_names: {
+        Row: {
+          contested: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          linked_gmail_transaction_id: string | null
+          normalized_name: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          contested?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          linked_gmail_transaction_id?: string | null
+          normalized_name: string
+          source: string
+          user_id: string
+        }
+        Update: {
+          contested?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          linked_gmail_transaction_id?: string | null
+          normalized_name?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_deposit_names_linked_gmail_transaction_id_fkey"
+            columns: ["linked_gmail_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "gmail_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_names_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_names_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_names_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_names_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_deposit_names_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_names_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "user_deposit_names_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
       }
       user_deposit_number_conflicts: {
         Row: {
@@ -41301,6 +42211,13 @@ export type Database = {
             foreignKeyName: "promissory_note_plan_intents_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "promissory_note_plan_intents_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_daily_eligibility"
             referencedColumns: ["rent_request_id"]
           },
@@ -41331,6 +42248,36 @@ export type Database = {
         Row: {
           person_id: string | null
           role: string | null
+        }
+        Relationships: []
+      }
+      v_g7_receivable_direction_defect: {
+        Row: {
+          amount: number | null
+          defect: string | null
+          leg_id: string | null
+          source_id: string | null
+          source_table: string | null
+          transaction_date: string | null
+          transaction_group_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          defect?: never
+          leg_id?: string | null
+          source_id?: string | null
+          source_table?: string | null
+          transaction_date?: string | null
+          transaction_group_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          defect?: never
+          leg_id?: string | null
+          source_id?: string | null
+          source_table?: string | null
+          transaction_date?: string | null
+          transaction_group_id?: string | null
         }
         Relationships: []
       }
@@ -42456,6 +43403,26 @@ export type Database = {
         }
         Relationships: []
       }
+      v_rent_repaid_reconciliation: {
+        Row: {
+          agent_id: string | null
+          amount_repaid: number | null
+          audit_rows: number | null
+          last_payment_at: string | null
+          ledger_rows: number | null
+          ledger_total: number | null
+          logged_edit_count: number | null
+          logged_edit_net: number | null
+          reconciliation_state: string | null
+          rent_request_id: string | null
+          status: string | null
+          tenant_id: string | null
+          total_repayment: number | null
+          unbacked_by_ledger: number | null
+          unexplained: number | null
+        }
+        Relationships: []
+      }
       v_staff_requisition_budget_context: {
         Row: {
           approved_budget: number | null
@@ -43163,6 +44130,26 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: number
       }
+      agent_league_heat_level: {
+        Args: { p_collected: number; p_expected: number }
+        Returns: string
+      }
+      agent_league_team_parent: { Args: { p_user: string }; Returns: string }
+      agent_league_week_ranks: {
+        Args: { p_week_start: string }
+        Returns: {
+          active_collectors: number
+          active_rate: number
+          collected_amount: number
+          consistency: number
+          expected_amount: number
+          parent_agent_id: string
+          performance: number
+          team_rank: number
+          total_members: number
+        }[]
+      }
+      agent_league_week_start: { Args: { p_ts?: string }; Returns: string }
       agent_list_empty_house_opportunities: {
         Args: {
           p_district?: string
@@ -43236,6 +44223,10 @@ export type Database = {
         Returns: string
       }
       agent_ops_directory_guard: { Args: never; Returns: string }
+      agent_ops_dormant_agents_arrears: {
+        Args: { p_as_of?: string; p_silent_days?: number }
+        Returns: Json
+      }
       agent_ops_issue_agent_product: {
         Args: {
           p_agent_id: string
@@ -43505,6 +44496,7 @@ export type Database = {
           reopen_reason: string | null
           reopened_at: string | null
           reopened_by: string | null
+          repayment_frequency: string
           repayment_starts_on: string | null
           request_city: string | null
           request_country: string | null
@@ -43575,6 +44567,17 @@ export type Database = {
           p_village?: string
         }
         Returns: Json
+      }
+      allocate_instalment: {
+        Args: { p_instalment_amount: number; p_rent_request_id: string }
+        Returns: {
+          access_fee_component: number
+          basis_note: string
+          cumulative_after: number
+          cumulative_before: number
+          principal_component: number
+          registration_fee_component: number
+        }[]
       }
       apply_advance_topup:
         | {
@@ -43692,7 +44695,25 @@ export type Database = {
         Args: { _dead_letter_id: number }
         Returns: undefined
       }
+      archive_report: {
+        Args: {
+          p_granularity: string
+          p_payload: Json
+          p_period_end: string
+          p_period_start: string
+          p_source: string
+          p_source_label: string
+          p_source_ref?: string
+          p_summary?: string
+          p_title: string
+        }
+        Returns: string
+      }
       assert_agent_collections_report_access: { Args: never; Returns: boolean }
+      assert_funding_treasury_recognised: {
+        Args: { p_rent_request_id: string }
+        Returns: undefined
+      }
       assert_merchant_capacity_override_admin: { Args: never; Returns: string }
       assert_merchant_float_alloc_access: { Args: never; Returns: boolean }
       assert_no_promissory_self_support: {
@@ -44699,6 +45720,19 @@ export type Database = {
         }[]
       }
       compute_daily_stats: { Args: never; Returns: undefined }
+      compute_instalment_allocation: {
+        Args: { p_instalment_amount: number; p_rent_request_id: string }
+        Returns: {
+          access_fee_component: number
+          basis_access_fee: number
+          basis_note: string
+          basis_principal: number
+          basis_registration_fee: number
+          basis_total: number
+          principal_component: number
+          registration_fee_component: number
+        }[]
+      }
       compute_outstanding_repayment: {
         Args: {
           p_duration_days: number
@@ -44713,6 +45747,15 @@ export type Database = {
         }[]
       }
       compute_rent_repayment: {
+        Args: { p_duration_days: number; p_rent_amount: number }
+        Returns: {
+          access_fee: number
+          daily_repayment: number
+          request_fee: number
+          total_repayment: number
+        }[]
+      }
+      compute_rent_repayment_legacy: {
         Args: { p_duration_days: number; p_rent_amount: number }
         Returns: {
           access_fee: number
@@ -45950,6 +46993,19 @@ export type Database = {
         }[]
       }
       get_agent_campaign_dashboard: { Args: never; Returns: Json }
+      get_agent_collection_league_details: {
+        Args: { p_history_weeks?: number; p_week_start?: string }
+        Returns: Json
+      }
+      get_agent_collection_league_home: { Args: never; Returns: Json }
+      get_agent_collection_league_leaderboard: {
+        Args: { p_limit?: number; p_offset?: number; p_week_start?: string }
+        Returns: Json
+      }
+      get_agent_collection_records: {
+        Args: { p_agent_id: string; p_end: string; p_start: string }
+        Returns: Json
+      }
       get_agent_collections_command_center: {
         Args: { p_bucket?: string; p_end: string; p_start: string }
         Returns: Json
@@ -46130,6 +47186,37 @@ export type Database = {
         Returns: number
       }
       get_agent_mission_stats: { Args: { p_agent_id?: string }; Returns: Json }
+      get_agent_monitoring_positions: {
+        Args: {
+          p_from: string
+          p_include_self_payments?: boolean
+          p_to: string
+        }
+        Returns: {
+          agent_id: string
+          arrears: number
+          covered_through: string
+          credit_ahead: number
+          due_dates_in_period: number
+          exclusion_reason: string
+          expected_in_period: number
+          expected_to_date: number
+          frequency: string
+          instalment_amount: number
+          is_eligible: boolean
+          obligation_end: string
+          outstanding: number
+          paid_in_period_agent: number
+          paid_in_period_self: number
+          paid_to_date: number
+          position_band: string
+          rent_request_id: string
+          tenant_id: string
+          term_end: string
+          term_start: string
+          total_repayment: number
+        }[]
+      }
       get_agent_network_summary: { Args: { p_agent_id: string }; Returns: Json }
       get_agent_operational_population: {
         Args: { p_as_of?: string; p_from?: string }
@@ -47710,6 +48797,18 @@ export type Database = {
         Args: { p_limit?: number; p_status?: string }
         Returns: Json
       }
+      get_proxy_commission_tracker: {
+        Args: {
+          p_from?: string
+          p_kind?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
       get_proxy_partner_balance: {
         Args: { p_agent_id: string; p_partner_id: string }
         Returns: number
@@ -48326,6 +49425,21 @@ export type Database = {
         Args: { p_entity_id: string; p_entity_type: string }
         Returns: Json
       }
+      get_voice_call_log: {
+        Args: {
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      get_voice_call_stats: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
       get_wallet_bucket_totals: { Args: never; Returns: Json }
       get_wallet_holder_activity_counts: {
         Args: { p_user_ids: string[] }
@@ -48884,6 +49998,10 @@ export type Database = {
         | { Args: { p_user_id: string }; Returns: boolean }
       is_tenant_locked: { Args: { _user_id: string }; Returns: boolean }
       is_tenant_ops_staff: { Args: { _uid: string }; Returns: boolean }
+      is_treasury_waterfall_scope: {
+        Args: { p_rent_request_id: string }
+        Returns: boolean
+      }
       is_welile_staff: { Args: { _user_id: string }; Returns: boolean }
       is_withdrawal_hold_reviewer: {
         Args: { _user_id: string }
@@ -49203,6 +50321,10 @@ export type Database = {
       mark_deposit_bridge_failed: {
         Args: { p_error: string; p_event_id: string }
         Returns: undefined
+      }
+      mark_proxy_commission_completed: {
+        Args: { p_id: string; p_note?: string }
+        Returns: Json
       }
       match_email_ledger_credits: {
         Args: { p_refs: string[] }
@@ -50560,6 +51682,16 @@ export type Database = {
           inserted_count: number
         }[]
       }
+      post_instalment_waterfall: {
+        Args: {
+          p_idempotency_key?: string
+          p_instalment_amount: number
+          p_rent_request_id: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: Json
+      }
       post_merchant_evidenced_writedown: {
         Args: {
           p_agent_id: string
@@ -50807,6 +51939,10 @@ export type Database = {
         }[]
       }
       receivables_guard: { Args: never; Returns: undefined }
+      recognise_funding_treasury: {
+        Args: { p_rent_request_id: string }
+        Returns: Json
+      }
       recognise_landlord_receivable: {
         Args: { p_subscription_id: string }
         Returns: Json
@@ -50888,6 +52024,10 @@ export type Database = {
           difference: number
           previous_balance: number
         }[]
+      }
+      reconcile_agent_team_daily_stats: {
+        Args: { p_end?: string; p_start?: string }
+        Returns: number
       }
       reconcile_credited_deposit_profiles: { Args: never; Returns: number }
       reconcile_evidenced_withdrawal_settlements: { Args: never; Returns: Json }
@@ -50998,6 +52138,16 @@ export type Database = {
           p_transaction_group_id?: string
         }
         Returns: undefined
+      }
+      record_rent_request_repayment_v2: {
+        Args: {
+          p_amount: number
+          p_source_id?: string
+          p_source_table?: string
+          p_tenant_id: string
+          p_transaction_group_id?: string
+        }
+        Returns: Json
       }
       record_short_link_click: {
         Args: { p_code: string; p_referrer?: string; p_user_agent?: string }
@@ -51172,6 +52322,15 @@ export type Database = {
         }
         Returns: string
       }
+      rent_plan_schedule_days: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          due_on: string
+          rent_request_id: string
+        }[]
+      }
+      rent_pricing_floor_effective_from: { Args: never; Returns: string }
       rent_request_financials_unchanged: {
         Args: {
           _amount_repaid: number
@@ -51332,6 +52491,16 @@ export type Database = {
           is_self: boolean
           masked_email: string
           masked_phone: string
+        }[]
+      }
+      resolve_user_by_known_name: {
+        Args: { p_name: string }
+        Returns: {
+          email: string
+          full_name: string
+          match_count: number
+          phone: string
+          user_id: string
         }[]
       }
       resolve_user_by_known_phone: {
@@ -52011,10 +53180,20 @@ export type Database = {
           period_start: string
         }[]
       }
+      tppo_period_plan_detail: {
+        Args: { p_anchor?: string; p_granularity: string }
+        Returns: Json
+      }
+      tppo_plan_arrears_detail: {
+        Args: { p_as_at?: string; p_rent_request_id: string }
+        Returns: Json
+      }
       tppo_projection_zone_a: {
         Args: { p_as_at: string; p_granularity: string }
         Returns: Json
       }
+      treasury_waterfall_go_live: { Args: never; Returns: string }
+      treasury_waterfall_go_live_at: { Args: never; Returns: string }
       trigger_agent_liability_for_unpaid_rents: {
         Args: never
         Returns: {
@@ -52204,6 +53383,10 @@ export type Database = {
           _rejection_reason?: string
         }
         Returns: Json
+      }
+      voice_call_log_authorized: {
+        Args: { _user_id: string }
+        Returns: boolean
       }
       void_ledger_entry: {
         Args: { p_ledger_id: string; p_reason: string }

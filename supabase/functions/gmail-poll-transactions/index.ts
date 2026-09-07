@@ -9,6 +9,8 @@ import {
   resolveUsersByKnownPhone,
   resolveUniqueUserByKnownPhone,
   learnDepositNumber,
+  resolveUniqueUserByKnownName,
+  normalizeDepositorName,
 } from "../_shared/depositNumberLearning.ts";
 
 const corsHeaders = {
@@ -145,6 +147,7 @@ function extractBankBeneficiary(text: string): {
 function parseTransaction(text: string): {
   amount?: number; fee?: number; balance?: number; transaction_id?: string;
   tx_date?: string; tx_time?: string; direction?: string; channel?: string; counterparty?: string;
+  counterparty_name?: string;
 } {
   const out: any = {};
   if (!text) return out;
@@ -307,7 +310,25 @@ function parseTransaction(text: string): {
   // number, so without this alternative the sender name — including the
   // "WELILE TECHNOLOGIES LIMITED" shape that identifies our own outbound
   // payouts echoing back into this inbox — was never captured.
-  const cpMatch = t.match(/\b(?:from|to|by)\s+([A-Z][A-Za-z'.\- ]{1,40}?)(?=\s+(?:on|at|UGX|USh|Shs|Bal|ID|TID|Ref|\.|,|256|\+256|0\d{9}|\d[*xX•·]{3,}\d{4}))/);
+  // MTN's "received" credit template phrases the sender as
+  // "from (NAME) 256XXXXXXXXX" — the name sits inside parens directly
+  // followed by the phone. The char right after "from " is "(", not
+  // [A-Z], so the generic name-capture below never matches this shape at
+  // all, and the plain-phone fallback below IT requires the phone
+  // immediately after "from ", not after "(NAME) " — so both silently
+  // failed and every receipt in this shape parsed with counterparty=null,
+  // even though the phone was sitting right there in the body. Capture the
+  // phone into counterparty (what the matcher keys on for an exact lookup)
+  // and the name into counterparty_name (used only as a fallback signal
+  // when the phone doesn't resolve to a known user).
+  const nameParenPhone = !out.counterparty
+    && t.match(/\b(?:from|to|by)\s*\(\s*([A-Za-z][A-Za-z'.\- ]{1,58}?)\s*\)\s*((?:\+?256|0)\d{9})\b/i);
+  if (nameParenPhone) {
+    out.counterparty = nameParenPhone[2];
+    out.counterparty_name = nameParenPhone[1].trim();
+  }
+
+  const cpMatch = !out.counterparty && t.match(/\b(?:from|to|by)\s+([A-Z][A-Za-z'.\- ]{1,40}?)(?=\s+(?:on|at|UGX|USh|Shs|Bal|ID|TID|Ref|\.|,|256|\+256|0\d{9}|\d[*xX•·]{3,}\d{4}))/);
   if (cpMatch) out.counterparty = cpMatch[1].trim();
   if (!out.counterparty) {
     const phoneCp = t.match(/\b(?:from|to|by)\s+((?:\+?256|0)\d{9})\b/);
@@ -2198,11 +2219,16 @@ async function _tryAutoCreditOperationalFloat(
   }
 
   // ── MTN MoMo fallback ────────────────────────────────────────────
-  // MTN "received" notification emails only include the sender's NAME,
-  // never the phone. Try a strict name match — only accept when EXACTLY
-  // one profile matches, to avoid mis-crediting on common names.
+  // Reached only when the phone (now correctly extracted from the
+  // "(NAME) 256XXXXXXXXX" shape above, or from the body-phone scan) didn't
+  // resolve to a known user — e.g. a third party depositing on someone
+  // else's behalf, or a first-time payer. Try a strict name match — only
+  // accept when EXACTLY one profile matches, to avoid mis-crediting on
+  // common names. Prefer the name captured alongside the phone
+  // (counterparty_name); fall back to counterparty itself for any other
+  // MTN shape that still puts a bare name there.
   if (!profile && parsed.channel === 'mtn_momo') {
-    const rawName = cp.replace(/\s+/g, ' ').trim();
+    const rawName = ((parsed as any).counterparty_name ?? cp).replace(/\s+/g, ' ').trim();
     // Must look like a real human name (≥ 2 words, ≥ 4 chars total, letters)
     if (rawName && /[A-Za-z]/.test(rawName) && rawName.split(' ').filter(Boolean).length >= 2 && rawName.length >= 4) {
       const { data: nameMatches } = await supabase
@@ -2332,56 +2358,93 @@ async function _tryAutoCreditOperationalFloat(
           });
         }
       } else {
-        // ── Fuzzy/near-match tier ────────────────────────────────────────
-        // No EXACT name match at all (nameMatches.length === 0). MTN's
-        // SIM-registered name often differs slightly from the platform
-        // profile — try a looser, order-independent token match, but treat
-        // any hit as a SUGGESTION only: never auto-credit off a fuzzy match.
-        // This just gives Financial Ops (or the payer) a concrete lead
-        // instead of the receipt disappearing into a bare "no_user_match"
-        // with nothing to act on.
-        const fuzzyCandidates = await resolveFuzzyNameCandidates(supabase, rawName);
-        if (fuzzyCandidates.length === 1) {
-          const candidate = fuzzyCandidates[0];
-          console.log(
-            `[gmail-poll] MTN name fuzzy-match (not auto-credited): "${rawName}" ≈ ` +
-            `"${candidate.full_name}" user=${candidate.id}`,
-          );
-          await logDepositDecision(supabase, {
-            source: 'matcher',
-            decision: 'flagged_for_review',
-            reason: 'name_fuzzy_match_needs_confirmation',
-            amount: parsed.amount ?? null,
-            metadata: {
-              gmail_message_id: gmailMessageId,
-              raw_name: rawName,
-              candidate_user_id: candidate.id,
-              candidate_full_name: candidate.full_name,
-            },
-          });
-          const { data: fuzzyGmailRow } = await supabase
-            .from('gmail_transactions')
-            .select('id')
-            .eq('gmail_message_id', gmailMessageId)
-            .maybeSingle();
-          if (fuzzyGmailRow?.id) {
-            await raisePossibleUserMatchAlert(supabase, {
-              gmailRowId: String(fuzzyGmailRow.id),
+        // ── Learned-name tier ─────────────────────────────────────────────
+        // No EXACT profile match (the payer is a third party depositing on
+        // someone else's behalf — their name will never be in `profiles` at
+        // all). Before falling back to the weak fuzzy-suggestion tier, check
+        // whether Financial Ops has already confirmed this exact name by
+        // hand before. `resolveUniqueUserByKnownName` only ever returns a hit
+        // while the name is UNCONTESTED — the instant this same name is ever
+        // manually routed to a second, different user, learnDepositName
+        // freezes it project-wide and this tier stops firing for it, so a
+        // real name collision can never silently auto-credit the wrong
+        // wallet. See `_shared/depositNumberLearning.ts`.
+        const learnedHit = await resolveUniqueUserByKnownName(supabase, normalizeDepositorName(rawName));
+        if (learnedHit) {
+          profile = { id: learnedHit.user_id, phone: learnedHit.phone, full_name: learnedHit.full_name, email: learnedHit.email } as any;
+          matchMethod = 'name';
+          nameMatchAudit = {
+            raw_name: rawName,
+            total_candidates: 1,
+            candidates: [{
+              id: learnedHit.user_id,
+              full_name: learnedHit.full_name,
+              phone_last4: null,
+              has_phone: !!learnedHit.phone,
+              last_sign_in_at: null,
+              last_sign_in_ms: 0,
+              selected: true,
+            }],
+            tiebreaker: 'learned-name-match',
+            tiebreaker_pool: 'single',
+            confidence: 'high',
+            confidence_score: 0.9,
+            confidence_reasons: ['payer name previously confirmed by Financial Ops and never contested'],
+          };
+          console.log(`[gmail-poll] learned-name match: "${rawName}" → user=${profile.id} (uncontested)`);
+        } else {
+          // ── Fuzzy/near-match tier ──────────────────────────────────────
+          // No EXACT name match at all (nameMatches.length === 0) and no
+          // uncontested learned-name hit either. MTN's SIM-registered name
+          // often differs slightly from the platform profile — try a
+          // looser, order-independent token match, but treat any hit as a
+          // SUGGESTION only: never auto-credit off a fuzzy match. This just
+          // gives Financial Ops (or the payer) a concrete lead instead of
+          // the receipt disappearing into a bare "no_user_match" with
+          // nothing to act on.
+          const fuzzyCandidates = await resolveFuzzyNameCandidates(supabase, rawName);
+          if (fuzzyCandidates.length === 1) {
+            const candidate = fuzzyCandidates[0];
+            console.log(
+              `[gmail-poll] MTN name fuzzy-match (not auto-credited): "${rawName}" ≈ ` +
+              `"${candidate.full_name}" user=${candidate.id}`,
+            );
+            await logDepositDecision(supabase, {
+              source: 'matcher',
+              decision: 'flagged_for_review',
+              reason: 'name_fuzzy_match_needs_confirmation',
               amount: parsed.amount ?? null,
-              transactionId: parsed.transaction_id ?? null,
-              rawName,
-              candidateUserId: candidate.id,
-              candidateName: candidate.full_name,
+              metadata: {
+                gmail_message_id: gmailMessageId,
+                raw_name: rawName,
+                candidate_user_id: candidate.id,
+                candidate_full_name: candidate.full_name,
+              },
+            });
+            const { data: fuzzyGmailRow } = await supabase
+              .from('gmail_transactions')
+              .select('id')
+              .eq('gmail_message_id', gmailMessageId)
+              .maybeSingle();
+            if (fuzzyGmailRow?.id) {
+              await raisePossibleUserMatchAlert(supabase, {
+                gmailRowId: String(fuzzyGmailRow.id),
+                amount: parsed.amount ?? null,
+                transactionId: parsed.transaction_id ?? null,
+                rawName,
+                candidateUserId: candidate.id,
+                candidateName: candidate.full_name,
+              });
+            }
+          } else {
+            await logDepositDecision(supabase, {
+              source: 'matcher',
+              decision: 'skipped',
+              reason: fuzzyCandidates.length > 1 ? 'name_fuzzy_ambiguous' : 'name_no_match',
+              amount: parsed.amount ?? null,
+              metadata: { gmail_message_id: gmailMessageId, raw_name: rawName, candidate_count: fuzzyCandidates.length },
             });
           }
-        } else {
-          await logDepositDecision(supabase, {
-            source: 'matcher',
-            decision: 'skipped',
-            reason: fuzzyCandidates.length > 1 ? 'name_fuzzy_ambiguous' : 'name_no_match',
-            amount: parsed.amount ?? null,
-            metadata: { gmail_message_id: gmailMessageId, raw_name: rawName, candidate_count: fuzzyCandidates.length },
-          });
         }
       }
     }
@@ -2557,6 +2620,80 @@ async function _tryAutoCreditOperationalFloat(
   }
 
   const provider = parsed.channel === 'mtn_momo' ? 'mtn' : 'airtel';
+
+  // ── Direct tenant rent payment (2026-09-06 tenant-ops meeting, item #7) ──
+  // 090777 / 4380664 are Welile's own MTN/Airtel merchant tills — the SAME
+  // destination every self-deposit already targets, so a tenant paying rent
+  // directly here produces an email indistinguishable from a normal
+  // self-deposit at this point in the pipeline: no pre-existing
+  // deposit_requests row (checked above), a resolved profile, a real TID.
+  // Try attributing it to the tenant's responsible agent + rent balance
+  // BEFORE falling through to the default "credit the sender's own
+  // operational float" path below, since that default is simply wrong for a
+  // tenant (their payment would vanish into their own wallet with no rent
+  // credit and no agent commission). record_direct_tenant_rent_payment
+  // itself is the gate: it only succeeds when this profile has an active,
+  // outstanding rent request, so a genuine agent/self self-deposit is
+  // untouched and falls through exactly as before.
+  {
+    const { data: directRpc, error: directErr } = await supabase.rpc('record_direct_tenant_rent_payment', {
+      p_tid: parsed.transaction_id,
+      p_tenant_id: profile.id,
+      p_amount: parsed.amount,
+      p_provider: provider,
+      p_gmail_transaction_id: gmailRow.id,
+      p_occurred_at: internalMs ? new Date(internalMs).toISOString() : new Date().toISOString(),
+    });
+
+    if (directErr) {
+      console.error('[gmail-poll] record_direct_tenant_rent_payment RPC error:', directErr);
+      await logDepositDecision(supabase, {
+        source: 'matcher',
+        decision: 'failed',
+        reason: 'direct_tenant_rent_payment_rpc_error',
+        amount: parsed.amount ?? null,
+        actor_id: profile.id,
+        metadata: { gmail_message_id: gmailMessageId, error: directErr.message },
+      });
+      // Fall through to default handling below — don't drop the receipt.
+    } else if (directRpc?.ok) {
+      await supabase
+        .from('gmail_transactions')
+        .update({
+          auto_matched_at: new Date().toISOString(),
+          auto_match_method: 'direct_tenant_rent_payment',
+        })
+        .eq('id', gmailRow.id);
+      console.log(
+        `[gmail-poll] direct tenant rent payment credited tenant=${profile.id} ` +
+        `agent=${directRpc.agent_id} amount=${directRpc.amount_applied} reason=${directRpc.reason}`,
+      );
+      await logDepositDecision(supabase, {
+        source: 'matcher',
+        decision: 'auto_credited',
+        reason: `direct_tenant_rent_payment_${directRpc.reason}`,
+        amount: parsed.amount ?? null,
+        actor_id: profile.id,
+        metadata: { gmail_message_id: gmailMessageId, ...directRpc },
+      });
+      return;
+    } else if (directRpc?.reason === 'amount_exceeds_outstanding') {
+      // Unusual (rent nearly settled, or a mistaken overpayment) — surface it
+      // rather than silently absorbing it into the tenant's own float below.
+      await logDepositDecision(supabase, {
+        source: 'matcher',
+        decision: 'skipped',
+        reason: 'direct_tenant_rent_payment_amount_exceeds_outstanding',
+        amount: parsed.amount ?? null,
+        actor_id: profile.id,
+        metadata: { gmail_message_id: gmailMessageId, ...directRpc },
+      });
+    }
+    // Any other reason (no_active_rent_request / no_outstanding_balance /
+    // no_responsible_agent / already_reconciled / already_recorded) means
+    // this genuinely isn't a direct rent payment — fall through unchanged.
+  }
+
   const auditMeta = {
     source: 'gmail_auto_credit',
     gmail_message_id: gmailMessageId,
@@ -2596,7 +2733,9 @@ async function _tryAutoCreditOperationalFloat(
       deposit_purpose: 'operational_float',
       auto_approved: true,
       auto_match_audit: auditMeta,
-      notes: '[auto] Created from incoming Gmail MoMo receipt — phone matched a known user; credited to Operational Float.',
+      notes: nameMatchAudit?.tiebreaker === 'learned-name-match'
+        ? `[auto] Created from incoming Gmail MoMo receipt — payer name "${cp}" previously confirmed by Financial Ops (uncontested); credited to Operational Float.`
+        : '[auto] Created from incoming Gmail MoMo receipt — phone matched a known user; credited to Operational Float.',
     })
     .select('id')
     .single();

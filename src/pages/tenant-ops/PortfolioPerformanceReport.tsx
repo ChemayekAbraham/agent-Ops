@@ -10,6 +10,7 @@ import { PeriodToggle, type TppoGranularity } from '@/components/tenant-ops/tppo
 import { HeadlineA1 } from '@/components/tenant-ops/tppo/HeadlineA1';
 import { VarianceA2 } from '@/components/tenant-ops/tppo/VarianceA2';
 import { ProjectionA3 } from '@/components/tenant-ops/tppo/ProjectionA3';
+import { TppoPlanDetailTable } from '@/components/executive/tppo/TppoPlanDetailTable';
 import {
   NarrativeCollections,
   type DraftAction,
@@ -20,6 +21,7 @@ import {
   type CarriedCloseOut,
 } from '@/components/tenant-ops/tppo/CarriedActions';
 import { SubmitGate } from '@/components/tenant-ops/tppo/SubmitGate';
+import { ReportArchiveList } from '@/components/reports/ReportArchiveList';
 import type { TppoZoneAReport } from '@/components/tenant-ops/tppo/tppoTypes';
 
 
@@ -322,6 +324,8 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
         )}
       </section>
 
+      <TppoPlanDetailTable granularity={granularity} anchor={anchor} />
+
       <div className="grid gap-4 xl:grid-cols-2">
         <HeadlineA1 report={data} />
         <VarianceA2 report={data} earlier={earlier} />
@@ -378,6 +382,12 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
           void queryClient.invalidateQueries({ queryKey: ['tppo-narrative-collections'] });
         }}
       />
+
+      <div className="flex items-center gap-2 border-b border-border/60 pb-2 pt-1">
+        <FileText className="h-4 w-4 text-primary" aria-hidden="true" />
+        <h2 className="text-sm font-bold text-foreground">Past reports</h2>
+      </div>
+      <ReportArchiveList source="tppo" />
     </div>
   );
 }

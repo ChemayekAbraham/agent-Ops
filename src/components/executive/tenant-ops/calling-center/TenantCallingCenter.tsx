@@ -122,6 +122,8 @@ export function TenantCallingCenter() {
   /** Tenant chosen from the list — details first, calling from inside the modal. */
   const [detailsRow, setDetailsRow] = useState<CcRow | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  /** Second heavy History read is opt-in, so visiting the tab costs one query. */
+  const [fullHistoryOpen, setFullHistoryOpen] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
@@ -562,9 +564,25 @@ export function TenantCallingCenter() {
 
         {/* ------------------------------------------------------- History */}
         <TabsContent value="history" className="mt-4 space-y-4">
+          {/* The dated report is the primary read. The long rolling list is a
+              second heavy read over the same spine, so it is fetched only when
+              the officer actually asks for it instead of on every tab visit. */}
           <TenantCallsReport />
-          <TenantCallCenterHistory />
+          {fullHistoryOpen ? (
+            <TenantCallCenterHistory />
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 text-xs font-semibold"
+              onClick={() => setFullHistoryOpen(true)}
+            >
+              <History className="mr-1.5 h-3.5 w-3.5" />
+              Show full rolling call history
+            </Button>
+          )}
         </TabsContent>
+
 
 
         {/* ------------------------------------------------------ Settings */}

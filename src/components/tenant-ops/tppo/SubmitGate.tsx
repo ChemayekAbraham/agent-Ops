@@ -77,6 +77,7 @@ export function SubmitGate({
 }: SubmitGateProps) {
   const [busy, setBusy] = useState(false);
   const [notifyFailed, setNotifyFailed] = useState(false);
+  const [archiveFailed, setArchiveFailed] = useState(false);
   const failing = SUBMIT_CONDITIONS.filter((c) => !c.test(state));
   const canSubmit = failing.length === 0 && !submitted && Boolean(periodStart);
 
@@ -86,12 +87,19 @@ export function SubmitGate({
     </p>
   ) : null;
 
+  const archiveNotice = archiveFailed ? (
+    <p className="text-xs text-amber-600">
+      Submitted and frozen, but the archived copy could not be saved. The report is still recorded.
+    </p>
+  ) : null;
+
   if (submitted) {
     return (
       <Card>
         <CardContent className="space-y-2 py-4 text-sm text-muted-foreground">
           <p>This report has been submitted and is read-only.</p>
           {notifyNotice}
+          {archiveNotice}
         </CardContent>
       </Card>
     );
@@ -101,6 +109,7 @@ export function SubmitGate({
     if (busy) return;
     if (!canSubmit || !periodStart || !periodEnd) return;
     setBusy(true);
+    setArchiveFailed(false);
 
     try {
       const { data: auth } = await supabase.auth.getUser();
@@ -196,6 +205,42 @@ export function SubmitGate({
       });
       if (freezeError) throw freezeError;
 
+      try {
+        const { data: zoneA } = await supabase.rpc('tppo_get_report_zone_a', {
+          p_granularity: granularity,
+          p_anchor: anchor,
+        });
+
+        const payload = {
+          report_id: targetReportId,
+          granularity,
+          period_start: periodStart,
+          period_end: periodEnd,
+          anchor,
+          zone_a: zoneA,
+          narrative: state.note.trim(),
+          actions: actionRows,
+          carried_close_outs: closeOutRows,
+          submitted_at: new Date().toISOString(),
+        };
+
+        const { error: archiveError } = await supabase.rpc('archive_report', {
+          p_source: 'tppo',
+          p_source_label: 'Portfolio Performance',
+          p_granularity: granularity,
+          p_period_start: periodStart,
+          p_period_end: periodEnd,
+          p_title: `Portfolio Performance — ${granularity} ${periodStart}`,
+          p_payload: payload,
+          p_summary: state.note.trim().slice(0, 280),
+          p_source_ref: targetReportId,
+        });
+
+        setArchiveFailed(Boolean(archiveError));
+      } catch {
+        setArchiveFailed(true);
+      }
+
       // Notify last: nothing is raised to the COO for a report that failed to submit.
       // A notification failure never rolls back or retries the submission.
       const { error: notifyError } = await supabase.rpc(
@@ -235,6 +280,7 @@ export function SubmitGate({
             </>
           )}
           {notifyNotice}
+          {archiveNotice}
         </div>
 
         {/* Mobile: the submit control is pinned to the bottom of the viewport. */}

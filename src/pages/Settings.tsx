@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, User, Phone, Mail, Save, Loader2, Camera, Shield, Home, Users, Wallet, Building2, Check, Type, Vibrate, RotateCcw, LogIn, Volume2, Scale, Lock, Eye, EyeOff, Settings as SettingsIcon, Palette, ShieldCheck, Zap, Smartphone, Clock, Wind, Bell, ChevronRight, ChevronDown, Accessibility } from 'lucide-react';
+import { ArrowLeft, User, Phone, Mail, Save, Loader2, Camera, Shield, Home, Users, Wallet, Building2, Check, Type, Vibrate, LogIn, Volume2, Scale, Lock, Eye, EyeOff, Settings as SettingsIcon, Palette, ShieldCheck, Zap, Smartphone, Clock, Wind, Bell, ChevronRight, ChevronDown, Accessibility } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 
@@ -36,7 +36,7 @@ import PersonNameFields from '@/components/shared/PersonNameFields';
 import NameCompletionReminder from '@/components/notifications/NameCompletionReminder';
 import { OtpVerificationStep } from '@/components/auth/OtpVerificationStep';
 
-const WalletCard = lazy(() => import('@/components/wallet/WalletCard').then(m => ({ default: m.WalletCard })));
+
 const DiagnosticsSection = lazy(() => import('@/components/settings/DiagnosticsSection'));
 const PinSecuritySection = lazy(() => import('@/components/settings/PinSecuritySection'));
 const BiometricSecuritySection = lazy(() => import('@/components/settings/BiometricSecuritySection'));
@@ -211,6 +211,11 @@ export default function Settings() {
   const { fontSize, setFontSize } = useFontSize();
   const { intensity: hapticIntensity, setIntensity: setHapticIntensity } = useHapticSettings();
   const { reducedMotion, setReducedMotion } = useReducedMotion();
+  // Reflects what is actually applied to the page (the app also switches this
+  // on automatically for low-end phones), not just what the user last picked.
+  const [reduceGraphics, setReduceGraphics] = useState<boolean>(() =>
+    typeof document !== 'undefined' && document.documentElement.classList.contains('no-backdrop-blur')
+  );
   const { preferences, updatePreference } = useAppPreferences();
   
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -283,7 +288,7 @@ export default function Settings() {
   };
   const [deferredReady, setDeferredReady] = useState(false);
   const [pushOpen, setPushOpen] = useState(false);
-  const [themeOpen, setThemeOpen] = useState(false);
+  
   const [textSizeOpen, setTextSizeOpen] = useState(false);
   const [vibrationOpen, setVibrationOpen] = useState(false);
   const [motionOpen, setMotionOpen] = useState(false);
@@ -626,7 +631,6 @@ export default function Settings() {
                           <MobileMoneyNameCard userId={user.id} />
                         </LazySection>
                       )}
-                      <LazySection name="Wallet"><WalletCard /></LazySection>
                     </div>
                   )}
 
@@ -658,19 +662,17 @@ export default function Settings() {
               <div className="space-y-4">
                 <Card className="border-border/40 rounded-2xl">
                   <CardContent className="pt-5 space-y-5">
-                  <Collapsible open={themeOpen} onOpenChange={setThemeOpen} className="space-y-2">
-                    <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5 text-left">
-                      <span className="flex items-center gap-2"><Palette className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Dark / Light</span></span>
-                      <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", themeOpen && "rotate-180")} />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="space-y-2 pt-1">
-                      <p className="text-[11px] text-muted-foreground">Change the look of the app across light and dark modes.</p>
-                      <ThemeModeSelector />
-                    </CollapsibleContent>
-                  </Collapsible>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Palette className="h-4 w-4 text-primary" />
+                      <span className="font-medium text-sm">Dark / Light</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Change the look of the app across light and dark modes.</p>
+                    <ThemeModeSelector />
+                  </div>
 
-                  <SettingsRow label="Stay Logged In" description="Don't ask to sign in every time" icon={LogIn}><Switch checked={preferences.rememberLogin} onCheckedChange={(c) => { updatePreference('rememberLogin', c); toast.success(c ? 'Login remembered' : 'Login not remembered'); }} /></SettingsRow>
-                  <SettingsRow label="Skip Welcome Screen" description={preferences.skipSplash ? 'Goes straight to dashboard' : 'Shows welcome first'} icon={RotateCcw}><Switch checked={preferences.skipSplash} onCheckedChange={(c) => { updatePreference('skipSplash', c); toast.success(c ? 'Splash skipped' : 'Splash enabled'); }} /></SettingsRow>
+                  
+                  
                   </CardContent>
                 </Card>
 
@@ -730,8 +732,23 @@ export default function Settings() {
                       </CollapsibleTrigger>
                       <CollapsibleContent className="space-y-2 pt-1">
                         <p className="text-[11px] text-muted-foreground">Adjust the size of text throughout the app.</p>
-                        <RadioGroup value={fontSize} onValueChange={(v) => setFontSize(v as any)} className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          {fontSizeOptions.map((opt) => (<Label key={opt.value} htmlFor={opt.value} className={cn("flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm", fontSize === opt.value ? 'border-primary bg-primary/10' : 'border-border/50')}><RadioGroupItem value={opt.value} id={opt.value} /><div><p className="font-medium text-xs">{opt.label}</p><p className="text-[10px] text-muted-foreground">{opt.description}</p></div></Label>))}
+                        <RadioGroup value={fontSize} onValueChange={(v) => setFontSize(v as any)} className="space-y-2">
+                          {fontSizeOptions.map((opt) => (
+                            <Label
+                              key={opt.value}
+                              htmlFor={opt.value}
+                              className={cn(
+                                "flex items-center justify-between gap-3 p-3 min-h-[48px] rounded-xl border cursor-pointer transition-colors hover:bg-muted/30",
+                                fontSize === opt.value ? 'border-primary bg-primary/10' : 'border-border/50'
+                              )}
+                            >
+                              <div>
+                                <p className="font-medium text-sm">{opt.label}</p>
+                                <p className="text-[11px] text-muted-foreground">{opt.description}</p>
+                              </div>
+                              <RadioGroupItem value={opt.value} id={opt.value} />
+                            </Label>
+                          ))}
                         </RadioGroup>
                       </CollapsibleContent>
                     </Collapsible>
@@ -745,8 +762,23 @@ export default function Settings() {
                         </span>
                       </CollapsibleTrigger>
                       <CollapsibleContent className="space-y-2 pt-1">
-                        <RadioGroup value={hapticIntensity} onValueChange={(v) => { setHapticIntensity(v as any); if (v !== 'off') setTimeout(() => hapticSelection(), 100); }} className="grid grid-cols-2 gap-2">
-                          {hapticIntensityOptions.map((opt) => (<Label key={opt.value} htmlFor={`haptic-${opt.value}`} className={cn("flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm", hapticIntensity === opt.value ? 'border-primary bg-primary/10' : 'border-border/50')}><RadioGroupItem value={opt.value} id={`haptic-${opt.value}`} /><div><p className="font-medium text-xs">{opt.label}</p><p className="text-[10px] text-muted-foreground">{opt.description}</p></div></Label>))}
+                        <RadioGroup value={hapticIntensity} onValueChange={(v) => { setHapticIntensity(v as any); if (v !== 'off') setTimeout(() => hapticSelection(), 100); }} className="space-y-2">
+                          {hapticIntensityOptions.map((opt) => (
+                            <Label
+                              key={opt.value}
+                              htmlFor={`haptic-${opt.value}`}
+                              className={cn(
+                                "flex items-center justify-between gap-3 p-3 min-h-[48px] rounded-xl border cursor-pointer transition-colors hover:bg-muted/30",
+                                hapticIntensity === opt.value ? 'border-primary bg-primary/10' : 'border-border/50'
+                              )}
+                            >
+                              <div>
+                                <p className="font-medium text-sm">{opt.label}</p>
+                                <p className="text-[11px] text-muted-foreground">{opt.description}</p>
+                              </div>
+                              <RadioGroupItem value={opt.value} id={`haptic-${opt.value}`} />
+                            </Label>
+                          ))}
                         </RadioGroup>
                       </CollapsibleContent>
                     </Collapsible>
@@ -760,23 +792,45 @@ export default function Settings() {
                         </span>
                       </CollapsibleTrigger>
                       <CollapsibleContent className="space-y-2 pt-1">
-                        <RadioGroup value={reducedMotion} onValueChange={(v) => { setReducedMotion(v as any); toast.success(v === 'reduce' ? 'Animations reduced' : v === 'no-preference' ? 'Animations on' : 'Following system'); }} className="grid grid-cols-1 gap-2">
-                          {reducedMotionOptions.map((opt) => (<Label key={opt.value} htmlFor={`motion-${opt.value}`} className={cn("flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer text-sm", reducedMotion === opt.value ? 'border-primary bg-primary/10' : 'border-border/50')}><RadioGroupItem value={opt.value} id={`motion-${opt.value}`} /><div><p className="font-medium text-xs">{opt.label}</p><p className="text-[10px] text-muted-foreground">{opt.description}</p></div></Label>))}
+                        <RadioGroup value={reducedMotion} onValueChange={(v) => { setReducedMotion(v as any); toast.success(v === 'reduce' ? 'Animations reduced' : v === 'no-preference' ? 'Animations on' : 'Following system'); }} className="space-y-2">
+                          {reducedMotionOptions.map((opt) => (
+                            <Label
+                              key={opt.value}
+                              htmlFor={`motion-${opt.value}`}
+                              className={cn(
+                                "flex items-center justify-between gap-3 p-3 min-h-[48px] rounded-xl border cursor-pointer transition-colors hover:bg-muted/30",
+                                reducedMotion === opt.value ? 'border-primary bg-primary/10' : 'border-border/50'
+                              )}
+                            >
+                              <div>
+                                <p className="font-medium text-sm">{opt.label}</p>
+                                <p className="text-[11px] text-muted-foreground">{opt.description}</p>
+                              </div>
+                              <RadioGroupItem value={opt.value} id={`motion-${opt.value}`} />
+                            </Label>
+                          ))}
                         </RadioGroup>
                       </CollapsibleContent>
                     </Collapsible>
 
                     <SettingsRow label="Reduce Graphics" description="Fix screen tearing on older phones" icon={Zap}>
                       <Switch
-                        checked={typeof window !== 'undefined' && localStorage.getItem('welile-no-blur') === '1'}
+                        checked={reduceGraphics}
                         onCheckedChange={(c) => {
+                          setReduceGraphics(c);
+                          const root = document.documentElement;
                           if (c) {
                             localStorage.setItem('welile-no-blur', '1');
-                            document.documentElement.classList.add('no-backdrop-blur');
+                            root.classList.add('no-backdrop-blur');
+                            root.classList.add('android-compositor-safe');
                             toast.success('Reduced graphics on');
                           } else {
-                            localStorage.removeItem('welile-no-blur');
-                            document.documentElement.classList.remove('no-backdrop-blur');
+                            // '0' is an explicit opt-out: it also overrides the
+                            // automatic low-end/Android detection on next launch.
+                            localStorage.setItem('welile-no-blur', '0');
+                            root.classList.remove('no-backdrop-blur');
+                            root.classList.remove('android-compositor-safe');
+                            root.classList.remove('lite-mode');
                             toast.success('Full graphics restored');
                           }
                         }}

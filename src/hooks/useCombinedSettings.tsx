@@ -162,6 +162,14 @@ export function CombinedSettingsProvider({ children }: { children: ReactNode }) 
     setPrefersReducedMotion(resolvePrefersReducedMotion(reducedMotion));
   }, [reducedMotion]);
 
+  // Reflect the resolved motion preference on <html> so global CSS (and any
+  // component that cannot read the context) can honour an in-app "Reduce
+  // motion" choice, not just the OS-level setting.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('reduce-motion', prefersReducedMotion);
+  }, [prefersReducedMotion]);
+
   // Listen to system preference changes when in "system" mode
   useEffect(() => {
     if (typeof window === 'undefined' || reducedMotion !== 'system') return;

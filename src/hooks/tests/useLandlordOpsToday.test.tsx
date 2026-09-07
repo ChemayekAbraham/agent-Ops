@@ -23,7 +23,7 @@ interface Recorded {
 
 let recorded: Recorded[] = [];
 /** table -> rows (or { count }) the stub should resolve with */
-let responses: Record<string, { data?: unknown[]; count?: number }> = {};
+let responses: Record<string, { data?: unknown[]; count?: number; error?: { message: string } }> = {};
 
 function makeBuilder(table: string) {
   const entry: Recorded = { table, ops: [] };
@@ -31,7 +31,7 @@ function makeBuilder(table: string) {
 
   const result = () => {
     const r = responses[table] ?? {};
-    return { data: r.data ?? [], count: r.count ?? 0, error: null };
+    return { data: r.data ?? [], count: r.count ?? 0, error: r.error ?? null };
   };
 
   const builder: Record<string, unknown> = {};
@@ -103,7 +103,7 @@ describe('useLandlordOpsBadgeCounts — the badges that used to be 73 / 38 / 26'
     await waitFor(() => expect(result.current.paidLandlords).toBe(2));
   });
 
-  it('filters the LC1 queue the way the LC1 inbox panel does', async () => {
+  it('counts the LC1 bucket the inbox actually opens on (agent_requested)', async () => {
     responses = { v_lc1_verification_inbox: { count: 0 } };
     const { result } = renderHook(() => useLandlordOpsBadgeCounts(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -114,6 +114,12 @@ describe('useLandlordOpsBadgeCounts — the badges that used to be 73 / 38 / 26'
       expect.arrayContaining([{ fn: 'neq', args: ['service_center_status', 'pending'] }]),
     );
     expect(ops).toEqual(expect.arrayContaining([{ fn: 'eq', args: ['status', 'pending'] }]));
+    // Lc1VerificationInboxPanel defaults to initialStatus='agent_requested'.
+    // Counting bare `status='pending'` made the badge read ~11.8k against a tab
+    // showing a fraction of that.
+    expect(ops).toEqual(
+      expect.arrayContaining([{ fn: 'eq', args: ['agent_request_open', true] }]),
+    );
   });
 
   it('counts the rent-pipeline stage that actually sits on Landlord Ops', async () => {
@@ -304,5 +310,77 @@ describe('recent decisions — real operators and real amounts', () => {
     expect(result.current.data).toEqual([]);
     // No point querying listings/profiles for nothing.
     expect(tablesQueried()).not.toContain('profiles');
+  });
+});
+
+describe('useLandlordOpsNewToday — must be a subset of the headline', () => {
+  it('applies each queue filter as well as the date, so it cannot exceed the count above it', async () => {
+    const { useLandlordOpsNewToday } = await import('../useLandlordOpsToday');
+    const { result } = renderHook(() => useLandlordOpsNewToday(), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    // The bug this guards: these counted every row created today with no status
+    // filter, so a card could read "0 awaiting sign-off / New today: 5".
+    const houses = opsFor('house_listings');
+    expect(houses).toEqual(expect.arrayContaining([{ fn: 'eq', args: ['verified', false] }]));
+    expect(houses).toEqual(expect.arrayContaining([{ fn: 'gte', args: ['created_at', expect.any(String)] }]));
+
+    const rent = opsFor('rent_requests');
+    expect(rent).toEqual(expect.arrayContaining([{ fn: 'eq', args: ['status', 'tenant_ops_approved'] }]));
+    expect(rent).toEqual(expect.arrayContaining([{ fn: 'gte', args: ['created_at', expect.any(String)] }]));
+
+    const lc1 = opsFor('v_lc1_verification_inbox');
+    expect(lc1).toEqual(expect.arrayContaining([{ fn: 'eq', args: ['agent_request_open', true] }]));
+    expect(lc1).toEqual(expect.arrayContaining([{ fn: 'gte', args: ['requested_at', expect.any(String)] }]));
+
+    const landlords = opsFor('landlords');
+    expect(landlords).toEqual(
+      expect.arrayContaining([{ fn: 'neq', args: ['service_center_status', 'pending'] }]),
+    );
+    expect(landlords).toEqual(expect.arrayContaining([{ fn: 'gte', args: ['created_at', expect.any(String)] }]));
+  });
+
+  it('counts today from local midnight, not UTC midnight', async () => {
+    const { useLandlordOpsNewToday } = await import('../useLandlordOpsToday');
+    const { result } = renderHook(() => useLandlordOpsNewToday(), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    const gte = opsFor('house_listings').find((o) => o.fn === 'gte');
+    const since = new Date(String((gte!.args as [string, string])[1]));
+    const localMidnight = new Date();
+    localMidnight.setHours(0, 0, 0, 0);
+    expect(since.getTime()).toBe(localMidnight.getTime());
+  });
+});
+
+describe('a queue we could not read must not render as zero', () => {
+  it('reports the failure per queue instead of resolving to 0', async () => {
+    // e.g. an RLS policy that hides rent_requests from this role. Previously
+    // `count || 0` swallowed this and the card read "0 awaiting sign-off",
+    // indistinguishable from an empty queue.
+    responses = {
+      rent_requests: { error: { message: 'permission denied for table rent_requests' } },
+      house_listings: { count: 7 },
+    };
+
+    const { result } = renderHook(() => useLandlordOpsBadgeCounts(), { wrapper });
+    await waitFor(() => expect(result.current.errors.pipeline).toBeTruthy());
+
+    expect(result.current.isError).toBe(true);
+    expect(String((result.current.errors.pipeline as { message: string }).message)).toContain(
+      'permission denied',
+    );
+    // One failing table must not blank the others.
+    await waitFor(() => expect(result.current.pendingHouses).toBe(7));
+    expect(result.current.errors.houses).toBeFalsy();
+  });
+
+  it('has no error when every queue is genuinely empty', async () => {
+    const { result } = renderHook(() => useLandlordOpsBadgeCounts(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.isError).toBe(false);
+    expect(result.current.pendingPipeline).toBe(0);
+    expect(result.current.pendingPayouts).toBe(0);
   });
 });

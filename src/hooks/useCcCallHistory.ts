@@ -15,7 +15,8 @@
  * filter. A single malformed/blocked embed used to fail the whole read, which
  * showed up as an empty History tab even though the records existed.
  */
-import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { CcOutcome, CcSeverity, CcSubjectType } from '@/hooks/useCcCallingHub';
 
@@ -93,8 +94,23 @@ export interface CcHistoryWindow {
  * silently truncated.
  */
 export function useCcCallHistory(subjectType: CcSubjectType, days = 30, window?: CcHistoryWindow) {
-  const fromIso = window?.fromIso ?? new Date(Date.now() - days * 86_400_000).toISOString();
+  /**
+   * The rolling window MUST be quantised, not taken from `Date.now()` on every
+   * render. An un-quantised bound produced a new value on each render, which
+   * produced a new query key, which triggered a new fetch, which re-rendered —
+   * the History tab refetched forever and hammered the database. Anchoring the
+   * bound to the start of the local day makes the key stable for the whole day
+   * (same records, same meaning) so the query resolves once and then caches.
+   */
+  const fromIso = useMemo(() => {
+    if (window?.fromIso) return window.fromIso;
+    const midnight = new Date();
+    midnight.setHours(0, 0, 0, 0);
+    midnight.setDate(midnight.getDate() - days);
+    return midnight.toISOString();
+  }, [window?.fromIso, days]);
   const toIso = window?.toIso ?? null;
+
 
   return useQuery({
     queryKey: ['cc-call-history', subjectType, fromIso, toIso],
@@ -269,6 +285,14 @@ export function useCcCallHistory(subjectType: CcSubjectType, days = 30, window?:
         };
       });
     },
-    staleTime: 30_000,
+    // Cached long enough that flipping between tabs, or between the report and
+    // the list, re-reads nothing; the outcome mutations already invalidate.
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    // Window changes keep the previous rows on screen instead of flickering.
+    placeholderData: keepPreviousData,
   });
 }

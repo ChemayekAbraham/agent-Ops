@@ -13,7 +13,7 @@ import { PARTNER_OPS_ATTENTION_ITEM_IDS } from './executiveSidebarConfig';
 import { useQuery } from '@tanstack/react-query';
 import type { SidebarSection, SidebarItem } from './executiveSidebarConfig';
 import { useStaffPermissions } from '@/hooks/useStaffPermissions';
-import { GlossaryButton } from '@/components/shared/GlossaryButton';
+
 import { BudgetDepartmentNotificationBell } from '@/components/budget/BudgetDepartmentNotificationBell';
 import { MissionBanner } from '@/components/mission/MissionBanner';
 
@@ -508,7 +508,7 @@ export default function ExecutiveDashboardLayout({
         {/* Mobile hamburger */}
         <button
           type="button"
-          className="lg:hidden p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+          className="lg:hidden p-1.5 rounded-lg hover:bg-white/10 transition-colors shrink-0"
           onClick={() => setDrawerOpen(true)}
           style={{ touchAction: 'manipulation' }}
         >
@@ -521,7 +521,7 @@ export default function ExecutiveDashboardLayout({
         </div>
 
         {/* Center: Role Switcher */}
-        <div className="flex-1 flex justify-center min-w-0">
+        <div className="flex-1 flex justify-center min-w-0 overflow-hidden px-1">
           <RoleSwitcher
             currentRole={role as AppRole}
             availableRoles={roles}
@@ -531,30 +531,32 @@ export default function ExecutiveDashboardLayout({
           />
         </div>
 
-        {/* Glossary — shared team vocabulary */}
-        <GlossaryButton variant="header" />
-
         {/* Department budget cycle notices (only for departments the user can access).
             The CFO dashboard has a single unified bell (CFOApprovalNotificationsBell),
-            which already includes budget notices — so no second bell there. */}
-        {role !== 'cfo' && (
+            which already includes budget notices — so no second bell there.
+            The CMO dashboard uses CMONotificationsBell in headerActions, which already
+            includes budget notices plus merchandise orders — so no second bell there. */}
+        {role !== 'cfo' && role !== 'cmo' && (
           <BudgetDepartmentNotificationBell
             dashboard={role}
-            className="text-primary-foreground hover:bg-white/10 hover:text-primary-foreground"
+            className="text-primary-foreground hover:bg-white/10 hover:text-primary-foreground shrink-0"
           />
         )}
 
+
         {/* Role-specific header actions (notifications, etc.) */}
-        {headerActions}
+        <div className="shrink-0 flex items-center">
+          {headerActions}
+        </div>
 
         {/* Sign Out */}
         <button
           type="button"
           onClick={() => signOut()}
-          className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg bg-background text-primary text-xs font-semibold shadow-sm hover:bg-background/90 transition-colors whitespace-nowrap"
+          className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg bg-background text-primary text-xs font-semibold shadow-sm hover:bg-background/90 transition-colors whitespace-nowrap shrink-0"
           style={{ touchAction: 'manipulation' }}
         >
-          <LogOut className="h-3.5 w-3.5" />
+          <LogOut className="h-3.5 w-3.5 shrink-0" />
           <span className="hidden sm:inline">Sign Out</span>
         </button>
       </header>

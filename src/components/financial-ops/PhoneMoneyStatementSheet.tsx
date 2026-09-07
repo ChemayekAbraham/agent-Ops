@@ -91,12 +91,15 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange }: Props) {
          const movements = Array.isArray((reconciliation as any)?.qualifying_emails)
            ? (reconciliation as any).qualifying_emails
            : [];
+         // `party` is who the money moved to/from (the counterparty), never
+         // the account being viewed itself -- otherwise "From/To Bayo Mercy
+         // account" reads backwards on every row regardless of direction.
          return movements.map((t: any) => ({
            id: String(t.id),
            at: t.extracted_at ?? null,
            amount: Number(t.amount ?? 0),
            direction: (t.direction === 'out' ? 'out' : 'in') as Row['direction'],
-           party: 'Bayo Mercy account',
+           party: t.counterparty || extractParty(t.snippet) || String(t.match_reason ?? 'Bayo Mercy account activity'),
            reference: t.transaction_id ?? null,
            balanceAfter: null,
            note: t.snippet ? String(t.snippet).slice(0, 180) : String(t.match_reason ?? 'Qualifying Bayo Mercy account alert'),

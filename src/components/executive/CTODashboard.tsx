@@ -11,6 +11,7 @@ import { InfrastructureHealthMonitor } from './InfrastructureHealthMonitor';
 import { CTOEmailsOverview } from './CTOEmailsOverview';
 import { CTOCommunicationOverview } from './CTOCommunicationOverview';
 import { SmsDeliveryLogViewer } from './SmsDeliveryLogViewer';
+import { VoiceApiCallLogViewer } from './VoiceApiCallLogViewer';
 import { SmsExceptionsManager } from './SmsExceptionsManager';
 import { BroadcastStatusPanel } from './BroadcastStatusPanel';
 import RunBackupNowButton from '@/components/admin/RunBackupNowButton';
@@ -46,6 +47,10 @@ export function CTODashboard({ activeTab }: { activeTab?: string }) {
   if (activeTab === 'sms-delivery') {
     return <SmsDeliveryLogViewer />;
   }
+  if (activeTab === 'voice-calls') {
+    return <VoiceApiCallLogViewer />;
+  }
+
   if (activeTab === 'sms-exceptions') {
     return <SmsExceptionsManager />;
   }

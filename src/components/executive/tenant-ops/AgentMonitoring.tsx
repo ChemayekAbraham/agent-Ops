@@ -36,7 +36,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserDrilldownDrawer } from '@/components/ops/UserDrilldownDrawer';
+import { AgentPaymentPosition } from './AgentPaymentPosition';
 
 interface ActiveRentRequest {
   id: string;
@@ -57,6 +59,7 @@ interface Profile {
   id: string;
   full_name: string | null;
   phone: string | null;
+  created_at: string | null;
 }
 
 interface Collection {
@@ -135,13 +138,17 @@ function formatStatus(status: string) {
   return status.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+type AgentMonitoringTab = 'all' | 'after-aug-2026' | 'position';
+
 export function AgentMonitoring() {
+  const [tab, setTab] = useState<AgentMonitoringTab>('all');
   const [day, setDay] = useState(() => startOfDay(new Date()));
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | CollectionStatus>('all');
   const [selectedAgent, setSelectedAgent] = useState<AgentRow | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<string | null>(null);
   const bounds = useMemo(() => dayBounds(day), [day]);
+  const createdAfter = tab === 'after-aug-2026' ? '2026-08-02T00:00:00+03:00' : undefined;
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['tenant-ops-agent-monitoring', format(day, 'yyyy-MM-dd')],
@@ -187,7 +194,7 @@ export function AgentMonitoring() {
       for (let index = 0; index < ids.length; index += CHUNK) {
         const { data: batch, error: profileError } = await supabase
           .from('profiles')
-          .select('id, full_name, phone')
+          .select('id, full_name, phone, created_at')
           .in('id', ids.slice(index, index + CHUNK));
         if (profileError) throw profileError;
         profiles.push(...((batch ?? []) as Profile[]));
@@ -221,25 +228,32 @@ export function AgentMonitoring() {
       if (!grouped.has(collection.agent_id)) grouped.set(collection.agent_id, []);
     });
 
-    return Array.from(grouped.entries()).map(([agentId, tenants]) => {
-      const expected = tenants.reduce((sum, request) => sum + Number(request.daily_repayment ?? 0), 0);
-      const collected = tenants.reduce(
-        (sum, request) => sum + (collectionMap.get(`${agentId}:${request.tenant_id}`) ?? 0),
-        0,
-      );
-      const profile = profileMap.get(agentId);
-      return {
-        id: agentId,
-        name: profile?.full_name || 'Unnamed agent',
-        phone: profile?.phone ?? null,
-        tenantCount: new Set(tenants.map((request) => request.tenant_id)).size,
-        expected,
-        collected,
-        requestCount: data?.requestCounts.get(agentId) ?? 0,
-        tenants,
-      };
-    }).sort((a, b) => b.expected - a.expected || a.name.localeCompare(b.name));
-  }, [collectionMap, data?.collections, data?.requests, data?.requestCounts, profileMap]);
+    return Array.from(grouped.entries())
+      .map(([agentId, tenants]) => {
+        const expected = tenants.reduce((sum, request) => sum + Number(request.daily_repayment ?? 0), 0);
+        const collected = tenants.reduce(
+          (sum, request) => sum + (collectionMap.get(`${agentId}:${request.tenant_id}`) ?? 0),
+          0,
+        );
+        const profile = profileMap.get(agentId);
+        return {
+          id: agentId,
+          name: profile?.full_name || 'Unnamed agent',
+          phone: profile?.phone ?? null,
+          tenantCount: new Set(tenants.map((request) => request.tenant_id)).size,
+          expected,
+          collected,
+          requestCount: data?.requestCounts.get(agentId) ?? 0,
+          tenants,
+        };
+      })
+      .filter((agent) => {
+        if (!createdAfter) return true;
+        const profile = profileMap.get(agent.id);
+        return !!profile?.created_at && new Date(profile.created_at) >= new Date(createdAfter);
+      })
+      .sort((a, b) => b.expected - a.expected || a.name.localeCompare(b.name));
+  }, [collectionMap, createdAfter, data?.collections, data?.requests, data?.requestCounts, profileMap]);
 
   const filteredAgents = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -335,8 +349,8 @@ export function AgentMonitoring() {
   };
 
 
-  return (
-    <div className="space-y-4">
+  const body = (
+    <>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-2.5">
@@ -470,7 +484,22 @@ export function AgentMonitoring() {
         agentId={selectedAgent?.id}
         defaultTab="tenant"
       />
-    </div>
+    </>
+  );
+
+  return (
+    <Tabs value={tab} onValueChange={(value) => setTab(value as AgentMonitoringTab)} className="space-y-4">
+      <div className="overflow-x-auto scrollbar-hide -mx-1 px-1">
+        <TabsList variant="pills" className="w-max">
+          <TabsTrigger value="all" variant="pills" className="text-xs">All agents</TabsTrigger>
+          <TabsTrigger value="after-aug-2026" variant="pills" className="text-xs">After 1 Aug 2026</TabsTrigger>
+          <TabsTrigger value="position" variant="pills" className="text-xs">Expected vs paid</TabsTrigger>
+        </TabsList>
+      </div>
+      <TabsContent value="all" className="space-y-4">{body}</TabsContent>
+      <TabsContent value="after-aug-2026" className="space-y-4">{body}</TabsContent>
+      <TabsContent value="position" className="space-y-4"><AgentPaymentPosition /></TabsContent>
+    </Tabs>
   );
 }
 

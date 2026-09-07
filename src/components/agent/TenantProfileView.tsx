@@ -190,6 +190,12 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
   const [profile, setProfile] = useState<TenantProfile | null>(null);
   const [requests, setRequests] = useState<RentRequestRow[]>([]);
   const [repayments, setRepayments] = useState<RepaymentRow[]>([]);
+  // Every field/wallet collection recorded for this tenant. Needed because many
+  // payments only ever land in `agent_collections` (no `repayments` row), and the
+  // self-repayment tag lives on the collection row.
+  const [tenantCollections, setTenantCollections] = useState<
+    { id: string; amount: number; created_at: string; rent_request_id: string | null; payment_method: string | null; notes: string | null }[]
+  >([]);
   const [walletData, setWalletData] = useState<WalletData | null>(null);
   const [floatAllocations, setFloatAllocations] = useState<
     { date: string; amount: number; status: 'active' | 'reversed'; reason: string | null }[]
@@ -298,6 +304,33 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
   // Back-compat alias — post-action refreshes call this.
   const loadLastAllocation = loadAllocations;
 
+  /**
+   * All collections recorded against this tenant (any agent, any channel).
+   * Reversed allocations are dropped so a cancelled entry never shows as paid.
+   */
+  const loadTenantCollections = async () => {
+    const { data } = await supabase
+      .from('agent_collections')
+      .select('id, amount, created_at, rent_request_id, payment_method, notes')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .limit(500);
+    const rows = ((data || []) as any[]).filter(
+      (r) => !String(r.notes || '').toLowerCase().includes('[reversed'),
+    );
+    setTenantCollections(
+      rows.map((r) => ({
+        id: String(r.id),
+        amount: Number(r.amount) || 0,
+        created_at: r.created_at,
+        rent_request_id: r.rent_request_id ? String(r.rent_request_id) : null,
+        payment_method: r.payment_method ?? null,
+        notes: r.notes ?? null,
+      })),
+    );
+  };
+
+
   const aiId = generateWelileAiId(tenantId);
   const navigate = useNavigate();
 
@@ -390,6 +423,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
           .eq('user_id', tenantId),
         // Allocations run inside the same burst instead of after it.
         user?.id ? loadAllocations() : Promise.resolve(null),
+        loadTenantCollections(),
       ]);
 
       const [rentRes, repaymentRes, walletRes, portfolioRes, ledgerRes, rolesRes] = settled.map((result, idx) =>
@@ -839,41 +873,83 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
    * Repayment history aggregated per rent plan.
    *
    * Accuracy rules:
-   * - only `repayments` rows whose `rent_request_id` matches the plan count towards
-   *   that plan (the repayments ledger is the source of truth for cash received);
+   * - both sources count: `repayments` rows and `agent_collections` rows carrying
+   *   this plan's `rent_request_id`. Many payments (field cash, wallet self-pay)
+   *   only ever produce a collection row, so using `repayments` alone under-reports;
+   * - when a collection and a repayment describe the same money (identical amount
+   *   within a 5-minute window) they are shown once — the collection wins because
+   *   it carries the channel/self-pay information;
+   * - a payment is tagged "Paid by tenant" when its collection row is an in-app
+   *   wallet movement or a recorded self-repayment; otherwise "Agent collected";
    * - the running balance is computed oldest-first as
-   *   `total_repayment − cumulative paid`, floored at 0, so each row shows the
-   *   balance that was left immediately after that payment;
-   * - when `amount_repaid` on the plan exceeds the sum of its repayment rows
-   *   (offline top-ups, system adjustments that never wrote a repayment row) the
-   *   difference is surfaced as an "other sources" note instead of being silently
-   *   folded into a payment row.
+   *   `total_repayment − cumulative paid`, floored at 0;
+   * - anything left over on `amount_repaid` after both sources is surfaced as an
+   *   "other sources" note instead of being folded into a payment row.
    */
   const buildPlanRepaymentHistory = (rows: RepaymentRow[]) => {
     const map = new Map<string, {
-      rows: { id: string; date: string; amount: number; remaining: number }[];
+      rows: { id: string; date: string; amount: number; remaining: number; selfPaid: boolean }[];
       ledgerPaid: number;
+      selfPaid: number;
       otherSources: number;
       remaining: number;
     }>();
 
+    const MATCH_WINDOW_MS = 5 * 60 * 1000;
+    const isSelfPaid = (c: { payment_method: string | null; notes: string | null }) =>
+      (c.payment_method || '').toLowerCase() === 'in_app_wallet' ||
+      /self[-\s]?repay/i.test(c.notes || '');
+
     for (const req of requests) {
       const totalDue = Number(req.total_repayment) || 0;
-      const planRows = rows
+
+      const planCollections = tenantCollections
+        .filter((c) => c.rent_request_id === req.id)
+        .map((c) => ({
+          id: `col-${c.id}`,
+          date: c.created_at,
+          amount: Number(c.amount) || 0,
+          selfPaid: isSelfPaid(c),
+        }));
+
+      // Repayment rows that are NOT already represented by a collection row.
+      const usedCollections = new Set<string>();
+      const extraRepayments = rows
         .filter((r) => r.rent_request_id === req.id)
-        .slice()
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        .filter((r) => {
+          const amount = Number(r.amount) || 0;
+          const t = new Date(r.created_at).getTime();
+          const twin = planCollections.find(
+            (c) =>
+              !usedCollections.has(c.id) &&
+              c.amount === amount &&
+              Math.abs(new Date(c.date).getTime() - t) <= MATCH_WINDOW_MS,
+          );
+          if (twin) {
+            usedCollections.add(twin.id);
+            return false;
+          }
+          return true;
+        })
+        .map((r) => ({
+          id: `rep-${r.id}`,
+          date: r.created_at,
+          amount: Number(r.amount) || 0,
+          // A repayment row with no matching collection is a wallet/ledger
+          // movement the tenant drove themselves.
+          selfPaid: true,
+        }));
+
+      const merged = [...planCollections, ...extraRepayments].sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+      );
 
       let cumulative = 0;
-      const built = planRows.map((r) => {
-        const amount = Number(r.amount) || 0;
-        cumulative += amount;
-        return {
-          id: String(r.id),
-          date: r.created_at,
-          amount,
-          remaining: Math.max(0, totalDue - cumulative),
-        };
+      let selfPaidTotal = 0;
+      const built = merged.map((r) => {
+        cumulative += r.amount;
+        if (r.selfPaid) selfPaidTotal += r.amount;
+        return { ...r, remaining: Math.max(0, totalDue - cumulative) };
       });
 
       const amountRepaid = Number(req.amount_repaid) || 0;
@@ -881,6 +957,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
         // newest-first for display
         rows: built.reverse(),
         ledgerPaid: cumulative,
+        selfPaid: selfPaidTotal,
         otherSources: Math.max(0, amountRepaid - cumulative),
         remaining: Math.max(0, totalDue - Math.max(cumulative, amountRepaid)),
       });
@@ -890,8 +967,9 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
 
   const planRepaymentHistory = useMemo(
     () => buildPlanRepaymentHistory(repayments),
-    [requests, repayments],
+    [requests, repayments, tenantCollections],
   );
+
 
   /** Export the full per-plan repayment history (all rows, not just loaded ones). */
   const handleExportRepaymentReport = async () => {
@@ -2093,13 +2171,20 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
 
                     {/* ── Repayment history for this plan (date & time, amount, balance left) ── */}
                     <div className="pt-2 border-t border-border/50 space-y-1.5">
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                           Repayment history
                         </p>
-                        <Badge variant="outline" className="text-[10px]">
-                          {planRows.length} payment{planRows.length === 1 ? '' : 's'} · {formatUGX(agg?.ledgerPaid ?? 0)}
-                        </Badge>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {(agg?.selfPaid ?? 0) > 0 && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              {formatUGX(agg!.selfPaid)} paid by tenant
+                            </Badge>
+                          )}
+                          <Badge variant="outline" className="text-[10px]">
+                            {planRows.length} payment{planRows.length === 1 ? '' : 's'} · {formatUGX(agg?.ledgerPaid ?? 0)}
+                          </Badge>
+                        </div>
                       </div>
 
                       {planRows.length === 0 ? (
@@ -2114,6 +2199,12 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                                     [{format(new Date(r.date), 'dd/MM/yy')}] {format(new Date(r.date), 'HH:mm')}
                                   </p>
                                   <p className="text-sm font-bold font-mono text-success">{formatUGX(r.amount)}</p>
+                                  <Badge
+                                    variant={r.selfPaid ? 'secondary' : 'outline'}
+                                    className="mt-1 text-[9px] px-1.5 py-0"
+                                  >
+                                    {r.selfPaid ? 'Paid by tenant' : 'Agent collected'}
+                                  </Badge>
                                 </div>
                                 <div className="text-right shrink-0">
                                   <p className="text-[10px] text-muted-foreground">Balance left</p>
@@ -2124,6 +2215,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                               </div>
                             ))}
                           </div>
+
                           {planRows.length > shown && (
                             <Button
                               variant="ghost"

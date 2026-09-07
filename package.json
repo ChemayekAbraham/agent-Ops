@@ -15,7 +15,6 @@
     "guard:deposit-purpose": "node scripts/guard-deposit-purpose.mjs",
     "guard:canonical-tags": "node scripts/guard-canonical-tags.mjs",
     "guard:schema-types": "node scripts/guard-schema-types.mjs",
-    "guard:mcp-deploy": "node scripts/guard-mcp-deploy.mjs",
     "check:runtime-env": "node scripts/check-runtime-env.mjs",
     "verify:dist": "node scripts/verify-dist.mjs",
     "publish:diagnostics": "node scripts/publish-diagnostics.mjs",

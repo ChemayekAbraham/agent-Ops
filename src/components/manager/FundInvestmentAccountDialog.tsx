@@ -18,6 +18,7 @@ interface ProxyAgentInfo {
   agentName: string;
   withdrawable: number;
   float: number;
+  isManaged: boolean;
 }
 
 interface UserResult {
@@ -102,7 +103,7 @@ export function FundInvestmentAccountDialog({ open, onOpenChange, account, onSuc
         const [walletRes, proxyRes] = await Promise.all([
           supabase.from('wallets').select('withdrawable_balance, float_balance').eq('user_id', partnerId).maybeSingle(),
           supabase.from('proxy_agent_assignments')
-            .select('agent_id')
+            .select('agent_id, is_managed_account')
             .eq('beneficiary_id', partnerId)
             .eq('is_active', true)
             .eq('approval_status', 'approved')
@@ -126,6 +127,7 @@ export function FundInvestmentAccountDialog({ open, onOpenChange, account, onSuc
             agentName: profileRes.data?.full_name || 'Agent',
             withdrawable: agentWalletRes.data ? Number((agentWalletRes.data as any).withdrawable_balance ?? 0) : 0,
             float: agentWalletRes.data ? Number((agentWalletRes.data as any).float_balance ?? 0) : 0,
+            isManaged: !!(proxyRes.data as any).is_managed_account,
           });
         } else {
           setProxyAgent(null);
@@ -155,11 +157,22 @@ export function FundInvestmentAccountDialog({ open, onOpenChange, account, onSuc
     onOpenChange(isOpen);
   };
 
-  const activeWallet = paymentMethod === 'wallet'
-    ? partnerWallet
-    : paymentMethod === 'user_wallet'
-      ? selectedUserWallet
-      : (proxyAgent ? { withdrawable: proxyAgent.withdrawable, float: proxyAgent.float } : null);
+  // The server only routes funds to the managed proxy agent's wallet when the
+  // operator did NOT explicitly pick a wallet (partner wallet or a searched
+  // user's wallet). Mirror that here so the balance shown and the sufficiency
+  // check match the wallet that will actually be debited.
+  const managedProxyOverride = !!proxyAgent?.isManaged &&
+    paymentMethod !== 'wallet' &&
+    paymentMethod !== 'user_wallet';
+  const proxyWallet = proxyAgent ? { withdrawable: proxyAgent.withdrawable, float: proxyAgent.float } : null;
+  const activeWallet = managedProxyOverride
+    ? proxyWallet
+    : paymentMethod === 'wallet'
+      ? partnerWallet
+      : paymentMethod === 'user_wallet'
+        ? selectedUserWallet
+        : proxyWallet;
+
   const selectedBalance = activeWallet
     ? (fundSource === 'withdrawable' ? activeWallet.withdrawable : activeWallet.float)
     : null;
@@ -230,7 +243,9 @@ export function FundInvestmentAccountDialog({ open, onOpenChange, account, onSuc
     (paymentMethod === 'wallet' || !!proxyAgent) &&
     funderCleared;
 
-  const sourceOwnerLabel = paymentMethod === 'wallet'
+  const sourceOwnerLabel = managedProxyOverride
+    ? `${proxyAgent?.agentName || 'Agent'} (Proxy)`
+    : paymentMethod === 'wallet'
     ? (account?.investor_name || 'Partner')
     : paymentMethod === 'user_wallet'
       ? (selectedUser?.full_name || 'User')

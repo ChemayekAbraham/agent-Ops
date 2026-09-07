@@ -45,17 +45,27 @@ function groupOf(status: string): StatusGroup {
 }
 
 async function fetchTopUpRows(): Promise<TopUpRow[]> {
-  const { data: ops, error } = await supabase
-    .from('pending_wallet_operations')
-    .select('id, source_id, user_id, amount, status, created_at, description, metadata')
-    .eq('operation_type', 'portfolio_topup')
-    .eq('source_table', 'investor_portfolios')
-    .in('status', ['pending', 'awaiting_verification', 'approved', 'completed'])
-    .order('created_at', { ascending: false })
-    .limit(1000);
-  if (error) throw error;
-  const list = ops || [];
+  // Paginate: a single .limit() silently dropped the oldest records once the
+  // total passed the page size, understating applied top-up totals.
+  const PAGE = 1000;
+  const MAX_PAGES = 20;
+  const list: any[] = [];
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const { data: ops, error } = await supabase
+      .from('pending_wallet_operations')
+      .select('id, source_id, user_id, amount, status, created_at, description, metadata')
+      .eq('operation_type', 'portfolio_topup')
+      .eq('source_table', 'investor_portfolios')
+      .in('status', ['pending', 'awaiting_verification', 'approved', 'completed'])
+      .order('created_at', { ascending: false })
+      .range(page * PAGE, page * PAGE + PAGE - 1);
+    if (error) throw error;
+    const batch = ops || [];
+    list.push(...batch);
+    if (batch.length < PAGE) break;
+  }
   const portfolioIds = Array.from(new Set(list.map((o: any) => o.source_id).filter(Boolean)));
+
 
   const portfolioMap: Record<string, { account_name: string | null; portfolio_code: string | null; investor_id: string | null; investment_amount: number }> = {};
   if (portfolioIds.length > 0) {

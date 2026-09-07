@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Wallet, ArrowUpFromLine, Banknote, CreditCard, Search, TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Wallet, ArrowUpFromLine, Banknote, CreditCard, Search, TrendingUp, ChevronLeft, ChevronRight, ChevronDown, ArrowRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -33,6 +33,16 @@ export function AgentBalancesPanel() {
   const [sortKey, setSortKey] = useState<SortKey>('total');
   const [page, setPage] = useState(0);
   const [openAgentId, setOpenAgentId] = useState<string | null>(null);
+  const [expandedCardIds, setExpandedCardIds] = useState<Set<string>>(new Set());
+
+  const toggleCardExpanded = (id: string) => {
+    setExpandedCardIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // Debounce search
   useEffect(() => {
@@ -179,37 +189,76 @@ export function AgentBalancesPanel() {
 
             {/* Mobile cards */}
             <div className="md:hidden divide-y divide-border">
-              {rows.map((r) => (
-                <div key={r.user_id} onClick={() => setOpenAgentId(r.user_id)} className="p-3 space-y-2 active:bg-muted/40 cursor-pointer transition-colors">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="font-semibold text-sm truncate flex items-center gap-1.5 flex-wrap">
-                        <span className={`truncate ${(() => {
-                          const dr = capacityMap?.get(r.user_id)?.daily_rating;
-                          return dr === 'Very Good' || dr === 'Good' ? 'text-emerald-700' : '';
-                        })()}`}>{r.full_name || '—'}</span>
-                        <AgentCapacityBadge
-                          capacity={capacityMap?.get(r.user_id)}
-                          loading={capacityFetching && !capacityMap}
+              {rows.map((r) => {
+                const isExpanded = expandedCardIds.has(r.user_id);
+                return (
+                  <div key={r.user_id} className="p-3 space-y-2 transition-colors">
+                    <div
+                      onClick={() => toggleCardExpanded(r.user_id)}
+                      className="flex items-start justify-between gap-2 cursor-pointer active:opacity-75 select-none"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-sm truncate flex items-center gap-1.5 flex-wrap">
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenAgentId(r.user_id);
+                            }}
+                            className={`truncate hover:underline ${(() => {
+                              const dr = capacityMap?.get(r.user_id)?.daily_rating;
+                              return dr === 'Very Good' || dr === 'Good' ? 'text-emerald-700' : '';
+                            })()}`}
+                          >
+                            {r.full_name || '—'}
+                          </span>
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <AgentCapacityBadge
+                              capacity={capacityMap?.get(r.user_id)}
+                              loading={capacityFetching && !capacityMap}
+                            />
+                          </div>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground truncate mt-0.5">
+                          {r.phone || 'No phone'}
+                          {r.territory ? ` · ${r.territory}` : ''}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0 flex items-center gap-2">
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Total</div>
+                          <div className="text-sm font-bold tabular-nums">{fmt(r.total)}</div>
+                        </div>
+                        <ChevronDown
+                          className={cn(
+                            "h-4 w-4 text-muted-foreground transition-transform duration-200 mt-1",
+                            isExpanded && "rotate-180"
+                          )}
                         />
                       </div>
-                      <div className="text-[11px] text-muted-foreground truncate">
-                        {r.phone || 'No phone'}
-                        {r.territory ? ` · ${r.territory}` : ''}
+                    </div>
+
+                    {isExpanded && (
+                      <div className="space-y-2 pt-1 border-t border-border/40 animate-in fade-in-50 duration-150">
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <BucketChip label="Withdraw" value={fmt(r.withdrawable)} tone="bg-emerald-500/10 text-emerald-700" />
+                          <BucketChip label="Float" value={fmt(r.float)} tone="bg-blue-500/10 text-blue-700" />
+                          <BucketChip label="Advance" value={fmt(r.advance)} tone="bg-amber-500/10 text-amber-700" />
+                        </div>
+                        <div className="flex justify-end pt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => setOpenAgentId(r.user_id)}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline px-1 py-0.5"
+                          >
+                            <span>View 360° Profile</span>
+                            <ArrowRight className="h-3 w-3" />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Total</div>
-                      <div className="text-sm font-bold tabular-nums">{fmt(r.total)}</div>
-                    </div>
+                    )}
                   </div>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <BucketChip label="Withdraw" value={fmt(r.withdrawable)} tone="bg-emerald-500/10 text-emerald-700" />
-                    <BucketChip label="Float" value={fmt(r.float)} tone="bg-blue-500/10 text-blue-700" />
-                    <BucketChip label="Advance" value={fmt(r.advance)} tone="bg-amber-500/10 text-amber-700" />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </>
         )}

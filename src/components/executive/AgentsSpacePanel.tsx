@@ -20,7 +20,7 @@ import { toast } from 'sonner';
 import {
   Loader2, Plus, Clock, CheckCircle2, XCircle, HelpCircle, Wallet, Paperclip, Upload,
   ArrowLeft, X, RefreshCw, Search, SendHorizontal, AlertCircle, ShieldCheck, ShieldAlert,
-  Lock, Key, LogOut
+  Lock, Key, LogOut, FileText, Trash2, Calendar
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
@@ -199,10 +199,12 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
   const [agentSearchResults, setAgentSearchResults] = useState<ProfileSummary[]>([]);
   const [searchingAgents, setSearchingAgents] = useState(false);
   const [togglingAgentId, setTogglingAgentId] = useState<string | null>(null);
+  const [deletingPermId, setDeletingPermId] = useState<string | null>(null);
 
   // Submit / Resubmit modal
   const [openSubmit, setOpenSubmit] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [resubmitId, setResubmitId] = useState<string | null>(null);
 
@@ -374,6 +376,22 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
     setTogglingAgentId(null);
   };
 
+  const handleDeletePermission = async (permissionId: string) => {
+    setDeletingPermId(permissionId);
+    const { error } = await supabase
+      .from('staff_permissions')
+      .delete()
+      .eq('id', permissionId);
+
+    if (error) {
+      toast.error('Failed to remove permission record', { description: error.message });
+    } else {
+      toast.success('Restricted agent record removed');
+      await fetchPermissions();
+    }
+    setDeletingPermId(null);
+  };
+
   // Buckets for Ops mode
   const filteredBuckets = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
@@ -461,11 +479,13 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
   const startNew = () => {
     setResubmitId(null);
     setForm(EMPTY_FORM);
+    setSelectedFiles([]);
     setOpenSubmit(true);
   };
 
   const startResubmit = (row: Requisition) => {
     setResubmitId(row.id);
+    setSelectedFiles([]);
     const cleanedCategory = (row.category ?? '').replace(/\[Agents Space\]\s*/i, '').trim();
     const isPredefinedCat = AGENTS_SPACE_CATEGORIES.some((c) => c !== 'Others' && c.toLowerCase() === cleanedCategory.toLowerCase());
     const isPredefinedTitle = AGENTS_SPACE_CATEGORIES.some((c) => c !== 'Others' && c.toLowerCase() === (row.title ?? '').toLowerCase());
@@ -500,6 +520,25 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
     setOpenSubmit(true);
   };
 
+  const handleFilesChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const valid: File[] = [];
+    for (const f of files) {
+      if (f.size > 10 * 1024 * 1024) {
+        toast.error(`File "${f.name}" is larger than 10MB`);
+        continue;
+      }
+      valid.push(f);
+    }
+    setSelectedFiles((prev) => [...prev, ...valid].slice(0, 10));
+    e.target.value = '';
+  };
+
+  const removeSelectedFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const submitRequisition = async () => {
     const amount = Number(form.amount);
     if (!form.category) return toast.error('Please select what this requisition is for');
@@ -512,7 +551,7 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
     const finalReason = form.reason?.trim() || `Requisition for ${finalTitle} under Agents' Space`;
 
     setSubmitting(true);
-    const { error } = await invokeEdgeFunction('staff-requisition-submit', {
+    const { data, error } = await invokeEdgeFunction<{ ok: boolean; requisition?: { id: string } }>('staff-requisition-submit', {
       body: {
         ...(resubmitId ? { requisition_id: resubmitId } : {}),
         title: finalTitle,
@@ -523,15 +562,30 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
       },
       errorTitle: 'Could not submit your requisition',
     });
-    setSubmitting(false);
 
     if (!error) {
+      const targetId = resubmitId || data?.requisition?.id;
+      if (targetId && selectedFiles.length > 0) {
+        for (const file of selectedFiles) {
+          const formPayload = new FormData();
+          formPayload.append('requisition_id', targetId);
+          formPayload.append('file', file);
+          await invokeEdgeFunction('staff-requisition-add-attachment', {
+            body: formPayload,
+            errorTitle: `Could not attach ${file.name}`,
+            silent: true,
+          });
+        }
+      }
+
       toast.success(resubmitId ? 'Requisition resubmitted' : 'Requisition submitted for review');
       setOpenSubmit(false);
       setForm(EMPTY_FORM);
+      setSelectedFiles([]);
       setResubmitId(null);
       await fetchRows();
     }
+    setSubmitting(false);
   };
 
   const uploadReceipt = async (row: Requisition, file: File) => {
@@ -700,6 +754,64 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
                       placeholder="250000"
                       className="rounded-xl h-11"
                     />
+                  </div>
+
+
+                  {/* Optional File Attachments */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center justify-between text-xs sm:text-sm">
+                      <span>Attachments / Receipts <span className="text-xs text-muted-foreground font-normal">(optional)</span></span>
+                      <span className="text-[11px] text-muted-foreground">PDF, PNG, JPG (max 10MB)</span>
+                    </Label>
+
+                    {/* File Dropzone / Picker */}
+                    <div className="border border-dashed border-border rounded-xl p-3 sm:p-4 bg-muted/20 hover:bg-muted/30 transition-colors text-center">
+                      <label className="cursor-pointer flex flex-col items-center justify-center gap-1.5">
+                        <Upload className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-xs font-semibold text-primary">
+                          Click to select supporting documents or receipts
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          Quotes, invoices, receipts or payment proofs
+                        </span>
+                        <input
+                          type="file"
+                          multiple
+                          accept="application/pdf,image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={handleFilesChosen}
+                        />
+                      </label>
+                    </div>
+
+                    {/* Selected Files List */}
+                    {selectedFiles.length > 0 && (
+                      <div className="space-y-1.5 pt-1">
+                        {selectedFiles.map((file, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between p-2 rounded-lg bg-background border border-border text-xs"
+                          >
+                            <div className="flex items-center gap-2 min-w-0 pr-2">
+                              <FileText className="h-4 w-4 text-primary shrink-0" />
+                              <span className="truncate font-medium text-foreground">{file.name}</span>
+                              <span className="text-[10px] text-muted-foreground shrink-0">
+                                ({(file.size / (1024 * 1024) >= 1) ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(file.size / 1024)} KB`})
+                              </span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeSelectedFile(idx)}
+                              className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <DialogFooter className="gap-2 pt-2">
@@ -1258,7 +1370,23 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {!isActive && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={deletingPermId === cap.id}
+                            onClick={() => void handleDeletePermission(cap.id)}
+                            className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10 rounded-xl transition-colors"
+                            title="Delete restricted record"
+                          >
+                            {deletingPermId === cap.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-destructive" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
                         {isToggling ? (
                           <Loader2 className="h-4 w-4 animate-spin text-primary" />
                         ) : (

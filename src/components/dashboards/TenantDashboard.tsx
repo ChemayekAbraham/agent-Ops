@@ -87,6 +87,13 @@ interface RentRequest {
   status: string;
   created_at: string;
   disbursed_at: string | null;
+  agent_verified?: boolean | null;
+  manager_verified?: boolean | null;
+  supporter_id?: string | null;
+  funded_at?: string | null;
+  fund_recipient_type?: string | null;
+  fund_recipient_name?: string | null;
+  fund_routed_at?: string | null;
 }
 
 interface Repayment {
@@ -299,6 +306,12 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
   const menuItems: never[] = [];
 
+  // Most relevant rent request for the process tracker — the active one
+  // (mirrors RepaymentSection's own selection) falling back to the most
+  // recent request overall so new/rejected tenants still see a tracker.
+  const currentRentRequest =
+    rentRequests.find((r) => !['completed', 'rejected'].includes(r.status)) || rentRequests[0];
+
   return (
     <div className="h-[100dvh] bg-background flex flex-col overflow-hidden">
       <DashboardHeader
@@ -373,6 +386,26 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
               }
             />
           </div>
+
+          {/* Outstanding balance / daily-charge status */}
+          <WidgetErrorBoundary label="Subscription status">
+            <SubscriptionStatusCard userId={user.id} />
+          </WidgetErrorBoundary>
+
+          {/* Rent request process tracker */}
+          {currentRentRequest && (
+            <WidgetErrorBoundary label="Rent process">
+              <RentProcessTracker
+                requestStatus={currentRentRequest.status}
+                agentVerified={currentRentRequest.agent_verified ?? undefined}
+                managerApproved={currentRentRequest.manager_verified ?? undefined}
+                supporterFunded={Boolean(currentRentRequest.supporter_id || currentRentRequest.funded_at)}
+                fundRecipientType={currentRentRequest.fund_recipient_type}
+                fundRecipientName={currentRentRequest.fund_recipient_name}
+                fundRoutedAt={currentRentRequest.fund_routed_at}
+              />
+            </WidgetErrorBoundary>
+          )}
 
           {/* Available houses — surfaced near the top of home so tenants find them first */}
           <div className="grid grid-cols-2 gap-3">
@@ -449,6 +482,27 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
               </ul>
             </div>
           )}
+
+          {/* Payment history — collapsed by default, full schedule + history on demand */}
+          <div className="rounded-xl border border-border/60 bg-card">
+            <button
+              type="button"
+              onClick={() => { hapticTap(); setShowRepaymentSchedule((v) => !v); }}
+              className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-semibold"
+            >
+              Payment History
+              <span className="text-xs text-muted-foreground font-normal">
+                {showRepaymentSchedule ? 'Hide' : 'View'}
+              </span>
+            </button>
+            {showRepaymentSchedule && (
+              <div className="px-3 pb-3">
+                <WidgetErrorBoundary label="Payment history">
+                  <RepaymentSection userId={user.id} activeRequest={currentRentRequest} />
+                </WidgetErrorBoundary>
+              </div>
+            )}
+          </div>
 
           {/* Invite & Earn — kept on home for growth */}
           <InviteAndEarnCard variant="tenant" compact />

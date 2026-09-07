@@ -107,23 +107,23 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
           </div>
           {arrearsTarget !== null && arrearsTarget !== undefined ? (
             <div className="rounded-md border px-3 py-2">
-              <p className="text-[11px] text-muted-foreground">Arrears target</p>
+              <p className="text-[11px] text-muted-foreground">Arrears brought forward</p>
               <p className="text-sm font-semibold tabular-nums text-destructive">
                 {formatUGX(arrearsTarget)}
               </p>
               <p className="text-[11px] text-muted-foreground">
-                {`${arrearsTargetCount ?? '—'} plans past their agreed end date`}
+                {`${arrearsTargetCount ?? '—'} plans owing at the start of this period`}
               </p>
             </div>
           ) : (
             <p className="text-[11px] text-muted-foreground">
-              Arrears target not recorded for this period
+              Arrears brought forward not recorded for this period
             </p>
           )}
         </div>
 
         <p className="text-xs">
-          {`Total field target — ${totalFieldTarget === null || totalFieldTarget === undefined ? '—' : formatUGX(totalFieldTarget)}`}
+          {`Due plus arrears brought forward — ${totalFieldTarget === null || totalFieldTarget === undefined ? '—' : formatUGX(totalFieldTarget)}`}
         </p>
         {arrearsOutstanding !== null && arrearsOutstanding !== undefined && (
           <p className="text-[11px] text-muted-foreground">
@@ -132,7 +132,7 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
         )}
 
         <p className="text-[11px] text-muted-foreground mt-2">
-          Due on agreed plans is what the payment plans schedule in this period. Arrears target is the daily rate of plans that have passed their agreed end date and schedule nothing further. The two cover different plans and do not overlap. Arrears outstanding is a running balance, not a target for this period.
+          Due on agreed plans is what each tenant's payment plan falls due in this period, at their own daily, weekly or monthly cadence. Arrears brought forward is what was already owed when the period opened. Arrears outstanding is what is owed now — if a tenant misses a payment today it lands here, and it becomes tomorrow's brought-forward figure.
         </p>
 
         <p>{threshold === null ? 'threshold —' : `threshold ${threshold.toFixed(1)}%`}</p>
@@ -185,10 +185,7 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
         )}
 
         <p className="pt-2 text-xs italic">
-          Scheduled is the sum of instalments the agreed payment plans fall due in this period.
-          Plans past their agreed end date schedule nothing further; recovery against them is
-          reported beside the rate, not inside it. Once a day is closed its scheduled figure is
-          fixed and does not move.
+          Scheduled is the sum of instalments the agreed payment plans fall due in this period, on each plan's own cadence. A tenant onboarded today with repayment starting later contributes from their first due date onward, not before. Plans past their agreed end date schedule nothing further; recovery against them is reported beside the rate, not inside it. Once a day is closed its scheduled figure is fixed and does not move.
         </p>
       </div>
     </section>

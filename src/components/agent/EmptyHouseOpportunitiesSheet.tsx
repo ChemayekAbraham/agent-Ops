@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Home, Loader2, Search, SlidersHorizontal, Check, Share2, ShieldCheck, MapPin, Users, Phone, MessageSquare, Navigation, ImageIcon, Eye, Clock, CheckCircle2, UserCheck, Wallet, X, CalendarDays } from 'lucide-react';
+import { Home, Loader2, Search, SlidersHorizontal, Check, Share2, ShieldCheck, MapPin, Users, Phone, MessageSquare, Navigation, ImageIcon, Eye, Clock, CheckCircle2, UserCheck, Wallet, X, CalendarDays, ShoppingCart, ArrowRight, ArrowLeft } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { formatUGX } from '@/lib/rentCalculations';
 import { UGANDA_DISTRICTS, CITY_TO_DISTRICT } from '@/lib/ugandaDistricts';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
@@ -121,8 +122,8 @@ export function EmptyHouseOpportunitiesSheet({
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const [page, setPage] = useState(0);
+  const [step, setStep] = useState<'browse' | 'checkout'>('browse');
   const [selected, setSelected] = useState<Record<string, HouseOpportunity>>({});
-  const [showFilters, setShowFilters] = useState(true);
   const [district, setDistrict] = useState('all');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [mapPinOnly, setMapPinOnly] = useState(false);
@@ -165,17 +166,16 @@ export function EmptyHouseOpportunitiesSheet({
     if (open && initialMaxRent && initialMaxRent > 0) {
       setMaxRent(String(Math.round(initialMaxRent)));
       setPage(0);
-      setShowFilters(true);
     }
   }, [open, initialMaxRent]);
 
   const reset = () => {
-    setSearch(''); setDebounced(''); setPage(0); setSelected({});
+    setSearch(''); setDebounced(''); setPage(0); setSelected({}); setStep('browse');
     setNameParts({ firstName: '', otherNames: '', lastName: '' });
     setWhatsappNumber(''); setPhoneNumber(''); setEmail('');
     setContributionType('compounding'); setDeductionDay('1');
     setErrorMsg(null); setCreatedNote(null); setCreatedNotes([]); setSplitPerHouse(true);
-    setShowFilters(true); setDistrict('all'); setVerifiedOnly(false); setMapPinOnly(false);
+    setDistrict('all'); setVerifiedOnly(false); setMapPinOnly(false);
     setMinRent(''); setMaxRent(''); setNearMe(null); setSort('recommended');
 
   };
@@ -690,6 +690,7 @@ export function EmptyHouseOpportunitiesSheet({
         ) : (
           <div className="p-4 space-y-4 pb-40">
             {/* Partner tag */}
+            {step === 'checkout' && (
             <div className="rounded-2xl border p-3 space-y-2.5">
               <p className="text-xs font-bold">{isPartner ? 'How you will contribute' : 'Tag the partner'}</p>
               {!isPartner && (
@@ -764,9 +765,12 @@ export function EmptyHouseOpportunitiesSheet({
                 </div>
               )}
             </div>
+            )}
 
 
 
+            {step === 'browse' && (
+            <>
             {/* Search + filters */}
             <div className="space-y-2">
               <div className="flex gap-2">
@@ -779,129 +783,133 @@ export function EmptyHouseOpportunitiesSheet({
                     className="pl-9 h-10"
                   />
                 </div>
-                <Button
-                  type="button"
-                  variant={activeFilterCount > 0 ? 'default' : 'outline'}
-                  className="h-10 shrink-0 gap-1.5"
-                  onClick={() => setShowFilters((v) => !v)}
-                >
-                  <SlidersHorizontal className="h-4 w-4" />
-                  Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
-                </Button>
-              </div>
-
-              {showFilters && (
-                <div className="rounded-2xl border bg-muted/30 p-3 space-y-3">
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-muted-foreground">Sort by</Label>
-                    <Select
-                      value={sort}
-                      onValueChange={(v) => {
-                        const next = v as typeof sort;
-                        setSort(next);
-                        setPage(0);
-                        if (next === 'nearest' && !nearMe) useMyLocation();
-                      }}
+                <Popover modal>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant={activeFilterCount > 0 ? 'default' : 'outline'}
+                      className="h-10 shrink-0 gap-1.5"
                     >
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="recommended">Recommended</SelectItem>
-                        <SelectItem value="nearest">Nearest to me</SelectItem>
-                        <SelectItem value="newest">Newest listings</SelectItem>
-                        <SelectItem value="rent_high">Highest funding need</SelectItem>
-                        <SelectItem value="rent_low">Lowest funding need</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <SlidersHorizontal className="h-4 w-4" />
+                      Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="end"
+                    collisionPadding={12}
+                    className="z-[200] max-h-[70vh] overflow-y-auto w-[calc(100vw-2rem)] sm:w-[420px] rounded-2xl border bg-popover p-3 space-y-3"
+                  >
                     <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">District</Label>
-                      <Select value={district} onValueChange={(v) => { setDistrict(v); setPage(0); }}>
+                      <Label className="text-[11px] text-muted-foreground">Sort by</Label>
+                      <Select
+                        value={sort}
+                        onValueChange={(v) => {
+                          const next = v as typeof sort;
+                          setSort(next);
+                          setPage(0);
+                          if (next === 'nearest' && !nearMe) useMyLocation();
+                        }}
+                      >
                         <SelectTrigger className="h-9">
-                          <SelectValue placeholder="All districts" />
+                          <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="max-h-64">
-                          <SelectItem value="all">All districts</SelectItem>
-                          {districtOptions.map((d) => (
-                            <SelectItem key={d} value={d}>{d}</SelectItem>
-                          ))}
+                        <SelectContent>
+                          <SelectItem value="recommended">Recommended</SelectItem>
+                          <SelectItem value="nearest">Nearest to me</SelectItem>
+                          <SelectItem value="newest">Newest listings</SelectItem>
+                          <SelectItem value="rent_high">Highest funding need</SelectItem>
+                          <SelectItem value="rent_low">Lowest funding need</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">Monthly rent (UGX)</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          inputMode="numeric"
-                          value={minRent}
-                          onChange={(e) => { setMinRent(e.target.value.replace(/\D/g, '')); setPage(0); }}
-                          placeholder="Min"
-                          className="h-9"
-                        />
-                        <Input
-                          inputMode="numeric"
-                          value={maxRent}
-                          onChange={(e) => { setMaxRent(e.target.value.replace(/\D/g, '')); setPage(0); }}
-                          placeholder="Max"
-                          className="h-9"
-                        />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">District</Label>
+                        <Select value={district} onValueChange={(v) => { setDistrict(v); setPage(0); }}>
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="All districts" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-64">
+                            <SelectItem value="all">All districts</SelectItem>
+                            {districtOptions.map((d) => (
+                              <SelectItem key={d} value={d}>{d}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Monthly rent (UGX)</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            inputMode="numeric"
+                            value={minRent}
+                            onChange={(e) => { setMinRent(e.target.value.replace(/\D/g, '')); setPage(0); }}
+                            placeholder="Min"
+                            className="h-9"
+                          />
+                          <Input
+                            inputMode="numeric"
+                            value={maxRent}
+                            onChange={(e) => { setMaxRent(e.target.value.replace(/\D/g, '')); setPage(0); }}
+                            placeholder="Max"
+                            className="h-9"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={mapPinOnly ? 'default' : 'outline'}
-                      className="h-8 gap-1.5"
-                      onClick={() => { setMapPinOnly((v) => !v); setPage(0); }}
-                    >
-                      <MapPin className="h-3.5 w-3.5" /> On the map only
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={verifiedOnly ? 'default' : 'outline'}
-                      className="h-8 gap-1.5"
-                      onClick={() => { setVerifiedOnly((v) => !v); setPage(0); }}
-                    >
-                      <ShieldCheck className="h-3.5 w-3.5" /> Verified only
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={nearMe ? 'default' : 'outline'}
-                      className="h-8 gap-1.5"
-                      disabled={locating}
-                      onClick={() => (nearMe ? (setNearMe(null), setPage(0)) : useMyLocation())}
-                    >
-                      {locating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />}
-                      {nearMe ? `Within ${nearMe.radiusKm} km` : 'Near me'}
-                    </Button>
-                    {nearMe && (
-                      <Select
-                        value={String(nearMe.radiusKm)}
-                        onValueChange={(v) => { setNearMe({ ...nearMe, radiusKm: Number(v) }); setPage(0); }}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={mapPinOnly ? 'default' : 'outline'}
+                        className="h-8 gap-1.5"
+                        onClick={() => { setMapPinOnly((v) => !v); setPage(0); }}
                       >
-                        <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {[2, 5, 10, 25, 50].map((r) => (
-                            <SelectItem key={r} value={String(r)}>{r} km</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                    {activeFilterCount > 0 && (
-                      <Button type="button" size="sm" variant="ghost" className="h-8" onClick={clearFilters}>
-                        Clear
+                        <MapPin className="h-3.5 w-3.5" /> On the map only
                       </Button>
-                    )}
-                  </div>
-                </div>
-              )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={verifiedOnly ? 'default' : 'outline'}
+                        className="h-8 gap-1.5"
+                        onClick={() => { setVerifiedOnly((v) => !v); setPage(0); }}
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" /> Verified only
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={nearMe ? 'default' : 'outline'}
+                        className="h-8 gap-1.5"
+                        disabled={locating}
+                        onClick={() => (nearMe ? (setNearMe(null), setPage(0)) : useMyLocation())}
+                      >
+                        {locating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />}
+                        {nearMe ? `Within ${nearMe.radiusKm} km` : 'Near me'}
+                      </Button>
+                      {nearMe && (
+                        <Select
+                          value={String(nearMe.radiusKm)}
+                          onValueChange={(v) => { setNearMe({ ...nearMe, radiusKm: Number(v) }); setPage(0); }}
+                        >
+                          <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {[2, 5, 10, 25, 50].map((r) => (
+                              <SelectItem key={r} value={String(r)}>{r} km</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {activeFilterCount > 0 && (
+                        <Button type="button" size="sm" variant="ghost" className="h-8" onClick={clearFilters}>
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
 
             {filterChips.length > 0 && (
@@ -1012,33 +1020,35 @@ export function EmptyHouseOpportunitiesSheet({
                         </div>
                       </button>
                       {(h.landlord_name || h.landlord_phone) && (
-                        <div className="mx-3 mb-3 rounded-2xl border border-primary/15 bg-primary/5 p-3 space-y-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
+                        <div className="mx-3 mb-3 rounded-2xl border border-primary/15 bg-primary/5 p-3">
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-center justify-between gap-2">
                               <p className="text-[10px] font-bold uppercase tracking-wide text-primary/80">Landlord</p>
-                              <p className="text-base font-bold leading-tight truncate">
+                              {h.landlord_phone && (
+                                <div className="flex flex-wrap justify-end gap-1.5">
+                                  <Button asChild variant="outline" size="sm" className="h-8 gap-1 px-2.5 text-[11px]">
+                                    <a href={`tel:${h.landlord_phone}`}>
+                                      <Phone className="h-3.5 w-3.5" /> Call
+                                    </a>
+                                  </Button>
+                                  <Button asChild variant="secondary" size="sm" className="h-8 gap-1 px-2.5 text-[11px]">
+                                    <a href={`sms:${h.landlord_phone}`}>
+                                      <MessageSquare className="h-3.5 w-3.5" /> Message
+                                    </a>
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 space-y-0.5">
+                              <p className="text-sm font-bold leading-tight truncate">
                                 {h.landlord_name || 'Name not on file'}
                               </p>
                               {h.landlord_phone && (
-                                <p className="flex items-center gap-1.5 text-sm font-bold text-primary">
+                                <p className="flex items-center gap-1.5 text-xs font-semibold text-primary">
                                   <Phone className="h-3.5 w-3.5 shrink-0" /> {h.landlord_phone}
                                 </p>
                               )}
                             </div>
-                            {h.landlord_phone && (
-                              <div className="flex shrink-0 gap-1.5">
-                                <Button asChild variant="outline" size="sm" className="h-9 gap-1.5 text-[11px]">
-                                  <a href={`tel:${h.landlord_phone}`}>
-                                    <Phone className="h-3.5 w-3.5" /> Call
-                                  </a>
-                                </Button>
-                                <Button asChild variant="secondary" size="sm" className="h-9 gap-1.5 text-[11px]">
-                                  <a href={`sms:${h.landlord_phone}`}>
-                                    <MessageSquare className="h-3.5 w-3.5" /> Message
-                                  </a>
-                                </Button>
-                              </div>
-                            )}
                           </div>
                         </div>
                       )}
@@ -1084,16 +1094,50 @@ export function EmptyHouseOpportunitiesSheet({
               </div>
             )}
 
-            {picked.length > 0 && (
+            {step === 'browse' && picked.length > 0 && (
+              <div className="sticky bottom-0 -mx-4 mt-2 border-t bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                <div className="flex items-center gap-3">
+                  <div className="relative shrink-0 rounded-xl bg-primary/10 p-2">
+                    <ShoppingCart className="h-5 w-5 text-primary" />
+                    <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                      {picked.length}
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {picked.length} house{picked.length === 1 ? '' : 's'} in cart · one month of rent
+                    </p>
+                    <p className="text-sm font-bold">{formatUGX(rentTotal)}</p>
+                  </div>
+                  <Button className="h-10 gap-1.5 text-xs font-semibold" onClick={() => setStep('checkout')}>
+                    Checkout <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+            </>
+            )}
+
+            {step === 'checkout' && picked.length > 0 && (
               <div className="rounded-2xl border p-3 space-y-2">
-                <p className="text-xs font-bold">Earnings breakdown per house</p>
+                <p className="text-xs font-bold">Your cart · {picked.length} house{picked.length === 1 ? '' : 's'}</p>
                 <div className="space-y-1.5">
                   {picked.map((h) => {
                     const rent = Number(h.monthly_rent || 0);
                     const m = Math.round(rent * 0.15);
                     return (
                       <div key={h.house_id} className="rounded-xl bg-muted/40 px-3 py-2">
-                        <p className="text-[11px] font-semibold truncate">{h.title || housePlace(h)}</p>
+                        <div className="flex items-start gap-2">
+                          <p className="min-w-0 flex-1 text-[11px] font-semibold truncate">{h.title || housePlace(h)}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 shrink-0 gap-1 px-1.5 text-[10px] text-destructive"
+                            onClick={() => toggle(h)}
+                          >
+                            <X className="h-3 w-3" /> Remove
+                          </Button>
+                        </div>
                         <div className="mt-1 grid grid-cols-3 gap-2 text-[10px]">
                           <div>
                             <p className="text-muted-foreground">Rent (1 month)</p>
@@ -1118,6 +1162,9 @@ export function EmptyHouseOpportunitiesSheet({
                     {formatUGX(monthlyReturn)}/month · {formatUGX(annualReturn)} over 12 months
                   </span>
                 </div>
+                <Button variant="outline" className="w-full h-9 gap-1.5 text-xs" onClick={() => setStep('browse')}>
+                  <ArrowLeft className="h-3.5 w-3.5" /> Add more houses
+                </Button>
               </div>
             )}
 
@@ -1128,6 +1175,7 @@ export function EmptyHouseOpportunitiesSheet({
             )}
           </div>
         )}
+
 
 
 

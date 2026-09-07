@@ -23,10 +23,11 @@ import { CashSourcesSheet } from '@/components/cfo/CashSourcesSheet';
 
 import { CFOActionsLog } from '@/components/cfo/CFOActionsLog';
 import { ReceiptNumberLookupPanel } from '@/components/financial-ops/ReceiptNumberLookupPanel';
-import { AgentAdvancesStatsCard } from '@/components/cfo/AgentAdvancesStatsCard';
+
 import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilldown';
 import { ServiceCentreReceivablesPanel } from '@/components/cfo/ServiceCentreReceivablesPanel';
 import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
+import { GeneralPayoutActivities } from '@/components/cfo/GeneralPayoutActivities';
 
 
 
@@ -298,6 +299,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
             <PayablesCardDrilldown />
           </div>
 
+          <GeneralPayoutActivities />
           <ServiceCentreReceivablesPanel />
         </Band>
 
@@ -400,17 +402,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           </div>
         </Band>
 
-        {/* ─────────── 4 · ADVANCES PORTFOLIO ─────────── */}
-        <Band
-          title="Advances Portfolio"
-          subtitle="Agent advances across the full book"
-          open={isOpen('advances')}
-          onToggle={() => toggleSection('advances')}
-        >
-          <AgentAdvancesStatsCard />
-        </Band>
-
-        {/* ─────────── 5 · TOOLS & AUDIT TRAIL ─────────── */}
+        {/* ─────────── 4 · TOOLS & AUDIT TRAIL ─────────── */}
         {/* Lookup tools rather than at-a-glance numbers, so this band starts
             collapsed and no longer pushes the flow views below the fold. */}
         <Band
@@ -479,10 +471,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         total={todayCashFlow?.netToday ?? 0}
         totalLabel="Net Change"
         centered
-        items={[
-          { label: 'Money In', value: todayCashFlow?.cashInToday ?? 0, icon: <ArrowDownRight className="h-4 w-4 text-emerald-500" /> },
-          { label: 'Money Out', value: -(todayCashFlow?.cashOutToday ?? 0), icon: <ArrowUpRight className="h-4 w-4 text-destructive" /> },
-        ]}
+        items={[]}
       />
       {/* ── FLOATING PAY FAB (mobile only) ── */}
       {onTabChange && (
@@ -517,8 +506,8 @@ function SectionToggle({ open, onToggle, label }: { open: boolean; onToggle: () 
 
 /**
  * A titled, collapsible band of the overview. Bands give the page a top-down
- * reading order (position → movement → receivables/payables → advances →
- * tools) and let the CFO fold away what they are not looking at.
+ * reading order (position → receivables/payables → movement → tools) and let
+ * the CFO fold away what they are not looking at.
  */
 function Band({ title, subtitle, open, onToggle, children }: {
   title: string;

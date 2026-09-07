@@ -92,7 +92,7 @@ function PersonIdentity({ person, onOpen }: { person: PlatformPerson; onOpen: ()
       className="group flex w-full min-w-0 items-center gap-2.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={`Open ${person.name} call summaries`}
     >
-      <Avatar className="h-9 w-9 shrink-0">
+      <Avatar className="h-8 w-8 shrink-0">
         <AvatarImage src={person.avatarUrl ?? undefined} alt="" />
         <AvatarFallback className="bg-primary/10 text-[10px] text-primary">{initials(person.name)}</AvatarFallback>
       </Avatar>
@@ -360,53 +360,59 @@ export function CallCentrePeople() {
 
           <Card className="hidden lg:block">
             <CardContent className="p-0">
-              <div className="w-full overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-[14rem]">User</TableHead>
-                      <TableHead className="min-w-[9rem]">Phone number</TableHead>
-                      <TableHead className="min-w-[9rem]">Location</TableHead>
-                      <TableHead className="min-w-[12rem]">Roles held</TableHead>
-                      <TableHead className="min-w-[8rem]">Status</TableHead>
-                      <TableHead className="min-w-[8rem]">Called at</TableHead>
-                      <TableHead className="min-w-[8rem]">Recalled at</TableHead>
-                      <TableHead className="min-w-[6rem] text-right">Call</TableHead>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="py-2.5 pl-4 pr-2 font-medium">User</TableHead>
+                    <TableHead className="py-2.5 px-2 font-medium whitespace-nowrap">Phone number</TableHead>
+                    <TableHead className="py-2.5 px-2 font-medium whitespace-nowrap">Location</TableHead>
+                    <TableHead className="py-2.5 px-2 font-medium whitespace-nowrap">Roles held</TableHead>
+                    <TableHead className="py-2.5 px-2 font-medium whitespace-nowrap">Status</TableHead>
+                    <TableHead className="py-2.5 px-2 font-medium whitespace-nowrap">Called at</TableHead>
+                    <TableHead className="py-2.5 px-2 font-medium whitespace-nowrap">Recalled at</TableHead>
+                    <TableHead className="py-2.5 pl-2 pr-4 text-right font-medium">Call</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((person) => (
+                    <TableRow key={person.calleeId}>
+                      <TableCell className="py-2.5 pl-4 pr-2">
+                        <PersonIdentity person={person} onOpen={() => setHistoryFor(person)} />
+                      </TableCell>
+                      <TableCell className="py-2.5 px-2 text-xs tabular-nums text-muted-foreground whitespace-nowrap">
+                        {person.phone}
+                      </TableCell>
+                      <TableCell className="py-2.5 px-2 text-xs text-muted-foreground">
+                        {person.location ?? '—'}
+                      </TableCell>
+                      <TableCell className="py-2.5 px-2">
+                        <RoleBadges roles={person.roles} />
+                      </TableCell>
+                      <TableCell className="py-2.5 px-2 whitespace-nowrap">
+                        <StatusBadge status={person.status} />
+                      </TableCell>
+                      <TableCell className="py-2.5 px-2 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+                        {formatCallStamp(person.calledAt)}
+                      </TableCell>
+                      <TableCell className="py-2.5 px-2 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+                        {person.recalledAt ? formatCallStamp(person.recalledAt) : '—'}
+                      </TableCell>
+                      <TableCell className="py-2.5 pl-2 pr-4 text-right whitespace-nowrap">
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-8 px-2.5 text-xs gap-1.5 shadow-sm"
+                          onClick={() => dial(dialTarget(person))}
+                          aria-label={`Call ${person.name}`}
+                        >
+                          <PhoneCall className="h-3.5 w-3.5" />
+                          Call
+                        </Button>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rows.map((person) => (
-                      <TableRow key={person.calleeId}>
-                        <TableCell>
-                          <PersonIdentity person={person} onOpen={() => setHistoryFor(person)} />
-                        </TableCell>
-                        <TableCell className="text-xs tabular-nums text-muted-foreground">{person.phone}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground">{person.location ?? '—'}</TableCell>
-                        <TableCell><RoleBadges roles={person.roles} /></TableCell>
-                        <TableCell><StatusBadge status={person.status} /></TableCell>
-                        <TableCell className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-                          {formatCallStamp(person.calledAt)}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
-                          {person.recalledAt ? formatCallStamp(person.recalledAt) : '—'}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="gap-1.5"
-                            onClick={() => dial(dialTarget(person))}
-                            aria-label={`Call ${person.name}`}
-                          >
-                            <PhoneCall className="h-3.5 w-3.5" />
-                            Call
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
 

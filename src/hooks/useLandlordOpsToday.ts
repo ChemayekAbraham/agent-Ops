@@ -1,5 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  housesAwaitingVerification,
+  landlordsAwaitingVerification,
+  lc1AwaitingVerification,
+  rentRequestsAwaitingLandlordOps,
+  type QueueFilterable,
+} from './landlordOpsQueueFilters';
 
 /**
  * Data behind Landlord Ops → Today.
@@ -254,7 +261,17 @@ export interface LandlordOpsNewToday {
   rentRequests: number;
 }
 
-/** How much arrived in each queue since local midnight. */
+/**
+ * Of the items currently sitting in each queue, how many arrived today.
+ *
+ * Each count applies the same queue filter as the headline it sits under, so it
+ * is always a subset and can never exceed it. Without that the cards could read
+ * "0 awaiting sign-off / New today: 5" — the sub-label was counting every row
+ * created today regardless of status, a different population entirely.
+ *
+ * Note this is "created today and still queued", not arrivals into the stage:
+ * `rent_requests` carries no stage-transition timestamp to key that off.
+ */
 export function useLandlordOpsNewToday() {
   return useQuery({
     queryKey: ['landlord-ops-today-new'],
@@ -262,22 +279,26 @@ export function useLandlordOpsNewToday() {
     queryFn: async (): Promise<LandlordOpsNewToday> => {
       const since = startOfLocalDay();
       const [houses, landlords, lc1, rentRequests] = await Promise.all([
-        supabase
-          .from('house_listings')
-          .select('id', { count: 'exact', head: true })
-          .gte('created_at', since),
-        supabase
-          .from('landlords')
-          .select('id', { count: 'exact', head: true })
-          .gte('created_at', since),
-        supabase
-          .from('v_lc1_verification_inbox')
-          .select('lc1_id', { count: 'exact', head: true })
-          .gte('requested_at', since),
-        supabase
-          .from('rent_requests')
-          .select('id', { count: 'exact', head: true })
-          .gte('created_at', since),
+        housesAwaitingVerification(
+          supabase
+            .from('house_listings')
+            .select('id', { count: 'exact', head: true }) as unknown as QueueFilterable,
+        ).gte('created_at', since),
+        landlordsAwaitingVerification(
+          supabase
+            .from('landlords')
+            .select('id', { count: 'exact', head: true }) as unknown as QueueFilterable,
+        ).gte('created_at', since),
+        lc1AwaitingVerification(
+          supabase
+            .from('v_lc1_verification_inbox')
+            .select('lc1_id', { count: 'exact', head: true }) as unknown as QueueFilterable,
+        ).gte('requested_at', since),
+        rentRequestsAwaitingLandlordOps(
+          supabase
+            .from('rent_requests')
+            .select('id', { count: 'exact', head: true }) as unknown as QueueFilterable,
+        ).gte('created_at', since),
       ]);
       return {
         houses: houses.count || 0,

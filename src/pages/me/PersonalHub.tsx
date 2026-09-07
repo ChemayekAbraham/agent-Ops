@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, Briefcase, User, Bell, FolderOpen, Ticket, Wallet, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PersonalLayout from '@/components/layout/PersonalLayout';
+import { PERSONAL_NAV } from '@/components/layout/personalNav';
 import NameCompletionReminder from '@/components/notifications/NameCompletionReminder';
 import GrowthCommissionCard from '@/components/me/GrowthCommissionCard';
 import MyAdvanceCard from '@/hr/pay/MyAdvanceCard';
@@ -66,15 +67,8 @@ const HubCard = ({ to, icon: Icon, title, description, disabled, badges }: HubCa
   return <Link to={to} className={className}>{content}</Link>;
 };
 
-const CARDS = [
-  { to: '/your-profile', icon: User, title: 'My profile', description: 'Your personal details' },
-  { to: '/me/payslips', icon: FileText, title: 'My payslips', description: 'Your own pay records' },
-  { to: '/me/work', icon: Briefcase, title: 'My work', description: 'Tasks assigned to you' },
-  { to: '/me/tickets', icon: Ticket, title: 'Tickets', description: 'Raise a fault or pick one up' },
-  { to: '/me/requisitions', icon: Wallet, title: 'Make a requisition', description: 'Ask for funds — reviewed by your head, COO, then CFO' },
-  { to: '/notifications', icon: Bell, title: 'Notifications', description: 'Messages and alerts' },
-  { icon: FolderOpen, title: 'My documents', description: 'Your contracts, letters and certificates', to: '/me/documents' },
-];
+const CARDS = PERSONAL_NAV;
+
 
 const PersonalHub = () => {
   const [staffRecord, setStaffRecord] = useState<Employee | null>(null);

@@ -23,6 +23,8 @@ import {
   type CcRow,
 } from '@/hooks/useCcCallingHub';
 import { isTerminalCallState, useCrmVoiceCall, type CallState } from '@/hooks/useCrmVoiceCall';
+import { hangupVoiceCall } from '@/lib/atVoiceClient';
+import { supabase } from '@/integrations/supabase/client';
 
 /** Attended sequential run states. Nothing dials without an officer starting it. */
 export type AutoMode = 'off' | 'running' | 'paused' | 'awaiting_outcome' | 'finished';
@@ -78,6 +80,50 @@ export function useTenantCallCenterDialer(hub: CcCallingHub) {
   const modeRef = useRef<AutoMode>('off');
   modeRef.current = mode;
   const settledRef = useRef(false);
+  /** Set when End Call is pressed before the telephone leg exists. */
+  const abortRef = useRef(false);
+
+  /**
+   * Drop the real telephone leg. `hangup()` is a no-op if the SDK has not yet
+   * attached the outbound call, so it is retried briefly — that window (the
+   * moment right after `client.call()`) is exactly when an officer's End Call
+   * used to be swallowed. Retries are harmless once the leg is already down.
+   *
+   * When a session id is known the row is closed too, so a leg dropped during
+   * set-up can never be stranded as ringing/active. The write is idempotent
+   * server-side.
+   */
+  const dropLeg = useCallback((sessionId: string | null) => {
+    let attempts = 0;
+    const tick = () => {
+      hangupVoiceCall();
+      attempts += 1;
+      if (attempts < 5) window.setTimeout(tick, 700);
+    };
+    tick();
+
+    if (sessionId) {
+      void supabase
+        .rpc('crm_finalize_call_from_client', {
+          p_session_id: sessionId,
+          p_hangup_cause: 'ORIGINATOR_CANCEL',
+          p_duration: 0,
+        })
+        .then(({ error }) => {
+          if (error) console.error('[tenantDialer] finalize failed', error.message);
+        });
+    }
+  }, []);
+
+  /**
+   * The pending dial has become a real session after an End Call press: drop it
+   * now. Without this the tenant's phone rings on after the officer hung up.
+   */
+  useEffect(() => {
+    if (!abortRef.current || starting || !call.callId) return;
+    abortRef.current = false;
+    dropLeg(call.callId);
+  }, [call.callId, starting, dropLeg]);
 
   const openAttemptIds = useMemo(
     () => new Set(hub.openAttempts.map((a) => a.id)),
@@ -107,6 +153,7 @@ export function useTenantCallCenterDialer(hub: CcCallingHub) {
       if (starting) return;
       setStarting(true);
       settledRef.current = false;
+      abortRef.current = false;
       try {
         // Same reveal path as the Hub: opens (or reuses) the attempt row, then
         // asks the server for the number. No table read, no new attempt logic.
@@ -240,9 +287,31 @@ export function useTenantCallCenterDialer(hub: CcCallingHub) {
     setMode((m) => (m === 'awaiting_outcome' ? 'running' : m));
   }, []);
 
+  /**
+   * End Call. Two things have to happen, and neither may depend on the other:
+   *
+   *  1. the voice hook's own `end()` (flags + finalises the session row), and
+   *  2. the SDK's `hangup()` on the live leg — invoked here as well, because
+   *     once the hook has already settled its UI (e.g. a safety-net finalise
+   *     fired while the leg was still coming up) `end()` returns immediately and
+   *     would leave the telephone leg talking. This is the same primitive the
+   *     CRM Calling Centre hangs up with; nothing new.
+   *
+   * If the officer presses End while the leg is still being set up (token,
+   * registration, `crm_start_webrtc_call`), the dial in flight would otherwise
+   * ring the tenant *after* the hang-up and could never be ended again. The
+   * abort flag makes the pending start drop itself the moment it is live.
+   */
   const hangUp = useCallback(() => {
+    const settingUp =
+      starting || call.state === 'initializing' || call.state === 'calling';
+    if (settingUp) abortRef.current = true;
+
     if (!isTerminalCallState(call.state) && call.state !== 'idle') call.end();
-  }, [call]);
+
+    // Always drop the real leg, whatever the UI thinks the state is.
+    dropLeg(settingUp ? call.callId : null);
+  }, [call, starting, dropLeg]);
 
   const clearCurrent = useCallback(() => {
     hangUp();

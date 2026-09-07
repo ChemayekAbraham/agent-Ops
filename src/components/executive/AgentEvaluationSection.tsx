@@ -155,16 +155,16 @@ function OutcomeTile({
   label, value, sub, tone,
 }: { label: string; value: number; sub: string; tone: 'emerald' | 'sky' | 'amber' | 'rose' }) {
   const tones: Record<string, string> = {
-    emerald: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    sky: 'border-sky-200 bg-sky-50 text-sky-700',
-    amber: 'border-amber-200 bg-amber-50 text-amber-800',
-    rose: 'border-rose-200 bg-rose-50 text-rose-700',
+    emerald: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-800/30',
+    sky: 'border-sky-200 bg-sky-50 text-sky-700 dark:bg-sky-950/20 dark:border-sky-800/30',
+    amber: 'border-amber-200 bg-amber-50 text-amber-800 dark:bg-amber-950/20 dark:border-amber-800/30',
+    rose: 'border-rose-200 bg-rose-50 text-rose-700 dark:bg-rose-950/20 dark:border-rose-800/30',
   };
   return (
-    <div className={cn('rounded-xl border p-2.5 text-center', tones[tone])}>
-      <p className="text-[10px] uppercase tracking-wide font-semibold">{label}</p>
-      <p className="text-xl font-extrabold leading-tight">{value}</p>
-      <p className="text-[10px] opacity-80">{sub}</p>
+    <div className={cn('rounded-xl border p-2 sm:p-2.5 text-center min-w-0 overflow-hidden', tones[tone])}>
+      <p className="text-[10px] uppercase tracking-wide font-semibold truncate">{label}</p>
+      <p className="text-lg sm:text-xl font-extrabold leading-tight mt-0.5">{value}</p>
+      <p className="text-[10px] opacity-80 leading-tight truncate mt-0.5" title={sub}>{sub}</p>
     </div>
   );
 }
@@ -175,10 +175,10 @@ export function RentRequestOutcomes({ agentId }: { agentId: string }) {
   if (!data) return null;
   const conv = data.total > 0 ? Math.round((data.disbursed / data.total) * 100) : 0;
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-bold flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" /> Rent requests made by this agent</p>
-        <span className="text-[11px] text-muted-foreground">{data.total} total · {conv}% disbursed</span>
+    <div className="rounded-2xl border border-border bg-card p-3 sm:p-4 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-bold flex items-center gap-1.5 truncate"><FileText className="h-3.5 w-3.5 shrink-0" /> Rent requests made by this agent</p>
+        <span className="text-[11px] text-muted-foreground shrink-0">{data.total} total · {conv}% disbursed</span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <OutcomeTile label="Disbursed" value={data.disbursed} sub="funded / repaying / completed" tone="emerald" />
@@ -192,13 +192,13 @@ export function RentRequestOutcomes({ agentId }: { agentId: string }) {
 
 function StatBlock({ icon: Icon, label, value, sub }: { icon: any; label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-3">
+    <div className="rounded-xl border border-border bg-card p-2.5 sm:p-3 min-w-0 overflow-hidden">
       <div className="flex items-center gap-1.5 text-muted-foreground">
-        <Icon className="h-3.5 w-3.5" />
-        <span className="text-[11px] font-semibold uppercase tracking-wide">{label}</span>
+        <Icon className="h-3.5 w-3.5 shrink-0" />
+        <span className="text-[11px] font-semibold uppercase tracking-wide truncate">{label}</span>
       </div>
-      <p className="text-base font-bold mt-1">{value}</p>
-      {sub && <p className="text-[11px] text-muted-foreground">{sub}</p>}
+      <p className="text-sm sm:text-base font-bold mt-1 truncate" title={value}>{value}</p>
+      {sub && <p className="text-[11px] text-muted-foreground truncate" title={sub}>{sub}</p>}
     </div>
   );
 }

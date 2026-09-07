@@ -15,11 +15,12 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell,
 } from 'recharts';
 import {
-  CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown, AlertTriangle,
+  CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown, Receipt,
 } from 'lucide-react';
 import { ComprehensiveReportButton } from './ComprehensiveReportButton';
+import { AgentCollectionsAgentTable } from './AgentCollectionsAgentTable';
+
 import { NextSevenDaysExpected } from './NextSevenDaysExpected';
-import { TenantsOwingDialog } from './TenantsOwingDialog';
 import { format, parseISO, startOfDay, endOfDay, subDays, startOfMonth, startOfYear, addDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
@@ -98,14 +99,6 @@ interface CommandCenterData {
   generated_at: string;
 }
 
-interface CollectionTargetData {
-  as_of: string; timezone: string;
-  collectible_today: number; collectible_plans: number;
-  on_schedule_daily: number; on_schedule_plans: number;
-  past_term_daily: number; past_term_plans: number;
-  scheduled_today: number; scheduled_today_plans: number;
-  arrears_to_date: number; generated_at: string;
-}
 
 const num = (v: any) => Number(v ?? 0);
 const compact = (v: number) =>
@@ -136,7 +129,6 @@ export function AgentCollectionsCommandCenter() {
   const [custom, setCustom] = useState<DateRange | undefined>();
   const [search, setSearch] = useState('');
   const [visibleAgents, setVisibleAgents] = useState(10);
-  const [owingOpen, setOwingOpen] = useState(false);
   const qc = useQueryClient();
 
   const { start, end, bucket } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
@@ -159,19 +151,6 @@ export function AgentCollectionsCommandCenter() {
   });
 
   const totals = data?.totals;
-
-  const { data: target } = useQuery({
-    queryKey: ['agent-ops-collection-target', totals?.defaulted_as_of ?? 'today'],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('agent_ops_collection_target', {
-        p_as_of: totals?.defaulted_as_of ?? format(new Date(), 'yyyy-MM-dd'),
-      });
-      if (error) throw error;
-      return data as unknown as CollectionTargetData;
-    },
-    enabled: preset !== 'next7',
-    staleTime: 60_000,
-  });
 
   // Live refresh when collections or rent requests change
   useEffect(() => {
@@ -361,13 +340,16 @@ export function AgentCollectionsCommandCenter() {
           <p className="text-[11px] text-muted-foreground">{num(totals?.collections_count)} payments · avg {formatUGX(num(totals?.avg_collection))}</p>
         </Card>
         <Card className="p-3">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground"><Receipt className="h-3.5 w-3.5" /> Total collections</div>
+          <p className="text-lg font-bold mt-1">{num(totals?.collections_count).toLocaleString()}</p>
+          <p className="text-[11px] text-muted-foreground">{formatUGX(collectedTotal)} collected · avg {formatUGX(num(totals?.avg_collection))}</p>
+        </Card>
+        <Card className="p-3">
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><Target className="h-3.5 w-3.5" /> Expected</div>
           <p className="text-lg font-bold mt-1">{formatUGX(expectedTotal)}</p>
           <div className="mt-1.5">
             <Progress value={Math.min(100, coverage ?? 0)} className="h-1.5" />
             <p className="text-[11px] text-muted-foreground mt-1">{coverage === null ? 'No expectation on record' : `${coverage}% of expected`}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Fixed at the start of each day · does not move intraday</p>
-
           </div>
         </Card>
         <Card className="p-3">
@@ -380,44 +362,8 @@ export function AgentCollectionsCommandCenter() {
           <p className="text-lg font-bold mt-1">{num(totals?.requests_count)}</p>
           <p className="text-[11px] text-muted-foreground">{formatUGX(num(totals?.requests_amount))} requested</p>
         </Card>
-        <Card className="p-3">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground"><AlertTriangle className="h-3.5 w-3.5" /> Defaulted</div>
-          <p className="text-lg font-bold mt-1 text-destructive">{formatUGX(num(totals?.defaulted_to_date))}</p>
-          <p className="text-[11px] text-muted-foreground">{num(totals?.defaulted_plans)} plans · as at {totals?.defaulted_as_of}</p>
-          <Button size="sm" variant="outline" className="h-7 mt-2 text-[11px] w-full" onClick={() => setOwingOpen(true)}>
-            View all tenants owing
-          </Button>
-        </Card>
       </div>
 
-      {target && (
-        <Card className="p-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <Banknote className="h-4 w-4 text-primary" />
-              <h3 className="text-sm font-semibold">Field collection target today</h3>
-            </div>
-            <Badge variant="outline" className="text-[10px]">Separate from Expected</Badge>
-          </div>
-          <p className="text-2xl font-bold tabular-nums">{formatUGX(num(target.collectible_today))}</p>
-          <p className="text-[11px] text-muted-foreground">{target.collectible_plans} tenants in arrears · their combined daily instalment rate</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
-            <div className="rounded-md border px-3 py-2">
-              <p className="text-[11px] text-muted-foreground">On their agreed schedule</p>
-              <p className="text-sm font-semibold tabular-nums">{formatUGX(num(target.on_schedule_daily))}</p>
-              <p className="text-[10px] text-muted-foreground">{target.on_schedule_plans} tenants · still inside their term</p>
-            </div>
-            <div className="rounded-md border px-3 py-2">
-              <p className="text-[11px] text-muted-foreground">Past their agreed end date</p>
-              <p className="text-sm font-semibold tabular-nums text-destructive">{formatUGX(num(target.past_term_daily))}</p>
-              <p className="text-[10px] text-muted-foreground">{target.past_term_plans} tenants · plan has run out, balance still owed</p>
-            </div>
-          </div>
-          <p className="text-[11px] text-muted-foreground mt-2">
-            Expected above is {formatUGX(num(target.scheduled_today))} — only what the agreed payment plans schedule for today, across {target.scheduled_today_plans} plans. This target is a different measure: it adds the daily rate of every tenant already in arrears, including those whose plan has passed its end date and schedules nothing further. Use Expected to judge plan performance, and this figure to set what the field teams chase. Never add the two together.
-          </p>
-        </Card>
-      )}
 
       {/* Expected collections per day */}
       {data?.expected_daily && data.expected_daily.length > 0 && (
@@ -469,66 +415,9 @@ export function AgentCollectionsCommandCenter() {
         </Card>
       )}
 
-      {/* Trend */}
-      <Card className="p-3">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold">Collections trend</h3>
-          <Badge variant="outline" className="text-[10px]">per {bucket}</Badge>
-        </div>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={series}>
-              <defs>
-                <linearGradient id="collGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.5} />
-                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-              <YAxis tickFormatter={compact} tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-              <Tooltip formatter={(v: any, n: any) => [formatUGX(Number(v)), n === 'collected' ? 'Collected' : n]} />
-              <Area type="monotone" dataKey="collected" stroke="hsl(var(--primary))" fill="url(#collGrad)" strokeWidth={2} name="Collected" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
+      {/* Collections trend and peak payment hours now live in Agent Ops → Rent Behaviour */}
 
-      {/* Peak hours */}
-      <Card className="p-3">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-amber-600" />
-            <h3 className="text-sm font-semibold">Peak payment hours</h3>
-          </div>
-          {topHour && topHour.amount > 0 && (
-            <Badge className="text-[10px] bg-amber-500/15 text-amber-700 border-amber-500/30">
-              Peak {hourLabel(topHour.hour)} · {formatUGX(topHour.amount)}
-            </Badge>
-          )}
-        </div>
-        <div className="h-56">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={peak}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="label" tick={{ fontSize: 9 }} interval={1} stroke="hsl(var(--muted-foreground))" />
-              <YAxis tickFormatter={compact} tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-              <Tooltip
-                formatter={(v: any) => formatUGX(Number(v))}
-                labelFormatter={(l: any) => `${l} (EAT)`}
-              />
-              <Bar dataKey="amount" name="Collected" radius={[3, 3, 0, 0]}>
-                {peak.map(p => (
-                  <Cell key={p.hour} fill={p.amount >= peakMax * 0.75 ? 'hsl(38 92% 50%)' : 'hsl(var(--primary))'} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <p className="text-[11px] text-muted-foreground mt-1">
-          Hour of day when tenants' rent payments are recorded, in East Africa Time.
-        </p>
-      </Card>
+
 
       {/* Collections vs rent requests */}
       <Card className="p-3 bg-muted/30">
@@ -610,101 +499,15 @@ export function AgentCollectionsCommandCenter() {
       </Card>
 
       {/* Agents by collections vs expected */}
-      <Card className="p-3">
-        <div className="flex flex-wrap items-center gap-2 mb-2">
-          <h3 className="text-sm font-semibold mr-auto">Agents by collections vs expected</h3>
-          <Badge variant="outline" className="text-[10px]">{filteredAgents.length} agents</Badge>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 text-xs"
-            disabled={!data || exporting || isLoading}
-            onClick={exportStatementPdf}
-          >
-            <FileDown className="h-3.5 w-3.5 mr-1" />
-            {exporting ? 'Preparing…' : 'Financial statement (PDF)'}
-          </Button>
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search agent"
-              className="h-8 pl-7 text-xs w-48"
-            />
-          </div>
-        </div>
-
-        {isLoading ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">Loading collections…</p>
-        ) : filteredAgents.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-6 text-center">No agents match this range.</p>
-        ) : (
-          <>
-            <div className="space-y-2">
-              {filteredAgents.slice(0, visibleAgents).map((a, i) => (
-                <div
-                  key={a.agent_id}
-                  className="rounded-lg border bg-card/60 p-2.5 flex items-start gap-3 hover:bg-accent/40 transition-colors"
-                >
-                  <div className="h-7 w-7 shrink-0 rounded-full bg-muted grid place-items-center text-[11px] font-semibold text-muted-foreground">
-                    {i + 1}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{a.name}</p>
-                        <p className="text-[11px] text-muted-foreground truncate">
-                          {a.phone ? `${a.phone} · ` : ''}{a.collections_count} payments · {a.tenants_paid}/{a.active_tenants} tenants paid
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-bold">{formatUGX(a.collected)}</p>
-                        <p className="text-[11px] text-muted-foreground">of {formatUGX(a.expected)}</p>
-                      </div>
-                    </div>
-                    <div className="mt-2 flex items-center gap-2">
-                      <Progress value={Math.min(100, a.pct ?? 0)} className="h-2 flex-1" />
-                      <span
-                        className={cn(
-                          'text-[11px] font-semibold w-12 text-right',
-                          a.pct === null ? 'text-muted-foreground'
-                            : a.pct >= 90 ? 'text-emerald-600'
-                            : a.pct >= 50 ? 'text-amber-600' : 'text-destructive',
-                        )}
-                      >
-                        {a.pct === null ? '—' : `${a.pct}%`}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-1.5">
-                      {a.last_collection_at && (
-                        <Badge variant="outline" className="text-[10px]">
-                          Last {format(new Date(a.last_collection_at), 'dd MMM h:mm a')}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {visibleAgents < filteredAgents.length && (
-              <div className="pt-3 text-center">
-                <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setVisibleAgents(v => v + 10)}>
-                  Load more · {filteredAgents.length - visibleAgents} remaining
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-        <p className="text-[11px] text-muted-foreground mt-2">
-          Expected is the sum of the instalments each tenant's agreed payment plan schedules inside this period. Plans that have run past their agreed end date, or that are already settled, raise no further expectation — their balances appear under Defaulted.
-        </p>
-      </Card>
-      <TenantsOwingDialog
-        asOf={totals?.defaulted_as_of ?? format(new Date(), 'yyyy-MM-dd')}
-        open={owingOpen}
-        onOpenChange={setOwingOpen}
+      <AgentCollectionsAgentTable
+        agents={filteredAgents}
+        isLoading={isLoading}
+        start={start}
+        end={end}
+        exporting={exporting}
+        onExportStatement={exportStatementPdf}
       />
+
         </>
       )}
     </div>

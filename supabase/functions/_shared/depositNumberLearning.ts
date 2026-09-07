@@ -150,3 +150,156 @@ export async function learnDepositNumber(
     return { outcome: 'skipped', last9 };
   }
 }
+
+// ── Known depositor NAMES ─────────────────────────────────────────────
+//
+// MTN's till/merchant "received" SMS never carries the payer's phone, only
+// whatever name is on the payer's SIM — so the phone-based learning above
+// cannot apply to that receipt shape at all. This is the name-keyed
+// counterpart, used ONLY for third-party depositors (someone paying into
+// a recipient's till on the recipient's behalf) whose name will never
+// appear in `profiles` at all.
+//
+// Names collide far more than phone numbers, so a learned name is only
+// ever trusted while UNCONTESTED: the moment it's manually routed to a
+// SECOND, different user, every row for that name is frozen (contested =
+// true) project-wide and auto-credit for that name stops for good.
+
+export interface KnownNameMatch {
+  user_id: string;
+  full_name: string | null;
+  phone: string | null;
+  email: string | null;
+  match_count: number;
+}
+
+/** Trim, collapse whitespace, uppercase — the platform-wide convention for a learned name key. */
+export function normalizeDepositorName(name: string | null | undefined): string | null {
+  const cleaned = String(name ?? '').replace(/\s+/g, ' ').trim().toUpperCase();
+  return cleaned.length >= 4 ? cleaned : null;
+}
+
+/** Look up every UNCONTESTED user a normalized payer name is currently linked to. */
+export async function resolveUsersByKnownName(
+  supabase: any,
+  normalizedName: string | null,
+): Promise<KnownNameMatch[]> {
+  if (!normalizedName) return [];
+  const { data, error } = await supabase.rpc('resolve_user_by_known_name', {
+    p_name: normalizedName,
+  });
+  if (error) {
+    console.error('[deposit-names] resolve_user_by_known_name failed', error.message);
+    return [];
+  }
+  return ((data ?? []) as any[]).map((r) => ({
+    user_id: r.user_id,
+    full_name: r.full_name ?? null,
+    phone: r.phone ?? null,
+    email: r.email ?? null,
+    match_count: Number(r.match_count ?? 0),
+  }));
+}
+
+/** Convenience: resolve to a unique, uncontested user, or null when 0 / ambiguous. */
+export async function resolveUniqueUserByKnownName(
+  supabase: any,
+  normalizedName: string | null,
+): Promise<KnownNameMatch | null> {
+  const hits = await resolveUsersByKnownName(supabase, normalizedName);
+  if (hits.length !== 1) return null;
+  return hits[0];
+}
+
+export type LearnNameOutcome =
+  | 'linked'          // brand-new name recorded for this user
+  | 'already_known'   // this user already owns the name — no-op
+  | 'conflict'        // a DIFFERENT user owns it — name frozen for review, no auto-credit
+  | 'skipped';        // nothing to do (no usable name) or a soft failure
+
+/**
+ * Teach the matcher a payer name after a POSITIVE identification only
+ * (a real human manually routing the deposit). Never silently overwrites:
+ * if the name already resolves to a different, uncontested user, BOTH the
+ * existing and the new pairing are frozen (contested = true) and a
+ * `user_deposit_name_conflicts` row is recorded for Financial Ops — a real
+ * collision needs a human, never a guess. Idempotent for the same user.
+ */
+export async function learnDepositName(
+  supabase: any,
+  args: {
+    userId: string;
+    name: string | null | undefined;
+    source: LearnSource;
+    gmailTransactionId?: string | null;
+    createdBy?: string | null;
+    notes?: string | null;
+  },
+): Promise<{ outcome: LearnNameOutcome; normalizedName: string | null; conflictUserId?: string | null }> {
+  const normalizedName = normalizeDepositorName(args.name);
+  if (!normalizedName || !args.userId) return { outcome: 'skipped', normalizedName: null };
+
+  try {
+    const hits = await resolveUsersByKnownName(supabase, normalizedName);
+    const mine = hits.find((h) => h.user_id === args.userId);
+    if (mine) return { outcome: 'already_known', normalizedName };
+
+    const other = hits[0];
+    if (other) {
+      // Real collision: freeze every existing row for this name so it can
+      // never auto-credit again, record the conflict, and still log the
+      // new attempted owner (contested) for a complete audit trail.
+      await supabase
+        .from('user_deposit_names')
+        .update({ contested: true })
+        .eq('normalized_name', normalizedName);
+      await supabase.from('user_deposit_name_conflicts').insert({
+        normalized_name: normalizedName,
+        attempted_user_id: args.userId,
+        existing_user_id: other.user_id,
+        gmail_transaction_id: args.gmailTransactionId ?? null,
+        detected_via: args.source,
+        notes: args.notes ?? null,
+      });
+      await supabase.from('user_deposit_names').insert({
+        user_id: args.userId,
+        normalized_name: normalizedName,
+        source: args.source,
+        contested: true,
+        linked_gmail_transaction_id: args.gmailTransactionId ?? null,
+        created_by: args.createdBy ?? null,
+      });
+      console.warn(
+        `[deposit-names] conflict: "${normalizedName}" already owned by ${other.user_id} ` +
+        `— not linking to ${args.userId}; both frozen`,
+      );
+      return { outcome: 'conflict', normalizedName, conflictUserId: other.user_id };
+    }
+
+    const { data, error } = await supabase
+      .from('user_deposit_names')
+      .insert({
+        user_id: args.userId,
+        normalized_name: normalizedName,
+        source: args.source,
+        linked_gmail_transaction_id: args.gmailTransactionId ?? null,
+        created_by: args.createdBy ?? null,
+      })
+      .select('id')
+      .maybeSingle();
+
+    if (error) {
+      // Unique violation = another concurrent path just learned it.
+      if (String((error as any).code) === '23505') return { outcome: 'already_known', normalizedName };
+      console.error('[deposit-names] insert failed', error.message);
+      return { outcome: 'skipped', normalizedName };
+    }
+    if (!data?.id) return { outcome: 'skipped', normalizedName };
+    console.log(`[deposit-names] learned "${normalizedName}" for user=${args.userId} via ${args.source}`);
+    return { outcome: 'linked', normalizedName };
+  } catch (e) {
+    // Learning must never break a credit.
+    console.error('[deposit-names] learn failed', (e as Error).message);
+    return { outcome: 'skipped', normalizedName };
+  }
+}
