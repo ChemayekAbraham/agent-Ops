@@ -46787,6 +46787,37 @@ export type Database = {
         Returns: number
       }
       get_agent_mission_stats: { Args: { p_agent_id?: string }; Returns: Json }
+      get_agent_monitoring_positions: {
+        Args: {
+          p_from: string
+          p_include_self_payments?: boolean
+          p_to: string
+        }
+        Returns: {
+          agent_id: string
+          arrears: number
+          covered_through: string
+          credit_ahead: number
+          due_dates_in_period: number
+          exclusion_reason: string
+          expected_in_period: number
+          expected_to_date: number
+          frequency: string
+          instalment_amount: number
+          is_eligible: boolean
+          obligation_end: string
+          outstanding: number
+          paid_in_period_agent: number
+          paid_in_period_self: number
+          paid_to_date: number
+          position_band: string
+          rent_request_id: string
+          tenant_id: string
+          term_end: string
+          term_start: string
+          total_repayment: number
+        }[]
+      }
       get_agent_network_summary: { Args: { p_agent_id: string }; Returns: Json }
       get_agent_operational_population: {
         Args: { p_as_of?: string; p_from?: string }
