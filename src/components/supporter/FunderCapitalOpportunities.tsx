@@ -823,7 +823,7 @@ export function FunderCapitalOpportunities() {
               value="rent"
               className="flex-1 text-[10px] h-7 data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=off]:bg-muted/40 data-[state=off]:text-muted-foreground"
             >
-              Rent first
+              Houses with ready tenants
             </ToggleGroupItem>
             <ToggleGroupItem
               value="houses"
