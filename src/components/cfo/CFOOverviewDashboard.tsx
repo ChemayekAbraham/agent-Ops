@@ -528,7 +528,7 @@ function SectionToggle({ open, onToggle, label }: { open: boolean; onToggle: () 
 
 /**
  * A titled, collapsible band of the overview. Bands give the page a top-down
- * reading order (position → movement → receivables/payables → advances →
+ * reading order (position → movement → payout activities → receivables/payables → advances →
  * tools) and let the CFO fold away what they are not looking at.
  */
 function Band({ title, subtitle, open, onToggle, children }: {
