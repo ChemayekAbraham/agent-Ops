@@ -349,7 +349,131 @@ export function AgentMonitoring() {
   const body = (
     <>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        ...
+        <div>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+              <Users className="h-4.5 w-4.5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold leading-tight">Agent Monitoring</h1>
+              <p className="text-[11px] text-muted-foreground">Daily expected collections and field performance</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex w-full flex-wrap items-center gap-1 rounded-lg border p-1 sm:w-auto">
+          <Button variant="ghost" size="sm" onClick={() => setDay((value) => subDays(value, 1))} aria-label="Previous day">←</Button>
+          <div className="flex-1 min-w-[110px] text-center text-xs font-medium tabular-nums sm:flex-none sm:min-w-[128px]">{format(day, 'dd MMM yyyy')}</div>
+          <Button variant="ghost" size="sm" onClick={() => setDay((value) => addDays(value, 1))} aria-label="Next day">→</Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setDay(startOfDay(new Date()))}>
+            <CalendarDays className="h-3.5 w-3.5" /> Today
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Agents monitored</p><p className="mt-1 text-xl font-bold tabular-nums">{filteredAgents.length}</p></CardContent></Card>
+        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Daily expected</p><p className="mt-1 text-xl font-bold tabular-nums">{formatUGX(totals.expected)}</p></CardContent></Card>
+        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Collected so far</p><p className="mt-1 text-xl font-bold tabular-nums">{formatUGX(totals.collected)}</p></CardContent></Card>
+      </div>
+
+      <Card>
+        <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="text-base">Collection performance</CardTitle>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search agent or phone" className="h-8 w-full pl-8 text-xs sm:w-56" />
+            </div>
+            <div className="flex flex-wrap gap-1" role="group" aria-label="Collection status filter">
+              {(['all', 'full', 'partial', 'critical'] as const).map((value) => (
+                <Button key={value} variant={statusFilter === value ? 'secondary' : 'ghost'} size="sm" className="h-8 px-2 text-xs capitalize" onClick={() => setStatusFilter(value)}>
+                  {value}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="flex items-center justify-center gap-2 p-10 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading agent collections…</div>
+          ) : isError ? (
+            <div className="flex flex-col items-center gap-3 p-10 text-center"><AlertTriangle className="h-5 w-5 text-destructive" /><p className="text-sm text-muted-foreground">{getErrorMessage(error)}</p><Button variant="outline" size="sm" onClick={() => void refetch()}>Try again</Button></div>
+          ) : filteredAgents.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 p-10 text-center"><CircleAlert className="h-5 w-5 text-muted-foreground" /><p className="text-sm font-medium">No agents match this view</p><p className="text-xs text-muted-foreground">Try clearing the search or status filter.</p></div>
+          ) : (
+            <>
+              <div className="hidden overflow-x-auto md:block">
+                <Table>
+                  <TableHeader><TableRow><TableHead>Agent name / phone</TableHead><TableHead className="text-right">Tenants</TableHead><TableHead className="text-right">Daily expected</TableHead><TableHead className="text-right">Collected</TableHead><TableHead className="text-right">Collection %</TableHead><TableHead className="text-right">Requests submitted</TableHead><TableHead>Status</TableHead><TableHead /></TableRow></TableHeader>
+                  <TableBody>{filteredAgents.map((agent) => renderAgentRow(agent))}</TableBody>
+                </Table>
+              </div>
+              <div className="space-y-2 p-3 md:hidden">{filteredAgents.map((agent) => renderAgentRow(agent, true))}</div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={Boolean(selectedAgent)} onOpenChange={(open) => { if (!open) setSelectedAgent(null); }}>
+        <DialogContent className="max-h-[90vh] w-[calc(100vw-2rem)] max-w-4xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="break-words pr-6 text-base sm:text-lg">{selectedAgent?.name || 'Agent'} — collection details</DialogTitle>
+            <DialogDescription className="break-words">{selectedAgent?.phone || 'No phone number'} · {format(day, 'dd MMM yyyy')}</DialogDescription>
+          </DialogHeader>
+          {selectedAgent && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Tenants</p><p className="mt-1 font-bold tabular-nums">{selectedAgent.tenantCount}</p></CardContent></Card>
+                <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Expected</p><p className="mt-1 font-bold tabular-nums">{formatUGX(selectedAgent.expected)}</p></CardContent></Card>
+                <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Paid today</p><p className="mt-1 font-bold tabular-nums">{formatUGX(selectedAgent.collected)}</p></CardContent></Card>
+                <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Requests submitted</p><p className="mt-1 font-bold tabular-nums">{selectedAgent.requestCount}</p></CardContent></Card>
+              </div>
+              {selectedAgent.phone && (
+                <Button asChild variant="outline" size="sm" className="w-full gap-2 sm:w-auto">
+                  <a href={`tel:${selectedAgent.phone.replace(/[^\d+]/g, '')}`}>
+                    <Phone className="h-4 w-4" /> Call {selectedAgent.name}
+                  </a>
+                </Button>
+              )}
+              <Separator />
+              <div className="space-y-2">
+                <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Active tenants</h3><StatusIndicator status={collectionStatus(selectedAgent.expected, selectedAgent.collected)} /></div>
+                {selectedAgentRows.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">No active daily-collection tenants for this agent.</p> : (
+                  <div className="space-y-2">
+                    {selectedAgentRows.map(({ request, tenant, collected }) => {
+                      const expected = Number(request.daily_repayment ?? 0);
+                      const outstanding = Math.max(0, Number(request.total_repayment ?? 0) - Number(request.amount_repaid ?? 0));
+                      return (
+                        <div key={request.id} className="border p-3">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <Button variant="link" className="h-auto p-0 text-left font-semibold" onClick={() => setSelectedTenant(request.tenant_id)}>{tenant?.full_name || 'Unknown tenant'}</Button>
+                              <p className="text-xs text-muted-foreground">
+                                {tenant?.phone ? (
+                                  <a href={`tel:${tenant.phone.replace(/[^\d+]/g, '')}`} className="underline underline-offset-2">{tenant.phone}</a>
+                                ) : 'No phone number'}{request.house_category ? ` · ${request.house_category}` : ''}
+                              </p>
+                              <p className="mt-1 text-xs text-muted-foreground">Rent Plan: {formatStatus(request.status)} · Started {format(new Date(request.created_at), 'dd MMM yyyy')}</p>
+                            </div>
+                            <StatusIndicator status={collectionStatus(expected, collected)} />
+                          </div>
+                          <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                            <div><Label className="text-[10px] text-muted-foreground">Expected</Label><p className="font-semibold tabular-nums">{formatUGX(expected)}</p></div>
+                            <div><Label className="text-[10px] text-muted-foreground">Paid today</Label><p className="font-semibold tabular-nums">{formatUGX(collected)}</p></div>
+                            <div><Label className="text-[10px] text-muted-foreground">Outstanding plan</Label><p className="font-semibold tabular-nums">{formatUGX(outstanding)}</p></div>
+                            <div><Label className="text-[10px] text-muted-foreground">Request status</Label><p className="font-semibold">{formatStatus(request.status)}</p></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <UserDrilldownDrawer
         open={Boolean(selectedTenant)}
         onOpenChange={(open) => { if (!open) setSelectedTenant(null); }}
