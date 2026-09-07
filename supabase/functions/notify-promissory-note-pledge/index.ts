@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
   let q = admin
     .from("promissory_note_pledge_notices")
     .select(
-      "id, note_id, partner_name, phone, email, amount, attached_count, attached_amount, monthly_return, annual_return, tenants, sms_status, email_status, attempts, promissory_notes!inner(activation_token)",
+      "id, note_id, partner_name, phone, email, amount, attached_count, attached_amount, monthly_return, annual_return, tenants, sms_status, email_status, attempts, promissory_notes!inner(agent_id)",
     )
     .lt("attempts", 5)
     .or("sms_status.eq.pending,email_status.eq.pending")
@@ -130,8 +130,13 @@ Deno.serve(async (req) => {
   const logRows: Record<string, unknown>[] = [];
 
   for (const row of rows as any[]) {
-    const token = row.promissory_notes?.activation_token;
-    const activationUrl = token ? `${origin}/activate?token=${token}` : `${origin}/activate`;
+    // Partners are sent to the public funder signup, carrying the recruiting
+    // agent as ?ref=<uuid> so the attribution the page already reads is kept
+    // (see pages/Onboarding.tsx — strict UUID, persisted across confirmation).
+    const agentId = row.promissory_notes?.agent_id;
+    const activationUrl = agentId
+      ? `${origin}/funder-onboarding?ref=${agentId}`
+      : `${origin}/funder-onboarding`;
     const patch: Record<string, unknown> = { attempts: (row.attempts || 0) + 1 };
     const errors: string[] = [];
 
