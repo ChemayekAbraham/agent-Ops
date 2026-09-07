@@ -12,9 +12,10 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
-  Loader2, PiggyBank, TrendingUp, Briefcase, Wallet, Sparkles,
+  Loader2, TrendingUp, Briefcase, Wallet, Sparkles,
   ArrowDownToLine, ChevronRight, ArrowUpRight, RefreshCw, Calendar, Clock, Hash,
   Pencil, Check, X, Download, Share2, FileText, AlertTriangle, MessageCircle
+
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { formatDateOnlyForDisplay, extractDateOnly, dateOnlyToLocalDate } from '@/lib/portfolioDates';
@@ -74,8 +75,9 @@ function PortfolioRow({ p, onTap }: { p: PortfolioRecord; onTap: () => void }) {
     >
       <Card className={`p-3.5 flex items-center gap-3 hover:bg-accent/30 transition-colors ${isExpired ? 'border-2 border-destructive/60 ring-1 ring-destructive/20' : 'border-border/60'}`}>
         <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-          <PiggyBank className="h-4.5 w-4.5 text-primary" />
+          <Wallet className="h-4.5 w-4.5 text-primary" />
         </div>
+
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-bold truncate">{name}</span>
@@ -601,8 +603,9 @@ export function InvestmentAccountsDrawer({ open, onOpenChange, defaultTab = 'acc
                   ) : portfolios.length === 0 ? (
                     <div className="py-10 text-center space-y-2">
                       <div className="w-12 h-12 rounded-2xl bg-muted/60 flex items-center justify-center mx-auto">
-                        <PiggyBank className="h-6 w-6 text-muted-foreground/50" />
+                        <Wallet className="h-6 w-6 text-muted-foreground/50" />
                       </div>
+
                       <p className="text-sm font-semibold">No investment accounts yet</p>
                       <p className="text-xs text-muted-foreground">Fund an opportunity to create your first account</p>
                     </div>
