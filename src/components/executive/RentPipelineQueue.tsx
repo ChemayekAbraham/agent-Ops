@@ -235,6 +235,8 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [quickProcessingId, setQuickProcessingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [agentSearch, setAgentSearch] = useState('');
+  const [landlordSearch, setLandlordSearch] = useState('');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [hideExpired, setHideExpired] = useState(true);
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -855,15 +857,26 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       }
       if (search) {
         const q = search.toLowerCase();
-        return (
-          r.tenant_name.toLowerCase().includes(q) ||
-          r.landlord_name.toLowerCase().includes(q) ||
-          r.agent_name.toLowerCase().includes(q) ||
-          (r.tenant_phone || '').includes(q) ||
-          (r.landlord_phone || '').includes(q) ||
+        if (
+          !r.tenant_name.toLowerCase().includes(q) &&
+          !r.landlord_name.toLowerCase().includes(q) &&
+          !r.agent_name.toLowerCase().includes(q) &&
+          !(r.tenant_phone || '').includes(q) &&
+          !(r.landlord_phone || '').includes(q) &&
           // District / village / parish / sub-county / free-text address
-          (r.location_search || '').includes(q)
-        );
+          !(r.location_search || '').includes(q)
+        ) return false;
+      }
+      if (agentSearch) {
+        const a = agentSearch.toLowerCase();
+        if (
+          !r.agent_name.toLowerCase().includes(a) &&
+          !((r.assigned_agent_name || '').toLowerCase().includes(a))
+        ) return false;
+      }
+      if (landlordSearch) {
+        const l = landlordSearch.toLowerCase();
+        if (!r.landlord_name.toLowerCase().includes(l)) return false;
       }
       return true;
     })
@@ -1381,10 +1394,32 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
           )}
         </div>
 
+        {/* Agent / Landlord quick filters */}
+        <div className="hidden sm:flex sm:flex-row gap-2 mt-2 items-start">
+          <div className="relative flex-1 min-w-0">
+            <UserCheck className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Filter by agent name"
+              value={agentSearch}
+              onChange={e => setAgentSearch(e.target.value)}
+              className="pl-9 h-9 text-sm"
+            />
+          </div>
+          <div className="relative flex-1 min-w-0">
+            <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Filter by landlord name"
+              value={landlordSearch}
+              onChange={e => setLandlordSearch(e.target.value)}
+              className="pl-9 h-9 text-sm"
+            />
+          </div>
+        </div>
+
         {/* Mobile Collapsed Filter Bar */}
         <div className="sm:hidden mt-2">
           {(() => {
-            const activeFiltersCount = (selectedTenantId !== 'all' ? 1 : 0) + (search.trim() ? 1 : 0) + (hideExpired ? 1 : 0) + (sortOrder === 'asc' ? 1 : 0);
+            const activeFiltersCount = (selectedTenantId !== 'all' ? 1 : 0) + (search.trim() ? 1 : 0) + (agentSearch.trim() ? 1 : 0) + (landlordSearch.trim() ? 1 : 0) + (hideExpired ? 1 : 0) + (sortOrder === 'asc' ? 1 : 0);
             return (
               <Collapsible open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
                 <CollapsibleTrigger asChild>
@@ -1420,6 +1455,28 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                         onChange={e => setSearch(e.target.value)}
                         className="pl-9 h-9 text-sm bg-background"
                       />
+                    </div>
+
+                    {/* Agent / Landlord quick filters */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="relative">
+                        <UserCheck className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Agent name"
+                          value={agentSearch}
+                          onChange={e => setAgentSearch(e.target.value)}
+                          className="pl-9 h-9 text-sm bg-background"
+                        />
+                      </div>
+                      <div className="relative">
+                        <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Landlord name"
+                          value={landlordSearch}
+                          onChange={e => setLandlordSearch(e.target.value)}
+                          className="pl-9 h-9 text-sm bg-background"
+                        />
+                      </div>
                     </div>
 
                     {/* Tenant Select */}
@@ -1570,6 +1627,34 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                               {req.funder_visibility_reason || 'not provided'}
                             </TooltipContent>
                           </Tooltip>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 flex-wrap mt-1.5 text-[11px] text-muted-foreground">
+                        {(req.assigned_agent_id || req.agent_id) && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => { e.stopPropagation(); setDrilldownAgentId(req.assigned_agent_id || req.agent_id); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setDrilldownAgentId(req.assigned_agent_id || req.agent_id); } }}
+                            className="inline-flex items-center gap-1 hover:text-primary hover:underline cursor-pointer"
+                            title="Open agent profile"
+                          >
+                            <UserCheck className="h-3 w-3 shrink-0" />
+                            <span className="truncate max-w-[140px] sm:max-w-[180px]">{req.assigned_agent_name || req.agent_name || 'No Agent'}</span>
+                          </span>
+                        )}
+                        {req.landlord_id && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => { e.stopPropagation(); setDrilldownLandlordId(req.landlord_id); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); setDrilldownLandlordId(req.landlord_id); } }}
+                            className="inline-flex items-center gap-1 hover:text-primary hover:underline cursor-pointer"
+                            title="Open landlord profile"
+                          >
+                            <Home className="h-3 w-3 shrink-0" />
+                            <span className="truncate max-w-[140px] sm:max-w-[180px]">{req.landlord_name || 'Unknown'}</span>
+                          </span>
                         )}
                       </div>
                     </div>
