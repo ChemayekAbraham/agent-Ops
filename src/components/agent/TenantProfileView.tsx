@@ -2159,13 +2159,20 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
 
                     {/* ── Repayment history for this plan (date & time, amount, balance left) ── */}
                     <div className="pt-2 border-t border-border/50 space-y-1.5">
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                           Repayment history
                         </p>
-                        <Badge variant="outline" className="text-[10px]">
-                          {planRows.length} payment{planRows.length === 1 ? '' : 's'} · {formatUGX(agg?.ledgerPaid ?? 0)}
-                        </Badge>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {(agg?.selfPaid ?? 0) > 0 && (
+                            <Badge className="text-[10px] bg-primary/15 text-primary border border-primary/30 hover:bg-primary/15">
+                              Tenant paid {formatUGX(agg?.selfPaid ?? 0)}
+                            </Badge>
+                          )}
+                          <Badge variant="outline" className="text-[10px]">
+                            {planRows.length} payment{planRows.length === 1 ? '' : 's'} · {formatUGX(agg?.ledgerPaid ?? 0)}
+                          </Badge>
+                        </div>
                       </div>
 
                       {planRows.length === 0 ? (
@@ -2180,7 +2187,17 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                                     [{format(new Date(r.date), 'dd/MM/yy')}] {format(new Date(r.date), 'HH:mm')}
                                   </p>
                                   <p className="text-sm font-bold font-mono text-success">{formatUGX(r.amount)}</p>
+                                  {r.source === 'self' ? (
+                                    <Badge className="mt-1 text-[9px] bg-primary/15 text-primary border border-primary/30 hover:bg-primary/15">
+                                      Paid by tenant
+                                    </Badge>
+                                  ) : r.source === 'agent' ? (
+                                    <Badge variant="secondary" className="mt-1 text-[9px]">
+                                      Agent collected
+                                    </Badge>
+                                  ) : null}
                                 </div>
+
                                 <div className="text-right shrink-0">
                                   <p className="text-[10px] text-muted-foreground">Balance left</p>
                                   <p className={`text-sm font-bold font-mono ${r.remaining > 0 ? 'text-destructive' : 'text-success'}`}>
