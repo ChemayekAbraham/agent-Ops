@@ -27,6 +27,7 @@ import { AgentAdvancesStatsCard } from '@/components/cfo/AgentAdvancesStatsCard'
 import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilldown';
 import { ServiceCentreReceivablesPanel } from '@/components/cfo/ServiceCentreReceivablesPanel';
 import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
+import { GeneralPayoutActivities } from '@/components/cfo/GeneralPayoutActivities';
 
 
 
@@ -400,7 +401,17 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           </div>
         </Band>
 
-        {/* ─────────── 4 · ADVANCES PORTFOLIO ─────────── */}
+        {/* ─────────── 4 · PAYOUT ACTIVITIES ─────────── */}
+        <Band
+          title="Payout Activities"
+          subtitle="Every payout transaction sent from the platform"
+          open={isOpen('payoutActivities')}
+          onToggle={() => toggleSection('payoutActivities')}
+        >
+          <GeneralPayoutActivities />
+        </Band>
+
+        {/* ─────────── 5 · ADVANCES PORTFOLIO ─────────── */}
         <Band
           title="Advances Portfolio"
           subtitle="Agent advances across the full book"
@@ -410,7 +421,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           <AgentAdvancesStatsCard />
         </Band>
 
-        {/* ─────────── 5 · TOOLS & AUDIT TRAIL ─────────── */}
+        {/* ─────────── 6 · TOOLS & AUDIT TRAIL ─────────── */}
         {/* Lookup tools rather than at-a-glance numbers, so this band starts
             collapsed and no longer pushes the flow views below the fold. */}
         <Band
@@ -517,7 +528,7 @@ function SectionToggle({ open, onToggle, label }: { open: boolean; onToggle: () 
 
 /**
  * A titled, collapsible band of the overview. Bands give the page a top-down
- * reading order (position → movement → receivables/payables → advances →
+ * reading order (position → movement → payout activities → receivables/payables → advances →
  * tools) and let the CFO fold away what they are not looking at.
  */
 function Band({ title, subtitle, open, onToggle, children }: {
