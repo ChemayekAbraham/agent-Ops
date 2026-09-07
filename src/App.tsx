@@ -222,6 +222,7 @@ const HRRecruitmentPage = lazy(() => import('./hr/pages/Recruitment'));
 const HRMetricDefinitionsPage = lazy(() => import('./hr/pages/MetricDefinitions'));
 const HRMyWorkPage = lazy(() => import('./hr/pages/MyWork'));
 const HRMyPerformancePage = lazy(() => import('./hr/pages/MyPerformance'));
+const HRPlatformSalesOfficersPage = lazy(() => import('./hr/pages/PlatformSalesOfficers'));
 const MyContribution = lazy(() => import('./pages/me/MyContribution'));
 const MeTicketsPage = lazy(() => import('./pages/me/TicketsPage'));
 const EngineeringContribution = lazy(() => import('./pages/hr/EngineeringContribution'));
@@ -654,6 +655,7 @@ function AppRoutes() {
           <Route path="/me/payslips" element={<RoleGuard allowedRoles={['tenant', 'agent', 'landlord', 'supporter', 'manager', 'ceo', 'coo', 'cfo', 'cto', 'cmo', 'crm', 'employee', 'operations', 'super_admin', 'hr']}><MyPayslipsPage /></RoleGuard>} />
           <Route path="/me/work" element={<HRSignedInRoute><HRMyWorkPage /></HRSignedInRoute>} />
           <Route path="/me/performance" element={<HRSignedInRoute><HRMyPerformancePage /></HRSignedInRoute>} />
+          <Route path="/hr/reports/platform-sales-officers" element={<RoleGuard allowedRoles={['hr', 'super_admin', 'coo', 'ceo']}><HRPlatformSalesOfficersPage /></RoleGuard>} />
           <Route path="/me/contribution" element={<HRSignedInRoute><MyContribution /></HRSignedInRoute>} />
           <Route path="/hr/engineering/contribution" element={<HRSignedInRoute><EngineeringContribution /></HRSignedInRoute>} />
           <Route path="/me/tickets" element={<HRSignedInRoute><MeTicketsPage /></HRSignedInRoute>} />
