@@ -48367,6 +48367,18 @@ export type Database = {
         Args: { p_limit?: number; p_status?: string }
         Returns: Json
       }
+      get_proxy_commission_tracker: {
+        Args: {
+          p_from?: string
+          p_kind?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
       get_proxy_partner_balance: {
         Args: { p_agent_id: string; p_partner_id: string }
         Returns: number
