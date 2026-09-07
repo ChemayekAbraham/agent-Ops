@@ -368,3 +368,42 @@ numbers exactly, so nothing visible changes for the current all-daily book.
 - Open questions that block exact semantics: do self-payments count toward agent performance; does
   prepaid credit satisfy a future day's target; is there a grace period before arrears; how do
   pauses affect accrued expectation.
+
+---
+
+# Implementation + verification log (2026-09-07)
+
+Shipped: read-only RPC `public.get_agent_monitoring_positions(p_from, p_to, p_include_self_payments)`
+(SECURITY DEFINER, `search_path = public`, EXECUTE limited to `authenticated` and gated on
+ops/executive roles in `user_roles`), plus a new "Expected vs paid" tab
+(`src/components/executive/tenant-ops/AgentPaymentPosition.tsx`) inside the existing
+`AgentMonitoring` tab strip. The two existing tabs and the day view are byte-for-byte unchanged.
+
+Due dates come from the existing engine `rent_plan_schedule_days` (frequency-aware: daily = every
+day, weekly = every 7th day from `term_start`, monthly = calendar month), never from multiplying a
+daily figure. For days before today, `agent_expected_day_plans` (frozen) overrides the live
+schedule. Payments are read from `agent_collections` + `repayments`, de-duplicated on
+(plan, amount, within 5 minutes).
+
+Verified against live production records:
+
+| Case | Result |
+| --- | --- |
+| Totals for today | 1,232 plan rows, expected UGX 4,029,184 — identical to a hand-written control query |
+| Advance payment covering future dates | plan `f4a0b20d…`: 9,200/day, paid 209,200, expected-to-date 128,800, credit ahead 80,400 (8.7 instalments), `covered_through` 2026-09-15 → future days are **not** reported as missed |
+| Partial payment | plan `d815c401…`: expected 45,000 today, paid 2,000 → arrears 1,197,000, band `overdue` |
+| Arrears | plan `3ea3210d…`: expected-to-date 5,340,000, paid 828,000, arrears 4,512,000 (exact difference) |
+| Nothing due on the selected date | as-of 2026-01-01: 1,219 plans return expected 0, band `not_due_yet` |
+| Period aggregation | 7-day window expected 27,814,127 = sum of the same seven single days, exactly |
+| Historical date on frozen expectations | 2026-08-20: RPC 6,264,687 = frozen 6,264,687 = live schedule 6,264,687 across 219 plans |
+| Unattributed agent cash | returned as separate rows (`position_band = 'unattributed'`) and shown as a footnote, never guessed onto a tenant |
+
+**Limitation that stands.** Weekly/monthly expectation could not be verified against real records:
+every one of the 1,232 live plans is `repayment_frequency = 'daily'`. The weekly/monthly branches are
+the existing, already-in-use `rent_plan_schedule_days` branches (reused, not re-implemented), so a
+weekly plan starting on a Thursday is due only on Thursdays — but no such plan exists yet to prove it
+end to end.
+
+Plans excluded upstream by `v_rent_plan_schedule` (marked not-paying, actively paused, ended tenancy)
+still do not appear, exactly as before. Cleared / not-collectable-today plans do appear, with a
+reason. No "+2 repayment boost" was created — it does not exist (see Addendum A).
