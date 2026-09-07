@@ -261,6 +261,7 @@ export function AgentMenuDrawer({
         { icon: Building2, label: 'Landlord Reg Form', description: 'Download or share on WhatsApp', onClick: onDownloadLandlordForm, accent: 'emerald-600', badge: '📲' },
         { icon: UserPlus, label: 'Tenant Reg Form', description: 'Download or share on WhatsApp', onClick: onDownloadTenantForm, accent: 'blue-600', badge: '📲' },
         { icon: Megaphone, label: 'Available for Rent Poster', description: 'Print or share on WhatsApp', onClick: onOpenRentPoster, accent: 'purple-500', badge: '📲' },
+        { icon: ScrollText, label: 'Partner Contract', description: 'Download the partner agreement', onClick: () => { window.open(partnerContractAsset.url, '_blank', 'noopener,noreferrer'); }, accent: 'indigo-500', badge: '📄' },
       ].filter(i => i.onClick !== undefined),
     },
     {
