@@ -58,7 +58,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const queryClient = useQueryClient();
   const [osType, setOsType] = useState<SmartphoneOsType>('android');
   const [catalogId, setCatalogId] = useState('');
-  const [months, setMonths] = useState<string>('12');
+  const [months, setMonths] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<'full' | 'installments'>('installments');
   const [submitting, setSubmitting] = useState(false);
   const [docsReady, setDocsReady] = useState(false);
