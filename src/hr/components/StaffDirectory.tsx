@@ -157,14 +157,40 @@ export default function StaffDirectory() {
     [positions],
   );
 
+  const scopedStaff = useMemo(
+    () => staff.filter((s) => (tab === 'exited' ? s.status !== 'active' : s.status === 'active')),
+    [staff, tab],
+  );
+
+  const rolesByStaff = useCallback(
+    (staffId: string): string[] => {
+      const rows = assignments[staffId] ?? [];
+      const titles = rows.map((a) => a.position_title).filter(Boolean);
+      return Array.from(new Set(titles));
+    },
+    [assignments],
+  );
+
   const departmentOptions = useMemo(() => {
-    const names = new Set<string>();
-    staff.forEach((s) => {
+    const counts = new Map<string, number>();
+    scopedStaff.forEach((s) => {
       const name = s.current_assignment?.department_name;
-      if (name) names.add(name);
+      if (name) counts.set(name, (counts.get(name) ?? 0) + 1);
     });
-    return Array.from(names).sort((a, b) => a.localeCompare(b));
-  }, [staff]);
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [scopedStaff]);
+
+  const roleOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    scopedStaff.forEach((s) => {
+      rolesByStaff(s.id).forEach((title) => counts.set(title, (counts.get(title) ?? 0) + 1));
+    });
+    return Array.from(counts.entries())
+      .map(([title, count]) => ({ title, count }))
+      .sort((a, b) => b.count - a.count || a.title.localeCompare(b.title));
+  }, [scopedStaff, rolesByStaff]);
 
   const activeCount = useMemo(() => staff.filter((s) => s.status === 'active').length, [staff]);
   const exitedCount = useMemo(() => staff.filter((s) => s.status !== 'active').length, [staff]);
@@ -179,12 +205,13 @@ export default function StaffDirectory() {
       ) {
         return false;
       }
+      if (roleFilter !== '__all__' && !rolesByStaff(s.id).includes(roleFilter)) return false;
       if (!q) return true;
       return [s.full_name, s.staff_number, s.phone, s.email]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q));
     });
-  }, [staff, query, departmentFilter]);
+  }, [staff, query, departmentFilter, roleFilter, rolesByStaff]);
 
   const exitedBase = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -196,12 +223,13 @@ export default function StaffDirectory() {
       ) {
         return false;
       }
+      if (roleFilter !== '__all__' && !rolesByStaff(s.id).includes(roleFilter)) return false;
       if (!q) return true;
       return [s.full_name, s.staff_number, s.phone, s.email]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q));
     });
-  }, [staff, query, departmentFilter]);
+  }, [staff, query, departmentFilter, roleFilter, rolesByStaff]);
 
   const noAssignmentCount = useMemo(
     () => peopleBase.filter((s) => !(assignments[s.id]?.length)).length,
@@ -218,11 +246,18 @@ export default function StaffDirectory() {
   const visibleStaff = useMemo(() => {
     if (tab === 'unenrolled') return [];
     const base = tab === 'people' ? peopleBase : exitedBase;
-    if (tab === 'people' && filterNoAssignment) {
-      return base.filter((s) => !(assignments[s.id]?.length));
-    }
-    return base;
-  }, [tab, peopleBase, exitedBase, filterNoAssignment, assignments]);
+    const filtered =
+      tab === 'people' && filterNoAssignment
+        ? base.filter((s) => !(assignments[s.id]?.length))
+        : base;
+    if (roleSort === 'none') return filtered;
+    const roleKey = (s: Employee) => (rolesByStaff(s.id)[0] ?? '').toLowerCase();
+    return [...filtered].sort((a, b) => {
+      const cmp = roleKey(a).localeCompare(roleKey(b));
+      return roleSort === 'asc' ? cmp : -cmp;
+    });
+  }, [tab, peopleBase, exitedBase, filterNoAssignment, assignments, roleSort, rolesByStaff]);
+
 
   const exportCsv = useCallback(() => {
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
