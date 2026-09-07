@@ -84,6 +84,7 @@ import { FieldCashExposureCard } from '@/components/cfo/FieldCashExposureCard';
 import { CFOAgentOpsFloatSender } from '@/components/cfo/CFOAgentOpsFloatSender';
 import { CFOImpactKPIStrip } from '@/components/cfo/CFOImpactKPIStrip';
 import { CFOWalletActivities } from '@/components/cfo/CFOWalletActivities';
+import { RecentApprovalsByCategory } from '@/components/cfo/RecentApprovalsByCategory';
 import { RecentPayoutActivity } from '@/components/cfo/RecentPayoutActivity';
 import { EarningsExplainer } from '@/components/shared/EarningsExplainer';
 import { AgentAllocationTracesPanel } from '@/components/cfo/AgentAllocationTracesPanel';
@@ -196,6 +197,8 @@ export default function CFODashboardPage() {
         return (
           <div className="space-y-5">
             <DirectCreditTool />
+
+            <RecentApprovalsByCategory />
 
             <RecentPayoutActivity />
 

@@ -53,7 +53,7 @@ interface SubCategory {
   label: string;
 }
 
-interface PayoutCategory {
+export interface PayoutCategory {
   id: string;
   label: string;
   description: string;
@@ -71,7 +71,7 @@ interface PayoutCategory {
   recipientLock: RecipientType | 'either';
 }
 
-const PAYOUT_CATEGORIES: PayoutCategory[] = [
+export const PAYOUT_CATEGORIES: PayoutCategory[] = [
   // ── CREDIT (Platform → Wallet) ──
   {
     id: 'roi_payout',
