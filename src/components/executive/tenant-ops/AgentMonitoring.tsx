@@ -225,25 +225,32 @@ export function AgentMonitoring() {
       if (!grouped.has(collection.agent_id)) grouped.set(collection.agent_id, []);
     });
 
-    return Array.from(grouped.entries()).map(([agentId, tenants]) => {
-      const expected = tenants.reduce((sum, request) => sum + Number(request.daily_repayment ?? 0), 0);
-      const collected = tenants.reduce(
-        (sum, request) => sum + (collectionMap.get(`${agentId}:${request.tenant_id}`) ?? 0),
-        0,
-      );
-      const profile = profileMap.get(agentId);
-      return {
-        id: agentId,
-        name: profile?.full_name || 'Unnamed agent',
-        phone: profile?.phone ?? null,
-        tenantCount: new Set(tenants.map((request) => request.tenant_id)).size,
-        expected,
-        collected,
-        requestCount: data?.requestCounts.get(agentId) ?? 0,
-        tenants,
-      };
-    }).sort((a, b) => b.expected - a.expected || a.name.localeCompare(b.name));
-  }, [collectionMap, data?.collections, data?.requests, data?.requestCounts, profileMap]);
+    return Array.from(grouped.entries())
+      .map(([agentId, tenants]) => {
+        const expected = tenants.reduce((sum, request) => sum + Number(request.daily_repayment ?? 0), 0);
+        const collected = tenants.reduce(
+          (sum, request) => sum + (collectionMap.get(`${agentId}:${request.tenant_id}`) ?? 0),
+          0,
+        );
+        const profile = profileMap.get(agentId);
+        return {
+          id: agentId,
+          name: profile?.full_name || 'Unnamed agent',
+          phone: profile?.phone ?? null,
+          tenantCount: new Set(tenants.map((request) => request.tenant_id)).size,
+          expected,
+          collected,
+          requestCount: data?.requestCounts.get(agentId) ?? 0,
+          tenants,
+        };
+      })
+      .filter((agent) => {
+        if (!createdAfter) return true;
+        const profile = profileMap.get(agent.id);
+        return !!profile?.created_at && new Date(profile.created_at) >= new Date(createdAfter);
+      })
+      .sort((a, b) => b.expected - a.expected || a.name.localeCompare(b.name));
+  }, [collectionMap, createdAfter, data?.collections, data?.requests, data?.requestCounts, profileMap]);
 
   const filteredAgents = useMemo(() => {
     const query = search.trim().toLowerCase();
