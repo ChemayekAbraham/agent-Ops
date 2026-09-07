@@ -35,6 +35,8 @@ import { useProfile } from '@/hooks/useProfile';
 
 type OptionKey = 'managed' | 'direct' | 'angel';
 type ViewState = 'menu' | OptionKey;
+type FeedOrder = 'rent' | 'houses';
+
 
 // Configurable service/access fee on empty-house funding (rate on one-month funding).
 const EMPTY_HOUSE_SERVICE_FEE_RATE = 0;
@@ -507,6 +509,7 @@ export function FunderCapitalOpportunities() {
   const [calcHouses, setCalcHouses] = useState(5);
   const [calcAmountInput, setCalcAmountInput] = useState('');
   const [calcOpen, setCalcOpen] = useState(false);
+  const [feedOrder, setFeedOrder] = useState<FeedOrder>('rent');
 
   const [feeRatePct, setFeeRatePct] = useState(EMPTY_HOUSE_SERVICE_FEE_RATE * 100);
 
