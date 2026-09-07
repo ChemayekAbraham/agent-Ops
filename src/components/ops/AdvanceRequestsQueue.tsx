@@ -341,117 +341,60 @@ export function AdvanceRequestsQueue({ stage }: AdvanceRequestsQueueProps) {
       )}
 
       {requests.map((req: any) => {
-        const p = req.agent_id ? potentialMap[req.agent_id] : undefined;
         const requested = num(req.principal);
-        const suggested = p ? p.suggested_amount : 0;
-        const limit = p ? p.current_limit : 0;
-        const overSuggested = p && requested > suggested;
-        const overLimit = p && limit > 0 && requested > limit;
         const isSel = selectedIds.has(req.id);
         const failureMsg = bulkFailures[req.id];
         return (
           <div key={req.id} className="relative">
             <button
+              type="button"
               onClick={() => setSelected(req)}
-              className="w-full text-left"
+              className="w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-xl"
             >
-            <Card className={cn(
-              'overflow-hidden hover:border-primary/40 hover:shadow-md active:scale-[0.99] transition-all',
-              isSel && 'border-primary ring-1 ring-primary/40',
-              failureMsg && 'border-red-500 ring-1 ring-red-400',
-            )}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <span
-                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleOne(req.id); }}
-                    className="flex items-center justify-center h-6 w-6 shrink-0"
-                  >
-                    <Checkbox
-                      checked={isSel}
-                      onCheckedChange={() => toggleOne(req.id)}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </span>
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <User className="h-5 w-5 text-primary" />
+              <Card className={cn(
+                'overflow-hidden hover:border-primary/40 hover:shadow-sm active:scale-[0.99] transition-all',
+                isSel && 'border-primary ring-1 ring-primary/40',
+                failureMsg && 'border-red-500 ring-1 ring-red-400',
+              )}>
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-3">
+                    <span
+                      onClick={(e) => { e.stopPropagation(); e.preventDefault(); toggleOne(req.id); }}
+                      className="flex items-center justify-center h-5 w-5 shrink-0"
+                    >
+                      <Checkbox
+                        checked={isSel}
+                        onCheckedChange={() => toggleOne(req.id)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </span>
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <User className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate flex items-center gap-1.5">
+                        <span className="truncate">{req.agent_full_name || 'Agent'}</span>
+                        {(req.request_kind ?? 'new') === 'topup' && (
+                          <Badge variant="outline" className="shrink-0 text-[9px] px-1.5 py-0 h-4 uppercase tracking-wider bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-950/30 dark:text-violet-400">
+                            Top-up +{Number(req.extend_days ?? 0)}d
+                          </Badge>
+                        )}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-bold text-primary">{formatUGX(requested)}</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold truncate flex items-center gap-1.5">
-                      <span className="truncate">{req.agent_full_name || 'Agent'}</span>
-                      {(req.request_kind ?? 'new') === 'topup' && (
-                        <Badge variant="outline" className="shrink-0 text-[9px] px-1.5 py-0 h-4 uppercase tracking-wider bg-violet-100 text-violet-800 border-violet-300 dark:bg-violet-950/30 dark:text-violet-400">
-                          Top-up +{Number(req.extend_days ?? 0)}d
-                        </Badge>
-                      )}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">{req.agent_phone || ''} • {format(new Date(req.created_at), 'MMM d, yyyy')}</p>
-                    <AgentLocationBadge req={req} />
-                    {req.agent_id && (
-                      <div className="mt-1">
-                        <DuplicateAccountBadge
-                          dups={duplicateMap[req.agent_id]}
-                          flagged={!!duplicateFlagMap[req.agent_id]}
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-base font-bold text-primary">{formatUGX(requested)}</p>
-                    <p className="text-[10px] text-muted-foreground">{req.cycle_days} days</p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                </div>
 
-                {/* Brief potential summary */}
-                <div className="mt-3 rounded-xl bg-muted/40 p-2.5">
-                  {p ? (
-                    <>
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <Target className="h-3.5 w-3.5 text-primary shrink-0" />
-                          <span className="text-[11px] font-semibold truncate">
-                            Potential {tierLabel(p.potential_score)}
-                          </span>
-                        </div>
-                        <span className={cn('text-[11px] font-bold shrink-0', scoreColor(p.potential_score))}>
-                          {p.potential_score.toFixed(0)}/100
-                        </span>
-                      </div>
-                      <Progress value={p.potential_score} className="h-1.5 mt-1.5" />
-                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mt-2 text-[10px]">
-                        <span className="text-muted-foreground">
-                          Suggested <span className="font-bold text-emerald-600">{formatUGX(suggested)}</span>
-                        </span>
-                        <span className="text-muted-foreground">
-                          Limit <span className="font-bold text-foreground">{formatUGX(limit)}</span>
-                        </span>
-                        <span className="text-muted-foreground inline-flex items-center gap-1">
-                          <Users className="h-3 w-3" />{p.direct_subagents}+{p.grand_subagents} network
-                        </span>
-                      </div>
-                      {(overSuggested || overLimit) && (
-                        <div className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-amber-600">
-                          <AlertTriangle className="h-3 w-3 shrink-0" />
-                          {overLimit
-                            ? `Requested exceeds current limit by ${formatUGX(requested - limit)}`
-                            : `Requested is ${formatUGX(requested - suggested)} above the suggested amount`}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <p className="text-[10px] text-muted-foreground inline-flex items-center gap-1.5">
-                      <Info className="h-3 w-3" /> Not ranked yet — tap to generate this agent's evaluation.
-                    </p>
+                  {failureMsg && (
+                    <div className="mt-2 flex items-start gap-1.5 rounded-md bg-red-50 dark:bg-red-950/30 px-2 py-1 text-[10px] text-red-700 dark:text-red-400">
+                      <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                      <span className="truncate">Last run: {failureMsg}</span>
+                    </div>
                   )}
-                </div>
-                {failureMsg && (
-                  <div className="mt-2 flex items-start gap-1.5 rounded-md bg-red-50 dark:bg-red-950/30 px-2 py-1.5 text-[10px] text-red-700 dark:text-red-400">
-                    <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-                    <span>Last bulk run: {failureMsg}</span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
             </button>
           </div>
         );
