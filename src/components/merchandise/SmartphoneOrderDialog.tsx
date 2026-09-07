@@ -58,7 +58,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const queryClient = useQueryClient();
   const [osType, setOsType] = useState<SmartphoneOsType>('android');
   const [catalogId, setCatalogId] = useState('');
-  const [months, setMonths] = useState<string>('12');
+  const [months, setMonths] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<'full' | 'installments'>('installments');
   const [submitting, setSubmitting] = useState(false);
   const [docsReady, setDocsReady] = useState(false);
@@ -96,8 +96,8 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
     setCatalogId('');
   }, [osType]);
 
-  const period = PERIODS.find((p) => String(p.months) === months) ?? PERIODS[PERIODS.length - 1];
-  const schedule = smartphoneSchedule(price, period.months);
+  const period = months ? PERIODS.find((p) => String(p.months) === months) : undefined;
+  const schedule = period ? smartphoneSchedule(price, period.months) : { total: 0, daily: 0 };
   const totalRepayable = schedule.total;
   const dailyAmount = schedule.daily;
 
@@ -105,12 +105,13 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   // stops a submission. Portfolio and document checks are review inputs shown
   // to the Agent Ops manager, never a block here.
   const hasOpenApplication = !!eligibility?.has_open_application;
-  const canSubmit = !hasOpenApplication && !!selected && price > 0 && docsReady;
+  const canSubmit =
+    !hasOpenApplication && !!selected && price > 0 && docsReady && (paymentMethod === 'full' || !!months);
 
   const reset = () => {
     setOsType('android');
     setCatalogId('');
-    setMonths('12');
+    setMonths('');
     setPaymentMethod('installments');
     setDocsReady(false);
   };
@@ -265,7 +266,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 <Label className="text-xs">Repayment period</Label>
                 <Select value={months} onValueChange={setMonths} disabled={hasOpenApplication}>
                   <SelectTrigger>
-                    <SelectValue placeholder="select a period" />
+                    <SelectValue placeholder="Select a period" />
                   </SelectTrigger>
                   <SelectContent>
                     {PERIODS.map((p) => (
