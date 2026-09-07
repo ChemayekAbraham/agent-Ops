@@ -96,8 +96,8 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
     setCatalogId('');
   }, [osType]);
 
-  const period = PERIODS.find((p) => String(p.months) === months) ?? PERIODS[PERIODS.length - 1];
-  const schedule = smartphoneSchedule(price, period.months);
+  const period = months ? PERIODS.find((p) => String(p.months) === months) : undefined;
+  const schedule = period ? smartphoneSchedule(price, period.months) : { total: 0, daily: 0 };
   const totalRepayable = schedule.total;
   const dailyAmount = schedule.daily;
 
