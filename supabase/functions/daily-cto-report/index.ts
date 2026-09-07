@@ -279,6 +279,15 @@ Deno.serve(async (req) => {
     // Zero failures inside a window that has not actually produced a recent
     // success is not evidence of health, so recency now gates the verdict.
     const backupOk = n(B.runs_7d) > 0 && n(B.failures_7d) === 0 && backupFresh;
+    // Same rule, parameterised so the weekly rollup can evaluate each day
+    // against its own backup state (now that the RPC returns backups.latest
+    // / runs_7d / failures_7d scoped to that day) instead of reusing today's
+    // backupOk for all seven days.
+    const computeBackupOk = (b: any, referenceMs: number): boolean => {
+      const at = b?.latest?.created_at && String(b.latest.status) === 'success' ? new Date(String(b.latest.created_at)).getTime() : null;
+      const ageHours = at != null ? Math.max(0, (referenceMs - at) / 3_600_000) : Number.POSITIVE_INFINITY;
+      return n(b?.runs_7d) > 0 && n(b?.failures_7d) === 0 && ageHours <= BACKUP_CADENCE_HOURS;
+    };
 
     // Weighted technology health score (0-100)
     const scoreParts = [
@@ -1527,16 +1536,21 @@ Deno.serve(async (req) => {
         if (!r) continue;
         const x: any = r.payload || {};
         const xP = x.platform || {}, xE = x.errors || {}, xA = x.auth || {}, xI = x.infra || {},
-          xJ = x.jobs || {}, xM = x.email || {}, xS = x.security || {};
+          xJ = x.jobs || {}, xM = x.email || {}, xS = x.security || {}, xB = x.backups || {};
         const dErr = pct(n(xE.affected_users_today), Math.max(1, Math.max(n(xP.active_24h), n(xE.affected_users_today))));
         const dLogin = pct(n(xA.login_failures_today), Math.max(1, n(xA.login_events_today)));
         const dJob = pct(n(xJ.failed_24h), Math.max(1, n(xJ.runs_24h)));
         const dConn = pct(n(xI.connections), Math.max(1, n(xI.max_connections)));
         const dRls = pct(n(xS.rls_tables), Math.max(1, n(xS.public_tables)));
         const dCache = n(xI.cache_hit_pct);
+        // Each day's own backup state (end-of-day EAT), not today's — the RPC
+        // now scopes backups.latest/runs_7d/failures_7d to p_date, so reusing
+        // the outer backupOk here would silently repeat today's continuity
+        // verdict across all seven days.
+        const dBackupOk = computeBackupOk(xB, new Date(`${r.dy}T23:59:59.999+03:00`).getTime());
         const dHealth = Math.round(
           (Math.max(0, 100 - dErr * 12) * 25 + Math.max(0, 100 - dLogin * 1.6) * 15 + Math.max(0, 100 - dJob * 4) * 15 +
-            Math.min(100, dCache * 0.7 + Math.max(0, 100 - dConn) * 0.3) * 20 + dRls * 15 + (backupOk ? 100 : 45) * 10) / 100,
+            Math.min(100, dCache * 0.7 + Math.max(0, 100 - dConn) * 0.3) * 20 + dRls * 15 + (dBackupOk ? 100 : 45) * 10) / 100,
         );
         weekDays.push({
           d: r.dy, health: dHealth, errUsers: n(xE.affected_users_today), active: n(xP.active_24h),
