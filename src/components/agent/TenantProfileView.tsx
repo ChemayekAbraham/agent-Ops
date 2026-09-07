@@ -378,7 +378,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
           .order('created_at', { ascending: false }),
         supabase
           .from('repayments')
-          .select('id, amount, created_at, rent_request_id')
+          .select('id, amount, created_at, rent_request_id, payment_method, paid_by, initiated_by, deposit_request_id')
           .eq('tenant_id', tenantId)
           .order('created_at', { ascending: false })
           .limit(REPAY_FETCH_SIZE + 1),
@@ -794,7 +794,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
   const fetchNextRepaymentPage = async (): Promise<RepaymentRow[]> => {
     const { data, error } = await supabase
       .from('repayments')
-      .select('id, amount, created_at, rent_request_id')
+      .select('id, amount, created_at, rent_request_id, payment_method, paid_by, initiated_by, deposit_request_id')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .range(repayments.length, repayments.length + REPAY_FETCH_SIZE);
@@ -835,7 +835,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
       const from = page * REPAY_FETCH_SIZE;
       const { data, error } = await supabase
         .from('repayments')
-        .select('id, amount, created_at, rent_request_id')
+        .select('id, amount, created_at, rent_request_id, payment_method, paid_by, initiated_by, deposit_request_id')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
         .range(from, from + REPAY_FETCH_SIZE - 1);
