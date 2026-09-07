@@ -6027,6 +6027,105 @@ export type Database = {
         }
         Relationships: []
       }
+      bd3_pricing_subsidy_population: {
+        Row: {
+          access_fee: number
+          agent_commission: number
+          duration_days: number
+          id: string
+          partner_reward: number
+          recorded_at: string
+          registration_fee: number
+          rent_amount: number
+          rent_request_id: string
+          shortfall: number
+          transaction_group_id: string | null
+        }
+        Insert: {
+          access_fee: number
+          agent_commission: number
+          duration_days: number
+          id?: string
+          partner_reward: number
+          recorded_at?: string
+          registration_fee: number
+          rent_amount: number
+          rent_request_id: string
+          shortfall: number
+          transaction_group_id?: string | null
+        }
+        Update: {
+          access_fee?: number
+          agent_commission?: number
+          duration_days?: number
+          id?: string
+          partner_reward?: number
+          recorded_at?: string
+          registration_fee?: number
+          rent_amount?: number
+          rent_request_id?: string
+          shortfall?: number
+          transaction_group_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bd3_pricing_subsidy_population_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bd3_pricing_subsidy_population_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bd3_pricing_subsidy_population_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "bd3_pricing_subsidy_population_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "bd3_pricing_subsidy_population_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "bd3_pricing_subsidy_population_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "bd3_pricing_subsidy_population_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "bd3_pricing_subsidy_population_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+        ]
+      }
       blocked_signup_ips: {
         Row: {
           blocked_by: string | null
@@ -13534,6 +13633,7 @@ export type Database = {
           direction: string
           id: string
           idempotency_key: string | null
+          instalment_id: string | null
           ledger_scope: string
           linked_party: string | null
           matured_at: string | null
@@ -13543,6 +13643,7 @@ export type Database = {
           maturity_subject_id: string | null
           recipient_type: string | null
           reference_id: string | null
+          rent_request_id: string | null
           routing_source: string | null
           running_balance: number | null
           solvency_bypass_reason:
@@ -13569,6 +13670,7 @@ export type Database = {
           direction: string
           id?: string
           idempotency_key?: string | null
+          instalment_id?: string | null
           ledger_scope?: string
           linked_party?: string | null
           matured_at?: string | null
@@ -13578,6 +13680,7 @@ export type Database = {
           maturity_subject_id?: string | null
           recipient_type?: string | null
           reference_id?: string | null
+          rent_request_id?: string | null
           routing_source?: string | null
           running_balance?: number | null
           solvency_bypass_reason?:
@@ -13604,6 +13707,7 @@ export type Database = {
           direction?: string
           id?: string
           idempotency_key?: string | null
+          instalment_id?: string | null
           ledger_scope?: string
           linked_party?: string | null
           matured_at?: string | null
@@ -13613,6 +13717,7 @@ export type Database = {
           maturity_subject_id?: string | null
           recipient_type?: string | null
           reference_id?: string | null
+          rent_request_id?: string | null
           routing_source?: string | null
           running_balance?: number | null
           solvency_bypass_reason?:
@@ -17397,6 +17502,117 @@ export type Database = {
         }
         Relationships: []
       }
+      instalment_allocations: {
+        Row: {
+          access_fee_component: number
+          agent_commission_component: number | null
+          created_at: string
+          id: string
+          instalment_amount: number
+          instalment_date: string
+          instalment_id: string
+          partner_reward_component: number | null
+          platform_net_component: number | null
+          principal_component: number
+          registration_fee_component: number
+          rent_request_id: string
+          source_id: string | null
+          source_table: string | null
+          transaction_group_id: string | null
+        }
+        Insert: {
+          access_fee_component: number
+          agent_commission_component?: number | null
+          created_at?: string
+          id?: string
+          instalment_amount: number
+          instalment_date?: string
+          instalment_id?: string
+          partner_reward_component?: number | null
+          platform_net_component?: number | null
+          principal_component: number
+          registration_fee_component: number
+          rent_request_id: string
+          source_id?: string | null
+          source_table?: string | null
+          transaction_group_id?: string | null
+        }
+        Update: {
+          access_fee_component?: number
+          agent_commission_component?: number | null
+          created_at?: string
+          id?: string
+          instalment_amount?: number
+          instalment_date?: string
+          instalment_id?: string
+          partner_reward_component?: number | null
+          platform_net_component?: number | null
+          principal_component?: number
+          registration_fee_component?: number
+          rent_request_id?: string
+          source_id?: string | null
+          source_table?: string | null
+          transaction_group_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "instalment_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+        ]
+      }
       internship_applications: {
         Row: {
           availability_days_per_week: number | null
@@ -20530,6 +20746,13 @@ export type Database = {
             foreignKeyName: "ledger_anomaly_isolations_ledger_entry_id_fkey"
             columns: ["ledger_entry_id"]
             isOneToOne: true
+            referencedRelation: "v_g7_receivable_direction_defect"
+            referencedColumns: ["leg_id"]
+          },
+          {
+            foreignKeyName: "ledger_anomaly_isolations_ledger_entry_id_fkey"
+            columns: ["ledger_entry_id"]
+            isOneToOne: true
             referencedRelation: "v_general_ledger_effective"
             referencedColumns: ["id"]
           },
@@ -20765,14 +20988,17 @@ export type Database = {
         Row: {
           enforce_from: string
           id: boolean
+          mapped_balance_mode: string
         }
         Insert: {
           enforce_from?: string
           id?: boolean
+          mapped_balance_mode?: string
         }
         Update: {
           enforce_from?: string
           id?: boolean
+          mapped_balance_mode?: string
         }
         Relationships: []
       }
@@ -20806,6 +21032,39 @@ export type Database = {
           opened_at?: string | null
           opened_by?: string | null
           reason?: string | null
+        }
+        Relationships: []
+      }
+      ledger_mapped_balance_violations: {
+        Row: {
+          detected_at: string
+          id: string
+          leg_shape: string | null
+          mapped_credits: number
+          mapped_debits: number
+          residual: number
+          source_table: string | null
+          transaction_group_id: string
+        }
+        Insert: {
+          detected_at?: string
+          id?: string
+          leg_shape?: string | null
+          mapped_credits: number
+          mapped_debits: number
+          residual: number
+          source_table?: string | null
+          transaction_group_id: string
+        }
+        Update: {
+          detected_at?: string
+          id?: string
+          leg_shape?: string | null
+          mapped_credits?: number
+          mapped_debits?: number
+          residual?: number
+          source_table?: string | null
+          transaction_group_id?: string
         }
         Relationships: []
       }
@@ -20896,6 +21155,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "general_ledger"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledger_scope_reclassifications_ledger_entry_id_fkey"
+            columns: ["ledger_entry_id"]
+            isOneToOne: true
+            referencedRelation: "v_g7_receivable_direction_defect"
+            referencedColumns: ["leg_id"]
           },
           {
             foreignKeyName: "ledger_scope_reclassifications_ledger_entry_id_fkey"
@@ -41919,6 +42185,36 @@ export type Database = {
         }
         Relationships: []
       }
+      v_g7_receivable_direction_defect: {
+        Row: {
+          amount: number | null
+          defect: string | null
+          leg_id: string | null
+          source_id: string | null
+          source_table: string | null
+          transaction_date: string | null
+          transaction_group_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          defect?: never
+          leg_id?: string | null
+          source_id?: string | null
+          source_table?: string | null
+          transaction_date?: string | null
+          transaction_group_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          defect?: never
+          leg_id?: string | null
+          source_id?: string | null
+          source_table?: string | null
+          transaction_date?: string | null
+          transaction_group_id?: string | null
+        }
+        Relationships: []
+      }
       v_general_ledger_effective: {
         Row: {
           account: string | null
@@ -44206,6 +44502,17 @@ export type Database = {
         }
         Returns: Json
       }
+      allocate_instalment: {
+        Args: { p_instalment_amount: number; p_rent_request_id: string }
+        Returns: {
+          access_fee_component: number
+          basis_note: string
+          cumulative_after: number
+          cumulative_before: number
+          principal_component: number
+          registration_fee_component: number
+        }[]
+      }
       apply_advance_topup:
         | {
             Args: {
@@ -44337,6 +44644,10 @@ export type Database = {
         Returns: string
       }
       assert_agent_collections_report_access: { Args: never; Returns: boolean }
+      assert_funding_treasury_recognised: {
+        Args: { p_rent_request_id: string }
+        Returns: undefined
+      }
       assert_merchant_capacity_override_admin: { Args: never; Returns: string }
       assert_merchant_float_alloc_access: { Args: never; Returns: boolean }
       assert_no_promissory_self_support: {
@@ -45343,6 +45654,19 @@ export type Database = {
         }[]
       }
       compute_daily_stats: { Args: never; Returns: undefined }
+      compute_instalment_allocation: {
+        Args: { p_instalment_amount: number; p_rent_request_id: string }
+        Returns: {
+          access_fee_component: number
+          basis_access_fee: number
+          basis_note: string
+          basis_principal: number
+          basis_registration_fee: number
+          basis_total: number
+          principal_component: number
+          registration_fee_component: number
+        }[]
+      }
       compute_outstanding_repayment: {
         Args: {
           p_duration_days: number
@@ -45357,6 +45681,15 @@ export type Database = {
         }[]
       }
       compute_rent_repayment: {
+        Args: { p_duration_days: number; p_rent_amount: number }
+        Returns: {
+          access_fee: number
+          daily_repayment: number
+          request_fee: number
+          total_repayment: number
+        }[]
+      }
+      compute_rent_repayment_legacy: {
         Args: { p_duration_days: number; p_rent_amount: number }
         Returns: {
           access_fee: number
@@ -51279,6 +51612,16 @@ export type Database = {
           inserted_count: number
         }[]
       }
+      post_instalment_waterfall: {
+        Args: {
+          p_idempotency_key?: string
+          p_instalment_amount: number
+          p_rent_request_id: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: Json
+      }
       post_merchant_evidenced_writedown: {
         Args: {
           p_agent_id: string
@@ -51526,6 +51869,10 @@ export type Database = {
         }[]
       }
       receivables_guard: { Args: never; Returns: undefined }
+      recognise_funding_treasury: {
+        Args: { p_rent_request_id: string }
+        Returns: Json
+      }
       recognise_landlord_receivable: {
         Args: { p_subscription_id: string }
         Returns: Json
@@ -51903,6 +52250,7 @@ export type Database = {
           rent_request_id: string
         }[]
       }
+      rent_pricing_floor_effective_from: { Args: never; Returns: string }
       rent_request_financials_unchanged: {
         Args: {
           _amount_repaid: number
