@@ -1073,6 +1073,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         )}
         {activeTab === 'home' && !isMerchant && (
           <div className={cn("space-y-4", tabAnimClass)}>
+            {/* Collection League — weekly team competition */}
+            {!isMerchant && <AgentCollectionLeagueCard />}
+
             {/* Free Service Center qualification — permanent milestone tracker */}
             {!isMerchant && (
               <>
