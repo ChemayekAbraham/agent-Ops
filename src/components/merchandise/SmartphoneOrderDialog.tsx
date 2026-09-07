@@ -319,8 +319,8 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 className="mt-0.5"
               />
               <Label htmlFor="docs-ready" className="text-[11px] leading-snug text-muted-foreground font-normal cursor-pointer">
-                I confirm I will present my <span className="font-medium text-foreground">National ID</span> and a{' '}
-                <span className="font-medium text-foreground">workplace photo</span> for verification on phone
+                I confirm I will present my <span className="font-medium text-primary">National ID</span> and a{' '}
+                <span className="font-medium text-primary">workplace photo</span> for verification on phone
                 collection day. The phone is not released without them.
               </Label>
             </div>
