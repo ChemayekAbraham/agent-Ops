@@ -1,0 +1,110 @@
+name: Deploy Edge Function (manual, one at a time)
+
+# PREPARED, NEVER RUN. Deploys nothing until a maintainer triggers it by hand.
+#
+# WHY MANUAL-ONLY, AND WHY ONE FUNCTION PER RUN
+# The repository contains 333 Edge Functions. A bare `supabase functions deploy`
+# with no argument deploys ALL of them, and repository state is already known to
+# differ from deployed state (approve-deposit ran defective code for a day while
+# the revert sat in git). An automatic or bulk deploy would push 332 unrelated,
+# unreviewed functions to production in one action.
+#
+# So this workflow:
+#   * has NO push / pull_request trigger - workflow_dispatch only
+#   * deploys exactly ONE function, chosen from a fixed two-item list
+#   * cannot be pointed at an arbitrary function name (choice input, not string)
+#
+# ORDERING REQUIREMENT (accounting, not convenience)
+# fund-agent-landlord-float MUST be deployed and verified BEFORE tenant-pay-rent.
+# The repayment waterfall DEBITS L7, and funding recognition is what CREDITS it.
+# Deploying the repayment side first would let a repayment drive L7 into an
+# unexplained debit. The guard enforces this at runtime, but the deploy order
+# should not rely on an exception being raised in production.
+#
+# PREREQUISITE
+# Migrations 20260908120500 / 20260908130000 / 20260908140000 must be applied
+# first. Deploying tenant-pay-rent before them would call
+# record_rent_request_repayment_v2, which would not yet exist.
+#
+# REQUIRED REPOSITORY SECRET (set in GitHub, never in this file or in git)
+#   SUPABASE_ACCESS_TOKEN - a Supabase personal access token with permission to
+#   deploy functions to project wirntoujqoyjobfhyelc.
+# The project ref is NOT a secret; it is already committed in supabase/config.toml.
+
+on:
+  workflow_dispatch:
+    inputs:
+      function:
+        description: "Which function to deploy (deploy fund-agent-landlord-float FIRST)"
+        required: true
+        type: choice
+        options:
+          - fund-agent-landlord-float
+          - tenant-pay-rent
+      confirm:
+        description: 'Type DEPLOY to confirm you intend to change production'
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-edge-function
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.function }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Confirm intent
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.confirm }}" != "DEPLOY" ]; then
+            echo "::error::Confirmation text did not match. Nothing deployed."
+            exit 1
+          fi
+          echo "Deploying exactly one function: ${{ inputs.function }}"
+
+      - uses: actions/checkout@v4
+
+      - name: Verify the target function exists in this commit
+        run: |
+          set -euo pipefail
+          test -f "supabase/functions/${{ inputs.function }}/index.ts" \
+            || { echo "::error::function source not found"; exit 1; }
+          echo "Source present at supabase/functions/${{ inputs.function }}/index.ts"
+
+      - name: Confirm verify_jwt convention is unchanged
+        run: |
+          set -euo pipefail
+          # config.toml lists ONLY functions that need verify_jwt = false. Our two
+          # authenticate via the Authorization header and must keep the default
+          # (true). If either ever appears in config.toml, stop and re-review.
+          if grep -q "functions.${{ inputs.function }}\]" supabase/config.toml; then
+            echo "::error::${{ inputs.function }} now has an explicit config.toml entry - review verify_jwt before deploying"
+            exit 1
+          fi
+          echo "No explicit entry: default verify_jwt = true preserved."
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy single function
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_ACCESS_TOKEN:-}" ]; then
+            echo "::error::SUPABASE_ACCESS_TOKEN secret is not configured"
+            exit 1
+          fi
+          PROJECT_REF="$(grep -m1 '^project_id' supabase/config.toml | cut -d'"' -f2)"
+          echo "Target project: ${PROJECT_REF}"
+          supabase functions deploy "${{ inputs.function }}" --project-ref "${PROJECT_REF}"
+
+      - name: Post-deploy reminder
+        run: |
+          echo "Deployed: ${{ inputs.function }}"
+          echo "NEXT: verify against the live ledger before deploying anything else."
+          echo "Do NOT deploy tenant-pay-rent until fund-agent-landlord-float is verified."
