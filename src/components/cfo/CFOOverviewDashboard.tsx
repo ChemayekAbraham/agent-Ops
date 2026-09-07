@@ -27,6 +27,7 @@ import { AgentAdvancesStatsCard } from '@/components/cfo/AgentAdvancesStatsCard'
 import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilldown';
 import { ServiceCentreReceivablesPanel } from '@/components/cfo/ServiceCentreReceivablesPanel';
 import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
+import { GeneralPayoutActivities } from '@/components/cfo/GeneralPayoutActivities';
 
 
 
