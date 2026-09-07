@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import {
-  Loader2, Plus, Clock, CheckCircle2, XCircle, HelpCircle, Building2, Wallet, Paperclip, Upload,
+  Loader2, Plus, Clock, CheckCircle2, XCircle, HelpCircle, Building2, Wallet, Paperclip, Upload, X, FileText,
 } from 'lucide-react';
 
 interface Requisition {
@@ -113,6 +113,7 @@ const MyRequisitions = () => {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [resubmitId, setResubmitId] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
@@ -182,11 +183,13 @@ const MyRequisitions = () => {
   const startNew = () => {
     setResubmitId(null);
     setForm(EMPTY_FORM);
+    setSelectedFiles([]);
     setOpen(true);
   };
 
   const startResubmit = (row: Requisition) => {
     setResubmitId(row.id);
+    setSelectedFiles([]);
     setForm({
       title: row.title,
       amount: String(row.amount),
@@ -197,6 +200,25 @@ const MyRequisitions = () => {
     setOpen(true);
   };
 
+  const handleFilesChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const valid: File[] = [];
+    for (const f of files) {
+      if (f.size > 10 * 1024 * 1024) {
+        toast.error(`File "${f.name}" is larger than 10MB`);
+        continue;
+      }
+      valid.push(f);
+    }
+    setSelectedFiles((prev) => [...prev, ...valid].slice(0, 10));
+    e.target.value = '';
+  };
+
+  const removeSelectedFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const submit = async () => {
     const amount = Number(form.amount);
     if (!form.title.trim()) return toast.error('Enter a short title');
@@ -204,7 +226,7 @@ const MyRequisitions = () => {
     if (form.reason.trim().length < 10) return toast.error('Explain the request in at least 10 characters');
 
     setSubmitting(true);
-    const { error } = await invokeEdgeFunction('staff-requisition-submit', {
+    const { data, error } = await invokeEdgeFunction<{ ok: boolean; requisition?: { id: string } }>('staff-requisition-submit', {
       body: {
         ...(resubmitId ? { requisition_id: resubmitId } : {}),
         title: form.title.trim(),
@@ -215,14 +237,30 @@ const MyRequisitions = () => {
       },
       errorTitle: 'Could not submit your requisition',
     });
-    setSubmitting(false);
+
     if (!error) {
+      const targetId = resubmitId || data?.requisition?.id;
+      if (targetId && selectedFiles.length > 0) {
+        for (const file of selectedFiles) {
+          const formData = new FormData();
+          formData.append('requisition_id', targetId);
+          formData.append('file', file);
+          await invokeEdgeFunction('staff-requisition-add-attachment', {
+            body: formData,
+            errorTitle: `Could not attach ${file.name}`,
+            silent: true,
+          });
+        }
+      }
+
       toast.success(resubmitId ? 'Requisition resubmitted' : 'Requisition submitted for review');
       setOpen(false);
       setForm(EMPTY_FORM);
+      setSelectedFiles([]);
       setResubmitId(null);
       await fetchRows();
     }
+    setSubmitting(false);
   };
 
   const uploadReceipt = async (row: Requisition, file: File) => {
@@ -327,11 +365,61 @@ const MyRequisitions = () => {
                     <Label htmlFor="req-reason">Why do you need it</Label>
                     <Textarea
                       id="req-reason"
-                      rows={4}
+                      rows={3}
                       value={form.reason}
                       onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))}
                       placeholder="Explain the need, what it covers and the expected outcome (min 10 characters)"
                     />
+                  </div>
+                  {/* Optional File Attachments */}
+                  <div className="space-y-2">
+                    <Label className="flex items-center justify-between text-xs sm:text-sm">
+                      <span>Attachments / Receipts <span className="text-xs text-muted-foreground font-normal">(optional)</span></span>
+                      <span className="text-[11px] text-muted-foreground">PDF, PNG, JPG (max 10MB)</span>
+                    </Label>
+                    <div className="border border-dashed border-border rounded-xl p-3 bg-muted/20 hover:bg-muted/30 transition-colors text-center">
+                      <label className="cursor-pointer flex flex-col items-center justify-center gap-1">
+                        <Upload className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-xs font-semibold text-primary">
+                          Click to attach supporting documents or receipts
+                        </span>
+                        <input
+                          type="file"
+                          multiple
+                          accept="application/pdf,image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={handleFilesChosen}
+                        />
+                      </label>
+                    </div>
+
+                    {selectedFiles.length > 0 && (
+                      <div className="space-y-1.5 pt-1">
+                        {selectedFiles.map((file, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between p-2 rounded-lg bg-background border border-border text-xs"
+                          >
+                            <div className="flex items-center gap-2 min-w-0 pr-2">
+                              <FileText className="h-4 w-4 text-primary shrink-0" />
+                              <span className="truncate font-medium text-foreground">{file.name}</span>
+                              <span className="text-[10px] text-muted-foreground shrink-0">
+                                ({(file.size / (1024 * 1024) >= 1) ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(file.size / 1024)} KB`})
+                              </span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeSelectedFile(idx)}
+                              className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <DialogFooter>
