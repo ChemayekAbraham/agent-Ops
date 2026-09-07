@@ -5,6 +5,8 @@
 import { useNavigate } from 'react-router-dom';
 import { Trophy, TrendingUp, TrendingDown, Minus, ChevronRight, Users, RefreshCw } from 'lucide-react';
 import { hapticTap } from '@/lib/haptics';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   useAgentCollectionLeagueHome,
   HEAT_CLASS,
@@ -51,13 +53,22 @@ function DayCell({ day, index }: { day: LeagueDay; index: number }) {
       <span className="text-[10px] font-medium text-muted-foreground" aria-hidden="true">
         {DAY_LETTERS[index] ?? ''}
       </span>
-      <span
-        tabIndex={0}
-        role="img"
-        aria-label={detail}
-        title={detail}
-        className={`h-5 w-full max-w-8 rounded-[4px] ring-1 ring-inset transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-6 ${tone}`}
-      />
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={(event) => event.stopPropagation()}
+            aria-label={detail}
+            className={`h-5 w-full max-w-8 rounded-[4px] ring-1 ring-inset transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-6 ${tone}`}
+          />
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-56 p-3 text-xs">
+          <div className="font-semibold">{formatDayDate(day.date)}</div>
+          <div className="mt-1">{day.is_future ? 'Future day' : performance}</div>
+          <div className="mt-1 text-muted-foreground">{formatCompactUGX(day.collected_amount)} collected</div>
+          <div className="text-muted-foreground">{formatCompactUGX(day.expected_amount)} expected</div>
+        </TooltipContent>
+      </Tooltip>
     </div>
   );
 }
@@ -96,15 +107,17 @@ export function AgentCollectionLeagueCard() {
         </div>
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">League standings could not be loaded.</p>
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => refetch()}
             disabled={isFetching}
-            className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+            className="min-h-8 shrink-0 gap-1.5 px-2.5 text-xs"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
             Retry
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -123,19 +136,23 @@ export function AgentCollectionLeagueCard() {
   const performanceText = t.performance_percentage == null ? '—' : `${t.performance_percentage}%`;
 
   return (
-    <button
-      type="button"
-      onClick={() => { hapticTap(); navigate('/agent/collection-league'); }}
-      className="w-full touch-manipulation rounded-2xl border border-primary/25 bg-primary/5 p-4 text-left transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    <div
+      className="w-full rounded-2xl border border-primary/25 bg-primary/5 p-4 text-left transition-colors hover:bg-primary/10"
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >
-      <div className="mb-4 flex items-center justify-between gap-2">
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={() => { hapticTap(); navigate('/agent/collection-league'); }}
+        className="mb-4 h-auto w-full justify-between gap-2 p-0 text-left hover:bg-transparent"
+        aria-label="Open Collection League"
+      >
         <div className="flex items-center gap-2 min-w-0">
           <Trophy className="h-4 w-4 text-primary shrink-0" />
           <span className="text-sm font-semibold text-foreground truncate">Collection League</span>
         </div>
         <ChevronRight className="h-4 w-4 text-primary shrink-0" />
-      </div>
+      </Button>
 
       {!data.has_team && !t.is_parent ? (
         <p className="text-xs text-muted-foreground">
@@ -177,11 +194,13 @@ export function AgentCollectionLeagueCard() {
           </div>
 
           <div className="mb-2 text-[11px] font-semibold text-foreground">Daily performance</div>
-          <div className="mb-4 flex items-center gap-1.5">
-            {data.current_week_days.map((d, i) => (
-              <DayCell key={d.date} day={d} index={i} />
-            ))}
-          </div>
+          <TooltipProvider delayDuration={150}>
+            <div className="mb-4 flex items-center gap-1.5">
+              {data.current_week_days.map((d, i) => (
+                <DayCell key={d.date} day={d} index={i} />
+              ))}
+            </div>
+          </TooltipProvider>
 
           <div className="flex items-center gap-2 border-t border-primary/15 pt-3 text-xs font-medium text-foreground">
             <Users className="h-4 w-4 shrink-0 text-primary" />
@@ -189,7 +208,7 @@ export function AgentCollectionLeagueCard() {
           </div>
         </>
       )}
-    </button>
+    </div>
   );
 }
 
