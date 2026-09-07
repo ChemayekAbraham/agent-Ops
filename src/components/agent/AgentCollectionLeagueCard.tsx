@@ -84,7 +84,7 @@ export function AgentCollectionLeagueCard() {
 
   if (isLoading) {
     return (
-      <div className="animate-pulse rounded-2xl border border-primary/25 bg-primary/5 p-4" aria-label="Loading Collection League">
+      <div className="animate-pulse rounded-2xl border border-primary/25 bg-primary/50 p-4" aria-label="Loading Collection League">
         <div className="mb-5 flex items-center justify-between">
           <div className="h-4 w-32 rounded bg-muted" />
           <div className="h-4 w-4 rounded bg-muted" />
