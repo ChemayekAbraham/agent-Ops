@@ -526,6 +526,25 @@ Deno.serve(async (req) => {
       // the category. Wallet buckets are NEVER computed in the UI or written
       // directly — the routing trigger + apply_wallet_movement own that.
       const rawPurpose = (depositRequest.deposit_purpose || '').toString().trim().toLowerCase();
+
+      // ── Cash-deposit-code channel detection ──────────────────────────
+      // A deposit went through the SMS receipt-code flow (finops-cash-
+      // deposit-initiate / cash-deposit-request-code → cash-deposit-verify-
+      // code) iff it has a matching cash_deposit_verifications row. Hoisted
+      // here (moved up from the physical-cash-channel block below) so the
+      // routing decision immediately below can be scoped to this channel.
+      const providerKey = (depositRequest.provider || '').toString().trim().toLowerCase();
+      let hasCashReceipt = false;
+      try {
+        const { count: receiptCount } = await supabaseAdmin
+          .from('cash_deposit_verifications')
+          .select('id', { count: 'exact', head: true })
+          .eq('deposit_request_id', depositRequest.id);
+        hasCashReceipt = (receiptCount ?? 0) > 0;
+      } catch (_receiptErr) {
+        hasCashReceipt = false;
+      }
+
       // ── FLOAT-BY-DEFAULT ROUTING (2026-07-28) ───────────────────────
       // Product decision: every incoming deposit routes to the FLOAT
       // bucket by default. Only an explicit `personal_deposit` purpose
@@ -542,10 +561,17 @@ Deno.serve(async (req) => {
           `[approve-deposit] Unknown deposit_purpose='${rawPurpose}' for ${depositRequest.id}; defaulting to float.`,
         );
       }
-      // FLOAT-ALWAYS (2026-07-29): every deposit auto-credits float,
-      // regardless of the declared purpose. `deposit_purpose` is retained
-      // for analytics only.
-      const isFloatDeposit = true;
+      // RESTORED 2026-09-07, SCOPED TO CASH-DEPOSIT-CODE FUNDS ONLY: a
+      // 2026-07-29 change ("FLOAT-ALWAYS") briefly forced every deposit to
+      // float regardless of purpose, which silently misrouted cash-deposit-
+      // code "Personal Deposit" credits away from withdrawable for ~5.5
+      // weeks (surfaced by the Constance Racheal Kateme case). Only deposits
+      // that actually went through the receipt-code flow (hasCashReceipt)
+      // AND are tagged personal_deposit now route to withdrawable — a
+      // `personal_deposit`-tagged deposit arriving through any other path
+      // (e.g. the public API, with no code verification) still defaults to
+      // float, same as before this fix.
+      const isFloatDeposit = !(hasCashReceipt && rawPurpose === 'personal_deposit');
       const depositCategory: 'agent_float_deposit' | 'wallet_deposit' =
         isFloatDeposit ? 'agent_float_deposit' : 'wallet_deposit';
       const depositBucket: 'float' | 'withdrawable' =
@@ -656,23 +682,15 @@ Deno.serve(async (req) => {
           // not with the agent. `fin_ops_set_cash_location('bank')` later moves
           // A5 → A1/Treasury. Mobile money / bank / agent-cash deposits keep
           // their existing accounting untouched.
-          const providerKey = (depositRequest.provider || '').toString().trim().toLowerCase();
+          // `providerKey` / `hasCashReceipt` are computed once, up at the top
+          // of this loop iteration (they now also gate the withdrawable
+          // routing decision above).
           // A deposit is a PHYSICAL CASH RECEIPT when either the provider says so
           // or the receipt-code (cash_deposit_verifications) path produced it.
           // Relying on the provider string alone let genuine receipt-path cash
           // deposits fall through to the mobile-money accounting, which posts a
           // platform `agent_float_deposit` cash_out leg (an A1 CREDIT) — making
           // "Money We Have" DECREASE on a cash intake instead of increase.
-          let hasCashReceipt = false;
-          try {
-            const { count: receiptCount } = await supabaseAdmin
-              .from('cash_deposit_verifications')
-              .select('id', { count: 'exact', head: true })
-              .eq('deposit_request_id', depositRequest.id);
-            hasCashReceipt = (receiptCount ?? 0) > 0;
-          } catch (_receiptErr) {
-            hasCashReceipt = false;
-          }
           const isPhysicalCashChannel =
             providerKey === 'cash_deposit' ||
             providerKey === 'cash' ||
@@ -929,20 +947,12 @@ Deno.serve(async (req) => {
             );
           }
 
-          // ── STRICT BACKEND-AUTHORITY CONTRACT ───────────────────────
-          // Every approved deposit lands in `withdrawable_balance`. Period.
-          //
-          // The previous "operational float sweep" (which inferred routing
-          // from `deposit_purpose` + agent-role + proxy-status) has been
-          // permanently removed. Routing money based on a frontend-supplied
-          // purpose violated the strict contract:
-          //   user intent → backend → ledger → trigger → wallet → realtime
-          //
-          // Float funding is now a separate, explicit, backend-only step
-          // that the agent must invoke via `transfer-to-float`. The
-          // `deposit_purpose` column is preserved for analytics ONLY and
-          // is no longer read here.
-          // ────────────────────────────────────────────────────────────
+          // NOTE: an earlier comment here claimed every deposit lands in
+          // `withdrawable_balance` unconditionally and that `deposit_purpose`
+          // was no longer read — that stopped being true once float-by-default
+          // routing was introduced (2026-07-28) and stayed stale through the
+          // 2026-07-29 FLOAT-ALWAYS change and its 2026-09-07 revert above.
+          // `recipientType` below is purpose-derived via `isFloatDeposit`.
 
           // ── RETIRED: Auto-deduct rent / clear debt / pre-pay days ──
           // The auto-apply pipeline (rent repayment + subscription debt
