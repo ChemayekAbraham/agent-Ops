@@ -138,12 +138,14 @@ function formatStatus(status: string) {
 }
 
 export function AgentMonitoring() {
+  const [tab, setTab] = useState<'all' | 'after-aug-2026'>('all');
   const [day, setDay] = useState(() => startOfDay(new Date()));
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | CollectionStatus>('all');
   const [selectedAgent, setSelectedAgent] = useState<AgentRow | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<string | null>(null);
   const bounds = useMemo(() => dayBounds(day), [day]);
+  const createdAfter = tab === 'after-aug-2026' ? '2026-08-02T00:00:00+03:00' : undefined;
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['tenant-ops-agent-monitoring', format(day, 'yyyy-MM-dd')],
