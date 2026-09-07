@@ -22,3 +22,5 @@
 - [ ] Fix preview build errors from /tmp/observability/build-errors.log (Supabase edge function TypeScript errors).
 
 - [x] Agent Ops comprehensive daily report: attach a real PDF (jsPDF builder) instead of raw HTML, with validation and hard-fail behaviour.
+- [ ] TRACE-01 (read-only): measure v_rent_repaid_reconciliation unexplained_credit exceptions (6 SELECTs, no writes).
+- [ ] Send Money "General Payout Activity": add a custom filter (approver/recipient search + amount range).
