@@ -1015,33 +1015,35 @@ export function EmptyHouseOpportunitiesSheet({
                         </div>
                       </button>
                       {(h.landlord_name || h.landlord_phone) && (
-                        <div className="mx-3 mb-3 rounded-2xl border border-primary/15 bg-primary/5 p-3 space-y-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
+                        <div className="mx-3 mb-3 rounded-2xl border border-primary/15 bg-primary/5 p-3">
+                          <div className="flex flex-col gap-2">
+                            <div className="flex items-center justify-between gap-2">
                               <p className="text-[10px] font-bold uppercase tracking-wide text-primary/80">Landlord</p>
-                              <p className="text-base font-bold leading-tight truncate">
+                              {h.landlord_phone && (
+                                <div className="flex flex-wrap justify-end gap-1.5">
+                                  <Button asChild variant="outline" size="sm" className="h-8 gap-1 px-2.5 text-[11px]">
+                                    <a href={`tel:${h.landlord_phone}`}>
+                                      <Phone className="h-3.5 w-3.5" /> Call
+                                    </a>
+                                  </Button>
+                                  <Button asChild variant="secondary" size="sm" className="h-8 gap-1 px-2.5 text-[11px]">
+                                    <a href={`sms:${h.landlord_phone}`}>
+                                      <MessageSquare className="h-3.5 w-3.5" /> Message
+                                    </a>
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 space-y-0.5">
+                              <p className="text-sm font-bold leading-tight truncate">
                                 {h.landlord_name || 'Name not on file'}
                               </p>
                               {h.landlord_phone && (
-                                <p className="flex items-center gap-1.5 text-sm font-bold text-primary">
+                                <p className="flex items-center gap-1.5 text-xs font-semibold text-primary">
                                   <Phone className="h-3.5 w-3.5 shrink-0" /> {h.landlord_phone}
                                 </p>
                               )}
                             </div>
-                            {h.landlord_phone && (
-                              <div className="flex shrink-0 gap-1.5">
-                                <Button asChild variant="outline" size="sm" className="h-9 gap-1.5 text-[11px]">
-                                  <a href={`tel:${h.landlord_phone}`}>
-                                    <Phone className="h-3.5 w-3.5" /> Call
-                                  </a>
-                                </Button>
-                                <Button asChild variant="secondary" size="sm" className="h-9 gap-1.5 text-[11px]">
-                                  <a href={`sms:${h.landlord_phone}`}>
-                                    <MessageSquare className="h-3.5 w-3.5" /> Message
-                                  </a>
-                                </Button>
-                              </div>
-                            )}
                           </div>
                         </div>
                       )}
