@@ -336,10 +336,10 @@ export function TppoPlanDetailTable({
                   {formatUGX(shownTotals.scheduled)}
                 </TableCell>
                 <TableCell className={`${moneyCell} font-semibold`}>
-                  {formatUGX(data.totals.paid_total)}
+                  {formatUGX(shownTotals.paid)}
                 </TableCell>
                 <TableCell className={`${moneyCell} font-semibold`}>
-                  {formatUGX(data.totals.outstanding_total)}
+                  {formatUGX(shownTotals.outstanding)}
                 </TableCell>
                 <TableCell className={`${moneyCell} font-semibold ${shownTotals.arrears > 0 ? 'text-destructive' : ''}`}>
                   {formatUGX(shownTotals.arrears)}
