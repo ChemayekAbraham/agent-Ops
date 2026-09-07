@@ -106,7 +106,8 @@ export function AgentAdvanceRequestForm({ open, onOpenChange }: AgentAdvanceRequ
   useEffect(() => {
     if (open) {
       setView('menu');
-      // Reset filters when sheet opens fresh
+      setSubmitted(null);
+      setSubmitError(null);
       setDateFrom(undefined);
       setDateTo(undefined);
       setStatusFilter('all');
