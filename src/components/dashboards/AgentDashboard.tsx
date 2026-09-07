@@ -132,6 +132,7 @@ import { FieldCollectCard } from '@/components/agent/FieldCollectCard';
 import { FieldDepositQueueCard } from '@/components/agent/FieldDepositQueueCard';
 
 import { AgentRatingCard } from '@/components/agent/AgentRatingCard';
+import { AgentCollectionLeagueCard } from '@/components/agent/AgentCollectionLeagueCard';
 import { RecruitSubAgentCTA } from '@/components/agent/RecruitSubAgentCTA';
 import { ApprovedRentRequestsWidget } from '@/components/rent/ApprovedRentRequestsWidget';
 import { RecentAutoCharges } from '@/components/wallet/RecentAutoCharges';
@@ -1212,6 +1213,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
 
             {/* 4) Live rating — today vs target + 7-day capacity tier */}
             {!isMerchant && <AgentRatingCard agentId={user.id} />}
+
+            {/* Collection League — weekly team competition */}
+            {!isMerchant && <AgentCollectionLeagueCard />}
 
             {/* 2b) Earnings summary — available rewards + lifetime total */}
             {!isMerchant && (
