@@ -62,7 +62,6 @@ import { TenantSelfRepaymentsPanel } from '@/components/reporting/TenantSelfRepa
 import { AgentDailyCollectionsView } from '@/components/executive/agent-ops/AgentDailyCollectionsView';
 import { AgentOpsComprehensiveReport } from '@/components/executive/agent-ops/AgentOpsComprehensiveReport';
 import { AgentOpsReportWindow } from '@/components/executive/agent-ops/AgentOpsReportWindow';
-import { AgentOpsPipelineStagesPanel } from './AgentOpsPipelineStagesPanel';
 import { usePendingAdvanceCount } from '@/hooks/usePendingAdvanceCount';
 import { AgentOpsOverview, AtRiskAgentsPreview } from './agent-ops-v2/AgentOpsOverview';
 import { CallingHub } from '@/components/ops/calling';
@@ -93,7 +92,7 @@ import {
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-type ActiveView = null | 'agents-space' | 'agent-ops-report' | 'comprehensive-report' | 'products-services-report' | 'sc-products' | 'pipeline' | 'pipeline-stages' | 'directory' | 'rent-capacity' | 'connector' | 'performance' | 'lifecycle' | 'tasks' | 'escalations' | 'service-centres' | 'sc-overview' | 'sc-directory' | 'sc-payouts' | 'sc-requests' | 'sc-operating-model' | 'sub-agents' | 'promote-tenant' | 'float-payouts' | 'leaderboard' | 'earnings' | 'transfers' | 'locked-transfers' | 'advances-analytics' | 'advance-requests' | 'active-advances' | 'advance-potential' | 'advance-limits' | 'advance-repayments' | 'balances' | 'lending-agents' | 'trust-capture' | 'feature-flags' | 'bulk-ops' | 'listing-campaign' | 'daily-collections-report' | 'advance-activity-correlation' | 'agent-service-centres' | 'agent-products-services' | 'guarantor-float' | 'rent-behaviour' | 'subagent-commission-whitelist' | 'partial-collections' | 'calling-hub' | 'portfolio-performance' | 'collect-rent' | 'agent-allocations' | 'approval-history' | 'tenant-self-repayments';
+type ActiveView = null | 'agents-space' | 'agent-ops-report' | 'comprehensive-report' | 'products-services-report' | 'sc-products' | 'pipeline' | 'directory' | 'rent-capacity' | 'connector' | 'performance' | 'lifecycle' | 'tasks' | 'escalations' | 'service-centres' | 'sc-overview' | 'sc-directory' | 'sc-payouts' | 'sc-requests' | 'sc-operating-model' | 'sub-agents' | 'promote-tenant' | 'float-payouts' | 'leaderboard' | 'earnings' | 'transfers' | 'locked-transfers' | 'advances-analytics' | 'advance-requests' | 'active-advances' | 'advance-potential' | 'advance-limits' | 'advance-repayments' | 'balances' | 'lending-agents' | 'trust-capture' | 'feature-flags' | 'bulk-ops' | 'listing-campaign' | 'daily-collections-report' | 'advance-activity-correlation' | 'agent-service-centres' | 'agent-products-services' | 'guarantor-float' | 'rent-behaviour' | 'subagent-commission-whitelist' | 'partial-collections' | 'calling-hub' | 'portfolio-performance' | 'collect-rent' | 'agent-allocations' | 'approval-history' | 'tenant-self-repayments';
 
 const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; priority?: boolean }[] = [
   { key: 'agents-space', icon: Wallet, label: "Agents' Space", color: 'bg-primary', priority: true },
@@ -111,7 +110,6 @@ const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; pri
   { key: 'advance-repayments', icon: TrendingDown, label: 'Repayments', color: 'bg-emerald-700', priority: true },
   { key: 'bulk-ops', icon: Layers, label: 'Abilities', color: 'bg-rose-700', priority: true },
   { key: 'pipeline', icon: Briefcase, label: 'Pipeline', color: 'bg-primary', priority: true },
-  { key: 'pipeline-stages', icon: Workflow, label: 'Pipeline stages', color: 'bg-cyan-600' },
   { key: 'balances', icon: PiggyBank, label: 'Agent Balances', color: 'bg-emerald-600', priority: true },
   { key: 'lending-agents', icon: HandCoins, label: 'Welile Lending Agents', color: 'bg-violet-600', priority: true },
   { key: 'sc-overview', icon: Store, label: 'Service Centers', color: 'bg-orange-600', priority: true },
@@ -316,7 +314,6 @@ export function AgentOpsDashboard() {
       case 'feature-flags': return <AgentFeatureFlagsPanel onBack={() => setActiveView(null)} />;
       case 'bulk-ops': return <AgentBulkOpsConsole onBack={() => setActiveView(null)} />;
       case 'pipeline': return <AgentOpsPipelineHub />;
-      case 'pipeline-stages': return <AgentOpsPipelineStagesPanel />;
       case 'directory': return <AgentDirectory />;
       case 'rent-capacity': return <AgentRentCapacityPanel />;
       case 'rent-behaviour': return <AgentRentBehaviourPanel />;
@@ -445,8 +442,8 @@ export function AgentOpsDashboard() {
   // Grouped sections for the "More" tab (mobile dropdown + grid)
   const MORE_GROUPS: { title: string; keys: ActiveView[] }[] = [
     { title: "Agents' Space", keys: ['agents-space'] },
-    { title: 'Agents', keys: ['agents-space', 'directory', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops'] },
-    { title: 'Field Operations', keys: ['pipeline', 'pipeline-stages', 'rent-capacity', 'rent-behaviour', 'daily-collections-report', 'calling-hub', 'tasks', 'escalations', 'connector'] },
+    { title: 'Agents', keys: ['directory', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops'] },
+    { title: 'Field Operations', keys: ['pipeline', 'rent-capacity', 'rent-behaviour', 'daily-collections-report', 'calling-hub', 'tasks', 'escalations', 'connector'] },
     { title: 'Service Centers', keys: ['sc-overview', 'service-centres', 'sc-directory', 'sc-payouts', 'sc-requests', 'sc-operating-model', 'sc-products'] },
     { title: 'Agent Products & Services', keys: ['agent-products-services'] },
     { title: 'Financials', keys: ['balances', 'float-payouts', 'earnings', 'locked-transfers'] },
@@ -688,7 +685,7 @@ function AgentOpsSideNav({
   const SIDE_GROUPS: { title: string; keys: ActiveView[]; pinned?: boolean; defaultOpen?: boolean }[] = [
     { title: "Agents' Space", defaultOpen: true, keys: ['agents-space'] },
     { title: 'Agents', defaultOpen: false, keys: ['directory', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops'] },
-    { title: 'Field Operations', defaultOpen: false, keys: ['pipeline', 'pipeline-stages', 'rent-capacity', 'rent-behaviour', 'daily-collections-report', 'partial-collections', 'tasks', 'escalations', 'connector', 'guarantor-float'] },
+    { title: 'Field Operations', defaultOpen: false, keys: ['pipeline', 'rent-capacity', 'rent-behaviour', 'daily-collections-report', 'partial-collections', 'tasks', 'escalations', 'connector', 'guarantor-float'] },
     { title: 'Service Centers', keys: ['sc-overview', 'service-centres', 'sc-directory', 'sc-payouts', 'sc-requests', 'sc-operating-model', 'sc-products'] },
     { title: 'Agent Products & Services', keys: ['agent-products-services'] },
     { title: 'Financials', keys: ['balances', 'float-payouts', 'earnings', 'locked-transfers'] },

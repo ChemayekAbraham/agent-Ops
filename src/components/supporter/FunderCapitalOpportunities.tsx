@@ -29,11 +29,14 @@ import { SelfPortfolioFundingCard } from '@/components/partner/SelfPortfolioFund
 import { HowItWorksSteps, type HowItWorksStep } from './HowItWorksSteps';
 import { EmptyHouseOpportunitiesSheet } from '@/components/agent/EmptyHouseOpportunitiesSheet';
 import { FunderBookedHousesPanel } from '@/components/supporter/FunderBookedHousesPanel';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 import { useProfile } from '@/hooks/useProfile';
 
 type OptionKey = 'managed' | 'direct' | 'angel';
 type ViewState = 'menu' | OptionKey;
+type FeedOrder = 'rent' | 'houses';
+
 
 // Configurable service/access fee on empty-house funding (rate on one-month funding).
 const EMPTY_HOUSE_SERVICE_FEE_RATE = 0;
@@ -506,6 +509,7 @@ export function FunderCapitalOpportunities() {
   const [calcHouses, setCalcHouses] = useState(5);
   const [calcAmountInput, setCalcAmountInput] = useState('');
   const [calcOpen, setCalcOpen] = useState(false);
+  const [feedOrder, setFeedOrder] = useState<FeedOrder>('rent');
 
   const [feeRatePct, setFeeRatePct] = useState(EMPTY_HOUSE_SERVICE_FEE_RATE * 100);
 
@@ -801,19 +805,45 @@ export function FunderCapitalOpportunities() {
 
         {/* Tenant rent plans awaiting funding — stacked cards with bulk selection */}
         <div className="pt-2 space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="w-1 h-5 rounded-full bg-primary" />
-            <h4 className="text-xs font-black text-foreground tracking-tight">
-              Ready to fund rentals
-            </h4>
+          <ToggleGroup
+            type="single"
+            size="sm"
+            value={feedOrder}
+            onValueChange={(value) => value && setFeedOrder(value as FeedOrder)}
+            className="w-full"
+          >
+            <ToggleGroupItem
+              value="rent"
+              className="flex-1 text-xs font-bold h-11 data-[state=on]:!bg-success data-[state=on]:!text-white data-[state=off]:bg-muted/40 data-[state=off]:text-muted-foreground"
+            >
+              Houses with ready tenants
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="houses"
+              className="flex-1 text-xs font-bold h-11 data-[state=on]:!bg-success data-[state=on]:!text-white data-[state=off]:bg-muted/40 data-[state=off]:text-muted-foreground"
+            >
+              Empty houses without tenants yet
+            </ToggleGroupItem>
+          </ToggleGroup>
 
-          </div>
-          {user?.id
-            ? <SelfPortfolioFundingCard partnerId={user.id} />
-            : <p className="text-[11px] text-muted-foreground">Sign in to view tenant plans.</p>}
+          {feedOrder !== 'houses' && (
+            <>
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-5 rounded-full bg-primary" />
+                <h4 className="text-xs font-black text-foreground tracking-tight">
+                  Ready to fund rentals
+                </h4>
+              </div>
+
+              {user?.id
+                ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder={feedOrder} onFeedOrderChange={setFeedOrder} />
+                : <p className="text-[11px] text-muted-foreground">Sign in to view tenant plans.</p>}
+            </>
+          )}
         </div>
 
         {/* Empty houses you can support — browse, pick, and create your promissory note */}
+        {feedOrder === 'houses' && (
         <div className="pt-2 space-y-3">
           <div className="flex items-center gap-2">
             <div className="w-1 h-5 rounded-full bg-primary" />
@@ -1061,6 +1091,7 @@ export function FunderCapitalOpportunities() {
 
           </div>
         </div>
+        )}
 
         <EmptyHouseOpportunitiesSheet
           open={housePickerOpen}

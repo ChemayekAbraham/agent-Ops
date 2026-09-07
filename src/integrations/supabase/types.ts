@@ -1887,6 +1887,13 @@ export type Database = {
             foreignKeyName: "agent_collections_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_collections_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_daily_eligibility"
             referencedColumns: ["rent_request_id"]
           },
@@ -3181,6 +3188,13 @@ export type Database = {
             foreignKeyName: "agent_float_withdrawals_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_float_withdrawals_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_daily_eligibility"
             referencedColumns: ["rent_request_id"]
           },
@@ -3587,6 +3601,13 @@ export type Database = {
             columns: ["rent_request_id"]
             isOneToOne: false
             referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "agent_landlord_assignments_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
             referencedColumns: ["rent_request_id"]
           },
           {
@@ -5305,6 +5326,45 @@ export type Database = {
           },
         ]
       }
+      agent_team_daily_collection_stats: {
+        Row: {
+          active_collectors: number
+          collected_amount: number
+          collection_count: number
+          created_at: string
+          expected_amount: number
+          id: string
+          parent_agent_id: string
+          stat_date: string
+          total_team_members: number
+          updated_at: string
+        }
+        Insert: {
+          active_collectors?: number
+          collected_amount?: number
+          collection_count?: number
+          created_at?: string
+          expected_amount?: number
+          id?: string
+          parent_agent_id: string
+          stat_date: string
+          total_team_members?: number
+          updated_at?: string
+        }
+        Update: {
+          active_collectors?: number
+          collected_amount?: number
+          collection_count?: number
+          created_at?: string
+          expected_amount?: number
+          id?: string
+          parent_agent_id?: string
+          stat_date?: string
+          total_team_members?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       agent_team_goals: {
         Row: {
           agent_id: string
@@ -5335,6 +5395,33 @@ export type Database = {
           target_earnings?: number
           target_registrations?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      agent_team_membership_history: {
+        Row: {
+          created_at: string
+          id: string
+          member_agent_id: string
+          parent_agent_id: string
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          member_agent_id: string
+          parent_agent_id: string
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          member_agent_id?: string
+          parent_agent_id?: string
+          valid_from?: string
+          valid_to?: string | null
         }
         Relationships: []
       }
@@ -8909,6 +8996,13 @@ export type Database = {
             foreignKeyName: "commission_accrual_ledger_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "commission_accrual_ledger_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_daily_eligibility"
             referencedColumns: ["rent_request_id"]
           },
@@ -9834,6 +9928,13 @@ export type Database = {
             columns: ["rent_request_id"]
             isOneToOne: false
             referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "default_recovery_ledger_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
             referencedColumns: ["rent_request_id"]
           },
           {
@@ -12366,6 +12467,13 @@ export type Database = {
             columns: ["rent_request_id"]
             isOneToOne: false
             referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "fee_revenue_ledger_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
             referencedColumns: ["rent_request_id"]
           },
           {
@@ -21583,6 +21691,13 @@ export type Database = {
             foreignKeyName: "location_requests_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "location_requests_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_daily_eligibility"
             referencedColumns: ["rent_request_id"]
           },
@@ -23780,6 +23895,13 @@ export type Database = {
             columns: ["rent_request_id"]
             isOneToOne: false
             referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "offline_collection_submissions_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
             referencedColumns: ["rent_request_id"]
           },
           {
@@ -28287,6 +28409,13 @@ export type Database = {
             foreignKeyName: "promissory_note_plan_intents_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "promissory_note_plan_intents_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_daily_eligibility"
             referencedColumns: ["rent_request_id"]
           },
@@ -30879,6 +31008,13 @@ export type Database = {
             foreignKeyName: "rent_repayment_pauses_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_repayment_pauses_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_daily_eligibility"
             referencedColumns: ["rent_request_id"]
           },
@@ -31744,6 +31880,13 @@ export type Database = {
             columns: ["rent_request_id"]
             isOneToOne: false
             referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "repayments_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
             referencedColumns: ["rent_request_id"]
           },
           {
@@ -34758,6 +34901,13 @@ export type Database = {
             foreignKeyName: "subscription_charges_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "subscription_charges_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_daily_eligibility"
             referencedColumns: ["rent_request_id"]
           },
@@ -34904,6 +35054,13 @@ export type Database = {
             columns: ["rent_request_id"]
             isOneToOne: false
             referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "supporter_capital_ledger_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
             referencedColumns: ["rent_request_id"]
           },
           {
@@ -35189,6 +35346,13 @@ export type Database = {
             columns: ["rent_request_id"]
             isOneToOne: false
             referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "supporter_roi_payments_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
             referencedColumns: ["rent_request_id"]
           },
           {
@@ -35795,6 +35959,13 @@ export type Database = {
             foreignKeyName: "tenant_idle_states_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: true
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_idle_states_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
             referencedRelation: "v_tenant_daily_eligibility"
             referencedColumns: ["rent_request_id"]
           },
@@ -36109,6 +36280,13 @@ export type Database = {
             columns: ["rent_request_id"]
             isOneToOne: false
             referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_reassignment_audit_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
             referencedColumns: ["rent_request_id"]
           },
           {
@@ -41701,6 +41879,13 @@ export type Database = {
             foreignKeyName: "promissory_note_plan_intents_rent_request_id_fkey"
             columns: ["rent_request_id"]
             isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "promissory_note_plan_intents_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
             referencedRelation: "v_tenant_daily_eligibility"
             referencedColumns: ["rent_request_id"]
           },
@@ -42856,6 +43041,26 @@ export type Database = {
         }
         Relationships: []
       }
+      v_rent_repaid_reconciliation: {
+        Row: {
+          agent_id: string | null
+          amount_repaid: number | null
+          audit_rows: number | null
+          last_payment_at: string | null
+          ledger_rows: number | null
+          ledger_total: number | null
+          logged_edit_count: number | null
+          logged_edit_net: number | null
+          reconciliation_state: string | null
+          rent_request_id: string | null
+          status: string | null
+          tenant_id: string | null
+          total_repayment: number | null
+          unbacked_by_ledger: number | null
+          unexplained: number | null
+        }
+        Relationships: []
+      }
       v_staff_requisition_budget_context: {
         Row: {
           approved_budget: number | null
@@ -43563,6 +43768,26 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: number
       }
+      agent_league_heat_level: {
+        Args: { p_collected: number; p_expected: number }
+        Returns: string
+      }
+      agent_league_team_parent: { Args: { p_user: string }; Returns: string }
+      agent_league_week_ranks: {
+        Args: { p_week_start: string }
+        Returns: {
+          active_collectors: number
+          active_rate: number
+          collected_amount: number
+          consistency: number
+          expected_amount: number
+          parent_agent_id: string
+          performance: number
+          team_rank: number
+          total_members: number
+        }[]
+      }
+      agent_league_week_start: { Args: { p_ts?: string }; Returns: string }
       agent_list_empty_house_opportunities: {
         Args: {
           p_district?: string
@@ -46369,6 +46594,15 @@ export type Database = {
         }[]
       }
       get_agent_campaign_dashboard: { Args: never; Returns: Json }
+      get_agent_collection_league_details: {
+        Args: { p_history_weeks?: number; p_week_start?: string }
+        Returns: Json
+      }
+      get_agent_collection_league_home: { Args: never; Returns: Json }
+      get_agent_collection_league_leaderboard: {
+        Args: { p_limit?: number; p_offset?: number; p_week_start?: string }
+        Returns: Json
+      }
       get_agent_collection_records: {
         Args: { p_agent_id: string; p_end: string; p_start: string }
         Returns: Json
@@ -51326,6 +51560,10 @@ export type Database = {
           difference: number
           previous_balance: number
         }[]
+      }
+      reconcile_agent_team_daily_stats: {
+        Args: { p_end?: string; p_start?: string }
+        Returns: number
       }
       reconcile_credited_deposit_profiles: { Args: never; Returns: number }
       reconcile_evidenced_withdrawal_settlements: { Args: never; Returns: Json }

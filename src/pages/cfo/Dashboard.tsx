@@ -84,8 +84,7 @@ import { FieldCashExposureCard } from '@/components/cfo/FieldCashExposureCard';
 import { CFOAgentOpsFloatSender } from '@/components/cfo/CFOAgentOpsFloatSender';
 import { CFOImpactKPIStrip } from '@/components/cfo/CFOImpactKPIStrip';
 import { CFOWalletActivities } from '@/components/cfo/CFOWalletActivities';
-import { RecentPayoutActivity } from '@/components/cfo/RecentPayoutActivity';
-import { GeneralPayoutActivities } from '@/components/cfo/GeneralPayoutActivities';
+import { RecentApprovalsByCategory } from '@/components/cfo/RecentApprovalsByCategory';
 import { EarningsExplainer } from '@/components/shared/EarningsExplainer';
 import { AgentAllocationTracesPanel } from '@/components/cfo/AgentAllocationTracesPanel';
 import { PhantomCorrectionDriftPanel } from '@/components/cfo/PhantomCorrectionDriftPanel';
@@ -198,7 +197,7 @@ export default function CFODashboardPage() {
           <div className="space-y-5">
             <DirectCreditTool />
 
-            <RecentPayoutActivity />
+            <RecentApprovalsByCategory />
 
             {/* ── Security assurance card ── */}
             <div className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6 shadow-sm">
@@ -573,8 +572,6 @@ export default function CFODashboardPage() {
         );
       case 'wallet-activities':
         return <CFOWalletActivities />;
-      case 'general-payout-activities':
-        return <GeneralPayoutActivities />;
       case 'earnings-explainer':
         return <EarningsExplainer role="cfo" />;
       case 'sms-log':

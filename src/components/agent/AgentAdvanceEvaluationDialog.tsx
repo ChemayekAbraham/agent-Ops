@@ -91,13 +91,13 @@ export function ScoreBar({ label, value, max }: { label: string; value: number; 
 
 export function StatBlock({ icon: Icon, label, value, sub }: { icon: any; label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-3">
+    <div className="rounded-xl border border-border bg-card p-2.5 sm:p-3 min-w-0 overflow-hidden">
       <div className="flex items-center gap-1.5 text-muted-foreground">
-        <Icon className="h-3.5 w-3.5" />
-        <span className="text-[11px] font-semibold uppercase tracking-wide">{label}</span>
+        <Icon className="h-3.5 w-3.5 shrink-0" />
+        <span className="text-[11px] font-semibold uppercase tracking-wide truncate">{label}</span>
       </div>
-      <p className="text-base font-bold mt-1">{value}</p>
-      {sub && <p className="text-[11px] text-muted-foreground">{sub}</p>}
+      <p className="text-sm sm:text-base font-bold mt-1 truncate" title={value}>{value}</p>
+      {sub && <p className="text-[11px] text-muted-foreground truncate" title={sub}>{sub}</p>}
     </div>
   );
 }
@@ -245,18 +245,24 @@ export function AgentAdvanceEvaluationDialog({
                   </p>
                   {walletLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-2.5 text-center">
-                    <p className="text-[9px] uppercase tracking-wide text-emerald-700">Withdrawable</p>
-                    <p className="text-sm font-extrabold text-emerald-700 leading-tight">{formatUGX(wallet?.available ?? wallet?.withdrawable ?? 0)}</p>
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                  <div className="rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-800/30 p-2 sm:p-2.5 text-center min-w-0 overflow-hidden">
+                    <p className="text-[9px] uppercase tracking-wide text-emerald-700 dark:text-emerald-400 truncate">Withdrawable</p>
+                    <p className="text-xs sm:text-sm font-extrabold text-emerald-700 dark:text-emerald-400 leading-tight mt-0.5 tabular-nums tracking-tight truncate" title={formatUGX(wallet?.available ?? wallet?.withdrawable ?? 0)}>
+                      {formatUGX(wallet?.available ?? wallet?.withdrawable ?? 0)}
+                    </p>
                   </div>
-                  <div className="rounded-xl bg-muted/50 border border-border p-2.5 text-center">
-                    <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Float</p>
-                    <p className="text-sm font-extrabold leading-tight">{formatUGX(wallet?.float ?? 0)}</p>
+                  <div className="rounded-xl bg-muted/50 border border-border p-2 sm:p-2.5 text-center min-w-0 overflow-hidden">
+                    <p className="text-[9px] uppercase tracking-wide text-muted-foreground truncate">Float</p>
+                    <p className="text-xs sm:text-sm font-extrabold leading-tight mt-0.5 tabular-nums tracking-tight truncate" title={formatUGX(wallet?.float ?? 0)}>
+                      {formatUGX(wallet?.float ?? 0)}
+                    </p>
                   </div>
-                  <div className="rounded-xl bg-amber-50 border border-amber-100 p-2.5 text-center">
-                    <p className="text-[9px] uppercase tracking-wide text-amber-700">Advance owed</p>
-                    <p className="text-sm font-extrabold text-amber-700 leading-tight">{formatUGX(wallet?.advance ?? 0)}</p>
+                  <div className="rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-800/30 p-2 sm:p-2.5 text-center min-w-0 overflow-hidden">
+                    <p className="text-[9px] uppercase tracking-wide text-amber-700 dark:text-amber-400 truncate">Advance owed</p>
+                    <p className="text-xs sm:text-sm font-extrabold text-amber-700 dark:text-amber-400 leading-tight mt-0.5 tabular-nums tracking-tight truncate" title={formatUGX(wallet?.advance ?? 0)}>
+                      {formatUGX(wallet?.advance ?? 0)}
+                    </p>
                   </div>
                 </div>
                 <button
@@ -294,21 +300,27 @@ export function AgentAdvanceEvaluationDialog({
               </div>
 
               {/* Requested vs suggested vs limit */}
-              <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-2xl border border-primary/30 bg-primary/5 p-3 text-center">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Requested</p>
-                  <p className="text-lg font-extrabold text-primary leading-tight">{formatUGX(requested)}</p>
-                  <p className="text-[10px] text-muted-foreground">{req.cycle_days} days</p>
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                <div className="rounded-2xl border border-primary/30 bg-primary/5 p-2 sm:p-3 text-center min-w-0 overflow-hidden flex flex-col justify-between">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground truncate">Requested</p>
+                  <p className="text-xs sm:text-sm md:text-base font-extrabold text-primary leading-tight my-1 tabular-nums tracking-tight truncate" title={formatUGX(requested)}>
+                    {formatUGX(requested)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground truncate">{req.cycle_days} days</p>
                 </div>
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-center">
-                  <p className="text-[10px] uppercase tracking-wide text-emerald-700">Suggested</p>
-                  <p className="text-lg font-extrabold text-emerald-600 leading-tight">{p ? formatUGX(suggested) : '—'}</p>
-                  <p className="text-[10px] text-emerald-700">safe amount</p>
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 p-2 sm:p-3 text-center min-w-0 overflow-hidden flex flex-col justify-between">
+                  <p className="text-[10px] uppercase tracking-wide text-emerald-700 dark:text-emerald-400 truncate">Suggested</p>
+                  <p className="text-xs sm:text-sm md:text-base font-extrabold text-emerald-600 dark:text-emerald-400 leading-tight my-1 tabular-nums tracking-tight truncate" title={p ? formatUGX(suggested) : '—'}>
+                    {p ? formatUGX(suggested) : '—'}
+                  </p>
+                  <p className="text-[10px] text-emerald-700 dark:text-emerald-400 truncate">safe amount</p>
                 </div>
-                <div className="rounded-2xl border border-border bg-card p-3 text-center">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Limit</p>
-                  <p className="text-lg font-extrabold leading-tight">{p ? formatUGX(limit) : '—'}</p>
-                  <p className="text-[10px] text-muted-foreground">current cap</p>
+                <div className="rounded-2xl border border-border bg-card p-2 sm:p-3 text-center min-w-0 overflow-hidden flex flex-col justify-between">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground truncate">Limit</p>
+                  <p className="text-xs sm:text-sm md:text-base font-extrabold leading-tight my-1 tabular-nums tracking-tight truncate" title={p ? formatUGX(limit) : '—'}>
+                    {p ? formatUGX(limit) : '—'}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground truncate">current cap</p>
                 </div>
               </div>
 

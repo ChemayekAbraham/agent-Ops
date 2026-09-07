@@ -132,6 +132,7 @@ import { FieldCollectCard } from '@/components/agent/FieldCollectCard';
 import { FieldDepositQueueCard } from '@/components/agent/FieldDepositQueueCard';
 
 import { AgentRatingCard } from '@/components/agent/AgentRatingCard';
+import { AgentCollectionLeagueCard } from '@/components/agent/AgentCollectionLeagueCard';
 import { RecruitSubAgentCTA } from '@/components/agent/RecruitSubAgentCTA';
 import { ApprovedRentRequestsWidget } from '@/components/rent/ApprovedRentRequestsWidget';
 import { RecentAutoCharges } from '@/components/wallet/RecentAutoCharges';
@@ -1072,6 +1073,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         )}
         {activeTab === 'home' && !isMerchant && (
           <div className={cn("space-y-4", tabAnimClass)}>
+            {/* Collection League — weekly team competition */}
+            {!isMerchant && <AgentCollectionLeagueCard />}
+
             {/* Free Service Center qualification — permanent milestone tracker */}
             {!isMerchant && (
               <>

@@ -16,7 +16,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { CheckCircle2, XCircle, Clock, MapPin, User, UserCheck, Home, Banknote, ArrowRight, ArrowRightLeft, Loader2, Search, MessageCircle, Phone, Pencil, Check, X, PhoneCall, ShieldCheck, AlertCircle, Image as ImageIcon, Camera, Cloud, HardDrive, RotateCcw, ArrowUpDown, ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { CheckCircle2, XCircle, Clock, MapPin, User, UserCheck, Home, Banknote, ArrowRight, ArrowRightLeft, Loader2, Search, MessageCircle, Phone, Pencil, Check, X, PhoneCall, ShieldCheck, AlertCircle, Image as ImageIcon, Camera, Cloud, HardDrive, RotateCcw, ArrowUpDown, ChevronDown, Filter, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateRentRepayment } from '@/lib/rentCalculations';
 import { formatTenantSync } from '@/lib/tenantFilterSyncFormat';
@@ -51,6 +52,7 @@ export type PipelineStage =
 interface PipelineConfig {
   stage: PipelineStage;
   title: string;
+  icon: React.ComponentType<{ className?: string }>;
   approveLabel: string;
   nextStatus: string;
   reviewerColumn: string;
@@ -66,7 +68,8 @@ interface PipelineConfig {
 const STAGE_CONFIG: Record<PipelineStage, PipelineConfig> = {
   pending: {
     stage: 'pending',
-    title: '🔍 Agent Ops Review',
+    title: 'Agent Ops Review',
+    icon: Search,
     approveLabel: 'Approve & Forward to Tenant Ops',
     nextStatus: 'agent_ops_approved',
     reviewerColumn: 'agent_ops_reviewed_by',
@@ -75,7 +78,8 @@ const STAGE_CONFIG: Record<PipelineStage, PipelineConfig> = {
   },
   agent_ops_approved: {
     stage: 'agent_ops_approved',
-    title: '👥 Tenant Ops Review',
+    title: 'Tenant Ops Review',
+    icon: UserCheck,
     approveLabel: 'Approve & Forward to Landlord Ops',
     nextStatus: 'tenant_ops_approved',
     reviewerColumn: 'tenant_ops_reviewed_by',
@@ -88,7 +92,8 @@ const STAGE_CONFIG: Record<PipelineStage, PipelineConfig> = {
   },
   tenant_ops_approved: {
     stage: 'tenant_ops_approved',
-    title: '🏠 Landlord Ops Review',
+    title: 'Landlord Ops Review',
+    icon: Home,
     approveLabel: 'Approve & Forward to Partner Ops',
     nextStatus: 'landlord_ops_approved',
     reviewerColumn: 'landlord_ops_reviewed_by',
@@ -102,7 +107,8 @@ const STAGE_CONFIG: Record<PipelineStage, PipelineConfig> = {
   },
   landlord_ops_approved: {
     stage: 'landlord_ops_approved',
-    title: '🤝 Partner Ops Proxy Attachment',
+    title: 'Partner Ops Proxy Attachment',
+    icon: ArrowRightLeft,
     approveLabel: 'Attach Proxy Agent & Forward to COO',
     nextStatus: 'partner_ops_approved',
     reviewerColumn: 'partner_ops_reviewed_by',
@@ -116,7 +122,8 @@ const STAGE_CONFIG: Record<PipelineStage, PipelineConfig> = {
   },
   partner_ops_approved: {
     stage: 'partner_ops_approved',
-    title: '📋 COO Approval',
+    title: 'COO Approval',
+    icon: ShieldCheck,
     approveLabel: 'Approve & Forward to CFO',
     nextStatus: 'coo_approved',
     reviewerColumn: 'coo_reviewed_by',
@@ -131,7 +138,8 @@ const STAGE_CONFIG: Record<PipelineStage, PipelineConfig> = {
   },
   coo_approved: {
     stage: 'coo_approved',
-    title: '💰 CFO Payout Authorization',
+    title: 'CFO Payout Authorization',
+    icon: Banknote,
     approveLabel: 'Authorize & Fund Agent Float',
     nextStatus: 'funded',
     reviewerColumn: 'cfo_reviewed_by',
@@ -306,6 +314,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   // Timestamp of the last save (local or cloud) so the CFO knows how fresh the
   // persisted filter value is.
   const [tenantSyncAt, setTenantSyncAt] = useState<Date | null>(null);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Hydrate the selected tenant from the server so the filter follows the
   // CFO across devices/browsers, then mirror back into localStorage.
@@ -1205,7 +1214,12 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
     <Card className="border border-border">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-base font-bold">{config.title}</CardTitle>
+          <CardTitle className="text-base font-bold flex items-center gap-2.5">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+              <config.icon className="h-4 w-4" />
+            </span>
+            <span>{config.title}</span>
+          </CardTitle>
           <Badge variant="secondary" className="text-xs font-bold">
             {rows.length} pending
           </Badge>
@@ -1288,10 +1302,11 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
             </div>
           </div>
         )}
-        <div className="flex flex-col sm:flex-row gap-2 mt-2 items-stretch sm:items-start">
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+        {/* Desktop Filter Toolbar */}
+        <div className="hidden sm:flex sm:flex-row gap-2 mt-2 items-start">
+          <div className="flex items-center gap-2 w-auto">
             <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
-              <SelectTrigger className="h-9 text-sm w-full sm:w-[260px]">
+              <SelectTrigger className="h-9 text-sm w-[260px]">
                 <User className="h-3.5 w-3.5 mr-1 text-muted-foreground shrink-0" />
                 <SelectValue placeholder="Choose a tenant to fund" />
               </SelectTrigger>
@@ -1365,6 +1380,110 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
             </Button>
           )}
         </div>
+
+        {/* Mobile Collapsed Filter Bar */}
+        <div className="sm:hidden mt-2">
+          {(() => {
+            const activeFiltersCount = (selectedTenantId !== 'all' ? 1 : 0) + (search.trim() ? 1 : 0) + (hideExpired ? 1 : 0) + (sortOrder === 'asc' ? 1 : 0);
+            return (
+              <Collapsible open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full flex items-center justify-between h-9 px-3 text-xs bg-muted/20 border-border hover:bg-muted/40 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Filter className="h-3.5 w-3.5 text-primary" />
+                      <span className="font-medium">Filter & Search</span>
+                      {activeFiltersCount > 0 && (
+                        <Badge variant="secondary" className="h-4 px-1.5 text-[10px] bg-primary/15 text-primary font-semibold">
+                          {activeFiltersCount} active
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <span className="text-[11px]">{mobileFiltersOpen ? 'Hide' : 'Show'}</span>
+                      <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", mobileFiltersOpen && "rotate-180")} />
+                    </div>
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-2 space-y-2">
+                  <div className="p-2.5 rounded-lg border border-border/70 bg-card/60 space-y-2.5 shadow-xs">
+                    {/* Search */}
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search tenant, landlord, agent..."
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        className="pl-9 h-9 text-sm bg-background"
+                      />
+                    </div>
+
+                    {/* Tenant Select */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between px-0.5">
+                        <span className="text-[11px] text-muted-foreground font-medium">Tenant</span>
+                        {tenantSyncStatus === 'synced' ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <Cloud className="h-3 w-3" /> Synced
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                            <HardDrive className="h-3 w-3" /> Saved locally
+                          </span>
+                        )}
+                      </div>
+                      <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
+                        <SelectTrigger className="h-9 text-sm w-full bg-background">
+                          <User className="h-3.5 w-3.5 mr-1 text-muted-foreground shrink-0" />
+                          <SelectValue placeholder="Choose a tenant to fund" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[320px]">
+                          <SelectItem value="all">All tenants ({tenantOptions.length})</SelectItem>
+                          {tenantOptions.map(t => (
+                            <SelectItem key={t.id} value={t.id}>
+                              <span className="truncate">{t.name} → {t.landlord_name}</span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Action buttons: Sort & Expired */}
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                        className="flex-1 h-8 gap-1.5 text-xs bg-background"
+                      >
+                        <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>{sortOrder === 'desc' ? 'Newest' : 'Oldest'}</span>
+                      </Button>
+
+                      {stage === 'pending' && expiredCount > 0 && (
+                        <Button
+                          type="button"
+                          variant={hideExpired ? 'outline' : 'secondary'}
+                          size="sm"
+                          onClick={() => setHideExpired(prev => !prev)}
+                          className="flex-1 h-8 gap-1.5 text-xs bg-background"
+                        >
+                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span>{hideExpired ? `Hide Exp (${expiredCount})` : `Show Exp (${expiredCount})`}</span>
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          })()}
+        </div>
       </CardHeader>
       <CardContent className="p-0">
         <div className="px-3 pb-3">
@@ -1399,24 +1518,25 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                 className="w-full text-left px-3.5 py-3 hover:bg-muted/30 transition-colors"
               >
                 {/* Header row: Checkbox + Tenant info + Amount + Fold Toggle */}
-                <div className="flex items-start justify-between gap-2">
+                <div
+                  onClick={() => openRequestDetail(req)}
+                  className="flex items-start justify-between gap-2 cursor-pointer group/header select-none"
+                  title="Click to view full rent request details"
+                >
                   <div className="flex items-start gap-2 min-w-0 flex-1">
                     {/* Bulk review selection checkbox */}
                     {allowBulkActions && (
-                      <Checkbox
-                        checked={selectedIds.has(req.id)}
-                        onCheckedChange={() => toggleSelect(req.id)}
-                        className="shrink-0 mt-0.5"
-                      />
+                      <div onClick={(e) => e.stopPropagation()} className="shrink-0 mt-0.5">
+                        <Checkbox
+                          checked={selectedIds.has(req.id)}
+                          onCheckedChange={() => toggleSelect(req.id)}
+                        />
+                      </div>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => openRequestDetail(req)}
-                      className="text-left min-w-0 flex-1 group"
-                    >
+                    <div className="text-left min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                         <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="font-semibold text-sm break-words leading-tight group-hover:text-primary transition-colors">
+                        <span className="font-semibold text-sm break-words leading-tight group-hover/header:text-primary group-hover/header:underline transition-colors">
                           {req.tenant_name}
                         </span>
                         {req.registration_type === 'outstanding_balance' && (
@@ -1452,12 +1572,12 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                           </Tooltip>
                         )}
                       </div>
-                    </button>
+                    </div>
                   </div>
 
                   {/* Right side: Amount and Fold/Unfold Chevron */}
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="font-bold text-sm text-foreground tabular-nums">
+                    <span className="font-bold text-sm text-foreground tabular-nums group-hover/header:text-primary transition-colors">
                       UGX {fmt(req.rent_amount)}
                     </span>
                     <Button
@@ -1540,6 +1660,18 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                           </span>
                         );
                       })()}
+                    </div>
+
+                    {/* View full sheet button from unfolded card */}
+                    <div className="pt-1 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); openRequestDetail(req); }}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                      >
+                        <span>Open Full Review Drawer</span>
+                        <ArrowRight className="h-3 w-3" />
+                      </button>
                     </div>
 
                     {/* Inline landlord verification checklist */}
@@ -1635,8 +1767,8 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                   </div>
                 )}
 
-                {/* Bottom Action Row: Reject on far left, Approve on far right */}
-                <div className="flex items-center justify-between gap-4 w-full pt-2.5 mt-2 border-t border-border/40">
+                {/* Bottom Action Row: Reject on far left, Details in center, Approve on far right */}
+                <div className="flex items-center justify-between gap-2 w-full pt-2.5 mt-2 border-t border-border/40">
                   <Button
                     type="button"
                     size="sm"
@@ -1648,6 +1780,18 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                   >
                     <XCircle className="h-3.5 w-3.5" />
                     <span>Reject</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => { e.stopPropagation(); openRequestDetail(req); }}
+                    className="h-8 px-2.5 text-xs text-primary hover:bg-primary/10 gap-1.5 font-semibold"
+                    title="Open full rent request review details"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    <span>Details</span>
                   </Button>
 
                   <Button

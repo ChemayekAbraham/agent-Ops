@@ -53,7 +53,7 @@ interface SubCategory {
   label: string;
 }
 
-interface PayoutCategory {
+export interface PayoutCategory {
   id: string;
   label: string;
   description: string;
@@ -71,7 +71,7 @@ interface PayoutCategory {
   recipientLock: RecipientType | 'either';
 }
 
-const PAYOUT_CATEGORIES: PayoutCategory[] = [
+export const PAYOUT_CATEGORIES: PayoutCategory[] = [
   // ── CREDIT (Platform → Wallet) ──
   {
     id: 'roi_payout',
@@ -728,6 +728,7 @@ export function DirectCreditTool() {
       qc.invalidateQueries({ queryKey: ['channel-balances'] });
       qc.invalidateQueries({ queryKey: ['treasury-cash-snapshot'] });
       qc.invalidateQueries({ queryKey: ['cfo-overview'] });
+      qc.invalidateQueries({ queryKey: ['cfo-recent-approvals-by-category'] });
       setSelectedUser(null);
       setLocationRecipients([]);
       setAmount('');
@@ -851,6 +852,7 @@ export function DirectCreditTool() {
       qc.invalidateQueries({ queryKey: ['cfo-overview'] });
       qc.invalidateQueries({ queryKey: ['cfo-debit-obligations'] });
       qc.invalidateQueries({ queryKey: ['kyc-console'] });
+      qc.invalidateQueries({ queryKey: ['cfo-recent-approvals-by-category'] });
       setOverdrawInfo(null);
       setOverdrawApproved(false);
       setSelectedUser(null);

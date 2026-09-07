@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { format, formatDistanceToNowStrict } from 'date-fns';
-import { CheckCircle2, XCircle, Loader2, User, Inbox, Clock, Wallet, Ban, X, Zap } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, User, Inbox, Clock, Wallet, Ban, X, Zap, ChevronDown, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AgentAdvanceEvaluationDialog } from '@/components/agent/AgentAdvanceEvaluationDialog';
 import { disburseAgentAdvanceRequest } from '@/lib/disburseAgentAdvance';
@@ -94,6 +94,7 @@ function RequestRow({
   onCancel?: (req: any) => void;
   onDisburse?: (req: any) => void;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const rejectedByCfo = req.status === 'cfo_rejected';
   const note = tone === 'rejected' ? (req.rejection_reason || 'No reason recorded') : approvalNote(req);
   const paid = tone === 'approved' && isPaidOut(req);
@@ -106,102 +107,132 @@ function RequestRow({
   const canCancelRequest = tone === 'approved' && !paid && onCancel;
   const canDisburse = tone === 'approved' && !paid && onDisburse
     && (req.status === 'agent_ops_approved' || req.status === 'cfo_approved');
+
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(req)}
-      className="w-full text-left rounded-xl border border-border bg-card p-3 hover:border-primary/40 hover:shadow-md active:scale-[0.99] transition-all"
-    >
-      <div className="flex items-center gap-2.5">
+    <div className={cn(
+      'rounded-xl border border-border bg-card transition-all overflow-hidden',
+      expanded ? 'shadow-sm border-primary/30' : 'hover:border-primary/40'
+    )}>
+      <button
+        type="button"
+        onClick={() => setExpanded((prev) => !prev)}
+        className="w-full text-left p-3 flex items-center gap-2.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      >
         <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0">
           <User className="h-4 w-4 text-muted-foreground" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold truncate">{req.agent_full_name || 'Agent'}</p>
-          <p className="text-[10px] text-muted-foreground">{format(new Date(req.created_at), 'MMM d, yyyy')}</p>
+          <p className="text-sm font-semibold truncate flex items-center gap-1.5">
+            <span className="truncate">{req.agent_full_name || 'Agent'}</span>
+            {paid && (
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" title="Paid out" />
+            )}
+          </p>
         </div>
         <div className="text-right shrink-0">
           <p className="text-sm font-bold text-primary">{formatUGX(num(req.principal))}</p>
-          <p className="text-[10px] text-muted-foreground">{req.cycle_days}d</p>
         </div>
-      </div>
-      {tone === 'approved' && (
-        <>
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <Badge className="text-[9px] px-1.5 py-0 h-4 font-bold bg-emerald-100 text-emerald-700 border-0">
-              {STATUS_LABEL[req.status] || req.status}
-            </Badge>
-            <Badge className={cn(
-              'text-[9px] px-1.5 py-0 h-4 font-bold border-0 flex items-center gap-0.5',
-              paid ? 'bg-emerald-600 text-white' : 'bg-amber-100 text-amber-700',
-            )}>
-              <Wallet className="h-2.5 w-2.5" />{paid ? 'Paid out' : 'Not paid out'}
-            </Badge>
-            <span className={cn('text-[9px] font-semibold flex items-center gap-0.5', holdTone)}>
-              <Clock className="h-2.5 w-2.5" />{paid ? `Paid ${holdingFor} ago` : `Holding ${holdingFor}`}
-            </span>
+        <ChevronDown className={cn(
+          'h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200',
+          expanded && 'rotate-180'
+        )} />
+      </button>
+
+      {expanded && (
+        <div className="px-3 pb-3 pt-0 border-t border-border/50 mt-1 space-y-2.5">
+          <div className="pt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Date requested</span>
+            <span className="font-medium text-foreground">{format(new Date(req.created_at), 'MMM d, yyyy')} ({req.cycle_days}d cycle)</span>
           </div>
 
-          {/* Approval route — which desk it's on now */}
-          <div className="mt-2 flex items-center gap-1">
-            {PIPELINE.map((s, i) => (
-              <div key={s.key} className="flex-1 flex flex-col items-center gap-0.5 min-w-0">
-                <div className={cn(
-                  'h-1.5 w-full rounded-full',
-                  i < idx ? 'bg-emerald-500' : i === idx ? (paid ? 'bg-emerald-600' : 'bg-amber-500') : 'bg-muted',
-                )} />
-                <span className={cn(
-                  'text-[7px] leading-none text-center truncate w-full',
-                  i === idx ? 'font-bold text-foreground' : 'text-muted-foreground',
-                )}>{s.label}</span>
+          {tone === 'approved' && (
+            <>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge className="text-[9px] px-1.5 py-0 h-4 font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-0">
+                  {STATUS_LABEL[req.status] || req.status}
+                </Badge>
+                <Badge className={cn(
+                  'text-[9px] px-1.5 py-0 h-4 font-bold border-0 flex items-center gap-0.5',
+                  paid ? 'bg-emerald-600 text-white' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+                )}>
+                  <Wallet className="h-2.5 w-2.5" />{paid ? 'Paid out' : 'Not paid out'}
+                </Badge>
+                <span className={cn('text-[9px] font-semibold flex items-center gap-0.5', holdTone)}>
+                  <Clock className="h-2.5 w-2.5" />{paid ? `Paid ${holdingFor} ago` : `Holding ${holdingFor}`}
+                </span>
               </div>
-            ))}
-          </div>
-          <p className="mt-1 text-[9px] text-muted-foreground">
-            {paid
-              ? 'Fully disbursed to the agent wallet.'
-              : req.status === 'cfo_approved'
-                ? 'CFO approved — awaiting disbursement to the agent wallet.'
-                : 'Approved by Agent Ops — awaiting CFO evaluation & disbursement.'}
-          </p>
-        </>
-      )}
-      {note && (
-        <div className={
-          'mt-2 rounded-lg p-2 text-[11px] leading-snug ' +
-          (tone === 'rejected' ? 'bg-rose-50 text-rose-800' : 'bg-muted/50 text-muted-foreground')
-        }>
-          <span className="font-semibold">
-            {tone === 'rejected' ? (rejectedByCfo ? 'Rejected by CFO — Reason: ' : 'Rejected by Agent Ops — Reason: ') : 'Note: '}
-          </span>{note}
-        </div>
-      )}
-      {(canCancelRequest || canDisburse) && (
-        <div className="mt-2 flex justify-end gap-2">
-          {canDisburse && (
+
+              {/* Approval route — which desk it's on now */}
+              <div className="flex items-center gap-1 pt-1">
+                {PIPELINE.map((s, i) => (
+                  <div key={s.key} className="flex-1 flex flex-col items-center gap-0.5 min-w-0">
+                    <div className={cn(
+                      'h-1.5 w-full rounded-full',
+                      i < idx ? 'bg-emerald-500' : i === idx ? (paid ? 'bg-emerald-600' : 'bg-amber-500') : 'bg-muted',
+                    )} />
+                    <span className={cn(
+                      'text-[7px] leading-none text-center truncate w-full',
+                      i === idx ? 'font-bold text-foreground' : 'text-muted-foreground',
+                    )}>{s.label}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[9px] text-muted-foreground">
+                {paid
+                  ? 'Fully disbursed to the agent wallet.'
+                  : req.status === 'cfo_approved'
+                    ? 'CFO approved — awaiting disbursement to the agent wallet.'
+                    : 'Approved by Agent Ops — awaiting CFO evaluation & disbursement.'}
+              </p>
+            </>
+          )}
+
+          {note && (
+            <div className={
+              'rounded-lg p-2 text-[11px] leading-snug ' +
+              (tone === 'rejected' ? 'bg-rose-50 text-rose-800 dark:bg-rose-950/20 dark:text-rose-300' : 'bg-muted/50 text-muted-foreground')
+            }>
+              <span className="font-semibold">
+                {tone === 'rejected' ? (rejectedByCfo ? 'Rejected by CFO — Reason: ' : 'Rejected by Agent Ops — Reason: ') : 'Note: '}
+              </span>{note}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-end gap-2 pt-1 border-t border-border/40">
             <Button
               type="button"
+              variant="outline"
               size="sm"
-              className="h-7 gap-1 bg-amber-600 hover:bg-amber-700 text-white text-[11px]"
-              onClick={(e) => { e.stopPropagation(); onDisburse!(req); }}
+              className="h-7 text-xs gap-1.5"
+              onClick={() => onOpen(req)}
             >
-              <Zap className="h-3 w-3" /> Disburse now
+              <Eye className="h-3.5 w-3.5 text-primary" /> Evaluation
             </Button>
-          )}
-          {canCancelRequest && (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="h-7 gap-1 text-destructive border-destructive/30 hover:bg-destructive/10 text-[11px]"
-            onClick={(e) => { e.stopPropagation(); onCancel!(req); }}
-          >
-            <Ban className="h-3 w-3" /> Cancel request
-          </Button>
-          )}
+            {canDisburse && (
+              <Button
+                type="button"
+                size="sm"
+                className="h-7 gap-1 bg-amber-600 hover:bg-amber-700 text-white text-[11px]"
+                onClick={() => onDisburse!(req)}
+              >
+                <Zap className="h-3 w-3" /> Disburse now
+              </Button>
+            )}
+            {canCancelRequest && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1 text-destructive border-destructive/30 hover:bg-destructive/10 text-[11px]"
+                onClick={() => onCancel!(req)}
+              >
+                <Ban className="h-3 w-3" /> Cancel request
+              </Button>
+            )}
+          </div>
         </div>
       )}
-    </button>
+    </div>
   );
 }
 
