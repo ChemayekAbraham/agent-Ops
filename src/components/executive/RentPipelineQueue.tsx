@@ -52,6 +52,7 @@ export type PipelineStage =
 interface PipelineConfig {
   stage: PipelineStage;
   title: string;
+  icon: React.ComponentType<{ className?: string }>;
   approveLabel: string;
   nextStatus: string;
   reviewerColumn: string;
@@ -67,7 +68,8 @@ interface PipelineConfig {
 const STAGE_CONFIG: Record<PipelineStage, PipelineConfig> = {
   pending: {
     stage: 'pending',
-    title: '🔍 Agent Ops Review',
+    title: 'Agent Ops Review',
+    icon: Search,
     approveLabel: 'Approve & Forward to Tenant Ops',
     nextStatus: 'agent_ops_approved',
     reviewerColumn: 'agent_ops_reviewed_by',
@@ -76,7 +78,8 @@ const STAGE_CONFIG: Record<PipelineStage, PipelineConfig> = {
   },
   agent_ops_approved: {
     stage: 'agent_ops_approved',
-    title: '👥 Tenant Ops Review',
+    title: 'Tenant Ops Review',
+    icon: UserCheck,
     approveLabel: 'Approve & Forward to Landlord Ops',
     nextStatus: 'tenant_ops_approved',
     reviewerColumn: 'tenant_ops_reviewed_by',
@@ -89,7 +92,8 @@ const STAGE_CONFIG: Record<PipelineStage, PipelineConfig> = {
   },
   tenant_ops_approved: {
     stage: 'tenant_ops_approved',
-    title: '🏠 Landlord Ops Review',
+    title: 'Landlord Ops Review',
+    icon: Home,
     approveLabel: 'Approve & Forward to Partner Ops',
     nextStatus: 'landlord_ops_approved',
     reviewerColumn: 'landlord_ops_reviewed_by',
@@ -103,7 +107,8 @@ const STAGE_CONFIG: Record<PipelineStage, PipelineConfig> = {
   },
   landlord_ops_approved: {
     stage: 'landlord_ops_approved',
-    title: '🤝 Partner Ops Proxy Attachment',
+    title: 'Partner Ops Proxy Attachment',
+    icon: ArrowRightLeft,
     approveLabel: 'Attach Proxy Agent & Forward to COO',
     nextStatus: 'partner_ops_approved',
     reviewerColumn: 'partner_ops_reviewed_by',
@@ -117,7 +122,8 @@ const STAGE_CONFIG: Record<PipelineStage, PipelineConfig> = {
   },
   partner_ops_approved: {
     stage: 'partner_ops_approved',
-    title: '📋 COO Approval',
+    title: 'COO Approval',
+    icon: ShieldCheck,
     approveLabel: 'Approve & Forward to CFO',
     nextStatus: 'coo_approved',
     reviewerColumn: 'coo_reviewed_by',
@@ -132,7 +138,8 @@ const STAGE_CONFIG: Record<PipelineStage, PipelineConfig> = {
   },
   coo_approved: {
     stage: 'coo_approved',
-    title: '💰 CFO Payout Authorization',
+    title: 'CFO Payout Authorization',
+    icon: Banknote,
     approveLabel: 'Authorize & Fund Agent Float',
     nextStatus: 'funded',
     reviewerColumn: 'cfo_reviewed_by',
@@ -1207,7 +1214,12 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
     <Card className="border border-border">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-base font-bold">{config.title}</CardTitle>
+          <CardTitle className="text-base font-bold flex items-center gap-2.5">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+              <config.icon className="h-4 w-4" />
+            </span>
+            <span>{config.title}</span>
+          </CardTitle>
           <Badge variant="secondary" className="text-xs font-bold">
             {rows.length} pending
           </Badge>
