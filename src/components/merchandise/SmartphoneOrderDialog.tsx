@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Smartphone, FileText, AlertTriangle, Loader2 } from 'lucide-react';
+import { Smartphone, AlertTriangle, Loader2 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import smartphonePromoAsset from '@/assets/smartphone-promo.jpg.asset.json';
 import { useSmartphoneCatalog, type SmartphoneOsType, type SmartphoneCatalogEntry } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
