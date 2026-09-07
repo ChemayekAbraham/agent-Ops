@@ -388,7 +388,41 @@ export function ProxyCommissionsTracker() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!confirm} onOpenChange={(open) => { if (!open && !working) setConfirm(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirm?.action === 'approve' ? 'Send this commission now?' : 'Mark this commission as paid?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>
+                  {confirm?.action === 'approve'
+                    ? `${formatUGX(Number(confirm?.row.commission_amount ?? 0))} will be sent straight to ${confirm?.row.agent_name || 'the proxy agent'}'s wallet. This cannot be undone here.`
+                    : `This only records ${formatUGX(Number(confirm?.row.commission_amount ?? 0))} as already settled for ${confirm?.row.agent_name || 'the proxy agent'}. No money will be sent.`}
+                </p>
+                <p className="text-muted-foreground">
+                  {confirm?.row.kind_label} · {confirm?.row.partner_name || 'Unknown partner'} ·{' '}
+                  {confirm?.row.portfolio_code || 'No code'}
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={working}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); runAction(); }}
+              disabled={working}
+            >
+              {working && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              {confirm?.action === 'approve' ? 'Yes, send the money' : 'Yes, mark as paid'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+
   );
 }
 
