@@ -12,12 +12,13 @@ export function CapitalRoutesSection({ className }: { className?: string }) {
   return (
     <section id="capital-routes" className={cn('space-y-4', className)} aria-label="Capital routes">
       {/* CTA */}
-      <div className="relative isolate overflow-hidden rounded-[clamp(20px,5.5vw,30px)] border border-primary/35">
+      <div className="relative isolate min-h-[260px] overflow-hidden rounded-[clamp(20px,5.5vw,30px)] border border-primary/35 bg-background">
         <img
           src={heroAsset.url}
           alt="Welile capital routes"
           className="absolute inset-0 -z-20 h-full w-full object-cover"
-          loading="lazy"
+          fetchPriority="high"
+          decoding="async"
         />
         <div className="absolute inset-0 -z-10 bg-gradient-to-b from-black/15 via-black/60 to-black/95" />
         <div className="flex min-h-0 items-end px-4 pb-4 pt-4 md:items-center md:min-h-[clamp(280px,32vw,380px)] md:px-[clamp(20px,5.5vw,44px)] md:pb-[clamp(20px,5.5vw,44px)] md:pt-2">
