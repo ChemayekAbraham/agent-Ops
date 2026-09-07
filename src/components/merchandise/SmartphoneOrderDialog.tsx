@@ -105,7 +105,8 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   // stops a submission. Portfolio and document checks are review inputs shown
   // to the Agent Ops manager, never a block here.
   const hasOpenApplication = !!eligibility?.has_open_application;
-  const canSubmit = !hasOpenApplication && !!selected && price > 0 && docsReady;
+  const canSubmit =
+    !hasOpenApplication && !!selected && price > 0 && docsReady && (paymentMethod === 'full' || !!months);
 
   const reset = () => {
     setOsType('android');
