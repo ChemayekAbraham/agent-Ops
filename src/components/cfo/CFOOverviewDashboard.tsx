@@ -401,7 +401,17 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           </div>
         </Band>
 
-        {/* ─────────── 4 · ADVANCES PORTFOLIO ─────────── */}
+        {/* ─────────── 4 · PAYOUT ACTIVITIES ─────────── */}
+        <Band
+          title="Payout Activities"
+          subtitle="Every payout transaction sent from the platform"
+          open={isOpen('payoutActivities')}
+          onToggle={() => toggleSection('payoutActivities')}
+        >
+          <GeneralPayoutActivities />
+        </Band>
+
+        {/* ─────────── 5 · ADVANCES PORTFOLIO ─────────── */}
         <Band
           title="Advances Portfolio"
           subtitle="Agent advances across the full book"
