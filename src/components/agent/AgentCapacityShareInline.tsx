@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { downloadAgentRentCollectionsPdf, type RangeKey } from '@/lib/agentRentCollectionsPdf';
+import { downloadLandlordAgreementTemplate } from '@/lib/landlordAgreementTemplatePdf';
 import { ChevronDown, FileText } from 'lucide-react';
 
 /**
