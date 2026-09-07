@@ -1463,10 +1463,23 @@ export default function RecruitmentHub() {
   }
 
 
+  /** Candidate currently open in the talent-pool review panel. */
+  const [poolSelected, setPoolSelected] = useState<JobApplicationRow | null>(null);
+
+  const openPoolCv = async (path: string) => {
+    try {
+      const url = await getResumeUrl(path);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not open CV');
+    }
+  };
+
   const poolSpeculative = useMemo(
     () => poolRows.filter((r) => !(r.source ?? '').includes('?c=')),
     [poolRows],
   );
+
 
   const poolOptionSources = useMemo(
     () =>
