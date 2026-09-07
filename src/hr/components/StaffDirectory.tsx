@@ -363,13 +363,46 @@ export default function StaffDirectory() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__all__">All departments</SelectItem>
-            {departmentOptions.map((name) => (
+            {departmentOptions.map(({ name, count }) => (
               <SelectItem key={name} value={name}>
-                {name}
+                <span className="flex w-full items-center justify-between gap-3">
+                  <span>{name}</span>
+                  <span className="text-[11px] text-muted-foreground tabular-nums">{count}</span>
+                </span>
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="h-9 w-full sm:w-56">
+            <SelectValue placeholder="All roles" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">All roles</SelectItem>
+            {roleOptions.map(({ title, count }) => (
+              <SelectItem key={title} value={title}>
+                <span className="flex w-full items-center justify-between gap-3">
+                  <span>{title}</span>
+                  <span className="text-[11px] text-muted-foreground tabular-nums">{count}</span>
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-9"
+          onClick={() =>
+            setRoleSort((prev) => (prev === 'none' ? 'asc' : prev === 'asc' ? 'desc' : 'none'))
+          }
+        >
+          Sort by role
+          <span className="ml-2 text-[11px] text-muted-foreground">
+            {roleSort === 'asc' ? 'A–Z' : roleSort === 'desc' ? 'Z–A' : 'off'}
+          </span>
+        </Button>
+
         <Button size="sm" className="sm:ml-auto" onClick={() => setOpen(true)}>
           <UserPlus className="h-4 w-4 mr-2" />
           Enroll staff member
