@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { formatUGX } from '@/lib/rentCalculations';
 import { UGANDA_DISTRICTS, CITY_TO_DISTRICT } from '@/lib/ugandaDistricts';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
@@ -122,7 +123,6 @@ export function EmptyHouseOpportunitiesSheet({
   const [debounced, setDebounced] = useState('');
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Record<string, HouseOpportunity>>({});
-  const [showFilters, setShowFilters] = useState(true);
   const [district, setDistrict] = useState('all');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [mapPinOnly, setMapPinOnly] = useState(false);
@@ -165,7 +165,6 @@ export function EmptyHouseOpportunitiesSheet({
     if (open && initialMaxRent && initialMaxRent > 0) {
       setMaxRent(String(Math.round(initialMaxRent)));
       setPage(0);
-      setShowFilters(true);
     }
   }, [open, initialMaxRent]);
 
@@ -175,7 +174,7 @@ export function EmptyHouseOpportunitiesSheet({
     setWhatsappNumber(''); setPhoneNumber(''); setEmail('');
     setContributionType('compounding'); setDeductionDay('1');
     setErrorMsg(null); setCreatedNote(null); setCreatedNotes([]); setSplitPerHouse(true);
-    setShowFilters(true); setDistrict('all'); setVerifiedOnly(false); setMapPinOnly(false);
+    setDistrict('all'); setVerifiedOnly(false); setMapPinOnly(false);
     setMinRent(''); setMaxRent(''); setNearMe(null); setSort('recommended');
 
   };
@@ -779,129 +778,132 @@ export function EmptyHouseOpportunitiesSheet({
                     className="pl-9 h-10"
                   />
                 </div>
-                <Button
-                  type="button"
-                  variant={activeFilterCount > 0 ? 'default' : 'outline'}
-                  className="h-10 shrink-0 gap-1.5"
-                  onClick={() => setShowFilters((v) => !v)}
-                >
-                  <SlidersHorizontal className="h-4 w-4" />
-                  Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
-                </Button>
-              </div>
-
-              {showFilters && (
-                <div className="rounded-2xl border bg-muted/30 p-3 space-y-3">
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-muted-foreground">Sort by</Label>
-                    <Select
-                      value={sort}
-                      onValueChange={(v) => {
-                        const next = v as typeof sort;
-                        setSort(next);
-                        setPage(0);
-                        if (next === 'nearest' && !nearMe) useMyLocation();
-                      }}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant={activeFilterCount > 0 ? 'default' : 'outline'}
+                      className="h-10 shrink-0 gap-1.5"
                     >
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="recommended">Recommended</SelectItem>
-                        <SelectItem value="nearest">Nearest to me</SelectItem>
-                        <SelectItem value="newest">Newest listings</SelectItem>
-                        <SelectItem value="rent_high">Highest funding need</SelectItem>
-                        <SelectItem value="rent_low">Lowest funding need</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <SlidersHorizontal className="h-4 w-4" />
+                      Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="end"
+                    className="w-[calc(100vw-2rem)] sm:w-[420px] rounded-2xl border bg-muted/30 p-3 space-y-3"
+                  >
                     <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">District</Label>
-                      <Select value={district} onValueChange={(v) => { setDistrict(v); setPage(0); }}>
+                      <Label className="text-[11px] text-muted-foreground">Sort by</Label>
+                      <Select
+                        value={sort}
+                        onValueChange={(v) => {
+                          const next = v as typeof sort;
+                          setSort(next);
+                          setPage(0);
+                          if (next === 'nearest' && !nearMe) useMyLocation();
+                        }}
+                      >
                         <SelectTrigger className="h-9">
-                          <SelectValue placeholder="All districts" />
+                          <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="max-h-64">
-                          <SelectItem value="all">All districts</SelectItem>
-                          {districtOptions.map((d) => (
-                            <SelectItem key={d} value={d}>{d}</SelectItem>
-                          ))}
+                        <SelectContent>
+                          <SelectItem value="recommended">Recommended</SelectItem>
+                          <SelectItem value="nearest">Nearest to me</SelectItem>
+                          <SelectItem value="newest">Newest listings</SelectItem>
+                          <SelectItem value="rent_high">Highest funding need</SelectItem>
+                          <SelectItem value="rent_low">Lowest funding need</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">Monthly rent (UGX)</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          inputMode="numeric"
-                          value={minRent}
-                          onChange={(e) => { setMinRent(e.target.value.replace(/\D/g, '')); setPage(0); }}
-                          placeholder="Min"
-                          className="h-9"
-                        />
-                        <Input
-                          inputMode="numeric"
-                          value={maxRent}
-                          onChange={(e) => { setMaxRent(e.target.value.replace(/\D/g, '')); setPage(0); }}
-                          placeholder="Max"
-                          className="h-9"
-                        />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">District</Label>
+                        <Select value={district} onValueChange={(v) => { setDistrict(v); setPage(0); }}>
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="All districts" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-64">
+                            <SelectItem value="all">All districts</SelectItem>
+                            {districtOptions.map((d) => (
+                              <SelectItem key={d} value={d}>{d}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Monthly rent (UGX)</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            inputMode="numeric"
+                            value={minRent}
+                            onChange={(e) => { setMinRent(e.target.value.replace(/\D/g, '')); setPage(0); }}
+                            placeholder="Min"
+                            className="h-9"
+                          />
+                          <Input
+                            inputMode="numeric"
+                            value={maxRent}
+                            onChange={(e) => { setMaxRent(e.target.value.replace(/\D/g, '')); setPage(0); }}
+                            placeholder="Max"
+                            className="h-9"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={mapPinOnly ? 'default' : 'outline'}
-                      className="h-8 gap-1.5"
-                      onClick={() => { setMapPinOnly((v) => !v); setPage(0); }}
-                    >
-                      <MapPin className="h-3.5 w-3.5" /> On the map only
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={verifiedOnly ? 'default' : 'outline'}
-                      className="h-8 gap-1.5"
-                      onClick={() => { setVerifiedOnly((v) => !v); setPage(0); }}
-                    >
-                      <ShieldCheck className="h-3.5 w-3.5" /> Verified only
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={nearMe ? 'default' : 'outline'}
-                      className="h-8 gap-1.5"
-                      disabled={locating}
-                      onClick={() => (nearMe ? (setNearMe(null), setPage(0)) : useMyLocation())}
-                    >
-                      {locating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />}
-                      {nearMe ? `Within ${nearMe.radiusKm} km` : 'Near me'}
-                    </Button>
-                    {nearMe && (
-                      <Select
-                        value={String(nearMe.radiusKm)}
-                        onValueChange={(v) => { setNearMe({ ...nearMe, radiusKm: Number(v) }); setPage(0); }}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={mapPinOnly ? 'default' : 'outline'}
+                        className="h-8 gap-1.5"
+                        onClick={() => { setMapPinOnly((v) => !v); setPage(0); }}
                       >
-                        <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {[2, 5, 10, 25, 50].map((r) => (
-                            <SelectItem key={r} value={String(r)}>{r} km</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                    {activeFilterCount > 0 && (
-                      <Button type="button" size="sm" variant="ghost" className="h-8" onClick={clearFilters}>
-                        Clear
+                        <MapPin className="h-3.5 w-3.5" /> On the map only
                       </Button>
-                    )}
-                  </div>
-                </div>
-              )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={verifiedOnly ? 'default' : 'outline'}
+                        className="h-8 gap-1.5"
+                        onClick={() => { setVerifiedOnly((v) => !v); setPage(0); }}
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" /> Verified only
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={nearMe ? 'default' : 'outline'}
+                        className="h-8 gap-1.5"
+                        disabled={locating}
+                        onClick={() => (nearMe ? (setNearMe(null), setPage(0)) : useMyLocation())}
+                      >
+                        {locating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />}
+                        {nearMe ? `Within ${nearMe.radiusKm} km` : 'Near me'}
+                      </Button>
+                      {nearMe && (
+                        <Select
+                          value={String(nearMe.radiusKm)}
+                          onValueChange={(v) => { setNearMe({ ...nearMe, radiusKm: Number(v) }); setPage(0); }}
+                        >
+                          <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {[2, 5, 10, 25, 50].map((r) => (
+                              <SelectItem key={r} value={String(r)}>{r} km</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {activeFilterCount > 0 && (
+                        <Button type="button" size="sm" variant="ghost" className="h-8" onClick={clearFilters}>
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
 
             {filterChips.length > 0 && (
