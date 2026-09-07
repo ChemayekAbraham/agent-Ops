@@ -462,9 +462,9 @@ export function GeneralPayoutActivities() {
       // Total amount for the same filtered window, irrespective of pagination.
       let sumQuery = supabase
         .from('platform_wallet_corrections')
-        .select('amount', { count: 'exact' })
-        .gte('created_at', window.from.toISOString())
-        .lte('created_at', window.to.toISOString());
+        .select('amount', { count: 'exact' });
+      if (window.from) sumQuery = sumQuery.gte('created_at', window.from.toISOString());
+      if (window.to) sumQuery = sumQuery.lte('created_at', window.to.toISOString());
 
       if (profileIds) sumQuery = sumQuery.in('target_user_id', profileIds);
       if (categoryFilter.trim()) {
