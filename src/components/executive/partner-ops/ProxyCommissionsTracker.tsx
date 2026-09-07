@@ -23,9 +23,15 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from 'sonner';
 import { formatUGX } from '@/lib/rentCalculations';
-import { Percent, Wallet, Megaphone, RefreshCw, Zap } from 'lucide-react';
+import { Percent, Wallet, Megaphone, RefreshCw, Zap, Loader2, CheckCircle2, Send } from 'lucide-react';
+
 
 type KindFilter = 'all' | 'portfolio_creation' | 'portfolio_topup';
 type PeriodFilter = 'all' | '7d' | '30d' | '90d';
@@ -114,6 +120,42 @@ export function ProxyCommissionsTracker() {
   const totals = data?.totals;
   const totalCount = data?.total_count ?? 0;
   const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  const [confirm, setConfirm] = useState<{ row: TrackerRow; action: 'approve' | 'complete' } | null>(null);
+  const [working, setWorking] = useState(false);
+
+  const runAction = async () => {
+    if (!confirm) return;
+    const { row, action } = confirm;
+    setWorking(true);
+    try {
+      const { data: res, error } = await supabase.rpc(
+        (action === 'approve' ? 'approve_proxy_commission' : 'mark_proxy_commission_completed') as never,
+        { p_id: row.id, p_note: null } as never,
+      );
+      if (error) throw error;
+      const status = (res as { status?: string; reason?: string } | null)?.status;
+      const reason = (res as { reason?: string } | null)?.reason;
+      if (status === 'skipped') {
+        toast.error(
+          reason === 'not_pending'
+            ? 'This commission was already settled.'
+            : `Could not complete this action${reason ? ` (${reason})` : ''}.`,
+        );
+      } else if (action === 'approve') {
+        toast.success(`${formatUGX(Number(row.commission_amount))} sent to ${row.agent_name || 'the proxy agent'}.`);
+      } else {
+        toast.success('Marked as paid. No money was moved.');
+      }
+      setConfirm(null);
+      await refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Action failed');
+    } finally {
+      setWorking(false);
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -224,7 +266,9 @@ export function ProxyCommissionsTracker() {
                       <TableHead>Proxy agent</TableHead>
                       <TableHead>Partner</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Action</TableHead>
                     </TableRow>
+
                   </TableHeader>
                   <TableBody>
                     {rows.map((r) => (
@@ -284,7 +328,33 @@ export function ProxyCommissionsTracker() {
                             {r.auto_approved && <Badge variant="secondary" className="w-fit">Automatic</Badge>}
                           </div>
                         </TableCell>
+                        <TableCell className="align-top text-right">
+                          {r.status === 'pending' ? (
+                            <div className="flex flex-col items-end gap-1.5 sm:flex-row sm:justify-end">
+                              <Button
+                                size="sm"
+                                className="gap-1.5"
+                                onClick={() => setConfirm({ row: r, action: 'approve' })}
+                              >
+                                <Send className="h-3.5 w-3.5" />
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1.5"
+                                onClick={() => setConfirm({ row: r, action: 'complete' })}
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Completed
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">No action needed</span>
+                          )}
+                        </TableCell>
                       </TableRow>
+
                     ))}
                   </TableBody>
                 </Table>
@@ -318,7 +388,41 @@ export function ProxyCommissionsTracker() {
           )}
         </CardContent>
       </Card>
+
+      <AlertDialog open={!!confirm} onOpenChange={(open) => { if (!open && !working) setConfirm(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirm?.action === 'approve' ? 'Send this commission now?' : 'Mark this commission as paid?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>
+                  {confirm?.action === 'approve'
+                    ? `${formatUGX(Number(confirm?.row.commission_amount ?? 0))} will be sent straight to ${confirm?.row.agent_name || 'the proxy agent'}'s wallet. This cannot be undone here.`
+                    : `This only records ${formatUGX(Number(confirm?.row.commission_amount ?? 0))} as already settled for ${confirm?.row.agent_name || 'the proxy agent'}. No money will be sent.`}
+                </p>
+                <p className="text-muted-foreground">
+                  {confirm?.row.kind_label} · {confirm?.row.partner_name || 'Unknown partner'} ·{' '}
+                  {confirm?.row.portfolio_code || 'No code'}
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={working}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); runAction(); }}
+              disabled={working}
+            >
+              {working && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              {confirm?.action === 'approve' ? 'Yes, send the money' : 'Yes, mark as paid'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+
   );
 }
 
