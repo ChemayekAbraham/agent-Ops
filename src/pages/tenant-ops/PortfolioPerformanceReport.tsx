@@ -251,6 +251,36 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
 
   const status = data?.status === 'submitted' ? 'Submitted' : 'Draft';
 
+  const today = kampalaToday();
+  const isToday = anchor === today;
+
+  const stepBack = () => {
+    const d = parseISO(anchor);
+    const next =
+      granularity === 'day' ? subDays(d, 1) : granularity === 'week' ? subDays(d, 7) : subMonths(d, 1);
+    setAnchor(format(next, 'yyyy-MM-dd'));
+  };
+  const stepForward = () => {
+    const d = parseISO(anchor);
+    const next =
+      granularity === 'day' ? addDays(d, 1) : granularity === 'week' ? addDays(d, 7) : addMonths(d, 1);
+    setAnchor(format(next, 'yyyy-MM-dd'));
+  };
+  const forwardCandidate = (() => {
+    const d = parseISO(anchor);
+    const next =
+      granularity === 'day' ? addDays(d, 1) : granularity === 'week' ? addDays(d, 7) : addMonths(d, 1);
+    return format(next, 'yyyy-MM-dd');
+  })();
+  const nextDisabled = forwardCandidate > today;
+
+  const anchorLabel = format(
+    parseISO(anchor),
+    granularity === 'day' ? 'EEE dd MMM yyyy' : 'dd MMM yyyy',
+  );
+
+
+
 
   return (
     <div className="w-full space-y-4 overflow-x-hidden pb-28 pt-1 sm:space-y-5">
@@ -292,6 +322,53 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
             <span className="sr-only">Close</span>
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          aria-label="Previous period"
+          onClick={stepBack}
+          className="h-9 w-9"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <span className="min-w-[10rem] text-center text-sm font-medium text-foreground">
+          {anchorLabel}
+        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          aria-label="Next period"
+          onClick={stepForward}
+          disabled={nextDisabled}
+          className="h-9 w-9"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setAnchor(today)}
+          disabled={isToday}
+        >
+          Today
+        </Button>
+        <input
+          type="date"
+          value={anchor}
+          max={today}
+          onChange={(e) => {
+            if (e.target.value) setAnchor(e.target.value);
+          }}
+          aria-label="Choose anchor date"
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+        />
+        {!isToday && <Badge variant="outline">Viewing a closed period</Badge>}
       </div>
 
       <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5" aria-labelledby="portfolio-period-heading">
