@@ -189,7 +189,7 @@ export function AgentMonitoring() {
       for (let index = 0; index < ids.length; index += CHUNK) {
         const { data: batch, error: profileError } = await supabase
           .from('profiles')
-          .select('id, full_name, phone')
+          .select('id, full_name, phone, created_at')
           .in('id', ids.slice(index, index + CHUNK));
         if (profileError) throw profileError;
         profiles.push(...((batch ?? []) as Profile[]));
