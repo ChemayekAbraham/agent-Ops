@@ -90,6 +90,8 @@ export function TppoPlanDetailTable({
   const [shown, setShown] = useState(PAGE);
   const [selected, setSelected] = useState<{ id: string; name: string } | null>(null);
   const [collapsed, setCollapsed] = useState(false);
+  const [arrearsCollapsed, setArrearsCollapsed] = useState(true);
+  const [arrearsShown, setArrearsShown] = useState(PAGE);
   const [agentFilter, setAgentFilter] = useState<string>('all');
 
   const { data, isPending, isError, error } = useQuery({
