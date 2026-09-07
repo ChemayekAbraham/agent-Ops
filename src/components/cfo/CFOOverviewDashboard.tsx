@@ -480,10 +480,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         total={todayCashFlow?.netToday ?? 0}
         totalLabel="Net Change"
         centered
-        items={[
-          { label: 'Money In', value: todayCashFlow?.cashInToday ?? 0, icon: <ArrowDownRight className="h-4 w-4 text-emerald-500" /> },
-          { label: 'Money Out', value: -(todayCashFlow?.cashOutToday ?? 0), icon: <ArrowUpRight className="h-4 w-4 text-destructive" /> },
-        ]}
+        items={[]}
       />
       {/* ── FLOATING PAY FAB (mobile only) ── */}
       {onTabChange && (
