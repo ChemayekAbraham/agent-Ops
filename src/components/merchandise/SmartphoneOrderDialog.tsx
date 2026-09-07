@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { Checkbox } from '@/components/ui/checkbox';
 import { Smartphone, AlertTriangle, Loader2 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -149,12 +149,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="order" className="w-full">
-          <TabsList className="w-full">
-            <TabsTrigger value="order" className="flex-1">Apply</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="order" className="space-y-3 mt-3">
+        <div className="w-full space-y-3">
             <img
               src={smartphonePromoAsset.url}
               alt="Welile smartphone selection"
@@ -359,9 +354,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 ? ' The full amount is collected from your Welile Wallet once your phone is released.'
                 : ' Nothing is deducted from your wallet before your phone is released.'}
             </p>
-          </TabsContent>
-
-        </Tabs>
+        </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
