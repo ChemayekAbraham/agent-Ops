@@ -71,7 +71,7 @@ export interface PayoutCategory {
   recipientLock: RecipientType | 'either';
 }
 
-const PAYOUT_CATEGORIES: PayoutCategory[] = [
+export const PAYOUT_CATEGORIES: PayoutCategory[] = [
   // ── CREDIT (Platform → Wallet) ──
   {
     id: 'roi_payout',
