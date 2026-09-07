@@ -103,7 +103,21 @@ interface RepaymentRow {
   amount: number;
   created_at: string;
   rent_request_id: string;
+  /** Who the cash came from — used to tag tenant self-payments. */
+  payment_method?: string | null;
+  paid_by?: string | null;
+  initiated_by?: string | null;
+  deposit_request_id?: string | null;
 }
+
+/** An agent-side collection row (agent_collections) used to fill history gaps. */
+interface CollectionHistoryRow {
+  id: string;
+  amount: number;
+  created_at: string;
+  rent_request_id: string | null;
+}
+
 
 interface WalletData {
   balance: number;
