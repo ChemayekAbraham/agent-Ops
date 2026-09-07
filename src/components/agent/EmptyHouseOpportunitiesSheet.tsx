@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Home, Loader2, Search, SlidersHorizontal, Check, Share2, ShieldCheck, MapPin, Users, Phone, MessageSquare, Navigation, ImageIcon, Eye, Clock, CheckCircle2, UserCheck, Wallet, X, CalendarDays } from 'lucide-react';
+import { Home, Loader2, Search, SlidersHorizontal, Check, Share2, ShieldCheck, MapPin, Users, Phone, MessageSquare, Navigation, ImageIcon, Eye, Clock, CheckCircle2, UserCheck, Wallet, X, CalendarDays, ShoppingCart, ArrowRight, ArrowLeft } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -122,6 +122,7 @@ export function EmptyHouseOpportunitiesSheet({
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const [page, setPage] = useState(0);
+  const [step, setStep] = useState<'browse' | 'checkout'>('browse');
   const [selected, setSelected] = useState<Record<string, HouseOpportunity>>({});
   const [district, setDistrict] = useState('all');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -169,7 +170,7 @@ export function EmptyHouseOpportunitiesSheet({
   }, [open, initialMaxRent]);
 
   const reset = () => {
-    setSearch(''); setDebounced(''); setPage(0); setSelected({});
+    setSearch(''); setDebounced(''); setPage(0); setSelected({}); setStep('browse');
     setNameParts({ firstName: '', otherNames: '', lastName: '' });
     setWhatsappNumber(''); setPhoneNumber(''); setEmail('');
     setContributionType('compounding'); setDeductionDay('1');
