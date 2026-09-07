@@ -690,6 +690,7 @@ export function EmptyHouseOpportunitiesSheet({
         ) : (
           <div className="p-4 space-y-4 pb-40">
             {/* Partner tag */}
+            {step === 'checkout' && (
             <div className="rounded-2xl border p-3 space-y-2.5">
               <p className="text-xs font-bold">{isPartner ? 'How you will contribute' : 'Tag the partner'}</p>
               {!isPartner && (
@@ -764,9 +765,12 @@ export function EmptyHouseOpportunitiesSheet({
                 </div>
               )}
             </div>
+            )}
 
 
 
+            {step === 'browse' && (
+            <>
             {/* Search + filters */}
             <div className="space-y-2">
               <div className="flex gap-2">
