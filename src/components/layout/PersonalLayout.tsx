@@ -1,9 +1,12 @@
 import { ReactNode, useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { X, ArrowLeft } from 'lucide-react';
+import { X, ArrowLeft, Menu, Home, LayoutGrid } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { cn } from '@/lib/utils';
+import { PERSONAL_NAV } from './personalNav';
 
 const getInitials = (name: string) => {
   if (!name) return 'Me';
@@ -27,8 +30,8 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
   const location = useLocation();
 
   const [displayName, setDisplayName] = useState('');
-
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,16 +58,83 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
 
   const isOnHub = location.pathname === '/me';
 
+  const isActive = (to: string) =>
+    location.pathname === to || location.pathname.startsWith(to + '/');
+
+  /** One menu row. Mirrors the executive sidebar's row treatment so My Space
+   *  reads as part of the same product. */
+  const NavRow = ({ to, icon: Icon, label }: { to: string; icon: typeof Home; label: string }) => (
+    <Link
+      to={to}
+      onClick={() => setMenuOpen(false)}
+      className={cn(
+        'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all select-none active:scale-[0.98]',
+        isActive(to)
+          ? 'bg-primary/10 font-semibold text-primary'
+          : 'text-muted-foreground hover:bg-primary/5 hover:text-primary',
+      )}
+      style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      <span className="truncate">{label}</span>
+    </Link>
+  );
+
+  const MenuBody = () => (
+    <nav className="flex h-full flex-col gap-6 overflow-y-auto py-5">
+      <div>
+        <p className="mb-2.5 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          My space
+        </p>
+        <div className="space-y-1 px-2">
+          <NavRow to="/me" icon={LayoutGrid} label="Overview" />
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-2.5 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Tools and records
+        </p>
+        <div className="space-y-1 px-2">
+          {PERSONAL_NAV.map((item) => (
+            <NavRow key={item.to} to={item.to} icon={item.icon} label={item.title} />
+          ))}
+        </div>
+      </div>
+
+      <div className="mx-2 mt-auto border-t border-border px-2 pt-4">
+        <button
+          type="button"
+          onClick={() => { setMenuOpen(false); goToFunderDashboard(); }}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors select-none hover:bg-muted hover:text-foreground active:scale-[0.98]"
+          style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+        >
+          <ArrowLeft className="h-4 w-4 shrink-0" />
+          <span>Back to app</span>
+        </button>
+      </div>
+    </nav>
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 border-b border-border/60 bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/70 pt-safe">
-        <div className="mx-auto w-full max-w-5xl px-3 sm:px-4">
+        <div className="mx-auto w-full max-w-7xl px-3 sm:px-4">
           <div className="flex items-center gap-2 py-2.5 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
+              aria-label="Open My space menu"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+
             {!isOnHub && (
               <button
                 type="button"
                 onClick={() => navigate('/me')}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:flex"
                 aria-label="Back to My space"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -96,16 +166,38 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
               <X className="h-4 w-4" />
             </button>
           </div>
-
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-5xl px-3 py-4 sm:px-4 sm:py-6">
-        {title && (
-          <h1 className="mb-3 text-lg font-bold tracking-tight sm:mb-4 sm:text-2xl">{title}</h1>
-        )}
-        <div className="space-y-4">{children}</div>
-      </main>
+      <div className="mx-auto flex w-full max-w-7xl">
+        <aside className="sticky top-[57px] hidden h-[calc(100vh-57px)] w-60 shrink-0 border-r border-border/60 bg-card/40 lg:block">
+          <MenuBody />
+        </aside>
+
+        <main className="min-w-0 flex-1 px-3 py-4 sm:px-4 sm:py-6 lg:px-6">
+          <div className="mx-auto w-full max-w-5xl">
+            {title && (
+              <div className="mb-4 space-y-1">
+                {!isOnHub && (
+                  <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <Link to="/me" className="transition-colors hover:text-foreground">My space</Link>
+                    <span aria-hidden="true">/</span>
+                    <span className="truncate font-medium text-foreground">{title}</span>
+                  </nav>
+                )}
+                <h1 className="text-lg font-bold tracking-tight sm:text-2xl">{title}</h1>
+              </div>
+            )}
+            <div className="space-y-4">{children}</div>
+          </div>
+        </main>
+      </div>
+
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+        <SheetContent side="left" className="w-[17rem] p-0">
+          <MenuBody />
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
