@@ -420,9 +420,9 @@ export function GeneralPayoutActivities() {
         .from('platform_wallet_corrections')
         .select('id, operation, amount, evidence, reference_id, created_at, target_user_id, metadata', {
           count: 'exact',
-        })
-        .gte('created_at', window.from.toISOString())
-        .lte('created_at', window.to.toISOString());
+        });
+      if (window.from) query = query.gte('created_at', window.from.toISOString());
+      if (window.to) query = query.lte('created_at', window.to.toISOString());
 
       if (profileIds) {
         query = query.in('target_user_id', profileIds);
