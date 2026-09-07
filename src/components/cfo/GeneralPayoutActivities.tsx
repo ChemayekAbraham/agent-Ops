@@ -505,6 +505,8 @@ export function GeneralPayoutActivities() {
     });
   };
 
+  const canNavigate = periodKind === 'weekly' || periodKind === 'monthly' || periodKind === 'quarterly';
+
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
