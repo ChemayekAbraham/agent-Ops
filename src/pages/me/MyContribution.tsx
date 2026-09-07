@@ -56,9 +56,9 @@ async function fetchMyRows(): Promise<MyRow[]> {
 }
 
 function LiveCell({ value }: { value: string | null }) {
-  if (value === 'yes') return <span className="font-medium text-emerald-600">Yes</span>;
+  if (value === 'yes') return <span className="font-medium text-success">Yes</span>;
   if (value === 'no') return <span className="font-medium text-destructive">No</span>;
-  return <span>n/a</span>;
+  return <span className="text-muted-foreground">n/a</span>;
 }
 
 export default function MyContribution() {
@@ -66,18 +66,19 @@ export default function MyContribution() {
   const rows = rowsQuery.data ?? [];
 
   return (
-    <div className="container mx-auto max-w-6xl space-y-6 px-4 py-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">My Contribution Record</h1>
-        <p className="text-sm text-muted-foreground">
-          Your own harvested rows, exactly as recorded.
-        </p>
-      </div>
+    <PersonalLayout title="My contribution record">
+      <p className="-mt-2 text-sm text-muted-foreground">
+        Your own harvested rows, exactly as recorded.
+      </p>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold uppercase tracking-wide">
+      <Card className="overflow-hidden border-border/70 shadow-sm">
+        <CardHeader className="flex flex-row items-center gap-2.5 space-y-0 border-b border-border/60 bg-muted/30 px-4 py-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Info className="h-4 w-4" />
+          </span>
+          <CardTitle className="text-sm font-semibold tracking-tight">
             How this record works
+
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
