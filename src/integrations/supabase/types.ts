@@ -43408,6 +43408,9 @@ export type Database = {
           agent_id: string | null
           amount_repaid: number | null
           audit_rows: number | null
+          balance_log_count: number | null
+          balance_log_net: number | null
+          last_balance_change_at: string | null
           last_payment_at: string | null
           ledger_rows: number | null
           ledger_total: number | null
