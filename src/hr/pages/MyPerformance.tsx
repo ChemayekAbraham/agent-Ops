@@ -13,7 +13,18 @@ interface PsoRow {
   day: string;
   notes_created: number;
   notes_reversed: number;
+  net_notes: number;
   partner_registered: number;
+}
+
+interface PsoFundedSummary {
+  staff_id: string;
+  staff_ref: string;
+  notes_in_cohort: number;
+  notes_funded: number;
+  amount_funded: number;
+  commission_accrued: number;
+  as_at: string;
 }
 
 type WindowMode = 'DAILY' | 'WEEKLY' | 'MONTHLY';
@@ -51,6 +62,17 @@ function formatKampalaDisplay(d: Date | string): string {
     month: 'short',
     timeZone: 'Africa/Kampala',
   }).format(date);
+}
+
+function formatKampalaDateTime(iso: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Africa/Kampala',
+  }).format(new Date(iso));
 }
 
 function getWindowDates(mode: WindowMode): { from: string; to: string; label: string } {
@@ -116,19 +138,32 @@ export default function MyPerformancePage() {
 
   const todayStr = useMemo(() => formatKampalaDate(kampalaDate()), []);
 
-  const { todayCreated, periodSum, rollingAverage, periodAverage } = useMemo(() => {
+  const { todayNet, todayReversals, netSum, rollingAverage, periodAverage } = useMemo(() => {
     const todayRow = rows.find((r) => r.day === todayStr);
-    const sum = rows.reduce((acc, r) => acc + (r.notes_created ?? 0), 0);
+    const sum = rows.reduce((acc, r) => acc + (r.net_notes ?? 0), 0);
     const avg = rows.length ? (sum / rows.length).toFixed(1) : '0.0';
-    const rollingSum = rollingRows.reduce((acc, r) => acc + (r.notes_created ?? 0), 0);
+    const rollingSum = rollingRows.reduce((acc, r) => acc + (r.net_notes ?? 0), 0);
     const rollingAvg = rollingRows.length ? (rollingSum / rollingRows.length).toFixed(1) : '0.0';
     return {
-      todayCreated: todayRow?.notes_created ?? 0,
-      periodSum: sum,
+      todayNet: todayRow?.net_notes ?? 0,
+      todayReversals: todayRow?.notes_reversed ?? 0,
+      netSum: sum,
       periodAverage: avg,
       rollingAverage: rollingAvg,
     };
   }, [rows, rollingRows, todayStr]);
+
+  const { data: fundedSummary = null } = useQuery<PsoFundedSummary | null>({
+    queryKey: ['pso-funded-summary', from, to],
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('pso_funded_summary' as any, {
+        p_from: from,
+        p_to: to,
+      })) as unknown as { data: PsoFundedSummary[] | null; error: { message: string } | null };
+      if (error) throw new Error(error.message);
+      return data?.[0] ?? null;
+    },
+  });
 
   if (error && error.message.toLowerCase().includes('not permitted')) {
     return (
