@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, Briefcase, User, Bell, FolderOpen, Ticket, Wallet, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PersonalLayout from '@/components/layout/PersonalLayout';
+import { PERSONAL_NAV } from '@/components/layout/personalNav';
 import NameCompletionReminder from '@/components/notifications/NameCompletionReminder';
 import GrowthCommissionCard from '@/components/me/GrowthCommissionCard';
 import MyAdvanceCard from '@/hr/pay/MyAdvanceCard';
