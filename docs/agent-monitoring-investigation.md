@@ -276,3 +276,95 @@ per-agent aggregates, exclusion reasons, CSV export, all filters above.
 >    rules; until answered, use grace = 0 and show self-payments separately.
 > 5. Verify with `npx tsgo --noEmit`, `npm run guard:all`, and spot-check three plans by hand
 >    against the view output before exposing the new columns.
+
+---
+
+# Addendum — payment-aware reporting layer (2026-09-07)
+
+## A. The "+2 agent boost" — verified, and it is not what the brief assumes
+
+Searched the whole codebase and every `public` function body. There is **no rule anywhere that
+boosts an agent by 2 when a tenant repays**, and nothing of the kind exists in Agent Monitoring.
+
+What does exist, and is the only "2×" in the system:
+
+- `src/components/CreditAccessCard.tsx` labels the agent's advance-limit component
+  "Pay tenant rent (2× boost) — every UGX you allocate adds 2× to your limit".
+- The live database function `public.recalculate_credit_limit(uuid)` actually computes that
+  component as `LEAST(SUM(agent_collections.amount) * 0.06, 2,400,000)` — **6% of lifetime
+  collections, capped at UGX 2.4M**, not 2×. The `2×` copy is stale UI text.
+- The other `2×` is the Welile Vouch multiplier on angel shares (`computeVouchBreakdown.ts`),
+  unrelated to agent monitoring.
+
+So: repayments do feed an agent multiplier, but it lives in the **credit-limit engine**, keyed on
+`agent_collections`, and is untouched by any monitoring/reporting change. The new reporting layer
+must therefore **not** re-implement or re-weight it — it only reads. If a genuine "+2" rule is
+intended, it does not exist yet and needs to be specified; I will not invent it.
+
+## B. Source of truth (verified against the live database)
+
+| Concept | Source of truth |
+| --- | --- |
+| Frequency | `rent_requests.repayment_frequency` — live data: **daily for all 1,278** funded/repaying/disbursed/completed plans; `repayment_starts_on` populated on all 1,278 |
+| Term window | `v_rent_plan_schedule` (`term_start`, `term_end`, `obligation_end`, `daily_amount`, `total_amount`, `is_live`) |
+| Per-day expected | `rent_plan_schedule_days(day, day)` — already used by TPPO freezing |
+| Frozen historical expected | `agent_expected_day_plans` (pinned once per day by `pin_agent_expected_day`) |
+| Agent-collected payments | `agent_collections` (`amount`, `is_partial`, `expected_amount`, `shortfall_amount`, `rent_request_id`) |
+| Tenant self-payments | `repayments` |
+| Running total | `rent_requests.amount_repaid` (carries known drift, see `v_rent_repaid_reconciliation`) |
+| Collectability | `v_tenant_daily_eligibility` (excludes not-paying, paused, reversed, landlord-settled) |
+| Agent multiplier | `recalculate_credit_limit` — read-only for us |
+| Overpayment | none exist today (0 plans with `amount_repaid > total_repayment`) |
+
+## C. The position model (what makes "expected by date" correct)
+
+For a plan and an as-of date `D`:
+
+```
+instalment_days   = 1 (daily) | 7 (weekly) | 30 (monthly)      -- from repayment_frequency
+due_dates(D)      = term_start, term_start+instalment_days, ...  up to min(D, obligation_end)
+expected_to_date  = min(instalment × count(due_dates), total_repayment)
+paid_to_date      = agent_collections + repayments, de-duplicated (same rent_request_id,
+                    same amount, within 5 minutes → counted once)
+arrears           = max(expected_to_date − paid_to_date, 0)
+credit_ahead      = max(paid_to_date − expected_to_date, 0)
+covered_through   = last due date whose cumulative expectation ≤ paid_to_date
+outstanding       = max(total_repayment − paid_to_date, 0)
+```
+
+Position band: `Ahead` (credit_ahead ≥ one instalment) · `On track` (arrears = 0) ·
+`Behind` (arrears < one instalment) · `Overdue` (arrears ≥ one instalment) ·
+`Cleared` (outstanding = 0) · `Not due yet` (D < term_start).
+
+This directly satisfies the brief: a weekly Thursday plan is only *due* on Thursdays, and a
+5,000/day tenant who pays 20,000 shows `covered_through = D+3` and is **not** missed on those days.
+
+Period reporting: expected for a window = instalment × count of that plan's due dates inside
+`window ∩ term window`. Daily plans collapse to `daily_repayment × days`, matching today's
+numbers exactly, so nothing visible changes for the current all-daily book.
+
+## D. Recommended implementation (smallest safe surface)
+
+1. **One new read-only view** `v_tenant_payment_position` (plan-grain, as-of today) built from
+   `v_rent_plan_schedule` + `repayment_frequency` + de-duplicated payments. No writes.
+2. **One new SECURITY DEFINER RPC** `get_agent_monitoring_positions(p_from, p_to, p_granularity,
+   p_include_self_payments)` returning per-agent and per-tenant rows: expected-in-window,
+   paid-in-window, expected-to-date, paid-to-date, arrears, credit ahead, covered-through,
+   outstanding, position band. Authorisation copied verbatim from the existing ops gate.
+3. **Frontend**: keep `AgentMonitoring.tsx` and its day view untouched as the default; add a
+   period selector (Day / Week / Month / Custom), position columns, a position-band filter, a
+   self-payments toggle and CSV export, in the existing card/tab/chip language.
+
+## E. Risks and assumptions
+
+- Frequency handling is **unverifiable in production** — every live plan is daily. The weekly and
+  monthly branches are written from `repayment_frequency` semantics and cannot be data-tested yet.
+- `1,188 agent_collections` rows have no `rent_request_id`; they can be attributed to an agent but
+  not to a plan, so plan-grain paid figures will under-count those. Must be surfaced, not hidden.
+- `amount_repaid` drift is inherited by anything derived from it — the model uses summed payments,
+  not `amount_repaid`, and treats the difference as a reconciliation note.
+- Historical days: only `agent_expected_day_plans` is truthful for the past; live re-derivation of
+  a past date re-scores it against today's population.
+- Open questions that block exact semantics: do self-payments count toward agent performance; does
+  prepaid credit satisfy a future day's target; is there a grace period before arrears; how do
+  pauses affect accrued expectation.
