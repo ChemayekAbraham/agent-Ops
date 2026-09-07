@@ -41,6 +41,15 @@ function render(template: string, row: ReliabilityRow): string {
     .replace(/\{\{outstanding\}\}/g, formatUGX(row.outstanding));
 }
 
+const KAMPALA_OFFSET_MS = 3 * 60 * 60 * 1000; // Africa/Kampala is UTC+3, no DST
+
+// Start of "today" in Africa/Kampala, expressed as a UTC instant.
+function kampalaDayStartUtc(): Date {
+  const shifted = new Date(Date.now() + KAMPALA_OFFSET_MS);
+  const dayStartShifted = Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate());
+  return new Date(dayStartShifted - KAMPALA_OFFSET_MS);
+}
+
 async function sendSmsFallbackAT(phone: string, message: string): Promise<boolean> {
   const apiKey = Deno.env.get("AFRICASTALKING_API_KEY");
   const username = Deno.env.get("AFRICASTALKING_USERNAME");
@@ -102,9 +111,22 @@ Deno.serve(async (req) => {
 
     const rows: ReliabilityRow[] = (reliability?.rows ?? []) as ReliabilityRow[];
 
+    // Idempotency guard: a tenant already successfully messaged today (Kampala
+    // calendar day) is skipped, so a cron double-fire, a manual re-invoke, or a
+    // redeploy-triggered re-run doesn't duplicate SMS. Failed attempts are not
+    // in this set, so a retry can still resend to them the same day.
+    const { data: alreadySentRows, error: alreadySentError } = await admin
+      .from("tenant_message_log")
+      .select("tenant_id")
+      .eq("sent", true)
+      .gte("created_at", kampalaDayStartUtc().toISOString());
+    if (alreadySentError) throw alreadySentError;
+    const alreadySentToday = new Set((alreadySentRows ?? []).map((r: { tenant_id: string }) => r.tenant_id));
+
     let sent = 0;
     let skippedNoPhone = 0;
     let skippedBlocked = 0;
+    let skippedDuplicate = 0;
     let failed = 0;
 
     for (const row of rows) {
@@ -113,6 +135,11 @@ Deno.serve(async (req) => {
 
       if (!row.tenant_phone) {
         skippedNoPhone++;
+        continue;
+      }
+
+      if (alreadySentToday.has(row.tenant_id)) {
+        skippedDuplicate++;
         continue;
       }
 
@@ -158,11 +185,19 @@ Deno.serve(async (req) => {
     }
 
     console.log(
-      `[tenant-behavior-messages] sent=${sent} failed=${failed} noPhone=${skippedNoPhone} blocked=${skippedBlocked} totalTenants=${rows.length}`,
+      `[tenant-behavior-messages] sent=${sent} failed=${failed} noPhone=${skippedNoPhone} blocked=${skippedBlocked} duplicate=${skippedDuplicate} totalTenants=${rows.length}`,
     );
 
     return new Response(
-      JSON.stringify({ success: true, sent, failed, skippedNoPhone, skippedBlocked, totalTenants: rows.length }),
+      JSON.stringify({
+        success: true,
+        sent,
+        failed,
+        skippedNoPhone,
+        skippedBlocked,
+        skippedDuplicate,
+        totalTenants: rows.length,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error: unknown) {
