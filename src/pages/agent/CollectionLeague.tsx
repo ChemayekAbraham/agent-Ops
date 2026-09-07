@@ -29,9 +29,13 @@ function kampalaWeekStart(offsetWeeks = 0): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
-function fmtDate(iso: string): string {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso || typeof iso !== 'string') return '—';
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
+
 
 function RankChange({ change }: { change: number | null | undefined }) {
   if (change == null) return <span className="text-[11px] text-muted-foreground">new</span>;
@@ -47,29 +51,98 @@ function RankChange({ change }: { change: number | null | undefined }) {
 }
 
 function Heatmap({ days }: { days: LeagueDay[] }) {
-  const weeks = useMemo(() => {
-    const out: LeagueDay[][] = [];
-    for (let i = 0; i < days.length; i += 7) out.push(days.slice(i, i + 7));
-    return out;
-  }, [days]);
+  // Only days with a usable ISO date are shown.
+  const valid = useMemo(
+    () => days.filter((d) => typeof d?.date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d.date)),
+    [days],
+  );
+
+  const months = useMemo(() => {
+    const set = new Set(valid.map((d) => d.date.slice(0, 7)));
+    return Array.from(set).sort();
+  }, [valid]);
+
+  const [monthIdx, setMonthIdx] = useState<number | null>(null);
+  const activeIdx = monthIdx ?? Math.max(0, months.length - 1);
+  const month = months[activeIdx];
+
+  const byDate = useMemo(() => {
+    const m = new Map<string, LeagueDay>();
+    valid.forEach((d) => m.set(d.date.slice(0, 10), d));
+    return m;
+  }, [valid]);
+
+  if (!month) return <p className="text-xs text-muted-foreground">No collection days recorded yet.</p>;
+
+  const [y, m] = month.split('-').map(Number);
+  const first = new Date(y, m - 1, 1);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const lead = (first.getDay() + 6) % 7; // Monday-first
+  const cells: (LeagueDay | null)[] = [
+    ...Array.from({ length: lead }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, i) => {
+      const iso = `${month}-${String(i + 1).padStart(2, '0')}`;
+      return byDate.get(iso) ?? null;
+    }),
+  ];
+
+  const monthLabel = first.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  const monthDays = valid.filter((d) => d.date.startsWith(month) && !d.is_future);
+  const collected = monthDays.reduce((s, d) => s + (d.collected_amount || 0), 0);
+  const expected = monthDays.reduce((s, d) => s + (d.expected_amount || 0), 0);
 
   return (
-    <div className="space-y-2">
-      <div className="overflow-x-auto -mx-1 px-1">
-        <div className="flex gap-1 min-w-max">
-          {weeks.map((week, wi) => (
-            <div key={wi} className="flex flex-col gap-1">
-              {week.map((d) => (
-                <div
-                  key={d.date}
-                  className={`h-4 w-4 sm:h-5 sm:w-5 rounded ${d.is_future ? 'bg-muted/50' : HEAT_CLASS[d.heat_level]}`}
-                  title={`${fmtDate(d.date)} — ${d.is_future ? 'Upcoming' : `${HEAT_LABEL[d.heat_level]} · ${formatUGX(d.collected_amount)} of ${formatUGX(d.expected_amount)}`}`}
-                />
-              ))}
-            </div>
-          ))}
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8"
+          disabled={activeIdx <= 0}
+          onClick={() => { hapticTap(); setMonthIdx(activeIdx - 1); }}
+          aria-label="Previous month"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <div className="text-center">
+          <div className="text-sm font-semibold text-foreground">{monthLabel}</div>
+          <div className="text-[11px] text-muted-foreground">
+            <span className="text-emerald-600 font-medium">{formatUGX(collected)}</span> of {formatUGX(expected)}
+          </div>
         </div>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8"
+          disabled={activeIdx >= months.length - 1}
+          onClick={() => { hapticTap(); setMonthIdx(activeIdx + 1); }}
+          aria-label="Next month"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
       </div>
+
+      <div className="grid grid-cols-7 gap-1 text-center text-[10px] text-muted-foreground">
+        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => <span key={i}>{d}</span>)}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((d, i) => {
+          if (!d) return <div key={i} className="aspect-square rounded bg-muted/30" />;
+          const dayNum = Number(d.date.slice(8, 10));
+          return (
+            <div
+              key={d.date}
+              className={`aspect-square rounded flex items-center justify-center text-[10px] font-medium ${
+                d.is_future ? 'bg-muted/50 text-muted-foreground' : `${HEAT_CLASS[d.heat_level]} text-white/90`
+              }`}
+              title={`${fmtDate(d.date)} — ${d.is_future ? 'Upcoming' : `${HEAT_LABEL[d.heat_level]} · ${formatUGX(d.collected_amount)} of ${formatUGX(d.expected_amount)}`}`}
+            >
+              {dayNum}
+            </div>
+          );
+        })}
+      </div>
+
       <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
         {(['dark_red', 'red', 'light_red', 'light_green', 'green', 'dark_green'] as const).map((h) => (
           <span key={h} className="flex items-center gap-1">
