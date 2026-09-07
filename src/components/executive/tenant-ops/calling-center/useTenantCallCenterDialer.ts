@@ -80,6 +80,50 @@ export function useTenantCallCenterDialer(hub: CcCallingHub) {
   const modeRef = useRef<AutoMode>('off');
   modeRef.current = mode;
   const settledRef = useRef(false);
+  /** Set when End Call is pressed before the telephone leg exists. */
+  const abortRef = useRef(false);
+
+  /**
+   * Drop the real telephone leg. `hangup()` is a no-op if the SDK has not yet
+   * attached the outbound call, so it is retried briefly — that window (the
+   * moment right after `client.call()`) is exactly when an officer's End Call
+   * used to be swallowed. Retries are harmless once the leg is already down.
+   *
+   * When a session id is known the row is closed too, so a leg dropped during
+   * set-up can never be stranded as ringing/active. The write is idempotent
+   * server-side.
+   */
+  const dropLeg = useCallback((sessionId: string | null) => {
+    let attempts = 0;
+    const tick = () => {
+      hangupVoiceCall();
+      attempts += 1;
+      if (attempts < 5) window.setTimeout(tick, 700);
+    };
+    tick();
+
+    if (sessionId) {
+      void supabase
+        .rpc('crm_finalize_call_from_client', {
+          p_session_id: sessionId,
+          p_hangup_cause: 'ORIGINATOR_CANCEL',
+          p_duration: 0,
+        })
+        .then(({ error }) => {
+          if (error) console.error('[tenantDialer] finalize failed', error.message);
+        });
+    }
+  }, []);
+
+  /**
+   * The pending dial has become a real session after an End Call press: drop it
+   * now. Without this the tenant's phone rings on after the officer hung up.
+   */
+  useEffect(() => {
+    if (!abortRef.current || starting || !call.callId) return;
+    abortRef.current = false;
+    dropLeg(call.callId);
+  }, [call.callId, starting, dropLeg]);
 
   const openAttemptIds = useMemo(
     () => new Set(hub.openAttempts.map((a) => a.id)),
