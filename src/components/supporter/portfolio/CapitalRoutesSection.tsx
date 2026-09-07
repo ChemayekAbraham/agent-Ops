@@ -12,7 +12,7 @@ export function CapitalRoutesSection({ className }: { className?: string }) {
   return (
     <section id="capital-routes" className={cn('space-y-4', className)} aria-label="Capital routes">
       {/* CTA */}
-      <div className="relative isolate min-h-[260px] overflow-hidden rounded-[clamp(20px,5.5vw,30px)] border border-primary/35 bg-slate-900">
+      <div className="relative isolate min-h-[260px] overflow-hidden rounded-[clamp(20px,5.5vw,30px)] border border-primary/35 bg-background">
         <img
           src={heroAsset.url}
           alt="Welile capital routes"
