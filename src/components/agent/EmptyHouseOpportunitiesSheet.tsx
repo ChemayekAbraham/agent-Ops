@@ -1115,8 +1115,7 @@ export function EmptyHouseOpportunitiesSheet({
                 </div>
               </div>
             )}
-            </>
-            )}
+
 
             {step === 'checkout' && picked.length > 0 && (
               <div className="rounded-2xl border p-3 space-y-2">

@@ -17,7 +17,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import { CheckCircle2, XCircle, Clock, MapPin, User, UserCheck, Home, Banknote, ArrowRight, ArrowRightLeft, Loader2, Search, MessageCircle, Phone, Pencil, Check, X, PhoneCall, ShieldCheck, AlertCircle, Image as ImageIcon, Camera, Cloud, HardDrive, RotateCcw, ArrowUpDown, ChevronDown, Filter } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, MapPin, User, UserCheck, Home, Banknote, ArrowRight, ArrowRightLeft, Loader2, Search, MessageCircle, Phone, Pencil, Check, X, PhoneCall, ShieldCheck, AlertCircle, Image as ImageIcon, Camera, Cloud, HardDrive, RotateCcw, ArrowUpDown, ChevronDown, Filter, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateRentRepayment } from '@/lib/rentCalculations';
 import { formatTenantSync } from '@/lib/tenantFilterSyncFormat';
@@ -1506,24 +1506,25 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                 className="w-full text-left px-3.5 py-3 hover:bg-muted/30 transition-colors"
               >
                 {/* Header row: Checkbox + Tenant info + Amount + Fold Toggle */}
-                <div className="flex items-start justify-between gap-2">
+                <div
+                  onClick={() => openRequestDetail(req)}
+                  className="flex items-start justify-between gap-2 cursor-pointer group/header select-none"
+                  title="Click to view full rent request details"
+                >
                   <div className="flex items-start gap-2 min-w-0 flex-1">
                     {/* Bulk review selection checkbox */}
                     {allowBulkActions && (
-                      <Checkbox
-                        checked={selectedIds.has(req.id)}
-                        onCheckedChange={() => toggleSelect(req.id)}
-                        className="shrink-0 mt-0.5"
-                      />
+                      <div onClick={(e) => e.stopPropagation()} className="shrink-0 mt-0.5">
+                        <Checkbox
+                          checked={selectedIds.has(req.id)}
+                          onCheckedChange={() => toggleSelect(req.id)}
+                        />
+                      </div>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => openRequestDetail(req)}
-                      className="text-left min-w-0 flex-1 group"
-                    >
+                    <div className="text-left min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                         <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="font-semibold text-sm break-words leading-tight group-hover:text-primary transition-colors">
+                        <span className="font-semibold text-sm break-words leading-tight group-hover/header:text-primary group-hover/header:underline transition-colors">
                           {req.tenant_name}
                         </span>
                         {req.registration_type === 'outstanding_balance' && (
@@ -1559,12 +1560,12 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                           </Tooltip>
                         )}
                       </div>
-                    </button>
+                    </div>
                   </div>
 
                   {/* Right side: Amount and Fold/Unfold Chevron */}
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="font-bold text-sm text-foreground tabular-nums">
+                    <span className="font-bold text-sm text-foreground tabular-nums group-hover/header:text-primary transition-colors">
                       UGX {fmt(req.rent_amount)}
                     </span>
                     <Button
@@ -1647,6 +1648,18 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                           </span>
                         );
                       })()}
+                    </div>
+
+                    {/* View full sheet button from unfolded card */}
+                    <div className="pt-1 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); openRequestDetail(req); }}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                      >
+                        <span>Open Full Review Drawer</span>
+                        <ArrowRight className="h-3 w-3" />
+                      </button>
                     </div>
 
                     {/* Inline landlord verification checklist */}
@@ -1742,8 +1755,8 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                   </div>
                 )}
 
-                {/* Bottom Action Row: Reject on far left, Approve on far right */}
-                <div className="flex items-center justify-between gap-4 w-full pt-2.5 mt-2 border-t border-border/40">
+                {/* Bottom Action Row: Reject on far left, Details in center, Approve on far right */}
+                <div className="flex items-center justify-between gap-2 w-full pt-2.5 mt-2 border-t border-border/40">
                   <Button
                     type="button"
                     size="sm"
@@ -1755,6 +1768,18 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                   >
                     <XCircle className="h-3.5 w-3.5" />
                     <span>Reject</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => { e.stopPropagation(); openRequestDetail(req); }}
+                    className="h-8 px-2.5 text-xs text-primary hover:bg-primary/10 gap-1.5 font-semibold"
+                    title="Open full rent request review details"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    <span>Details</span>
                   </Button>
 
                   <Button
