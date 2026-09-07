@@ -105,7 +105,7 @@ export function AgentCollectionLeagueCard() {
 
   if (isError || !data || data.error) {
     return (
-      <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4">
+      <div className="rounded-2xl border border-primary/25 bg-primary/50 p-4">
         <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
           <Trophy className="h-4 w-4 text-primary" />
           Collection League
