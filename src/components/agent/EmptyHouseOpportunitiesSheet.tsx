@@ -778,7 +778,7 @@ export function EmptyHouseOpportunitiesSheet({
                     className="pl-9 h-10"
                   />
                 </div>
-                <Popover>
+                <Popover modal>
                   <PopoverTrigger asChild>
                     <Button
                       type="button"
