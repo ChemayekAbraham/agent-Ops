@@ -375,7 +375,9 @@ export function GeneralPayoutActivities() {
         },
       });
 
-      doc.save(`welile-payouts-${iso(window.from)}-to-${iso(window.to)}.pdf`);
+      const fileFrom = window.from ? iso(window.from) : 'all';
+      const fileTo = window.to ? iso(window.to) : 'all';
+      doc.save(`welile-payouts-${fileFrom}-to-${fileTo}.pdf`);
       toast.success(`Exported ${allRows.length} payouts to PDF`);
     } catch (err: any) {
       toast.error('Could not export payouts', { description: err?.message });
