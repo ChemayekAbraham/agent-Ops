@@ -347,6 +347,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       items: [
         { label: 'Submitted Reports', icon: FileText, id: 'submitted-reports', access: HR_ACCESS },
         { label: 'Report Archive', icon: Archive, id: 'report-archive', access: HR_ACCESS },
+        { label: 'Platform Sales Officers', icon: Users, id: 'hr-pso-report', route: '/hr/reports/platform-sales-officers', access: HR_ACCESS },
       ],
     },
     {
