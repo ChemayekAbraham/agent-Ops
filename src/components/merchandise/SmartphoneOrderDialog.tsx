@@ -111,7 +111,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const reset = () => {
     setOsType('android');
     setCatalogId('');
-    setMonths('12');
+    setMonths('');
     setPaymentMethod('installments');
     setDocsReady(false);
   };
