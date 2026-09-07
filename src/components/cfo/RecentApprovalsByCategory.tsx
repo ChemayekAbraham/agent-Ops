@@ -5,20 +5,35 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Loader2, ClipboardCheck, ChevronRight, Inbox } from 'lucide-react';
+import { Loader2, ClipboardCheck, Inbox, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { PAYOUT_CATEGORIES } from './DirectCreditTool';
 
 const RECENT_WINDOW = 300;
-const PER_CATEGORY_PREVIEW = 6;
+const PAGE_SIZE = 15;
 
 interface ApprovalRow {
   id: string;
@@ -43,10 +58,20 @@ function normaliseLabel(value: string): string {
     .toLowerCase();
 }
 
+const PERIODS = [
+  { id: 'all', label: 'All time', days: null as number | null },
+  { id: 'today', label: 'Today', days: 0 },
+  { id: '7', label: 'Last 7 days', days: 7 },
+  { id: '30', label: 'Last 30 days', days: 30 },
+  { id: '90', label: 'Last 90 days', days: 90 },
+];
+
 export function RecentApprovalsByCategory() {
   // Categories are read straight from the page's existing payout dropdown list.
   const categories = PAYOUT_CATEGORIES;
-  const [activeCategoryId, setActiveCategoryId] = useState<string>(categories[0]?.id ?? '');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [periodId, setPeriodId] = useState<string>('all');
+  const [page, setPage] = useState(0);
   const [openRow, setOpenRow] = useState<ApprovalRow | null>(null);
 
   const { data, isLoading, error } = useQuery({
@@ -123,20 +148,16 @@ export function RecentApprovalsByCategory() {
     },
   });
 
-  const grouped = useMemo(() => {
-    const buckets: Record<string, ApprovalRow[]> = Object.fromEntries(
-      categories.map((c) => [c.id, [] as ApprovalRow[]]),
-    );
+  /** Resolve each row to one of the existing dropdown categories. */
+  const rowsWithCategory = useMemo(() => {
     const byLabel = new Map(categories.map((c) => [normaliseLabel(c.label), c.id]));
     const byId = new Map(categories.map((c) => [c.id, c.id]));
     const byWalletCategory = new Map(categories.map((c) => [c.walletCategory, c.id]));
 
-    for (const row of data ?? []) {
+    return (data ?? []).map((row) => {
       const meta = row.metadata ?? {};
       const label = typeof meta.category_label === 'string' ? meta.category_label : '';
       const base = label.split('—')[0].split('/')[0];
-      // Queue rows carry the stored category value (e.g. `roi_payout`), which
-      // matches the dropdown category id / wallet category directly.
       const storedId =
         typeof meta.category_id === 'string' ? meta.category_id.trim().toLowerCase() : '';
       let categoryId =
@@ -154,25 +175,46 @@ export function RecentApprovalsByCategory() {
         );
         categoryId = match?.id ?? null;
       }
-      if (categoryId && buckets[categoryId]) buckets[categoryId].push(row);
-    }
-    return buckets;
+      const category = categories.find((c) => c.id === categoryId) ?? null;
+      return { row, categoryId, categoryLabel: category?.label ?? 'Uncategorised' };
+    });
   }, [data, categories]);
 
+  const filtered = useMemo(() => {
+    const period = PERIODS.find((p) => p.id === periodId) ?? PERIODS[0];
+    let cutoff: number | null = null;
+    if (period.days === 0) {
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      cutoff = start.getTime();
+    } else if (typeof period.days === 'number') {
+      cutoff = Date.now() - period.days * 24 * 60 * 60 * 1000;
+    }
 
-  const activeCategory = categories.find((c) => c.id === activeCategoryId) ?? categories[0];
-  const activeRows = grouped[activeCategory?.id ?? ''] ?? [];
+    return rowsWithCategory.filter((r) => {
+      if (categoryFilter !== 'all' && r.categoryId !== categoryFilter) return false;
+      if (cutoff !== null) {
+        const t = new Date(r.row.created_at).getTime();
+        if (!Number.isFinite(t) || t < cutoff) return false;
+      }
+      return true;
+    });
+  }, [rowsWithCategory, categoryFilter, periodId]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages - 1);
+  const pageRows = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE);
 
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
-          Recent Approvals
+          General Payout Activity
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Approved payouts grouped by the same categories used in the payout dropdown above. Tap a
-          category, then tap an approval to see its full details.
+          All recorded payout activity and approvals in one table. Filter by the same payout
+          categories used in the dropdown above, then tap a row for full details.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -181,107 +223,158 @@ export function RecentApprovalsByCategory() {
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : error ? (
-          <p className="text-sm text-destructive">Could not load recent approvals.</p>
+          <p className="text-sm text-destructive">Could not load payout activity.</p>
         ) : (
           <>
-            {/* Category selector — one chip per existing dropdown category */}
-            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-              {categories.map((c) => {
-                const count = grouped[c.id]?.length ?? 0;
-                const isActive = c.id === activeCategory?.id;
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => setActiveCategoryId(c.id)}
-                    className={cn(
-                      'flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition-colors',
-                      isActive
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-border bg-muted/40 text-foreground hover:bg-muted',
-                    )}
-                  >
-                    <span className="max-w-[190px] truncate font-medium">{c.label}</span>
-                    <span
-                      className={cn(
-                        'rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
-                        isActive ? 'bg-primary-foreground/20' : 'bg-background',
-                      )}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
+            {/* Filters */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Select
+                  value={categoryFilter}
+                  onValueChange={(v) => {
+                    setCategoryFilter(v);
+                    setPage(0);
+                  }}
+                >
+                  <SelectTrigger className="h-9 w-full sm:w-[260px] text-xs">
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={periodId}
+                  onValueChange={(v) => {
+                    setPeriodId(v);
+                    setPage(0);
+                  }}
+                >
+                  <SelectTrigger className="h-9 w-full sm:w-[160px] text-xs">
+                    <SelectValue placeholder="All time" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PERIODS.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Badge variant="secondary" className="w-fit text-xs">
+                {filtered.length} record{filtered.length === 1 ? '' : 's'}
+              </Badge>
             </div>
 
-            {activeCategory && (
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold">{activeCategory.label}</p>
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {activeCategory.description}
-                    </p>
-                  </div>
-                  <Badge variant="secondary" className="text-xs">
-                    {activeRows.length} recent approval{activeRows.length === 1 ? '' : 's'}
-                  </Badge>
-                </div>
-
-                {activeRows.length === 0 ? (
-                  <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
-                    <Inbox className="h-5 w-5 text-muted-foreground" />
-                    <p className="text-sm font-medium">No recent approvals in this category</p>
-                    <p className="text-xs text-muted-foreground">
-                      Approvals recorded under {activeCategory.label} will appear here.
-                    </p>
-                  </div>
-                ) : (
-                  <ul className="divide-y divide-border rounded-xl border border-border">
-                    {activeRows.slice(0, PER_CATEGORY_PREVIEW).map((row) => {
-                      const isDebit = row.operation === 'debit';
-                      return (
-                        <li key={row.id}>
-                          <button
-                            type="button"
+            {filtered.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
+                <Inbox className="h-5 w-5 text-muted-foreground" />
+                <p className="text-sm font-medium">No payout activity found</p>
+                <p className="text-xs text-muted-foreground">
+                  Try a different category or date range.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto rounded-xl border border-border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs whitespace-nowrap">Date / Time</TableHead>
+                        <TableHead className="text-xs whitespace-nowrap">Reference</TableHead>
+                        <TableHead className="text-xs whitespace-nowrap">Payout Category</TableHead>
+                        <TableHead className="text-xs whitespace-nowrap">
+                          Description / Recipient
+                        </TableHead>
+                        <TableHead className="text-xs whitespace-nowrap text-right">Amount</TableHead>
+                        <TableHead className="text-xs whitespace-nowrap">Status</TableHead>
+                        <TableHead className="text-xs whitespace-nowrap">Approver</TableHead>
+                        <TableHead className="text-xs whitespace-nowrap">Approved At</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pageRows.map(({ row, categoryLabel }) => {
+                        const isDebit = row.operation === 'debit';
+                        return (
+                          <TableRow
+                            key={row.id}
+                            className="cursor-pointer"
                             onClick={() => setOpenRow(row)}
-                            className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-muted/40"
                           >
-                            <div className="min-w-0 flex-1 space-y-0.5">
-                              <p className="truncate text-sm font-medium">
-                                {row.reference_id || row.evidence || 'Approval'}
-                              </p>
-                              <p className="truncate text-xs text-muted-foreground">
-                                {row.beneficiary?.full_name || 'Unknown recipient'}
-                                {row.approver ? ` • approved by ${row.approver}` : ''}
-                              </p>
-                              <p className="text-[11px] text-muted-foreground">
-                                {format(new Date(row.created_at), 'dd MMM yyyy, HH:mm')}
-                              </p>
-                            </div>
-                            <div className="flex shrink-0 flex-col items-end gap-1">
-                              <span
-                                className={cn(
-                                  'text-sm font-semibold',
-                                  isDebit ? 'text-destructive' : 'text-emerald-600',
-                                )}
-                              >
-                                {isDebit ? '−' : '+'}
-                                {formatUGX(Number(row.amount))}
-                              </span>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              {format(new Date(row.created_at), 'dd MMM yyyy, HH:mm')}
+                            </TableCell>
+                            <TableCell className="text-xs font-medium max-w-[180px] truncate">
+                              {row.reference_id || '—'}
+                            </TableCell>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              {categoryLabel}
+                            </TableCell>
+                            <TableCell className="text-xs max-w-[240px] truncate">
+                              {row.beneficiary?.full_name || 'Unknown recipient'}
+                              {row.evidence ? ` — ${row.evidence}` : ''}
+                            </TableCell>
+                            <TableCell
+                              className={cn(
+                                'text-xs font-semibold text-right whitespace-nowrap',
+                                isDebit ? 'text-destructive' : 'text-emerald-600',
+                              )}
+                            >
+                              {isDebit ? '−' : '+'}
+                              {formatUGX(Number(row.amount))}
+                            </TableCell>
+                            <TableCell>
                               <Badge variant="secondary" className="text-[10px]">
                                 {isDebit ? 'Taken out' : 'Approved'}
                               </Badge>
-                            </div>
-                            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
+                            </TableCell>
+                            <TableCell className="text-xs max-w-[160px] truncate">
+                              {row.approver || '—'}
+                            </TableCell>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              {format(new Date(row.created_at), 'dd MMM yyyy, HH:mm')}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    Page {currentPage + 1} of {totalPages}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage === 0}
+                      onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage >= totalPages - 1}
+                      onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </>
             )}
           </>
         )}
