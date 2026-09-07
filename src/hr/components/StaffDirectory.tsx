@@ -99,8 +99,6 @@ export default function StaffDirectory() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<'people' | 'exited' | 'unenrolled'>('people');
   const [departmentFilter, setDepartmentFilter] = useState<string>('__all__');
-  const [roleFilter, setRoleFilter] = useState<string>('__all__');
-  const [roleSort, setRoleSort] = useState<'none' | 'asc' | 'desc'>('none');
   const [unenrolled, setUnenrolled] = useState<UnenrolledStaffCandidate[]>([]);
   const [unenrolledLoading, setUnenrolledLoading] = useState(false);
   const [unenrolledError, setUnenrolledError] = useState<string | null>(null);
@@ -159,40 +157,14 @@ export default function StaffDirectory() {
     [positions],
   );
 
-  const scopedStaff = useMemo(
-    () => staff.filter((s) => (tab === 'exited' ? s.status !== 'active' : s.status === 'active')),
-    [staff, tab],
-  );
-
-  const rolesByStaff = useCallback(
-    (staffId: string): string[] => {
-      const rows = assignments[staffId] ?? [];
-      const titles = rows.map((a) => a.position_title).filter(Boolean);
-      return Array.from(new Set(titles));
-    },
-    [assignments],
-  );
-
   const departmentOptions = useMemo(() => {
-    const counts = new Map<string, number>();
-    scopedStaff.forEach((s) => {
+    const names = new Set<string>();
+    staff.forEach((s) => {
       const name = s.current_assignment?.department_name;
-      if (name) counts.set(name, (counts.get(name) ?? 0) + 1);
+      if (name) names.add(name);
     });
-    return Array.from(counts.entries())
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [scopedStaff]);
-
-  const roleOptions = useMemo(() => {
-    const counts = new Map<string, number>();
-    scopedStaff.forEach((s) => {
-      rolesByStaff(s.id).forEach((title) => counts.set(title, (counts.get(title) ?? 0) + 1));
-    });
-    return Array.from(counts.entries())
-      .map(([title, count]) => ({ title, count }))
-      .sort((a, b) => b.count - a.count || a.title.localeCompare(b.title));
-  }, [scopedStaff, rolesByStaff]);
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [staff]);
 
   const activeCount = useMemo(() => staff.filter((s) => s.status === 'active').length, [staff]);
   const exitedCount = useMemo(() => staff.filter((s) => s.status !== 'active').length, [staff]);
@@ -207,13 +179,12 @@ export default function StaffDirectory() {
       ) {
         return false;
       }
-      if (roleFilter !== '__all__' && !rolesByStaff(s.id).includes(roleFilter)) return false;
       if (!q) return true;
       return [s.full_name, s.staff_number, s.phone, s.email]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q));
     });
-  }, [staff, query, departmentFilter, roleFilter, rolesByStaff]);
+  }, [staff, query, departmentFilter]);
 
   const exitedBase = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -225,13 +196,12 @@ export default function StaffDirectory() {
       ) {
         return false;
       }
-      if (roleFilter !== '__all__' && !rolesByStaff(s.id).includes(roleFilter)) return false;
       if (!q) return true;
       return [s.full_name, s.staff_number, s.phone, s.email]
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(q));
     });
-  }, [staff, query, departmentFilter, roleFilter, rolesByStaff]);
+  }, [staff, query, departmentFilter]);
 
   const noAssignmentCount = useMemo(
     () => peopleBase.filter((s) => !(assignments[s.id]?.length)).length,
@@ -248,18 +218,11 @@ export default function StaffDirectory() {
   const visibleStaff = useMemo(() => {
     if (tab === 'unenrolled') return [];
     const base = tab === 'people' ? peopleBase : exitedBase;
-    const filtered =
-      tab === 'people' && filterNoAssignment
-        ? base.filter((s) => !(assignments[s.id]?.length))
-        : base;
-    if (roleSort === 'none') return filtered;
-    const roleKey = (s: Employee) => (rolesByStaff(s.id)[0] ?? '').toLowerCase();
-    return [...filtered].sort((a, b) => {
-      const cmp = roleKey(a).localeCompare(roleKey(b));
-      return roleSort === 'asc' ? cmp : -cmp;
-    });
-  }, [tab, peopleBase, exitedBase, filterNoAssignment, assignments, roleSort, rolesByStaff]);
-
+    if (tab === 'people' && filterNoAssignment) {
+      return base.filter((s) => !(assignments[s.id]?.length));
+    }
+    return base;
+  }, [tab, peopleBase, exitedBase, filterNoAssignment, assignments]);
 
   const exportCsv = useCallback(() => {
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -363,46 +326,13 @@ export default function StaffDirectory() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__all__">All departments</SelectItem>
-            {departmentOptions.map(({ name, count }) => (
+            {departmentOptions.map((name) => (
               <SelectItem key={name} value={name}>
-                <span className="flex w-full items-center justify-between gap-3">
-                  <span>{name}</span>
-                  <span className="text-[11px] text-muted-foreground tabular-nums">{count}</span>
-                </span>
+                {name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <Select value={roleFilter} onValueChange={setRoleFilter}>
-          <SelectTrigger className="h-9 w-full sm:w-56">
-            <SelectValue placeholder="All roles" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">All roles</SelectItem>
-            {roleOptions.map(({ title, count }) => (
-              <SelectItem key={title} value={title}>
-                <span className="flex w-full items-center justify-between gap-3">
-                  <span>{title}</span>
-                  <span className="text-[11px] text-muted-foreground tabular-nums">{count}</span>
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-9"
-          onClick={() =>
-            setRoleSort((prev) => (prev === 'none' ? 'asc' : prev === 'asc' ? 'desc' : 'none'))
-          }
-        >
-          Sort by role
-          <span className="ml-2 text-[11px] text-muted-foreground">
-            {roleSort === 'asc' ? 'A–Z' : roleSort === 'desc' ? 'Z–A' : 'off'}
-          </span>
-        </Button>
-
         <Button size="sm" className="sm:ml-auto" onClick={() => setOpen(true)}>
           <UserPlus className="h-4 w-4 mr-2" />
           Enroll staff member

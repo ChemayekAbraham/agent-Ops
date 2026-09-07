@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 10;
 
-type PeriodKind = 'all' | 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'custom';
+type PeriodKind = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'custom';
 type TypeFilter = 'all' | 'credit' | 'debit';
 type DestinationFilter = 'all' | 'user' | 'operational_wallet';
 
@@ -50,7 +50,6 @@ const PERIOD_OPTIONS: { value: PeriodKind; label: string }[] = [
   { value: 'monthly', label: 'Monthly' },
   { value: 'quarterly', label: 'Quarterly' },
   { value: 'custom', label: 'Custom' },
-  { value: 'all', label: 'All' },
 ];
 
 const iso = (d: Date) => format(d, 'yyyy-MM-dd');
@@ -60,10 +59,8 @@ function resolvePeriod(
   anchor: Date,
   customFrom?: Date,
   customTo?: Date,
-): { from: Date | null; to: Date | null; label: string } {
+): { from: Date; to: Date; label: string } {
   switch (kind) {
-    case 'all':
-      return { from: null, to: null, label: 'All time' };
     case 'daily':
       return { from: startOfDay(anchor), to: endOfDay(anchor), label: format(anchor, 'd MMMM yyyy') };
     case 'weekly': {
@@ -200,9 +197,9 @@ export function GeneralPayoutActivities() {
       const buildQuery = () => {
         let q = supabase
           .from('platform_wallet_corrections')
-          .select('id, operation, amount, evidence, reference_id, created_at, target_user_id, metadata');
-        if (window.from) q = q.gte('created_at', window.from.toISOString());
-        if (window.to) q = q.lte('created_at', window.to.toISOString());
+          .select('id, operation, amount, evidence, reference_id, created_at, target_user_id, metadata')
+          .gte('created_at', window.from.toISOString())
+          .lte('created_at', window.to.toISOString());
         if (profileIds && profileIds.length) q = q.in('target_user_id', profileIds);
         if (categoryFilter.trim()) {
           const term = `%${categoryFilter.trim()}%`;
@@ -375,9 +372,7 @@ export function GeneralPayoutActivities() {
         },
       });
 
-      const fileFrom = window.from ? iso(window.from) : 'all';
-      const fileTo = window.to ? iso(window.to) : 'all';
-      doc.save(`welile-payouts-${fileFrom}-to-${fileTo}.pdf`);
+      doc.save(`welile-payouts-${iso(window.from)}-to-${iso(window.to)}.pdf`);
       toast.success(`Exported ${allRows.length} payouts to PDF`);
     } catch (err: any) {
       toast.error('Could not export payouts', { description: err?.message });
@@ -391,8 +386,8 @@ export function GeneralPayoutActivities() {
       'cfo-general-payout-activities',
       page,
       periodKind,
-      window.from?.toISOString() ?? 'all',
-      window.to?.toISOString() ?? 'all',
+      window.from.toISOString(),
+      window.to.toISOString(),
       nameFilter.trim(),
       categoryFilter.trim(),
       typeFilter,
@@ -422,9 +417,9 @@ export function GeneralPayoutActivities() {
         .from('platform_wallet_corrections')
         .select('id, operation, amount, evidence, reference_id, created_at, target_user_id, metadata', {
           count: 'exact',
-        });
-      if (window.from) query = query.gte('created_at', window.from.toISOString());
-      if (window.to) query = query.lte('created_at', window.to.toISOString());
+        })
+        .gte('created_at', window.from.toISOString())
+        .lte('created_at', window.to.toISOString());
 
       if (profileIds) {
         query = query.in('target_user_id', profileIds);
@@ -464,9 +459,9 @@ export function GeneralPayoutActivities() {
       // Total amount for the same filtered window, irrespective of pagination.
       let sumQuery = supabase
         .from('platform_wallet_corrections')
-        .select('amount', { count: 'exact' });
-      if (window.from) sumQuery = sumQuery.gte('created_at', window.from.toISOString());
-      if (window.to) sumQuery = sumQuery.lte('created_at', window.to.toISOString());
+        .select('amount', { count: 'exact' })
+        .gte('created_at', window.from.toISOString())
+        .lte('created_at', window.to.toISOString());
 
       if (profileIds) sumQuery = sumQuery.in('target_user_id', profileIds);
       if (categoryFilter.trim()) {
@@ -506,8 +501,6 @@ export function GeneralPayoutActivities() {
       return prev;
     });
   };
-
-  const canNavigate = periodKind === 'weekly' || periodKind === 'monthly' || periodKind === 'quarterly';
 
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -609,7 +602,7 @@ export function GeneralPayoutActivities() {
               </>
             )}
 
-            {canNavigate && (
+            {(periodKind === 'weekly' || periodKind === 'monthly' || periodKind === 'quarterly') && (
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" className="h-9 px-2" onClick={() => navigate(-1)}>
                   <ChevronLeft className="h-4 w-4" />
