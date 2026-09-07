@@ -49888,6 +49888,10 @@ export type Database = {
         Args: { p_error: string; p_event_id: string }
         Returns: undefined
       }
+      mark_proxy_commission_completed: {
+        Args: { p_id: string; p_note?: string }
+        Returns: Json
+      }
       match_email_ledger_credits: {
         Args: { p_refs: string[] }
         Returns: {
