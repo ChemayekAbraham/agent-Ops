@@ -30501,6 +30501,58 @@ export type Database = {
         }
         Relationships: []
       }
+      pso_note_reversals: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          note_id: string
+          reason: string
+          reversed_at: string
+          reversed_by: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          note_id: string
+          reason: string
+          reversed_at?: string
+          reversed_by?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          note_id?: string
+          reason?: string
+          reversed_at?: string
+          reversed_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pso_note_reversals_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "promissory_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pso_note_reversals_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["note_id"]
+          },
+          {
+            foreignKeyName: "pso_note_reversals_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_note_events"
+            referencedColumns: ["note_id"]
+          },
+        ]
+      }
       public_error_logs: {
         Row: {
           created_at: string
@@ -43858,6 +43910,7 @@ export type Database = {
           officer_since: string | null
           officer_user_id: string | null
           partner_registered: boolean | null
+          reversal_kind: string | null
           reversed_at: string | null
           staff_id: string | null
           staff_ref: string | null
@@ -52411,6 +52464,7 @@ export type Database = {
         Args: { p_from: string; p_staff_id?: string; p_to: string }
         Returns: {
           day: string
+          net_notes: number
           notes_created: number
           notes_reversed: number
           partner_registered: number
