@@ -8,6 +8,9 @@
  * no point or payout figure is displayed or computed.
  */
 import { useQuery } from '@tanstack/react-query';
+import { ClipboardList, Info } from 'lucide-react';
+import PersonalLayout from '@/components/layout/PersonalLayout';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
@@ -53,9 +56,9 @@ async function fetchMyRows(): Promise<MyRow[]> {
 }
 
 function LiveCell({ value }: { value: string | null }) {
-  if (value === 'yes') return <span className="font-medium text-emerald-600">Yes</span>;
+  if (value === 'yes') return <span className="font-medium text-success">Yes</span>;
   if (value === 'no') return <span className="font-medium text-destructive">No</span>;
-  return <span>n/a</span>;
+  return <span className="text-muted-foreground">n/a</span>;
 }
 
 export default function MyContribution() {
@@ -63,18 +66,19 @@ export default function MyContribution() {
   const rows = rowsQuery.data ?? [];
 
   return (
-    <div className="container mx-auto max-w-6xl space-y-6 px-4 py-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">My Contribution Record</h1>
-        <p className="text-sm text-muted-foreground">
-          Your own harvested rows, exactly as recorded.
-        </p>
-      </div>
+    <PersonalLayout title="My contribution record">
+      <p className="-mt-2 text-sm text-muted-foreground">
+        Your own harvested rows, exactly as recorded.
+      </p>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-semibold uppercase tracking-wide">
+      <Card className="overflow-hidden border-border/70 shadow-sm">
+        <CardHeader className="flex flex-row items-center gap-2.5 space-y-0 border-b border-border/60 bg-muted/30 px-4 py-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Info className="h-4 w-4" />
+          </span>
+          <CardTitle className="text-sm font-semibold tracking-tight">
             How this record works
+
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-muted-foreground">
@@ -98,77 +102,114 @@ export default function MyContribution() {
         </CardContent>
       </Card>
 
-      {rowsQuery.isLoading ? (
-        <Skeleton className="h-40 w-full" />
-      ) : rowsQuery.isError ? (
-        <p className="text-sm text-destructive">Could not load your contribution rows.</p>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr className="text-left">
-                <th className="px-3 py-2 font-medium">Period</th>
-                <th className="px-3 py-2 font-medium">Source</th>
-                <th className="px-3 py-2 font-medium">Evidence</th>
-                <th className="px-3 py-2 font-medium">Subject</th>
-                <th className="px-3 py-2 font-medium">Classes</th>
-                <th className="px-3 py-2 font-medium">Live</th>
-                <th className="px-3 py-2 font-medium">Band</th>
-                <th className="px-3 py-2 font-medium">Written basis</th>
-                <th className="px-3 py-2 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="px-3 py-4 text-center text-xs text-muted-foreground">
-                    No rows recorded for you yet.
-                  </td>
-                </tr>
-              )}
-              {rows.map((row) => (
-                <tr
-                  key={row.id}
-                  className={`border-t align-top ${row.zeroed ? 'bg-muted/40 text-muted-foreground' : ''}`}
-                >
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {row.period_start} → {row.period_end}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {SOURCE_LABEL[row.source] ?? row.source}
-                  </td>
-                  <td className="px-3 py-2 text-xs break-all">{row.evidence_ref ?? '—'}</td>
-                  <td className="px-3 py-2">
-                    <span>{row.commit_subject ?? '—'}</span>
-                    {row.zeroed && row.zero_reason && (
-                      <span className="ml-2 text-xs italic">{row.zero_reason}</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 uppercase">
-                    {(row.change_classes ?? []).length > 0
-                      ? (row.change_classes ?? []).join('·')
-                      : '—'}
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    <LiveCell value={row.live_verified} />
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {row.band ? (
-                      <span className="font-medium">{row.band.toUpperCase()}</span>
-                    ) : (
-                      <span className="text-xs">Not yet adjudicated</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-xs">{row.basis ?? '—'}</td>
-                  <td className="whitespace-nowrap px-3 py-2">
-                    {row.status === 'locked' ? 'Locked' : 'Open'}
-                  </td>
-                </tr>
+      <Card className="overflow-hidden border-border/70 shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 border-b border-border/60 bg-muted/30 px-4 py-3">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <ClipboardList className="h-4 w-4" />
+            </span>
+            <div>
+              <CardTitle className="text-sm font-semibold tracking-tight">Your rows</CardTitle>
+              <p className="text-[11px] text-muted-foreground">Newest period first</p>
+            </div>
+          </div>
+          {!rowsQuery.isLoading && !rowsQuery.isError && rows.length > 0 && (
+            <Badge
+              variant="outline"
+              className="rounded-full border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary"
+            >
+              {rows.length}
+            </Badge>
+          )}
+        </CardHeader>
+        <CardContent className="p-0">
+          {rowsQuery.isLoading ? (
+            <div className="space-y-2.5 p-4">
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-10 w-full rounded-lg" />
               ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+            </div>
+          ) : rowsQuery.isError ? (
+            <p role="alert" className="bg-destructive/5 px-4 py-3 text-sm font-medium text-destructive">
+              Could not load your contribution rows.
+            </p>
+          ) : rows.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <ClipboardList className="h-5 w-5" />
+              </span>
+              <p className="text-sm font-medium">No rows recorded for you yet</p>
+              <p className="max-w-xs text-xs text-muted-foreground">
+                Tagged edits and commits appear here once they are harvested.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/40">
+                  <tr className="border-b border-border/60 text-left [&>th]:px-3 [&>th]:py-2.5 [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-wider [&>th]:text-muted-foreground">
+                    <th>Period</th>
+                    <th>Source</th>
+                    <th>Evidence</th>
+                    <th>Subject</th>
+                    <th>Classes</th>
+                    <th>Live</th>
+                    <th>Band</th>
+                    <th>Written basis</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr
+                      key={row.id}
+                      className={`border-t border-border/50 align-top transition-colors hover:bg-primary/[0.04] ${
+                        row.zeroed ? 'bg-muted/40 text-muted-foreground' : ''
+                      }`}
+                    >
+                      <td className="whitespace-nowrap px-3 py-3 text-xs tabular-nums">
+                        {row.period_start} → {row.period_end}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-3 text-xs">
+                        {SOURCE_LABEL[row.source] ?? row.source}
+                      </td>
+                      <td className="break-all px-3 py-3 text-xs text-muted-foreground">
+                        {row.evidence_ref ?? '—'}
+                      </td>
+                      <td className="px-3 py-3 text-sm">
+                        <span>{row.commit_subject ?? '—'}</span>
+                        {row.zeroed && row.zero_reason && (
+                          <span className="ml-2 text-xs italic">{row.zero_reason}</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-xs uppercase">
+                        {(row.change_classes ?? []).length > 0
+                          ? (row.change_classes ?? []).join('·')
+                          : '—'}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-3 text-xs">
+                        <LiveCell value={row.live_verified} />
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-3">
+                        {row.band ? (
+                          <span className="text-xs font-semibold">{row.band.toUpperCase()}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Not yet adjudicated</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-3 text-xs text-muted-foreground">{row.basis ?? '—'}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-xs">
+                        {row.status === 'locked' ? 'Locked' : 'Open'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </PersonalLayout>
   );
 }
+

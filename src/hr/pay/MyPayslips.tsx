@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { FileText, Receipt } from 'lucide-react';
 import PersonalLayout from '@/components/layout/PersonalLayout';
 import {
   Table,
@@ -10,8 +10,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import { listMyPayslips, type MyPayslipRow } from '@/hr/pay/api/myPay';
+
+const headCell = 'text-[11px] font-semibold uppercase tracking-wider text-muted-foreground';
 
 function formatAmount(value: number): string {
   return new Intl.NumberFormat('en-UG', { maximumFractionDigits: 0 }).format(value);
@@ -49,67 +54,112 @@ export default function MyPayslips() {
 
   return (
     <PersonalLayout title="My payslips">
-      <Card>
-        <CardContent className="pt-6">
-          {loading && (
-            <p className="text-sm text-muted-foreground">
-              <Loader2 className="mr-1 inline h-3.5 w-3.5 animate-spin" />
-              Loading your payslips…
-            </p>
+      <Card className="overflow-hidden border-border/70 shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 border-b border-border/60 bg-muted/30 px-4 py-3">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Receipt className="h-4 w-4" />
+            </span>
+            <div>
+              <CardTitle className="text-sm font-semibold tracking-tight">Your pay records</CardTitle>
+              <p className="text-[11px] text-muted-foreground">Amounts shown in UGX</p>
+            </div>
+          </div>
+          {!loading && !error && rows.length > 0 && (
+            <Badge
+              variant="outline"
+              className="rounded-full border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[11px] font-semibold text-primary"
+            >
+              {rows.length}
+            </Badge>
           )}
+        </CardHeader>
+        <CardContent className="p-0">
           {error && (
-            <p role="alert" className="text-sm font-medium text-destructive">
+            <p role="alert" className="border-b border-border/60 bg-destructive/5 px-4 py-3 text-sm font-medium text-destructive">
               {error}
             </p>
           )}
+
+          {loading && (
+            <div className="space-y-2.5 p-4">
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-10 w-full rounded-lg" />
+              ))}
+            </div>
+          )}
+
           {!loading && !error && rows.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              No payslips yet. They appear here once a payroll run has been paid.
-            </p>
+            <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <FileText className="h-5 w-5" />
+              </span>
+              <p className="text-sm font-medium">No payslips yet</p>
+              <p className="max-w-xs text-xs text-muted-foreground">
+                They appear here once a payroll run has been paid.
+              </p>
+            </div>
           )}
+
           {!loading && !error && rows.length > 0 && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Period</TableHead>
-                  <TableHead>Pay date</TableHead>
-                  <TableHead className="text-right">Gross</TableHead>
-                  <TableHead className="text-right">PAYE</TableHead>
-                  <TableHead className="text-right">NSSF</TableHead>
-                  <TableHead className="text-right">Deductions</TableHead>
-                  <TableHead className="text-right">Net</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell>
-                      <Link className="underline" to={`/hr/pay/payslips/${r.id}`}>
-                        {r.period_code ?? '—'}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <Link className="underline" to={`/hr/pay/payslips/${r.id}`}>
-                        {formatDate(r.pay_date)}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-right">{formatAmount(r.gross)}</TableCell>
-                    <TableCell className="text-right">{formatAmount(r.paye)}</TableCell>
-                    <TableCell className="text-right">
-                      {formatAmount(r.nssf_employee)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatAmount(r.other_deductions)}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {formatAmount(r.net)}
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="[&_tr]:border-b [&_tr]:border-border/60">
+                  <TableRow className="bg-muted/40 hover:bg-muted/40">
+                    <TableHead className={headCell}>Period</TableHead>
+                    <TableHead className={headCell}>Pay date</TableHead>
+                    <TableHead className={cn(headCell, 'text-right')}>Gross</TableHead>
+                    <TableHead className={cn(headCell, 'text-right')}>PAYE</TableHead>
+                    <TableHead className={cn(headCell, 'text-right')}>NSSF</TableHead>
+                    <TableHead className={cn(headCell, 'text-right')}>Deductions</TableHead>
+                    <TableHead className={cn(headCell, 'text-right')}>Net</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((r) => (
+                    <TableRow
+                      key={r.id}
+                      className="border-border/50 transition-colors hover:bg-primary/[0.04]"
+                    >
+                      <TableCell className="py-3">
+                        <Link
+                          className="text-sm font-semibold text-primary underline-offset-4 hover:underline"
+                          to={`/hr/pay/payslips/${r.id}`}
+                        >
+                          {r.period_code ?? '—'}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="py-3 text-xs tabular-nums text-muted-foreground">
+                        <Link
+                          className="underline-offset-4 hover:underline"
+                          to={`/hr/pay/payslips/${r.id}`}
+                        >
+                          {formatDate(r.pay_date)}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="py-3 text-right text-sm tabular-nums">
+                        {formatAmount(r.gross)}
+                      </TableCell>
+                      <TableCell className="py-3 text-right text-sm tabular-nums text-muted-foreground">
+                        {formatAmount(r.paye)}
+                      </TableCell>
+                      <TableCell className="py-3 text-right text-sm tabular-nums text-muted-foreground">
+                        {formatAmount(r.nssf_employee)}
+                      </TableCell>
+                      <TableCell className="py-3 text-right text-sm tabular-nums text-muted-foreground">
+                        {formatAmount(r.other_deductions)}
+                      </TableCell>
+                      <TableCell className="py-3 text-right text-sm font-semibold tabular-nums">
+                        {formatAmount(r.net)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
-          <p className="mt-4 text-xs text-muted-foreground">
+
+          <p className="border-t border-border/60 px-4 py-3 text-xs text-muted-foreground">
             This is your own record. If any figure looks wrong, contact HR.
           </p>
         </CardContent>
