@@ -169,6 +169,12 @@ function LeaderboardRow({ row }: { row: LeagueRow }) {
       }`}
     >
       <span className="w-8 text-sm font-bold text-foreground shrink-0">#{row.rank}</span>
+      <Avatar className="h-8 w-8 shrink-0">
+        {row.team_avatar_url && <AvatarImage src={row.team_avatar_url} alt={row.team_name} />}
+        <AvatarFallback className="text-[10px]">
+          {row.team_name.replace(/^Team\s+/i, '').slice(0, 2).toUpperCase()}
+        </AvatarFallback>
+      </Avatar>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-sm font-semibold text-foreground truncate">{row.team_name}</span>
