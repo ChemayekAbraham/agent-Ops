@@ -91,36 +91,37 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
           </div>
 
           {/* Mobile: date and amount on one line per row, Total last and distinct. */}
-          <div className="sm:hidden">
-            <div className="divide-y divide-border/60">
-              {periods.map((period) => (
-                <div
-                  key={period.period_index}
-                  className="flex items-baseline justify-between gap-3 py-2 text-sm"
-                >
-                  <span className="text-foreground">{period.label ?? '—'}</span>
-                  <div className="flex items-baseline gap-4">
-                    <span className="shrink-0 tabular-nums text-muted-foreground">
-                      {period.plans !== null && period.plans !== undefined ? period.plans : '—'}
-                    </span>
-                    <span className="shrink-0 tabular-nums text-foreground">
-                      {available && period.projected_ugx !== null && period.projected_ugx !== undefined
-                        ? formatUGX(period.projected_ugx)
-                        : '—'}
-                    </span>
-                  </div>
+          <div className="sm:hidden space-y-1.5">
+            {periods.map((period) => (
+              <div
+                key={period.period_index}
+                className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm text-foreground">{period.label ?? '—'}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {period.plans !== null && period.plans !== undefined ? `${period.plans} plans` : '—'}
+                  </p>
                 </div>
-              ))}
-            </div>
-            <div className="mt-2 flex items-baseline justify-between gap-3 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-semibold">
-              <span>Total</span>
-              <span className="shrink-0 tabular-nums">{available ? formatUGX(rowSum) : '—'}</span>
+                <span className="shrink-0 text-sm font-medium tabular-nums text-foreground">
+                  {available && period.projected_ugx !== null && period.projected_ugx !== undefined
+                    ? formatUGX(period.projected_ugx)
+                    : '—'}
+                </span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/40 px-3 py-2 font-semibold">
+              <div className="min-w-0">
+                <p className="truncate text-sm">Total</p>
+                <p className="text-[11px] text-muted-foreground">&nbsp;</p>
+              </div>
+              <span className="shrink-0 text-sm tabular-nums">{available ? formatUGX(rowSum) : '—'}</span>
             </div>
           </div>
 
           <div className="hidden overflow-x-auto sm:block">
 
-            <table className="w-full text-sm">
+            <table className="w-full table-fixed text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <th scope="col" className="py-2 pr-3 font-medium">Period</th>
@@ -132,7 +133,7 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
                 {periods.map((period) => (
                   <tr key={period.period_index} className="border-b border-border/60">
                     <td className="py-2 pr-3 text-foreground">
-                      {period.label ?? '—'}
+                      <span className="block truncate" title={period.label ?? undefined}>{period.label ?? '—'}</span>
                     </td>
                     <td className="py-2 pr-3 text-right tabular-nums text-foreground">
                       {period.plans !== null && period.plans !== undefined ? period.plans : '—'}
@@ -153,10 +154,11 @@ export function ProjectionA3({ granularity, anchor }: ProjectionA3Props) {
                 </tr>
               </tbody>
             </table>
-            <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-              What the agreed payment plans fall due on each of these days. A tenant whose repayment starts later contributes only from their first due date, and weekly or monthly plans appear on their due dates rather than spread across every day. This is scheduled rent, not a prediction of what will be collected.
-            </p>
           </div>
+
+          <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+            What the agreed payment plans fall due on each of these days. A tenant whose repayment starts later contributes only from their first due date, and weekly or monthly plans appear on their due dates rather than spread across every day. This is scheduled rent, not a prediction of what will be collected.
+          </p>
         </div>
       )}
     </section>
