@@ -14053,6 +14053,7 @@ export type Database = {
           bulk_payout_settled_at: string | null
           channel: string | null
           counterparty: string | null
+          counterparty_name: string | null
           created_at: string
           dedup_hash: string | null
           direction: string | null
@@ -14082,6 +14083,7 @@ export type Database = {
           bulk_payout_settled_at?: string | null
           channel?: string | null
           counterparty?: string | null
+          counterparty_name?: string | null
           created_at?: string
           dedup_hash?: string | null
           direction?: string | null
@@ -14111,6 +14113,7 @@ export type Database = {
           bulk_payout_settled_at?: string | null
           channel?: string | null
           counterparty?: string | null
+          counterparty_name?: string | null
           created_at?: string
           dedup_hash?: string | null
           direction?: string | null
@@ -48199,6 +48202,7 @@ export type Database = {
           withdrawal_status: string
         }[]
       }
+      get_ceo_growth_quality: { Args: { p_days?: number }; Returns: Json }
       get_cfo_cash_movement_rows: {
         Args: { p_after?: string; p_from?: string; p_limit?: number }
         Returns: {
