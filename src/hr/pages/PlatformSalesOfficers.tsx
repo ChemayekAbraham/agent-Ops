@@ -241,7 +241,7 @@ export default function PlatformSalesOfficersPage() {
               PLATFORM SALES OFFICERS · note volume · {label} · LIVE
             </h1>
             <span className="text-xs text-muted-foreground">
-              live figures — nothing is frozen at v1.0
+              live · refreshes every minute
             </span>
           </div>
 
@@ -267,6 +267,11 @@ export default function PlatformSalesOfficersPage() {
         <p className="text-sm text-muted-foreground">
           {officers.length} officers · {netTotal} net notes · {fundedTotal} funded · UGX {moneyTotal.toLocaleString('en-UG')} funded
         </p>
+        {mode === 'MONTHLY' && (
+          <p className="text-xs text-muted-foreground">
+            on MONTHLY each column totals every occurrence of that weekday in the window
+          </p>
+        )}
 
         {isLoading ? (
           <div className="space-y-3">
@@ -283,39 +288,31 @@ export default function PlatformSalesOfficersPage() {
             <table className="w-full text-sm">
               <thead className="bg-muted/50">
                 <tr>
+                  <th className="px-4 py-2 text-left font-medium">#</th>
                   <th className="px-4 py-2 text-left font-medium">Officer</th>
-                  <th className="px-4 py-2 text-right font-medium">Days elapsed</th>
-                  <th className="px-4 py-2 text-right font-medium">Created</th>
-                  <th className="px-4 py-2 text-right font-medium">Reversed</th>
-                  <th className="px-4 py-2 text-right font-medium">Net</th>
-                  <th className="px-4 py-2 text-right font-medium">Registered</th>
+                  {WEEKDAY_LABELS.map((d) => (
+                    <th key={d} className="px-4 py-2 text-right font-medium">{d}</th>
+                  ))}
+                  <th className="px-4 py-2 text-right font-medium">Total</th>
                   <th className="px-4 py-2 text-right font-medium">Funded</th>
                   <th className="px-4 py-2 text-right font-medium">Money funded</th>
                   <th className="px-4 py-2 text-right font-medium">Commission</th>
-                  <th className="px-4 py-2 text-right font-medium">Average / day</th>
                 </tr>
               </thead>
               <tbody>
-                {officers.map((officer) => {
-                  const average =
-                    officer.daysElapsed > 0
-                      ? (officer.netNotes / officer.daysElapsed).toFixed(1)
-                      : '0.0';
-                  return (
-                    <tr key={officer.staff_id} className="border-t">
-                      <td className="px-4 py-2 font-medium">{officer.staff_ref}</td>
-                      <td className="px-4 py-2 text-right">{officer.daysElapsed}</td>
-                      <td className="px-4 py-2 text-right">{officer.notesCreated}</td>
-                      <td className="px-4 py-2 text-right">{officer.reversals}</td>
-                      <td className="px-4 py-2 text-right">{officer.netNotes}</td>
-                      <td className="px-4 py-2 text-right">{officer.partnerRegistered}</td>
-                      <td className="px-4 py-2 text-right">{officer.notesFunded}</td>
-                      <td className="px-4 py-2 text-right">UGX {officer.amountFunded.toLocaleString('en-UG')}</td>
-                      <td className="px-4 py-2 text-right">UGX {officer.commissionAccrued.toLocaleString('en-UG')}</td>
-                      <td className="px-4 py-2 text-right">{average}</td>
-                    </tr>
-                  );
-                })}
+                {officers.map((officer, i) => (
+                  <tr key={officer.staff_id} className="border-t">
+                    <td className="px-4 py-2 text-left">{ranks[i]}</td>
+                    <td className="px-4 py-2 font-medium">{officer.staff_ref}</td>
+                    {officer.weekday.map((v, wi) => (
+                      <td key={wi} className="px-4 py-2 text-right">{v}</td>
+                    ))}
+                    <td className="px-4 py-2 text-right">{officer.netNotes}</td>
+                    <td className="px-4 py-2 text-right">{officer.notesFunded}</td>
+                    <td className="px-4 py-2 text-right">UGX {officer.amountFunded.toLocaleString('en-UG')}</td>
+                    <td className="px-4 py-2 text-right">UGX {officer.commissionAccrued.toLocaleString('en-UG')}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
