@@ -255,6 +255,35 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
   const activity = data?.activity ?? [];
   const isSmartphone = category === 'smart_phone';
 
+  // Eligibility tag per pending applicant — same criteria the approval review
+  // uses (active tenant portfolio, ID, workplace verification, collections).
+  const pendingAgentIds = useMemo(
+    () => Array.from(new Set(pendingApps.map((p) => p.agent_id).filter(Boolean) as string[])).sort(),
+    [pendingApps],
+  );
+  const { data: eligibilityMap } = useQuery({
+    queryKey: ['agent-products-pending-eligibility', pendingAgentIds],
+    enabled: pendingAgentIds.length > 0,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const entries = await Promise.all(
+        pendingAgentIds.map(async (id) => {
+          const { data: row, error } = await supabase.rpc('get_agent_smartphone_eligibility', {
+            p_user_id: id,
+          });
+          if (error) return [id, null] as const;
+          return [id, row as unknown as {
+            active_tenant_count: number;
+            required_active_tenants: number;
+            eligible: boolean;
+          } | null] as const;
+        }),
+      );
+      return Object.fromEntries(entries);
+    },
+  });
+
+
   // KPI drill-down. The lists come straight from the same overview payload the
   // cards count, so a card and its sheet can never disagree.
   const [drill, setDrill] = useState<DrillKey | null>(null);
