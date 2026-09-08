@@ -102,6 +102,114 @@ export function TenantLocationCorrectionsHub() {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Popover open={agentOpen} onOpenChange={setAgentOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={agentOpen}
+                  className="w-full justify-between gap-2 sm:max-w-sm"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <User className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="truncate">
+                      {selectedAgent
+                        ? selectedAgent.agent_name || 'Unnamed agent'
+                        : agentId
+                          ? 'Selected agent'
+                          : 'All agents'}
+                    </span>
+                  </span>
+                  <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[min(22rem,calc(100vw-2rem))] p-0" align="start">
+                <Command shouldFilter={false}>
+                  <CommandInput
+                    value={agentQuery}
+                    onValueChange={setAgentQuery}
+                    placeholder="Search agent by name or phone"
+                  />
+                  <CommandList>
+                    {agents.isLoading ? (
+                      <div className="flex items-center justify-center gap-2 py-6 text-xs text-muted-foreground">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading agents…
+                      </div>
+                    ) : (
+                      <>
+                        <CommandEmpty>No agent found</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="__all__"
+                            onSelect={() => {
+                              setAgentId(null);
+                              setPage(0);
+                              setAgentOpen(false);
+                            }}
+                          >
+                            <Check className={agentId ? 'mr-2 h-4 w-4 opacity-0' : 'mr-2 h-4 w-4'} />
+                            All agents
+                          </CommandItem>
+                          {agentOptions.map((a) => (
+                            <CommandItem
+                              key={a.agent_id}
+                              value={a.agent_id}
+                              onSelect={() => {
+                                setAgentId(a.agent_id);
+                                setPage(0);
+                                setAgentOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={
+                                  agentId === a.agent_id ? 'mr-2 h-4 w-4' : 'mr-2 h-4 w-4 opacity-0'
+                                }
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm">{a.agent_name || 'Unnamed agent'}</span>
+                                <span className="block truncate text-[11px] text-muted-foreground">
+                                  {a.agent_phone || '—'}
+                                </span>
+                              </span>
+                              <Badge variant="outline" className="ml-2 shrink-0 text-[10px]">
+                                {a.unmatched.toLocaleString()} left
+                              </Badge>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </>
+                    )}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+
+            {agentId && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full gap-1.5 sm:w-auto"
+                onClick={() => {
+                  setAgentId(null);
+                  setPage(0);
+                }}
+              >
+                <X className="h-3.5 w-3.5" /> Clear agent
+              </Button>
+            )}
+          </div>
+
+          {agentId && (
+            <p className="text-xs text-muted-foreground">
+              Showing only tenants handled by{' '}
+              <span className="font-semibold text-foreground">
+                {selectedAgent?.agent_name || 'the selected agent'}
+              </span>
+              .
+            </p>
+          )}
+
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
             <div className="rounded-xl border bg-card p-3">
               <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Still to correct</p>
