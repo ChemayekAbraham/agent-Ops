@@ -12,6 +12,7 @@ import type {
   AgentReport,
   ProductsReport,
   RentCollectionsReport,
+  RentCollectionsRow,
   TeamCollectionsReport,
 } from '@/hooks/useAgentOpsReports';
 
@@ -80,6 +81,66 @@ tfoot td{border-top:2px solid var(--border-dark);padding:6px;font-weight:800;bac
 @page{size:A4;margin:10mm}
 @media print{body{background:#fff}.page{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}thead{display:table-header-group}tr{page-break-inside:avoid}}
 `;
+
+/** Styles lifted from the supplied Welile rent-collections HTML template. */
+const TEMPLATE_CSS = `
+:root{--primary:#7B19D4;--primary-dark:#581C87;--primary-light:#F3E8FF;--accent-cyan:#0284C7;--text-main:#0F172A;--text-body:#334155;--text-muted:#64748B;--text-light:#94A3B8;--bg-document:#FFFFFF;--bg-header:#F8FAFC;--bg-subtle:#F1F5F9;--border-color:#E2E8F0;--border-dark:#CBD5E1;--status-success:#15803D;--status-success-bg:#F0FDF4;--status-success-border:#BBF7D0;--status-warning:#B45309;--status-warning-bg:#FFFBEB;--status-warning-border:#FDE68A;--status-danger:#B91C1C;--status-danger-bg:#FEF2F2;--status-danger-border:#FECACA;--font-sans:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;--font-mono:'JetBrains Mono',monospace}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{background-color:#E2E8F0;font-family:var(--font-sans);color:var(--text-main);font-size:11px;line-height:1.4;-webkit-font-smoothing:antialiased}
+.num,.currency,.pct,.date{font-feature-settings:"tnum" 1,"zero" 1;font-variant-numeric:tabular-nums}
+.font-mono{font-family:var(--font-mono)}
+.document-wrapper{max-width:210mm;margin:20px auto 40px auto}
+.report-page{width:210mm;min-height:297mm;background-color:var(--bg-document);padding:16mm 16mm 18mm 16mm;margin-bottom:24px;box-shadow:0 4px 15px rgba(0,0,0,.08);position:relative;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;page-break-after:always;break-after:page}
+.page-content{flex:1}
+.report-footer{display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--border-color);font-size:8.5px;color:var(--text-muted);font-weight:500}
+.avoid-break{break-inside:avoid;page-break-inside:avoid}
+.pdf-header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--text-main);padding-bottom:12px;margin-bottom:14px}
+.pdf-header-left{display:flex;flex-direction:column;gap:2px}
+.company-name{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--primary)}
+.report-title-main{font-size:18px;font-weight:900;color:var(--text-main);letter-spacing:-.4px;margin-top:2px}
+.report-subtitle-main{font-size:9.5px;color:var(--text-muted)}
+.pdf-header-meta-table{font-size:9px;border-collapse:collapse}
+.pdf-header-meta-table td{padding:1.5px 6px;text-align:right}
+.pdf-header-meta-table td.meta-lbl{color:var(--text-muted);font-weight:600;text-transform:uppercase}
+.pdf-header-meta-table td.meta-val{font-weight:700;color:var(--text-main)}
+.kpi-grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+.kpi-card{background-color:var(--bg-header);border:1px solid var(--border-color);padding:10px 12px;border-radius:4px;text-align:center}
+.kpi-card .kpi-label{font-size:8.5px;font-weight:800;text-transform:uppercase;color:var(--text-muted);letter-spacing:.4px;margin-bottom:4px}
+.kpi-card .kpi-value{font-size:14px;font-weight:900;color:var(--text-main)}
+.kpi-card .kpi-sub{font-size:8px;color:var(--text-muted);margin-top:3px}
+.kpi-card.primary .kpi-value{color:var(--primary)}
+.kpi-card.success .kpi-value{color:var(--status-success)}
+.kpi-card.warning .kpi-value{color:var(--status-warning)}
+.section-title{font-size:11.5px;font-weight:800;color:var(--text-main);border-bottom:1px solid var(--border-dark);padding-bottom:3px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.section-subtitle{font-size:9px;color:var(--text-muted);margin-top:-6px;margin-bottom:10px}
+.report-table{width:100%;border-collapse:collapse;font-size:9px;margin-bottom:12px}
+.report-table thead{display:table-header-group}
+.report-table th{background-color:var(--bg-header);color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:8px;letter-spacing:.4px;padding:5px 6px;border-top:1px solid var(--border-dark);border-bottom:1.5px solid var(--border-dark);text-align:left}
+.report-table th.right,.report-table td.right{text-align:right}
+.report-table td{padding:5px 6px;border-bottom:1px solid var(--border-color);color:var(--text-main)}
+.report-table tr:nth-child(even) td{background-color:#FAFAFA}
+.report-table tr.total-row td{background-color:#F8FAFC !important;font-weight:800;border-top:1.5px solid var(--text-main);border-bottom:2px solid var(--text-main)}
+.doc-badge{display:inline-block;padding:2px 6px;border-radius:3px;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.3px}
+.badge-excellent{background-color:#DCFCE7;color:#166534;border:1px solid #86EFAC}
+.badge-target{background-color:var(--status-success-bg);color:var(--status-success);border:1px solid var(--status-success-border)}
+.badge-attention{background-color:var(--status-warning-bg);color:var(--status-warning);border:1px solid var(--status-warning-border)}
+.badge-critical{background-color:var(--status-danger-bg);color:var(--status-danger);border:1px solid var(--status-danger-border)}
+.progress-bar-wrap{width:44px;height:5px;background-color:#E2E8F0;border-radius:3px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:4px}
+.progress-bar-fill{height:100%;background-color:var(--primary);border-radius:3px;display:block}
+.progress-bar-fill.excellent{background-color:#16A34A}
+.progress-bar-fill.target{background-color:#22C55E}
+.progress-bar-fill.attention{background-color:#EAB308}
+.progress-bar-fill.critical{background-color:#DC2626}
+.chart-container-block{border:1px solid var(--border-color);background-color:#FFFFFF;padding:10px 12px;margin-bottom:12px}
+.chart-header-title{font-size:10.5px;font-weight:800;color:var(--text-main)}
+.chart-header-sub{font-size:8.5px;color:var(--text-muted);margin-bottom:6px}
+.chart-grid-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.observation-callout{background-color:#F8FAFC;border:1px solid var(--border-dark);border-left:3.5px solid var(--primary);padding:8px 12px;font-size:9px;margin-top:8px;margin-bottom:10px}
+.observation-callout strong{color:var(--text-main);font-weight:800}
+.empty{padding:14px;text-align:center;color:var(--text-muted);font-size:10px;border:1px dashed var(--border-dark);border-radius:4px}
+@media print{@page{size:A4 portrait;margin:12mm 12mm 14mm 12mm}html,body{background-color:#fff !important;font-size:9.5pt !important}.document-wrapper{margin:0 !important;max-width:100% !important}.report-page{width:100% !important;min-height:auto !important;box-shadow:none !important;padding:0 !important;margin-bottom:0 !important;break-after:page !important;page-break-after:always !important}.report-page:last-child{break-after:auto !important;page-break-after:auto !important}}
+`;
+
 
 function tone(rate: number | null | undefined): 'ok' | 'warn' | 'bad' {
   if (rate === null || rate === undefined) return 'warn';
@@ -193,46 +254,230 @@ ${rows ? `<table><thead><tr><th style="width:24%">Tenant Name &amp; Contact</th>
   });
 }
 
+/**
+ * Rent Collections Comprehensive Report — renders the supplied Welile
+ * "rent_collections_report" template (A4 pages, 5 KPI cards, per-agent
+ * breakdown with rate bars/status badges, performance-tier distribution).
+ *
+ * Every figure comes from `agent_ops_report_rent_collections`; nothing is
+ * invented. Sections the template filled with sample geography/hourly data are
+ * replaced by tier and contribution views that the real dataset supports.
+ */
 export function buildRentCollectionsReportHtml(r: RentCollectionsReport): string {
   const k = r.kpis;
-  const rows = r.rows
-    .map(
-      (a, i) => `<tr><td class="right">${i + 1}</td><td><strong>${esc(a.full_name || 'Unnamed agent')}</strong></td><td>${esc(a.phone || '—')}</td>
-<td class="right">${num(a.repaying_tenants)}</td><td class="right">${ugx(a.expected)}</td><td class="right">${ugx(a.collected)}</td>
-<td class="right">${pct(a.rate)}</td><td class="right">${num(a.paid_tenants)}</td><td><span class="tag ${tone(a.rate)}">${esc(a.status)}</span></td></tr>`,
-    )
-    .join('');
-  const totals = r.rows.reduce(
+  const generated = new Date().toLocaleString('en-GB');
+  const rows = [...r.rows].sort((a, b) => Number(b.collected || 0) - Number(a.collected || 0));
+
+  const tier = (rate: number | null | undefined) => {
+    const v = rate === null || rate === undefined ? 0 : Number(rate);
+    if (v >= 95) return { cls: 'excellent', label: 'EXCELLENT' };
+    if (v >= 90) return { cls: 'target', label: 'ON TARGET' };
+    if (v >= 80) return { cls: 'attention', label: 'ATTENTION' };
+    return { cls: 'critical', label: 'CRITICAL' };
+  };
+  const rateColor = (rate: number | null | undefined) => {
+    const t = tier(rate).cls;
+    if (t === 'excellent' || t === 'target') return 'var(--status-success)';
+    if (t === 'attention') return 'var(--status-warning)';
+    return 'var(--status-danger)';
+  };
+
+  const totals = rows.reduce(
     (acc, a) => ({
       tenants: acc.tenants + Number(a.repaying_tenants || 0),
       expected: acc.expected + Number(a.expected || 0),
       collected: acc.collected + Number(a.collected || 0),
       paid: acc.paid + Number(a.paid_tenants || 0),
+      payments: acc.payments + Number(a.payments || 0),
     }),
-    { tenants: 0, expected: 0, collected: 0, paid: 0 },
+    { tenants: 0, expected: 0, collected: 0, paid: 0, payments: 0 },
   );
+  const overallRate = totals.expected > 0 ? (totals.collected * 100) / totals.expected : k.collection_rate;
+  const overall = tier(overallRate);
 
-  const body = `
-<div class="section-title">Per-agent collections (daily active repaying tenants)</div>
-${rows ? `<table><thead><tr><th class="right" style="width:4%">#</th><th style="width:20%">Agent Name</th><th style="width:14%">Agent Phone</th><th class="right">Repaying Tenants</th><th class="right">Expected</th><th class="right">Collected</th><th class="right">Rate</th><th class="right">Paid</th><th>Status</th></tr></thead>
-<tbody>${rows}</tbody><tfoot><tr><td colspan="3">Totals · ${r.rows.length} agents</td><td class="right">${num(totals.tenants)}</td><td class="right">${ugx(totals.expected)}</td><td class="right">${ugx(totals.collected)}</td><td class="right">${pct(k.collection_rate)}</td><td class="right">${num(totals.paid)}</td><td>—</td></tr></tfoot></table>`
-    : '<div class="empty">No collections or expectations recorded in this window.</div>'}`;
+  const body = rows
+    .map((a, i) => {
+      const t = tier(a.rate);
+      const fill = Math.max(0, Math.min(100, Number(a.rate ?? 0)));
+      return `<tr>
+<td class="num font-mono" style="color:var(--text-muted);font-weight:700">${i + 1}</td>
+<td><div style="font-weight:700;color:var(--text-main)">${esc(a.full_name || 'Unnamed agent')}</div></td>
+<td style="white-space:nowrap"><div class="font-mono" style="font-size:8.5px;color:var(--text-muted);font-weight:600">${esc(a.phone || '—')}</div></td>
+<td class="right num" style="font-weight:700">${num(a.repaying_tenants)}</td>
+<td class="right num currency">${ugx(a.expected)}</td>
+<td class="right num currency" style="color:${rateColor(a.rate)};font-weight:700">${ugx(a.collected)}</td>
+<td class="right num"><span class="progress-bar-wrap"><span class="progress-bar-fill ${t.cls}" style="width:${fill.toFixed(0)}%"></span></span><span class="pct" style="font-weight:800;color:${rateColor(a.rate)}">${pct(a.rate)}</span></td>
+<td class="right num"><span style="font-weight:700;color:var(--status-success)">${num(a.paid_tenants)}</span><span style="font-size:7.5px;color:var(--text-muted);display:block">(${num(a.payments)} pmts)</span></td>
+<td><span class="doc-badge badge-${t.cls}">${t.label}</span></td>
+</tr>`;
+    })
+    .join('');
 
-  return shell({
-    title: 'Rent Collections Comprehensive Report',
-    subtitle: 'Daily active repaying tenants — expected versus collected per agent',
-    range: r.range,
-    kpis: [
-      { label: 'Total agents', value: num(k.total_agents) },
-      { label: 'Active agents', value: num(k.active_agents) },
-      { label: 'Repaying tenants', value: num(k.repaying_tenants) },
-      { label: 'Expected', value: ugx(k.expected) },
-      { label: 'Collected', value: ugx(k.collected) },
-      { label: 'Collection rate', value: pct(k.collection_rate) },
-    ],
-    body,
+  const tiers = [
+    { key: 'excellent', label: 'Excellent (≥95%)', test: (v: number) => v >= 95 },
+    { key: 'target', label: 'On Target (90–94%)', test: (v: number) => v >= 90 && v < 95 },
+    { key: 'attention', label: 'Attention (80–89%)', test: (v: number) => v >= 80 && v < 90 },
+    { key: 'critical', label: 'Critical (<80%)', test: (v: number) => v < 80 },
+  ].map((t) => {
+    const group = rows.filter((a) => t.test(Number(a.rate ?? 0)));
+    return {
+      ...t,
+      agents: group.length,
+      tenants: group.reduce((s, a) => s + Number(a.repaying_tenants || 0), 0),
+      expected: group.reduce((s, a) => s + Number(a.expected || 0), 0),
+      collected: group.reduce((s, a) => s + Number(a.collected || 0), 0),
+    };
   });
+
+  const tierRows = tiers
+    .map(
+      (t) => `<tr><td><span class="doc-badge badge-${t.key}">${esc(t.label)}</span></td>
+<td class="right num">${num(t.agents)}</td>
+<td class="right num pct">${pct(rows.length > 0 ? (t.agents * 100) / rows.length : null)}</td>
+<td class="right num">${num(t.tenants)}</td>
+<td class="right num currency">${ugx(t.expected)}</td>
+<td class="right num currency">${ugx(t.collected)}</td>
+<td class="right num pct">${pct(t.expected > 0 ? (t.collected * 100) / t.expected : null)}</td></tr>`,
+    )
+    .join('');
+
+  const top = rows.slice(0, 10);
+  const lagging = [...rows]
+    .filter((a) => Number(a.expected || 0) > 0)
+    .sort((a, b) => Number(a.rate ?? 0) - Number(b.rate ?? 0))
+    .slice(0, 10);
+
+  const miniRows = (list: RentCollectionsRow[]) =>
+    list
+      .map(
+        (a) => `<tr><td><strong>${esc(a.full_name || 'Unnamed agent')}</strong><br><span class="font-mono" style="font-size:8px;color:var(--text-muted)">${esc(a.phone || '—')}</span></td>
+<td class="right num">${num(a.repaying_tenants)}</td><td class="right num currency">${ugx(a.expected)}</td>
+<td class="right num currency">${ugx(a.collected)}</td><td class="right num pct" style="color:${rateColor(a.rate)};font-weight:800">${pct(a.rate)}</td>
+<td><span class="doc-badge badge-${tier(a.rate).cls}">${tier(a.rate).label}</span></td></tr>`,
+      )
+      .join('');
+
+  const headerMeta = (extra: string) => `<table class="pdf-header-meta-table">
+<tr><td class="meta-lbl">Date Window:</td><td class="meta-val">${esc(r.range.from)} → ${esc(r.range.to)}</td></tr>
+<tr><td class="meta-lbl">Report Scope:</td><td class="meta-val">Active Repaying Tenants Only</td></tr>
+<tr><td class="meta-lbl">Generated:</td><td class="meta-val font-mono">${esc(generated)}</td></tr>
+${extra}</table>`;
+
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Welile — Rent Collections Comprehensive Report</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>${TEMPLATE_CSS}</style></head><body>
+<main class="document-wrapper">
+
+<article class="report-page">
+  <div class="page-content">
+    <header class="pdf-header">
+      <div class="pdf-header-left">
+        <span class="company-name">WELILE TECHNOLOGIES LIMITED</span>
+        <h1 class="report-title-main">Rent Collections Comprehensive Report</h1>
+        <div class="report-subtitle-main">Daily Active Repaying Tenants Aggregated Collection Performance</div>
+      </div>
+      ${headerMeta('<tr><td class="meta-lbl">Currency:</td><td class="meta-val">UGX</td></tr>')}
+    </header>
+
+    <div class="kpi-grid-5">
+      <div class="kpi-card"><div class="kpi-label">Total Agents</div><div class="kpi-value num">${num(k.total_agents)}</div><div class="kpi-sub">Network base</div></div>
+      <div class="kpi-card primary"><div class="kpi-label">Active Agents</div><div class="kpi-value num">${num(k.active_agents)}</div><div class="kpi-sub">${pct(k.total_agents > 0 ? (k.active_agents * 100) / k.total_agents : null)} of network</div></div>
+      <div class="kpi-card"><div class="kpi-label">Expected</div><div class="kpi-value num currency">${ugx(k.expected)}</div><div class="kpi-sub">${num(k.repaying_tenants)} repaying tenants</div></div>
+      <div class="kpi-card success"><div class="kpi-label">Collected</div><div class="kpi-value num currency">${ugx(k.collected)}</div><div class="kpi-sub">Recovered amount</div></div>
+      <div class="kpi-card ${overall.cls === 'critical' || overall.cls === 'attention' ? 'warning' : 'success'}"><div class="kpi-label">Collection Rate</div><div class="kpi-value num pct">${pct(overallRate)}</div><div class="kpi-sub">Network fulfilment</div></div>
+    </div>
+
+    <div class="section-title"><span>Daily Active Agent Collections Breakdown</span><span style="font-size:8px;font-weight:600;color:var(--text-muted)">Aggregated for the selected date range</span></div>
+    <div class="section-subtitle">Breakdown of daily active repaying tenants per agent. Expected figures come from the daily eligibility snapshots; collected figures from recorded agent collections.</div>
+
+    ${
+      rows.length
+        ? `<table class="report-table">
+<thead><tr>
+<th style="width:4%">#</th><th style="width:20%">Agent Name</th><th style="width:15%">Agent Phone</th>
+<th class="right" style="width:10%">Repaying Tenants</th><th class="right" style="width:14%">Expected (UGX)</th>
+<th class="right" style="width:14%">Collected (UGX)</th><th class="right" style="width:11%">Rate</th>
+<th class="right" style="width:7%">Paid</th><th style="width:7%">Status</th>
+</tr></thead>
+<tbody>${body}</tbody>
+<tfoot><tr class="total-row">
+<td colspan="3">TOTALS (${rows.length} AGENTS LISTED)</td>
+<td class="right num">${num(totals.tenants)}</td>
+<td class="right num currency">${ugx(totals.expected)}</td>
+<td class="right num currency" style="color:var(--status-success)">${ugx(totals.collected)}</td>
+<td class="right num pct" style="color:var(--primary)">${pct(overallRate)}</td>
+<td class="right num" style="color:var(--status-success)">${num(totals.paid)}</td>
+<td><span class="doc-badge badge-${overall.cls}">${overall.label}</span></td>
+</tr></tfoot></table>`
+        : '<div class="empty">No collections or expectations recorded in this window.</div>'
+    }
+
+    <div class="observation-callout avoid-break">
+      <strong>OPERATIONAL COLLECTIONS HIGHLIGHT:</strong> Across <strong>${num(k.active_agents)} active collecting agents</strong> of ${num(k.total_agents)} on the network, ${num(totals.paid)} of ${num(k.repaying_tenants)} daily active repaying tenants paid in this window. Fulfilment reached <strong>${pct(overallRate)}</strong> (${ugx(totals.collected)} collected against ${ugx(totals.expected)} expected), leaving ${ugx(Math.max(totals.expected - totals.collected, 0))} outstanding for the period.
+    </div>
+  </div>
+  <footer class="report-footer"><span>Welile Technologies Limited • Confidential Financial Operations</span><span>Rent Collections Report | Page 1 of 2</span></footer>
+</article>
+
+<article class="report-page">
+  <div class="page-content">
+    <header class="pdf-header">
+      <div class="pdf-header-left">
+        <span class="company-name">WELILE TECHNOLOGIES LIMITED</span>
+        <h1 class="report-title-main">Collections Analytics &amp; Performance Distribution</h1>
+        <div class="report-subtitle-main">Agent fulfilment tiers, leading contributors and lagging accounts</div>
+      </div>
+      ${headerMeta('')}
+    </header>
+
+    <div class="section-title"><span>Agent Performance Tier Distribution</span><span style="font-size:8px;font-weight:600;color:var(--text-muted)">Share of listed agents by fulfilment rate</span></div>
+    <table class="report-table avoid-break">
+      <thead><tr><th>Performance Tier</th><th class="right">Agents</th><th class="right">% Share</th><th class="right">Repaying Tenants</th><th class="right">Expected (UGX)</th><th class="right">Collected (UGX)</th><th class="right">Rate</th></tr></thead>
+      <tbody>${tierRows}
+        <tr class="total-row"><td>TOTAL LISTED</td><td class="right num">${num(rows.length)}</td><td class="right num pct">${rows.length ? '100.0%' : '—'}</td><td class="right num">${num(totals.tenants)}</td><td class="right num currency">${ugx(totals.expected)}</td><td class="right num currency" style="color:var(--status-success)">${ugx(totals.collected)}</td><td class="right num pct" style="color:var(--primary)">${pct(overallRate)}</td></tr>
+      </tbody>
+    </table>
+
+    <div class="chart-grid-2col avoid-break">
+      <div class="chart-container-block">
+        <div class="chart-header-title">Leading Contributors</div>
+        <div class="chart-header-sub">Highest collected amounts in the window.</div>
+        ${top.length ? `<table class="report-table" style="margin-bottom:0;font-size:8px"><thead><tr><th>Agent</th><th class="right">Tenants</th><th class="right">Expected</th><th class="right">Collected</th><th class="right">Rate</th><th>Status</th></tr></thead><tbody>${miniRows(top)}</tbody></table>` : '<div class="empty">No data.</div>'}
+      </div>
+      <div class="chart-container-block">
+        <div class="chart-header-title">Lagging Accounts</div>
+        <div class="chart-header-sub">Lowest fulfilment rates among agents with an expectation.</div>
+        ${lagging.length ? `<table class="report-table" style="margin-bottom:0;font-size:8px"><thead><tr><th>Agent</th><th class="right">Tenants</th><th class="right">Expected</th><th class="right">Collected</th><th class="right">Rate</th><th>Status</th></tr></thead><tbody>${miniRows(lagging)}</tbody></table>` : '<div class="empty">No data.</div>'}
+      </div>
+    </div>
+
+    <div class="avoid-break" style="margin-top:14px;border:1px solid var(--border-color);padding:10px 14px;background-color:var(--bg-header)">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:8.5px">
+        <div>
+          <div style="font-weight:800;text-transform:uppercase;color:var(--text-muted);margin-bottom:2px">RECONCILIATION SUMMARY</div>
+          <p>${num(totals.payments)} collection entries recorded across ${num(rows.length)} agents in this window, totalling ${ugx(totals.collected)} against ${ugx(totals.expected)} expected from daily active repaying tenants.</p>
+          <div style="margin-top:8px;border-top:1px dashed var(--border-dark);padding-top:3px;font-weight:700">Chief Operating Officer • Welile Technologies</div>
+        </div>
+        <div>
+          <div style="font-weight:800;text-transform:uppercase;color:var(--text-muted);margin-bottom:2px">NEXT ACTION ITEM</div>
+          <p>${
+            tiers[3].agents > 0
+              ? `Follow up ${num(tiers[3].agents)} agent(s) below the 80% threshold, carrying ${ugx(Math.max(tiers[3].expected - tiers[3].collected, 0))} of uncollected daily expectation.`
+              : 'No agent is below the 80% threshold in this window; maintain current follow-up cadence.'
+          }</p>
+          <div style="margin-top:8px;border-top:1px dashed var(--border-dark);padding-top:3px;font-weight:700">Head of Credit &amp; Collections</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <footer class="report-footer"><span>Welile Technologies Limited • Confidential Financial Operations</span><span>Rent Collections Report | Page 2 of 2</span></footer>
+</article>
+
+</main></body></html>`;
 }
+
 
 export function buildProductsReportHtml(r: ProductsReport): string {
   const k = r.kpis;
