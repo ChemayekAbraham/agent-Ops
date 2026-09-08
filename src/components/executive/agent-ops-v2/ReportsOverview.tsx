@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CalendarRange, Download, FileBarChart, Info, Loader2, Search } from 'lucide-react';
+import { CalendarRange, Download, Eye, FileBarChart, Info, Loader2, Search, Table as TableIcon } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,8 +30,9 @@ import {
   buildProductsReportHtml,
   buildRentCollectionsReportHtml,
   buildTeamCollectionsReportHtml,
-  printReportHtml,
 } from '@/lib/agentOpsOverviewReportHtml';
+import { downloadReportPdf } from '@/lib/renderReportPdf';
+import ReportHtmlPreview from './ReportHtmlPreview';
 
 /**
  * Reports → Overview.
@@ -201,6 +202,8 @@ export function ReportsOverview() {
   const [agentId, setAgentId] = useState<string | null>(null);
   const [teamSearch, setTeamSearch] = useState('');
   const [teamId, setTeamId] = useState<string | null>(null);
+  const [view, setView] = useState<'preview' | 'data'>('preview');
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   const rangeReady = Boolean(from && to && from <= to);
   const range: ReportRange | null = rangeReady ? { from, to } : null;
@@ -215,24 +218,38 @@ export function ReportsOverview() {
   const advancesReport = useAdvancesReport(reportType === 'advances' ? range : null);
   const teamReport = useTeamCollectionsReport(reportType === 'team-collections' ? teamId : null, range);
 
-  const pdfReady =
-    (reportType === 'agent' && Boolean(agentReport.data)) ||
-    (reportType === 'rent-collections' && Boolean(rentReport.data)) ||
-    (reportType === 'products-services' && Boolean(productsReport.data)) ||
-    (reportType === 'advances' && Boolean(advancesReport.data)) ||
-    (reportType === 'team-collections' && Boolean(teamReport.data));
-
-  const downloadPdf = () => {
+  /**
+   * The document itself — one HTML build per report, used for both the iframe
+   * preview and the PDF, so what is previewed is exactly what downloads.
+   */
+  const doc = useMemo<{ html: string; file: string } | null>(() => {
     if (reportType === 'agent' && agentReport.data) {
-      printReportHtml(buildAgentReportHtml(agentReport.data), `Welile-Agent-Report-${from}_${to}`);
-    } else if (reportType === 'rent-collections' && rentReport.data) {
-      printReportHtml(buildRentCollectionsReportHtml(rentReport.data), `Welile-Rent-Collections-${from}_${to}`);
-    } else if (reportType === 'products-services' && productsReport.data) {
-      printReportHtml(buildProductsReportHtml(productsReport.data), `Welile-Products-Services-${from}_${to}`);
-    } else if (reportType === 'advances' && advancesReport.data) {
-      printReportHtml(buildAdvancesReportHtml(advancesReport.data), `Welile-Agent-Advances-${from}_${to}`);
-    } else if (reportType === 'team-collections' && teamReport.data) {
-      printReportHtml(buildTeamCollectionsReportHtml(teamReport.data), `Welile-Team-Collections-${from}_${to}`);
+      return { html: buildAgentReportHtml(agentReport.data), file: `Welile-Agent-Report-${from}_${to}` };
+    }
+    if (reportType === 'rent-collections' && rentReport.data) {
+      return { html: buildRentCollectionsReportHtml(rentReport.data), file: `Welile-Rent-Collections-${from}_${to}` };
+    }
+    if (reportType === 'products-services' && productsReport.data) {
+      return { html: buildProductsReportHtml(productsReport.data), file: `Welile-Products-Services-${from}_${to}` };
+    }
+    if (reportType === 'advances' && advancesReport.data) {
+      return { html: buildAdvancesReportHtml(advancesReport.data), file: `Welile-Agent-Advances-${from}_${to}` };
+    }
+    if (reportType === 'team-collections' && teamReport.data) {
+      return { html: buildTeamCollectionsReportHtml(teamReport.data), file: `Welile-Team-Collections-${from}_${to}` };
+    }
+    return null;
+  }, [reportType, agentReport.data, rentReport.data, productsReport.data, advancesReport.data, teamReport.data, from, to]);
+
+  const pdfReady = Boolean(doc);
+
+  const downloadPdf = async () => {
+    if (!doc || pdfBusy) return;
+    setPdfBusy(true);
+    try {
+      await downloadReportPdf(doc.html, doc.file);
+    } finally {
+      setPdfBusy(false);
     }
   };
 
@@ -245,6 +262,43 @@ export function ReportsOverview() {
       : reportType === 'team-collections' ? teamReport
       : null;
     return q?.error as Error | null | undefined;
+  };
+
+  /** The agent / team chooser, also shown above the preview so it stays usable. */
+  const picker = () => {
+    if (reportType === 'agent') {
+      return (
+        <EntityPicker
+          label="Agent"
+          placeholder="Search agent by name or phone…"
+          query={agentSearch}
+          onQuery={setAgentSearch}
+          loading={agents.isLoading}
+          options={(agents.data ?? []).map((a) => ({
+            id: a.agent_id, name: a.full_name || 'Unnamed agent', phone: a.phone, meta: `${a.tenants} tenants`,
+          }))}
+          selectedId={agentId}
+          onSelect={setAgentId}
+        />
+      );
+    }
+    if (reportType === 'team-collections') {
+      return (
+        <EntityPicker
+          label="Team"
+          placeholder="Search team leader by name or phone…"
+          query={teamSearch}
+          onQuery={setTeamSearch}
+          loading={teams.isLoading}
+          options={(teams.data ?? []).map((t) => ({
+            id: t.parent_agent_id, name: t.full_name || 'Unnamed leader', phone: t.phone, meta: `${t.members} members`,
+          }))}
+          selectedId={teamId}
+          onSelect={setTeamId}
+        />
+      );
+    }
+    return null;
   };
 
   const body = () => {
@@ -649,14 +703,35 @@ export function ReportsOverview() {
         </Card>
       ) : (
         <Card>
-          <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
+          <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <CardTitle className="text-sm">{active?.label} report</CardTitle>
               <p className="mt-0.5 text-[11px] text-muted-foreground">{rangeLabel}</p>
             </div>
-            <Button size="sm" variant="outline" disabled={!pdfReady} onClick={downloadPdf} className={cn('shrink-0 gap-1.5')}>
-              <Download className="h-3.5 w-3.5" /> PDF
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex rounded-md border border-border p-0.5">
+                <Button
+                  size="sm"
+                  variant={view === 'preview' ? 'default' : 'ghost'}
+                  className="h-7 gap-1.5 px-2.5 text-xs"
+                  onClick={() => setView('preview')}
+                >
+                  <Eye className="h-3.5 w-3.5" /> Preview
+                </Button>
+                <Button
+                  size="sm"
+                  variant={view === 'data' ? 'default' : 'ghost'}
+                  className="h-7 gap-1.5 px-2.5 text-xs"
+                  onClick={() => setView('data')}
+                >
+                  <TableIcon className="h-3.5 w-3.5" /> Data
+                </Button>
+              </div>
+              <Button size="sm" variant="outline" disabled={!pdfReady || pdfBusy} onClick={downloadPdf} className={cn('shrink-0 gap-1.5')}>
+                {pdfBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                {pdfBusy ? 'Building PDF…' : 'PDF'}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {err && (
@@ -664,7 +739,31 @@ export function ReportsOverview() {
                 Could not load this report: {err.message}
               </p>
             )}
-            {body()}
+            {view === 'preview' ? (
+              <div className="space-y-4">
+                {picker()}
+                {doc ? (
+                  <>
+                    <ReportHtmlPreview html={doc.html} title={`${active?.label} report preview`} />
+                    <p className="text-[11px] text-muted-foreground">
+                      This is the exact document the PDF is generated from.
+                    </p>
+                  </>
+                ) : (reportType === 'agent' && !agentId) || (reportType === 'team-collections' && !teamId) ? (
+                  <p className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+                    {reportType === 'agent'
+                      ? 'Select an agent to load their rent repayment history.'
+                      : 'Select a team leader to load their sub-agent collections.'}
+                  </p>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 py-10 text-xs text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Preparing the report…
+                  </div>
+                )}
+              </div>
+            ) : (
+              body()
+            )}
           </CardContent>
         </Card>
       )}
