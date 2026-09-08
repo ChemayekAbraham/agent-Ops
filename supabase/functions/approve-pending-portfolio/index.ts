@@ -121,21 +121,18 @@ Deno.serve(async (req) => {
 
     if (!existingDebit && !fundedFromFloatByRpc) {
 
-      // Strict balance check via the single source of truth.
-      // IMPORTANT: `get_user_available_balance` subtracts `funder_pending_hold`,
-      // which holds back the amount of every *pending* funder_pending_portfolios
-      // row that has no wallet debit yet — including THIS portfolio. Left as-is
-      // the portfolio's own hold makes its own approval look unfunded (avail 0
-      // against a fully funded wallet), so the caller only ever saw a non-2xx
-      // "insufficient balance". Add this portfolio's own hold back before
+      // Funding source = OPERATIONAL FLOAT (never withdrawable).
+      // `funder_float_available` subtracts `funder_pending_hold`, which holds
+      // back every *pending* funder_pending_portfolios row without a wallet
+      // debit yet — including THIS portfolio. Add its own hold back before
       // comparing; every other pending commitment stays held.
-      const { data: strictAvailRaw, error: availErr } = await admin.rpc(
-        "get_user_available_balance",
+      const { data: floatAvailRaw, error: availErr } = await admin.rpc(
+        "funder_float_available",
         { p_user_id: partnerId },
       );
       if (availErr) {
-        console.error("[approve-pending-portfolio] strict balance lookup failed:", availErr);
-        return json({ error: "Could not verify partner wallet balance. Please retry." }, 500);
+        console.error("[approve-pending-portfolio] float balance lookup failed:", availErr);
+        return json({ error: "Could not verify partner operational float. Please retry." }, 500);
       }
       const { data: ownHoldRow } = await admin
         .from("funder_pending_portfolios")
@@ -145,10 +142,10 @@ Deno.serve(async (req) => {
         .eq("status", "pending")
         .maybeSingle();
       const ownHold = Number(ownHoldRow?.amount ?? 0);
-      const strictAvail = Number(strictAvailRaw ?? 0) + ownHold;
-      if (strictAvail < amount) {
+      const floatAvail = Number(floatAvailRaw ?? 0) + ownHold;
+      if (floatAvail < amount) {
         return json({
-          error: `Insufficient partner wallet balance. Need UGX ${amount.toLocaleString()}, but only UGX ${strictAvail.toLocaleString()} is available. Top up the partner wallet before approving.`,
+          error: `Insufficient partner operational float. Need UGX ${amount.toLocaleString()}, but only UGX ${floatAvail.toLocaleString()} of float is available. Fund the partner's operational float before approving.`,
         }, 400);
       }
 
@@ -162,13 +159,15 @@ Deno.serve(async (req) => {
             direction: "cash_out",
             category: "partner_funding",
             ledger_scope: "wallet",
-            recipient_type: "user",
-            description: `Wallet deduction for portfolio ${portfolioCode}`,
+            recipient_type: "operational_wallet",
+            wallet_bucket: "float",
+            description: `Operational float deployed to portfolio ${portfolioCode} (float_usage=partner_portfolio_funding)`,
             source_table: "investor_portfolios",
             source_id: portfolioId,
             reference_id: portfolioCode,
             linked_party: "platform",
           },
+
           {
             amount,
             direction: "cash_in",

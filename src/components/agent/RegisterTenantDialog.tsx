@@ -7,6 +7,7 @@ import {
   type PersonNameParts,
 } from '@/lib/authValidation';
 import { Lc1VillagePicker } from '@/components/location/Lc1VillagePicker';
+import type { UgLocationSelection } from '@/hooks/useUgLocations';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GuarantorConsentCheckbox } from '@/components/agent/GuarantorConsentCheckbox';
 import { supabase } from '@/integrations/supabase/client';
@@ -118,6 +119,8 @@ export default function RegisterTenantDialog({ open, onOpenChange, onSuccess }: 
   const setLc1Name = (next: string) => setLc1NameParts(splitPersonName(next));
   const [lc1Phone, setLc1Phone] = useState('');
   const [lc1Village, setLc1Village] = useState('');
+  /** Official dataset pick behind the LC1 village — sent so the row is linked. */
+  const [lc1VillageSel, setLc1VillageSel] = useState<UgLocationSelection | null>(null);
   const [guarantorConsent, setGuarantorConsent] = useState(false);
 
   const agentCommission = monthlyRent ? Math.round(parseInt(monthlyRent) * 0.02) : 0;
@@ -137,6 +140,7 @@ export default function RegisterTenantDialog({ open, onOpenChange, onSuccess }: 
     setLc1Name('');
     setLc1Phone('');
     setLc1Village('');
+    setLc1VillageSel(null);
     setGuarantorConsent(false);
     setSuccess(false);
     setCreatedRentRequestId(null);
@@ -343,6 +347,13 @@ export default function RegisterTenantDialog({ open, onOpenChange, onSuccess }: 
                 name: lc1Name.trim(),
                 phone: lc1Phone.trim(),
                 village: lc1Village.trim(),
+                // Approved dataset link + derived chain, when picked officially.
+                village_id: lc1VillageSel?.villageId ?? null,
+                region: lc1VillageSel?.region ?? null,
+                district: lc1VillageSel?.district ?? null,
+                county: lc1VillageSel?.county ?? null,
+                sub_county: lc1VillageSel?.subcounty ?? null,
+                parish: lc1VillageSel?.parish ?? null,
               }
             : null,
           rent_request: {
@@ -921,7 +932,10 @@ export default function RegisterTenantDialog({ open, onOpenChange, onSuccess }: 
                   <Lc1VillagePicker
                     className="space-y-1"
                     value={lc1Village}
-                    onChange={(name) => setLc1Village(name)}
+                    onChange={(name, sel) => {
+                      setLc1Village(name);
+                      setLc1VillageSel(sel);
+                    }}
                   />
                 </div>
               </div>

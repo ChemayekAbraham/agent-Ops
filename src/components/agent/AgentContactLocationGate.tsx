@@ -16,20 +16,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, MapPin, Crosshair, Check, ChevronsUpDown } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import { cn } from "@/lib/utils";
+import { Loader2, MapPin, Crosshair } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { UGANDA_DISTRICTS } from "@/lib/ugandaDistricts";
+import { UgLocationPicker } from "@/components/location/UgLocationPicker";
+import { ugLocationLabel, type UgLocationSelection } from "@/hooks/useUgLocations";
 
 const CONTINENTS = [
   "Africa", "Asia", "Europe", "North America", "South America", "Oceania",
@@ -87,6 +78,8 @@ export default function AgentContactLocationGate({
   const [parish, setParish] = useState("");
   const [village, setVillage] = useState("");
   const [landmark, setLandmark] = useState("");
+  /** Official Uganda dataset pick — authoritative for Ugandan contacts. */
+  const [ugLoc, setUgLoc] = useState<UgLocationSelection | null>(null);
 
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
@@ -125,35 +118,51 @@ export default function AgentContactLocationGate({
   };
 
   // GPS is optional — agents can save address-only and still earn the bonus.
-  const ready = !!resolvedCountry && (!isUganda || !!district);
+  const ready = !!resolvedCountry && (!isUganda || !!ugLoc);
 
   const handleSubmit = async () => {
     if (!ready) {
-      toast.error(isUganda ? "Pick a country and district first" : "Pick a country first");
+      toast.error(
+        isUganda
+          ? "Pick the official village from the approved list first"
+          : "Pick a country first",
+      );
       return;
     }
     setSubmitting(true);
     try {
-      const { data, error } = await supabase.rpc(
-        "agent_capture_contact_location",
-        {
-          p_target_id: targetId,
-          p_target_role: targetRole,
-          p_address: {
+      // For Uganda the server derives the whole administrative chain from the
+      // official village id, so only the extras are sent as text.
+      const address = isUganda
+        ? {
+            continent: "Africa",
+            country: "Uganda",
+            city: city.trim(),
+            town: town.trim(),
+          }
+        : {
             continent,
             country: resolvedCountry,
             region: region.trim(),
-            district: isUganda ? district : district.trim(),
+            district: district.trim(),
             city: city.trim(),
             town: town.trim(),
             sub_county: subCounty.trim(),
             parish: parish.trim(),
             village: village.trim(),
-          },
+          };
+
+      const { data, error } = await supabase.rpc(
+        "agent_capture_contact_location",
+        {
+          p_target_id: targetId,
+          p_target_role: targetRole,
+          p_address: address,
           p_latitude: lat ?? undefined,
           p_longitude: lng ?? undefined,
           p_accuracy: accuracy ?? undefined,
           p_landmark: landmark.trim() || undefined,
+          p_village_id: isUganda && ugLoc ? ugLoc.villageId : undefined,
         } as any,
       );
       if (error) throw error;
@@ -235,24 +244,25 @@ export default function AgentContactLocationGate({
 
           {isUganda ? (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Region</Label>
-                  <Input value={region} onChange={(e) => setRegion(e.target.value)} placeholder="e.g. Central" maxLength={60} />
+              {/* Approved Uganda dataset — district → county → sub-county →
+                  parish → village all derived from one official pick. */}
+              <UgLocationPicker
+                value={ugLoc}
+                onChange={setUgLoc}
+                label="Official location"
+                required
+              />
+              {ugLoc && (
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+                    Will be saved as
+                  </p>
+                  <p className="mt-1 text-sm font-medium break-words">{ugLocationLabel(ugLoc)}</p>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>District <span className="text-destructive">*</span></Label>
-                  <DistrictCombobox value={district} onChange={setDistrict} />
-                </div>
-              </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5"><Label>City</Label><Input value={city} onChange={(e)=>setCity(e.target.value)} maxLength={60} /></div>
-                <div className="space-y-1.5"><Label>Town</Label><Input value={town} onChange={(e)=>setTown(e.target.value)} maxLength={60} /></div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="space-y-1.5"><Label>Ward</Label><Input value={subCounty} onChange={(e)=>setSubCounty(e.target.value)} maxLength={60} /></div>
-                <div className="space-y-1.5"><Label>Cell</Label><Input value={parish} onChange={(e)=>setParish(e.target.value)} maxLength={60} /></div>
-                <div className="space-y-1.5"><Label>Village</Label><Input value={village} onChange={(e)=>setVillage(e.target.value)} maxLength={60} /></div>
+                <div className="space-y-1.5"><Label>City (optional)</Label><Input value={city} onChange={(e)=>setCity(e.target.value)} maxLength={60} /></div>
+                <div className="space-y-1.5"><Label>Town (optional)</Label><Input value={town} onChange={(e)=>setTown(e.target.value)} maxLength={60} /></div>
               </div>
             </>
           ) : (
@@ -288,67 +298,5 @@ export default function AgentContactLocationGate({
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function DistrictCombobox({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={cn(
-            "w-full justify-between font-normal",
-            !value && "text-muted-foreground",
-          )}
-        >
-          {value || "Select district"}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-[--radix-popover-trigger-width] p-0 z-[200]"
-        align="start"
-      >
-        <Command>
-          <CommandInput placeholder="Search district…" />
-          <CommandList className="max-h-64">
-            <CommandEmpty>No district found.</CommandEmpty>
-            <CommandGroup>
-              {UGANDA_DISTRICTS.map((d) => (
-                <CommandItem
-                  key={d}
-                  value={d}
-                  onSelect={(v) => {
-                    onChange(v);
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value.toLowerCase() === d.toLowerCase()
-                        ? "opacity-100"
-                        : "opacity-0",
-                    )}
-                  />
-                  {d}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
   );
 }

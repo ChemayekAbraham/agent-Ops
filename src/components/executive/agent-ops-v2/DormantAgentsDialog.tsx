@@ -70,16 +70,18 @@ export function DormantAgentsDialog({
   onOpenChange: (v: boolean) => void;
 }) {
   const [silentDays, setSilentDays] = useState(7);
+  const [mode, setMode] = useState<'silent' | 'not_scheduled'>('silent');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const { data, isPending, error } = useQuery({
-    queryKey: ['agent-ops-dormant-agents', asOf, silentDays],
+    queryKey: ['agent-ops-dormant-agents', asOf, silentDays, mode],
     enabled: open,
     staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('agent_ops_dormant_agents_arrears' as any, {
         p_silent_days: silentDays,
         p_as_of: asOf,
+        p_mode: mode,
       });
       if (error) throw new Error(error.message);
       return data as unknown as DormantResponse;
@@ -95,28 +97,63 @@ export function DormantAgentsDialog({
         <DialogHeader>
           <DialogTitle>Agents gone quiet with money owed</DialogTitle>
           <DialogDescription>
-            As at {data?.as_of ?? asOf} · East Africa Time · no collection recorded for{' '}
-            {data?.silent_days ?? silentDays} days or more
+            {mode === 'not_scheduled' ? (
+              <>
+                As at {data?.as_of ?? asOf} · East Africa Time · tenants in arrears whose agent has
+                no instalment falling due today
+              </>
+            ) : (
+              <>
+                As at {data?.as_of ?? asOf} · East Africa Time · no collection recorded for{' '}
+                {data?.silent_days ?? silentDays} days or more
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 
         <div className="max-h-[85vh] overflow-y-auto space-y-3 pr-1">
           <div className="flex flex-wrap items-center gap-2">
-            {[7, 14, 30].map((d) => (
-              <Button
-                key={d}
-                size="sm"
-                className="h-8 text-xs"
-                variant={silentDays === d ? 'default' : 'outline'}
-                onClick={() => setSilentDays(d)}
-              >
-                {d}+ days
-              </Button>
-            ))}
+            <Button
+              size="sm"
+              className="h-8 text-xs min-h-11 sm:min-h-8"
+              variant={mode === 'silent' ? 'default' : 'outline'}
+              onClick={() => setMode('silent')}
+            >
+              Gone quiet
+            </Button>
+            <Button
+              size="sm"
+              className="h-8 text-xs min-h-11 sm:min-h-8"
+              variant={mode === 'not_scheduled' ? 'default' : 'outline'}
+              onClick={() => setMode('not_scheduled')}
+            >
+              Not on today's schedule
+            </Button>
+          </div>
+
+          <p className="text-[11px] text-muted-foreground">
+            {mode === 'not_scheduled'
+              ? 'Agents holding tenants in arrears who have nothing scheduled today, so they do not appear anywhere in the schedule above. These balances are invisible in the daily view.'
+              : 'Agents who have recorded no collection for the selected number of days, while still holding tenants in arrears.'}
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {mode === 'silent' &&
+              [7, 14, 30].map((d) => (
+                <Button
+                  key={d}
+                  size="sm"
+                  className="h-8 text-xs"
+                  variant={silentDays === d ? 'default' : 'outline'}
+                  onClick={() => setSilentDays(d)}
+                >
+                  {d}+ days
+                </Button>
+              ))}
             <Button
               size="sm"
               variant="outline"
-              className="h-8 text-xs ml-auto"
+              className="h-8 text-xs ml-auto min-h-11"
               disabled={isPending || agents.length === 0}
               onClick={() => data && downloadDormantAgentsPdf(data as DormantAgentsReport)}
             >
@@ -180,7 +217,7 @@ export function DormantAgentsDialog({
                         onClick={() =>
                           setExpanded((prev) => ({ ...prev, [a.agent_id]: !prev[a.agent_id] }))
                         }
-                        className="w-full flex items-start justify-between gap-3 p-3 text-left"
+                        className="w-full flex items-start justify-between gap-3 p-3 text-left min-h-11"
                       >
                         <div className="flex items-start gap-2 min-w-0">
                           <ChevronDown

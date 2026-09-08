@@ -14,6 +14,7 @@ import {
 import { ArrowDownUp, ArrowDownLeft, ArrowLeft, ArrowLeftRight, ArrowUpRight, ChevronDown, ChevronRight, Loader2, Search, ExternalLink, History } from 'lucide-react';
 
 import { formatUGX } from '@/lib/rentCalculations';
+import { batchedQuery } from '@/lib/supabaseBatchUtils';
 import { WalletBucketLedgerDetail } from './WalletBucketLedgerDetail';
 import { LandlordFloatAllocationsDetail } from './LandlordFloatAllocationsDetail';
 import { CompanyFloatDisbursementHistoryDialog } from './CompanyFloatDisbursementHistoryDialog';
@@ -118,12 +119,13 @@ async function loadHolders(bucket: HolderBucket, searchQuery: string): Promise<H
     if (q) {
       const ids = await resolveSearchIds(q);
       if (ids.length === 0) return [];
-      const [{ data: rows, error }, pmap] = await Promise.all([
-        supabase.from('wallets').select('user_id, withdrawable_balance').in('user_id', ids),
+      const [rows, pmap] = await Promise.all([
+        batchedQuery<{ user_id: string; withdrawable_balance: number }>(ids, (batch) =>
+          supabase.from('wallets').select('user_id, withdrawable_balance').in('user_id', batch),
+        ),
         fetchProfiles(ids),
       ]);
-      if (error) throw error;
-      const wmap = new Map((rows ?? []).map((r) => [r.user_id, r]));
+      const wmap = new Map(rows.map((r) => [r.user_id, r]));
       return ids.map((id) => {
         const p = pmap.get(id);
         return {
@@ -163,12 +165,13 @@ async function loadHolders(bucket: HolderBucket, searchQuery: string): Promise<H
     if (q) {
       const ids = (await resolveSearchIds(q)).filter((id) => !merchantAgentIds.has(id));
       if (ids.length === 0) return [];
-      const [{ data: rows, error }, pmap] = await Promise.all([
-        supabase.from('wallets').select('user_id, float_balance').in('user_id', ids),
+      const [rows, pmap] = await Promise.all([
+        batchedQuery<{ user_id: string; float_balance: number }>(ids, (batch) =>
+          supabase.from('wallets').select('user_id, float_balance').in('user_id', batch),
+        ),
         fetchProfiles(ids),
       ]);
-      if (error) throw error;
-      const wmap = new Map((rows ?? []).map((r) => [r.user_id, r]));
+      const wmap = new Map(rows.map((r) => [r.user_id, r]));
       return ids.map((id) => {
         const p = pmap.get(id);
         return {
@@ -207,15 +210,23 @@ async function loadHolders(bucket: HolderBucket, searchQuery: string): Promise<H
     if (q) {
       const ids = await resolveSearchIds(q);
       if (ids.length === 0) return [];
-      const [{ data: rows, error }, pmap] = await Promise.all([
-        supabase
-          .from('agent_landlord_float')
-          .select('id, agent_id, balance, region, total_funded, total_paid_out')
-          .in('agent_id', ids),
+      const [rows, pmap] = await Promise.all([
+        batchedQuery<{
+          id: string;
+          agent_id: string;
+          balance: number;
+          region: string | null;
+          total_funded: number;
+          total_paid_out: number;
+        }>(ids, (batch) =>
+          supabase
+            .from('agent_landlord_float')
+            .select('id, agent_id, balance, region, total_funded, total_paid_out')
+            .in('agent_id', batch),
+        ),
         fetchProfiles(ids),
       ]);
-      if (error) throw error;
-      const fmap = new Map((rows ?? []).map((r) => [r.agent_id, r]));
+      const fmap = new Map(rows.map((r) => [r.agent_id, r]));
       return ids.map((id) => {
         const p = pmap.get(id);
         const f = fmap.get(id);

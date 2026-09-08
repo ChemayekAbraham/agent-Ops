@@ -377,6 +377,22 @@ Deno.serve(async (req) => {
           .maybeSingle();
         if (existingLc1) {
           lc1Id = existingLc1.id;
+          // Reused row: attach the official village link if it is still missing.
+          if (lc1Payload.village_id) {
+            await supabaseAdmin
+              .from('lc1_chairpersons')
+              .update({
+                village,
+                ug_village_id: lc1Payload.village_id,
+                region: lc1Payload.region ?? null,
+                district: lc1Payload.district ?? null,
+                county: lc1Payload.county ?? null,
+                sub_county: lc1Payload.sub_county ?? null,
+                parish: lc1Payload.parish ?? null,
+              })
+              .eq('id', existingLc1.id)
+              .is('ug_village_id', null);
+          }
         } else {
           const { data: newLc1, error: lc1Err } = await supabaseAdmin
             .from('lc1_chairpersons')
@@ -384,6 +400,13 @@ Deno.serve(async (req) => {
               name: String(lc1Payload.name).trim(),
               phone,
               village,
+              // Approved Uganda dataset link + derived chain (null for legacy typed input).
+              ug_village_id: lc1Payload.village_id ?? null,
+              region: lc1Payload.region ?? null,
+              district: lc1Payload.district ?? null,
+              county: lc1Payload.county ?? null,
+              sub_county: lc1Payload.sub_county ?? null,
+              parish: lc1Payload.parish ?? null,
             })
             .select('id')
             .single();

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -39,6 +40,13 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserDrilldownDrawer } from '@/components/ops/UserDrilldownDrawer';
 import { AgentPaymentPosition } from './AgentPaymentPosition';
+import {
+  describePlanSchedule,
+  scheduleAwareStatus,
+  type AgentScheduleStatus,
+  type PlanSchedule,
+} from '@/lib/agentMonitoringSchedule';
+
 
 interface ActiveRentRequest {
   id: string;
@@ -53,6 +61,8 @@ interface ActiveRentRequest {
   house_category: string | null;
   landlord_name?: string | null;
   property_address?: string | null;
+  repayment_frequency: string | null;
+  repayment_starts_on: string | null;
 }
 
 interface Profile {
@@ -75,11 +85,23 @@ interface AgentRow {
   name: string;
   phone: string | null;
   tenantCount: number;
+  /** UGX genuinely due on the selected day, per each tenant's own schedule. */
   expected: number;
   collected: number;
   requestCount: number;
   tenants: ActiveRentRequest[];
+  /** Tenants whose schedule places an obligation on the selected day. */
+  dueCount: number;
+  /** Due tenants already settled by earlier over-payment. */
+  coveredAheadCount: number;
+  dailyCount: number;
+  weeklyCount: number;
+  /** Total UGX owed for periods already due across the portfolio. */
+  arrears: number;
+  behindCount: number;
+  aheadCount: number;
 }
+
 
 const PAGE_SIZE = 1000;
 
@@ -104,39 +126,106 @@ function dayBounds(day: Date) {
   return { from: from.toISOString(), to: to.toISOString() };
 }
 
-function collectionStatus(expected: number, collected: number) {
-  if (expected > 0 && collected >= expected) return 'full' as const;
-  if (collected > 0) return 'partial' as const;
-  return 'critical' as const;
-}
+type CollectionStatus = AgentScheduleStatus;
 
-type CollectionStatus = ReturnType<typeof collectionStatus>;
+const collectionStatus = scheduleAwareStatus;
+
+const STATUS_LABEL: Record<CollectionStatus, string> = {
+  full: 'On target',
+  partial: 'Partial',
+  critical: 'Critical',
+  none: 'Nothing due',
+};
 
 function StatusIndicator({ status }: { status: CollectionStatus }) {
+  if (status === 'none') {
+    return (
+      <Badge variant="outline" className="gap-1 text-muted-foreground">
+        <CircleDot className="h-3 w-3" /> {STATUS_LABEL.none}
+      </Badge>
+    );
+  }
   if (status === 'full') {
     return (
       <Badge className="gap-1 bg-success text-success-foreground hover:bg-success/90">
-        <CircleCheck className="h-3 w-3" /> Full
+        <CircleCheck className="h-3 w-3" /> {STATUS_LABEL.full}
       </Badge>
     );
   }
   if (status === 'partial') {
     return (
       <Badge className="gap-1 bg-warning text-warning-foreground hover:bg-warning/90">
-        <CircleDot className="h-3 w-3" /> Partial
+        <CircleDot className="h-3 w-3" /> {STATUS_LABEL.partial}
       </Badge>
     );
   }
   return (
     <Badge variant="destructive" className="gap-1">
-      <CircleAlert className="h-3 w-3" /> Critical
+      <CircleAlert className="h-3 w-3" /> {STATUS_LABEL.critical}
     </Badge>
   );
 }
 
+
 function formatStatus(status: string) {
   return status.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
+
+function FrequencyTag({ schedule }: { schedule: PlanSchedule }) {
+  const weekly = schedule.weekly;
+  return (
+    <div className="flex flex-col gap-0.5">
+      <Badge
+        variant="outline"
+        className={cn(
+          'w-fit gap-1 px-1.5 py-0 text-[10px] font-medium uppercase tracking-wide',
+          weekly ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-blue-300 bg-blue-50 text-blue-700',
+        )}
+      >
+        {weekly ? <CalendarDays className="h-3 w-3" /> : <CircleDot className="h-3 w-3" />}
+        {weekly ? 'Weekly' : 'Daily'}
+      </Badge>
+      {weekly && schedule.nextDueDate && (
+        <span className="text-[10px] text-muted-foreground">
+          Next: {format(new Date(`${schedule.nextDueDate}T00:00:00`), 'dd MMM yyyy')}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Small pill describing a tenant's position against their own schedule. */
+function SchedulePositionTag({ schedule }: { schedule: PlanSchedule }) {
+  const unit = schedule.unit;
+  if (schedule.arrears > 0) {
+    const behind = schedule.periodsBehind;
+    return (
+      <Badge variant="outline" className="w-fit gap-1 border-destructive/40 bg-destructive/10 px-1.5 py-0 text-[10px] font-medium text-destructive">
+        {formatUGX(schedule.arrears)} behind{behind > 0 ? ` · ${behind} ${unit}${behind === 1 ? '' : 's'}` : ''}
+      </Badge>
+    );
+  }
+  if (schedule.periodsAhead > 0) {
+    return (
+      <Badge variant="outline" className="w-fit gap-1 border-success/40 bg-success/10 px-1.5 py-0 text-[10px] font-medium text-success">
+        {schedule.periodsAhead} {unit}{schedule.periodsAhead === 1 ? '' : 's'} paid ahead
+      </Badge>
+    );
+  }
+  if (!schedule.dueOnDay) {
+    return (
+      <Badge variant="outline" className="w-fit px-1.5 py-0 text-[10px] font-medium text-muted-foreground">
+        Not due
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="w-fit px-1.5 py-0 text-[10px] font-medium text-muted-foreground">
+      On schedule
+    </Badge>
+  );
+}
+
 
 type AgentMonitoringTab = 'all' | 'after-aug-2026' | 'position';
 
@@ -145,6 +234,8 @@ export function AgentMonitoring() {
   const [day, setDay] = useState(() => startOfDay(new Date()));
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | CollectionStatus>('all');
+  const [frequencyFilter, setFrequencyFilter] = useState<'all' | 'daily' | 'weekly'>('all');
+
   const [selectedAgent, setSelectedAgent] = useState<AgentRow | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<string | null>(null);
   const bounds = useMemo(() => dayBounds(day), [day]);
@@ -162,7 +253,7 @@ export function AgentMonitoring() {
       const requests = await fetchAll<ActiveRentRequest>((from, to) =>
         supabase
           .from('rent_requests')
-          .select('id, tenant_id, agent_id, landlord_id, daily_repayment, total_repayment, amount_repaid, status, created_at, house_category')
+          .select('id, tenant_id, agent_id, landlord_id, daily_repayment, total_repayment, amount_repaid, status, created_at, house_category, repayment_frequency, repayment_starts_on')
           .in('status', ['funded', 'disbursed', 'repaying'])
           .range(from, to),
       );
@@ -216,6 +307,15 @@ export function AgentMonitoring() {
     return totals;
   }, [data?.collections]);
 
+  /** One schedule reading per rent plan, computed once for the selected day. */
+  const scheduleMap = useMemo(() => {
+    const map = new Map<string, PlanSchedule>();
+    (data?.requests ?? []).forEach((request) => {
+      map.set(request.id, describePlanSchedule(request, day));
+    });
+    return map;
+  }, [data?.requests, day]);
+
   const agents = useMemo<AgentRow[]>(() => {
     const grouped = new Map<string, ActiveRentRequest[]>();
     (data?.requests ?? []).forEach((request) => {
@@ -229,8 +329,35 @@ export function AgentMonitoring() {
     });
 
     return Array.from(grouped.entries())
-      .map(([agentId, tenants]) => {
-        const expected = tenants.reduce((sum, request) => sum + Number(request.daily_repayment ?? 0), 0);
+      .map(([agentId, allTenants]) => {
+        const tenants = frequencyFilter === 'all'
+          ? allTenants
+          : allTenants.filter((request) => {
+            const schedule = scheduleMap.get(request.id);
+            return frequencyFilter === 'weekly' ? schedule?.weekly : !schedule?.weekly;
+          });
+
+        let expected = 0;
+        let dueCount = 0;
+        let coveredAheadCount = 0;
+        let dailyCount = 0;
+        let weeklyCount = 0;
+        let arrears = 0;
+        let behindCount = 0;
+        let aheadCount = 0;
+
+        tenants.forEach((request) => {
+          const schedule = scheduleMap.get(request.id);
+          if (!schedule) return;
+          expected += schedule.expectedOnDay;
+          if (schedule.expectedOnDay > 0) dueCount += 1;
+          if (schedule.coveredByAdvance) coveredAheadCount += 1;
+          if (schedule.weekly) weeklyCount += 1; else dailyCount += 1;
+          arrears += schedule.arrears;
+          if (schedule.arrears > 0) behindCount += 1;
+          if (schedule.periodsAhead > 0) aheadCount += 1;
+        });
+
         const collected = tenants.reduce(
           (sum, request) => sum + (collectionMap.get(`${agentId}:${request.tenant_id}`) ?? 0),
           0,
@@ -245,15 +372,23 @@ export function AgentMonitoring() {
           collected,
           requestCount: data?.requestCounts.get(agentId) ?? 0,
           tenants,
+          dueCount,
+          coveredAheadCount,
+          dailyCount,
+          weeklyCount,
+          arrears,
+          behindCount,
+          aheadCount,
         };
       })
       .filter((agent) => {
+        if (frequencyFilter !== 'all' && agent.tenants.length === 0) return false;
         if (!createdAfter) return true;
         const profile = profileMap.get(agent.id);
         return !!profile?.created_at && new Date(profile.created_at) >= new Date(createdAfter);
       })
       .sort((a, b) => b.expected - a.expected || a.name.localeCompare(b.name));
-  }, [collectionMap, createdAfter, data?.collections, data?.requests, data?.requestCounts, profileMap]);
+  }, [collectionMap, createdAfter, data?.collections, data?.requests, data?.requestCounts, frequencyFilter, profileMap, scheduleMap]);
 
   const filteredAgents = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -265,8 +400,19 @@ export function AgentMonitoring() {
   }, [agents, search, statusFilter]);
 
   const totals = useMemo(() => filteredAgents.reduce(
-    (sum, agent) => ({ expected: sum.expected + agent.expected, collected: sum.collected + agent.collected }),
-    { expected: 0, collected: 0 },
+    (sum, agent) => ({
+      expected: sum.expected + agent.expected,
+      collected: sum.collected + agent.collected,
+      dueCount: sum.dueCount + agent.dueCount,
+      tenantCount: sum.tenantCount + agent.tenantCount,
+      dailyCount: sum.dailyCount + agent.dailyCount,
+      weeklyCount: sum.weeklyCount + agent.weeklyCount,
+      arrears: sum.arrears + agent.arrears,
+      behindCount: sum.behindCount + agent.behindCount,
+      aheadCount: sum.aheadCount + agent.aheadCount,
+      nothingDue: sum.nothingDue + (agent.expected <= 0 ? 1 : 0),
+    }),
+    { expected: 0, collected: 0, dueCount: 0, tenantCount: 0, dailyCount: 0, weeklyCount: 0, arrears: 0, behindCount: 0, aheadCount: 0, nothingDue: 0 },
   ), [filteredAgents]);
 
   const selectedAgentRows = useMemo(() => {
@@ -275,8 +421,10 @@ export function AgentMonitoring() {
       request,
       tenant: profileMap.get(request.tenant_id),
       collected: collectionMap.get(`${selectedAgent.id}:${request.tenant_id}`) ?? 0,
+      schedule: scheduleMap.get(request.id) ?? describePlanSchedule(request, day),
     }));
-  }, [collectionMap, profileMap, selectedAgent]);
+  }, [collectionMap, day, profileMap, scheduleMap, selectedAgent]);
+
 
   const renderAgentRow = (agent: AgentRow, compact = false) => {
     const rate = agent.expected > 0 ? Math.min(100, (agent.collected / agent.expected) * 100) : null;
@@ -319,9 +467,18 @@ export function AgentMonitoring() {
             <p className="text-xs text-muted-foreground">{agent.phone || 'No phone number'}</p>
           </div>
         </TableCell>
-        <TableCell className="text-right tabular-nums">{agent.tenantCount}</TableCell>
+        <TableCell className="text-right tabular-nums">
+          <span>{agent.tenantCount}</span>
+          <span className="block text-[10px] text-muted-foreground">{agent.dailyCount}D / {agent.weeklyCount}W</span>
+        </TableCell>
+        <TableCell className="text-right tabular-nums">{agent.dueCount}</TableCell>
         <TableCell className="text-right tabular-nums">{formatUGX(agent.expected)}</TableCell>
         <TableCell className="text-right tabular-nums">{formatUGX(agent.collected)}</TableCell>
+        <TableCell className="text-right tabular-nums">
+          {formatUGX(agent.arrears)}
+          <span className="block text-[10px] text-muted-foreground">{agent.behindCount} behind · {agent.aheadCount} ahead</span>
+        </TableCell>
+
         <TableCell className="text-right tabular-nums font-semibold">
           {rate === null ? '—' : `${rate.toFixed(1)}%`}
         </TableCell>
@@ -373,10 +530,13 @@ export function AgentMonitoring() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Agents monitored</p><p className="mt-1 text-xl font-bold tabular-nums">{filteredAgents.length}</p></CardContent></Card>
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Daily expected</p><p className="mt-1 text-xl font-bold tabular-nums">{formatUGX(totals.expected)}</p></CardContent></Card>
-        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Collected so far</p><p className="mt-1 text-xl font-bold tabular-nums">{formatUGX(totals.collected)}</p></CardContent></Card>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Agents monitored</p><p className="mt-1 text-xl font-bold tabular-nums">{filteredAgents.length}</p><p className="text-[10px] text-muted-foreground">{totals.nothingDue} with nothing due</p></CardContent></Card>
+        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Due this day</p><p className="mt-1 text-xl font-bold tabular-nums">{totals.dueCount}</p><p className="text-[10px] text-muted-foreground">of {totals.tenantCount} tenants</p></CardContent></Card>
+        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Expected vs collected</p><p className="mt-1 text-xl font-bold tabular-nums">{formatUGX(totals.collected)}</p><p className="text-[10px] text-muted-foreground">of {formatUGX(totals.expected)} due</p></CardContent></Card>
+        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Total arrears</p><p className="mt-1 text-xl font-bold tabular-nums">{formatUGX(totals.arrears)}</p><p className="text-[10px] text-muted-foreground">{totals.behindCount} tenants behind</p></CardContent></Card>
+        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Paid ahead</p><p className="mt-1 text-xl font-bold tabular-nums">{totals.aheadCount}</p><p className="text-[10px] text-muted-foreground">tenants covering future periods</p></CardContent></Card>
+        <Card><CardContent className="p-3.5"><p className="text-xs text-muted-foreground">Daily vs weekly</p><p className="mt-1 text-xl font-bold tabular-nums">{totals.dailyCount} / {totals.weeklyCount}</p><p className="text-[10px] text-muted-foreground">daily / weekly plans</p></CardContent></Card>
       </div>
 
       <Card>
@@ -387,15 +547,23 @@ export function AgentMonitoring() {
               <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search agent or phone" className="h-8 w-full pl-8 text-xs sm:w-56" />
             </div>
+            <div className="flex flex-wrap gap-1" role="group" aria-label="Payment frequency filter">
+              {(['all', 'daily', 'weekly'] as const).map((value) => (
+                <Button key={value} variant={frequencyFilter === value ? 'secondary' : 'ghost'} size="sm" className="h-8 px-2 text-xs capitalize" onClick={() => setFrequencyFilter(value)}>
+                  {value === 'all' ? 'All plans' : value}
+                </Button>
+              ))}
+            </div>
             <div className="flex flex-wrap gap-1" role="group" aria-label="Collection status filter">
-              {(['all', 'full', 'partial', 'critical'] as const).map((value) => (
-                <Button key={value} variant={statusFilter === value ? 'secondary' : 'ghost'} size="sm" className="h-8 px-2 text-xs capitalize" onClick={() => setStatusFilter(value)}>
-                  {value}
+              {(['all', 'full', 'partial', 'critical', 'none'] as const).map((value) => (
+                <Button key={value} variant={statusFilter === value ? 'secondary' : 'ghost'} size="sm" className="h-8 px-2 text-xs" onClick={() => setStatusFilter(value)}>
+                  {value === 'all' ? 'All' : STATUS_LABEL[value]}
                 </Button>
               ))}
             </div>
           </div>
         </CardHeader>
+
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex items-center justify-center gap-2 p-10 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading agent collections…</div>
@@ -407,7 +575,7 @@ export function AgentMonitoring() {
             <>
               <div className="hidden overflow-x-auto md:block">
                 <Table>
-                  <TableHeader><TableRow><TableHead>Agent name / phone</TableHead><TableHead className="text-right">Tenants</TableHead><TableHead className="text-right">Daily expected</TableHead><TableHead className="text-right">Collected</TableHead><TableHead className="text-right">Collection %</TableHead><TableHead className="text-right">Requests submitted</TableHead><TableHead>Status</TableHead><TableHead /></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead>Agent name / phone</TableHead><TableHead className="text-right">Tenants</TableHead><TableHead className="text-right">Due</TableHead><TableHead className="text-right">Expected</TableHead><TableHead className="text-right">Collected</TableHead><TableHead className="text-right">Arrears</TableHead><TableHead className="text-right">Collection %</TableHead><TableHead className="text-right">Requests submitted</TableHead><TableHead>Status</TableHead><TableHead /></TableRow></TableHeader>
                   <TableBody>{filteredAgents.map((agent) => renderAgentRow(agent))}</TableBody>
                 </Table>
               </div>
@@ -443,9 +611,8 @@ export function AgentMonitoring() {
                 <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Active tenants</h3><StatusIndicator status={collectionStatus(selectedAgent.expected, selectedAgent.collected)} /></div>
                 {selectedAgentRows.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">No active daily-collection tenants for this agent.</p> : (
                   <div className="space-y-2">
-                    {selectedAgentRows.map(({ request, tenant, collected }) => {
-                      const expected = Number(request.daily_repayment ?? 0);
-                      const outstanding = Math.max(0, Number(request.total_repayment ?? 0) - Number(request.amount_repaid ?? 0));
+                    {selectedAgentRows.map(({ request, tenant, collected, schedule }) => {
+                      const unit = schedule.unit;
                       return (
                         <div key={request.id} className="border p-3">
                           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -458,17 +625,26 @@ export function AgentMonitoring() {
                               </p>
                               <p className="mt-1 text-xs text-muted-foreground">Rent Plan: {formatStatus(request.status)} · Started {format(new Date(request.created_at), 'dd MMM yyyy')}</p>
                             </div>
-                            <StatusIndicator status={collectionStatus(expected, collected)} />
+                            <div className="flex flex-col items-start gap-1.5 sm:items-end">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <FrequencyTag schedule={schedule} />
+                                <StatusIndicator status={collectionStatus(schedule.expectedOnDay, collected)} />
+                              </div>
+                              <SchedulePositionTag schedule={schedule} />
+                            </div>
                           </div>
-                          <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-                            <div><Label className="text-[10px] text-muted-foreground">Expected</Label><p className="font-semibold tabular-nums">{formatUGX(expected)}</p></div>
+                          <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3 lg:grid-cols-6">
+                            <div><Label className="text-[10px] text-muted-foreground">Scheduled / {unit}</Label><p className="font-semibold tabular-nums">{formatUGX(schedule.periodAmount)}</p></div>
+                            <div><Label className="text-[10px] text-muted-foreground">Due this day</Label><p className="font-semibold tabular-nums">{schedule.expectedOnDay > 0 ? formatUGX(schedule.expectedOnDay) : 'Not due'}</p></div>
                             <div><Label className="text-[10px] text-muted-foreground">Paid today</Label><p className="font-semibold tabular-nums">{formatUGX(collected)}</p></div>
-                            <div><Label className="text-[10px] text-muted-foreground">Outstanding plan</Label><p className="font-semibold tabular-nums">{formatUGX(outstanding)}</p></div>
-                            <div><Label className="text-[10px] text-muted-foreground">Request status</Label><p className="font-semibold">{formatStatus(request.status)}</p></div>
+                            <div><Label className="text-[10px] text-muted-foreground">Arrears</Label><p className="font-semibold tabular-nums">{formatUGX(schedule.arrears)}{schedule.periodsBehind > 0 ? ` · ${schedule.periodsBehind} ${unit}${schedule.periodsBehind === 1 ? '' : 's'}` : ''}</p></div>
+                            <div><Label className="text-[10px] text-muted-foreground">Paid ahead</Label><p className="font-semibold tabular-nums">{formatUGX(schedule.aheadAmount)}{schedule.periodsAhead > 0 ? ` · ${schedule.periodsAhead} ${unit}${schedule.periodsAhead === 1 ? '' : 's'}` : ''}</p></div>
+                            <div><Label className="text-[10px] text-muted-foreground">Outstanding plan</Label><p className="font-semibold tabular-nums">{formatUGX(schedule.outstandingPlan)}</p></div>
                           </div>
                         </div>
                       );
                     })}
+
                   </div>
                 )}
               </div>

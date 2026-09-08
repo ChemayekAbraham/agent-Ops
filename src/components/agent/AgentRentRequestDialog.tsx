@@ -1248,6 +1248,32 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     setLc1AutoMatched(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoLc1VillageKey, lc1AutoBestId, lc1Auto.isLoading, lc1Auto.isEmpty]);
+
+  // ===== Village → Town/City + District auto-fill =====
+  // The official village already carries its full administrative chain, so the
+  // agent should not retype the district (or the town) that the chain implies.
+  // We fill both from the chosen village and leave them editable for the case
+  // where the house genuinely sits outside the chairperson's village.
+  const placeSourceUnit = lc1LocationUnit ?? ugLocation;
+  const placeSourceKey = placeSourceUnit ? `${placeSourceUnit.villageId}` : null;
+  const placeAutoKeyRef = useRef<string | null>(null);
+  const [placeAutoFilled, setPlaceAutoFilled] = useState(false);
+  useEffect(() => {
+    if (!placeSourceUnit || !placeSourceKey) return;
+    if (placeAutoKeyRef.current === placeSourceKey) return;
+    placeAutoKeyRef.current = placeSourceKey;
+    const districtName = normalizeDistrict(placeSourceUnit.district) || placeSourceUnit.district;
+    setPropertyDistrictUnit({
+      id: placeSourceUnit.districtId,
+      name: districtName,
+      region: placeSourceUnit.region ?? null,
+    });
+    setPropertyDistrict(districtName);
+    setPropertyCity((current) => current.trim() || placeSourceUnit.subcounty || districtName);
+    setPlaceAutoFilled(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placeSourceKey]);
+
   const LL_MODE_KEY = `welile:rentReq:landlordMode:${user?.id || 'anon'}`;
   const [landlordMode, setLandlordModeState] = useState<'search' | 'register'>(() => {
     try { return (sessionStorage.getItem(LL_MODE_KEY) as 'search' | 'register') || 'search'; }
@@ -4945,21 +4971,19 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                     <FieldError message={vPhone(lc1Phone) || getFieldError('lc1Phone')} />
                   </div>
                   <div className="space-y-1">
-                    <Label >Village *</Label>
-                    <p className="text-xs text-muted-foreground leading-snug">The village or zone the LC1 looks after.</p>
-                    <p className="text-[11px] text-muted-foreground">e.g. Kira Zone A</p>
+                    <p className="text-xs text-muted-foreground leading-snug">
+                      Search the village the LC1 looks after, or browse by region.
+                    </p>
                     <Lc1VillagePicker
                       label="Village"
                       required
                       value={lc1Village}
                       error={hasFieldError('lc1Village') ? getFieldError('lc1Village') : null}
-                      districtName={propertyDistrict || null}
                       onChange={(name, selection) => {
                         setLc1Village(name);
                         setLc1LocationUnit(selection);
                       }}
                     />
-                    <FieldError message={vPlace(lc1Village, 'Kira Zone A') || getFieldError('lc1Village')} />
                   </div>
                   </div>
                   )}
@@ -5020,17 +5044,23 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                   )}
                 </div>
 
-                {/* Town/City + District — keeps tenant rolled up under a real
-                    location in Tenant Ops drill-down instead of the
-                    "Entebbe (please verify)" placeholder. */}
+                {/* Town/City + District — filled automatically from the official
+                    village the agent picked, and only edited when the house sits
+                    somewhere other than the chairperson's village. */}
                 <div className="space-y-3">
+                  {placeAutoFilled && (
+                    <p className="text-[11px] text-success flex items-start gap-1 leading-snug">
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-[1px]" />
+                      Filled in from the village you picked. Change these only if the house is somewhere else.
+                    </p>
+                  )}
                   <div className="space-y-1">
                     <Label className="flex items-center gap-1">
                       <MapPin className="h-3 w-3" /> Town / City *
                     </Label>
                     <p className="text-xs text-muted-foreground leading-snug">The town or city where the house is.</p>
-                    <p className="text-[11px] text-muted-foreground">e.g. Entebbe, Kampala, Jinja</p>
                     <Input
+
                       value={propertyCity}
                       onChange={(e) => setPropertyCity(formatNameInput(e.target.value))}
                       placeholder="e.g. Entebbe, Kampala, Jinja"
@@ -5042,8 +5072,8 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                   <div className="space-y-1">
                     <Label >District</Label>
                     <p className="text-xs text-muted-foreground leading-snug">The district the house is in, like Wakiso.</p>
-                    <p className="text-[11px] text-muted-foreground">e.g. Wakiso</p>
                     <UgDistrictSelect
+
                       label="District"
                       legacyText={propertyDistrict}
                       value={propertyDistrictUnit}

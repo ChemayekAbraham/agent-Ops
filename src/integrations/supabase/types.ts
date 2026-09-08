@@ -44816,6 +44816,7 @@ export type Database = {
           p_longitude?: number
           p_target_id: string
           p_target_role: string
+          p_village_id?: number
         }
         Returns: Json
       }
@@ -52668,6 +52669,7 @@ export type Database = {
           reserved_stage: string
         }[]
       }
+      pso_can_view_my_performance: { Args: never; Returns: boolean }
       pso_cohort_volume: {
         Args: { p_from: string; p_to: string }
         Returns: {
@@ -52953,18 +52955,20 @@ export type Database = {
       record_rent_request_repayment: {
         Args: {
           p_amount: number
+          p_rent_request_id?: string
           p_tenant_id: string
-          p_transaction_group_id?: string
+          p_transaction_group_id: string
         }
-        Returns: undefined
+        Returns: string
       }
       record_rent_request_repayment_v2: {
         Args: {
           p_amount: number
-          p_source_id?: string
-          p_source_table?: string
+          p_rent_request_id?: string
+          p_source_id: string
+          p_source_table: string
           p_tenant_id: string
-          p_transaction_group_id?: string
+          p_transaction_group_id: string
         }
         Returns: Json
       }
@@ -53140,6 +53144,10 @@ export type Database = {
           p_prev_request_id: string
         }
         Returns: string
+      }
+      rent_pipeline_tenant_history: {
+        Args: { p_exclude_request_id?: string; p_tenant_id: string }
+        Returns: Json
       }
       rent_plan_schedule_days: {
         Args: { p_from: string; p_to: string }
@@ -53934,6 +53942,10 @@ export type Database = {
           unmatched: number
         }[]
       }
+      tenant_location_correction_dashboard: {
+        Args: { p_agent_id?: string }
+        Returns: Json
+      }
       tenant_location_correction_progress: {
         Args: { p_agent_id?: string }
         Returns: {
@@ -54028,6 +54040,10 @@ export type Database = {
         }[]
       }
       topup_dedup_bucket: { Args: { ts: string }; Returns: string }
+      tppo_arrears_movement: {
+        Args: { p_anchor?: string; p_granularity: string }
+        Returns: Json
+      }
       tppo_freeze_period: {
         Args: { p_anchor: string; p_finalise?: boolean; p_granularity: string }
         Returns: string

@@ -19,6 +19,8 @@ import { SignaturePad } from '@/components/shared/SignaturePad';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
 import { preflightSignup, attachSignupUser } from '@/lib/signupGuard';
+import { UgLocationPicker } from '@/components/location/UgLocationPicker';
+import type { UgLocationSelection } from '@/hooks/useUgLocations';
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 const useRouteRole = () => 'FUNDER';
@@ -115,6 +117,8 @@ interface FormState {
   kinContact: string;
   agreedToTerms: boolean;
   signatureDataUrl: string;
+  /** Official Uganda dataset pick (optional) — approved location source. */
+  ugLoc?: UgLocationSelection | null;
 }
 
 // ─── Password Strength ───────────────────────────────────────────────────────
@@ -855,6 +859,13 @@ function _Step3Impl({
           </div>
         </div>
 
+        {/* Official Uganda location (optional) — approved dataset, never typed. */}
+        <UgLocationPicker
+          value={form.ugLoc ?? null}
+          onChange={(sel) => setForm(p => ({ ...p, ugLoc: sel }))}
+          label="Official location (optional)"
+        />
+
         <div className="space-y-1">
           <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest pl-1">National ID / Passport No.</label>
           <div className="relative">
@@ -1177,6 +1188,7 @@ export default function FunderOnboarding() {
     } catch { /* non-fatal */ }
   }, []);
 
+
   const [form, setForm] = useState<FormState>({
     understoodRole: false,
     investPath: null,
@@ -1189,6 +1201,7 @@ export default function FunderOnboarding() {
     confirmPassword: '',
     phone: '',
     address: '',
+    ugLoc: null,
     nationalId: '',
     payoutMode: 'bank',
     momoProvider: '',
@@ -1281,9 +1294,20 @@ export default function FunderOnboarding() {
 
         // Persist the funder's address + national ID on their profile (non-blocking).
         if (newUserId && (cleanAddress || cleanNationalId)) {
-          const profilePatch: Record<string, string> = {};
+          const profilePatch: Record<string, string | number> = {};
           if (cleanAddress) profilePatch.landmark = cleanAddress;
           if (cleanNationalId) profilePatch.national_id = cleanNationalId;
+          // Approved dataset wins for the administrative chain when picked.
+          const ugLoc = form.ugLoc;
+          if (ugLoc) {
+            profilePatch.country = 'Uganda';
+            profilePatch.region = ugLoc.region ?? '';
+            profilePatch.district = ugLoc.district;
+            profilePatch.sub_county = ugLoc.subcounty;
+            profilePatch.parish = ugLoc.parish;
+            profilePatch.village = ugLoc.village;
+            profilePatch.ug_village_id = ugLoc.villageId;
+          }
           supabase
             .from('profiles')
             .update(profilePatch)
