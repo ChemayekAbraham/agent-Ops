@@ -375,11 +375,39 @@ export default function MyPerformancePage() {
           <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Funded sales
           </h2>
-          <div className="space-y-1 text-sm">
-            <p>Notes in cohort: {fundedSummary?.notes_in_cohort ?? 0}</p>
-            <p>Notes funded: {fundedSummary?.notes_funded ?? 0} of {fundedSummary?.notes_in_cohort ?? 0}</p>
-            <p>Money funded: UGX {(fundedSummary?.amount_funded ?? 0).toLocaleString('en-UG')}</p>
-            <p>Commission accrued: UGX {(fundedSummary?.commission_accrued ?? 0).toLocaleString('en-UG')}</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Notes in cohort
+              </div>
+              <div className="text-sm font-bold tabular-nums">{fundedSummary?.notes_in_cohort ?? 0}</div>
+            </div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Notes funded
+              </div>
+              <div className="text-sm font-bold tabular-nums">
+                {fundedSummary?.notes_funded ?? 0} of {fundedSummary?.notes_in_cohort ?? 0}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Money funded
+              </div>
+              <div className="text-sm font-bold tabular-nums">
+                {formatUgxCompact(fundedSummary?.amount_funded ?? 0)}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Commission accrued
+              </div>
+              <div className="text-sm font-bold tabular-nums">
+                {formatUgxCompact(fundedSummary?.commission_accrued ?? 0)}
+              </div>
+            </div>
+          </div>
+          <div className="mt-2 space-y-1">
             <p className="text-xs text-muted-foreground">
               as at {fundedSummary ? formatKampalaDateTime(fundedSummary.as_at) : '—'} · a closed period keeps rising, so this figure is never frozen
             </p>
@@ -387,6 +415,7 @@ export default function MyPerformancePage() {
               funded means the booking carries a funded date, that is money actually deployed
             </p>
           </div>
+
         </div>
 
         {/* Zone C */}
