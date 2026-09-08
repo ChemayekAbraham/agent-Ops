@@ -135,6 +135,7 @@ export function useCorrectTenantLocation() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: [TENANT_LOCATION_KEYS.list] });
       qc.invalidateQueries({ queryKey: [TENANT_LOCATION_KEYS.progress] });
+      qc.invalidateQueries({ queryKey: [TENANT_LOCATION_KEYS.agents] });
     },
   });
 }
