@@ -6435,6 +6435,57 @@ export type Database = {
           },
         ]
       }
+      budget_department_heads: {
+        Row: {
+          active: boolean
+          assigned_by: string | null
+          created_at: string
+          department_id: string
+          id: string
+          is_primary: boolean
+          note: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          assigned_by?: string | null
+          created_at?: string
+          department_id: string
+          id?: string
+          is_primary?: boolean
+          note?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          assigned_by?: string | null
+          created_at?: string
+          department_id?: string
+          id?: string
+          is_primary?: boolean
+          note?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budget_department_heads_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "hr_departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_department_heads_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_requisition_budget_context"
+            referencedColumns: ["department_id"]
+          },
+        ]
+      }
       budget_department_notification_reads: {
         Row: {
           notification_id: string
@@ -45780,6 +45831,10 @@ export type Database = {
         Args: { _department_id: string }
         Returns: string[]
       }
+      budget_department_has_head: {
+        Args: { _department_id: string }
+        Returns: boolean
+      }
       budget_department_route: {
         Args: { _department_id: string }
         Returns: string
@@ -45793,6 +45848,10 @@ export type Database = {
       budget_is_approver: { Args: never; Returns: boolean }
       budget_is_budgetable_account: {
         Args: { _account_code: string }
+        Returns: boolean
+      }
+      budget_is_department_head: {
+        Args: { _department_id: string; _user_id: string }
         Returns: boolean
       }
       budget_is_releaser: { Args: never; Returns: boolean }
