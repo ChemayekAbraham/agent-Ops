@@ -2,25 +2,42 @@
  * Agent login popup — legacy tenant locations that still need matching to the
  * approved Uganda location dataset.
  *
- * Dismissible: closing it stores a timestamp per agent so the agent can carry on
- * working and come back later. It never shows when the agent has nothing left to
- * correct, and tenants registered with the approved picker never appear.
+ * Progressive gate: when the popup opens it snapshots how many tenants are
+ * listed for this agent. The agent may only close it after at least 60% of that
+ * batch (or all of it when 5 or fewer remain) has been successfully saved.
+ * Progress is measured from the server-side unmatched count, never from clicks.
+ * On the next login the requirement is recalculated from whatever remains, so
+ * the agent works the backlog down progressively without losing progress.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { MapPin, Phone, Loader2, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { MapPin, Phone, Loader2, ArrowRight, CheckCircle2, Lock } from 'lucide-react';
 import {
   legacyLocationLabel,
+  requiredCorrections,
   useTenantLocationCorrections,
   useTenantLocationProgress,
   type TenantLocationCorrectionRow,
 } from '@/hooks/useTenantLocationCorrections';
 import CorrectTenantLocationDialog from '@/components/location/CorrectTenantLocationDialog';
 
-const DISMISS_HOURS = 12;
-const key = (agentId: string) => `welile.tenantLocationFix.dismissedAt:${agentId}`;
+/** Batch baseline survives reloads so an interrupted session is never reset or double-counted. */
+const batchKey = (agentId: string) => `welile.tenantLocationFix.batch:${agentId}`;
+/** Closed-for-this-login marker: cleared when the browser session ends (= next login shows it again). */
+const closedKey = (agentId: string) => `welile.tenantLocationFix.closed:${agentId}`;
+
+function readBatch(agentId: string): number | null {
+  try {
+    const raw = localStorage.getItem(batchKey(agentId));
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
 
 interface Props {
   agentId: string;
@@ -28,53 +45,83 @@ interface Props {
 
 export function TenantLocationCorrectionPopup({ agentId }: Props) {
   const [open, setOpen] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
-  const [selected, setSelected] = useState<TenantLocationCorrectionRow | null>(null);
-
-  const suppressed = useMemo(() => {
+  const [closedThisLogin, setClosedThisLogin] = useState<boolean>(() => {
     try {
-      const raw = localStorage.getItem(key(agentId));
-      if (!raw) return false;
-      return Date.now() - Number(raw) < DISMISS_HOURS * 60 * 60 * 1000;
+      return sessionStorage.getItem(closedKey(agentId)) === '1';
     } catch {
       return false;
     }
-  }, [agentId]);
+  });
+  const [baseline, setBaseline] = useState<number | null>(() => readBatch(agentId));
+  const [selected, setSelected] = useState<TenantLocationCorrectionRow | null>(null);
 
-  const progress = useTenantLocationProgress(agentId, !suppressed);
+  const progress = useTenantLocationProgress(agentId, !closedThisLogin);
+  const unmatched = progress.data?.unmatched ?? 0;
   const list = useTenantLocationCorrections({
     agentId,
-    pageSize: 50,
-    enabled: !suppressed && (progress.data?.unmatched ?? 0) > 0,
+    pageSize: 200,
+    enabled: !closedThisLogin && unmatched > 0,
   });
 
-  const unmatched = progress.data?.unmatched ?? 0;
-  const total = progress.data?.total_tenants ?? 0;
-  const corrected = progress.data?.matched ?? 0;
-  const pct = total > 0 ? Math.round((corrected / total) * 100) : 0;
+  // Snapshot the batch the first time we know how many are listed. Kept until the gate is met.
+  useEffect(() => {
+    if (closedThisLogin || !progress.isSuccess) return;
+    if (unmatched > 0 && baseline === null) {
+      setBaseline(unmatched);
+      try {
+        localStorage.setItem(batchKey(agentId), String(unmatched));
+      } catch {
+        /* best-effort */
+      }
+    }
+  }, [agentId, baseline, closedThisLogin, progress.isSuccess, unmatched]);
 
   useEffect(() => {
-    if (!suppressed && !dismissed && unmatched > 0) setOpen(true);
-  }, [suppressed, dismissed, unmatched]);
+    if (!closedThisLogin && progress.isSuccess && unmatched > 0) setOpen(true);
+  }, [closedThisLogin, progress.isSuccess, unmatched]);
 
-  const dismiss = () => {
+  const batch = baseline ?? unmatched;
+  const required = requiredCorrections(batch);
+  const done = Math.max(0, Math.min(batch, batch - unmatched));
+  const pct = batch > 0 ? Math.round((done / batch) * 100) : 0;
+  const requiredPct = batch > 0 ? Math.round((required / batch) * 100) : 0;
+  const remainingToUnlock = Math.max(0, required - done);
+  const unlocked = unmatched === 0 || done >= required;
+
+  const closeIfAllowed = () => {
+    if (!unlocked) return;
     try {
-      localStorage.setItem(key(agentId), String(Date.now()));
+      localStorage.removeItem(batchKey(agentId)); // next login starts a fresh batch from what remains
+      sessionStorage.setItem(closedKey(agentId), '1');
     } catch {
-      /* dismissal is best-effort only */
+      /* best-effort */
     }
-    setDismissed(true);
+    setBaseline(null);
+    setClosedThisLogin(true);
     setOpen(false);
   };
 
-  if (suppressed || unmatched === 0) return null;
+  if (closedThisLogin || (progress.isSuccess && unmatched === 0 && baseline === null)) return null;
 
   const rows = list.data?.rows ?? [];
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(v) => (v ? setOpen(true) : dismiss())}>
-        <DialogContent className="w-[calc(100vw-1.5rem)] sm:max-w-2xl max-h-[88vh] flex flex-col rounded-2xl p-0 gap-0">
+      <Dialog open={open} onOpenChange={(v) => (v ? setOpen(true) : closeIfAllowed())}>
+        <DialogContent
+          className={`w-[calc(100vw-1.5rem)] sm:max-w-2xl max-h-[88vh] flex flex-col rounded-2xl p-0 gap-0 ${
+            unlocked ? '' : '[&>button:last-child]:hidden'
+          }`}
+          onEscapeKeyDown={(e) => {
+            if (!unlocked) e.preventDefault();
+          }}
+          onPointerDownOutside={(e) => {
+            if (!unlocked) e.preventDefault();
+          }}
+          onInteractOutside={(e) => {
+            if (!unlocked) e.preventDefault();
+          }}
+        >
           <DialogHeader className="text-left p-4 sm:p-5 pb-3 border-b">
             <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
               <MapPin className="h-4 w-4 text-primary shrink-0" />
@@ -88,11 +135,23 @@ export function TenantLocationCorrectionPopup({ agentId }: Props) {
             <div className="mt-3 space-y-1.5">
               <div className="flex items-center justify-between text-xs font-semibold">
                 <span>
-                  {corrected} of {total} corrected
+                  {done} / {batch} corrected — {pct}%
                 </span>
                 <span className="text-muted-foreground">{unmatched} left</span>
               </div>
               <Progress value={pct} className="h-2" />
+              <p className="text-[11px] text-muted-foreground">
+                {unlocked ? (
+                  <span className="inline-flex items-center gap-1 text-emerald-600 font-medium">
+                    <CheckCircle2 className="h-3 w-3" /> Target met — you can continue, or keep going.
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1">
+                    <Lock className="h-3 w-3" /> Correct at least {required} of {batch} ({requiredPct}%) to continue —{' '}
+                    {remainingToUnlock} more to go.
+                  </span>
+                )}
+              </p>
             </div>
           </DialogHeader>
 
@@ -138,10 +197,23 @@ export function TenantLocationCorrectionPopup({ agentId }: Props) {
 
           <div className="border-t p-3 sm:p-4 flex flex-col-reverse sm:flex-row sm:justify-between gap-2">
             <p className="text-[11px] text-muted-foreground sm:self-center">
-              You can close this and come back to it any time.
+              {unlocked
+                ? 'Anything left will be asked for again next time you sign in.'
+                : 'The remaining tenants will carry over to your next sign-in.'}
             </p>
-            <Button variant="outline" className="w-full sm:w-auto" onClick={dismiss}>
-              Do this later
+            <Button
+              variant={unlocked ? 'default' : 'outline'}
+              className="w-full sm:w-auto gap-1.5"
+              disabled={!unlocked}
+              onClick={closeIfAllowed}
+            >
+              {unlocked ? (
+                'Continue'
+              ) : (
+                <>
+                  <Lock className="h-3.5 w-3.5" /> {remainingToUnlock} more to continue
+                </>
+              )}
             </Button>
           </div>
         </DialogContent>
