@@ -320,8 +320,8 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                   deducted from your Welile Wallet over the period you choose (3, 6, 9 or 12 months).
                 </li>
                 <li>
-                  <span className="font-medium text-foreground">Deductions start:</span> deductions begin
-                  immediately once the CFO disburses the funds.
+                  <span className="font-medium text-foreground">Deductions start:</span> 7 days after your
+                  phone is released (grace period), then daily until cleared.
                 </li>
                 <li>
                   <span className="font-medium text-foreground">Late charge:</span> once you are 30 days behind
@@ -352,7 +352,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                   <span className="text-sm font-medium text-muted-foreground">/day</span>
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  {period.days} days · {formatUGX(totalRepayable)} in total. Deductions start 14 days after your
+                  {period.days} days · {formatUGX(totalRepayable)} in total. Deductions start 7 days after your
                   phone is released.
                   {osType === 'ios'
                     ? ` This covers Welile only — you also pay ${MO_BANJA.partner} weekly, directly to them.`
