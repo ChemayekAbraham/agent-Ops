@@ -885,6 +885,30 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // ── Guard: never treat our own report/digest emails as transactions ──
+      // weliletenants@gmail.com and info@welile.com send Welile's own
+      // automated digests (Partner Ops / Merchant Cash-Out / Tenant Products
+      // & Services / Agent Daily Report, etc). Their bodies contain large
+      // statistical numbers (receivable totals, portfolio counts) that the
+      // generic amount/direction parser below was misreading as a single
+      // outbound cash transaction -- e.g. two different-day "Tenant Products
+      // & Services" reports both parsed to an identical, bogus
+      // UGX 359,185,000 "transfer" that appears nowhere in either report.
+      // weliletenants@gmail.com has never carried a real bank/telecom
+      // transaction (confirmed: 0 of 3,556 ingested rows); info@welile.com
+      // carries both these digests AND real "Receipt: your withdrawal of
+      // UGX X has been paid" notices, so it needs an allow-list rather than
+      // a blanket skip.
+      const isInternalReportEmail =
+        fromEmail === 'weliletenants@gmail.com' ||
+        (fromEmail === 'info@welile.com' &&
+          !/^receipt:\s*your withdrawal of ugx/i.test(String(subject ?? '').trim()));
+      if (isInternalReportEmail) {
+        if (debug) debugReport.push({ id: m.id, decision: 'skipped', reason: 'internal_report_digest', from: fromEmail, subject });
+        advanceCutoff(internalMs);
+        continue;
+      }
+
       if (lastMs && internalMs && internalMs <= lastMs) {
         if (debug) debugReport.push({
           id: m.id, decision: 'skipped', reason: 'older_than_last_poll',
@@ -915,7 +939,7 @@ Deno.serve(async (req) => {
         if (dedupHash) orParts.push(`dedup_hash.eq.${dedupHash}`);
         const { data: dup } = await supabase
           .from('gmail_transactions')
-          .select('id, transaction_id, dedup_hash')
+          .select('id, transaction_id, dedup_hash, counterparty, counterparty_name')
           .or(orParts.join(','))
           .limit(1)
           .maybeSingle();
@@ -923,8 +947,42 @@ Deno.serve(async (req) => {
           const reason = (parsed.transaction_id && (dup as any).transaction_id?.toLowerCase() === parsed.transaction_id.toLowerCase())
             ? 'transaction_id_match'
             : 'dedup_hash_match';
+
+          // ── Enrich-on-duplicate ─────────────────────────────────────────
+          // MTN sometimes sends TWO receipt emails for the same transaction
+          // seconds apart in different templates — one with only the payer's
+          // name (e.g. the phone-less "Message: Till:" shape), one with
+          // "(NAME) 256XXXXXXXXX". Poll/arrival order isn't guaranteed, so
+          // the phone-bearing version can land AFTER the name-only one is
+          // already stored — and used to be discarded here outright,
+          // permanently losing the one signal that would let the matcher use
+          // an exact phone lookup instead of a fragile name fallback (this is
+          // exactly what happened to a real Otai deposit: the stored row had
+          // no phone, and the wrongly-discarded duplicate did). If this
+          // duplicate's parsed counterparty is phone-shaped and the stored
+          // row's isn't, patch the stored row with the better identity data.
+          // Deliberately NOT re-running the matcher here — the original
+          // message may already have been auto-credited (correctly or not)
+          // by the time its duplicate arrives, and re-matching/re-crediting
+          // needs an RPC-backed reversal path, not a blind in-place credit.
+          const phoneShape = /^(?:\+?256|0)\d{9}$/;
+          const incomingIsPhone = !!parsed.counterparty && phoneShape.test(parsed.counterparty);
+          const existingCp = (dup as any).counterparty as string | null | undefined;
+          const existingIsPhone = !!existingCp && phoneShape.test(existingCp);
+          let enriched = false;
+          if (incomingIsPhone && !existingIsPhone) {
+            const { error: enrichErr } = await supabase
+              .from('gmail_transactions')
+              .update({
+                counterparty: parsed.counterparty,
+                counterparty_name: (parsed as any).counterparty_name ?? (dup as any).counterparty_name ?? existingCp ?? null,
+              })
+              .eq('id', (dup as any).id);
+            enriched = !enrichErr;
+          }
+
           if (debug) {
-            debugReport.push({ id: m.id, decision: 'skipped', reason, from: fromEmail, subject });
+            debugReport.push({ id: m.id, decision: 'skipped', reason, from: fromEmail, subject, enriched });
           } else {
             await supabase.from('gmail_dedup_audit').insert({
               gmail_message_id: m.id,
@@ -949,6 +1007,7 @@ Deno.serve(async (req) => {
               subject,
               matched_transaction_id: (dup as any).transaction_id ?? null,
               matched_row_id: (dup as any).id,
+              enriched,
             },
           });
           continue;
@@ -1003,6 +1062,7 @@ Deno.serve(async (req) => {
         direction: parsed.direction ?? null,
         channel: parsed.channel ?? null,
         counterparty: parsed.counterparty ?? null,
+        counterparty_name: (parsed as any).counterparty_name ?? null,
         fee: parsed.fee ?? null,
         balance: parsed.balance ?? null,
         dedup_hash: dedupHash,

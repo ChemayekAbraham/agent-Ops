@@ -13,6 +13,7 @@ import { AdvanceRequestsReviewed } from '@/components/ops/AdvanceRequestsReviewe
 import { BusinessAdvanceQueue } from '@/components/ops/BusinessAdvanceQueue';
 
 import { SmartphoneCatalogDialog } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
+import { MotorBikeCatalogDialog } from '@/components/executive/agent-ops/MotorBikeCatalogDialog';
 import { SmartphoneOrderApprovalQueue } from '@/components/executive/agent-ops/SmartphoneOrderApprovalQueue';
 import { BikeLeaseApprovalQueue } from '@/components/executive/agent-ops/BikeLeaseApprovalQueue';
 import { LendingAgentsPanel } from '@/components/executive/LendingAgentsPanel';
@@ -39,8 +40,8 @@ export default function AgentProductCategoryPage() {
   const isAdvances = entry.slug === 'advances';
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-7xl px-4 py-5 space-y-5">
+    <div className="min-h-screen bg-background overflow-x-hidden w-full">
+      <div className="mx-auto max-w-7xl px-3 sm:px-4 py-4 sm:py-5 space-y-4 sm:space-y-5 overflow-x-hidden max-w-full">
         <Link
           to={AGENT_PRODUCTS_HUB_PATH}
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
@@ -49,7 +50,7 @@ export default function AgentProductCategoryPage() {
           Back to Products &amp; Services Hub
         </Link>
 
-        <header className="flex flex-col sm:flex-row sm:items-start gap-4 rounded-2xl border bg-card p-5 shadow-sm">
+        <header className="flex flex-col sm:flex-row sm:items-start gap-4 rounded-2xl border bg-card p-4 sm:p-5 shadow-sm max-w-full overflow-hidden">
           <div className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${entry.color} text-white shadow-md`}>
             <Icon className="h-6 w-6" />
           </div>
@@ -57,8 +58,9 @@ export default function AgentProductCategoryPage() {
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{entry.label}</h1>
             <p className="text-sm text-muted-foreground">{entry.desc}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end max-w-full">
             {entry.slug === 'smart-phones' && <SmartphoneCatalogDialog />}
+            {entry.slug === 'motor-bikes' && <MotorBikeCatalogDialog />}
             <AgentProductsServicesExportButton />
           </div>
         </header>
@@ -106,8 +108,8 @@ function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
   const pendingCount = orderCounts.pending;
 
   return (
-    <Tabs defaultValue="overview" className="space-y-4">
-      <TabsList>
+    <Tabs defaultValue="overview" className="space-y-4 max-w-full">
+      <TabsList className="flex-wrap h-auto max-w-full">
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="pending" className="gap-2">
           Pending Applications
@@ -120,19 +122,19 @@ function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="overview" className="space-y-6">
+      <TabsContent value="overview" className="space-y-6 max-w-full">
         <AgentProductsPanel category={category} mode="overview" />
       </TabsContent>
 
-      <TabsContent value="pending" className="space-y-6">
+      <TabsContent value="pending" className="space-y-6 max-w-full">
         <SmartphoneOrderApprovalQueue pendingOnly />
       </TabsContent>
 
-      <TabsContent value="issued" className="space-y-6">
+      <TabsContent value="issued" className="space-y-6 max-w-full">
         <AgentProductsPanel category={category} mode="issued" />
       </TabsContent>
 
-      <TabsContent value="rejected" className="space-y-6">
+      <TabsContent value="rejected" className="space-y-6 max-w-full">
         <SmartphoneOrderApprovalQueue rejectedOnly />
       </TabsContent>
     </Tabs>
@@ -153,8 +155,8 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
   });
 
   return (
-    <Tabs defaultValue="applications" className="space-y-4">
-      <TabsList>
+    <Tabs defaultValue="applications" className="space-y-4 max-w-full">
+      <TabsList className="flex-wrap h-auto max-w-full">
         <TabsTrigger value="applications" className="gap-2">
           Bike Lease Applications
           {pendingCount > 0 && <Badge variant="secondary">{pendingCount}</Badge>}
@@ -162,11 +164,11 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
         <TabsTrigger value="overview">Overview</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="applications" className="space-y-6">
+      <TabsContent value="applications" className="space-y-6 max-w-full">
         <BikeLeaseApprovalQueue />
       </TabsContent>
 
-      <TabsContent value="overview" className="space-y-6">
+      <TabsContent value="overview" className="space-y-6 max-w-full">
         <AgentProductsPanel category={category} />
       </TabsContent>
     </Tabs>

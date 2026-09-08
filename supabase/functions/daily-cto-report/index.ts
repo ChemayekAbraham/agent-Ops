@@ -798,13 +798,22 @@ Deno.serve(async (req) => {
     }
 
     // --- Slow query issues (only those above threshold)
+    // pg_stat_statements is a lifetime-cumulative counter (since the last
+    // stats reset), not a same-day figure — the RPC now caps severity at
+    // 'Medium'/P3 and never marks these production-blocking or "Today" for
+    // exactly that reason (see get_cto_issue_intelligence). Read its
+    // classification instead of re-deriving urgency here from mean_ms alone,
+    // which previously ignored the RPC's own severity for blockingProd/eta.
     for (const q of inSlow.filter((x: any) => n(x.mean_ms) > 200 || n(x.total_ms) > 600000)) {
       const sev = String(q.severity || 'Medium');
+      const priority = String(q.priority || (sev === 'Critical' ? 'P1' : sev === 'High' ? 'P2' : 'P3'));
+      const blockingProd = q.blocking_production === true;
+      const eta = String(q.resolution_eta || 'Ongoing - chronic performance debt, not a same-day incident');
       issues.push({
         key: `slow_query:${String(q.statement).slice(0, 60)}`, domain: 'Database performance',
         title: `Slow statement: ${String(q.statement).replace(/\s+/g, ' ').slice(0, 90)}`,
-        severity: sev, priority: sev === 'Critical' ? 'P1' : sev === 'High' ? 'P2' : 'P3',
-        execSummary: `A database statement averages ${fmt(q.mean_ms)} ms across ${fmt(q.calls)} calls, consuming ${fmt(Math.round(n(q.total_ms) / 1000))} seconds of database time in total.`,
+        severity: sev, priority,
+        execSummary: `A database statement averages ${fmt(q.mean_ms)} ms across ${fmt(q.calls)} lifetime calls (cumulative since the last stats reset, not today's volume), consuming ${fmt(Math.round(n(q.total_ms) / 1000))} seconds of database time in total.`,
         techSummary: `${String(q.plan_note || '')} Cache hit ${fmt(q.cache_hit_pct)}%, ${fmt(q.disk_reads)} disk block reads, ${fmt(q.rows_per_call)} rows returned per call.`,
         rootCause: String(q.plan_note || ''),
         timeline: 'Cumulative since the last statistics reset.',
@@ -815,16 +824,16 @@ Deno.serve(async (req) => {
         systems: 'Postgres primary', services: 'Data API and edge functions issuing this statement',
         apis: 'PostgREST / RPC callers', tables: 'See the FROM clause in the statement below',
         functions: 'Database function or client query', files: 'Callers in src/ and supabase/functions/',
-        businessImpact: n(q.mean_ms) > 2000 ? 'Requests on this path can time out for users on slow networks.' : 'Adds latency to every caller of this path.',
+        businessImpact: 'Chronic performance debt — adds latency to every caller of this path; same-day severity cannot be assessed from a lifetime counter.',
         userImpact: 'All users exercising the affected feature path.', usersAffected: 0,
-        revenueRisk: n(q.mean_ms) > 2000 ? 'Medium' : 'Low',
+        revenueRisk: 'Low',
         owner: 'Backend / Database', team: 'Backend / Database',
         fix: String(q.optimization_recommendation || ''),
         effort: '2-6 engineer hours including EXPLAIN ANALYZE and index rollout',
         status: 'Open', isNew: false, isRecurring: true, daysActive: 30, previouslyFixed: false,
-        gettingWorse: false, blockingProd: n(q.mean_ms) > 5000, investigating: false,
-        eta: sev === 'Critical' ? 'Today' : 'This week',
-        score: 150 + n(q.mean_ms) / 5 + (sev === 'Critical' ? 300 : sev === 'High' ? 120 : 0),
+        gettingWorse: false, blockingProd, investigating: false,
+        eta,
+        score: 150 + n(q.mean_ms) / 5,
         extra: [
           ['Complete SQL statement', String(q.statement || '')],
           ['Query execution plan', String(q.plan_note || '') + ' (run EXPLAIN ANALYZE, BUFFERS for the full plan)'],

@@ -210,6 +210,18 @@ export type AgentCapacity = {
   is_new_agent: boolean;
   /** Sum of daily_repayment across active (non-unfunded) rent_requests. */
   expected_daily: number;
+  /**
+   * Plans the server's DAILY gate is actually measuring (daily plans plus
+   * weekly plans whose week lapsed unpaid). This — not the raw active
+   * rent-request count — decides whether the daily block can apply.
+   */
+  daily_gate_count: number;
+  /** Weekly rent plans, tracked separately from the daily gate. */
+  weekly_plan_count: number;
+  /** Weekly plans with no collection for a full week (these re-enter the daily gate). */
+  weekly_lapsed_count: number;
+  /** UGX expected per week across weekly plans (daily equivalent x 7). */
+  weekly_expected_week: number;
   /** @deprecated alias of `response_rate` kept for backwards compatibility. */
   repayment_rate: number;
   /** @deprecated kept for backwards compatibility (= daily_expected × 7). */
@@ -332,6 +344,11 @@ export function useAgentCapacityMap(agentIds: string[]) {
         coverage_today: number;
         coverage_yesterday: number;
         effective_coverage: number;
+        raw_today_pct: number;
+        raw_yesterday_pct: number;
+        weekly_plan_count: number;
+        weekly_lapsed_count: number;
+        weekly_expected_week: number;
       }>();
       (eligRows || []).forEach((r: any) => {
         eligByAgent.set(r.agent_id, {
@@ -348,6 +365,11 @@ export function useAgentCapacityMap(agentIds: string[]) {
           coverage_today:         Number(r.coverage_today)          || 0,
           coverage_yesterday:     Number(r.coverage_yesterday)      || 0,
           effective_coverage:     Number(r.effective_coverage)      || 0,
+          raw_today_pct:          Number(r.raw_today_pct)           || 0,
+          raw_yesterday_pct:      Number(r.raw_yesterday_pct)       || 0,
+          weekly_plan_count:      Number(r.weekly_plan_count)       || 0,
+          weekly_lapsed_count:    Number(r.weekly_lapsed_count)     || 0,
+          weekly_expected_week:   Number(r.weekly_expected_week)    || 0,
         });
       });
 
@@ -381,7 +403,7 @@ export function useAgentCapacityMap(agentIds: string[]) {
       // 1) Active rent_requests drive both exposure AND expected daily collections
       const { data: active } = await supabase
         .from('rent_requests')
-        .select('id, agent_id, tenant_id, total_repayment, amount_repaid, daily_repayment, status')
+        .select('id, agent_id, tenant_id, total_repayment, amount_repaid, daily_repayment, status, repayment_frequency')
         .in('agent_id', agentIds)
         .in('status', ACTIVE_RENT_STATUSES);
 
@@ -410,6 +432,8 @@ export function useAgentCapacityMap(agentIds: string[]) {
 
       const exposure = new Map<string, { used: number; count: number }>();
       const expectedDaily = new Map<string, number>();
+      // Fallback-only: number of DAILY plans feeding the gate when the server RPC failed.
+      const fallbackGateCount = new Map<string, number>();
       const activeIdToAgent = new Map<string, string>();
       const activeIdToTenant = new Map<string, string>();
       const activeTenantsByAgent = new Map<string, Set<string>>();
@@ -420,15 +444,18 @@ export function useAgentCapacityMap(agentIds: string[]) {
         exposure.set(r.agent_id, { used: prev.used + owed, count: prev.count + 1 });
         // Daily TARGET mirrors v_agent_daily_eligibility: a tenant only counts
         // once the CFO has funded the landlord float (status 'funded'/'repaying')
-        // AND they still owe rent (balance > 0). This fallback only runs if the
-        // server eligibility RPC failed.
+        // AND they still owe rent (balance > 0) AND the plan is DAILY — weekly
+        // plans are tracked separately and never feed the daily gate here.
+        // This fallback only runs if the server eligibility RPC failed.
+        const isWeekly = String(r.repayment_frequency || 'daily').toLowerCase() === 'weekly';
         const fundedAndOwing =
-          (r.status === 'funded' || r.status === 'repaying') && owed > 0;
+          (r.status === 'funded' || r.status === 'repaying') && owed > 0 && !isWeekly;
         if (fundedAndOwing) {
           expectedDaily.set(
             r.agent_id,
             (expectedDaily.get(r.agent_id) || 0) + (Number(r.daily_repayment) || 0),
           );
+          fallbackGateCount.set(r.agent_id, (fallbackGateCount.get(r.agent_id) || 0) + 1);
         }
         activeIdToAgent.set(r.id, r.agent_id);
         if (r.tenant_id) {
@@ -574,13 +601,36 @@ export function useAgentCapacityMap(agentIds: string[]) {
          * no longer drags the agent's rating down: an agent who reached
          * every tenant is rated on that work, whatever the amounts were.
          */
-        const performance_pct = tenants_due > 0
-          ? Math.max(coverage_today, coverage_yesterday)
-          : (exp.count > 0 ? Math.max(effective_daily_pct, 0) : 0);
+        /**
+         * DAILY GATE = the server rule, verbatim (enforce_agent_daily_eligibility):
+         *   - gate population = v_agent_daily_eligibility.active_count, i.e.
+         *     DAILY plans plus weekly plans whose week lapsed unpaid. Weekly
+         *     plans that are on schedule are NOT in this count.
+         *   - blocked iff gate population > 0 AND
+         *     max(effective_pct, raw_today_pct, raw_yesterday_pct) < threshold.
+         * Using exp.count here (all active rent_requests incl. weekly) would
+         * make the app disagree with the database trigger.
+         */
+        const daily_gate_count = elig
+          ? elig.active_count
+          : (fallbackGateCount.get(id) || 0);
+        const weekly_plan_count    = elig?.weekly_plan_count    ?? 0;
+        const weekly_lapsed_count  = elig?.weekly_lapsed_count  ?? 0;
+        const weekly_expected_week = elig?.weekly_expected_week ?? 0;
+        const server_best_pct = Math.max(
+          effective_daily_pct,
+          elig?.raw_today_pct ?? 0,
+          elig?.raw_yesterday_pct ?? 0,
+        );
+        const performance_pct = daily_gate_count <= 0
+          ? 0
+          : tenants_due > 0
+            ? Math.max(coverage_today, coverage_yesterday, server_best_pct)
+            : server_best_pct;
         const daily_blocked =
-          exp.count > 0 && performance_pct < DAILY_ELIGIBILITY_THRESHOLD;
+          daily_gate_count > 0 && server_best_pct < DAILY_ELIGIBILITY_THRESHOLD;
         let daily_status: AgentCapacity['daily_status'];
-        if (exp.count <= 0) daily_status = 'starter';
+        if (daily_gate_count <= 0) daily_status = 'starter';
         else if (daily_blocked) daily_status = 'blocked';
         else daily_status = 'good';
         // Daily performance regulation only kicks in once the agent has
@@ -588,7 +638,7 @@ export function useAgentCapacityMap(agentIds: string[]) {
         // solely by the per-tenant cap above.
         const can_post_rent_today =
           unlimited_posting || is_new_agent ? true : !daily_blocked;
-        const daily_rating = classifyDailyRating(exp.count, performance_pct, 1);
+        const daily_rating = classifyDailyRating(daily_gate_count, performance_pct, 1);
         out.set(id, {
           used: exp.used,
           active_count: exp.count,
@@ -619,6 +669,10 @@ export function useAgentCapacityMap(agentIds: string[]) {
           unlimited_posting,
           is_new_agent,
           expected_daily: dailyExpected,
+          daily_gate_count,
+          weekly_plan_count,
+          weekly_lapsed_count,
+          weekly_expected_week,
           repayment_rate: response_rate,
           expected_weekly,
           headroom,

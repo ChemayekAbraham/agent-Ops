@@ -13,6 +13,7 @@ import { AgentOpsLiveStatsCard } from './AgentOpsLiveStatsCard';
 import { FunderEngagementPanel } from './FunderEngagementPanel';
 import { FunderFunnelPanel } from './FunderFunnelPanel';
 import { CeoSalaryAdvanceApprovals } from './CeoSalaryAdvanceApprovals';
+import { CEOGrowthQuality } from './CEOGrowthQuality';
 
 
 export function CEODashboard() {
@@ -175,6 +176,9 @@ export function CEODashboard() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Growth quality — the three lenses that lead revenue */}
+      <CEOGrowthQuality />
+
       {/* Salary advances waiting on the CEO stage */}
       <CeoSalaryAdvanceApprovals />
 

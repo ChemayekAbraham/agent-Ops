@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { startOfISOWeek, subDays, format } from 'date-fns';
 import { FileText, TrendingUp, CalendarDays, BarChart3 } from 'lucide-react';
@@ -29,10 +29,14 @@ interface PsoFundedSummary {
 
 interface PsoCohortRow {
   staff_ref: string;
-  days_elapsed: number;
-  notes_created: number;
-  notes_reversed: number;
-  net_notes: number;
+  mon: number;
+  tue: number;
+  wed: number;
+  thu: number;
+  fri: number;
+  sat: number;
+  sun: number;
+  total_net: number;
   is_me: boolean;
 }
 
@@ -84,9 +88,8 @@ function formatKampalaDateTime(iso: string): string {
   }).format(new Date(iso));
 }
 
-function getWindowDates(mode: WindowMode): { from: string; to: string; label: string } {
-  const today = kampalaDate();
-  const todayStr = formatKampalaDate(today);
+function getWindowDates(mode: WindowMode, todayStr: string): { from: string; to: string; label: string } {
+  const today = new Date(`${todayStr}T12:00:00`);
 
   if (mode === 'DAILY') {
     return { from: todayStr, to: todayStr, label: `DAILY · ${formatKampalaDisplay(today)}` };
@@ -131,31 +134,48 @@ async function fetchPsoCohort(from: string, to: string): Promise<PsoCohortRow[]>
 
 export default function MyPerformancePage() {
   const [mode, setMode] = useState<WindowMode>('WEEKLY');
-  const { from, to, label } = useMemo(() => getWindowDates(mode), [mode]);
+  const [todayStr, setTodayStr] = useState<string>(() => formatKampalaDate(kampalaDate()));
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const next = formatKampalaDate(kampalaDate());
+      setTodayStr((prev) => (prev === next ? prev : next));
+    }, 60000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const { from, to, label } = useMemo(() => getWindowDates(mode, todayStr), [mode, todayStr]);
 
   const {
     data: rows = [],
     isLoading,
     error,
   } = useQuery<PsoRow[]>({
-    queryKey: ['pso-daily-series', from, to],
+    queryKey: ['pso-daily-series', todayStr, from, to],
     queryFn: () => fetchPsoSeries(from, to),
+    refetchInterval: 60000,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
   });
 
-  const rollingFrom = useMemo(() => formatKampalaDate(subDays(kampalaDate(), 6)), []);
-  const rollingTo = useMemo(() => formatKampalaDate(kampalaDate()), []);
+  const rollingFrom = useMemo(
+    () => formatKampalaDate(subDays(new Date(`${todayStr}T12:00:00`), 6)),
+    [todayStr],
+  );
+  const rollingTo = todayStr;
 
   const {
     data: rollingRows = [],
     isLoading: rollingLoading,
   } = useQuery<PsoRow[]>({
-    queryKey: ['pso-daily-series', 'rolling-7', rollingFrom, rollingTo],
+    queryKey: ['pso-daily-series', 'rolling-7', todayStr, rollingFrom, rollingTo],
     queryFn: () => fetchPsoSeries(rollingFrom, rollingTo),
+    refetchInterval: 60000,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
   });
 
   const staffRef = rows[0]?.staff_ref;
-
-  const todayStr = useMemo(() => formatKampalaDate(kampalaDate()), []);
 
   const { todayNet, todayReversals, netSum, rollingAverage, periodAverage } = useMemo(() => {
     const todayRow = rows.find((r) => r.day === todayStr);
@@ -173,7 +193,7 @@ export default function MyPerformancePage() {
   }, [rows, rollingRows, todayStr]);
 
   const { data: fundedSummary = null } = useQuery<PsoFundedSummary | null>({
-    queryKey: ['pso-funded-summary', from, to],
+    queryKey: ['pso-funded-summary', todayStr, from, to],
     queryFn: async () => {
       const { data, error } = (await supabase.rpc('pso_funded_summary' as any, {
         p_from: from,
@@ -182,6 +202,9 @@ export default function MyPerformancePage() {
       if (error) throw new Error(error.message);
       return data?.[0] ?? null;
     },
+    refetchInterval: 60000,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
   });
 
   const {
@@ -189,9 +212,26 @@ export default function MyPerformancePage() {
     isLoading: cohortLoading,
     error: cohortError,
   } = useQuery<PsoCohortRow[]>({
-    queryKey: ['pso-cohort-volume', from, to],
+    queryKey: ['pso-cohort-volume', todayStr, from, to],
     queryFn: () => fetchPsoCohort(from, to),
+    refetchInterval: 60000,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
   });
+
+  const rankedCohort = useMemo(() => {
+    let rank = 0;
+    let prevTotal: number | null = null;
+    let position = 0;
+    return cohortRows.map((row) => {
+      position += 1;
+      if (prevTotal === null || row.total_net !== prevTotal) {
+        rank = position;
+        prevTotal = row.total_net;
+      }
+      return { ...row, rank };
+    });
+  }, [cohortRows]);
 
   if (error && error.message.toLowerCase().includes('not permitted')) {
     return (
@@ -237,7 +277,7 @@ export default function MyPerformancePage() {
           <span className="text-muted-foreground">·</span>
           <span className="text-success">LIVE</span>
           <span className="ml-1 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-            live figures — nothing is frozen at v1.0
+            live · refreshes every minute
           </span>
         </div>
 
@@ -375,56 +415,50 @@ export default function MyPerformancePage() {
         {!cohortError && (
           <div className="rounded-2xl border border-border bg-card p-4">
             <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              ALL PLATFORM SALES OFFICERS
+              LEADERBOARD · PROMISSORY NOTES
             </h2>
             <p className="mb-3 text-xs text-muted-foreground">
-              every officer sees this list · staff codes only, no names · no money and no commission appear here
+              ranked by net notes, highest first · every officer sees this list · staff codes only, no names · no money and no commission appear here
             </p>
             {cohortLoading ? (
               <div className="h-24 animate-pulse rounded-2xl bg-muted" />
-            ) : cohortRows.length === 0 ? (
+            ) : rankedCohort.length === 0 ? (
               <p className="text-sm text-muted-foreground">No officers in this window yet.</p>
             ) : (
               <div className="overflow-hidden rounded-2xl border border-border">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-left">
                     <tr>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Officer
-                      </th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Days elapsed
-                      </th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Created
-                      </th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Reversed
-                      </th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Net
-                      </th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Average / day
-                      </th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">#</th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Officer</th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Mon</th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tue</th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Wed</th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Thu</th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Fri</th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sat</th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sun</th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {cohortRows.map((row) => (
+                    {rankedCohort.map((row) => (
                       <tr key={row.staff_ref} className={cn(row.is_me && 'bg-muted/40')}>
+                        <td className="px-4 py-2.5 tabular-nums">{row.rank}</td>
                         <td className="px-4 py-2.5">
                           <span className="font-medium">{row.staff_ref}</span>
                           {row.is_me && (
                             <span className="ml-2 text-xs text-muted-foreground">you</span>
                           )}
                         </td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.days_elapsed ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.notes_created ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.notes_reversed ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.net_notes ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">
-                          {row.days_elapsed ? (row.net_notes / row.days_elapsed).toFixed(1) : '0.0'}
-                        </td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.mon ?? 0}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.tue ?? 0}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.wed ?? 0}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.thu ?? 0}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.fri ?? 0}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.sat ?? 0}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.sun ?? 0}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.total_net ?? 0}</td>
                       </tr>
                     ))}
                   </tbody>
