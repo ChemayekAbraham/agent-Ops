@@ -5072,8 +5072,8 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                   <div className="space-y-1">
                     <Label >District</Label>
                     <p className="text-xs text-muted-foreground leading-snug">The district the house is in, like Wakiso.</p>
-                    <p className="text-[11px] text-muted-foreground">e.g. Wakiso</p>
                     <UgDistrictSelect
+
                       label="District"
                       legacyText={propertyDistrict}
                       value={propertyDistrictUnit}
