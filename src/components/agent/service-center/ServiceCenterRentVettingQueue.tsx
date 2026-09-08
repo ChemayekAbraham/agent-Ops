@@ -13,13 +13,14 @@ import {
   useServiceCenterRentQueue,
   useServiceCenterReviewRentRequest,
 } from '@/hooks/useServiceCenterRentQueue';
+import { matchesVettingQuery } from '@/components/agent/service-center/matchesVettingQuery';
 
 /**
  * Service Center vetting queue — the first gate a sub-agent rent request passes
  * before it enters the operations pipeline. Only shown to agents the backend has
  * tagged as Service Center managers.
  */
-export function ServiceCenterRentVettingQueue() {
+export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuery?: string } = {}) {
   const { data, isLoading, error } = useServiceCenterRentQueue();
   const review = useServiceCenterReviewRentRequest();
   const { toast } = useToast();
@@ -77,7 +78,12 @@ export function ServiceCenterRentVettingQueue() {
     );
   }
 
-  const pending = data.pending ?? [];
+  const pending = (data.pending ?? []).filter((req) =>
+    matchesVettingQuery(searchQuery, req.agent_name, req.agent_phone, req.tenant_name, req.tenant_phone, req.landlord_name, req.request_city),
+  );
+  const recentReviewed = (data.recent_reviewed ?? []).filter((r) =>
+    matchesVettingQuery(searchQuery, r.agent_name, r.tenant_name),
+  );
 
   return (
     <div className="space-y-3">
