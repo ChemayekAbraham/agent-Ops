@@ -28,6 +28,7 @@ interface Props {
 
 export function TenantLocationCorrectionPopup({ agentId }: Props) {
   const [open, setOpen] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
   const [selected, setSelected] = useState<TenantLocationCorrectionRow | null>(null);
 
   const suppressed = useMemo(() => {
@@ -53,8 +54,8 @@ export function TenantLocationCorrectionPopup({ agentId }: Props) {
   const pct = total > 0 ? Math.round((corrected / total) * 100) : 0;
 
   useEffect(() => {
-    if (!suppressed && unmatched > 0) setOpen(true);
-  }, [suppressed, unmatched]);
+    if (!suppressed && !dismissed && unmatched > 0) setOpen(true);
+  }, [suppressed, dismissed, unmatched]);
 
   const dismiss = () => {
     try {
@@ -62,6 +63,7 @@ export function TenantLocationCorrectionPopup({ agentId }: Props) {
     } catch {
       /* dismissal is best-effort only */
     }
+    setDismissed(true);
     setOpen(false);
   };
 
