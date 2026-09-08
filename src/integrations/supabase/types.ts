@@ -54040,6 +54040,10 @@ export type Database = {
         }[]
       }
       topup_dedup_bucket: { Args: { ts: string }; Returns: string }
+      tppo_arrears_movement: {
+        Args: { p_anchor?: string; p_granularity: string }
+        Returns: Json
+      }
       tppo_freeze_period: {
         Args: { p_anchor: string; p_finalise?: boolean; p_granularity: string }
         Returns: string
