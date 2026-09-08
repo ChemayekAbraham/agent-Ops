@@ -1714,6 +1714,19 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                             <span className="truncate max-w-[140px] sm:max-w-[180px]">{req.assigned_agent_name || req.agent_name || 'No Agent'}</span>
                           </span>
                         )}
+                        {(() => {
+                          const sub = subAgentParentMap?.get(req.assigned_agent_id || req.agent_id);
+                          if (!sub) return null;
+                          return (
+                            <span
+                              className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-700 border border-indigo-500/30 shrink-0"
+                              title={`Sub-agent of ${sub.parentName}`}
+                            >
+                              <Users className="h-2.5 w-2.5" />
+                              Sub-agent · {sub.parentName}
+                            </span>
+                          );
+                        })()}
                         {req.landlord_id && (
                           <span
                             role="button"
