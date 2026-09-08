@@ -68,11 +68,12 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import ResidenceAddressForm from '@/components/profile/ResidenceAddressForm';
 import { generateTenantOpsReportPdf } from '@/lib/generateTenantOpsReportPdf';
+import TenantLocationCorrectionsHub from '@/components/tenant-ops/TenantLocationCorrectionsHub';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Gauge } from 'lucide-react';
 
-type ActiveView = 'overview' | 'pipeline' | 'pipeline-hub' | 'daily' | 'missed' | 'backlog-analysis' | 'behavior' | 'history' | 'all-requests' | 'link-agent' | 'transfer-audit' | 'collect-rent' | 'agent-tenants' | 'tenant-detail' | 'registration-review' | 'advance-requests' | 'agent-allocations' | 'daily-collections' | 'agent-monitoring' | 'landlord-float' | 'landlord-float-timeline' | 'location-browser' | 'tenant-location-browser' | 'global-verification' | 'welile-operations' | 'daily-repayments-report' | 'tenant-self-repayments' | 'agent-capacity-hub' | 'all-tenants-hub' | 'reports-hub' | 'tenant-products-report' | 'reliability-hub';
+type ActiveView = 'overview' | 'pipeline' | 'pipeline-hub' | 'daily' | 'missed' | 'backlog-analysis' | 'behavior' | 'history' | 'all-requests' | 'link-agent' | 'transfer-audit' | 'collect-rent' | 'agent-tenants' | 'tenant-detail' | 'registration-review' | 'advance-requests' | 'agent-allocations' | 'daily-collections' | 'agent-monitoring' | 'landlord-float' | 'landlord-float-timeline' | 'location-browser' | 'tenant-location-browser' | 'global-verification' | 'welile-operations' | 'daily-repayments-report' | 'tenant-self-repayments' | 'agent-capacity-hub' | 'all-tenants-hub' | 'reports-hub' | 'tenant-products-report' | 'reliability-hub' | 'location-corrections';
 
 /** Public alias so the sidebar shell can type its nav keys against the exact
  *  same view union Classic already routes on. */
@@ -1357,6 +1358,8 @@ export function TenantOpsDashboard({
             }}
           />
         );
+      case 'location-corrections':
+        return <TenantLocationCorrectionsHub />;
       case 'daily':
         return <DailyPaymentTracker />;
       case 'missed':
@@ -1803,6 +1806,12 @@ export function TenantOpsDashboard({
                   view: 'reliability-hub',
                   icon: ShieldCheck,
                   description: 'Risk score per tenant from rent amount, expected daily repayments, missed days and payment recency — with the collecting agent',
+                })}
+                {renderHubEntry({
+                  title: 'Tenant Location Corrections',
+                  view: 'location-corrections',
+                  icon: MapPin,
+                  description: 'Legacy tenants whose saved location is not yet matched to the approved location list — corrected tenants leave the list automatically',
                 })}
                 {renderHubEntry({
                   title: 'Reports & Exports',

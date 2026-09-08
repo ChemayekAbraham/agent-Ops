@@ -10,6 +10,7 @@ import AiIdButton from '@/components/ai-id/AiIdButton';
 import { UnifiedWalletHeroCard } from '@/components/wallet/UnifiedWalletHeroCard';
 import { useMerchantPayoutFloat } from '@/hooks/useMerchantFloat';
 import { AgentRiskExposureCard } from '@/components/agent/AgentRiskExposureCard';
+import TenantLocationCorrectionPopup from '@/components/agent/TenantLocationCorrectionPopup';
 import { AgentCompanyDebtCard } from '@/components/agent/AgentCompanyDebtCard';
 import { AgentMyAdvancesCard } from '@/components/agent/AgentMyAdvancesCard';
 import { useCreditAccessLimit, formatCreditAmount } from '@/hooks/useCreditAccessLimit';
