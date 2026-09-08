@@ -117,6 +117,8 @@ interface FormState {
   kinContact: string;
   agreedToTerms: boolean;
   signatureDataUrl: string;
+  /** Official Uganda dataset pick (optional) — approved location source. */
+  ugLoc?: UgLocationSelection | null;
 }
 
 // ─── Password Strength ───────────────────────────────────────────────────────
@@ -859,8 +861,8 @@ function _Step3Impl({
 
         {/* Official Uganda location (optional) — approved dataset, never typed. */}
         <UgLocationPicker
-          value={ugLoc}
-          onChange={setUgLoc}
+          value={form.ugLoc ?? null}
+          onChange={(sel) => setForm(p => ({ ...p, ugLoc: sel }))}
           label="Official location (optional)"
         />
 
@@ -1186,7 +1188,6 @@ export default function FunderOnboarding() {
     } catch { /* non-fatal */ }
   }, []);
 
-  const [ugLoc, setUgLoc] = useState<UgLocationSelection | null>(null);
 
   const [form, setForm] = useState<FormState>({
     understoodRole: false,
@@ -1200,6 +1201,7 @@ export default function FunderOnboarding() {
     confirmPassword: '',
     phone: '',
     address: '',
+    ugLoc: null,
     nationalId: '',
     payoutMode: 'bank',
     momoProvider: '',
@@ -1296,6 +1298,7 @@ export default function FunderOnboarding() {
           if (cleanAddress) profilePatch.landmark = cleanAddress;
           if (cleanNationalId) profilePatch.national_id = cleanNationalId;
           // Approved dataset wins for the administrative chain when picked.
+          const ugLoc = form.ugLoc;
           if (ugLoc) {
             profilePatch.country = 'Uganda';
             profilePatch.region = ugLoc.region ?? '';
