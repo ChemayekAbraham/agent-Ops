@@ -1248,6 +1248,32 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     setLc1AutoMatched(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoLc1VillageKey, lc1AutoBestId, lc1Auto.isLoading, lc1Auto.isEmpty]);
+
+  // ===== Village → Town/City + District auto-fill =====
+  // The official village already carries its full administrative chain, so the
+  // agent should not retype the district (or the town) that the chain implies.
+  // We fill both from the chosen village and leave them editable for the case
+  // where the house genuinely sits outside the chairperson's village.
+  const placeSourceUnit = lc1LocationUnit ?? ugLocation;
+  const placeSourceKey = placeSourceUnit ? `${placeSourceUnit.villageId}` : null;
+  const placeAutoKeyRef = useRef<string | null>(null);
+  const [placeAutoFilled, setPlaceAutoFilled] = useState(false);
+  useEffect(() => {
+    if (!placeSourceUnit || !placeSourceKey) return;
+    if (placeAutoKeyRef.current === placeSourceKey) return;
+    placeAutoKeyRef.current = placeSourceKey;
+    const districtName = normalizeDistrict(placeSourceUnit.district) || placeSourceUnit.district;
+    setPropertyDistrictUnit({
+      id: placeSourceUnit.districtId,
+      name: districtName,
+      region: placeSourceUnit.region ?? null,
+    });
+    setPropertyDistrict(districtName);
+    setPropertyCity((current) => current.trim() || placeSourceUnit.subcounty || districtName);
+    setPlaceAutoFilled(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placeSourceKey]);
+
   const LL_MODE_KEY = `welile:rentReq:landlordMode:${user?.id || 'anon'}`;
   const [landlordMode, setLandlordModeState] = useState<'search' | 'register'>(() => {
     try { return (sessionStorage.getItem(LL_MODE_KEY) as 'search' | 'register') || 'search'; }
