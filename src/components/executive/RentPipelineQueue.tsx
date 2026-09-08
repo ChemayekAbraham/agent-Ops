@@ -20,7 +20,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import { CheckCircle2, XCircle, Clock, MapPin, User, UserCheck, Home, Banknote, ArrowRight, ArrowRightLeft, Loader2, Search, MessageCircle, Phone, Pencil, Check, X, PhoneCall, ShieldCheck, AlertCircle, Image as ImageIcon, Camera, Cloud, HardDrive, RotateCcw, ArrowUpDown, ChevronDown, Filter, Eye, CalendarClock } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, MapPin, User, UserCheck, Users, Home, Banknote, ArrowRight, ArrowRightLeft, Loader2, Search, MessageCircle, Phone, Pencil, Check, X, PhoneCall, ShieldCheck, AlertCircle, Image as ImageIcon, Camera, Cloud, HardDrive, RotateCcw, ArrowUpDown, ChevronDown, Filter, Eye, CalendarClock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateRentRepayment } from '@/lib/rentCalculations';
 import { formatTenantSync } from '@/lib/tenantFilterSyncFormat';
@@ -1802,6 +1802,19 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                           No Agent
                         </span>
                       )}
+                      {(() => {
+                        const sub = subAgentParentMap?.get(req.assigned_agent_id || req.agent_id);
+                        if (!sub) return null;
+                        return (
+                          <span
+                            className="inline-flex items-center gap-1 text-indigo-700"
+                            title={`Sub-agent of ${sub.parentName}`}
+                          >
+                            <Users className="h-3 w-3" />
+                            Sub-agent of {sub.parentName}
+                          </span>
+                        );
+                      })()}
                       {(req.request_city || req.landlord_district || req.tenant_district) && (
                         <span className="flex items-center gap-1">
                           <MapPin className="h-3 w-3" />
