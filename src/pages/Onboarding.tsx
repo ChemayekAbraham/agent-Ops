@@ -1300,7 +1300,6 @@ export default function FunderOnboarding() {
             profilePatch.country = 'Uganda';
             profilePatch.region = ugLoc.region ?? '';
             profilePatch.district = ugLoc.district;
-            profilePatch.county = ugLoc.county;
             profilePatch.sub_county = ugLoc.subcounty;
             profilePatch.parish = ugLoc.parish;
             profilePatch.village = ugLoc.village;
