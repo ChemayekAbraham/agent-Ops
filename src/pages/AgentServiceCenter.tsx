@@ -187,6 +187,15 @@ export default function AgentServiceCenter() {
           </TabsList>
 
           <TabsContent value="vetting" className="mt-3 space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={vettingQuery}
+                onChange={(e) => setVettingQuery(e.target.value)}
+                placeholder="Search by agent, tenant, landlord, phone…"
+                className="pl-9 text-xs sm:text-sm h-9 sm:h-10"
+              />
+            </div>
             <Tabs defaultValue="rent">
               <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 h-auto gap-1 p-1">
                 <TabsTrigger value="rent" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
@@ -208,20 +217,20 @@ export default function AgentServiceCenter() {
 
 
               <TabsContent value="tenant_requests" className="mt-3">
-                <TenantRentIntakeQueue />
+                <TenantRentIntakeQueue searchQuery={vettingQuery} />
               </TabsContent>
 
               <TabsContent value="rent" className="mt-3">
-                <ServiceCenterRentVettingQueue />
+                <ServiceCenterRentVettingQueue searchQuery={vettingQuery} />
               </TabsContent>
               <TabsContent value="houses" className="mt-3">
-                <ServiceCenterListingVettingQueue />
+                <ServiceCenterListingVettingQueue searchQuery={vettingQuery} />
               </TabsContent>
               <TabsContent value="landlords" className="mt-3">
-                <ServiceCenterVerificationVettingQueue only="landlord" />
+                <ServiceCenterVerificationVettingQueue only="landlord" searchQuery={vettingQuery} />
               </TabsContent>
               <TabsContent value="lc1" className="mt-3">
-                <ServiceCenterVerificationVettingQueue only="lc1" />
+                <ServiceCenterVerificationVettingQueue only="lc1" searchQuery={vettingQuery} />
               </TabsContent>
             </Tabs>
           </TabsContent>
