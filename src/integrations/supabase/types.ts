@@ -47845,6 +47845,10 @@ export type Database = {
         Args: { p_bucket?: string; p_end: string; p_start: string }
         Returns: Json
       }
+      get_agent_collections_coverage: {
+        Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
       get_agent_collections_detail: {
         Args: { p_agent_id: string; p_limit?: number }
         Returns: Json

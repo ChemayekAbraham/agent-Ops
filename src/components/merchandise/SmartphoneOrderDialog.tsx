@@ -25,6 +25,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import smartphonePromoAsset from '@/assets/smartphone-promo.jpg.asset.json';
 import { useSmartphoneCatalog, type SmartphoneOsType, type SmartphoneCatalogEntry } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
 import { SMARTPHONE_PERIODS as PERIODS, smartphoneSchedule } from '@/lib/smartphoneAdvance';
+import { MO_BANJA } from '@/lib/moBanjaIphone';
 
 const db = supabase as any;
 
@@ -231,6 +232,25 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               </Select>
             </div>
 
+            {osType === 'ios' && (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+                <p className="text-xs font-semibold">How the {MO_BANJA.partner} iPhone works</p>
+                <p className="text-[11px] text-muted-foreground">{MO_BANJA.amountNote}</p>
+                <ul className="space-y-1 text-[11px] text-muted-foreground">
+                  {MO_BANJA.twoLegs.map((line) => (
+                    <li key={line} className="flex gap-1.5">
+                      <span className="text-primary">•</span>
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-[11px] text-muted-foreground flex gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                  <span>{MO_BANJA.lockNotice}</span>
+                </p>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label className="text-xs">Payment method</Label>
               <div className="grid grid-cols-2 gap-2">
@@ -312,7 +332,9 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
             {paymentMethod === 'full' && price > 0 && (
               <div className="rounded-lg border border-border bg-muted/40 p-3 text-center space-y-1">
-                <p className="text-xs text-muted-foreground">Amount due in full</p>
+                <p className="text-xs text-muted-foreground">
+                  {osType === 'ios' ? `${MO_BANJA.amountLabel} — due in full` : 'Amount due in full'}
+                </p>
                 <p className="text-2xl font-bold tabular-nums">{formatUGX(price)}</p>
                 <p className="text-[11px] text-muted-foreground">
                   The full amount is collected from your Welile Wallet. No daily deductions.
@@ -322,7 +344,9 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
             {paymentMethod === 'installments' && dailyAmount > 0 && (
               <div className="rounded-lg border border-border bg-muted/40 p-3 text-center space-y-1">
-                <p className="text-xs text-muted-foreground">Daily repayment</p>
+                <p className="text-xs text-muted-foreground">
+                  {osType === 'ios' ? 'Daily repayment to Welile' : 'Daily repayment'}
+                </p>
                 <p className="text-2xl font-bold tabular-nums">
                   {formatUGX(dailyAmount)}
                   <span className="text-sm font-medium text-muted-foreground">/day</span>
@@ -330,6 +354,9 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 <p className="text-[11px] text-muted-foreground">
                   {period.days} days · {formatUGX(totalRepayable)} in total. Deductions start 14 days after your
                   phone is released.
+                  {osType === 'ios'
+                    ? ` This covers Welile only — you also pay ${MO_BANJA.partner} weekly, directly to them.`
+                    : ''}
                 </p>
               </div>
             )}

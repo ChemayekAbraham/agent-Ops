@@ -32,6 +32,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import DeviceAccessDialog from '@/components/merchandise/DeviceAccessDialog';
+import { isMoBanjaIphone, MO_BANJA } from '@/lib/moBanjaIphone';
 
 
 const db = supabase as any;
@@ -41,6 +42,7 @@ type OrderStatus = 'submitted' | 'pending_approval' | 'coo_approved' | 'approved
 
 interface SmartphoneOrder {
   id: string;
+  item_name?: string | null;
   unit_price: number;
   amount_outstanding: number;
   order_status: OrderStatus;
@@ -136,7 +138,7 @@ export default function SmartphoneOrderStatus({
     queryFn: async () => {
       const { data, error } = await db
         .from('merchandise_sales')
-        .select('id, unit_price, amount_outstanding, order_status, created_at, client_name, client_phone, tracking_reference, access_accepted_at, rejection_reason, rejected_at')
+        .select('id, item_name, unit_price, amount_outstanding, order_status, created_at, client_name, client_phone, tracking_reference, access_accepted_at, rejection_reason, rejected_at')
         .eq('customer_id', userId)
         .in('item_name', itemNames)
         .order('created_at', { ascending: false });
@@ -385,6 +387,20 @@ export default function SmartphoneOrderStatus({
                     {meta.label}
                   </Badge>
                 </div>
+                {isMoBanjaIphone(null, o.item_name) && (
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 px-2.5 py-2 space-y-1">
+                    <p className="text-[11px] font-semibold">
+                      {MO_BANJA.partner} iPhone — two payments
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">{MO_BANJA.amountNote}</p>
+                    <ul className="space-y-0.5 text-[11px] text-muted-foreground">
+                      {MO_BANJA.twoLegs.map((line) => (
+                        <li key={line}>• {line}</li>
+                      ))}
+                    </ul>
+                    <p className="text-[11px] text-muted-foreground">{MO_BANJA.lockNotice}</p>
+                  </div>
+                )}
                 {status === 'rejected' && (
                   <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-2">
                     <XCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />

@@ -29,6 +29,7 @@ import {
 import { Smartphone, Check, X, Loader2, Trash2, AlertTriangle } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { SupplierPicker, type SupplierChoice } from './SmartphoneCatalogDialog';
+import { isMoBanjaIphone, MO_BANJA } from '@/lib/moBanjaIphone';
 import { format } from 'date-fns';
 
 const db = supabase as any;
@@ -465,7 +466,9 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                     <p className="text-xs font-semibold truncate">{o.model_type || '—'}</p>
                   </div>
                   <div className="rounded-md bg-muted/50 px-2 py-1.5">
-                    <p className="text-[10px] text-muted-foreground">Phone amount</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {isMoBanjaIphone(o.brand, o.model_type) ? MO_BANJA.amountLabelShort : 'Phone amount'}
+                    </p>
                     <p className="text-xs font-semibold">{formatUGX(total)}</p>
                   </div>
                   <div className="rounded-md bg-muted/50 px-2 py-1.5">
@@ -533,7 +536,12 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
               ['Submitted', format(new Date(detailsTarget.created_at), 'dd MMM yyyy HH:mm')],
               ['Brand', detailsTarget.brand || '—'],
               ['Model', detailsTarget.model_type || '—'],
-              ['Phone amount', formatUGX(total)],
+              [
+                isMoBanjaIphone(detailsTarget.brand, detailsTarget.model_type)
+                  ? MO_BANJA.amountLabel
+                  : 'Phone amount',
+                formatUGX(total),
+              ],
               ['Projection (33%)', formatUGX(projection)],
               ['Access Amount (Total)', formatUGX(Math.round(total * 1.33))],
               ['Amount paid', formatUGX(Number(detailsTarget.amount_paid || 0))],
@@ -568,6 +576,15 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                     </div>
                   ))}
                 </div>
+
+                {isMoBanjaIphone(detailsTarget.brand, detailsTarget.model_type) && (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-1">
+                    <p className="text-xs font-semibold flex items-center gap-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-600" /> {MO_BANJA.partner} programme
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">{MO_BANJA.opsNote}</p>
+                  </div>
+                )}
 
                 <div className="rounded-lg border p-3 space-y-2">
                   <p className="text-xs font-semibold">Supplier</p>
@@ -770,7 +787,11 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                 </div>
                 <div className="flex items-center justify-between gap-3 px-3 py-2">
                   <span className="text-xs text-muted-foreground">
-                    {approveStage === 'cfo' ? 'COO approved amount' : 'Phone amount'}
+                    {approveStage === 'cfo'
+                      ? 'COO approved amount'
+                      : isMoBanjaIphone(approveTarget.brand, approveTarget.model_type)
+                        ? MO_BANJA.amountLabel
+                        : 'Phone amount'}
                   </span>
                   <span className="text-xs font-semibold">{formatUGX(phoneAmountNumber)}</span>
                 </div>
