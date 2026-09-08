@@ -44816,6 +44816,7 @@ export type Database = {
           p_longitude?: number
           p_target_id: string
           p_target_role: string
+          p_village_id?: number
         }
         Returns: Json
       }
