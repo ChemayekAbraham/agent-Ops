@@ -1080,6 +1080,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             {!isMerchant && (
               <>
               <LastWeekWinnerOverlay />
+              <TenantLocationCorrectionPopup agentId={user.id} />
               <ListRegisterEarnDialog
                 onListHouse={() => {
                   if (!guardListingHours()) return;
