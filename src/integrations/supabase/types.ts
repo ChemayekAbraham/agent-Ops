@@ -52954,18 +52954,20 @@ export type Database = {
       record_rent_request_repayment: {
         Args: {
           p_amount: number
+          p_rent_request_id?: string
           p_tenant_id: string
-          p_transaction_group_id?: string
+          p_transaction_group_id: string
         }
-        Returns: undefined
+        Returns: string
       }
       record_rent_request_repayment_v2: {
         Args: {
           p_amount: number
-          p_source_id?: string
-          p_source_table?: string
+          p_rent_request_id?: string
+          p_source_id: string
+          p_source_table: string
           p_tenant_id: string
-          p_transaction_group_id?: string
+          p_transaction_group_id: string
         }
         Returns: Json
       }
