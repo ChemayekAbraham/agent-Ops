@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Bike, Check, Loader2, X } from 'lucide-react';
+import { Bike, Check, Edit3, Loader2, X } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +28,9 @@ import {
 } from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
 import { LEASE_TERMS } from '@/components/merchandise/SpiroBikeOrderDialog';
+import { BikeLeaseDetailDialog } from './BikeLeaseDetailDialog';
+import { EditBikeApplicationDialog } from './EditBikeApplicationDialog';
+import { MotorBikeCatalogDialog } from './MotorBikeCatalogDialog';
 
 const db = supabase as any;
 
@@ -89,6 +92,8 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
   const [approvedTerm, setApprovedTerm] = useState('12');
   const [rejectTarget, setRejectTarget] = useState<BikeLeaseRow | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [detailTarget, setDetailTarget] = useState<BikeLeaseRow | null>(null);
+  const [editTarget, setEditTarget] = useState<BikeLeaseRow | null>(null);
 
   const { data: orders = [], isLoading } = useQuery<BikeLeaseRow[]>({
     queryKey: ['bike-lease-queue'],
@@ -207,14 +212,17 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
     (reject.isPending && reject.variables?.id === id);
 
   return (
-    <Card>
+    <Card className="overflow-x-hidden max-w-full">
       <CardHeader className="pb-3">
-        <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-          <Bike className="h-4 w-4 text-orange-500" />
-          Spiro bike lease applications
-          {pendingCount > 0 && <Badge variant="secondary">{pendingCount} awaiting COO</Badge>}
-          {cfoCount > 0 && <Badge variant="secondary">{cfoCount} awaiting CFO</Badge>}
-        </CardTitle>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+            <Bike className="h-4 w-4 text-primary" />
+            Spiro bike lease applications
+            {pendingCount > 0 && <Badge variant="secondary">{pendingCount} awaiting COO</Badge>}
+            {cfoCount > 0 && <Badge variant="secondary">{cfoCount} awaiting CFO</Badge>}
+          </CardTitle>
+          <MotorBikeCatalogDialog />
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         <Input
@@ -235,7 +243,11 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
             {/* Mobile cards */}
             <div className="space-y-2 md:hidden">
               {filtered.map((o) => (
-                <div key={o.id} className="rounded-xl border bg-card p-3 space-y-2">
+                <div
+                  key={o.id}
+                  className="rounded-xl border bg-card p-3 space-y-2 cursor-pointer hover:bg-muted/40 transition-colors shadow-sm"
+                  onClick={() => setDetailTarget(o)}
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold truncate">{o.client_name || 'Agent'}</p>
@@ -257,22 +269,46 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
                     <span className="text-muted-foreground">Outstanding</span>
                     <span className="text-right font-semibold">{formatUGX(Number(o.amount_outstanding || 0))}</span>
                   </div>
-                  {isOpen(o.order_status) && (
-                    <div className="flex gap-2">
-                      <Button size="sm" className="h-8 flex-1 text-xs" disabled={rowBusy(o.id)} onClick={() => openApprove(o)}>
-                        {isAwaitingCfo(o.order_status) ? 'Release & activate' : 'Approve & send to CFO'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 text-xs text-destructive"
-                        disabled={rowBusy(o.id)}
-                        onClick={() => setRejectTarget(o)}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1 border-t" onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2.5 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditTarget(o);
+                      }}
+                    >
+                      <Edit3 className="h-3.5 w-3.5" /> Edit Price
+                    </Button>
+                    {isOpen(o.order_status) && (
+                      <>
+                        <Button
+                          size="sm"
+                          className="h-8 flex-1 text-xs"
+                          disabled={rowBusy(o.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openApprove(o);
+                          }}
+                        >
+                          {isAwaitingCfo(o.order_status) ? 'Release & activate' : 'Approve & send to CFO'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 text-xs text-destructive"
+                          disabled={rowBusy(o.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRejectTarget(o);
+                          }}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -295,9 +331,13 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
                 </thead>
                 <tbody>
                   {filtered.map((o) => (
-                    <tr key={o.id} className="border-b last:border-0">
+                    <tr
+                      key={o.id}
+                      className="border-b last:border-0 cursor-pointer hover:bg-muted/30 transition-colors group"
+                      onClick={() => setDetailTarget(o)}
+                    >
                       <td className="py-2 pr-3">
-                        <p className="font-medium">{o.client_name || 'Agent'}</p>
+                        <p className="font-medium group-hover:text-primary transition-colors">{o.client_name || 'Agent'}</p>
                         <p className="text-[11px] text-muted-foreground">{o.client_phone || '—'}</p>
                       </td>
                       <td className="py-2 pr-3">{o.model_type || 'Spiro bike'}</td>
@@ -316,25 +356,55 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
                         {format(new Date(o.created_at), 'd MMM yyyy')}
                       </td>
                       <td className="py-2 text-right">
-                        {isOpen(o.order_status) ? (
-                          <div className="flex justify-end gap-1.5">
-                            <Button size="sm" className="h-7 text-xs" disabled={rowBusy(o.id)} onClick={() => openApprove(o)}>
-                              {rowBusy(o.id) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                              <span className="ml-1">{isAwaitingCfo(o.order_status) ? 'Release' : 'Approve'}</span>
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs text-destructive"
-                              disabled={rowBusy(o.id)}
-                              onClick={() => setRejectTarget(o)}
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
+                        <div className="flex justify-end items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                            title="Edit application price & details"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditTarget(o);
+                            }}
+                          >
+                            <Edit3 className="h-3.5 w-3.5" />
+                            <span className="hidden lg:inline">Edit</span>
+                          </Button>
+                          {isOpen(o.order_status) ? (
+                            <>
+                              <Button
+                                size="sm"
+                                className="h-7 text-xs"
+                                disabled={rowBusy(o.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openApprove(o);
+                                }}
+                              >
+                                {rowBusy(o.id) ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <Check className="h-3.5 w-3.5" />
+                                )}
+                                <span className="ml-1">{isAwaitingCfo(o.order_status) ? 'Release' : 'Approve'}</span>
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs text-destructive"
+                                disabled={rowBusy(o.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRejectTarget(o);
+                                }}
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -348,7 +418,7 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
 
       {/* Approve / release dialog with the payment recovery projection */}
       <Dialog open={!!approveTarget} onOpenChange={(o) => { if (!o) setApproveTarget(null); }}>
-        <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] sm:w-full sm:max-w-md max-h-[90dvh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>
               {approveStage === 'cfo' ? 'Release bike & activate lease' : 'COO approval — valuation & lease terms'}
@@ -511,7 +581,7 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
 
       {/* Reject dialog */}
       <Dialog open={!!rejectTarget} onOpenChange={(o) => { if (!o) { setRejectTarget(null); setRejectReason(''); } }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] sm:w-full sm:max-w-md overflow-x-hidden p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Reject bike lease application</DialogTitle>
             <DialogDescription className="text-xs">
@@ -539,6 +609,28 @@ export function BikeLeaseApprovalQueue({ pendingOnly = false }: { pendingOnly?: 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Full Application Details Dialog */}
+      <BikeLeaseDetailDialog
+        order={detailTarget}
+        open={!!detailTarget}
+        onOpenChange={(v) => { if (!v) setDetailTarget(null); }}
+        onApprove={(ord) => openApprove(ord)}
+        onReject={(ord) => setRejectTarget(ord)}
+        onEditPrice={(ord) => setEditTarget(ord)}
+      />
+
+      {/* Edit Application Price & Terms Dialog */}
+      <EditBikeApplicationDialog
+        order={editTarget}
+        open={!!editTarget}
+        onOpenChange={(v) => { if (!v) setEditTarget(null); }}
+        onSuccess={() => {
+          if (detailTarget && editTarget && detailTarget.id === editTarget.id) {
+            setDetailTarget(null);
+          }
+        }}
+      />
     </Card>
   );
 }

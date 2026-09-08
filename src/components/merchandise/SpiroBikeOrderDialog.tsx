@@ -26,9 +26,11 @@ import spiroBikeAsset from '@/assets/spiro-bike.jpg.asset.json';
 import {
   BIKE_RECOVERY_RATE,
   SPIRO_LEASE_PERIODS,
+  SPIRO_BIKE_BASE_PRICE,
   spiroLeaseGrid,
   spiroLeaseSchedule,
 } from '@/lib/spiroBikeLease';
+import { useMotorBikeCatalog } from '@/components/executive/agent-ops/MotorBikeCatalogDialog';
 
 const db = supabase as any;
 
@@ -51,24 +53,43 @@ interface Props {
 }
 
 /**
- * Agent-facing Spiro electric bike lease order: fixed UGX 120,000 base price,
+ * Agent-facing Spiro electric bike lease order: dynamic catalog base price,
  * an access fee that depends on the repayment period (3m 33%, 6m 36%, 9m 39%,
  * 12m 42%) and a dynamic monthly repayment schedule. Submitting sends the
  * application to Agent Ops for eligibility review.
  */
 export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Props) {
   const queryClient = useQueryClient();
+  const { data: catalog = [] } = useMotorBikeCatalog();
+
+  const availableModels = useMemo(() => {
+    const activeCatalog = catalog.filter((c) => c.is_active);
+    if (activeCatalog.length > 0) {
+      return activeCatalog.map((c) => ({
+        model: c.item_name,
+        note: c.description || 'Welile electric bike',
+        price: c.unit_price,
+      }));
+    }
+    return SPIRO_MODELS.map((m) => ({
+      model: m.model,
+      note: m.note,
+      price: SPIRO_BIKE_BASE_PRICE,
+    }));
+  }, [catalog]);
+
   const [model, setModel] = useState<string>(SPIRO_MODELS[0].model);
   const [term, setTerm] = useState<string>('3');
   const [submitting, setSubmitting] = useState(false);
 
   const selectedModel = useMemo(
-    () => SPIRO_MODELS.find((m) => m.model === model) ?? SPIRO_MODELS[0],
-    [model],
+    () => availableModels.find((m) => m.model === model) ?? availableModels[0],
+    [availableModels, model],
   );
   const termNum = parseInt(term, 10) || 3;
-  const schedule = useMemo(() => spiroLeaseSchedule(termNum), [termNum]);
-  const grid = useMemo(() => spiroLeaseGrid(), []);
+  const basePrice = selectedModel?.price ?? SPIRO_BIKE_BASE_PRICE;
+  const schedule = useMemo(() => spiroLeaseSchedule(termNum, basePrice), [termNum, basePrice]);
+  const grid = useMemo(() => spiroLeaseGrid(basePrice), [basePrice]);
 
   const submit = async () => {
     setSubmitting(true);
@@ -119,9 +140,9 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
                 <SelectValue placeholder="Select a model" />
               </SelectTrigger>
               <SelectContent>
-                {SPIRO_MODELS.map((m) => (
+                {availableModels.map((m) => (
                   <SelectItem key={m.model} value={m.model} className="text-sm">
-                    {m.model}
+                    {m.model} ({formatUGX(m.price)})
                   </SelectItem>
                 ))}
               </SelectContent>
