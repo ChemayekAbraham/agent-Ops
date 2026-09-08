@@ -277,7 +277,7 @@ export default function MyPerformancePage() {
           <span className="text-muted-foreground">·</span>
           <span className="text-success">LIVE</span>
           <span className="ml-1 inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-            live figures — nothing is frozen at v1.0
+            live · refreshes every minute
           </span>
         </div>
 
