@@ -476,6 +476,7 @@ export default function MyPerformancePage() {
           </div>
 
         </div>
+        )}
 
         {/* Zone C */}
         {!cohortError && (
