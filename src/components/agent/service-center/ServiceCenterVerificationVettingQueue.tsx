@@ -13,6 +13,7 @@ import {
   useServiceCenterReviewVerification,
   useServiceCenterVerificationQueue,
 } from '@/hooks/useServiceCenterVerificationQueue';
+import { matchesVettingQuery } from '@/components/agent/service-center/matchesVettingQuery';
 
 type Kind = 'landlord' | 'lc1';
 
@@ -21,7 +22,7 @@ type Kind = 'landlord' | 'lc1';
  * landlord and LC1 chairperson their team registers before Landlord Ops does
  * the final verification.
  */
-export function ServiceCenterVerificationVettingQueue({ only }: { only?: Kind } = {}) {
+export function ServiceCenterVerificationVettingQueue({ only, searchQuery = '' }: { only?: Kind; searchQuery?: string } = {}) {
   const { data, isLoading, error } = useServiceCenterVerificationQueue();
   const review = useServiceCenterReviewVerification();
   const { toast } = useToast();

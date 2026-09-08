@@ -13,12 +13,13 @@ import {
   useServiceCenterListingQueue,
   useServiceCenterReviewListing,
 } from '@/hooks/useServiceCenterListingQueue';
+import { matchesVettingQuery } from '@/components/agent/service-center/matchesVettingQuery';
 
 /**
  * Listings vetting queue — a Service Centre manager checks every house their
  * agents list before Landlord Ops performs the final verification.
  */
-export function ServiceCenterListingVettingQueue() {
+export function ServiceCenterListingVettingQueue({ searchQuery = '' }: { searchQuery?: string } = {}) {
   const { data = [], isLoading, error } = useServiceCenterListingQueue();
   const review = useServiceCenterReviewListing();
   const { toast } = useToast();

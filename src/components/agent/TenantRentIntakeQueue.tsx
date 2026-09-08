@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { formatUGX } from '@/lib/rentCalculations';
+import { matchesVettingQuery } from '@/components/agent/service-center/matchesVettingQuery';
 
 type Row = {
   id: string;
