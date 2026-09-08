@@ -572,6 +572,9 @@ export function AgentCollectionsCommandCenter() {
         onExportStatement={exportStatementPdf}
       />
 
+      <TenantsOwingDialog asOf={totals?.defaulted_as_of ?? format(new Date(), 'yyyy-MM-dd')} open={owingOpen} onOpenChange={setOwingOpen} />
+      <DormantAgentsDialog asOf={totals?.defaulted_as_of ?? format(new Date(), 'yyyy-MM-dd')} open={dormantOpen} onOpenChange={setDormantOpen} />
+
         </>
       )}
     </div>
