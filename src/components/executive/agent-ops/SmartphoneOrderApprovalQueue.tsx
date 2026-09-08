@@ -586,6 +586,17 @@ export function SmartphoneOrderApprovalQueue({ pendingOnly = false, rejectedOnly
                   </div>
                 )}
 
+                <p className="text-[11px] text-muted-foreground">
+                  Paid to{' '}
+                  <span className="font-semibold text-foreground">
+                    {detailsTarget.supplier_name || 'the registered supplier'}
+                  </span>
+                  {' · '}repaid by{' '}
+                  <span className="font-semibold text-foreground">
+                    {detailsTarget.client_name || 'the applying agent'}
+                  </span>
+                </p>
+
                 <div className="rounded-lg border p-3 space-y-2">
                   <p className="text-xs font-semibold">Supplier</p>
                   {detailsTarget.supplier_id ? (
