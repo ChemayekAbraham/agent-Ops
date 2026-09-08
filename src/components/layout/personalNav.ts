@@ -14,6 +14,7 @@ import {
   FolderOpen,
   Ticket,
   Wallet,
+  TrendingUp,
   type LucideIcon,
 } from 'lucide-react';
 
