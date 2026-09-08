@@ -164,7 +164,7 @@ export function AgentMonitoring() {
       const requests = await fetchAll<ActiveRentRequest>((from, to) =>
         supabase
           .from('rent_requests')
-          .select('id, tenant_id, agent_id, landlord_id, daily_repayment, total_repayment, amount_repaid, status, created_at, house_category')
+          .select('id, tenant_id, agent_id, landlord_id, daily_repayment, total_repayment, amount_repaid, status, created_at, house_category, repayment_frequency, repayment_starts_on')
           .in('status', ['funded', 'disbursed', 'repaying'])
           .range(from, to),
       );
