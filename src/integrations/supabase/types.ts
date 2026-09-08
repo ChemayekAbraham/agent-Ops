@@ -53887,6 +53887,17 @@ export type Database = {
         Returns: number
       }
       telecom_sending_charge: { Args: { p_amount: number }; Returns: number }
+      tenant_location_correction_agents: {
+        Args: { p_limit?: number; p_search?: string }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          agent_phone: string
+          matched: number
+          total_tenants: number
+          unmatched: number
+        }[]
+      }
       tenant_location_correction_progress: {
         Args: { p_agent_id?: string }
         Returns: {
