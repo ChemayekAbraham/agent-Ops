@@ -442,15 +442,18 @@ export function useAgentCapacityMap(agentIds: string[]) {
         exposure.set(r.agent_id, { used: prev.used + owed, count: prev.count + 1 });
         // Daily TARGET mirrors v_agent_daily_eligibility: a tenant only counts
         // once the CFO has funded the landlord float (status 'funded'/'repaying')
-        // AND they still owe rent (balance > 0). This fallback only runs if the
-        // server eligibility RPC failed.
+        // AND they still owe rent (balance > 0) AND the plan is DAILY — weekly
+        // plans are tracked separately and never feed the daily gate here.
+        // This fallback only runs if the server eligibility RPC failed.
+        const isWeekly = String(r.repayment_frequency || 'daily').toLowerCase() === 'weekly';
         const fundedAndOwing =
-          (r.status === 'funded' || r.status === 'repaying') && owed > 0;
+          (r.status === 'funded' || r.status === 'repaying') && owed > 0 && !isWeekly;
         if (fundedAndOwing) {
           expectedDaily.set(
             r.agent_id,
             (expectedDaily.get(r.agent_id) || 0) + (Number(r.daily_repayment) || 0),
           );
+          fallbackGateCount.set(r.agent_id, (fallbackGateCount.get(r.agent_id) || 0) + 1);
         }
         activeIdToAgent.set(r.id, r.agent_id);
         if (r.tenant_id) {
