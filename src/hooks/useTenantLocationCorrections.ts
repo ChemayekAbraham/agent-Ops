@@ -50,7 +50,72 @@ export const TENANT_LOCATION_KEYS = {
   list: 'tenant-location-corrections',
   progress: 'tenant-location-correction-progress',
   agents: 'tenant-location-correction-agents',
+  dashboard: 'tenant-location-correction-dashboard',
 } as const;
+
+/** Progressive login-popup requirement: 60% of what is listed, or everything when 5 or fewer remain. */
+export const CORRECTION_GATE_RATIO = 0.6;
+export const CORRECTION_GATE_SMALL_BATCH = 5;
+export function requiredCorrections(listed: number) {
+  if (listed <= 0) return 0;
+  if (listed <= CORRECTION_GATE_SMALL_BATCH) return listed;
+  return Math.ceil(listed * CORRECTION_GATE_RATIO);
+}
+
+export interface TenantLocationDashboardAgent {
+  agent_id: string;
+  agent_name: string | null;
+  agent_phone: string | null;
+  total_tenants: number;
+  outstanding: number;
+  corrected: number;
+  required: number;
+  pct: number;
+}
+
+export interface TenantLocationDashboardDay {
+  day: string;
+  corrections: number;
+  tenants: number;
+  actors: number;
+  agents: number;
+}
+
+export interface TenantLocationDashboard {
+  as_of_day: string;
+  total_tenants: number;
+  outstanding: number;
+  corrected: number;
+  required: number;
+  corrected_today: number;
+  corrected_week: number;
+  corrected_month: number;
+  agents_outstanding: number;
+  agents_completed: number;
+  agents_involved: number;
+  agents_total: number;
+  avg_corrections_per_agent: number;
+  top_progress: TenantLocationDashboardAgent[];
+  top_outstanding: TenantLocationDashboardAgent[];
+  agents: TenantLocationDashboardAgent[];
+  daily: TenantLocationDashboardDay[];
+}
+
+/** Ops dashboard aggregate — one round trip, optionally scoped to a single agent. */
+export function useTenantLocationDashboard(agentId?: string | null, enabled = true) {
+  return useQuery({
+    queryKey: [TENANT_LOCATION_KEYS.dashboard, agentId ?? 'all'],
+    enabled,
+    staleTime: 60_000,
+    queryFn: async (): Promise<TenantLocationDashboard> => {
+      const { data, error } = await supabase.rpc('tenant_location_correction_dashboard', {
+        p_agent_id: agentId ?? undefined,
+      });
+      if (error) throw error;
+      return data as unknown as TenantLocationDashboard;
+    },
+  });
+}
 
 export interface TenantLocationCorrectionAgent {
   agent_id: string;
