@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { startOfISOWeek } from 'date-fns';
 import PersonalLayout from '@/components/layout/PersonalLayout';
@@ -73,9 +73,11 @@ function formatKampalaDisplay(d: Date): string {
   }).format(d);
 }
 
-function getWindowDates(mode: WindowMode): { from: string; to: string; label: string } {
-  const today = kampalaDate();
-  const todayStr = formatKampalaDate(today);
+function getWindowDates(
+  mode: WindowMode,
+  todayStr: string,
+): { from: string; to: string; label: string } {
+  const today = new Date(`${todayStr}T12:00:00`);
 
   if (mode === 'DAILY') {
     return { from: todayStr, to: todayStr, label: `DAILY · ${formatKampalaDisplay(today)}` };
@@ -111,31 +113,49 @@ async function fetchPsoSeries(from: string, to: string): Promise<PsoRow[]> {
 interface OfficerSummary {
   staff_id: string;
   staff_ref: string;
-  daysElapsed: number;
-  notesCreated: number;
-  reversals: number;
+  weekday: number[];
   netNotes: number;
-  partnerRegistered: number;
   notesFunded: number;
   amountFunded: number;
   commissionAccrued: number;
 }
 
+const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function kampalaWeekdayIndex(day: string): number {
+  const d = new Date(`${day}T12:00:00`);
+  const js = d.getDay(); // 0=Sun … 6=Sat, local getters only
+  return js === 0 ? 6 : js - 1; // 0=Mon … 6=Sun
+}
+
 export default function PlatformSalesOfficersPage() {
   const [mode, setMode] = useState<WindowMode>('WEEKLY');
-  const { from, to, label } = useMemo(() => getWindowDates(mode), [mode]);
+  const [todayStr, setTodayStr] = useState<string>(() => formatKampalaDate(kampalaDate()));
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const next = formatKampalaDate(kampalaDate());
+      setTodayStr((prev) => (prev === next ? prev : next));
+    }, 60000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const { from, to, label } = useMemo(() => getWindowDates(mode, todayStr), [mode, todayStr]);
 
   const {
     data: rows = [],
     isLoading,
     error,
   } = useQuery<PsoRow[]>({
-    queryKey: ['pso-daily-series-officers', from, to],
+    queryKey: ['pso-daily-series-officers', todayStr, from, to],
     queryFn: () => fetchPsoSeries(from, to),
+    refetchInterval: 60000,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
   });
 
   const { data: fundedSummaries = [] } = useQuery<PsoFundedSummary[]>({
-    queryKey: ['pso-funded-summary-officers', from, to],
+    queryKey: ['pso-funded-summary-officers', todayStr, from, to],
     queryFn: async () => {
       const { data, error } = (await supabase.rpc('pso_funded_summary' as any, {
         p_from: from,
@@ -144,6 +164,9 @@ export default function PlatformSalesOfficersPage() {
       if (error) throw new Error(error.message);
       return data ?? [];
     },
+    refetchInterval: 60000,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
   });
 
   const fundedAsAt = fundedSummaries[0]?.as_at ?? null;
@@ -152,31 +175,35 @@ export default function PlatformSalesOfficersPage() {
     const fundedById = new Map(fundedSummaries.map((s) => [s.staff_id, s]));
     const byId = new Map<string, OfficerSummary>();
     for (const row of rows) {
-      const funded = fundedById.get(row.staff_id);
-      const existing = byId.get(row.staff_id);
-      if (existing) {
-        existing.daysElapsed += 1;
-        existing.notesCreated += row.notes_created;
-        existing.reversals += row.notes_reversed;
-        existing.netNotes += row.net_notes;
-        existing.partnerRegistered += row.partner_registered;
-      } else {
-        byId.set(row.staff_id, {
+      let entry = byId.get(row.staff_id);
+      if (!entry) {
+        const funded = fundedById.get(row.staff_id);
+        entry = {
           staff_id: row.staff_id,
           staff_ref: row.staff_ref,
-          daysElapsed: 1,
-          notesCreated: row.notes_created,
-          reversals: row.notes_reversed,
-          netNotes: row.net_notes,
-          partnerRegistered: row.partner_registered,
+          weekday: [0, 0, 0, 0, 0, 0, 0],
+          netNotes: 0,
           notesFunded: funded?.notes_funded ?? 0,
           amountFunded: funded?.amount_funded ?? 0,
           commissionAccrued: funded?.commission_accrued ?? 0,
-        });
+        };
+        byId.set(row.staff_id, entry);
       }
+      entry.weekday[kampalaWeekdayIndex(row.day)] += row.net_notes;
+      entry.netNotes += row.net_notes;
     }
-    return Array.from(byId.values()).sort((a, b) => a.staff_ref.localeCompare(b.staff_ref));
+    return Array.from(byId.values()).sort(
+      (a, b) => b.netNotes - a.netNotes || a.staff_ref.localeCompare(b.staff_ref),
+    );
   }, [rows, fundedSummaries]);
+
+  const ranks = useMemo(() => {
+    const out: number[] = [];
+    officers.forEach((o, i) => {
+      out.push(i > 0 && officers[i - 1].netNotes === o.netNotes ? out[i - 1] : i + 1);
+    });
+    return out;
+  }, [officers]);
 
   const netTotal = useMemo(
     () => officers.reduce((sum, o) => sum + o.netNotes, 0),
