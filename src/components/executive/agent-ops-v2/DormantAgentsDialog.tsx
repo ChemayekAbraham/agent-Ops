@@ -217,7 +217,7 @@ export function DormantAgentsDialog({
                         onClick={() =>
                           setExpanded((prev) => ({ ...prev, [a.agent_id]: !prev[a.agent_id] }))
                         }
-                        className="w-full flex items-start justify-between gap-3 p-3 text-left"
+                        className="w-full flex items-start justify-between gap-3 p-3 text-left min-h-11"
                       >
                         <div className="flex items-start gap-2 min-w-0">
                           <ChevronDown
