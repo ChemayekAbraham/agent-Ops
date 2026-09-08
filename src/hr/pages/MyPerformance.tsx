@@ -190,7 +190,7 @@ export default function MyPerformancePage() {
   const staffRef = rows[0]?.staff_ref;
 
   
-  const todayWeekdayIndex = useMemo(() => (kampalaDate().getDay() + 6) % 7, []);
+  const todayWeekdayIndex = useMemo(() => (new Date(`${todayStr}T12:00:00`).getDay() + 6) % 7, [todayStr]);
 
   const { todayNet, todayReversals, netSum, rollingAverage, periodAverage } = useMemo(() => {
     const todayRow = rows.find((r) => r.day === todayStr);
