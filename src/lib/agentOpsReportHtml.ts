@@ -1,198 +1,363 @@
 /**
- * Branded HTML report renderer for the Agent Operations comprehensive report.
+ * Printable (PDF-ready) HTML for the Agent Operations → Reports → Overview
+ * reports. The markup and design tokens follow the supplied Welile report
+ * templates (Inter/JetBrains Mono, purple #7B19D4 header rail, KPI strip,
+ * tabular-number tables, A4 print rules).
  *
- * Mirrors the Welile daily-operations email template: purple header band,
- * numbered white section cards, KPI tiles (3-up, stacking on mobile) and
- * compact data tables. Presentation only — no data is derived here.
+ * Everything here is presentation only — figures arrive already aggregated
+ * from the report RPCs, so nothing is recomputed or invented client-side.
  */
+import type {
+  AdvancesReport,
+  AgentReport,
+  ProductsReport,
+  RentCollectionsReport,
+  TeamCollectionsReport,
+} from '@/hooks/useAgentOpsReports';
 
-export type TileTone = 'neutral' | 'positive' | 'negative';
-
-export interface ReportTile {
-  label: string;
-  value: string;
-  hint?: string;
-  tone?: TileTone;
-}
-
-export interface ReportTable {
-  headers: string[];
-  rows: (string | number)[][];
-  /** Column indices rendered left-aligned; all others are right-aligned. */
-  leftAlign?: number[];
-  footer?: (string | number)[];
-  caption?: string;
-}
-
-export interface ReportSection {
-  title: string;
-  note?: string;
-  tiles?: ReportTile[];
-  tables?: ReportTable[];
-}
-
-export interface AgentOpsReportHtmlInput {
-  title: string;
-  windowLabel: string;
-  sourceNote: string;
-  sections: ReportSection[];
-  watchlist?: string[];
-  footerNote: string;
-  logoUrl?: string;
-}
-
-const PURPLE = '#6c21c4';
-const INK = '#1e1b2e';
-const MUTED = '#787484';
-const BORDER = '#e6e1f0';
-
-const esc = (v: unknown) =>
+const esc = (v: unknown): string =>
   String(v ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
-const toneStyle = (tone: TileTone = 'neutral') =>
-  tone === 'positive'
-    ? 'background:#f1fbf6;border:1px solid #c9ecdb'
-    : tone === 'negative'
-      ? 'background:#fff5f8;border:1px solid #f6cfe0'
-      : 'background:#faf8ff;border:1px solid #ece5fb';
+const ugx = (n: number | null | undefined): string =>
+  n === null || n === undefined ? '—' : `UGX ${Math.round(Number(n)).toLocaleString('en-UG')}`;
 
-function renderTiles(tiles: ReportTile[]): string {
-  if (!tiles.length) return '';
-  const cells = tiles.map(
-    (t) => `<td class="tile" width="33%" style="width:33.33%;padding:0 4px 8px 4px;vertical-align:top">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="${toneStyle(t.tone)};border-radius:12px">
-        <tr><td style="padding:12px 14px">
-          <div style="font-size:10px;color:${MUTED};text-transform:uppercase;font-weight:700;letter-spacing:.4px">${esc(t.label)}</div>
-          <div class="tile-val" style="font-size:19px;font-weight:800;color:${INK};margin-top:4px;line-height:1.2">${esc(t.value)}</div>
-          ${t.hint ? `<div style="font-size:11px;color:${MUTED};margin-top:3px;line-height:1.4">${esc(t.hint)}</div>` : ''}
-        </td></tr>
-      </table>
-    </td>`,
-  );
-  const rows: string[] = [];
-  for (let i = 0; i < cells.length; i += 3) {
-    const chunk = cells.slice(i, i + 3);
-    while (chunk.length < 3) chunk.push('<td class="tile" width="33%" style="width:33.33%"></td>');
-    rows.push(`<tr>${chunk.join('')}</tr>`);
-  }
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;table-layout:fixed;margin-top:10px">${rows.join('')}</table>`;
+const num = (n: number | null | undefined): string =>
+  n === null || n === undefined ? '—' : Math.round(Number(n)).toLocaleString('en-UG');
+
+const pct = (n: number | null | undefined): string =>
+  n === null || n === undefined ? '—' : `${Number(n).toFixed(1)}%`;
+
+const day = (v: string | null | undefined): string => {
+  if (!v) return '—';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return esc(v);
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const dayTime = (v: string | null | undefined): string => {
+  if (!v) return '—';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return esc(v);
+  return `${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
+};
+
+const CSS = `
+:root{--primary:#7B19D4;--primary-dark:#581C87;--primary-light:#F3E8FF;--text-main:#0F172A;--text-body:#334155;--text-muted:#64748B;--bg-header:#F8FAFC;--bg-subtle:#F1F5F9;--border-color:#E2E8F0;--border-dark:#CBD5E1;--ok:#15803D;--ok-bg:#F0FDF4;--warn:#B45309;--warn-bg:#FFFBEB;--bad:#B91C1C;--bad-bg:#FEF2F2}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#E2E8F0;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--text-main);font-size:11px;line-height:1.45;-webkit-font-smoothing:antialiased}
+.num,.currency,.pct,.date,td.right,th.right{font-variant-numeric:tabular-nums}
+.page{background:#fff;width:210mm;min-height:297mm;margin:12px auto;padding:14mm 12mm;box-shadow:0 6px 24px rgba(15,23,42,.16)}
+.rail{background:var(--primary);color:#fff;border-radius:8px;padding:14px 16px;display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.rail h1{font-size:16px;font-weight:800;letter-spacing:-.2px}
+.rail p{font-size:10px;opacity:.9;margin-top:3px}
+.brand{font-size:13px;font-weight:900;letter-spacing:1px}
+.meta{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px}
+.meta span{background:var(--bg-subtle);border:1px solid var(--border-color);border-radius:999px;padding:3px 9px;font-size:9.5px;color:var(--text-body);font-weight:600}
+.subject{margin-top:14px;border:1px solid var(--border-color);border-left:3px solid var(--primary);border-radius:6px;padding:10px 12px;background:var(--bg-header)}
+.subject h2{font-size:13px;font-weight:800}
+.subject p{font-size:10px;color:var(--text-muted);margin-top:2px}
+.kpis{margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:8px}
+.kpi{border:1px solid var(--border-color);border-radius:6px;padding:8px 10px;background:#fff}
+.kpi-label{font-size:8.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-muted)}
+.kpi-value{margin-top:3px;font-size:13px;font-weight:800;color:var(--text-main)}
+.section-title{margin:16px 0 8px;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--primary-dark);border-bottom:2px solid var(--primary-light);padding-bottom:5px}
+table{width:100%;border-collapse:collapse;font-size:9.5px}
+thead th{background:var(--bg-header);border-top:1px solid var(--border-dark);border-bottom:1px solid var(--border-dark);padding:6px 6px;text-align:left;font-weight:700;color:var(--text-body);white-space:nowrap}
+tbody td{border-bottom:1px solid var(--border-color);padding:5px 6px;vertical-align:top;color:var(--text-body)}
+tbody tr:nth-child(even) td{background:#FCFCFD}
+th.right,td.right{text-align:right}
+tfoot td{border-top:2px solid var(--border-dark);padding:6px;font-weight:800;background:var(--bg-subtle);color:var(--text-main)}
+.tag{display:inline-block;border-radius:999px;padding:1px 7px;font-size:8.5px;font-weight:700;border:1px solid}
+.tag.ok{color:var(--ok);background:var(--ok-bg);border-color:#BBF7D0}
+.tag.warn{color:var(--warn);background:var(--warn-bg);border-color:#FDE68A}
+.tag.bad{color:var(--bad);background:var(--bad-bg);border-color:#FECACA}
+.foot{margin-top:14px;border-top:1px solid var(--border-color);padding-top:6px;font-size:8.5px;color:var(--text-muted);display:flex;justify-content:space-between;gap:12px}
+.empty{padding:14px;text-align:center;color:var(--text-muted);font-size:10px;border:1px dashed var(--border-dark);border-radius:6px}
+@page{size:A4;margin:10mm}
+@media print{body{background:#fff}.page{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}thead{display:table-header-group}tr{page-break-inside:avoid}}
+`;
+
+function tone(rate: number | null | undefined): 'ok' | 'warn' | 'bad' {
+  if (rate === null || rate === undefined) return 'warn';
+  if (rate >= 75) return 'ok';
+  if (rate >= 50) return 'warn';
+  return 'bad';
 }
 
-function renderTable(t: ReportTable): string {
-  const left = new Set(t.leftAlign ?? [0]);
-  const th = t.headers
+function shell(opts: {
+  title: string;
+  subtitle: string;
+  range: { from: string; to: string };
+  subject?: { heading: string; sub: string };
+  kpis: { label: string; value: string }[];
+  body: string;
+}): string {
+  const generated = new Date().toLocaleString('en-GB');
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Welile — ${esc(opts.title)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>${CSS}</style></head><body><div class="page">
+<div class="rail"><div><h1>${esc(opts.title)}</h1><p>${esc(opts.subtitle)}</p></div><div style="text-align:right"><div class="brand">WELILE</div><p style="font-size:9px;opacity:.85">Agent Operations</p></div></div>
+<div class="meta"><span>Window: ${esc(opts.range.from)} → ${esc(opts.range.to)}</span><span>Generated: ${esc(generated)}</span><span>Currency: UGX</span></div>
+${opts.subject ? `<div class="subject"><h2>${esc(opts.subject.heading)}</h2><p>${esc(opts.subject.sub)}</p></div>` : ''}
+<div class="kpis">${opts.kpis.map((k) => `<div class="kpi"><div class="kpi-label">${esc(k.label)}</div><div class="kpi-value">${k.value}</div></div>`).join('')}</div>
+${opts.body}
+<div class="foot"><span>Welile — Agent Operations report. Figures aggregated from collections, rent plans and daily eligibility snapshots.</span><span>Confidential</span></div>
+</div></body></html>`;
+}
+
+/** Opens the report in a new tab and triggers the print/save-as-PDF dialog. */
+export function printReportHtml(html: string, fileTitle: string): void {
+  const w = window.open('', '_blank');
+  if (!w) {
+    // Popup blocked — fall back to a downloadable HTML file.
+    const blob = new Blob([html], { type: 'text/html' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${fileTitle}.html`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+  w.document.title = fileTitle;
+  w.setTimeout(() => {
+    w.focus();
+    w.print();
+  }, 500);
+}
+
+/* ------------------------------- builders -------------------------------- */
+
+export function buildAgentReportHtml(r: AgentReport): string {
+  const k = r.kpis;
+  const rows = r.tenants
     .map(
-      (h, i) =>
-        `<th style="text-align:${left.has(i) ? 'left' : 'right'};padding:7px 8px;font-size:10.5px;color:${MUTED};text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid ${BORDER}">${esc(h)}</th>`,
+      (t) => `<tr><td><strong>${esc(t.tenant_name || 'Unnamed tenant')}</strong><br><span style="color:#64748B">${esc(t.tenant_phone || '—')}</span></td>
+<td class="right">${ugx(t.rent_amount)}</td><td class="right">${ugx(t.outstanding)}</td><td class="right">${ugx(t.repayment)}</td>
+<td class="right">${ugx(t.collected)}</td><td class="right">${pct(t.percentage)}</td><td>${dayTime(t.last_collection_at)}</td></tr>`,
     )
     .join('');
-  const body = t.rows.length
-    ? t.rows
-        .map(
-          (r) =>
-            `<tr>${r
-              .map(
-                (c, i) =>
-                  `<td style="padding:7px 8px;font-size:12.5px;color:${INK};text-align:${left.has(i) ? 'left' : 'right'};border-bottom:1px solid #f2eff9;white-space:${left.has(i) ? 'normal' : 'nowrap'}">${esc(c)}</td>`,
-              )
-              .join('')}</tr>`,
-        )
-        .join('')
-    : `<tr><td colspan="${t.headers.length}" style="padding:16px 8px;font-size:12px;color:${MUTED};text-align:center">No qualifying records in this window.</td></tr>`;
-  const foot = t.footer
-    ? `<tfoot><tr>${t.footer
-        .map(
-          (c, i) =>
-            `<td style="padding:8px;font-size:12.5px;font-weight:800;color:${INK};text-align:${left.has(i) ? 'left' : 'right'};border-top:1px solid ${BORDER};white-space:nowrap">${esc(c)}</td>`,
-        )
-        .join('')}</tr></tfoot>`
-    : '';
-  return `${t.caption ? `<div style="font-size:12px;font-weight:700;color:${INK};margin-top:16px">${esc(t.caption)}</div>` : ''}<table class="data" role="presentation" width="100%" style="width:100%;border-collapse:collapse;margin-top:12px"><thead><tr>${th}</tr></thead><tbody>${body}</tbody>${foot}</table>`;
+  const sum = r.tenants.reduce(
+    (a, t) => ({
+      rent: a.rent + Number(t.rent_amount || 0),
+      out: a.out + Number(t.outstanding || 0),
+      rep: a.rep + Number(t.repayment || 0),
+      col: a.col + Number(t.collected || 0),
+    }),
+    { rent: 0, out: 0, rep: 0, col: 0 },
+  );
+  const periods = r.periods
+    .filter((p) => p.expected > 0 || p.collected > 0)
+    .map(
+      (p) => `<tr><td>${day(p.period)}</td><td class="right">${ugx(p.expected)}</td><td class="right">${ugx(p.collected)}</td><td class="right">${ugx(p.shortfall)}</td><td class="right">${pct(p.rate)}</td></tr>`,
+    )
+    .join('');
+
+  const body = `
+<div class="section-title">Rent repayment history (${esc(r.range.from)} → ${esc(r.range.to)})</div>
+${periods ? `<table><thead><tr><th>Period</th><th class="right">Expected</th><th class="right">Collected</th><th class="right">Shortfall</th><th class="right">Rate</th></tr></thead><tbody>${periods}</tbody>
+<tfoot><tr><td>Totals</td><td class="right">${ugx(k.expected_window)}</td><td class="right">${ugx(k.collected_window)}</td><td class="right">${ugx(Math.max(k.expected_window - k.collected_window, 0))}</td><td class="right">${pct(k.window_rate)}</td></tr></tfoot></table>`
+    : '<div class="empty">No expected or collected activity recorded in this window.</div>'}
+<div class="section-title">Tenant collections breakdown</div>
+${rows ? `<table><thead><tr><th style="width:24%">Tenant Name &amp; Contact</th><th class="right">Rent Amount</th><th class="right">Outstanding</th><th class="right">Repayment</th><th class="right">Collected</th><th class="right">Percentage</th><th>Collection date</th></tr></thead><tbody>${rows}</tbody>
+<tfoot><tr><td>Totals · ${r.tenants.length} tenants</td><td class="right">${ugx(sum.rent)}</td><td class="right">${ugx(sum.out)}</td><td class="right">${ugx(sum.rep)}</td><td class="right">${ugx(sum.col)}</td><td class="right">${pct(k.repayment_rate)}</td><td>—</td></tr></tfoot></table>`
+    : '<div class="empty">No tenants on record for this agent.</div>'}`;
+
+  return shell({
+    title: 'Agent Performance & Tenant Collections Report',
+    subtitle: 'Full rent repayment history with tenant-by-tenant collections',
+    range: r.range,
+    subject: {
+      heading: r.agent.full_name || 'Unnamed agent',
+      sub: `${r.agent.phone || 'No phone on record'} · ${k.assigned_tenants} tenants · ${k.active_repaying} active repaying`,
+    },
+    kpis: [
+      { label: 'Assigned tenants', value: num(k.assigned_tenants) },
+      { label: 'Active repaying', value: num(k.active_repaying) },
+      { label: 'Rent value', value: ugx(k.rent_total) },
+      { label: 'Total repayable', value: ugx(k.repayment_total) },
+      { label: 'Collected to date', value: ugx(k.collected_to_date) },
+      { label: 'Outstanding', value: ugx(k.outstanding) },
+      { label: 'Repayment rate', value: pct(k.repayment_rate) },
+      { label: 'Collected in window', value: ugx(k.collected_window) },
+    ],
+    body,
+  });
 }
 
-function renderSection(s: ReportSection, index: number): string {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#fff;border:1px solid ${BORDER};border-radius:14px;margin-top:16px;border-collapse:separate">
-      <tr><td class="pad" style="padding:18px 20px">
-        <div style="font-size:13px;font-weight:800;color:${PURPLE};text-transform:uppercase;letter-spacing:.4px">
-          <span style="color:#9a94ab">${index}</span>&nbsp;&nbsp;${esc(s.title)}
-        </div>
-        ${s.note ? `<div style="font-size:12px;color:${MUTED};margin-top:6px;line-height:1.5">${esc(s.note)}</div>` : ''}
-        ${renderTiles(s.tiles ?? [])}
-        ${(s.tables ?? []).map(renderTable).join('')}
-      </td></tr>
-    </table>`;
+export function buildRentCollectionsReportHtml(r: RentCollectionsReport): string {
+  const k = r.kpis;
+  const rows = r.rows
+    .map(
+      (a, i) => `<tr><td class="right">${i + 1}</td><td><strong>${esc(a.full_name || 'Unnamed agent')}</strong></td><td>${esc(a.phone || '—')}</td>
+<td class="right">${num(a.repaying_tenants)}</td><td class="right">${ugx(a.expected)}</td><td class="right">${ugx(a.collected)}</td>
+<td class="right">${pct(a.rate)}</td><td class="right">${num(a.paid_tenants)}</td><td><span class="tag ${tone(a.rate)}">${esc(a.status)}</span></td></tr>`,
+    )
+    .join('');
+  const totals = r.rows.reduce(
+    (acc, a) => ({
+      tenants: acc.tenants + Number(a.repaying_tenants || 0),
+      expected: acc.expected + Number(a.expected || 0),
+      collected: acc.collected + Number(a.collected || 0),
+      paid: acc.paid + Number(a.paid_tenants || 0),
+    }),
+    { tenants: 0, expected: 0, collected: 0, paid: 0 },
+  );
+
+  const body = `
+<div class="section-title">Per-agent collections (daily active repaying tenants)</div>
+${rows ? `<table><thead><tr><th class="right" style="width:4%">#</th><th style="width:20%">Agent Name</th><th style="width:14%">Agent Phone</th><th class="right">Repaying Tenants</th><th class="right">Expected</th><th class="right">Collected</th><th class="right">Rate</th><th class="right">Paid</th><th>Status</th></tr></thead>
+<tbody>${rows}</tbody><tfoot><tr><td colspan="3">Totals · ${r.rows.length} agents</td><td class="right">${num(totals.tenants)}</td><td class="right">${ugx(totals.expected)}</td><td class="right">${ugx(totals.collected)}</td><td class="right">${pct(k.collection_rate)}</td><td class="right">${num(totals.paid)}</td><td>—</td></tr></tfoot></table>`
+    : '<div class="empty">No collections or expectations recorded in this window.</div>'}`;
+
+  return shell({
+    title: 'Rent Collections Comprehensive Report',
+    subtitle: 'Daily active repaying tenants — expected versus collected per agent',
+    range: r.range,
+    kpis: [
+      { label: 'Total agents', value: num(k.total_agents) },
+      { label: 'Active agents', value: num(k.active_agents) },
+      { label: 'Repaying tenants', value: num(k.repaying_tenants) },
+      { label: 'Expected', value: ugx(k.expected) },
+      { label: 'Collected', value: ugx(k.collected) },
+      { label: 'Collection rate', value: pct(k.collection_rate) },
+    ],
+    body,
+  });
 }
 
-export function buildAgentOpsReportHtml(input: AgentOpsReportHtmlInput): string {
-  const watchlist = (input.watchlist ?? []).filter(Boolean);
-  const sections = input.sections.map((s, i) => renderSection(s, i + 1)).join('\n');
-  const watchlistBlock = watchlist.length
-    ? renderSection(
-        {
-          title: 'Watchlist',
-          note: 'Only items needing action are listed. Clean areas are omitted rather than printed as zeros.',
-        },
-        input.sections.length + 1,
-      ).replace(
-        '</td></tr>\n    </table>',
-        `${watchlist
-          .map(
-            (w) =>
-              `<div style="border-left:3px solid #b45309;background:#fffdf5;border-radius:0 8px 8px 0;padding:9px 12px;margin-top:8px;font-size:12.5px;color:${INK}">${esc(w)}</div>`,
-          )
-          .join('')}</td></tr>\n    </table>`,
-      )
-    : '';
+export function buildProductsReportHtml(r: ProductsReport): string {
+  const k = r.kpis;
+  const rows = r.rows
+    .map(
+      (p, i) => `<tr><td class="right">${i + 1}</td><td><strong>${esc(p.full_name || 'Unnamed agent')}</strong><br><span style="color:#64748B">${esc(p.phone || '—')}</span></td>
+<td>${esc(p.product || '—')}${p.category ? `<br><span style="color:#64748B">${esc(p.category)}</span>` : ''}</td><td>${esc(p.status)}</td>
+<td class="right">${ugx(p.value)}</td><td class="right">${ugx(p.recovered)}</td><td class="right">${ugx(p.outstanding)}</td><td>${day(p.date)}</td></tr>`,
+    )
+    .join('');
+  const totals = r.rows.reduce(
+    (a, p) => ({
+      value: a.value + Number(p.value || 0),
+      recovered: a.recovered + Number(p.recovered || 0),
+      outstanding: a.outstanding + Number(p.outstanding || 0),
+    }),
+    { value: 0, recovered: 0, outstanding: 0 },
+  );
 
-  return `<!DOCTYPE html><html><head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${esc(input.title)} - ${esc(input.windowLabel)}</title>
-  <style type="text/css">
-    @media only screen and (max-width:600px) {
-      .wrap { padding: 10px !important; }
-      .pad { padding: 14px 12px !important; }
-      .tile { display:block !important; width:100% !important; max-width:100% !important; }
-      .tile-val { font-size: 17px !important; }
-      table.data td, table.data th { padding: 6px 5px !important; font-size: 11.5px !important; }
-    }
-    @media print { body { background:#fff !important; } .wrap { padding:0 !important; } }
-  </style>
-</head><body style="margin:0;padding:0;background:#f6f4fb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:${INK}">
-  <div class="wrap" style="padding:20px">
-  <div style="max-width:700px;margin:0 auto">
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background:${PURPLE};border-radius:14px">
-      <tr><td class="pad" style="padding:22px 24px">
-        <img src="${esc(input.logoUrl || 'https://welileapp.com/welile-logo.png')}" alt="Welile" width="104" style="display:block;max-width:104px;height:auto;margin-bottom:10px" />
-        <div style="color:#fff;font-size:19px;font-weight:800;letter-spacing:-.3px">${esc(input.title)}</div>
-        <div style="color:#e8dcfa;font-size:12.5px;margin-top:6px;line-height:1.5">
-          ${esc(input.windowLabel)} · ${esc(input.sourceNote)}
-        </div>
-      </td></tr>
-    </table>
+  const body = `
+<div class="section-title">Products &amp; services issued in the window</div>
+${rows ? `<table><thead><tr><th class="right" style="width:4%">#</th><th style="width:22%">Agent Name &amp; Phone</th><th style="width:22%">Product</th><th>Status</th><th class="right">Value</th><th class="right">Recovered</th><th class="right">Outstanding</th><th>Date</th></tr></thead>
+<tbody>${rows}</tbody><tfoot><tr><td colspan="4">Totals · ${r.rows.length} records</td><td class="right">${ugx(totals.value)}</td><td class="right">${ugx(totals.recovered)}</td><td class="right">${ugx(totals.outstanding)}</td><td>—</td></tr></tfoot></table>`
+    : '<div class="empty">No products or services issued in this window.</div>'}`;
 
-${sections}
-${watchlistBlock}
-
-    <div style="padding:16px 6px;color:${MUTED};font-size:11px;text-align:center;line-height:1.6">
-      ${esc(input.footerNote)}
-    </div>
-  </div></div></body></html>`;
+  return shell({
+    title: 'Agent Products & Services Report',
+    subtitle: 'Smartphones, motorbikes and merchandise issued to agents, with recovery',
+    range: r.range,
+    kpis: [
+      { label: 'Records', value: num(k.applications) },
+      { label: 'Approved / issued', value: num(k.approved) },
+      { label: 'Pending', value: num(k.pending) },
+      { label: 'Value issued', value: ugx(k.value_issued) },
+      { label: 'Recovered', value: ugx(k.recovered) },
+      { label: 'Outstanding', value: ugx(k.outstanding) },
+      { label: 'Recovery rate', value: pct(k.recovery_rate) },
+    ],
+    body,
+  });
 }
 
-/** Opens the rendered report in a new tab (print-ready) and offers it as a download. */
-export function downloadAgentOpsReportHtml(html: string, filename: string): void {
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+export function buildAdvancesReportHtml(r: AdvancesReport): string {
+  const k = r.kpis;
+  const stages = r.stages
+    .map(
+      (s) => `<tr><td>${esc(s.stage)}</td><td class="right">${num(s.count)}</td><td class="right">${pct(k.issued_count > 0 ? (s.count * 100) / k.issued_count : null)}</td><td class="right">${ugx(s.value)}</td><td class="right">${pct(k.volume > 0 ? (s.value * 100) / k.volume : null)}</td></tr>`,
+    )
+    .join('');
+  const rows = r.rows
+    .map(
+      (a) => `<tr><td><strong>${esc(a.full_name || 'Unnamed agent')}</strong><br><span style="color:#64748B">${esc(a.phone || '—')}</span></td>
+<td class="right">${ugx(a.disbursed)}</td><td class="right">${ugx(a.repaid)}</td><td class="right">${ugx(a.overdue)}</td><td class="right">${ugx(a.outstanding)}</td>
+<td class="right">${pct(a.recovery_rate)}</td><td>${day(a.issued_at)}</td><td><span class="tag ${a.status === 'overdue' ? 'bad' : a.status === 'completed' ? 'ok' : 'warn'}">${esc(a.status || '—')}</span></td></tr>`,
+    )
+    .join('');
+  const totals = r.rows.reduce(
+    (acc, a) => ({
+      d: acc.d + Number(a.disbursed || 0),
+      r: acc.r + Number(a.repaid || 0),
+      o: acc.o + Number(a.overdue || 0),
+      out: acc.out + Number(a.outstanding || 0),
+    }),
+    { d: 0, r: 0, o: 0, out: 0 },
+  );
+
+  const body = `
+<div class="section-title">Advance stage distribution</div>
+${stages ? `<table><thead><tr><th>Application Stage / Status</th><th class="right">Count</th><th class="right">% of Count</th><th class="right">Financial Value</th><th class="right">% of Volume</th></tr></thead><tbody>${stages}</tbody>
+<tfoot><tr><td>Totals</td><td class="right">${num(k.issued_count)}</td><td class="right">100.0%</td><td class="right">${ugx(k.volume)}</td><td class="right">100.0%</td></tr></tfoot></table>`
+    : '<div class="empty">No advances issued in this window.</div>'}
+<div class="section-title">Agent advance performance ledger</div>
+${rows ? `<table><thead><tr><th style="width:24%">Agent Name &amp; Phone</th><th class="right">Disbursed</th><th class="right">Repaid</th><th class="right">Overdue</th><th class="right">Outstanding</th><th class="right">Recovery %</th><th>Issue Date</th><th>Status</th></tr></thead>
+<tbody>${rows}</tbody><tfoot><tr><td>Totals · ${r.rows.length} advances</td><td class="right">${ugx(totals.d)}</td><td class="right">${ugx(totals.r)}</td><td class="right">${ugx(totals.o)}</td><td class="right">${ugx(totals.out)}</td><td class="right">${pct(totals.d > 0 ? (totals.r * 100) / totals.d : null)}</td><td>—</td><td>—</td></tr></tfoot></table>`
+    : '<div class="empty">No advances issued in this window.</div>'}`;
+
+  return shell({
+    title: 'Agent Advances & Float Recovery Report',
+    subtitle: 'Advance issuance, recovery and exposure across the window',
+    range: r.range,
+    kpis: [
+      { label: 'Advance volume', value: ugx(k.volume) },
+      { label: 'Advances issued', value: num(k.issued_count) },
+      { label: 'Agents with advances', value: num(k.agents) },
+      { label: 'Pending apps', value: num(k.pending_apps) },
+      { label: 'Repaid in window', value: ugx(k.repaid) },
+      { label: 'Outstanding balance', value: ugx(k.outstanding) },
+      { label: 'Arrears', value: ugx(k.arrears) },
+      { label: 'Recovery rate', value: pct(k.recovery_rate) },
+    ],
+    body,
+  });
+}
+
+export function buildTeamCollectionsReportHtml(r: TeamCollectionsReport): string {
+  const k = r.kpis;
+  const rows = r.rows
+    .map(
+      (m) => `<tr><td><strong>${esc(m.full_name || 'Unnamed agent')}</strong>${m.is_leader ? ' <span class="tag ok">Leader</span>' : ''}<br><span style="color:#64748B">${esc(m.phone || '—')}</span></td>
+<td class="right">${num(m.tenants)}</td><td class="right">${ugx(m.collected)}</td><td class="right">${pct(m.share_of_group_expected)}</td><td class="right">${num(m.payments)}</td><td>${dayTime(m.last_collection_at)}</td></tr>`,
+    )
+    .join('');
+
+  const body = `
+<div class="section-title">Sub-agent contributions</div>
+${rows ? `<table><thead><tr><th style="width:26%">Agent Name &amp; Phone</th><th class="right">Tenants Count</th><th class="right">Amount Collected</th><th class="right">% vs Group Expected</th><th class="right">Collections</th><th>Latest collection</th></tr></thead>
+<tbody>${rows}</tbody><tfoot><tr><td>Totals · ${r.rows.length} members</td><td class="right">${num(k.tenants)}</td><td class="right">${ugx(k.collected)}</td><td class="right">${pct(k.rate)}</td><td>—</td><td>Expected: ${ugx(k.expected)}</td></tr></tfoot></table>`
+    : '<div class="empty">No team members with activity in this window.</div>'}`;
+
+  return shell({
+    title: 'Team Collections & Sub-Agent Network Report',
+    subtitle: 'Parent agent and sub-agent collections against expectation',
+    range: r.range,
+    subject: {
+      heading: r.leader.full_name || 'Unnamed team leader',
+      sub: `${r.leader.phone || 'No phone on record'} · ${k.sub_agents} sub-agents · Rank ${k.rank ?? '—'} of ${k.total_teams ?? '—'}`,
+    },
+    kpis: [
+      { label: 'Team leader', value: esc(r.leader.full_name || '—') },
+      { label: 'Total sub-agents', value: num(k.sub_agents) },
+      { label: 'Total collected', value: ugx(k.collected) },
+      { label: 'Expected target', value: ugx(k.expected) },
+      { label: 'Rate', value: pct(k.rate) },
+      { label: 'Rank', value: `${k.rank ?? '—'} / ${k.total_teams ?? '—'}` },
+    ],
+    body,
+  });
 }
