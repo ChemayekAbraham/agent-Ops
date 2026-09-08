@@ -34,11 +34,11 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const { data: isPsoOfficer } = useQuery<boolean>({
-    queryKey: ['pso-is-officer'],
+  const { data: canViewPerformance } = useQuery<boolean>({
+    queryKey: ['pso-can-view-performance'],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('pso_is_officer' as any);
+      const { data, error } = await supabase.rpc('pso_can_view_my_performance' as any);
       if (error) return false;
       return data === true;
     },
@@ -107,7 +107,7 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
           Tools and records
         </p>
         <div className="space-y-1 px-2">
-          {PERSONAL_NAV.filter((item) => !item.requiresPsoOfficer || isPsoOfficer === true)
+          {PERSONAL_NAV.filter((item) => !item.requiresPsoOfficer || canViewPerformance === true)
             .map((item) => (
               <NavRow key={item.to} to={item.to} icon={item.icon} label={item.title} />
             ))}
