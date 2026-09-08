@@ -95,7 +95,9 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
 
       {pending.length === 0 ? (
         <Card><CardContent className="p-6 text-center text-sm text-muted-foreground">
-          No sub-agent rent requests are waiting for your verification.
+          {searchQuery.trim()
+            ? 'No requests match that search.'
+            : 'No sub-agent rent requests are waiting for your verification.'}
         </CardContent></Card>
       ) : (
         pending.map((req) => (
@@ -189,10 +191,10 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
         ))
       )}
 
-      {!!data.recent_reviewed?.length && (
+      {!!recentReviewed.length && (
         <div className="space-y-2 pt-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Recently reviewed</p>
-          {data.recent_reviewed.map((r) => (
+          {recentReviewed.map((r) => (
             <Card key={r.id}>
               <CardContent className="flex items-center justify-between gap-2 p-3">
                 <div className="min-w-0">
