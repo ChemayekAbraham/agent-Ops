@@ -308,14 +308,14 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 self-end sm:self-center">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <PeriodToggle value={granularity} onChange={setGranularity} />
           <Button
             type="button"
             variant="ghost"
             size="icon"
             onClick={handleClose}
-            className="h-9 w-9 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground shrink-0"
+            className="h-9 w-9 self-end rounded-full hover:bg-muted text-muted-foreground hover:text-foreground shrink-0 sm:self-auto"
             title="Close report"
           >
             <X className="h-5 w-5" />
