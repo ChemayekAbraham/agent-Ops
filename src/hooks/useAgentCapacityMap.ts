@@ -210,6 +210,18 @@ export type AgentCapacity = {
   is_new_agent: boolean;
   /** Sum of daily_repayment across active (non-unfunded) rent_requests. */
   expected_daily: number;
+  /**
+   * Plans the server's DAILY gate is actually measuring (daily plans plus
+   * weekly plans whose week lapsed unpaid). This — not the raw active
+   * rent-request count — decides whether the daily block can apply.
+   */
+  daily_gate_count: number;
+  /** Weekly rent plans, tracked separately from the daily gate. */
+  weekly_plan_count: number;
+  /** Weekly plans with no collection for a full week (these re-enter the daily gate). */
+  weekly_lapsed_count: number;
+  /** UGX expected per week across weekly plans (daily equivalent x 7). */
+  weekly_expected_week: number;
   /** @deprecated alias of `response_rate` kept for backwards compatibility. */
   repayment_rate: number;
   /** @deprecated kept for backwards compatibility (= daily_expected × 7). */
