@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarRange, Download, FileBarChart, Info, Loader2, Search } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ import {
   buildProductsReportHtml,
   buildRentCollectionsReportHtml,
   buildTeamCollectionsReportHtml,
+  printReportFrame,
   printReportHtml,
 } from '@/lib/agentOpsOverviewReportHtml';
 
@@ -55,85 +56,6 @@ const REPORT_TYPES: { value: ReportType; label: string; blurb: string }[] = [
   { value: 'advances', label: 'Advances', blurb: 'Advance issuance, recovery and exposure for the window.' },
   { value: 'team-collections', label: 'Team Collections', blurb: 'Team leader (parent) and sub-agent collections for the window.' },
 ];
-
-const DASH = '—';
-const ugx = (n: number | null | undefined) =>
-  n === null || n === undefined ? DASH : `UGX ${Math.round(Number(n)).toLocaleString('en-UG')}`;
-const num = (n: number | null | undefined) =>
-  n === null || n === undefined ? DASH : Math.round(Number(n)).toLocaleString('en-UG');
-const pct = (n: number | null | undefined) =>
-  n === null || n === undefined ? DASH : `${Number(n).toFixed(1)}%`;
-const dt = (v: string | null | undefined) => {
-  if (!v) return DASH;
-  const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? v : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
-};
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-border bg-muted/30 p-3">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-1 truncate text-base font-bold" title={value}>{value}</p>
-    </div>
-  );
-}
-
-function StatGrid({ items }: { items: { label: string; value: string }[] }) {
-  return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-      {items.map((i) => <Stat key={i.label} {...i} />)}
-    </div>
-  );
-}
-
-function TableShell({
-  columns,
-  children,
-  footer,
-  note,
-  empty,
-  loading,
-}: {
-  columns: string[];
-  children: React.ReactNode;
-  footer?: React.ReactNode;
-  note?: string;
-  empty: boolean;
-  loading: boolean;
-}) {
-  return (
-    <div className="space-y-2">
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full min-w-[760px] text-xs">
-          <thead className="bg-muted/60">
-            <tr>
-              {columns.map((c) => (
-                <th key={c} className="whitespace-nowrap px-3 py-2 text-left font-semibold text-muted-foreground">{c}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={columns.length} className="px-3 py-8 text-center text-muted-foreground">
-                <Loader2 className="mx-auto h-4 w-4 animate-spin" />
-              </td></tr>
-            ) : empty ? (
-              <tr><td colSpan={columns.length} className="px-3 py-8 text-center text-muted-foreground">No records in this window.</td></tr>
-            ) : children}
-          </tbody>
-          {!loading && !empty && footer ? <tfoot className="border-t-2 border-border bg-muted/40">{footer}</tfoot> : null}
-        </table>
-      </div>
-      {note && <p className="text-[11px] text-muted-foreground">{note}</p>}
-    </div>
-  );
-}
-
-function statusTone(rate: number | null | undefined) {
-  if (rate === null || rate === undefined) return 'outline';
-  if (rate >= 75) return 'default';
-  return 'secondary';
-}
 
 /** Searchable picker used for the agent and team reports. */
 function EntityPicker({
@@ -193,14 +115,78 @@ function EntityPicker({
   );
 }
 
+/**
+ * The wizard selection (range → report type → agent/team) is kept in
+ * sessionStorage, not only in component state.
+ *
+ * Why: this panel is mounted inside `switch (activeView)` in
+ * `AgentOpsDashboard`, and `activeView` is duplicated between React state and
+ * the `?section=` query param. Anything that drops `section` from the URL — a
+ * sidebar `navigate(route)` from `ExecutiveDashboardLayout`, a role switch, a
+ * deep link, or a genuine reload — flips `activeView` to null, which unmounts
+ * this component and silently discarded the user's picks. They then had to
+ * choose the range and report type again.
+ *
+ * Persisting here fixes the symptom for every one of those causes, including a
+ * real page refresh, without touching the query string (which already has
+ * several competing writers). sessionStorage, not localStorage: a report
+ * selection should not outlive the browser tab.
+ */
+const WIZARD_KEY = 'welile.agent-ops.reports-overview.v1';
+
+interface WizardState {
+  from: string;
+  to: string;
+  reportType: ReportType | '';
+  agentId: string | null;
+  teamId: string | null;
+}
+
+const EMPTY_WIZARD: WizardState = { from: '', to: '', reportType: '', agentId: null, teamId: null };
+
+/** Storage can throw (private mode, blocked site data) — never let it break the panel. */
+function readWizard(): WizardState {
+  try {
+    const raw = sessionStorage.getItem(WIZARD_KEY);
+    if (!raw) return EMPTY_WIZARD;
+    const p = JSON.parse(raw) as Partial<WizardState>;
+    const type = REPORT_TYPES.some((r) => r.value === p.reportType) ? (p.reportType as ReportType) : '';
+    return {
+      from: typeof p.from === 'string' ? p.from : '',
+      to: typeof p.to === 'string' ? p.to : '',
+      reportType: type,
+      agentId: typeof p.agentId === 'string' ? p.agentId : null,
+      teamId: typeof p.teamId === 'string' ? p.teamId : null,
+    };
+  } catch {
+    return EMPTY_WIZARD;
+  }
+}
+
+function writeWizard(s: WizardState): void {
+  try {
+    sessionStorage.setItem(WIZARD_KEY, JSON.stringify(s));
+  } catch {
+    /* nothing to do — the panel still works, it just will not survive a remount */
+  }
+}
+
 export function ReportsOverview() {
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const [reportType, setReportType] = useState<ReportType | ''>('');
+  // Lazy initialiser: reads storage once on mount, not on every render.
+  const [restored] = useState<WizardState>(readWizard);
+
+  const [from, setFrom] = useState(restored.from);
+  const [to, setTo] = useState(restored.to);
+  const [reportType, setReportType] = useState<ReportType | ''>(restored.reportType);
   const [agentSearch, setAgentSearch] = useState('');
-  const [agentId, setAgentId] = useState<string | null>(null);
+  const [agentId, setAgentId] = useState<string | null>(restored.agentId);
   const [teamSearch, setTeamSearch] = useState('');
-  const [teamId, setTeamId] = useState<string | null>(null);
+  const [teamId, setTeamId] = useState<string | null>(restored.teamId);
+
+  // Mirror the selection so an unmount (or reload) cannot lose it.
+  useEffect(() => {
+    writeWizard({ from, to, reportType, agentId, teamId });
+  }, [from, to, reportType, agentId, teamId]);
 
   const rangeReady = Boolean(from && to && from <= to);
   const range: ReportRange | null = rangeReady ? { from, to } : null;
@@ -215,373 +201,103 @@ export function ReportsOverview() {
   const advancesReport = useAdvancesReport(reportType === 'advances' ? range : null);
   const teamReport = useTeamCollectionsReport(reportType === 'team-collections' ? teamId : null, range);
 
-  const pdfReady =
-    (reportType === 'agent' && Boolean(agentReport.data)) ||
-    (reportType === 'rent-collections' && Boolean(rentReport.data)) ||
-    (reportType === 'products-services' && Boolean(productsReport.data)) ||
-    (reportType === 'advances' && Boolean(advancesReport.data)) ||
-    (reportType === 'team-collections' && Boolean(teamReport.data));
+  const frameRef = useRef<HTMLIFrameElement>(null);
 
+  /**
+   * The report document. This one string is BOTH the on-screen preview
+   * (iframe srcDoc) and the print target, so the exported PDF is the same DOM
+   * and stylesheet the user just looked at - it cannot drift.
+   */
+  const reportHtml = useMemo(() => {
+    if (reportType === "agent" && agentReport.data) return buildAgentReportHtml(agentReport.data);
+    if (reportType === "rent-collections" && rentReport.data) return buildRentCollectionsReportHtml(rentReport.data);
+    if (reportType === "products-services" && productsReport.data) return buildProductsReportHtml(productsReport.data);
+    if (reportType === "advances" && advancesReport.data) return buildAdvancesReportHtml(advancesReport.data);
+    if (reportType === "team-collections" && teamReport.data) return buildTeamCollectionsReportHtml(teamReport.data);
+    return "";
+  }, [reportType, agentReport.data, rentReport.data, productsReport.data, advancesReport.data, teamReport.data]);
+
+  const pdfReady = Boolean(reportHtml);
+
+  /** Print the preview frame itself; only fall back if the frame is gone. */
   const downloadPdf = () => {
-    if (reportType === 'agent' && agentReport.data) {
-      printReportHtml(buildAgentReportHtml(agentReport.data), `Welile-Agent-Report-${from}_${to}`);
-    } else if (reportType === 'rent-collections' && rentReport.data) {
-      printReportHtml(buildRentCollectionsReportHtml(rentReport.data), `Welile-Rent-Collections-${from}_${to}`);
-    } else if (reportType === 'products-services' && productsReport.data) {
-      printReportHtml(buildProductsReportHtml(productsReport.data), `Welile-Products-Services-${from}_${to}`);
-    } else if (reportType === 'advances' && advancesReport.data) {
-      printReportHtml(buildAdvancesReportHtml(advancesReport.data), `Welile-Agent-Advances-${from}_${to}`);
-    } else if (reportType === 'team-collections' && teamReport.data) {
-      printReportHtml(buildTeamCollectionsReportHtml(teamReport.data), `Welile-Team-Collections-${from}_${to}`);
+    if (!reportHtml) return;
+    if (!printReportFrame(frameRef.current)) {
+      printReportHtml(reportHtml, `Welile-${reportType || "report"}-${from}_${to}`);
     }
   };
 
-  const errorOf = () => {
-    const q =
-      reportType === 'agent' ? agentReport
-      : reportType === 'rent-collections' ? rentReport
-      : reportType === 'products-services' ? productsReport
-      : reportType === 'advances' ? advancesReport
-      : reportType === 'team-collections' ? teamReport
-      : null;
-    return q?.error as Error | null | undefined;
-  };
+  const activeQuery =
+    reportType === "agent" ? agentReport
+    : reportType === "rent-collections" ? rentReport
+    : reportType === "products-services" ? productsReport
+    : reportType === "advances" ? advancesReport
+    : reportType === "team-collections" ? teamReport
+    : null;
 
-  const body = () => {
-    switch (reportType) {
-      case 'agent': {
-        const d = agentReport.data;
-        const k = d?.kpis;
-        const sums = (d?.tenants ?? []).reduce(
-          (a, t) => ({
-            rent: a.rent + Number(t.rent_amount || 0),
-            out: a.out + Number(t.outstanding || 0),
-            rep: a.rep + Number(t.repayment || 0),
-            col: a.col + Number(t.collected || 0),
-          }),
-          { rent: 0, out: 0, rep: 0, col: 0 },
-        );
-        return (
-          <div className="space-y-4">
-            <EntityPicker
-              label="Agent"
-              placeholder="Search agent by name or phone…"
-              query={agentSearch}
-              onQuery={setAgentSearch}
-              loading={agents.isLoading}
-              options={(agents.data ?? []).map((a) => ({
-                id: a.agent_id, name: a.full_name || 'Unnamed agent', phone: a.phone, meta: `${a.tenants} tenants`,
-              }))}
-              selectedId={agentId}
-              onSelect={setAgentId}
-            />
-            {!agentId ? (
-              <p className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
-                Select an agent to load their rent repayment history.
-              </p>
-            ) : (
-              <>
-                <div className="rounded-lg border border-border bg-muted/30 p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Agent</p>
-                  <p className="text-base font-bold">{d?.agent?.full_name || DASH}</p>
-                  <p className="text-xs text-muted-foreground">{d?.agent?.phone || DASH}</p>
-                </div>
-                <StatGrid items={[
-                  { label: 'Tenants', value: num(k?.assigned_tenants) },
-                  { label: 'Active repaying', value: num(k?.active_repaying) },
-                  { label: 'Rent amount', value: ugx(k?.rent_total) },
-                  { label: 'Outstanding', value: ugx(k?.outstanding) },
-                  { label: 'Collected to date', value: ugx(k?.collected_to_date) },
-                  { label: 'Repayment rate', value: pct(k?.repayment_rate) },
-                  { label: 'Expected in window', value: ugx(k?.expected_window) },
-                  { label: 'Collected in window', value: ugx(k?.collected_window) },
-                ]} />
-                <TableShell
-                  columns={['Tenant Name & Contact', 'Rent Amount', 'Outstanding', 'Repayment', 'Collected', 'Percentage', 'Date']}
-                  loading={agentReport.isLoading}
-                  empty={(d?.tenants?.length ?? 0) === 0}
-                  note="Collected is the amount taken in the selected window; percentage is repayment progress to date."
-                  footer={
-                    <tr>
-                      <td className="px-3 py-2 text-[11px] font-semibold">Totals · {d?.tenants?.length ?? 0} tenants</td>
-                      <td className="px-3 py-2 text-[11px] font-semibold">{ugx(sums.rent)}</td>
-                      <td className="px-3 py-2 text-[11px] font-semibold">{ugx(sums.out)}</td>
-                      <td className="px-3 py-2 text-[11px] font-semibold">{ugx(sums.rep)}</td>
-                      <td className="px-3 py-2 text-[11px] font-semibold">{ugx(sums.col)}</td>
-                      <td className="px-3 py-2 text-[11px] font-semibold">{pct(k?.repayment_rate)}</td>
-                      <td className="px-3 py-2 text-[11px] font-semibold">{DASH}</td>
-                    </tr>
-                  }
-                >
-                  {(d?.tenants ?? []).map((t) => (
-                    <tr key={t.rent_request_id} className="border-t border-border/70">
-                      <td className="px-3 py-2">
-                        <span className="block font-medium">{t.tenant_name || 'Unnamed tenant'}</span>
-                        <span className="block text-muted-foreground">{t.tenant_phone || DASH}</span>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2">{ugx(t.rent_amount)}</td>
-                      <td className="whitespace-nowrap px-3 py-2">{ugx(t.outstanding)}</td>
-                      <td className="whitespace-nowrap px-3 py-2">{ugx(t.repayment)}</td>
-                      <td className="whitespace-nowrap px-3 py-2">{ugx(t.collected)}</td>
-                      <td className="whitespace-nowrap px-3 py-2">{pct(t.percentage)}</td>
-                      <td className="whitespace-nowrap px-3 py-2">{dt(t.last_collection_at)}</td>
-                    </tr>
-                  ))}
-                </TableShell>
-              </>
-            )}
-          </div>
-        );
-      }
-      case 'rent-collections': {
-        const d = rentReport.data;
-        const k = d?.kpis;
-        const t = (d?.rows ?? []).reduce(
-          (a, r) => ({
-            tenants: a.tenants + Number(r.repaying_tenants || 0),
-            expected: a.expected + Number(r.expected || 0),
-            collected: a.collected + Number(r.collected || 0),
-            paid: a.paid + Number(r.paid_tenants || 0),
-          }),
-          { tenants: 0, expected: 0, collected: 0, paid: 0 },
-        );
-        return (
-          <div className="space-y-4">
-            <StatGrid items={[
-              { label: 'Total agents', value: num(k?.total_agents) },
-              { label: 'Active agents', value: num(k?.active_agents) },
-              { label: 'Repaying tenants', value: num(k?.repaying_tenants) },
-              { label: 'Expected', value: ugx(k?.expected) },
-              { label: 'Collected', value: ugx(k?.collected) },
-              { label: 'Collection rate', value: pct(k?.collection_rate) },
-            ]} />
-            <TableShell
-              columns={['#', 'Agent Name', 'Agent Phone', 'Total Repaying Tenants', 'Expected', 'Collected', 'Rate', 'Paid', 'Status']}
-              loading={rentReport.isLoading}
-              empty={(d?.rows?.length ?? 0) === 0}
-              note="Daily active repaying tenants only. Expected and collected are aggregated across the selected range."
-              footer={
-                <tr>
-                  <td colSpan={3} className="px-3 py-2 text-[11px] font-semibold">Totals · {d?.rows?.length ?? 0} agents</td>
-                  <td className="px-3 py-2 text-[11px] font-semibold">{num(t.tenants)}</td>
-                  <td className="px-3 py-2 text-[11px] font-semibold">{ugx(t.expected)}</td>
-                  <td className="px-3 py-2 text-[11px] font-semibold">{ugx(t.collected)}</td>
-                  <td className="px-3 py-2 text-[11px] font-semibold">{pct(k?.collection_rate)}</td>
-                  <td className="px-3 py-2 text-[11px] font-semibold">{num(t.paid)}</td>
-                  <td className="px-3 py-2 text-[11px] font-semibold">{DASH}</td>
-                </tr>
-              }
-            >
-              {(d?.rows ?? []).map((r, i) => (
-                <tr key={r.agent_id} className="border-t border-border/70">
-                  <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
-                  <td className="px-3 py-2 font-medium">{r.full_name || 'Unnamed agent'}</td>
-                  <td className="whitespace-nowrap px-3 py-2">{r.phone || DASH}</td>
-                  <td className="px-3 py-2">{num(r.repaying_tenants)}</td>
-                  <td className="whitespace-nowrap px-3 py-2">{ugx(r.expected)}</td>
-                  <td className="whitespace-nowrap px-3 py-2">{ugx(r.collected)}</td>
-                  <td className="px-3 py-2">{pct(r.rate)}</td>
-                  <td className="px-3 py-2">{num(r.paid_tenants)}</td>
-                  <td className="px-3 py-2"><Badge variant={statusTone(r.rate)} className="font-normal">{r.status}</Badge></td>
-                </tr>
-              ))}
-            </TableShell>
-          </div>
-        );
-      }
-      case 'products-services': {
-        const d = productsReport.data;
-        const k = d?.kpis;
-        const t = (d?.rows ?? []).reduce(
-          (a, r) => ({
-            value: a.value + Number(r.value || 0),
-            recovered: a.recovered + Number(r.recovered || 0),
-            outstanding: a.outstanding + Number(r.outstanding || 0),
-          }),
-          { value: 0, recovered: 0, outstanding: 0 },
-        );
-        return (
-          <div className="space-y-4">
-            <StatGrid items={[
-              { label: 'Records', value: num(k?.applications) },
-              { label: 'Approved / issued', value: num(k?.approved) },
-              { label: 'Pending', value: num(k?.pending) },
-              { label: 'Value issued', value: ugx(k?.value_issued) },
-              { label: 'Recovered', value: ugx(k?.recovered) },
-              { label: 'Outstanding', value: ugx(k?.outstanding) },
-            ]} />
-            <TableShell
-              columns={['#', 'Agent Name', 'Agent Phone', 'Product', 'Status', 'Value', 'Recovered', 'Outstanding', 'Date']}
-              loading={productsReport.isLoading}
-              empty={(d?.rows?.length ?? 0) === 0}
-              footer={
-                <tr>
-                  <td colSpan={5} className="px-3 py-2 text-[11px] font-semibold">Totals · {d?.rows?.length ?? 0} records</td>
-                  <td className="px-3 py-2 text-[11px] font-semibold">{ugx(t.value)}</td>
-                  <td className="px-3 py-2 text-[11px] font-semibold">{ugx(t.recovered)}</td>
-                  <td className="px-3 py-2 text-[11px] font-semibold">{ugx(t.outstanding)}</td>
-                  <td className="px-3 py-2 text-[11px] font-semibold">{DASH}</td>
-                </tr>
-              }
-            >
-              {(d?.rows ?? []).map((r, i) => (
-                <tr key={r.sale_id} className="border-t border-border/70">
-                  <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
-                  <td className="px-3 py-2 font-medium">{r.full_name || 'Unnamed agent'}</td>
-                  <td className="whitespace-nowrap px-3 py-2">{r.phone || DASH}</td>
-                  <td className="px-3 py-2">{r.product || DASH}</td>
-                  <td className="px-3 py-2"><Badge variant="outline" className="font-normal">{r.status}</Badge></td>
-                  <td className="whitespace-nowrap px-3 py-2">{ugx(r.value)}</td>
-                  <td className="whitespace-nowrap px-3 py-2">{ugx(r.recovered)}</td>
-                  <td className="whitespace-nowrap px-3 py-2">{ugx(r.outstanding)}</td>
-                  <td className="whitespace-nowrap px-3 py-2">{dt(r.date)}</td>
-                </tr>
-              ))}
-            </TableShell>
-          </div>
-        );
-      }
-      case 'advances': {
-        const d = advancesReport.data;
-        const k = d?.kpis;
-        const t = (d?.rows ?? []).reduce(
-          (a, r) => ({
-            d: a.d + Number(r.disbursed || 0),
-            f: a.f + Number(r.access_fee || 0),
-            r: a.r + Number(r.repaid || 0),
-            o: a.o + Number(r.outstanding || 0),
-          }),
-          { d: 0, f: 0, r: 0, o: 0 },
-        );
-        return (
-          <div className="space-y-4">
-            <StatGrid items={[
-              { label: 'Advances issued', value: num(k?.issued_count) },
-              { label: 'Advance volume', value: ugx(k?.volume) },
-              { label: 'Agents', value: num(k?.agents) },
-              { label: 'Pending apps', value: num(k?.pending_apps) },
-              { label: 'Repaid in window', value: ugx(k?.repaid) },
-              { label: 'Outstanding', value: ugx(k?.outstanding) },
-              { label: 'Arrears', value: ugx(k?.arrears) },
-              { label: 'Recovery rate', value: pct(k?.recovery_rate) },
-            ]} />
-            {(d?.stages?.length ?? 0) > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {(d?.stages ?? []).map((s) => (
-                  <Badge key={s.stage} variant="outline" className="font-normal">
-                    {s.stage}: {num(s.count)} · {ugx(s.value)}
-                  </Badge>
-                ))}
-              </div>
-            )}
-            <TableShell
-              columns={['#', 'Agent Name', 'Agent Phone', 'Principal', 'Fee', 'Recovered', 'Outstanding', 'Status', 'Date']}
-              loading={advancesReport.isLoading}
-              empty={(d?.rows?.length ?? 0) === 0}
-              note="Advances issued inside the selected window; recovery is drawn from the advance ledger."
-              footer={
-                <tr>
-                  <td colSpan={3} className="px-3 py-2 text-[11px] font-semibold">Totals · {d?.rows?.length ?? 0} advances</td>
-                  <td className="px-3 py-2 text-[11px] font-semibold">{ugx(t.d)}</td>
-                  <td className="px-3 py-2 text-[11px] font-semibold">{ugx(t.f)}</td>
-                  <td className="px-3 py-2 text-[11px] font-semibold">{ugx(t.r)}</td>
-                  <td className="px-3 py-2 text-[11px] font-semibold">{ugx(t.o)}</td>
-                  <td className="px-3 py-2 text-[11px] font-semibold">{DASH}</td>
-                  <td className="px-3 py-2 text-[11px] font-semibold">{DASH}</td>
-                </tr>
-              }
-            >
-              {(d?.rows ?? []).map((r, i) => (
-                <tr key={r.advance_id} className="border-t border-border/70">
-                  <td className="px-3 py-2 text-muted-foreground">{i + 1}</td>
-                  <td className="px-3 py-2 font-medium">{r.full_name || 'Unnamed agent'}</td>
-                  <td className="whitespace-nowrap px-3 py-2">{r.phone || DASH}</td>
-                  <td className="whitespace-nowrap px-3 py-2">{ugx(r.disbursed)}</td>
-                  <td className="whitespace-nowrap px-3 py-2">{ugx(r.access_fee)}</td>
-                  <td className="whitespace-nowrap px-3 py-2">{ugx(r.repaid)}</td>
-                  <td className="whitespace-nowrap px-3 py-2">{ugx(r.outstanding)}</td>
-                  <td className="px-3 py-2"><Badge variant="outline" className="font-normal">{r.status || DASH}</Badge></td>
-                  <td className="whitespace-nowrap px-3 py-2">{dt(r.issued_at)}</td>
-                </tr>
-              ))}
-            </TableShell>
-          </div>
-        );
-      }
-      case 'team-collections': {
-        const d = teamReport.data;
-        const k = d?.kpis;
-        return (
-          <div className="space-y-4">
-            <EntityPicker
-              label="Team"
-              placeholder="Search team leader by name or phone…"
-              query={teamSearch}
-              onQuery={setTeamSearch}
-              loading={teams.isLoading}
-              options={(teams.data ?? []).map((t) => ({
-                id: t.parent_agent_id, name: t.full_name || 'Unnamed leader', phone: t.phone, meta: `${t.members} members`,
-              }))}
-              selectedId={teamId}
-              onSelect={setTeamId}
-            />
-            {!teamId ? (
-              <p className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
-                Select a team leader to load their sub-agent collections.
-              </p>
-            ) : (
-              <>
-                <StatGrid items={[
-                  { label: 'Team leader', value: d?.leader?.full_name || DASH },
-                  { label: 'Total sub-agents', value: num(k?.sub_agents) },
-                  { label: 'Collected', value: ugx(k?.collected) },
-                  { label: 'Expected', value: ugx(k?.expected) },
-                  { label: 'Rate', value: pct(k?.rate) },
-                  { label: 'Rank', value: k?.rank ? `${k.rank} / ${k.total_teams ?? DASH}` : DASH },
-                ]} />
-                <TableShell
-                  columns={['Agent Name & Phone', 'Tenants Count', 'Amount Collected', '% of Group Expected', 'Collections in Window', 'Latest']}
-                  loading={teamReport.isLoading}
-                  empty={(d?.rows?.length ?? 0) === 0}
-                  footer={
-                    <tr>
-                      <td className="px-3 py-2 text-[11px] font-semibold">Totals · {d?.rows?.length ?? 0} members</td>
-                      <td className="px-3 py-2 text-[11px] font-semibold">{num(k?.tenants)}</td>
-                      <td className="px-3 py-2 text-[11px] font-semibold">{ugx(k?.collected)}</td>
-                      <td className="px-3 py-2 text-[11px] font-semibold">{pct(k?.rate)}</td>
-                      <td className="px-3 py-2 text-[11px] font-semibold">{DASH}</td>
-                      <td className="px-3 py-2 text-[11px] font-semibold">Expected {ugx(k?.expected)}</td>
-                    </tr>
-                  }
-                >
-                  {(d?.rows ?? []).map((m) => (
-                    <tr key={m.agent_id} className="border-t border-border/70">
-                      <td className="px-3 py-2">
-                        <span className="block font-medium">
-                          {m.full_name || 'Unnamed agent'}
-                          {m.is_leader && <Badge className="ml-2 font-normal" variant="default">Leader</Badge>}
-                        </span>
-                        <span className="block text-muted-foreground">{m.phone || DASH}</span>
-                      </td>
-                      <td className="px-3 py-2">{num(m.tenants)}</td>
-                      <td className="whitespace-nowrap px-3 py-2">{ugx(m.collected)}</td>
-                      <td className="px-3 py-2">{pct(m.share_of_group_expected)}</td>
-                      <td className="px-3 py-2">{num(m.payments)}</td>
-                      <td className="whitespace-nowrap px-3 py-2">{dt(m.last_collection_at)}</td>
-                    </tr>
-                  ))}
-                </TableShell>
-              </>
-            )}
-          </div>
-        );
-      }
-      default:
-        return null;
-    }
-  };
+  const err = activeQuery?.error as Error | null | undefined;
 
-  const err = errorOf();
+  const needsAgent = reportType === "agent" && !agentId;
+  const needsTeam = reportType === "team-collections" && !teamId;
+
+  const body = () => (
+    <div className="space-y-4">
+      {reportType === "agent" && (
+        <EntityPicker
+          label="Agent"
+          placeholder="Search agent by name or phone..."
+          query={agentSearch}
+          onQuery={setAgentSearch}
+          loading={agents.isLoading}
+          options={(agents.data ?? []).map((a) => ({
+            id: a.agent_id, name: a.full_name || "Unnamed agent", phone: a.phone, meta: `${a.tenants} tenants`,
+          }))}
+          selectedId={agentId}
+          onSelect={setAgentId}
+        />
+      )}
+
+      {reportType === "team-collections" && (
+        <EntityPicker
+          label="Team leader"
+          placeholder="Search team leader by name or phone..."
+          query={teamSearch}
+          onQuery={setTeamSearch}
+          loading={teams.isLoading}
+          options={(teams.data ?? []).map((t) => ({
+            id: t.parent_agent_id, name: t.full_name || "Unnamed leader", phone: t.phone, meta: `${t.members} members`,
+          }))}
+          selectedId={teamId}
+          onSelect={setTeamId}
+        />
+      )}
+
+      {needsAgent || needsTeam ? (
+        <p className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+          {needsAgent
+            ? "Select an agent to load their rent repayment history."
+            : "Select a team leader to load the team collections report."}
+        </p>
+      ) : activeQuery?.isLoading ? (
+        <div className="flex items-center justify-center gap-2 rounded-lg border border-border py-20 text-xs text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Aggregating report...
+        </div>
+      ) : reportHtml ? (
+        <div className="overflow-hidden rounded-lg border border-border bg-muted/40">
+          <iframe
+            ref={frameRef}
+            srcDoc={reportHtml}
+            title={`${active?.label ?? "Welile"} report preview`}
+            className="h-[78vh] w-full border-0"
+          />
+        </div>
+      ) : (
+        <p className="rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
+          No records for this window.
+        </p>
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-4">

@@ -34,6 +34,17 @@ export interface TeamOption {
   members: number;
 }
 
+/** One itemized receipt on a tenant's ledger (page 3 of the Agent report). */
+export interface AgentReportCollectionRow {
+  at: string | null;
+  ref: string | null;
+  expected: number | null;
+  collected: number | null;
+  shortfall: number | null;
+  channel: string | null;
+  status: string | null;
+}
+
 export interface AgentReportTenantRow {
   rent_request_id: string;
   tenant_name: string | null;
@@ -47,6 +58,29 @@ export interface AgentReportTenantRow {
   percentage: number | null;
   last_collection_at: string | null;
   status: string | null;
+  /**
+   * Bio + itemized ledger, added by
+   * `20260908210000_agent_ops_report_agent_tenant_ledgers.sql`.
+   *
+   * Optional on purpose: until that migration is applied the RPC does not send
+   * these keys, and the renderer degrades (page 3 explains it is unavailable)
+   * instead of throwing. `occupation` is genuinely null for many tenants, so it
+   * is rendered as a dash rather than guessed.
+   */
+  national_id?: string | null;
+  occupation?: string | null;
+  /**
+   * The tenant's own stored address (village/city, sub-county, district), read
+   * from `profiles` — NOT `house_listings`, which is the marketplace listing and
+   * a different thing entirely. `v_tenant_location_pivot` is the canonical pivot
+   * but costs ~792ms to join here, and profiles already holds the columns it is
+   * built from.
+   */
+  location?: string | null;
+  house_type?: string | null;
+  daily_repayment?: number | null;
+  history?: AgentReportCollectionRow[] | null;
+  history_truncated?: boolean | null;
 }
 
 export interface AgentReportPeriodRow {
