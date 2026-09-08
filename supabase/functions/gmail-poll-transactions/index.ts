@@ -885,6 +885,30 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // ── Guard: never treat our own report/digest emails as transactions ──
+      // weliletenants@gmail.com and info@welile.com send Welile's own
+      // automated digests (Partner Ops / Merchant Cash-Out / Tenant Products
+      // & Services / Agent Daily Report, etc). Their bodies contain large
+      // statistical numbers (receivable totals, portfolio counts) that the
+      // generic amount/direction parser below was misreading as a single
+      // outbound cash transaction -- e.g. two different-day "Tenant Products
+      // & Services" reports both parsed to an identical, bogus
+      // UGX 359,185,000 "transfer" that appears nowhere in either report.
+      // weliletenants@gmail.com has never carried a real bank/telecom
+      // transaction (confirmed: 0 of 3,556 ingested rows); info@welile.com
+      // carries both these digests AND real "Receipt: your withdrawal of
+      // UGX X has been paid" notices, so it needs an allow-list rather than
+      // a blanket skip.
+      const isInternalReportEmail =
+        fromEmail === 'weliletenants@gmail.com' ||
+        (fromEmail === 'info@welile.com' &&
+          !/^receipt:\s*your withdrawal of ugx/i.test(String(subject ?? '').trim()));
+      if (isInternalReportEmail) {
+        if (debug) debugReport.push({ id: m.id, decision: 'skipped', reason: 'internal_report_digest', from: fromEmail, subject });
+        advanceCutoff(internalMs);
+        continue;
+      }
+
       if (lastMs && internalMs && internalMs <= lastMs) {
         if (debug) debugReport.push({
           id: m.id, decision: 'skipped', reason: 'older_than_last_poll',
