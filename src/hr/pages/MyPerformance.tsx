@@ -332,7 +332,33 @@ export default function MyPerformancePage() {
                 </div>
               </div>
 
-              <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-card">
+              <div className="mt-4 space-y-1.5 md:hidden">
+                {rows.map((row) => (
+                  <div
+                    key={row.day}
+                    className={cn(
+                      'flex items-center justify-between rounded-lg border bg-card px-3 py-2',
+                      row.day === todayStr && 'ring-1 ring-border'
+                    )}
+                  >
+                    <span className="text-xs font-medium">{formatKampalaDisplay(row.day)}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-base font-bold tabular-nums">{row.net_notes ?? 0}</span>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Created</div>
+                        <div className="text-xs font-semibold tabular-nums">{row.notes_created ?? 0}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Reversed</div>
+                        <div className="text-xs font-semibold tabular-nums">{row.notes_reversed ?? 0}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 hidden overflow-hidden rounded-2xl border border-border bg-card md:block">
+
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-left">
                     <tr>
