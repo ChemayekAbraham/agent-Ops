@@ -216,13 +216,15 @@ Deno.serve(async (req) => {
             direction: "cash_out",
             category: "partner_funding",
             ledger_scope: "wallet",
-            recipient_type: "user",
-            description: `Wallet deduction for portfolio ${portfolioCode}`,
+            recipient_type: "operational_wallet",
+            wallet_bucket: "float",
+            description: `Operational float deployed to portfolio ${portfolioCode} (float_usage=partner_portfolio_funding)`,
             source_table: "investor_portfolios",
             source_id: portfolioId,
             reference_id: portfolioCode,
             linked_party: "platform",
           },
+
           {
             amount,
             direction: "cash_in",
