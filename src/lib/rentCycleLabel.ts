@@ -30,7 +30,10 @@ export function getRentCycleLabel(
   let duration = '';
   if (days) {
     if (tone === 'weekly') {
-      const weeks = Math.round(days / 7);
+      // Weekly plans store the number of weekly instalments in this field for
+      // short terms (e.g. 7 = seven weekly payments), and calendar days for
+      // longer ones (e.g. 84 = twelve weeks). Read both correctly.
+      const weeks = days <= 12 ? days : Math.round(days / 7);
       duration = weeks > 0 ? `${weeks} ${weeks === 1 ? 'week' : 'weeks'}` : `${days} days`;
     } else if (tone === 'monthly') {
       const months = Math.round(days / 30);

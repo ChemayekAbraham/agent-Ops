@@ -309,7 +309,9 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <PeriodToggle value={granularity} onChange={setGranularity} />
+          <div className="w-full sm:w-auto">
+            <PeriodToggle value={granularity} onChange={setGranularity} />
+          </div>
           <Button
             type="button"
             variant="ghost"
@@ -324,50 +326,55 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          aria-label="Previous period"
-          onClick={stepBack}
-          className="h-9 w-9"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <span className="min-w-[10rem] text-center text-sm font-medium text-foreground">
-          {anchorLabel}
-        </span>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          aria-label="Next period"
-          onClick={stepForward}
-          disabled={nextDisabled}
-          className="h-9 w-9"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setAnchor(today)}
-          disabled={isToday}
-        >
-          Today
-        </Button>
-        <input
-          type="date"
-          value={anchor}
-          max={today}
-          onChange={(e) => {
-            if (e.target.value) setAnchor(e.target.value);
-          }}
-          aria-label="Choose anchor date"
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-        />
+      <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-end">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label="Previous period"
+            onClick={stepBack}
+            className="h-11 w-11 sm:h-9 sm:w-9"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="flex-1 text-center text-sm font-medium text-foreground sm:flex-none sm:min-w-[10rem]">
+            {anchorLabel}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label="Next period"
+            onClick={stepForward}
+            disabled={nextDisabled}
+            className="h-11 w-11 sm:h-9 sm:w-9"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setAnchor(today)}
+            disabled={isToday}
+            className="min-h-11 sm:min-h-9"
+          >
+            Today
+          </Button>
+          <input
+            type="date"
+            value={anchor}
+            max={today}
+            onChange={(e) => {
+              if (e.target.value) setAnchor(e.target.value);
+            }}
+            aria-label="Choose anchor date"
+            className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground sm:h-9 sm:w-auto"
+          />
+        </div>
         {!isToday && <Badge variant="outline">Viewing a closed period</Badge>}
       </div>
 
