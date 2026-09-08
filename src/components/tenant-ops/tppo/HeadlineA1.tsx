@@ -29,11 +29,11 @@ export function HeadlineA1({ report }: HeadlineA1Props) {
   return (
     <section aria-label="A1 headline" className="rounded-xl border border-primary/25 bg-primary/5 p-4 shadow-sm">
       <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3 sm:gap-y-1">
-        <span className="break-words text-2xl font-semibold tabular-nums text-foreground">
+        <span className="break-words text-xl font-semibold tabular-nums text-foreground sm:text-2xl">
           {collected === null ? '—' : formatUGX(collected)}
         </span>
 
-        <span className="text-xl font-medium tabular-nums text-foreground">
+        <span className="text-lg font-medium tabular-nums text-foreground sm:text-xl">
           {hasRate ? `${rate.toFixed(1)}%` : '—'}
         </span>
 
