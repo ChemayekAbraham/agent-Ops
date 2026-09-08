@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { startOfISOWeek, subDays, format } from 'date-fns';
 import { FileText, TrendingUp, CalendarDays, BarChart3 } from 'lucide-react';
@@ -88,9 +88,8 @@ function formatKampalaDateTime(iso: string): string {
   }).format(new Date(iso));
 }
 
-function getWindowDates(mode: WindowMode): { from: string; to: string; label: string } {
-  const today = kampalaDate();
-  const todayStr = formatKampalaDate(today);
+function getWindowDates(mode: WindowMode, todayStr: string): { from: string; to: string; label: string } {
+  const today = new Date(`${todayStr}T12:00:00`);
 
   if (mode === 'DAILY') {
     return { from: todayStr, to: todayStr, label: `DAILY · ${formatKampalaDisplay(today)}` };
