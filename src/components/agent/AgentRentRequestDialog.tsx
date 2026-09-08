@@ -4945,21 +4945,19 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                     <FieldError message={vPhone(lc1Phone) || getFieldError('lc1Phone')} />
                   </div>
                   <div className="space-y-1">
-                    <Label >Village *</Label>
-                    <p className="text-xs text-muted-foreground leading-snug">The village or zone the LC1 looks after.</p>
-                    <p className="text-[11px] text-muted-foreground">e.g. Kira Zone A</p>
+                    <p className="text-xs text-muted-foreground leading-snug">
+                      Search the village the LC1 looks after, or browse by region.
+                    </p>
                     <Lc1VillagePicker
                       label="Village"
                       required
                       value={lc1Village}
                       error={hasFieldError('lc1Village') ? getFieldError('lc1Village') : null}
-                      districtName={propertyDistrict || null}
                       onChange={(name, selection) => {
                         setLc1Village(name);
                         setLc1LocationUnit(selection);
                       }}
                     />
-                    <FieldError message={vPlace(lc1Village, 'Kira Zone A') || getFieldError('lc1Village')} />
                   </div>
                   </div>
                   )}
