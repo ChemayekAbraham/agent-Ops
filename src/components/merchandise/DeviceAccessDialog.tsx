@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Loader2, Smartphone } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
+import { isMoBanjaIphone, MO_BANJA } from '@/lib/moBanjaIphone';
 import { toast } from 'sonner';
 
 const db = supabase as any;
@@ -131,10 +132,23 @@ export default function DeviceAccessDialog({ userId, open, onOpenChange, saleId 
         <div className="space-y-4">
           <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Access amount
+              {isMoBanjaIphone(null, order.item_name) ? 'Amount repayable to Welile' : 'Access amount'}
             </p>
             <p className="text-2xl font-bold text-primary">{formatUGX(accessAmount)}</p>
           </div>
+
+          {isMoBanjaIphone(null, order.item_name) && (
+            <div className="rounded-xl border border-border bg-muted/40 p-3 space-y-1">
+              <p className="text-xs font-semibold">{MO_BANJA.partner} iPhone — two payments</p>
+              <p className="text-[11px] text-muted-foreground">{MO_BANJA.amountNote}</p>
+              <ul className="space-y-0.5 text-[11px] text-muted-foreground">
+                {MO_BANJA.twoLegs.map((line) => (
+                  <li key={line}>• {line}</li>
+                ))}
+              </ul>
+              <p className="text-[11px] text-muted-foreground">{MO_BANJA.lockNotice}</p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label className="text-xs font-semibold">Payment plan</Label>
