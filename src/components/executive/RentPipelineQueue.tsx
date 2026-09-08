@@ -1641,6 +1641,37 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
                             </span>
                           );
                         })()}
+                        {(() => {
+                          const approved = approvedCycleMap?.get(req.tenant_id) ?? 0;
+                          const isRenewal = approved > 0;
+                          return (
+                            <>
+                              <span
+                                className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/30 shrink-0"
+                                title={`Approved rent plans for this tenant: ${approved}`}
+                              >
+                                <Repeat className="h-2.5 w-2.5" />
+                                Cycle {approved}
+                              </span>
+                              <span
+                                className={cn(
+                                  'inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border shrink-0',
+                                  isRenewal
+                                    ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30'
+                                    : 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30',
+                                )}
+                                title={
+                                  isRenewal
+                                    ? 'Renewal — this tenant has had a rent plan approved before'
+                                    : 'New — no approved rent plan for this tenant yet'
+                                }
+                              >
+                                <Sparkles className="h-2.5 w-2.5" />
+                                {isRenewal ? 'Renewal' : 'New'}
+                              </span>
+                            </>
+                          );
+                        })()}
                         {req.registration_type === 'outstanding_balance' && (
                           <span className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 border border-amber-500/30 shrink-0">
                             <AlertCircle className="h-2.5 w-2.5" />
