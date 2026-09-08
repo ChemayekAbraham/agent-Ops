@@ -48,6 +48,7 @@ export default function AgentServiceCenter() {
   const { data: listingQueue = [] } = useServiceCenterListingQueue();
 
   const [query, setQuery] = useState('');
+  const [vettingQuery, setVettingQuery] = useState('');
   const [visible, setVisible] = useState(20);
   const [suspendTarget, setSuspendTarget] = useState<ServiceCenterSubAgent | null>(null);
   const [transferTarget, setTransferTarget] = useState<ServiceCenterSubAgent | null>(null);
