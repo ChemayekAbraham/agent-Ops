@@ -53941,6 +53941,10 @@ export type Database = {
           unmatched: number
         }[]
       }
+      tenant_location_correction_dashboard: {
+        Args: { p_agent_id?: string }
+        Returns: Json
+      }
       tenant_location_correction_progress: {
         Args: { p_agent_id?: string }
         Returns: {
