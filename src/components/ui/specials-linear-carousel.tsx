@@ -3,7 +3,7 @@
 import React, { createContext, useEffect, useRef, useState } from "react";
 import type { ImgHTMLAttributes } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 

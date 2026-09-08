@@ -505,7 +505,7 @@ export function MotorBikeCatalogDialog() {
                 {catalog.map((item) => {
                   const currentValuation = Number(inlinePrices[item.id] ?? item.unit_price);
                   const isDirty = inlinePrices[item.id] !== undefined && Number(inlinePrices[item.id]) !== item.unit_price;
-                  const isPending = saveInlinePrice.isPending && saveInlinePrice.variables?.item.id === item.id;
+                  const isPending = savingId === item.id;
                   const schedule = spiroLeaseGrid(currentValuation > 0 ? currentValuation : item.unit_price);
 
                   return (
@@ -603,10 +603,7 @@ export function MotorBikeCatalogDialog() {
                               className="h-8 px-3 text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-sm"
                               disabled={isPending || currentValuation <= 0}
                               onClick={() =>
-                                saveInlinePrice.mutate({
-                                  item,
-                                  newPrice: currentValuation,
-                                })
+                                void saveInlinePrice(item)
                               }
                             >
                               {isPending ? (

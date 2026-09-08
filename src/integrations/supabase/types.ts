@@ -192,6 +192,13 @@ export type Database = {
             referencedRelation: "agent_advances"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "agent_advance_ledger_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "v_advance_gate_overrides"
+            referencedColumns: ["advance_id"]
+          },
         ]
       }
       agent_advance_pause_events: {
@@ -238,6 +245,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "agent_advances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_advance_pause_events_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "v_advance_gate_overrides"
+            referencedColumns: ["advance_id"]
           },
         ]
       }
@@ -576,6 +590,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "agent_advance_requests_parent_advance_id_fkey"
+            columns: ["parent_advance_id"]
+            isOneToOne: false
+            referencedRelation: "v_advance_gate_overrides"
+            referencedColumns: ["advance_id"]
+          },
+          {
             foreignKeyName: "agent_advance_requests_reviewed_by_agent_ops_fkey"
             columns: ["reviewed_by_agent_ops"]
             isOneToOne: false
@@ -768,6 +789,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "agent_advances"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_advance_topups_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "v_advance_gate_overrides"
+            referencedColumns: ["advance_id"]
           },
           {
             foreignKeyName: "agent_advance_topups_topped_up_by_fkey"
@@ -1114,6 +1142,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "agent_advance_requests_privileged"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_advances_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "v_advance_gate_overrides"
+            referencedColumns: ["request_id"]
           },
         ]
       }
@@ -41753,6 +41788,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "agent_advance_requests_parent_advance_id_fkey"
+            columns: ["parent_advance_id"]
+            isOneToOne: false
+            referencedRelation: "v_advance_gate_overrides"
+            referencedColumns: ["advance_id"]
+          },
+          {
             foreignKeyName: "agent_advance_requests_reviewed_by_agent_ops_fkey"
             columns: ["reviewed_by_agent_ops"]
             isOneToOne: false
@@ -42435,6 +42477,79 @@ export type Database = {
         }
         Relationships: []
       }
+      v_advance_gate_overrides: {
+        Row: {
+          advance_id: string | null
+          advance_status: string | null
+          agent_id: string | null
+          agent_name: string | null
+          agent_phone: string | null
+          created_at: string | null
+          cycle_days: number | null
+          gate_override_at: string | null
+          gate_override_by: string | null
+          gate_override_gates: string[] | null
+          gate_override_reason: string | null
+          monthly_rate: number | null
+          outstanding_balance: number | null
+          overridden_by_name: string | null
+          principal: number | null
+          request_id: string | null
+          status: string | null
+          total_payable: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_advance_requests_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_advance_requests_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_advance_requests_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_advance_requests_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_advance_requests_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_advance_requests_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_advance_requests_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
       v_agent_collection_performance: {
         Row: {
           agent_id: string | null
@@ -42514,6 +42629,9 @@ export type Database = {
           tenants_paid_today: number | null
           tenants_paid_yesterday: number | null
           today_pct: number | null
+          weekly_expected_week: number | null
+          weekly_lapsed_count: number | null
+          weekly_plan_count: number | null
           yesterday_pct: number | null
         }
         Relationships: []
@@ -44646,6 +44764,14 @@ export type Database = {
         Returns: undefined
       }
       agent_advance_activity: { Args: { p_user_id: string }; Returns: Json }
+      agent_advance_blocking_gates: {
+        Args: {
+          p_agent_id: string
+          p_monthly_rate?: number
+          p_principal?: number
+        }
+        Returns: Json
+      }
       agent_advance_topup_eligibility: {
         Args: { p_agent_id: string }
         Returns: Json
@@ -46100,6 +46226,19 @@ export type Database = {
         }
         Returns: Json
       }
+      cfo_create_advance: {
+        Args: {
+          p_agent_id: string
+          p_cycle_days: number
+          p_monthly_rate: number
+          p_override?: boolean
+          p_override_reason?: string
+          p_principal: number
+          p_reason: string
+          p_repayment_frequency: string
+        }
+        Returns: Json
+      }
       cfo_decide_agent_unallocation: {
         Args: { p_cfo_note?: string; p_decision: string; p_request_id: string }
         Returns: Json
@@ -46423,6 +46562,10 @@ export type Database = {
       }
       coo_approve_smartphone_order: {
         Args: { p_note?: string; p_sale_id: string }
+        Returns: Json
+      }
+      correct_tenant_location: {
+        Args: { p_reason?: string; p_tenant_id: string; p_village_id: number }
         Returns: Json
       }
       country_to_continent: { Args: { p_country: string }; Returns: string }
@@ -47639,6 +47782,9 @@ export type Database = {
           tenants_paid_today: number
           tenants_paid_yesterday: number
           today_pct: number
+          weekly_expected_week: number
+          weekly_lapsed_count: number
+          weekly_plan_count: number
           yesterday_pct: number
         }[]
       }
@@ -53741,6 +53887,39 @@ export type Database = {
         Returns: number
       }
       telecom_sending_charge: { Args: { p_amount: number }; Returns: number }
+      tenant_location_correction_progress: {
+        Args: { p_agent_id?: string }
+        Returns: {
+          matched: number
+          total_tenants: number
+          unmatched: number
+        }[]
+      }
+      tenant_location_corrections: {
+        Args: {
+          p_agent_id?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+        }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          agent_phone: string
+          legacy_district: string
+          legacy_parish: string
+          legacy_region: string
+          legacy_sub_county: string
+          legacy_village: string
+          monthly_rent: number
+          request_status: string
+          requested_at: string
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+          total_count: number
+        }[]
+      }
       tenant_ops_correct_rent_request: {
         Args: {
           p_access_fee?: number
