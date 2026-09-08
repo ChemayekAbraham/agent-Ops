@@ -5044,17 +5044,23 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                   )}
                 </div>
 
-                {/* Town/City + District — keeps tenant rolled up under a real
-                    location in Tenant Ops drill-down instead of the
-                    "Entebbe (please verify)" placeholder. */}
+                {/* Town/City + District — filled automatically from the official
+                    village the agent picked, and only edited when the house sits
+                    somewhere other than the chairperson's village. */}
                 <div className="space-y-3">
+                  {placeAutoFilled && (
+                    <p className="text-[11px] text-success flex items-start gap-1 leading-snug">
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-[1px]" />
+                      Filled in from the village you picked. Change these only if the house is somewhere else.
+                    </p>
+                  )}
                   <div className="space-y-1">
                     <Label className="flex items-center gap-1">
                       <MapPin className="h-3 w-3" /> Town / City *
                     </Label>
                     <p className="text-xs text-muted-foreground leading-snug">The town or city where the house is.</p>
-                    <p className="text-[11px] text-muted-foreground">e.g. Entebbe, Kampala, Jinja</p>
                     <Input
+
                       value={propertyCity}
                       onChange={(e) => setPropertyCity(formatNameInput(e.target.value))}
                       placeholder="e.g. Entebbe, Kampala, Jinja"
