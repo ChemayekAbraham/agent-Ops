@@ -370,6 +370,69 @@ export default function MyPerformancePage() {
             </p>
           </div>
         </div>
+
+        {/* Zone C */}
+        {!cohortError && (
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              ALL PLATFORM SALES OFFICERS
+            </h2>
+            <p className="mb-3 text-xs text-muted-foreground">
+              every officer sees this list · staff codes only, no names · no money and no commission appear here
+            </p>
+            {cohortLoading ? (
+              <div className="h-24 animate-pulse rounded-2xl bg-muted" />
+            ) : cohortRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No officers in this window yet.</p>
+            ) : (
+              <div className="overflow-hidden rounded-2xl border border-border">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 text-left">
+                    <tr>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Officer
+                      </th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Days elapsed
+                      </th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Created
+                      </th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Reversed
+                      </th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Net
+                      </th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Average / day
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {cohortRows.map((row) => (
+                      <tr key={row.staff_ref} className={cn(row.is_me && 'bg-muted/40')}>
+                        <td className="px-4 py-2.5">
+                          <span className="font-medium">{row.staff_ref}</span>
+                          {row.is_me && (
+                            <span className="ml-2 text-xs text-muted-foreground">you</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.days_elapsed ?? 0}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.notes_created ?? 0}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.notes_reversed ?? 0}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.net_notes ?? 0}</td>
+                        <td className="px-4 py-2.5 tabular-nums">
+                          {row.days_elapsed ? (row.net_notes / row.days_elapsed).toFixed(1) : '0.0'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </PersonalLayout>
   );
