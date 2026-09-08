@@ -403,46 +403,104 @@ export default function MyPerformancePage() {
             ) : rankedCohort.length === 0 ? (
               <p className="text-sm text-muted-foreground">No officers in this window yet.</p>
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-border">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left">
-                    <tr>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">#</th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Officer</th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Mon</th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tue</th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Wed</th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Thu</th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Fri</th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sat</th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sun</th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {rankedCohort.map((row) => (
-                      <tr key={row.staff_ref} className={cn(row.is_me && 'bg-muted/40')}>
-                        <td className="px-4 py-2.5 tabular-nums">{row.rank}</td>
-                        <td className="px-4 py-2.5">
-                          <span className="font-medium">{row.staff_ref}</span>
-                          {row.is_me && (
-                            <span className="ml-2 text-xs text-muted-foreground">you</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.mon ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.tue ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.wed ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.thu ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.fri ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.sat ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.sun ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.total_net ?? 0}</td>
+              <>
+                <div className="space-y-2 md:hidden">
+                  {rankedCohort.map((row) => {
+                    const days = [row.mon, row.tue, row.wed, row.thu, row.fri, row.sat, row.sun];
+                    return (
+                      <div
+                        key={row.staff_ref}
+                        className={cn('rounded-xl border bg-card p-3', row.is_me && 'bg-muted/40')}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <span className="text-xs font-bold tabular-nums text-muted-foreground">
+                              #{row.rank}
+                            </span>
+                            <div className="text-sm font-semibold">
+                              {row.staff_ref}
+                              {row.is_me && (
+                                <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+                                  you
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold leading-none tabular-nums">
+                              {row.total_net ?? 0}
+                            </div>
+                            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                              net notes
+                            </div>
+                          </div>
+                        </div>
+                        {mode === 'DAILY' ? (
+                          <p className="mt-2 text-[11px] text-muted-foreground">today only</p>
+                        ) : (
+                          <div className="mt-3 grid grid-cols-7 gap-1">
+                            {WEEKDAY_LETTERS.map((letter, i) => (
+                              <div
+                                key={i}
+                                className={cn(
+                                  'rounded-md bg-muted/40 py-1.5 text-center',
+                                  i === todayWeekdayIndex && 'ring-1 ring-border'
+                                )}
+                              >
+                                <div className="text-[10px] font-semibold uppercase text-muted-foreground">
+                                  {letter}
+                                </div>
+                                <div className="text-sm font-semibold tabular-nums">{days[i] ?? 0}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="hidden overflow-hidden rounded-2xl border border-border md:block">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50 text-left">
+                      <tr>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">#</th>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Officer</th>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Mon</th>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tue</th>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Wed</th>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Thu</th>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Fri</th>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sat</th>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sun</th>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {rankedCohort.map((row) => (
+                        <tr key={row.staff_ref} className={cn(row.is_me && 'bg-muted/40')}>
+                          <td className="px-4 py-2.5 tabular-nums">{row.rank}</td>
+                          <td className="px-4 py-2.5">
+                            <span className="font-medium">{row.staff_ref}</span>
+                            {row.is_me && (
+                              <span className="ml-2 text-xs text-muted-foreground">you</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 tabular-nums">{row.mon ?? 0}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{row.tue ?? 0}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{row.wed ?? 0}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{row.thu ?? 0}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{row.fri ?? 0}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{row.sat ?? 0}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{row.sun ?? 0}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{row.total_net ?? 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
+
           </div>
         )}
       </div>
