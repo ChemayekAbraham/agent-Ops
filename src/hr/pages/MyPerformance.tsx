@@ -260,14 +260,15 @@ export default function MyPerformancePage() {
         </div>
 
         {/* Toggle */}
-        <div className="inline-flex rounded-lg border border-border bg-card p-1">
+        <div className="grid w-full grid-cols-3 gap-1 rounded-lg border p-1 sm:inline-grid sm:w-auto">
           {(['DAILY', 'WEEKLY', 'MONTHLY'] as WindowMode[]).map((m) => (
             <button
               key={m}
               type="button"
               onClick={() => setMode(m)}
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
               className={cn(
-                'px-3 py-1.5 text-xs font-semibold transition-colors rounded-md',
+                'min-h-11 px-3 text-xs font-semibold tracking-wide rounded-md transition-colors',
                 mode === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
               )}
             >
@@ -275,6 +276,7 @@ export default function MyPerformancePage() {
             </button>
           ))}
         </div>
+
 
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">No days in this window yet.</p>
