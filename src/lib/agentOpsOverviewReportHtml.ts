@@ -81,6 +81,66 @@ tfoot td{border-top:2px solid var(--border-dark);padding:6px;font-weight:800;bac
 @media print{body{background:#fff}.page{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}thead{display:table-header-group}tr{page-break-inside:avoid}}
 `;
 
+/** Styles lifted from the supplied Welile rent-collections HTML template. */
+const TEMPLATE_CSS = `
+:root{--primary:#7B19D4;--primary-dark:#581C87;--primary-light:#F3E8FF;--accent-cyan:#0284C7;--text-main:#0F172A;--text-body:#334155;--text-muted:#64748B;--text-light:#94A3B8;--bg-document:#FFFFFF;--bg-header:#F8FAFC;--bg-subtle:#F1F5F9;--border-color:#E2E8F0;--border-dark:#CBD5E1;--status-success:#15803D;--status-success-bg:#F0FDF4;--status-success-border:#BBF7D0;--status-warning:#B45309;--status-warning-bg:#FFFBEB;--status-warning-border:#FDE68A;--status-danger:#B91C1C;--status-danger-bg:#FEF2F2;--status-danger-border:#FECACA;--font-sans:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;--font-mono:'JetBrains Mono',monospace}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{background-color:#E2E8F0;font-family:var(--font-sans);color:var(--text-main);font-size:11px;line-height:1.4;-webkit-font-smoothing:antialiased}
+.num,.currency,.pct,.date{font-feature-settings:"tnum" 1,"zero" 1;font-variant-numeric:tabular-nums}
+.font-mono{font-family:var(--font-mono)}
+.document-wrapper{max-width:210mm;margin:20px auto 40px auto}
+.report-page{width:210mm;min-height:297mm;background-color:var(--bg-document);padding:16mm 16mm 18mm 16mm;margin-bottom:24px;box-shadow:0 4px 15px rgba(0,0,0,.08);position:relative;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;page-break-after:always;break-after:page}
+.page-content{flex:1}
+.report-footer{display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid var(--border-color);font-size:8.5px;color:var(--text-muted);font-weight:500}
+.avoid-break{break-inside:avoid;page-break-inside:avoid}
+.pdf-header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--text-main);padding-bottom:12px;margin-bottom:14px}
+.pdf-header-left{display:flex;flex-direction:column;gap:2px}
+.company-name{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--primary)}
+.report-title-main{font-size:18px;font-weight:900;color:var(--text-main);letter-spacing:-.4px;margin-top:2px}
+.report-subtitle-main{font-size:9.5px;color:var(--text-muted)}
+.pdf-header-meta-table{font-size:9px;border-collapse:collapse}
+.pdf-header-meta-table td{padding:1.5px 6px;text-align:right}
+.pdf-header-meta-table td.meta-lbl{color:var(--text-muted);font-weight:600;text-transform:uppercase}
+.pdf-header-meta-table td.meta-val{font-weight:700;color:var(--text-main)}
+.kpi-grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px}
+.kpi-card{background-color:var(--bg-header);border:1px solid var(--border-color);padding:10px 12px;border-radius:4px;text-align:center}
+.kpi-card .kpi-label{font-size:8.5px;font-weight:800;text-transform:uppercase;color:var(--text-muted);letter-spacing:.4px;margin-bottom:4px}
+.kpi-card .kpi-value{font-size:14px;font-weight:900;color:var(--text-main)}
+.kpi-card .kpi-sub{font-size:8px;color:var(--text-muted);margin-top:3px}
+.kpi-card.primary .kpi-value{color:var(--primary)}
+.kpi-card.success .kpi-value{color:var(--status-success)}
+.kpi-card.warning .kpi-value{color:var(--status-warning)}
+.section-title{font-size:11.5px;font-weight:800;color:var(--text-main);border-bottom:1px solid var(--border-dark);padding-bottom:3px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.section-subtitle{font-size:9px;color:var(--text-muted);margin-top:-6px;margin-bottom:10px}
+.report-table{width:100%;border-collapse:collapse;font-size:9px;margin-bottom:12px}
+.report-table thead{display:table-header-group}
+.report-table th{background-color:var(--bg-header);color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:8px;letter-spacing:.4px;padding:5px 6px;border-top:1px solid var(--border-dark);border-bottom:1.5px solid var(--border-dark);text-align:left}
+.report-table th.right,.report-table td.right{text-align:right}
+.report-table td{padding:5px 6px;border-bottom:1px solid var(--border-color);color:var(--text-main)}
+.report-table tr:nth-child(even) td{background-color:#FAFAFA}
+.report-table tr.total-row td{background-color:#F8FAFC !important;font-weight:800;border-top:1.5px solid var(--text-main);border-bottom:2px solid var(--text-main)}
+.doc-badge{display:inline-block;padding:2px 6px;border-radius:3px;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.3px}
+.badge-excellent{background-color:#DCFCE7;color:#166534;border:1px solid #86EFAC}
+.badge-target{background-color:var(--status-success-bg);color:var(--status-success);border:1px solid var(--status-success-border)}
+.badge-attention{background-color:var(--status-warning-bg);color:var(--status-warning);border:1px solid var(--status-warning-border)}
+.badge-critical{background-color:var(--status-danger-bg);color:var(--status-danger);border:1px solid var(--status-danger-border)}
+.progress-bar-wrap{width:44px;height:5px;background-color:#E2E8F0;border-radius:3px;overflow:hidden;display:inline-block;vertical-align:middle;margin-right:4px}
+.progress-bar-fill{height:100%;background-color:var(--primary);border-radius:3px;display:block}
+.progress-bar-fill.excellent{background-color:#16A34A}
+.progress-bar-fill.target{background-color:#22C55E}
+.progress-bar-fill.attention{background-color:#EAB308}
+.progress-bar-fill.critical{background-color:#DC2626}
+.chart-container-block{border:1px solid var(--border-color);background-color:#FFFFFF;padding:10px 12px;margin-bottom:12px}
+.chart-header-title{font-size:10.5px;font-weight:800;color:var(--text-main)}
+.chart-header-sub{font-size:8.5px;color:var(--text-muted);margin-bottom:6px}
+.chart-grid-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.observation-callout{background-color:#F8FAFC;border:1px solid var(--border-dark);border-left:3.5px solid var(--primary);padding:8px 12px;font-size:9px;margin-top:8px;margin-bottom:10px}
+.observation-callout strong{color:var(--text-main);font-weight:800}
+.empty{padding:14px;text-align:center;color:var(--text-muted);font-size:10px;border:1px dashed var(--border-dark);border-radius:4px}
+@media print{@page{size:A4 portrait;margin:12mm 12mm 14mm 12mm}html,body{background-color:#fff !important;font-size:9.5pt !important}.document-wrapper{margin:0 !important;max-width:100% !important}.report-page{width:100% !important;min-height:auto !important;box-shadow:none !important;padding:0 !important;margin-bottom:0 !important;break-after:page !important;page-break-after:always !important}.report-page:last-child{break-after:auto !important;page-break-after:auto !important}}
+`;
+
+
 function tone(rate: number | null | undefined): 'ok' | 'warn' | 'bad' {
   if (rate === null || rate === undefined) return 'warn';
   if (rate >= 75) return 'ok';
