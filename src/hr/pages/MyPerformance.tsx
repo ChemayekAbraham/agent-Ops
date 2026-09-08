@@ -429,6 +429,7 @@ export default function MyPerformancePage() {
         )}
 
         {/* Zone B */}
+        {isOfficer === true && (
         <div className="rounded-2xl border border-border bg-card p-4">
           <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Funded sales
