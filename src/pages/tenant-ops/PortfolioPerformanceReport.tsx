@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PeriodToggle, type TppoGranularity } from '@/components/tenant-ops/tppo/PeriodToggle';
 import { HeadlineA1 } from '@/components/tenant-ops/tppo/HeadlineA1';
 import { VarianceA2 } from '@/components/tenant-ops/tppo/VarianceA2';
+import { ArrearsMovementA2b } from '@/components/tenant-ops/tppo/ArrearsMovementA2b';
 import { ProjectionA3 } from '@/components/tenant-ops/tppo/ProjectionA3';
 import { TppoPlanDetailTable } from '@/components/executive/tppo/TppoPlanDetailTable';
 import {
@@ -415,6 +416,9 @@ export default function PortfolioPerformanceReport({ onBack }: { onBack?: () => 
         <HeadlineA1 report={data} />
         <VarianceA2 report={data} earlier={earlier} />
       </div>
+
+      <ArrearsMovementA2b granularity={granularity} anchor={anchor} />
+
 
       <ProjectionA3 granularity={granularity} anchor={anchor} />
 
