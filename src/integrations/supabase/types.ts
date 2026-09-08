@@ -52463,12 +52463,16 @@ export type Database = {
       pso_cohort_volume: {
         Args: { p_from: string; p_to: string }
         Returns: {
-          days_elapsed: number
+          fri: number
           is_me: boolean
-          net_notes: number
-          notes_created: number
-          notes_reversed: number
+          mon: number
+          sat: number
           staff_ref: string
+          sun: number
+          thu: number
+          total_net: number
+          tue: number
+          wed: number
         }[]
       }
       pso_daily_series: {
@@ -52495,6 +52499,7 @@ export type Database = {
           staff_ref: string
         }[]
       }
+      pso_is_officer: { Args: never; Returns: boolean }
       purge_geo_coverage_cache: { Args: never; Returns: number }
       queue_tenant_rent_intake_notice: {
         Args: {
