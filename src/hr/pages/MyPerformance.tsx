@@ -27,6 +27,15 @@ interface PsoFundedSummary {
   as_at: string;
 }
 
+interface PsoCohortRow {
+  staff_ref: string;
+  days_elapsed: number;
+  notes_created: number;
+  notes_reversed: number;
+  net_notes: number;
+  is_me: boolean;
+}
+
 type WindowMode = 'DAILY' | 'WEEKLY' | 'MONTHLY';
 
 function getKampalaParts(d: Date): { year: number; month: number; day: number } {
