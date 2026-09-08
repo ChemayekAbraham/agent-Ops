@@ -323,8 +323,12 @@ export function AgentCollectionsCommandCenter() {
                   numberOfMonths={2}
                   selected={custom}
                   onSelect={setCustom}
+                  defaultMonth={custom?.from ?? subDays(new Date(), 30)}
+                  fromYear={2023}
+                  toDate={new Date()}
                   disabled={{ after: new Date() }}
                   initialFocus
+                  className="p-3 pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
