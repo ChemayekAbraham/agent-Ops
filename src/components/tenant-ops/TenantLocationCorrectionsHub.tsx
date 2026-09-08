@@ -11,10 +11,33 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Search, Loader2, ChevronLeft, ChevronRight, CheckCircle2, User, Phone, Pencil } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  MapPin,
+  Search,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsUpDown,
+  CheckCircle2,
+  Check,
+  User,
+  Phone,
+  Pencil,
+  X,
+} from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
   legacyLocationLabel,
+  useTenantLocationCorrectionAgents,
   useTenantLocationCorrections,
   useTenantLocationProgress,
   type TenantLocationCorrectionRow,
@@ -28,6 +51,10 @@ export function TenantLocationCorrectionsHub() {
   const [debounced, setDebounced] = useState('');
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<TenantLocationCorrectionRow | null>(null);
+  const [agentId, setAgentId] = useState<string | null>(null);
+  const [agentOpen, setAgentOpen] = useState(false);
+  const [agentQuery, setAgentQuery] = useState('');
+  const [agentQueryDebounced, setAgentQueryDebounced] = useState('');
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -37,8 +64,20 @@ export function TenantLocationCorrectionsHub() {
     return () => clearTimeout(t);
   }, [search]);
 
-  const progress = useTenantLocationProgress(null);
-  const list = useTenantLocationCorrections({ agentId: null, search: debounced, page, pageSize: PAGE_SIZE });
+  useEffect(() => {
+    const t = setTimeout(() => setAgentQueryDebounced(agentQuery), 250);
+    return () => clearTimeout(t);
+  }, [agentQuery]);
+
+  const agents = useTenantLocationCorrectionAgents(agentQueryDebounced);
+  const agentOptions = agents.data ?? [];
+  const selectedAgent = useMemo(
+    () => agentOptions.find((a) => a.agent_id === agentId) ?? null,
+    [agentOptions, agentId],
+  );
+
+  const progress = useTenantLocationProgress(agentId);
+  const list = useTenantLocationCorrections({ agentId, search: debounced, page, pageSize: PAGE_SIZE });
 
   const rows = list.data?.rows ?? [];
   const total = list.data?.total ?? 0;
