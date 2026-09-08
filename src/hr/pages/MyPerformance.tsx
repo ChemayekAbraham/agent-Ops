@@ -302,7 +302,13 @@ export default function MyPerformancePage() {
         </div>
 
 
-        {rows.length === 0 ? (
+        {isOfficer !== true ? (
+          <div className="rounded-xl border bg-card p-4">
+            <p className="text-sm text-muted-foreground">
+              You are viewing this as a reviewer, so there are no personal figures here. The leaderboard below is the same one every officer sees.
+            </p>
+          </div>
+        ) : rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">No days in this window yet.</p>
         ) : (
           <>
