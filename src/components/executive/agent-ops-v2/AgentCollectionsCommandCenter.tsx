@@ -156,6 +156,20 @@ export function AgentCollectionsCommandCenter() {
 
   const totals = data?.totals;
 
+  const { data: target } = useQuery({
+    queryKey: ['agent-ops-collection-target', totals?.defaulted_as_of ?? 'today'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('agent_ops_collection_target', {
+        p_as_of: totals?.defaulted_as_of ?? format(new Date(), 'yyyy-MM-dd'),
+      });
+      if (error) throw error;
+      return data as any;
+    },
+    enabled: preset !== 'next7',
+    staleTime: 60_000,
+  });
+
+
   // Live refresh when collections or rent requests change
   useEffect(() => {
     const channel = supabase
