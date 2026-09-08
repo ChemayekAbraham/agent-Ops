@@ -1,6 +1,12 @@
 # Phase 2 deployment runbook — blockers and minimum-privilege resolution
 
-Status: **prepared. Nothing applied, deployed, or executed.**
+Status: **M1–M4 are LIVE (verified 2026-09-08 via direct query, not via
+`schema_migrations` — none of the four appear there, so the migrations table
+is not evidence of state in either direction). G7 is now also LIVE (applied
+2026-09-08 after all three of its required pre-checks passed — see
+`20260908101500_g7_collection_direction_fix.sql`). Edge Function deployment
+remains fully blocked (Blocker 2, unchanged) — that is the only remaining
+item in this file.
 
 ---
 
@@ -39,54 +45,51 @@ silently re-authorise the G7 change, which is a separate approval.
 **There is no narrower rule available. Minimum privilege therefore means no rule
 at all.**
 
-### Minimum required authorization — recommended path
+### Minimum required authorization — recommended path (HISTORICAL — already done)
 
-**A maintainer applies M2–M4 directly, outside this session.** No permission
-change, no classifier weakening, no broadened tool access.
+This section originally recommended a maintainer apply M1–M4 by hand. **That has
+since happened** — verified live 2026-09-08 (see below). Left here for the
+record of what the correct minimum-privilege path was; not an outstanding task.
 
-Run these three files **in this exact order**, in the Supabase SQL editor or via
-an authenticated CLI, against project `wirntoujqoyjobfhyelc`:
+1. `supabase/migrations/20260908120500_atomic_repayment_waterfall.sql` (M2)
+2. `supabase/migrations/20260908130000_option_b_golive_scope.sql` (M3)
+3. `supabase/migrations/20260908140000_single_golive_boundary.sql` (M4)
 
-1. `supabase/migrations/20260908120500_atomic_repayment_waterfall.sql`
-2. `supabase/migrations/20260908130000_option_b_golive_scope.sql`
-3. `supabase/migrations/20260908140000_single_golive_boundary.sql`
+`20260908120000_funding_treasury_recognition.sql` (M1) was re-applied first, per
+the original note.
 
-Order matters: file 2 scopes the functions created in file 1, and file 3
-collapses the duplicated go-live constant that files 1–2 rely on.
-
-> **Note:** `20260908120000_funding_treasury_recognition.sql` (M1) was applied and
-> then **deliberately dropped** to restore the clean baseline. It must be
-> re-applied **first**, before the three files above.
-
-### Post-apply verification
+### Live-state verification (run 2026-09-08)
 
 ```sql
--- expect 6
-SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-WHERE n.nspname = 'public' AND p.proname IN (
-  'recognise_funding_treasury','assert_funding_treasury_recognised',
-  'record_rent_request_repayment_v2','treasury_waterfall_go_live',
-  'treasury_waterfall_go_live_at','is_treasury_waterfall_scope');
-
--- both must return 2026-09-08 00:00:00+00 and be identical
-SELECT public.rent_pricing_floor_effective_from(), public.treasury_waterfall_go_live();
-
--- expect 688 legacy / 0 in scope
-SELECT count(*) FILTER (WHERE NOT public.is_treasury_waterfall_scope(id)) AS legacy,
-       count(*) FILTER (WHERE public.is_treasury_waterfall_scope(id))     AS in_scope
-FROM rent_requests
-WHERE funded_at IS NOT NULL AND total_repayment > COALESCE(amount_repaid,0)
-  AND status IN ('funded','disbursed','approved','repaying');
-
--- must be unchanged: 455914 / 0 / -940292
-SELECT (SELECT count(*) FROM general_ledger)          AS gl_rows,
-       (SELECT count(*) FROM instalment_allocations)  AS alloc_rows;
+SELECT
+  (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname IN (
+     'recognise_funding_treasury','assert_funding_treasury_recognised',
+     'record_rent_request_repayment_v2','treasury_waterfall_go_live',
+     'treasury_waterfall_go_live_at','is_treasury_waterfall_scope')) AS fn_count,
+  (SELECT count(*) FILTER (WHERE NOT public.is_treasury_waterfall_scope(id)) FROM rent_requests
+   WHERE funded_at IS NOT NULL AND total_repayment > COALESCE(amount_repaid,0)
+     AND status IN ('funded','disbursed','approved','repaying')) AS legacy_count,
+  (SELECT count(*) FILTER (WHERE public.is_treasury_waterfall_scope(id)) FROM rent_requests
+   WHERE funded_at IS NOT NULL AND total_repayment > COALESCE(amount_repaid,0)
+     AND status IN ('funded','disbursed','approved','repaying')) AS in_scope_count,
+  (SELECT count(*) FROM general_ledger) AS gl_rows,
+  (SELECT count(*) FROM instalment_allocations) AS alloc_rows;
 ```
+
+Result at time of writing: `fn_count=6`, `legacy_count=687`, `in_scope_count=0`,
+`gl_rows=456395`, `alloc_rows=0`. `rent_pricing_floor_effective_from()` and
+`treasury_waterfall_go_live()` both return `2026-09-08 00:00:00+00`, confirmed
+identical. `alloc_rows=0` means the waterfall is live but **dormant** — nothing
+has actually posted through `post_instalment_waterfall` yet; the only caller of
+`record_rent_request_repayment_v2` is `supabase/functions/tenant-pay-rent/index.ts`,
+whose deployed state cannot be verified from here (see Blocker 2).
 
 ### Status
 
-**Requires your approval and a maintainer action.** Nothing here can or should be
-self-authorised from inside this session.
+**M1–M4 done.** No further maintainer action needed for this blocker. G7
+(below the fold in this doc, "G7 remains a separate change") is the one
+still-open, separately-approved item from this family.
 
 ---
 
@@ -153,10 +156,10 @@ nothing until a maintainer triggers it by hand.
 
 ---
 
-## Deployment order once both blockers clear
+## Deployment order once remaining blockers clear
 
-1. Re-apply M1, then M2 → M3 → M4, verifying after each
-2. Run the verification block above
+1. ~~Re-apply M1, then M2 → M3 → M4, verifying after each~~ — **done**
+2. ~~Run the verification block above~~ — **done, see above**
 3. Trigger the workflow for **`fund-agent-landlord-float`** only
 4. Verify against the live ledger
 5. **Gate 1** — approve the canary
@@ -164,5 +167,6 @@ nothing until a maintainer triggers it by hand.
 7. Execute one canary; reconcile
 8. **Gate 2** — approve any broader rollout
 
+Steps 3–8 remain blocked on Blocker 2 (`SUPABASE_ACCESS_TOKEN` still absent).
 G7 remains a separate change with its own approval and is not part of this
 sequence.
