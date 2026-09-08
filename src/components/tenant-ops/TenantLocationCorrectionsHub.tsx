@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Search, Loader2, ChevronLeft, ChevronRight, CheckCircle2, User, Phone, Pencil } from 'lucide-react';
-import { formatUGX } from '@/lib/utils';
+import { formatUGX } from '@/lib/rentCalculations';
 import {
   legacyLocationLabel,
   useTenantLocationCorrections,
