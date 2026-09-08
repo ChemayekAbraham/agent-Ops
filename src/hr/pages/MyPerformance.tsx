@@ -145,12 +145,25 @@ export default function MyPerformancePage() {
   const [mode, setMode] = useState<WindowMode>('WEEKLY');
   const { from, to, label } = useMemo(() => getWindowDates(mode), [mode]);
 
+  // Officers have personal figures; reviewers (hr, coo, ceo, super_admin) do not.
+  const { data: isOfficer } = useQuery<boolean>({
+    queryKey: ['pso-is-officer'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('pso_is_officer' as any);
+      if (error) return false;
+      return data === true;
+    },
+  });
+
+
   const {
     data: rows = [],
     isLoading,
     error,
   } = useQuery<PsoRow[]>({
     queryKey: ['pso-daily-series', from, to],
+    enabled: isOfficer === true,
     queryFn: () => fetchPsoSeries(from, to),
   });
 
@@ -162,6 +175,7 @@ export default function MyPerformancePage() {
     isLoading: rollingLoading,
   } = useQuery<PsoRow[]>({
     queryKey: ['pso-daily-series', 'rolling-7', rollingFrom, rollingTo],
+    enabled: isOfficer === true,
     queryFn: () => fetchPsoSeries(rollingFrom, rollingTo),
   });
 
@@ -187,6 +201,7 @@ export default function MyPerformancePage() {
 
   const { data: fundedSummary = null } = useQuery<PsoFundedSummary | null>({
     queryKey: ['pso-funded-summary', from, to],
+    enabled: isOfficer === true,
     queryFn: async () => {
       const { data, error } = (await supabase.rpc('pso_funded_summary' as any, {
         p_from: from,
@@ -228,7 +243,7 @@ export default function MyPerformancePage() {
     );
   }
 
-  if (isLoading) {
+  if (isOfficer === undefined || isLoading) {
     return (
       <PersonalLayout title="My performance">
         <div className="space-y-4">
@@ -251,14 +266,14 @@ export default function MyPerformancePage() {
         {/* Header */}
         <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
           <span>MY PERFORMANCE</span>
-          {staffRef && (
+          {isOfficer === true && staffRef && (
             <>
               <span className="text-muted-foreground">·</span>
               <span>{staffRef}</span>
             </>
           )}
           <span className="text-muted-foreground">·</span>
-          <span>Platform Sales Officer</span>
+          <span>{isOfficer === true ? 'Platform Sales Officer' : 'reviewer view'}</span>
           <span className="text-muted-foreground">·</span>
           <span>{label}</span>
           <span className="text-muted-foreground">·</span>
