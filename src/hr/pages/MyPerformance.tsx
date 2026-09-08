@@ -134,31 +134,48 @@ async function fetchPsoCohort(from: string, to: string): Promise<PsoCohortRow[]>
 
 export default function MyPerformancePage() {
   const [mode, setMode] = useState<WindowMode>('WEEKLY');
-  const { from, to, label } = useMemo(() => getWindowDates(mode), [mode]);
+  const [todayStr, setTodayStr] = useState<string>(() => formatKampalaDate(kampalaDate()));
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const next = formatKampalaDate(kampalaDate());
+      setTodayStr((prev) => (prev === next ? prev : next));
+    }, 60000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const { from, to, label } = useMemo(() => getWindowDates(mode, todayStr), [mode, todayStr]);
 
   const {
     data: rows = [],
     isLoading,
     error,
   } = useQuery<PsoRow[]>({
-    queryKey: ['pso-daily-series', from, to],
+    queryKey: ['pso-daily-series', todayStr, from, to],
     queryFn: () => fetchPsoSeries(from, to),
+    refetchInterval: 60000,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
   });
 
-  const rollingFrom = useMemo(() => formatKampalaDate(subDays(kampalaDate(), 6)), []);
-  const rollingTo = useMemo(() => formatKampalaDate(kampalaDate()), []);
+  const rollingFrom = useMemo(
+    () => formatKampalaDate(subDays(new Date(`${todayStr}T12:00:00`), 6)),
+    [todayStr],
+  );
+  const rollingTo = todayStr;
 
   const {
     data: rollingRows = [],
     isLoading: rollingLoading,
   } = useQuery<PsoRow[]>({
-    queryKey: ['pso-daily-series', 'rolling-7', rollingFrom, rollingTo],
+    queryKey: ['pso-daily-series', 'rolling-7', todayStr, rollingFrom, rollingTo],
     queryFn: () => fetchPsoSeries(rollingFrom, rollingTo),
+    refetchInterval: 60000,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
   });
 
   const staffRef = rows[0]?.staff_ref;
-
-  const todayStr = useMemo(() => formatKampalaDate(kampalaDate()), []);
 
   const { todayNet, todayReversals, netSum, rollingAverage, periodAverage } = useMemo(() => {
     const todayRow = rows.find((r) => r.day === todayStr);
@@ -176,7 +193,7 @@ export default function MyPerformancePage() {
   }, [rows, rollingRows, todayStr]);
 
   const { data: fundedSummary = null } = useQuery<PsoFundedSummary | null>({
-    queryKey: ['pso-funded-summary', from, to],
+    queryKey: ['pso-funded-summary', todayStr, from, to],
     queryFn: async () => {
       const { data, error } = (await supabase.rpc('pso_funded_summary' as any, {
         p_from: from,
@@ -185,6 +202,9 @@ export default function MyPerformancePage() {
       if (error) throw new Error(error.message);
       return data?.[0] ?? null;
     },
+    refetchInterval: 60000,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
   });
 
   const {
@@ -192,8 +212,11 @@ export default function MyPerformancePage() {
     isLoading: cohortLoading,
     error: cohortError,
   } = useQuery<PsoCohortRow[]>({
-    queryKey: ['pso-cohort-volume', from, to],
+    queryKey: ['pso-cohort-volume', todayStr, from, to],
     queryFn: () => fetchPsoCohort(from, to),
+    refetchInterval: 60000,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
   });
 
   const rankedCohort = useMemo(() => {
