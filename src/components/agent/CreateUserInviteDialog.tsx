@@ -418,10 +418,23 @@ Just click the link and enter your password to get started!`;
             <Label className="text-xs font-medium">Country</Label>
             <Input value={supporterData.country} onChange={(e) => setSupporterData(prev => ({ ...prev, country: e.target.value }))} className="h-12 text-base rounded-xl" placeholder="Uganda" />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">District / City</Label>
-            <Input value={supporterData.districtCity} onChange={(e) => setSupporterData(prev => ({ ...prev, districtCity: e.target.value }))} className="h-12 text-base rounded-xl" placeholder="e.g. Kampala" />
-          </div>
+          {/* Uganda districts come from the approved dataset, never typed. */}
+          {(supporterData.country || 'Uganda').trim().toLowerCase() === 'uganda' ? (
+            <UgDistrictSelect
+              value={ugDistrict}
+              onChange={(d) => {
+                setUgDistrict(d);
+                setSupporterData(prev => ({ ...prev, districtCity: d?.name ?? '' }));
+              }}
+              label="District"
+              legacyText={supporterData.districtCity}
+            />
+          ) : (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">District / City</Label>
+              <Input value={supporterData.districtCity} onChange={(e) => setSupporterData(prev => ({ ...prev, districtCity: e.target.value }))} className="h-12 text-base rounded-xl" placeholder="e.g. Nairobi" />
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label className="text-xs font-medium">Physical Address</Label>
             <Input value={supporterData.physicalAddress} onChange={(e) => setSupporterData(prev => ({ ...prev, physicalAddress: e.target.value }))} className="h-12 text-base rounded-xl" placeholder="e.g. Plot 12, Ntinda Road" />
