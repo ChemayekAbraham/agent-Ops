@@ -53142,6 +53142,10 @@ export type Database = {
         }
         Returns: string
       }
+      rent_pipeline_tenant_history: {
+        Args: { p_exclude_request_id?: string; p_tenant_id: string }
+        Returns: Json
+      }
       rent_plan_schedule_days: {
         Args: { p_from: string; p_to: string }
         Returns: {
