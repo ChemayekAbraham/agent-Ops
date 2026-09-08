@@ -123,8 +123,9 @@ SELECT (SELECT count(*) FROM general_ledger)          AS gl_rows,
 
 ### Status
 
-**Requires your approval and a maintainer action.** Nothing here can or should be
-self-authorised from inside this session.
+**CLOSED.** M1–M4 are live; the verification block above passes. The remaining
+database work is G7 only, which requires its own approval and maintainer action
+and must not be self-authorised.
 
 ---
 
