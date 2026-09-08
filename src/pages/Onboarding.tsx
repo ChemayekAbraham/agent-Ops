@@ -19,6 +19,8 @@ import { SignaturePad } from '@/components/shared/SignaturePad';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
 import { preflightSignup, attachSignupUser } from '@/lib/signupGuard';
+import { UgLocationPicker } from '@/components/location/UgLocationPicker';
+import type { UgLocationSelection } from '@/hooks/useUgLocations';
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 const useRouteRole = () => 'FUNDER';
@@ -855,6 +857,13 @@ function _Step3Impl({
           </div>
         </div>
 
+        {/* Official Uganda location (optional) — approved dataset, never typed. */}
+        <UgLocationPicker
+          value={ugLoc}
+          onChange={setUgLoc}
+          label="Official location (optional)"
+        />
+
         <div className="space-y-1">
           <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest pl-1">National ID / Passport No.</label>
           <div className="relative">
@@ -1177,6 +1186,8 @@ export default function FunderOnboarding() {
     } catch { /* non-fatal */ }
   }, []);
 
+  const [ugLoc, setUgLoc] = useState<UgLocationSelection | null>(null);
+
   const [form, setForm] = useState<FormState>({
     understoodRole: false,
     investPath: null,
@@ -1281,9 +1292,20 @@ export default function FunderOnboarding() {
 
         // Persist the funder's address + national ID on their profile (non-blocking).
         if (newUserId && (cleanAddress || cleanNationalId)) {
-          const profilePatch: Record<string, string> = {};
+          const profilePatch: Record<string, string | number> = {};
           if (cleanAddress) profilePatch.landmark = cleanAddress;
           if (cleanNationalId) profilePatch.national_id = cleanNationalId;
+          // Approved dataset wins for the administrative chain when picked.
+          if (ugLoc) {
+            profilePatch.country = 'Uganda';
+            profilePatch.region = ugLoc.region ?? '';
+            profilePatch.district = ugLoc.district;
+            profilePatch.county = ugLoc.county;
+            profilePatch.sub_county = ugLoc.subcounty;
+            profilePatch.parish = ugLoc.parish;
+            profilePatch.village = ugLoc.village;
+            profilePatch.ug_village_id = ugLoc.villageId;
+          }
           supabase
             .from('profiles')
             .update(profilePatch)
