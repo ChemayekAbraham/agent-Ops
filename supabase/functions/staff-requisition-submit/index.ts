@@ -36,7 +36,19 @@ Deno.serve(async (req) => {
     const requester = userData.user;
 
     const { data: staffCheck } = await admin.rpc("is_welile_staff", { _user_id: requester.id });
-    if (!staffCheck) return json({ error: "Only Welile staff can raise requisitions" }, 403);
+    let allowed = !!staffCheck;
+    if (!allowed) {
+      // Agents explicitly granted Agents' Space access may also raise requisitions
+      const { data: spaceGrant } = await admin
+        .from("staff_permissions")
+        .select("id")
+        .eq("user_id", requester.id)
+        .eq("permitted_dashboard", "agents-space")
+        .is("revoked_at", null)
+        .maybeSingle();
+      allowed = !!spaceGrant;
+    }
+    if (!allowed) return json({ error: "Only Welile staff or authorized agents can raise requisitions" }, 403);
 
     const body = await req.json().catch(() => ({}));
     const resubmitId = body.requisition_id ? String(body.requisition_id) : null;
