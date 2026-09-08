@@ -12,6 +12,7 @@ import type {
   AgentReport,
   ProductsReport,
   RentCollectionsReport,
+  RentCollectionsRow,
   TeamCollectionsReport,
 } from '@/hooks/useAgentOpsReports';
 
