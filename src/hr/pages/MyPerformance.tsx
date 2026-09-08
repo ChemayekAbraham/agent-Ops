@@ -77,6 +77,14 @@ function formatKampalaDisplay(d: Date | string): string {
   }).format(date);
 }
 
+function formatUgxCompact(v: number): string {
+  if (v >= 1_000_000) return `UGX ${(v / 1_000_000).toFixed(v >= 10_000_000 ? 0 : 1)}M`;
+  if (v >= 1_000) return `UGX ${(v / 1_000).toFixed(0)}K`;
+  return `UGX ${v.toLocaleString('en-UG')}`;
+}
+
+const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
 function formatKampalaDateTime(iso: string): string {
   return new Intl.DateTimeFormat('en-GB', {
     day: 'numeric',
@@ -160,6 +168,7 @@ export default function MyPerformancePage() {
   const staffRef = rows[0]?.staff_ref;
 
   const todayStr = useMemo(() => formatKampalaDate(kampalaDate()), []);
+  const todayWeekdayIndex = useMemo(() => (kampalaDate().getDay() + 6) % 7, []);
 
   const { todayNet, todayReversals, netSum, rollingAverage, periodAverage } = useMemo(() => {
     const todayRow = rows.find((r) => r.day === todayStr);
@@ -238,7 +247,7 @@ export default function MyPerformancePage() {
 
   return (
     <PersonalLayout title="My performance">
-      <div className="space-y-4">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
         <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
           <span>MY PERFORMANCE</span>
@@ -295,7 +304,7 @@ export default function MyPerformancePage() {
                     icon={FileText}
                     variant="default"
                   />
-                  <p className="mt-1 text-[10px] text-muted-foreground">
+                  <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
                     net of {todayReversals} reversals today
                   </p>
                 </div>
@@ -306,7 +315,7 @@ export default function MyPerformancePage() {
                     icon={TrendingUp}
                     variant="default"
                   />
-                  <p className="mt-1 text-[10px] text-muted-foreground">
+                  <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
                     {netSum} net notes ÷ {rows.length} days elapsed, counted from your appointment date
                   </p>
                 </div>
@@ -317,7 +326,7 @@ export default function MyPerformancePage() {
                     icon={CalendarDays}
                     variant="default"
                   />
-                  <p className="mt-1 text-[10px] text-muted-foreground">
+                  <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
                     your series starts on the day you were appointed, not the start of the period
                   </p>
                 </div>
@@ -328,7 +337,7 @@ export default function MyPerformancePage() {
                     icon={BarChart3}
                     variant="default"
                   />
-                  <p className="mt-1 text-[10px] text-muted-foreground">
+                  <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
                     ÷ {rollingRows.length} days available, not 7
                   </p>
                 </div>
