@@ -344,6 +344,11 @@ export function useAgentCapacityMap(agentIds: string[]) {
         coverage_today: number;
         coverage_yesterday: number;
         effective_coverage: number;
+        raw_today_pct: number;
+        raw_yesterday_pct: number;
+        weekly_plan_count: number;
+        weekly_lapsed_count: number;
+        weekly_expected_week: number;
       }>();
       (eligRows || []).forEach((r: any) => {
         eligByAgent.set(r.agent_id, {
@@ -360,6 +365,11 @@ export function useAgentCapacityMap(agentIds: string[]) {
           coverage_today:         Number(r.coverage_today)          || 0,
           coverage_yesterday:     Number(r.coverage_yesterday)      || 0,
           effective_coverage:     Number(r.effective_coverage)      || 0,
+          raw_today_pct:          Number(r.raw_today_pct)           || 0,
+          raw_yesterday_pct:      Number(r.raw_yesterday_pct)       || 0,
+          weekly_plan_count:      Number(r.weekly_plan_count)       || 0,
+          weekly_lapsed_count:    Number(r.weekly_lapsed_count)     || 0,
+          weekly_expected_week:   Number(r.weekly_expected_week)    || 0,
         });
       });
 
