@@ -13,6 +13,7 @@ import { AgentOpsLiveStatsCard } from './AgentOpsLiveStatsCard';
 import { FunderEngagementPanel } from './FunderEngagementPanel';
 import { FunderFunnelPanel } from './FunderFunnelPanel';
 import { CeoSalaryAdvanceApprovals } from './CeoSalaryAdvanceApprovals';
+import { CEOGrowthQuality } from './CEOGrowthQuality';
 
 
 export function CEODashboard() {
