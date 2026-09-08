@@ -49,7 +49,34 @@ export function legacyLocationLabel(row: TenantLocationCorrectionRow) {
 export const TENANT_LOCATION_KEYS = {
   list: 'tenant-location-corrections',
   progress: 'tenant-location-correction-progress',
+  agents: 'tenant-location-correction-agents',
 } as const;
+
+export interface TenantLocationCorrectionAgent {
+  agent_id: string;
+  agent_name: string | null;
+  agent_phone: string | null;
+  total_tenants: number;
+  matched: number;
+  unmatched: number;
+}
+
+/** Agents (incl. sub-agents / senior agents) who still have tenants to correct. */
+export function useTenantLocationCorrectionAgents(search = '', enabled = true) {
+  return useQuery({
+    queryKey: [TENANT_LOCATION_KEYS.agents, search.trim()],
+    enabled,
+    staleTime: 60_000,
+    queryFn: async (): Promise<TenantLocationCorrectionAgent[]> => {
+      const { data, error } = await supabase.rpc('tenant_location_correction_agents' as any, {
+        p_search: search.trim() || null,
+        p_limit: 300,
+      });
+      if (error) throw error;
+      return (data ?? []) as TenantLocationCorrectionAgent[];
+    },
+  });
+}
 
 export function useTenantLocationProgress(agentId?: string | null, enabled = true) {
   return useQuery({
