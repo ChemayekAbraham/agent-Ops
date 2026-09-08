@@ -9,8 +9,10 @@
  *   agent_ops_report_advances         — advance issuance and recovery
  *   agent_ops_report_team_collections — parent/sub-agent team collections
  *
- * Expected figures come from the daily eligibility snapshots (the same source
- * the daily gate uses), collected figures come from `agent_collections`.
+ * Expected figures come from the pinned daily rent-plan schedule
+ * (`agent_expected_day_plans`) - the same basis the Agent Operations dashboard
+ * reports, so reports and dashboard always tally. Collected comes from
+ * `agent_collections`.
  */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';

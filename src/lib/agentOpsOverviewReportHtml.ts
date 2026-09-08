@@ -687,7 +687,7 @@ export function buildAgentReportHtml(r: AgentReport): string {
     }),
     `<div class="directive-box avoid-break">
       <div class="directive-title">Basis of preparation</div>
-      <p>Expected figures are drawn from the daily eligibility snapshots that drive the daily collection gate. Collected figures are actual receipts recorded in agent collections for the window stated above. Percentages are repayment progress against the tenant's total Rent Plan obligation, not window fulfilment.</p>
+      <p>Expected figures are the pinned daily rent-plan schedule — the instalments actually scheduled to fall due in the window — the same basis the Agent Operations dashboard reports. Collected figures are actual receipts recorded in agent collections for the window stated above. Percentages are repayment progress against the tenant's total Rent Plan obligation, not window fulfilment.</p>
       <div class="directive-signoff"><span>Report window: <strong>${esc(rangeLabel(r.range))}</strong></span><span>Reference: <strong>${esc(
         auditRef('AGR', r.range),
       )}</strong></span></div>
@@ -970,7 +970,7 @@ export function buildRentCollectionsReportHtml(r: RentCollectionsReport): string
     </div>`,
     `<div class="directive-box avoid-break">
       <div class="directive-title">Reconciliation basis</div>
-      <p>Expected is the sum of each agent's frozen daily eligibility snapshots for every day in the window (today's live figure is used only for the current day, and only when no snapshot exists yet). Collected is the sum of agent collection receipts whose Africa/Kampala date falls in the window. Both bounds are inclusive.</p>
+      <p>Expected is the pinned daily rent-plan schedule: the instalments scheduled to fall due on each day of the window, frozen per day. This is the same basis as the Agent Operations dashboard, so the two always agree. Collected is the sum of agent collection receipts whose Africa/Kampala date falls in the window. Both bounds are inclusive. The pinned schedule begins 11 June 2026; a window starting earlier reports no expected amount for the days before that.</p>
       <p style="margin-top:4px"><strong>Agent counts are scoped to this window and are not the platform-wide agent total.</strong> "Agents with repaying tenants" counts agents carrying at least one repaying tenant on at least one day in the window; "agents who collected" counts those who banked a receipt inside it. An agent who holds tenants but took nothing in the window appears in the first figure only.</p>
       <p style="margin-top:4px">Status is taken from the collections engine, not recomputed here: <strong>Excellent</strong> ≥ 100%, <strong>On track</strong> 75–99%, <strong>Fair</strong> 50–74%, <strong>Behind</strong> below 50%, <strong>Silent</strong> where nothing was collected, and <strong>Unscheduled</strong> where an agent collected with no expected amount for the window.</p>
       <div class="directive-signoff"><span>Window: <strong>${esc(rangeLabel(r.range))}</strong></span><span>Reference: <strong>${esc(
@@ -1335,7 +1335,7 @@ export function buildTeamCollectionsReportHtml(r: TeamCollectionsReport): string
     </div>`,
     `<div class="directive-box avoid-break">
       <div class="directive-title">Team leader verification</div>
-      <p>Tenant counts, collections and sub-agent contributions above are reconciled receipts for the stated window. Expected is aggregated from the daily eligibility snapshots for each member's active Rent Plans; share of group expected is each member's collected amount measured against the group's total expected target.</p>
+      <p>Tenant counts, collections and sub-agent contributions above are reconciled receipts for the stated window. Expected is the pinned daily rent-plan schedule for each member's tenants over the window; share of group expected is each member's collected amount measured against the group's total expected target.</p>
       <div class="directive-signoff"><span>${esc(
         r.leader?.full_name || 'Team Leader',
       )} • Team Leader</span><span>Head of Field Agent Network</span><span>Window: <strong>${esc(
