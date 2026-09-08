@@ -81,22 +81,20 @@ at all.**
 
 ### Minimum required authorization — recommended path
 
-**A maintainer applies M2–M4 directly, outside this session.** No permission
-change, no classifier weakening, no broadened tool access.
+**RESOLVED — no longer required.** M1, M2, M3 and M4 are all live. The
+instruction below is retained only as a record of what was originally planned;
+**do not follow it**, because re-applying these files would redefine live money
+functions for no benefit.
 
-Run these three files **in this exact order**, in the Supabase SQL editor or via
-an authenticated CLI, against project `wirntoujqoyjobfhyelc`:
+> ~~Run these three files in this exact order:
+> `20260908120500_atomic_repayment_waterfall.sql`,
+> `20260908130000_option_b_golive_scope.sql`,
+> `20260908140000_single_golive_boundary.sql`, preceded by
+> `20260908120000_funding_treasury_recognition.sql` (M1).~~
 
-1. `supabase/migrations/20260908120500_atomic_repayment_waterfall.sql`
-2. `supabase/migrations/20260908130000_option_b_golive_scope.sql`
-3. `supabase/migrations/20260908140000_single_golive_boundary.sql`
-
-Order matters: file 2 scopes the functions created in file 1, and file 3
-collapses the duplicated go-live constant that files 1–2 rely on.
-
-> **Note:** `20260908120000_funding_treasury_recognition.sql` (M1) was applied and
-> then **deliberately dropped** to restore the clean baseline. It must be
-> re-applied **first**, before the three files above.
+The only migration still awaiting deliberate application is
+`20260908101500_g7_collection_direction_fix.sql`, which is a separate change
+with its own approval and its own pre-checks (see that file's header).
 
 ### Post-apply verification
 
