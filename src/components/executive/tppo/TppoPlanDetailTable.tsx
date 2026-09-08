@@ -406,6 +406,7 @@ export function TppoPlanDetailTable({
                 type="button"
                 variant="outline"
                 size="sm"
+                className="min-h-11"
                 onClick={() => setShown((s) => s + PAGE)}
               >
                 {`Load more · ${remaining} remaining`}
