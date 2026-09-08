@@ -15,6 +15,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
+import { UgDistrictSelect, type UgDistrictValue } from '@/components/location/UgDistrictSelect';
 
 interface CreateUserInviteDialogProps {
   open: boolean;
@@ -126,6 +127,8 @@ export function CreateUserInviteDialog({ open, onOpenChange, onSuccess, defaultR
     address: '',
   });
   const [supporterData, setSupporterData] = useState<SupporterFormData>(defaultSupporterData);
+  /** Approved-dataset district behind the typed district/city text. */
+  const [ugDistrict, setUgDistrict] = useState<UgDistrictValue | null>(null);
   // Name captured in parts; `formData.fullName` stays the single submitted string.
   const [nameParts, setNameParts] = useState<PersonNameParts>({ firstName: '', otherNames: '', lastName: '' });
   const applyNameParts = (next: PersonNameParts) => {
