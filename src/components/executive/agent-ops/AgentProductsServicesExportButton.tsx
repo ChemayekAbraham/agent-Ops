@@ -291,7 +291,7 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
   const activeRangePresetLabel = rangePresets.find(([k]) => k === activeRangePreset)?.[1];
 
   return (
-    <div className={cn('flex flex-wrap items-center gap-2', className)}>
+    <div className={cn('flex flex-wrap items-center gap-2 max-w-full', className)}>
       <div className="inline-flex items-center rounded-lg bg-muted/60 p-0.5 border">
         <Button
           type="button"
