@@ -15,10 +15,12 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell,
 } from 'recharts';
 import {
-  CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown, Receipt,
+  CalendarIcon, Clock, TrendingUp, Users, Banknote, Target, RefreshCw, Activity, Search, FileDown, Receipt, AlertTriangle,
 } from 'lucide-react';
 import { ComprehensiveReportButton } from './ComprehensiveReportButton';
 import { AgentCollectionsAgentTable } from './AgentCollectionsAgentTable';
+import { TenantsOwingDialog } from './TenantsOwingDialog';
+import { DormantAgentsDialog } from './DormantAgentsDialog';
 
 import { NextSevenDaysExpected } from './NextSevenDaysExpected';
 import { format, parseISO, startOfDay, endOfDay, subDays, startOfMonth, startOfYear, addDays } from 'date-fns';
@@ -129,6 +131,8 @@ export function AgentCollectionsCommandCenter() {
   const [custom, setCustom] = useState<DateRange | undefined>();
   const [search, setSearch] = useState('');
   const [visibleAgents, setVisibleAgents] = useState(10);
+  const [owingOpen, setOwingOpen] = useState(false);
+  const [dormantOpen, setDormantOpen] = useState(false);
   const qc = useQueryClient();
 
   const { start, end, bucket } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
@@ -151,6 +155,20 @@ export function AgentCollectionsCommandCenter() {
   });
 
   const totals = data?.totals;
+
+  const { data: target } = useQuery({
+    queryKey: ['agent-ops-collection-target', totals?.defaulted_as_of ?? 'today'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('agent_ops_collection_target', {
+        p_as_of: totals?.defaulted_as_of ?? format(new Date(), 'yyyy-MM-dd'),
+      });
+      if (error) throw error;
+      return data as any;
+    },
+    enabled: preset !== 'next7',
+    staleTime: 60_000,
+  });
+
 
   // Live refresh when collections or rent requests change
   useEffect(() => {
@@ -305,8 +323,12 @@ export function AgentCollectionsCommandCenter() {
                   numberOfMonths={2}
                   selected={custom}
                   onSelect={setCustom}
+                  defaultMonth={custom?.from ?? subDays(new Date(), 30)}
+                  fromYear={2023}
+                  toDate={new Date()}
                   disabled={{ after: new Date() }}
                   initialFocus
+                  className="p-3 pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
@@ -333,7 +355,7 @@ export function AgentCollectionsCommandCenter() {
       ) : (
         <>
       {/* KPI strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
         <Card className="p-3">
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><Banknote className="h-3.5 w-3.5" /> Collected</div>
           <p className="text-lg font-bold mt-1">{formatUGX(collectedTotal)}</p>
@@ -362,7 +384,53 @@ export function AgentCollectionsCommandCenter() {
           <p className="text-lg font-bold mt-1">{num(totals?.requests_count)}</p>
           <p className="text-[11px] text-muted-foreground">{formatUGX(num(totals?.requests_amount))} requested</p>
         </Card>
+        <Card className="p-3">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground"><AlertTriangle className="h-3.5 w-3.5" /> Defaulted</div>
+          <p className="text-lg font-bold mt-1 text-destructive">{formatUGX(num(totals?.defaulted_to_date))}</p>
+          <p className="text-[11px] text-muted-foreground">{num(totals?.defaulted_plans)} plans · as at {totals?.defaulted_as_of}</p>
+          <Button size="sm" variant="outline" className="h-7 mt-1 text-[11px] w-full min-h-11 sm:min-h-7" onClick={() => setOwingOpen(true)}>
+            View all tenants owing
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 mt-1 text-[11px] w-full min-h-11 sm:min-h-7" onClick={() => setDormantOpen(true)}>
+            Agents gone quiet
+          </Button>
+        </Card>
       </div>
+
+      {/* Field collection target */}
+      {target && (
+        <Card className="p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Banknote className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-semibold">Field collection target today</h3>
+            </div>
+            <Badge variant="outline" className="text-[10px]">Separate from Expected</Badge>
+          </div>
+          <p className="text-2xl font-bold tabular-nums">{formatUGX(num(target.collectible_today))}</p>
+          <p className="text-[11px] text-muted-foreground">
+            {num(target.collectible_plans)} tenants in arrears · their combined daily instalment rate
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+            <div className="rounded-md border px-3 py-2">
+              <p className="text-xs text-muted-foreground">On their agreed schedule</p>
+              <p className="text-sm font-semibold tabular-nums">{formatUGX(num(target.on_schedule_daily))}</p>
+              <p className="text-[11px] text-muted-foreground">{num(target.on_schedule_plans)} tenants · still inside their term</p>
+            </div>
+            <div className="rounded-md border px-3 py-2">
+              <p className="text-xs text-muted-foreground">Past their agreed end date</p>
+              <p className="text-sm font-semibold tabular-nums text-destructive">{formatUGX(num(target.past_term_daily))}</p>
+              <p className="text-[11px] text-muted-foreground">{num(target.past_term_plans)} tenants · plan has run out, balance still owed</p>
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2">
+            Expected above is {formatUGX(num(target.scheduled_today))} — only what the agreed payment plans schedule for today,
+            across {num(target.scheduled_today_plans)} plans. This target is a different measure: it adds the daily rate of every
+            tenant already in arrears, including those whose plan has passed its end date and schedules nothing further. Use
+            Expected to judge plan performance, and this figure to set what the field teams chase. Never add the two together.
+          </p>
+        </Card>
+      )}
 
 
       {/* Expected collections per day */}
@@ -507,6 +575,9 @@ export function AgentCollectionsCommandCenter() {
         exporting={exporting}
         onExportStatement={exportStatementPdf}
       />
+
+      <TenantsOwingDialog asOf={totals?.defaulted_as_of ?? format(new Date(), 'yyyy-MM-dd')} open={owingOpen} onOpenChange={setOwingOpen} />
+      <DormantAgentsDialog asOf={totals?.defaulted_as_of ?? format(new Date(), 'yyyy-MM-dd')} open={dormantOpen} onOpenChange={setDormantOpen} />
 
         </>
       )}
