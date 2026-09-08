@@ -432,6 +432,8 @@ export function useAgentCapacityMap(agentIds: string[]) {
 
       const exposure = new Map<string, { used: number; count: number }>();
       const expectedDaily = new Map<string, number>();
+      // Fallback-only: number of DAILY plans feeding the gate when the server RPC failed.
+      const fallbackGateCount = new Map<string, number>();
       const activeIdToAgent = new Map<string, string>();
       const activeIdToTenant = new Map<string, string>();
       const activeTenantsByAgent = new Map<string, Set<string>>();
