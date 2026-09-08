@@ -185,7 +185,7 @@ export default function MyPerformancePage() {
 
   const staffRef = rows[0]?.staff_ref;
 
-  const todayStr = useMemo(() => formatKampalaDate(kampalaDate()), []);
+  
   const todayWeekdayIndex = useMemo(() => (kampalaDate().getDay() + 6) % 7, []);
 
   const { todayNet, todayReversals, netSum, rollingAverage, periodAverage } = useMemo(() => {
