@@ -599,13 +599,36 @@ export function useAgentCapacityMap(agentIds: string[]) {
          * no longer drags the agent's rating down: an agent who reached
          * every tenant is rated on that work, whatever the amounts were.
          */
-        const performance_pct = tenants_due > 0
-          ? Math.max(coverage_today, coverage_yesterday)
-          : (exp.count > 0 ? Math.max(effective_daily_pct, 0) : 0);
+        /**
+         * DAILY GATE = the server rule, verbatim (enforce_agent_daily_eligibility):
+         *   - gate population = v_agent_daily_eligibility.active_count, i.e.
+         *     DAILY plans plus weekly plans whose week lapsed unpaid. Weekly
+         *     plans that are on schedule are NOT in this count.
+         *   - blocked iff gate population > 0 AND
+         *     max(effective_pct, raw_today_pct, raw_yesterday_pct) < threshold.
+         * Using exp.count here (all active rent_requests incl. weekly) would
+         * make the app disagree with the database trigger.
+         */
+        const daily_gate_count = elig
+          ? elig.active_count
+          : (fallbackGateCount.get(id) || 0);
+        const weekly_plan_count    = elig?.weekly_plan_count    ?? 0;
+        const weekly_lapsed_count  = elig?.weekly_lapsed_count  ?? 0;
+        const weekly_expected_week = elig?.weekly_expected_week ?? 0;
+        const server_best_pct = Math.max(
+          effective_daily_pct,
+          elig?.raw_today_pct ?? 0,
+          elig?.raw_yesterday_pct ?? 0,
+        );
+        const performance_pct = daily_gate_count <= 0
+          ? 0
+          : tenants_due > 0
+            ? Math.max(coverage_today, coverage_yesterday, server_best_pct)
+            : server_best_pct;
         const daily_blocked =
-          exp.count > 0 && performance_pct < DAILY_ELIGIBILITY_THRESHOLD;
+          daily_gate_count > 0 && server_best_pct < DAILY_ELIGIBILITY_THRESHOLD;
         let daily_status: AgentCapacity['daily_status'];
-        if (exp.count <= 0) daily_status = 'starter';
+        if (daily_gate_count <= 0) daily_status = 'starter';
         else if (daily_blocked) daily_status = 'blocked';
         else daily_status = 'good';
         // Daily performance regulation only kicks in once the agent has
@@ -613,7 +636,7 @@ export function useAgentCapacityMap(agentIds: string[]) {
         // solely by the per-tenant cap above.
         const can_post_rent_today =
           unlimited_posting || is_new_agent ? true : !daily_blocked;
-        const daily_rating = classifyDailyRating(exp.count, performance_pct, 1);
+        const daily_rating = classifyDailyRating(daily_gate_count, performance_pct, 1);
         out.set(id, {
           used: exp.used,
           active_count: exp.count,
