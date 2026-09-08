@@ -140,6 +140,65 @@ function formatStatus(status: string) {
   return status.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function kampalaDateParts(d = new Date()): { year: number; month: number; day: number; weekday: number } {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Kampala',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+  });
+  const parts = Object.fromEntries(fmt.formatToParts(d).map((p) => [p.type, p.value]));
+  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+    weekday: weekdays.indexOf(String(parts.weekday)),
+  };
+}
+
+function parseLocalDate(iso: string): Date {
+  const [year, month, day] = iso.split('-').map((n) => Number(n));
+  return new Date(year, month - 1, day);
+}
+
+function isWeeklyRequest(request: ActiveRentRequest): boolean {
+  return String(request.repayment_frequency || 'daily').toLowerCase() === 'weekly';
+}
+
+function getWeeklyNextPaymentDate(repaymentStartsOn: string | null): string | null {
+  if (!repaymentStartsOn) return null;
+  const start = parseLocalDate(repaymentStartsOn);
+  const startWeekday = start.getDay();
+  const { weekday: todayWeekday, year, month, day } = kampalaDateParts();
+  const daysUntil = (startWeekday - todayWeekday + 7) % 7;
+  const next = new Date(year, month - 1, day + daysUntil);
+  return format(next, 'dd MMM yyyy');
+}
+
+function FrequencyTag({ request }: { request: ActiveRentRequest }) {
+  const weekly = isWeeklyRequest(request);
+  const nextDate = weekly ? getWeeklyNextPaymentDate(request.repayment_starts_on) : null;
+  return (
+    <div className="flex flex-col gap-0.5">
+      <Badge
+        variant="outline"
+        className={cn(
+          'w-fit gap-1 px-1.5 py-0 text-[10px] font-medium uppercase tracking-wide',
+          weekly ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-blue-300 bg-blue-50 text-blue-700',
+        )}
+      >
+        {weekly ? <CalendarDays className="h-3 w-3" /> : <CircleDot className="h-3 w-3" />}
+        {weekly ? 'Weekly' : 'Daily'}
+      </Badge>
+      {weekly && nextDate && (
+        <span className="text-[10px] text-muted-foreground">Next: {nextDate}</span>
+      )}
+    </div>
+  );
+}
+
 type AgentMonitoringTab = 'all' | 'after-aug-2026' | 'position';
 
 export function AgentMonitoring() {
