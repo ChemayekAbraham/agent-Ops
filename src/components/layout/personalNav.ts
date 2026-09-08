@@ -23,13 +23,14 @@ export interface PersonalNavItem {
   icon: LucideIcon;
   title: string;
   description: string;
+  requiresPsoOfficer?: boolean;
 }
 
 export const PERSONAL_NAV: PersonalNavItem[] = [
   { to: '/your-profile', icon: User, title: 'My profile', description: 'Your personal details' },
   { to: '/me/payslips', icon: FileText, title: 'My payslips', description: 'Your own pay records' },
   { to: '/me/work', icon: Briefcase, title: 'My work', description: 'Tasks assigned to you' },
-  { to: '/me/performance', icon: TrendingUp, title: 'My performance', description: 'Your notes, your cohort' },
+  { to: '/me/performance', icon: TrendingUp, title: 'My performance', description: 'Your notes, your cohort', requiresPsoOfficer: true },
   { to: '/me/tickets', icon: Ticket, title: 'Tickets', description: 'Raise a fault or pick one up' },
   {
     to: '/me/requisitions',

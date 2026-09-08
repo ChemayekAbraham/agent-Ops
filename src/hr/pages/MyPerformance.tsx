@@ -29,10 +29,14 @@ interface PsoFundedSummary {
 
 interface PsoCohortRow {
   staff_ref: string;
-  days_elapsed: number;
-  notes_created: number;
-  notes_reversed: number;
-  net_notes: number;
+  mon: number;
+  tue: number;
+  wed: number;
+  thu: number;
+  fri: number;
+  sat: number;
+  sun: number;
+  total_net: number;
   is_me: boolean;
 }
 
@@ -192,6 +196,20 @@ export default function MyPerformancePage() {
     queryKey: ['pso-cohort-volume', from, to],
     queryFn: () => fetchPsoCohort(from, to),
   });
+
+  const rankedCohort = useMemo(() => {
+    let rank = 0;
+    let prevTotal: number | null = null;
+    let position = 0;
+    return cohortRows.map((row) => {
+      position += 1;
+      if (prevTotal === null || row.total_net !== prevTotal) {
+        rank = position;
+        prevTotal = row.total_net;
+      }
+      return { ...row, rank };
+    });
+  }, [cohortRows]);
 
   if (error && error.message.toLowerCase().includes('not permitted')) {
     return (
@@ -375,56 +393,50 @@ export default function MyPerformancePage() {
         {!cohortError && (
           <div className="rounded-2xl border border-border bg-card p-4">
             <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              ALL PLATFORM SALES OFFICERS
+              LEADERBOARD · PROMISSORY NOTES
             </h2>
             <p className="mb-3 text-xs text-muted-foreground">
-              every officer sees this list · staff codes only, no names · no money and no commission appear here
+              ranked by net notes, highest first · every officer sees this list · staff codes only, no names · no money and no commission appear here
             </p>
             {cohortLoading ? (
               <div className="h-24 animate-pulse rounded-2xl bg-muted" />
-            ) : cohortRows.length === 0 ? (
+            ) : rankedCohort.length === 0 ? (
               <p className="text-sm text-muted-foreground">No officers in this window yet.</p>
             ) : (
               <div className="overflow-hidden rounded-2xl border border-border">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-left">
                     <tr>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Officer
-                      </th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Days elapsed
-                      </th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Created
-                      </th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Reversed
-                      </th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Net
-                      </th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Average / day
-                      </th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">#</th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Officer</th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Mon</th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tue</th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Wed</th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Thu</th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Fri</th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sat</th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sun</th>
+                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {cohortRows.map((row) => (
+                    {rankedCohort.map((row) => (
                       <tr key={row.staff_ref} className={cn(row.is_me && 'bg-muted/40')}>
+                        <td className="px-4 py-2.5 tabular-nums">{row.rank}</td>
                         <td className="px-4 py-2.5">
                           <span className="font-medium">{row.staff_ref}</span>
                           {row.is_me && (
                             <span className="ml-2 text-xs text-muted-foreground">you</span>
                           )}
                         </td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.days_elapsed ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.notes_created ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.notes_reversed ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.net_notes ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">
-                          {row.days_elapsed ? (row.net_notes / row.days_elapsed).toFixed(1) : '0.0'}
-                        </td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.mon ?? 0}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.tue ?? 0}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.wed ?? 0}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.thu ?? 0}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.fri ?? 0}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.sat ?? 0}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.sun ?? 0}</td>
+                        <td className="px-4 py-2.5 tabular-nums">{row.total_net ?? 0}</td>
                       </tr>
                     ))}
                   </tbody>
