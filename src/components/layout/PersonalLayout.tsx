@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { X, ArrowLeft, Menu, Home, LayoutGrid } from 'lucide-react';
@@ -32,6 +33,16 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
   const [displayName, setDisplayName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const { data: isPsoOfficer } = useQuery<boolean>({
+    queryKey: ['pso-is-officer'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('pso_is_officer' as any);
+      if (error) return false;
+      return data === true;
+    },
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -96,9 +107,10 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
           Tools and records
         </p>
         <div className="space-y-1 px-2">
-          {PERSONAL_NAV.map((item) => (
-            <NavRow key={item.to} to={item.to} icon={item.icon} label={item.title} />
-          ))}
+          {PERSONAL_NAV.filter((item) => !item.requiresPsoOfficer || isPsoOfficer === true)
+            .map((item) => (
+              <NavRow key={item.to} to={item.to} icon={item.icon} label={item.title} />
+            ))}
         </div>
       </div>
 

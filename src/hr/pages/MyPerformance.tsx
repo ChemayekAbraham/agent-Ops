@@ -29,10 +29,14 @@ interface PsoFundedSummary {
 
 interface PsoCohortRow {
   staff_ref: string;
-  days_elapsed: number;
-  notes_created: number;
-  notes_reversed: number;
-  net_notes: number;
+  mon: number;
+  tue: number;
+  wed: number;
+  thu: number;
+  fri: number;
+  sat: number;
+  sun: number;
+  total_net: number;
   is_me: boolean;
 }
 
