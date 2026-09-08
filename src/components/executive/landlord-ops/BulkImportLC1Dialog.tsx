@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { matchUgVillagesByName, normalizeVillageName } from '@/lib/ugVillageNameMatch';
+import { matchUgVillagesByName, normalizeVillageName, type UgVillageMatch } from '@/lib/ugVillageNameMatch';
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Loader2, Trash2, ArrowRight, ArrowLeft, Download } from 'lucide-react';
 
 interface Props {
@@ -172,7 +172,7 @@ export function BulkImportLC1Dialog({ open, onClose, onImported }: Props) {
       // One round trip resolves every typed village name to the approved
       // dataset. Unique matches are stored with their official id + chain;
       // ambiguous or unknown names stay as text for later correction.
-      let villageMatches = new Map<string, ReturnType<typeof Object> | any>();
+      let villageMatches = new Map<string, UgVillageMatch | null>();
       try {
         villageMatches = await matchUgVillagesByName(valid.map(r => r.village));
       } catch (e) {
