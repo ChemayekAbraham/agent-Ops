@@ -119,6 +119,16 @@ async function fetchPsoSeries(from: string, to: string): Promise<PsoRow[]> {
   return (data ?? []).sort((a, b) => new Date(a.day).getTime() - new Date(b.day).getTime());
 }
 
+async function fetchPsoCohort(from: string, to: string): Promise<PsoCohortRow[]> {
+  const { data, error } = (await supabase.rpc('pso_cohort_volume' as any, {
+    p_from: from,
+    p_to: to,
+  })) as unknown as { data: PsoCohortRow[] | null; error: { message: string } | null };
+
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
 export default function MyPerformancePage() {
   const [mode, setMode] = useState<WindowMode>('WEEKLY');
   const { from, to, label } = useMemo(() => getWindowDates(mode), [mode]);
