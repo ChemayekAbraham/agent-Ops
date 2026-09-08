@@ -52460,6 +52460,17 @@ export type Database = {
           reserved_stage: string
         }[]
       }
+      pso_cohort_volume: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          days_elapsed: number
+          is_me: boolean
+          net_notes: number
+          notes_created: number
+          notes_reversed: number
+          staff_ref: string
+        }[]
+      }
       pso_daily_series: {
         Args: { p_from: string; p_staff_id?: string; p_to: string }
         Returns: {
