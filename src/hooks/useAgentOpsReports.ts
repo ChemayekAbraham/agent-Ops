@@ -120,10 +120,16 @@ export interface RentCollectionsRow {
   phone: string | null;
   repaying_tenants: number;
   expected: number;
+  /** All cash this agent took in the window, arrears included. */
   collected: number;
+  /** Cash against plans this window actually billed — the numerator for `rate`. */
+  collected_on_schedule: number;
+  /** The rest: older bills this window never issued, plus unattributed token collections. */
+  collected_arrears: number;
   payments: number;
   paid_tenants: number;
   rate: number | null;
+  rate_basis?: string;
   status: string;
 }
 
@@ -134,8 +140,11 @@ export interface RentCollectionsReport {
     active_agents: number;
     expected: number;
     collected: number;
+    collected_on_schedule: number;
+    collected_arrears: number;
     repaying_tenants: number;
     collection_rate: number | null;
+    rate_basis?: string;
   };
   rows: RentCollectionsRow[];
 }
@@ -212,9 +221,13 @@ export interface TeamMemberRow {
   tenants: number;
   expected: number;
   collected: number;
+  collected_on_schedule: number;
+  collected_arrears: number;
   payments: number;
   last_collection_at: string | null;
   rate: number | null;
+  rate_basis?: string;
+  /** Share of the team's total cash — a contribution split, not attainment. */
   group_share: number | null;
   share_of_group_expected: number | null;
 }
@@ -225,9 +238,12 @@ export interface TeamCollectionsReport {
   kpis: {
     sub_agents: number;
     collected: number;
+    collected_on_schedule: number;
+    collected_arrears: number;
     expected: number;
     tenants: number;
     rate: number | null;
+    rate_basis?: string;
     rank: number | null;
     total_teams: number | null;
   };

@@ -101,6 +101,31 @@ interface CommandCenterData {
   generated_at: string;
 }
 
+/**
+ * Collected split by whether the plan was on this window's pinned bill.
+ *
+ * `totals.collected` above is all cash received in the window, and tenants
+ * clear older bills every day — so dividing it by `expected_due` counts money
+ * the denominator never billed and roughly doubles the apparent coverage
+ * (2026-09-08: 93% that way, 41.8% honestly). Coverage is computed from
+ * `collected_on_schedule`; `collected_arrears` is the rest, and it is real
+ * money that deserves its own line rather than being hidden inside a ratio.
+ */
+interface CoverageData {
+  expected_due: number;
+  expected_basis: string;
+  expected_as_of: string;
+  collected_total: number;
+  collected_on_schedule: number;
+  collected_arrears: number;
+  /** Token/QR collections carry no rent_request_id, so they match nothing. */
+  collected_unattributed: number;
+  coverage_pct: number | null;
+  coverage_basis: string;
+  agents: { agent_id: string; collected: number; collected_on_schedule: number }[];
+  generated_at: string;
+}
+
 
 const num = (v: any) => Number(v ?? 0);
 const compact = (v: number) =>
@@ -156,6 +181,28 @@ export function AgentCollectionsCommandCenter() {
 
   const totals = data?.totals;
 
+  const { data: coverageData } = useQuery({
+    queryKey: ['agent-collections-coverage', start.toISOString(), end.toISOString()],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_collections_coverage', {
+        p_start: start.toISOString(),
+        p_end: end.toISOString(),
+      });
+      if (error) throw error;
+      return data as unknown as CoverageData;
+    },
+    enabled: preset !== 'next7',
+    refetchInterval: 60_000,
+    staleTime: 20_000,
+  });
+
+  /** Per-agent on-schedule collections, for attainment that excludes arrears. */
+  const onScheduleByAgent = useMemo(() => {
+    const map = new Map<string, number>();
+    (coverageData?.agents ?? []).forEach(a => map.set(a.agent_id, num(a.collected_on_schedule)));
+    return map;
+  }, [coverageData]);
+
   const { data: target } = useQuery({
     queryKey: ['agent-ops-collection-target', totals?.defaulted_as_of ?? 'today'],
     queryFn: async () => {
@@ -170,16 +217,18 @@ export function AgentCollectionsCommandCenter() {
   });
 
 
-  // Live refresh when collections or rent requests change
+  // Live refresh when collections or rent requests change. The coverage split
+  // reads the same rows, so it has to be invalidated alongside the main query
+  // or the tile and its percentage drift apart.
   useEffect(() => {
+    const refresh = () => {
+      qc.invalidateQueries({ queryKey: ['agent-collections-command-center'] });
+      qc.invalidateQueries({ queryKey: ['agent-collections-coverage'] });
+    };
     const channel = supabase
       .channel('agent-collections-command-center')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_collections' }, () => {
-        qc.invalidateQueries({ queryKey: ['agent-collections-command-center'] });
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rent_requests' }, () => {
-        qc.invalidateQueries({ queryKey: ['agent-collections-command-center'] });
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_collections' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rent_requests' }, refresh)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [qc]);
@@ -195,14 +244,24 @@ export function AgentCollectionsCommandCenter() {
   const topHour = peak.reduce((a, b) => (b.amount > (a?.amount ?? -1) ? b : a), peak[0]);
 
   const agents = useMemo(() => {
-    const list = (data?.agents ?? []).map(a => ({
-      ...a,
-      collected: num(a.collected),
-      expected: num(a.expected),
-      pct: num(a.expected) > 0 ? Math.round((num(a.collected) / num(a.expected)) * 100) : null,
-    }));
+    const list = (data?.agents ?? []).map(a => {
+      // Attainment must compare like with like. `collected` includes arrears an
+      // agent cleared on plans this window never billed, which on a normal day
+      // pushes the best collectors past 200% and makes the column meaningless.
+      const collected = num(a.collected);
+      const onSchedule = onScheduleByAgent.get(a.agent_id) ?? 0;
+      const expected = num(a.expected);
+      return {
+        ...a,
+        collected,
+        collectedOnSchedule: onSchedule,
+        collectedArrears: Math.max(0, collected - onSchedule),
+        expected,
+        pct: expected > 0 ? Math.round((onSchedule / expected) * 100) : null,
+      };
+    });
     return list.sort((a, b) => b.collected - a.collected);
-  }, [data]);
+  }, [data, onScheduleByAgent]);
 
   /** Agents visible in the "collections vs expected" list — search only affects this list. */
   const filteredAgents = useMemo(() => {
@@ -283,7 +342,14 @@ export function AgentCollectionsCommandCenter() {
   };
 
   const collectedTotal = num(totals?.collected);
-  const coverage = expectedTotal > 0 ? Math.round((collectedTotal / expectedTotal) * 100) : null;
+
+  // Coverage answers "how much of what we billed this window came in", so the
+  // numerator is only money against plans this window actually billed. Arrears
+  // are real cash and stay visible via `arrearsCollected` — they just don't
+  // count as attainment on a bill that never included them.
+  const collectedOnSchedule = num(coverageData?.collected_on_schedule);
+  const arrearsCollected = num(coverageData?.collected_arrears) + num(coverageData?.collected_unattributed);
+  const coverage = expectedTotal > 0 ? Math.round((collectedOnSchedule / expectedTotal) * 100) : null;
 
   return (
     <div className="space-y-4">
@@ -371,7 +437,7 @@ export function AgentCollectionsCommandCenter() {
           <p className="text-lg font-bold mt-1">{formatUGX(expectedTotal)}</p>
           <div className="mt-1.5">
             <Progress value={Math.min(100, coverage ?? 0)} className="h-1.5" />
-            <p className="text-[11px] text-muted-foreground mt-1">{coverage === null ? 'No expectation on record' : `${coverage}% of expected`}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">{coverage === null ? 'No expectation on record' : `${coverage}% of expected${arrearsCollected > 0 ? ` · ${formatUGX(arrearsCollected)} arrears` : ''}`}</p>
           </div>
         </Card>
         <Card className="p-3">

@@ -97,11 +97,14 @@ export function AgentOpsComprehensiveReport() {
         { label: 'Pending active book', value: ugx(o.pending), hint: `${n(o.tenants_not_collected)} tenants not collected`, tone: 'negative' as const },
       ] },
       { title: 'Rent collections', note: 'Expected against paid rent, exposing partial collections and the resulting shortfall.', tiles: [
-        { label: 'Collected', value: ugx(r.collected), tone: 'positive' as const },
+        { label: 'Collected', value: ugx(r.collected), tone: 'positive' as const, hint: `${ugx(r.collected_on_schedule)} against this window · ${ugx(r.collected_arrears)} arrears` },
         { label: 'Expected', value: ugx(r.expected) },
         { label: 'Missed / shortfall', value: ugx(r.missed), tone: 'negative' as const },
         { label: 'New requests', value: String(r.new_requests), hint: ugx(r.new_request_volume) },
-        { label: 'Success rate', value: pct(n(r.expected) ? (n(r.collected) / n(r.expected)) * 100 : 0) },
+        // Success is attainment against this window's bill, so the numerator is
+        // the money collected on plans the window actually billed. Dividing all
+        // cash by expected counts arrears as performance and reads roughly 2x.
+        { label: 'Success rate', value: pct(n(r.expected) ? (n(r.collected_on_schedule) / n(r.expected)) * 100 : 0) },
         { label: 'Agents collecting', value: String(r.agents.length) },
       ] },
       { title: 'Agent advances', note: 'Advance book volume, status split and recovery performance in the window.', tiles: [
