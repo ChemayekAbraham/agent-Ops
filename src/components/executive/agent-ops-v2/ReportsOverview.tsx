@@ -264,6 +264,43 @@ export function ReportsOverview() {
     return q?.error as Error | null | undefined;
   };
 
+  /** The agent / team chooser, also shown above the preview so it stays usable. */
+  const picker = () => {
+    if (reportType === 'agent') {
+      return (
+        <EntityPicker
+          label="Agent"
+          placeholder="Search agent by name or phone…"
+          query={agentSearch}
+          onQuery={setAgentSearch}
+          loading={agents.isLoading}
+          options={(agents.data ?? []).map((a) => ({
+            id: a.agent_id, name: a.full_name || 'Unnamed agent', phone: a.phone, meta: `${a.tenants} tenants`,
+          }))}
+          selectedId={agentId}
+          onSelect={setAgentId}
+        />
+      );
+    }
+    if (reportType === 'team-collections') {
+      return (
+        <EntityPicker
+          label="Team"
+          placeholder="Search team leader by name or phone…"
+          query={teamSearch}
+          onQuery={setTeamSearch}
+          loading={teams.isLoading}
+          options={(teams.data ?? []).map((t) => ({
+            id: t.parent_agent_id, name: t.full_name || 'Unnamed leader', phone: t.phone, meta: `${t.members} members`,
+          }))}
+          selectedId={teamId}
+          onSelect={setTeamId}
+        />
+      );
+    }
+    return null;
+  };
+
   const body = () => {
     switch (reportType) {
       case 'agent': {
