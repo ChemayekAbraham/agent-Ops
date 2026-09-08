@@ -62,7 +62,11 @@ export async function disburseAgentAdvanceRequest(opts: {
   const repaymentFrequency: RepaymentFrequency =
     (opts.repaymentFrequency ?? req.repayment_frequency ?? 'daily') as RepaymentFrequency;
   if (!Number.isFinite(principal) || principal <= 0) throw new Error('Principal must be greater than zero');
-  if (principal < 10000) throw new Error('Principal must be at least UGX 10,000 — advances below this are not permitted.');
+  // A request carrying an audited CFO gate override is exempt from the UGX 10,000
+  // floor — the same exemption `disburse_agent_advance_request` applies server-side.
+  if (principal < 10000 && !req?.gate_override) {
+    throw new Error('Principal must be at least UGX 10,000 — advances below this are not permitted.');
+  }
   if (!Number.isFinite(cycleDays) || cycleDays <= 0) throw new Error('Cycle days must be greater than zero');
 
   const registrationFee = isTopup ? 0 : calculateRegistrationFee(principal);

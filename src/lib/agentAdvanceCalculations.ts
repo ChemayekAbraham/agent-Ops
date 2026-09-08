@@ -70,6 +70,19 @@ export function calculateAccessFee(principal: number, days: number, monthlyRate:
 }
 
 /**
+ * Access fee as the DATABASE computes it: simple pro-rata, principal × rate × days/30.
+ *
+ * `calculateAccessFee` above compounds. The two agree exactly at 30 days and diverge
+ * everywhere else, and `disburse_agent_advance_request` / `cfo_create_advance` are the
+ * authority — they always recompute with this formula before the money moves. Staff
+ * issuance surfaces must preview with this one so the figure the operator confirms is
+ * the figure that gets written.
+ */
+export function calculateAccessFeeSimple(principal: number, days: number, monthlyRate: number = MONTHLY_RATE): number {
+  return Math.round(principal * monthlyRate * (days / 30));
+}
+
+/**
  * Total payable = principal + access fee + registration fee
  */
 export function calculateTotalPayable(principal: number, days: number, monthlyRate: number = MONTHLY_RATE): number {

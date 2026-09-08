@@ -77,6 +77,14 @@ function formatKampalaDisplay(d: Date | string): string {
   }).format(date);
 }
 
+function formatUgxCompact(v: number): string {
+  if (v >= 1_000_000) return `UGX ${(v / 1_000_000).toFixed(v >= 10_000_000 ? 0 : 1)}M`;
+  if (v >= 1_000) return `UGX ${(v / 1_000).toFixed(0)}K`;
+  return `UGX ${v.toLocaleString('en-UG')}`;
+}
+
+const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
 function formatKampalaDateTime(iso: string): string {
   return new Intl.DateTimeFormat('en-GB', {
     day: 'numeric',
@@ -177,6 +185,9 @@ export default function MyPerformancePage() {
 
   const staffRef = rows[0]?.staff_ref;
 
+  const todayStr = useMemo(() => formatKampalaDate(kampalaDate()), []);
+  const todayWeekdayIndex = useMemo(() => (kampalaDate().getDay() + 6) % 7, []);
+
   const { todayNet, todayReversals, netSum, rollingAverage, periodAverage } = useMemo(() => {
     const todayRow = rows.find((r) => r.day === todayStr);
     const sum = rows.reduce((acc, r) => acc + (r.net_notes ?? 0), 0);
@@ -260,7 +271,7 @@ export default function MyPerformancePage() {
 
   return (
     <PersonalLayout title="My performance">
-      <div className="space-y-4">
+      <div className="space-y-4 sm:space-y-6">
         {/* Header */}
         <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
           <span>MY PERFORMANCE</span>
@@ -282,14 +293,15 @@ export default function MyPerformancePage() {
         </div>
 
         {/* Toggle */}
-        <div className="inline-flex rounded-lg border border-border bg-card p-1">
+        <div className="grid w-full grid-cols-3 gap-1 rounded-lg border p-1 sm:inline-grid sm:w-auto">
           {(['DAILY', 'WEEKLY', 'MONTHLY'] as WindowMode[]).map((m) => (
             <button
               key={m}
               type="button"
               onClick={() => setMode(m)}
+              style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
               className={cn(
-                'px-3 py-1.5 text-xs font-semibold transition-colors rounded-md',
+                'min-h-11 px-3 text-xs font-semibold tracking-wide rounded-md transition-colors',
                 mode === m ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
               )}
             >
@@ -297,6 +309,7 @@ export default function MyPerformancePage() {
             </button>
           ))}
         </div>
+
 
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">No days in this window yet.</p>
@@ -307,7 +320,7 @@ export default function MyPerformancePage() {
               <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Promissory notes
               </h2>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
                 <div>
                   <MetricCard
                     label="Today, net of reversals"
@@ -315,7 +328,7 @@ export default function MyPerformancePage() {
                     icon={FileText}
                     variant="default"
                   />
-                  <p className="mt-1 text-[10px] text-muted-foreground">
+                  <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
                     net of {todayReversals} reversals today
                   </p>
                 </div>
@@ -326,7 +339,7 @@ export default function MyPerformancePage() {
                     icon={TrendingUp}
                     variant="default"
                   />
-                  <p className="mt-1 text-[10px] text-muted-foreground">
+                  <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
                     {netSum} net notes ÷ {rows.length} days elapsed, counted from your appointment date
                   </p>
                 </div>
@@ -337,7 +350,7 @@ export default function MyPerformancePage() {
                     icon={CalendarDays}
                     variant="default"
                   />
-                  <p className="mt-1 text-[10px] text-muted-foreground">
+                  <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
                     your series starts on the day you were appointed, not the start of the period
                   </p>
                 </div>
@@ -348,13 +361,39 @@ export default function MyPerformancePage() {
                     icon={BarChart3}
                     variant="default"
                   />
-                  <p className="mt-1 text-[10px] text-muted-foreground">
+                  <p className="mt-1 text-[10px] leading-snug text-muted-foreground">
                     ÷ {rollingRows.length} days available, not 7
                   </p>
                 </div>
               </div>
 
-              <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-card">
+              <div className="mt-4 space-y-1.5 md:hidden">
+                {rows.map((row) => (
+                  <div
+                    key={row.day}
+                    className={cn(
+                      'flex items-center justify-between rounded-lg border bg-card px-3 py-2',
+                      row.day === todayStr && 'ring-1 ring-border'
+                    )}
+                  >
+                    <span className="text-xs font-medium">{formatKampalaDisplay(row.day)}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-base font-bold tabular-nums">{row.net_notes ?? 0}</span>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Created</div>
+                        <div className="text-xs font-semibold tabular-nums">{row.notes_created ?? 0}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Reversed</div>
+                        <div className="text-xs font-semibold tabular-nums">{row.notes_reversed ?? 0}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 hidden overflow-hidden rounded-2xl border border-border bg-card md:block">
+
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-left">
                     <tr>
@@ -397,11 +436,39 @@ export default function MyPerformancePage() {
           <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Funded sales
           </h2>
-          <div className="space-y-1 text-sm">
-            <p>Notes in cohort: {fundedSummary?.notes_in_cohort ?? 0}</p>
-            <p>Notes funded: {fundedSummary?.notes_funded ?? 0} of {fundedSummary?.notes_in_cohort ?? 0}</p>
-            <p>Money funded: UGX {(fundedSummary?.amount_funded ?? 0).toLocaleString('en-UG')}</p>
-            <p>Commission accrued: UGX {(fundedSummary?.commission_accrued ?? 0).toLocaleString('en-UG')}</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Notes in cohort
+              </div>
+              <div className="text-sm font-bold tabular-nums">{fundedSummary?.notes_in_cohort ?? 0}</div>
+            </div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Notes funded
+              </div>
+              <div className="text-sm font-bold tabular-nums">
+                {fundedSummary?.notes_funded ?? 0} of {fundedSummary?.notes_in_cohort ?? 0}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Money funded
+              </div>
+              <div className="text-sm font-bold tabular-nums">
+                {formatUgxCompact(fundedSummary?.amount_funded ?? 0)}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Commission accrued
+              </div>
+              <div className="text-sm font-bold tabular-nums">
+                {formatUgxCompact(fundedSummary?.commission_accrued ?? 0)}
+              </div>
+            </div>
+          </div>
+          <div className="mt-2 space-y-1">
             <p className="text-xs text-muted-foreground">
               as at {fundedSummary ? formatKampalaDateTime(fundedSummary.as_at) : '—'} · a closed period keeps rising, so this figure is never frozen
             </p>
@@ -409,6 +476,7 @@ export default function MyPerformancePage() {
               funded means the booking carries a funded date, that is money actually deployed
             </p>
           </div>
+
         </div>
 
         {/* Zone C */}
@@ -425,46 +493,104 @@ export default function MyPerformancePage() {
             ) : rankedCohort.length === 0 ? (
               <p className="text-sm text-muted-foreground">No officers in this window yet.</p>
             ) : (
-              <div className="overflow-hidden rounded-2xl border border-border">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-left">
-                    <tr>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">#</th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Officer</th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Mon</th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tue</th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Wed</th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Thu</th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Fri</th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sat</th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sun</th>
-                      <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {rankedCohort.map((row) => (
-                      <tr key={row.staff_ref} className={cn(row.is_me && 'bg-muted/40')}>
-                        <td className="px-4 py-2.5 tabular-nums">{row.rank}</td>
-                        <td className="px-4 py-2.5">
-                          <span className="font-medium">{row.staff_ref}</span>
-                          {row.is_me && (
-                            <span className="ml-2 text-xs text-muted-foreground">you</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.mon ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.tue ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.wed ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.thu ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.fri ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.sat ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.sun ?? 0}</td>
-                        <td className="px-4 py-2.5 tabular-nums">{row.total_net ?? 0}</td>
+              <>
+                <div className="space-y-2 md:hidden">
+                  {rankedCohort.map((row) => {
+                    const days = [row.mon, row.tue, row.wed, row.thu, row.fri, row.sat, row.sun];
+                    return (
+                      <div
+                        key={row.staff_ref}
+                        className={cn('rounded-xl border bg-card p-3', row.is_me && 'bg-muted/40')}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <span className="text-xs font-bold tabular-nums text-muted-foreground">
+                              #{row.rank}
+                            </span>
+                            <div className="text-sm font-semibold">
+                              {row.staff_ref}
+                              {row.is_me && (
+                                <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+                                  you
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold leading-none tabular-nums">
+                              {row.total_net ?? 0}
+                            </div>
+                            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                              net notes
+                            </div>
+                          </div>
+                        </div>
+                        {mode === 'DAILY' ? (
+                          <p className="mt-2 text-[11px] text-muted-foreground">today only</p>
+                        ) : (
+                          <div className="mt-3 grid grid-cols-7 gap-1">
+                            {WEEKDAY_LETTERS.map((letter, i) => (
+                              <div
+                                key={i}
+                                className={cn(
+                                  'rounded-md bg-muted/40 py-1.5 text-center',
+                                  i === todayWeekdayIndex && 'ring-1 ring-border'
+                                )}
+                              >
+                                <div className="text-[10px] font-semibold uppercase text-muted-foreground">
+                                  {letter}
+                                </div>
+                                <div className="text-sm font-semibold tabular-nums">{days[i] ?? 0}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="hidden overflow-hidden rounded-2xl border border-border md:block">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50 text-left">
+                      <tr>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">#</th>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Officer</th>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Mon</th>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tue</th>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Wed</th>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Thu</th>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Fri</th>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sat</th>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sun</th>
+                        <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {rankedCohort.map((row) => (
+                        <tr key={row.staff_ref} className={cn(row.is_me && 'bg-muted/40')}>
+                          <td className="px-4 py-2.5 tabular-nums">{row.rank}</td>
+                          <td className="px-4 py-2.5">
+                            <span className="font-medium">{row.staff_ref}</span>
+                            {row.is_me && (
+                              <span className="ml-2 text-xs text-muted-foreground">you</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2.5 tabular-nums">{row.mon ?? 0}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{row.tue ?? 0}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{row.wed ?? 0}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{row.thu ?? 0}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{row.fri ?? 0}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{row.sat ?? 0}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{row.sun ?? 0}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{row.total_net ?? 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
+
           </div>
         )}
       </div>

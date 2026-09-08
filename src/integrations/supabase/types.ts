@@ -44942,7 +44942,7 @@ export type Database = {
       }
       agent_ops_directory_guard: { Args: never; Returns: string }
       agent_ops_dormant_agents_arrears: {
-        Args: { p_as_of?: string; p_silent_days?: number }
+        Args: { p_as_of?: string; p_mode?: string; p_silent_days?: number }
         Returns: Json
       }
       agent_ops_issue_agent_product: {
@@ -45008,7 +45008,43 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_ops_report_advances: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
+      agent_ops_report_agent: {
+        Args: { p_agent_id: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      agent_ops_report_agent_search: {
+        Args: { p_limit?: number; p_search?: string }
+        Returns: Json
+      }
       agent_ops_report_authorized: { Args: never; Returns: boolean }
+      agent_ops_report_expected: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          agent_id: string
+          expected: number
+          tenants: number
+        }[]
+      }
+      agent_ops_report_products: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
+      agent_ops_report_rent_collections: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
+      agent_ops_report_team_collections: {
+        Args: { p_from: string; p_parent_agent_id: string; p_to: string }
+        Returns: Json
+      }
+      agent_ops_report_team_search: {
+        Args: { p_limit?: number; p_search?: string }
+        Returns: Json
+      }
       agent_ops_run_snapshot_cycle: { Args: never; Returns: undefined }
       agent_ops_set_agent_frozen: {
         Args: { p_agent_id: string; p_frozen: boolean; p_reason?: string }
@@ -46562,6 +46598,10 @@ export type Database = {
       }
       coo_approve_smartphone_order: {
         Args: { p_note?: string; p_sale_id: string }
+        Returns: Json
+      }
+      correct_tenant_location: {
+        Args: { p_reason?: string; p_tenant_id: string; p_village_id: number }
         Returns: Json
       }
       country_to_continent: { Args: { p_country: string }; Returns: string }
@@ -53883,6 +53923,50 @@ export type Database = {
         Returns: number
       }
       telecom_sending_charge: { Args: { p_amount: number }; Returns: number }
+      tenant_location_correction_agents: {
+        Args: { p_limit?: number; p_search?: string }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          agent_phone: string
+          matched: number
+          total_tenants: number
+          unmatched: number
+        }[]
+      }
+      tenant_location_correction_progress: {
+        Args: { p_agent_id?: string }
+        Returns: {
+          matched: number
+          total_tenants: number
+          unmatched: number
+        }[]
+      }
+      tenant_location_corrections: {
+        Args: {
+          p_agent_id?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+        }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          agent_phone: string
+          legacy_district: string
+          legacy_parish: string
+          legacy_region: string
+          legacy_sub_county: string
+          legacy_village: string
+          monthly_rent: number
+          request_status: string
+          requested_at: string
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+          total_count: number
+        }[]
+      }
       tenant_ops_correct_rent_request: {
         Args: {
           p_access_fee?: number

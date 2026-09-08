@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { formatUGX } from '@/lib/rentCalculations';
+import { matchesVettingQuery } from '@/components/agent/service-center/matchesVettingQuery';
 
 type Row = {
   id: string;
@@ -37,7 +38,7 @@ const STATUS_LABEL: Record<string, string> = {
   rent_requested: 'Rent plan raised',
 };
 
-export function TenantRentIntakeQueue() {
+export function TenantRentIntakeQueue({ searchQuery = '' }: { searchQuery?: string } = {}) {
   const qc = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [declineFor, setDeclineFor] = useState<string | null>(null);
@@ -101,13 +102,19 @@ export function TenantRentIntakeQueue() {
   if (error) {
     return <p className="text-sm text-destructive">{(error as Error).message}</p>;
   }
+  const filtered = rows.filter((r) =>
+    matchesVettingQuery(searchQuery, r.tenant_name, r.tenant_phone, r.landlord_name, r.landlord_phone, r.village_name, r.district_name, r.location_name),
+  );
   if (rows.length === 0) {
     return <p className="text-sm text-muted-foreground py-6 text-center">No tenant rent requests routed to you yet.</p>;
+  }
+  if (filtered.length === 0) {
+    return <p className="text-sm text-muted-foreground py-6 text-center">No requests match that search.</p>;
   }
 
   return (
     <div className="space-y-3">
-      {rows.map((r) => (
+      {filtered.map((r) => (
         <Card key={r.id}>
           <CardContent className="p-3 space-y-2.5">
             <div className="flex items-start justify-between gap-2">

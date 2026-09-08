@@ -897,25 +897,29 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       try {
         const ids = await fetchAllUserIdsByRole('supporter');
         if (!ids.length) { if (!cancelled) setWalletBalancesList([]); return; }
+        // Unrestricted -- a supporter who has since withdrawn or invested their
+        // wallet down to zero must still be searchable here so their history
+        // can be traced. The default (no search) view filters to balance > 0
+        // client-side below; a real search always searches everyone.
         const wallets = await batchedQuery<{ user_id: string; balance: number }>(
           ids,
-          (batch) => supabase.from('wallets').select('user_id, balance').in('user_id', batch).gt('balance', 0),
+          (batch) => supabase.from('wallets').select('user_id, balance').in('user_id', batch),
         );
-        const holderIds = wallets.map(w => w.user_id);
-        const profiles = holderIds.length
+        const profiles = ids.length
           ? await batchedQuery<{ id: string; full_name: string | null; phone: string | null; email: string | null }>(
-              holderIds,
+              ids,
               (batch) => supabase.from('profiles').select('id, full_name, phone, email').in('id', batch),
             )
           : [];
         const pMap = new Map(profiles.map(p => [p.id, p]));
-        const list = wallets
-          .map(w => ({
-            id: w.user_id,
-            name: pMap.get(w.user_id)?.full_name || w.user_id.slice(0, 8),
-            phone: pMap.get(w.user_id)?.phone || '',
-            email: pMap.get(w.user_id)?.email || '',
-            balance: Number(w.balance) || 0,
+        const wMap = new Map(wallets.map(w => [w.user_id, w.balance]));
+        const list = ids
+          .map(id => ({
+            id,
+            name: pMap.get(id)?.full_name || id.slice(0, 8),
+            phone: pMap.get(id)?.phone || '',
+            email: pMap.get(id)?.email || '',
+            balance: Number(wMap.get(id)) || 0,
           }))
           .sort((a, b) => b.balance - a.balance);
         if (!cancelled) setWalletBalancesList(list);
@@ -931,7 +935,11 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
 
   const walletBalancesFiltered = useMemo(() => {
     const q = walletBalancesSearch.trim().toLowerCase();
-    if (!q) return walletBalancesList;
+    // No search: default browse view is "who currently holds wallet money".
+    // Searching: search everyone, zero-balance partners included, so a
+    // partner who has since spent/invested their wallet down to zero can
+    // still be found and their history traced.
+    if (!q) return walletBalancesList.filter(p => p.balance > 0);
     return walletBalancesList.filter(p =>
       p.name.toLowerCase().includes(q) || p.phone.toLowerCase().includes(q) || p.email.toLowerCase().includes(q));
   }, [walletBalancesList, walletBalancesSearch]);

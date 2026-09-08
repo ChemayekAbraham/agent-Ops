@@ -13,12 +13,13 @@ import {
   useServiceCenterListingQueue,
   useServiceCenterReviewListing,
 } from '@/hooks/useServiceCenterListingQueue';
+import { matchesVettingQuery } from '@/components/agent/service-center/matchesVettingQuery';
 
 /**
  * Listings vetting queue — a Service Centre manager checks every house their
  * agents list before Landlord Ops performs the final verification.
  */
-export function ServiceCenterListingVettingQueue() {
+export function ServiceCenterListingVettingQueue({ searchQuery = '' }: { searchQuery?: string } = {}) {
   const { data = [], isLoading, error } = useServiceCenterListingQueue();
   const review = useServiceCenterReviewListing();
   const { toast } = useToast();
@@ -50,6 +51,10 @@ export function ServiceCenterListingVettingQueue() {
     }
   };
 
+  const filtered = data.filter((row) =>
+    matchesVettingQuery(searchQuery, row.agent_name, row.agent_phone, row.landlord_name, row.landlord_phone, row.title, row.village, row.district),
+  );
+
   if (isLoading) {
     return <div className="space-y-3">{[0, 1].map((i) => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}</div>;
   }
@@ -71,15 +76,17 @@ export function ServiceCenterListingVettingQueue() {
         <h3 className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
           <Home className="h-4 w-4" /> Houses awaiting your vetting
         </h3>
-        <Badge variant={data.length ? 'default' : 'outline'}>{data.length}</Badge>
+        <Badge variant={filtered.length ? 'default' : 'outline'}>{filtered.length}</Badge>
       </div>
 
-      {data.length === 0 ? (
+      {filtered.length === 0 ? (
         <Card><CardContent className="p-6 text-center text-sm text-muted-foreground">
-          No houses waiting on you. New listings from your agents will appear here first.
+          {searchQuery.trim()
+            ? 'No houses match that search.'
+            : 'No houses waiting on you. New listings from your agents will appear here first.'}
         </CardContent></Card>
       ) : (
-        data.map((row) => (
+        filtered.map((row) => (
           <Card key={row.id}>
             <CardContent className="space-y-2.5 p-3">
                <button type="button" onClick={() => setDetailsRow(row)} className="flex w-full items-start gap-3 text-left">

@@ -93,8 +93,48 @@ async function fetchProfiles(ids: string[]) {
   );
 }
 
-async function loadHolders(bucket: HolderBucket): Promise<HolderRow[]> {
+/**
+ * Every browse query below defaults to "currently holds a positive balance",
+ * which silently drops anyone who has spent down to zero -- so a search box
+ * layered on top of that browse list can never find them either, no matter
+ * what's typed. When there's a real search query, resolve it against every
+ * user (search_users_fast, unrestricted) and read that bucket's value
+ * directly for the matches, zero included, so ops can still trace someone's
+ * history after their balance is gone.
+ */
+async function resolveSearchIds(query: string): Promise<string[]> {
+  const { data, error } = await supabase.rpc('search_users_fast', {
+    p_query: query,
+    p_limit: 200,
+  } as any);
+  if (error) throw error;
+  return ((data ?? []) as Array<{ id: string }>).map((p) => p.id).filter(Boolean);
+}
+
+async function loadHolders(bucket: HolderBucket, searchQuery: string): Promise<HolderRow[]> {
+  const q = searchQuery.trim();
+
   if (bucket === 'withdrawable') {
+    if (q) {
+      const ids = await resolveSearchIds(q);
+      if (ids.length === 0) return [];
+      const [{ data: rows, error }, pmap] = await Promise.all([
+        supabase.from('wallets').select('user_id, withdrawable_balance').in('user_id', ids),
+        fetchProfiles(ids),
+      ]);
+      if (error) throw error;
+      const wmap = new Map((rows ?? []).map((r) => [r.user_id, r]));
+      return ids.map((id) => {
+        const p = pmap.get(id);
+        return {
+          key: id,
+          userId: id,
+          name: p?.full_name ?? 'Unknown',
+          phone: p?.phone ?? '',
+          amount: Number(wmap.get(id)?.withdrawable_balance ?? 0),
+        };
+      });
+    }
     const { data: rows, error } = await supabase.rpc('get_withdrawable_wallet_holders_by_recent_withdrawal' as any);
     if (error) throw error;
     return ((rows ?? []) as any[]).map((r) => ({
@@ -107,6 +147,40 @@ async function loadHolders(bucket: HolderBucket): Promise<HolderRow[]> {
   }
 
   if (bucket === 'float') {
+    // Active merchant desk agents hold their float in this same wallets.float_balance
+    // column, so without this exclusion they show up here AND in the merchant_float
+    // bucket below -- double-counting the same money. A retired desk's float is
+    // correctly left in (see the merchant_float branch's own comment on this split).
+    const { data: agentRows, error: agentError } = await supabase
+      .from('cashout_agents')
+      .select('agent_id')
+      .eq('is_active', true);
+    if (agentError) throw agentError;
+    const merchantAgentIds = new Set(
+      (agentRows ?? []).map((a) => a.agent_id).filter((v): v is string => !!v),
+    );
+
+    if (q) {
+      const ids = (await resolveSearchIds(q)).filter((id) => !merchantAgentIds.has(id));
+      if (ids.length === 0) return [];
+      const [{ data: rows, error }, pmap] = await Promise.all([
+        supabase.from('wallets').select('user_id, float_balance').in('user_id', ids),
+        fetchProfiles(ids),
+      ]);
+      if (error) throw error;
+      const wmap = new Map((rows ?? []).map((r) => [r.user_id, r]));
+      return ids.map((id) => {
+        const p = pmap.get(id);
+        return {
+          key: id,
+          userId: id,
+          name: p?.full_name ?? 'Unknown',
+          phone: p?.phone ?? '',
+          amount: Number(wmap.get(id)?.float_balance ?? 0),
+        };
+      });
+    }
+
     const { data: rows, error } = await supabase
       .from('wallets')
       .select('user_id, withdrawable_balance, float_balance')
@@ -114,9 +188,10 @@ async function loadHolders(bucket: HolderBucket): Promise<HolderRow[]> {
       .order('float_balance', { ascending: false })
       .limit(500);
     if (error) throw error;
-    const ids = (rows ?? []).map((r) => r.user_id).filter((v): v is string => !!v);
+    const filtered = (rows ?? []).filter((r) => !r.user_id || !merchantAgentIds.has(r.user_id));
+    const ids = filtered.map((r) => r.user_id).filter((v): v is string => !!v);
     const pmap = await fetchProfiles(ids);
-    return (rows ?? []).map((r) => {
+    return filtered.map((r) => {
       const p = r.user_id ? pmap.get(r.user_id) : undefined;
       return {
         key: r.user_id ?? Math.random().toString(36),
@@ -129,6 +204,39 @@ async function loadHolders(bucket: HolderBucket): Promise<HolderRow[]> {
   }
 
   if (bucket === 'landlord_float') {
+    if (q) {
+      const ids = await resolveSearchIds(q);
+      if (ids.length === 0) return [];
+      const [{ data: rows, error }, pmap] = await Promise.all([
+        supabase
+          .from('agent_landlord_float')
+          .select('id, agent_id, balance, region, total_funded, total_paid_out')
+          .in('agent_id', ids),
+        fetchProfiles(ids),
+      ]);
+      if (error) throw error;
+      const fmap = new Map((rows ?? []).map((r) => [r.agent_id, r]));
+      return ids.map((id) => {
+        const p = pmap.get(id);
+        const f = fmap.get(id);
+        return {
+          key: f?.id ?? id,
+          userId: id,
+          name: p?.full_name ?? 'Unknown agent',
+          phone: p?.phone ?? '',
+          amount: Number(f?.balance ?? 0),
+          meta: f
+            ? [
+                f.region ? `Region ${f.region}` : null,
+                `Funded ${formatUGX(Number(f.total_funded ?? 0))}`,
+                `Paid out ${formatUGX(Number(f.total_paid_out ?? 0))}`,
+              ]
+                .filter(Boolean)
+                .join(' • ')
+            : 'No landlord float account yet',
+        };
+      });
+    }
     const { data: rows, error } = await supabase
       .from('agent_landlord_float')
       .select('id, agent_id, balance, region, total_funded, total_paid_out')
@@ -159,26 +267,30 @@ async function loadHolders(bucket: HolderBucket): Promise<HolderRow[]> {
 
   const { data, error } = await supabase.rpc('get_merchant_float_positions' as any);
   if (error) throw error;
-  return ((data ?? []) as any[])
-    .map((r) => ({
-      key: String(r.desk_id),
-      userId: r.agent_id ?? null,
-      name: r.agent_name ?? r.label ?? 'Merchant desk',
-      phone: r.agent_phone ?? '',
-      amount: Number(r.ledger_float_held ?? 0),
-      retired: r.is_active === false,
-      meta: [
-        r.is_active === false ? 'Retired desk — float is plain operational float' : null,
-        `Evidenced ${formatUGX(Number(r.evidenced_amount ?? 0))}`,
-        `Paid out ${formatUGX(Number(r.paid_out_total ?? 0))}`,
-      ]
-        .filter(Boolean)
-        .join(' • '),
-    }))
+  const positions = ((data ?? []) as any[]).map((r) => ({
+    key: String(r.desk_id),
+    userId: r.agent_id ?? null,
+    name: r.agent_name ?? r.label ?? 'Merchant desk',
+    phone: r.agent_phone ?? '',
+    amount: Number(r.ledger_float_held ?? 0),
+    retired: r.is_active === false,
+    meta: [
+      r.is_active === false ? 'Retired desk — float is plain operational float' : null,
+      `Evidenced ${formatUGX(Number(r.evidenced_amount ?? 0))}`,
+      `Paid out ${formatUGX(Number(r.paid_out_total ?? 0))}`,
+    ]
+      .filter(Boolean)
+      .join(' • '),
+  }));
+  const ql = q.toLowerCase();
+  return positions
     // A desk that is no longer active is NOT a merchant float holder. Its wallet
     // float is ordinary operational float and belongs only to the Operational
-    // Float bucket — counting it here double-counts the same money.
-    .filter((r) => r.amount > 0 && !r.retired)
+    // Float bucket — counting it here double-counts the same money. A desk
+    // currently at zero float is still a holder while actively searching, so
+    // ops can trace it; the browse view (no search) hides zero as before.
+    .filter((r) => !r.retired && (q ? true : r.amount > 0))
+    .filter((r) => !q || `${r.name} ${r.phone}`.toLowerCase().includes(ql))
     .sort((a, b) => b.amount - a.amount);
 }
 
@@ -197,9 +309,10 @@ export function WalletBucketHoldersPanel({
   const [companyHistoryOpen, setCompanyHistoryOpen] = useState(false);
   const meta = TITLES[bucket];
 
+  const trimmedSearch = search.trim();
   const { data, isLoading, error } = useQuery({
-    queryKey: ['wallet-bucket-holders', bucket],
-    queryFn: () => loadHolders(bucket),
+    queryKey: ['wallet-bucket-holders', bucket, trimmedSearch],
+    queryFn: () => loadHolders(bucket, trimmedSearch),
     staleTime: 30_000,
   });
 
@@ -251,12 +364,13 @@ export function WalletBucketHoldersPanel({
     },
   });
 
-  // Search + sort. `recent` keeps the order the loader returned (for the
-  // withdrawable bucket that is "most recent withdrawal first").
+  // Sort only -- the search text is already applied server-side by the query
+  // above (loadHolders resolves it via search_users_fast), so re-filtering the
+  // result here by substring would only risk dropping legitimate fuzzy matches.
+  // `recent` keeps the order the loader returned (for the withdrawable bucket
+  // that is "most recent withdrawal first").
   const rows = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    let list = data ?? [];
-    if (q) list = list.filter((r) => `${r.name} ${r.phone}`.toLowerCase().includes(q));
+    const list = data ?? [];
     if (sortBy === 'recent') return list;
     const stat = (r: HolderRow) => (r.userId ? activity?.get(r.userId) : undefined);
     return [...list].sort((a, b) => {
@@ -289,7 +403,7 @@ export function WalletBucketHoldersPanel({
           return 0;
       }
     });
-  }, [data, search, sortBy, activity]);
+  }, [data, sortBy, activity]);
 
   const total = rows.reduce((s, r) => s + r.amount, 0);
 
