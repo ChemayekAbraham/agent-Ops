@@ -45008,7 +45008,43 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_ops_report_advances: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
+      agent_ops_report_agent: {
+        Args: { p_agent_id: string; p_from: string; p_to: string }
+        Returns: Json
+      }
+      agent_ops_report_agent_search: {
+        Args: { p_limit?: number; p_search?: string }
+        Returns: Json
+      }
       agent_ops_report_authorized: { Args: never; Returns: boolean }
+      agent_ops_report_expected: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          agent_id: string
+          expected: number
+          tenants: number
+        }[]
+      }
+      agent_ops_report_products: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
+      agent_ops_report_rent_collections: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
+      agent_ops_report_team_collections: {
+        Args: { p_from: string; p_parent_agent_id: string; p_to: string }
+        Returns: Json
+      }
+      agent_ops_report_team_search: {
+        Args: { p_limit?: number; p_search?: string }
+        Returns: Json
+      }
       agent_ops_run_snapshot_cycle: { Args: never; Returns: undefined }
       agent_ops_set_agent_frozen: {
         Args: { p_agent_id: string; p_frozen: boolean; p_reason?: string }
