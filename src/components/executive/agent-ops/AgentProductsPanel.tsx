@@ -404,13 +404,36 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
       >
         <UserAvatar avatarUrl={p.avatar_url} fullName={p.full_name || undefined} size="sm" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold truncate">{p.full_name || 'Unknown agent'}</p>
+          <div className="flex items-center gap-2 min-w-0">
+            <p className="text-sm font-semibold truncate">{p.full_name || 'Unknown agent'}</p>
+            {(() => {
+              const el = p.agent_id ? eligibilityMap?.[p.agent_id] : undefined;
+              if (el === undefined) {
+                return <Badge variant="outline" className="shrink-0 text-[10px]">Checking…</Badge>;
+              }
+              if (el === null) {
+                return <Badge variant="outline" className="shrink-0 text-[10px]">Unknown</Badge>;
+              }
+              const tenants = Number(el.active_tenant_count || 0);
+              const required = Number(el.required_active_tenants || 3);
+              return el.eligible ? (
+                <Badge className="shrink-0 bg-emerald-500/15 text-emerald-600 text-[10px] hover:bg-emerald-500/15">
+                  Eligible
+                </Badge>
+              ) : (
+                <Badge variant="destructive" className="shrink-0 text-[10px]">
+                  Not eligible · {tenants}/{required} tenants
+                </Badge>
+              );
+            })()}
+          </div>
           <p className="text-xs text-muted-foreground truncate">
             {[p.brand, p.model_type].filter(Boolean).join(' ') || p.item_name || '—'}
             {p.quantity > 1 ? ` × ${p.quantity}` : ''} · {formatUGX(Number(p.requested_amount || 0))}
             {p.phone ? ` · ${p.phone}` : ''}
           </p>
         </div>
+
         <span className="hidden sm:block text-[11px] text-muted-foreground shrink-0">
           {p.created_at ? format(new Date(p.created_at), 'dd MMM') : '—'}
         </span>
