@@ -260,7 +260,8 @@ export function TppoPlanDetailTable({
             nothing and are not listed here.
           </p>
 
-          <Table>
+          <div className="hidden sm:block">
+          <Table className="w-full table-fixed">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10">#</TableHead>
@@ -290,23 +291,19 @@ export function TppoPlanDetailTable({
                     )}
                   </div>
                 </TableHead>
-                <TableHead className="text-right">Daily amount</TableHead>
+                <TableHead className="text-right">Daily</TableHead>
                 <TableHead className="text-right">Scheduled</TableHead>
                 <TableHead className="text-right">Paid</TableHead>
                 <TableHead className="text-right">Still due</TableHead>
                 <TableHead className="text-right">Arrears</TableHead>
-                <TableHead className="text-right">Plan total</TableHead>
-                <TableHead className="text-right">Repaid</TableHead>
-                <TableHead>Term start</TableHead>
-                <TableHead>Obligation end</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {visible.map((row, index) => (
                 <TableRow key={row.rent_request_id}>
                   <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                  <TableCell>{row.tenant_name}</TableCell>
-                  <TableCell>{row.agent_name}</TableCell>
+                  <TableCell className="truncate" title={row.tenant_name}>{row.tenant_name}</TableCell>
+                  <TableCell className="truncate" title={row.agent_name}>{row.agent_name}</TableCell>
                   <TableCell className={moneyCell}>{formatUGX(row.daily_amount)}</TableCell>
                   <TableCell className={moneyCell}>{formatUGX(row.scheduled_in_period)}</TableCell>
                   <TableCell className={moneyCell}>
@@ -336,7 +333,7 @@ export function TppoPlanDetailTable({
                     <button
                       type="button"
                       onClick={() => setSelected({ id: row.rent_request_id, name: row.tenant_name })}
-                      className="underline decoration-dotted underline-offset-2 hover:decoration-solid touch-manipulation"
+                      className="min-h-11 underline decoration-dotted underline-offset-2 hover:decoration-solid touch-manipulation"
                       title="See where this arrears comes from"
                     >
                       {row.arrears > 0 ? (
@@ -346,10 +343,6 @@ export function TppoPlanDetailTable({
                       )}
                     </button>
                   </TableCell>
-                  <TableCell className={moneyCell}>{formatUGX(row.plan_total)}</TableCell>
-                  <TableCell className={moneyCell}>{formatUGX(row.repaid)}</TableCell>
-                  <TableCell>{row.term_start}</TableCell>
-                  <TableCell>{row.obligation_end}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -373,17 +366,98 @@ export function TppoPlanDetailTable({
                 <TableCell className={`${moneyCell} font-semibold ${shownTotals.arrears > 0 ? 'text-destructive' : ''}`}>
                   {formatUGX(shownTotals.arrears)}
                 </TableCell>
-                <TableCell className={`${moneyCell} font-semibold`}>
-                  {formatUGX(shownTotals.planTotal)}
-                </TableCell>
-                <TableCell className={`${moneyCell} font-semibold`}>
-                  {formatUGX(shownTotals.repaid)}
-                </TableCell>
-                <TableCell />
-                <TableCell />
               </TableRow>
             </TableFooter>
           </Table>
+          </div>
+
+          <div className="sm:hidden space-y-2">
+            {visible.map((row, index) => (
+              <div key={row.rent_request_id} className="rounded-md border p-3">
+                <p className="text-[11px] text-muted-foreground">{index + 1}</p>
+                <p className="text-sm font-medium">{row.tenant_name}</p>
+                <p className="text-[11px] text-muted-foreground">{`via ${row.agent_name}`}</p>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-2">
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">Scheduled</p>
+                    <p className="text-sm tabular-nums">{formatUGX(row.scheduled_in_period)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">Paid</p>
+                    <p className="text-sm tabular-nums">
+                      {row.paid_in_period > 0 ? (
+                        <span className="inline-flex flex-wrap items-center gap-1">
+                          <span className={row.overpaid_in_period > 0 ? 'text-emerald-600' : ''}>
+                            {formatUGX(row.paid_in_period)}
+                          </span>
+                          {row.overpaid_in_period > 0 && (
+                            <Badge variant="outline" className="text-[10px]">
+                              {`+${formatUGX(row.overpaid_in_period)} over`}
+                            </Badge>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">Still due</p>
+                    <p className="text-sm tabular-nums">
+                      {row.scheduled_outstanding > 0 ? (
+                        <span className="text-foreground">{formatUGX(row.scheduled_outstanding)}</span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-muted-foreground">Arrears</p>
+                    <p className="text-sm tabular-nums">
+                      <button
+                        type="button"
+                        onClick={() => setSelected({ id: row.rent_request_id, name: row.tenant_name })}
+                        className="min-h-11 underline decoration-dotted underline-offset-2 hover:decoration-solid touch-manipulation"
+                        title="See where this arrears comes from"
+                      >
+                        {row.arrears > 0 ? (
+                          <span className="text-destructive">{formatUGX(row.arrears)}</span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </button>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <div className="sm:hidden rounded-md border p-3">
+              <p className="text-sm font-semibold">
+                {agentFilter === 'all' ? 'TOTAL' : `TOTAL · ${agentFilter}`}
+              </p>
+              <p className="text-[11px] text-muted-foreground">{`${shownTotals.plans} plans`}</p>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-2">
+                <div>
+                  <p className="text-[11px] text-muted-foreground">Scheduled</p>
+                  <p className="text-sm font-semibold tabular-nums">{formatUGX(shownTotals.scheduled)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground">Paid</p>
+                  <p className="text-sm font-semibold tabular-nums">{formatUGX(shownTotals.paid)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground">Still due</p>
+                  <p className="text-sm font-semibold tabular-nums">{formatUGX(shownTotals.outstanding)}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted-foreground">Arrears</p>
+                  <p className={`text-sm font-semibold tabular-nums ${shownTotals.arrears > 0 ? 'text-destructive' : ''}`}>
+                    {formatUGX(shownTotals.arrears)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <p className="mt-2 text-[11px] text-muted-foreground">
             {`${agentFilter === 'all' ? '' : 'Across the whole period: '}${data.totals.plans_paid} of ${data.totals.plans} plans have paid ${
