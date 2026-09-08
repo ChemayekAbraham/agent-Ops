@@ -9,6 +9,7 @@ import {
   ArrowRightLeft, Banknote, FileDown, Share2, Layers,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
+import { batchedQuery } from '@/lib/supabaseBatchUtils';
 import { WalletBucketLedgerDetail } from './WalletBucketLedgerDetail';
 import {
   generateUserWalletStatementPdf,
@@ -115,12 +116,25 @@ async function hydrateWalletRows(userIds: string[]): Promise<WalletRow[]> {
     ),
   );
 
-  const { data: rows, error } = await supabase
-    .from('wallets')
-    .select('user_id, balance, withdrawable_balance, float_balance, advance_balance, locked_balance')
-    .in('user_id', userIds);
-  if (error) throw error;
-  const wmap = new Map((rows ?? []).map((r) => [r.user_id, r]));
+  // Batched: a plain `.in('user_id', userIds)` with up to 1000 UUIDs is a GET
+  // request whose query string can exceed URL length limits and fail silently
+  // (the failure was showing up as "0 wallets shown", not an error).
+  const rows = await batchedQuery<{
+    user_id: string;
+    balance: number;
+    withdrawable_balance: number;
+    float_balance: number;
+    advance_balance: number;
+    locked_balance: number;
+  }>(
+    userIds,
+    (batch) =>
+      supabase
+        .from('wallets')
+        .select('user_id, balance, withdrawable_balance, float_balance, advance_balance, locked_balance')
+        .in('user_id', batch),
+  );
+  const wmap = new Map(rows.map((r) => [r.user_id, r]));
 
   return userIds.map((id) => {
     const p = pmap.get(id);
@@ -166,7 +180,7 @@ export function WalletBreakdownReadOnly({
   // Default browse view: top 1000 wallets by balance. Fine for "who holds the
   // most" but a zero-balance (or just low-balance) account can sit outside
   // this window entirely, so it must never be relied on for search.
-  const { data: browseData, isLoading: browseLoading } = useQuery({
+  const { data: browseData, isLoading: browseLoading, error: browseError } = useQuery({
     queryKey: ['manager-wallet-breakdown'],
     enabled: trimmedSearch.length === 0,
     queryFn: async () => {
@@ -184,7 +198,7 @@ export function WalletBreakdownReadOnly({
   // Search view: resolves against every user by name/phone (search_users_fast),
   // not just the top-1000-by-balance browse window, so an account with UGX 0
   // right now -- but real transaction history -- is still found.
-  const { data: searchData, isLoading: searchLoading } = useQuery({
+  const { data: searchData, isLoading: searchLoading, error: searchError } = useQuery({
     queryKey: ['manager-wallet-breakdown-search', trimmedSearch],
     enabled: trimmedSearch.length > 0,
     queryFn: async () => {
@@ -201,6 +215,7 @@ export function WalletBreakdownReadOnly({
 
   const data = trimmedSearch.length > 0 ? searchData : browseData;
   const isLoading = trimmedSearch.length > 0 ? searchLoading : browseLoading;
+  const loadError = trimmedSearch.length > 0 ? searchError : browseError;
 
   const filtered = useMemo(() => {
     if (!data) return [];
@@ -485,6 +500,12 @@ export function WalletBreakdownReadOnly({
                   <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
                     Loading wallets…
+                  </td>
+                </tr>
+              ) : loadError ? (
+                <tr>
+                  <td colSpan={8} className="px-3 py-8 text-center text-destructive">
+                    Could not load wallets — {(loadError as Error).message || 'unknown error'}.
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
