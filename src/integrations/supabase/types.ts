@@ -46564,6 +46564,10 @@ export type Database = {
         Args: { p_note?: string; p_sale_id: string }
         Returns: Json
       }
+      correct_tenant_location: {
+        Args: { p_reason?: string; p_tenant_id: string; p_village_id: number }
+        Returns: Json
+      }
       country_to_continent: { Args: { p_country: string }; Returns: string }
       create_campaign_link:
         | {
@@ -53883,6 +53887,39 @@ export type Database = {
         Returns: number
       }
       telecom_sending_charge: { Args: { p_amount: number }; Returns: number }
+      tenant_location_correction_progress: {
+        Args: { p_agent_id?: string }
+        Returns: {
+          matched: number
+          total_tenants: number
+          unmatched: number
+        }[]
+      }
+      tenant_location_corrections: {
+        Args: {
+          p_agent_id?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+        }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          agent_phone: string
+          legacy_district: string
+          legacy_parish: string
+          legacy_region: string
+          legacy_sub_county: string
+          legacy_village: string
+          monthly_rent: number
+          request_status: string
+          requested_at: string
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+          total_count: number
+        }[]
+      }
       tenant_ops_correct_rent_request: {
         Args: {
           p_access_fee?: number
