@@ -31,7 +31,7 @@ import {
   buildRentCollectionsReportHtml,
   buildTeamCollectionsReportHtml,
   printReportHtml,
-} from '@/lib/agentOpsReportHtml';
+} from '@/lib/agentOpsOverviewReportHtml';
 
 /**
  * Reports → Overview.
