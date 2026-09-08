@@ -30,8 +30,9 @@ import {
   buildProductsReportHtml,
   buildRentCollectionsReportHtml,
   buildTeamCollectionsReportHtml,
-  printReportHtml,
 } from '@/lib/agentOpsOverviewReportHtml';
+import { downloadReportPdf } from '@/lib/renderReportPdf';
+import ReportHtmlPreview from './ReportHtmlPreview';
 
 /**
  * Reports → Overview.
@@ -201,6 +202,8 @@ export function ReportsOverview() {
   const [agentId, setAgentId] = useState<string | null>(null);
   const [teamSearch, setTeamSearch] = useState('');
   const [teamId, setTeamId] = useState<string | null>(null);
+  const [view, setView] = useState<'preview' | 'data'>('preview');
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   const rangeReady = Boolean(from && to && from <= to);
   const range: ReportRange | null = rangeReady ? { from, to } : null;
@@ -215,24 +218,38 @@ export function ReportsOverview() {
   const advancesReport = useAdvancesReport(reportType === 'advances' ? range : null);
   const teamReport = useTeamCollectionsReport(reportType === 'team-collections' ? teamId : null, range);
 
-  const pdfReady =
-    (reportType === 'agent' && Boolean(agentReport.data)) ||
-    (reportType === 'rent-collections' && Boolean(rentReport.data)) ||
-    (reportType === 'products-services' && Boolean(productsReport.data)) ||
-    (reportType === 'advances' && Boolean(advancesReport.data)) ||
-    (reportType === 'team-collections' && Boolean(teamReport.data));
-
-  const downloadPdf = () => {
+  /**
+   * The document itself — one HTML build per report, used for both the iframe
+   * preview and the PDF, so what is previewed is exactly what downloads.
+   */
+  const doc = useMemo<{ html: string; file: string } | null>(() => {
     if (reportType === 'agent' && agentReport.data) {
-      printReportHtml(buildAgentReportHtml(agentReport.data), `Welile-Agent-Report-${from}_${to}`);
-    } else if (reportType === 'rent-collections' && rentReport.data) {
-      printReportHtml(buildRentCollectionsReportHtml(rentReport.data), `Welile-Rent-Collections-${from}_${to}`);
-    } else if (reportType === 'products-services' && productsReport.data) {
-      printReportHtml(buildProductsReportHtml(productsReport.data), `Welile-Products-Services-${from}_${to}`);
-    } else if (reportType === 'advances' && advancesReport.data) {
-      printReportHtml(buildAdvancesReportHtml(advancesReport.data), `Welile-Agent-Advances-${from}_${to}`);
-    } else if (reportType === 'team-collections' && teamReport.data) {
-      printReportHtml(buildTeamCollectionsReportHtml(teamReport.data), `Welile-Team-Collections-${from}_${to}`);
+      return { html: buildAgentReportHtml(agentReport.data), file: `Welile-Agent-Report-${from}_${to}` };
+    }
+    if (reportType === 'rent-collections' && rentReport.data) {
+      return { html: buildRentCollectionsReportHtml(rentReport.data), file: `Welile-Rent-Collections-${from}_${to}` };
+    }
+    if (reportType === 'products-services' && productsReport.data) {
+      return { html: buildProductsReportHtml(productsReport.data), file: `Welile-Products-Services-${from}_${to}` };
+    }
+    if (reportType === 'advances' && advancesReport.data) {
+      return { html: buildAdvancesReportHtml(advancesReport.data), file: `Welile-Agent-Advances-${from}_${to}` };
+    }
+    if (reportType === 'team-collections' && teamReport.data) {
+      return { html: buildTeamCollectionsReportHtml(teamReport.data), file: `Welile-Team-Collections-${from}_${to}` };
+    }
+    return null;
+  }, [reportType, agentReport.data, rentReport.data, productsReport.data, advancesReport.data, teamReport.data, from, to]);
+
+  const pdfReady = Boolean(doc);
+
+  const downloadPdf = async () => {
+    if (!doc || pdfBusy) return;
+    setPdfBusy(true);
+    try {
+      await downloadReportPdf(doc.html, doc.file);
+    } finally {
+      setPdfBusy(false);
     }
   };
 
