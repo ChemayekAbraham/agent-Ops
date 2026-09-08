@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PeriodToggle, type TppoGranularity } from '@/components/tenant-ops/tppo/PeriodToggle';
 import { HeadlineA1 } from '@/components/tenant-ops/tppo/HeadlineA1';
 import { VarianceA2 } from '@/components/tenant-ops/tppo/VarianceA2';
+import { ArrearsMovementA2b } from '@/components/tenant-ops/tppo/ArrearsMovementA2b';
 import { ProjectionA3 } from '@/components/tenant-ops/tppo/ProjectionA3';
 import { TppoPlanDetailTable } from '@/components/executive/tppo/TppoPlanDetailTable';
 import {
