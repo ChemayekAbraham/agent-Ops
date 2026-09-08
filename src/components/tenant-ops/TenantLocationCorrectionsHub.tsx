@@ -255,7 +255,11 @@ export function TenantLocationCorrectionsHub() {
             <div className="flex flex-col items-center gap-2 py-12 text-center">
               <CheckCircle2 className="h-6 w-6 text-emerald-600" />
               <p className="text-sm font-semibold">
-                {debounced ? 'No tenants match that search' : 'Every tenant is on the approved list'}
+                {debounced
+                  ? 'No tenants match that search'
+                  : agentId
+                    ? 'This agent has no tenants left to correct'
+                    : 'Every tenant is on the approved list'}
               </p>
             </div>
           )}
