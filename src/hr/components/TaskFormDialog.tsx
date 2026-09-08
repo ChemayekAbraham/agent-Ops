@@ -231,7 +231,7 @@ export default function TaskFormDialog({
               Still needed: {missing.join(', ')}
             </p>
           )}
-          <Button type="button" className="w-full" disabled={!canSave} onClick={() => void handleCreate()}>
+          <Button className="w-full" disabled={!canSave} onClick={() => void handleCreate()}>
             {saving ? 'Saving…' : 'Create task'}
           </Button>
         </DialogFooter>

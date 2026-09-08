@@ -603,7 +603,7 @@ export function MotorBikeCatalogDialog() {
                               className="h-8 px-3 text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-sm"
                               disabled={isPending || currentValuation <= 0}
                               onClick={() =>
-                                saveInlinePrice(item)
+                                void saveInlinePrice(item)
                               }
                             >
                               {isPending ? (

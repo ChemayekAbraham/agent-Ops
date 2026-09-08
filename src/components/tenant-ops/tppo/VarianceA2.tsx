@@ -254,7 +254,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
 
       <div className="mt-4 hidden overflow-x-auto sm:block">
 
-        <table className="w-full table-fixed text-sm">
+        <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted-foreground">
               <th scope="col" className="py-2 pr-3 font-medium">Period</th>
@@ -271,7 +271,7 @@ export function VarianceA2({ report, earlier }: VarianceA2Props) {
                 className={`border-b border-border/60 ${row.current ? 'bg-primary/5' : ''}`}
               >
                 <td className="py-2 pr-3">
-                  <span className={`block truncate ${row.current ? 'font-medium text-foreground' : ''}`} title={row.label}>{row.label}</span>
+                  <span className={row.current ? 'font-medium text-foreground' : ''}>{row.label}</span>
                   {row.differentBasis && (
                     <Badge variant="outline" className="ml-2 text-[10px] font-medium">
                       different basis
