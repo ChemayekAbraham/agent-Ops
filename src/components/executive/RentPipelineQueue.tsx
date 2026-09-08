@@ -834,6 +834,35 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
 
   const rows = requests || [];
 
+  // How many rent plans each tenant in this queue has already had approved.
+  // Presentation only — drives the "Cycle N" and New/Renewal badges.
+  const queueTenantIds = Array.from(new Set(rows.map(r => r.tenant_id).filter(Boolean))) as string[];
+  const { data: approvedCycleMap } = useQuery({
+    queryKey: ['rent-pipeline-approved-cycles', queueTenantIds.join(',')],
+    enabled: queueTenantIds.length > 0,
+    staleTime: 300_000,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      const counts = new Map<string, number>();
+      const chunkSize = 300;
+      for (let i = 0; i < queueTenantIds.length; i += chunkSize) {
+        const chunk = queueTenantIds.slice(i, i + chunkSize);
+        const { data, error: cycleError } = await supabase
+          .from('rent_requests')
+          .select('tenant_id')
+          .in('tenant_id', chunk)
+          .in('status', ['coo_approved', 'funded', 'repaying', 'completed'])
+          .limit(5000);
+        if (cycleError) throw cycleError;
+        (data || []).forEach(row => {
+          if (!row.tenant_id) return;
+          counts.set(row.tenant_id, (counts.get(row.tenant_id) || 0) + 1);
+        });
+      }
+      return counts;
+    },
+  });
+
   // Unique tenants in the queue, for the "choose a tenant" selector.
   const tenantOptions = Array.from(
     new Map(
