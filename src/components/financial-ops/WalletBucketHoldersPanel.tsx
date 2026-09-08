@@ -107,6 +107,19 @@ async function loadHolders(bucket: HolderBucket): Promise<HolderRow[]> {
   }
 
   if (bucket === 'float') {
+    // Active merchant desk agents hold their float in this same wallets.float_balance
+    // column, so without this exclusion they show up here AND in the merchant_float
+    // bucket below -- double-counting the same money. A retired desk's float is
+    // correctly left in (see the merchant_float branch's own comment on this split).
+    const { data: agentRows, error: agentError } = await supabase
+      .from('cashout_agents')
+      .select('agent_id')
+      .eq('is_active', true);
+    if (agentError) throw agentError;
+    const merchantAgentIds = new Set(
+      (agentRows ?? []).map((a) => a.agent_id).filter((v): v is string => !!v),
+    );
+
     const { data: rows, error } = await supabase
       .from('wallets')
       .select('user_id, withdrawable_balance, float_balance')
@@ -114,9 +127,10 @@ async function loadHolders(bucket: HolderBucket): Promise<HolderRow[]> {
       .order('float_balance', { ascending: false })
       .limit(500);
     if (error) throw error;
-    const ids = (rows ?? []).map((r) => r.user_id).filter((v): v is string => !!v);
+    const filtered = (rows ?? []).filter((r) => !r.user_id || !merchantAgentIds.has(r.user_id));
+    const ids = filtered.map((r) => r.user_id).filter((v): v is string => !!v);
     const pmap = await fetchProfiles(ids);
-    return (rows ?? []).map((r) => {
+    return filtered.map((r) => {
       const p = r.user_id ? pmap.get(r.user_id) : undefined;
       return {
         key: r.user_id ?? Math.random().toString(36),
