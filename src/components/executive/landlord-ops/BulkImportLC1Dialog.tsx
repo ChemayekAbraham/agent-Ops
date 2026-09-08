@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { matchUgVillagesByName, normalizeVillageName } from '@/lib/ugVillageNameMatch';
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Loader2, Trash2, ArrowRight, ArrowLeft, Download } from 'lucide-react';
 
 interface Props {
@@ -168,11 +169,31 @@ export function BulkImportLC1Dialog({ open, onClose, onImported }: Props) {
     if (valid.length === 0) { toast.error('No valid rows to import'); return; }
     setImporting(true);
     try {
-      const payload = valid.map(r => ({
-        name: r.name.trim(),
-        phone: normalizePhone(r.phone),
-        village: r.village.trim(),
-      }));
+      // One round trip resolves every typed village name to the approved
+      // dataset. Unique matches are stored with their official id + chain;
+      // ambiguous or unknown names stay as text for later correction.
+      let villageMatches = new Map<string, ReturnType<typeof Object> | any>();
+      try {
+        villageMatches = await matchUgVillagesByName(valid.map(r => r.village));
+      } catch (e) {
+        console.warn('[BulkImportLC1] village matching skipped', e);
+      }
+      let matched = 0;
+      const payload = valid.map(r => {
+        const m = villageMatches.get(normalizeVillageName(r.village)) ?? null;
+        if (m) matched += 1;
+        return {
+          name: r.name.trim(),
+          phone: normalizePhone(r.phone),
+          village: m ? m.village : r.village.trim(),
+          ug_village_id: m ? m.villageId : null,
+          region: m ? m.region : null,
+          district: m ? m.district : null,
+          county: m ? m.county : null,
+          sub_county: m ? m.subcounty : null,
+          parish: m ? m.parish : null,
+        };
+      });
       // Insert row-by-row so a duplicate phone (blocked by the DB guard) skips
       // that single row instead of aborting the whole batch.
       let inserted = 0;
@@ -202,13 +223,16 @@ export function BulkImportLC1Dialog({ open, onClose, onImported }: Props) {
           inserted,
           skipped_invalid: stats.invalid,
           skipped_duplicates: stats.dupFile + stats.dupDb,
+          matched_to_official_villages: matched,
           reason: 'Landlord Ops bulk LC1 chairperson import',
         },
       });
 
       setResult({ inserted, skipped });
       setStep(3);
-      toast.success(`Imported ${inserted} LC1 chairperson(s)`);
+      toast.success(`Imported ${inserted} LC1 chairperson(s)`, {
+        description: `${matched} of ${payload.length} matched to an official village.`,
+      });
       onImported();
     } catch (e: any) {
       toast.error(e.message || 'Import failed');
