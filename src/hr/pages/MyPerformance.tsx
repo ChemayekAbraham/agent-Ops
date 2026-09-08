@@ -174,7 +174,7 @@ export default function MyPerformancePage() {
     () => formatKampalaDate(subDays(new Date(`${todayStr}T12:00:00`), 6)),
     [todayStr],
   );
-  const rollingTo = todayStr;
+  const rollingTo = useMemo(() => todayStr, [todayStr]);
 
   const {
     data: rollingRows = [],
