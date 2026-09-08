@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useAgentCapacityMap, type AgentCapacity } from '@/hooks/useAgentCapacityMap';
+import { useAgentCapacityMap, DAILY_ELIGIBILITY_THRESHOLD, type AgentCapacity } from '@/hooks/useAgentCapacityMap';
 import { formatUGX } from '@/lib/rentCalculations';
 import { CalendarCheck2, CheckCircle2, Lock, Loader2 } from 'lucide-react';
 
