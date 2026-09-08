@@ -522,7 +522,7 @@ export default function MyPerformancePage() {
                           </div>
                           <div className="text-right">
                             <div className="text-2xl font-bold leading-none tabular-nums">
-                              {row.total_net ?? 0}
+                              {fmtZero(row.total_net ?? 0)}
                             </div>
                             <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
                               net notes
@@ -544,7 +544,7 @@ export default function MyPerformancePage() {
                                 <div className="text-[10px] font-semibold uppercase text-muted-foreground">
                                   {letter}
                                 </div>
-                                <div className="text-sm font-semibold tabular-nums">{days[i] ?? 0}</div>
+                                <div className="text-sm font-semibold tabular-nums">{fmtZero(days[i] ?? 0)}</div>
                               </div>
                             ))}
                           </div>
@@ -579,14 +579,14 @@ export default function MyPerformancePage() {
                               <span className="ml-2 text-xs text-muted-foreground">you</span>
                             )}
                           </td>
-                          <td className="px-4 py-2.5 tabular-nums">{row.mon ?? 0}</td>
-                          <td className="px-4 py-2.5 tabular-nums">{row.tue ?? 0}</td>
-                          <td className="px-4 py-2.5 tabular-nums">{row.wed ?? 0}</td>
-                          <td className="px-4 py-2.5 tabular-nums">{row.thu ?? 0}</td>
-                          <td className="px-4 py-2.5 tabular-nums">{row.fri ?? 0}</td>
-                          <td className="px-4 py-2.5 tabular-nums">{row.sat ?? 0}</td>
-                          <td className="px-4 py-2.5 tabular-nums">{row.sun ?? 0}</td>
-                          <td className="px-4 py-2.5 tabular-nums">{row.total_net ?? 0}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{fmtZero(row.mon ?? 0)}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{fmtZero(row.tue ?? 0)}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{fmtZero(row.wed ?? 0)}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{fmtZero(row.thu ?? 0)}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{fmtZero(row.fri ?? 0)}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{fmtZero(row.sat ?? 0)}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{fmtZero(row.sun ?? 0)}</td>
+                          <td className="px-4 py-2.5 tabular-nums">{fmtZero(row.total_net ?? 0)}</td>
                         </tr>
                       ))}
                     </tbody>
