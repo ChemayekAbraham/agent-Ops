@@ -9,8 +9,10 @@ import promoSchool from '@/assets/promo-school-of-ai.jpg.asset.json';
 import promoZeroRent from '@/assets/promo-365-days-zero-rent.jpg.asset.json';
 import promoZeroTech from '@/assets/promo-zero-tech-background.jpg.asset.json';
 import promoDowry from '@/assets/promo-welile-dowry.jpg.asset.json';
+import promoWelcomeSeptember from '@/assets/promo-welcome-september.png';
 
 const PROMOS: SpecialsCard[] = [
+  { src: promoWelcomeSeptember, title: 'Welcome September — may this month open new doors and reward your hard work' },
   { src: promoRetire.url, title: 'Retire your creative rent excuse stories' },
   { src: promoDowry.url, title: 'Welile Dowry — from UGX 500K, get your wedding budget sorted' },
   { src: promoZeroRent.url, title: '365 days, zero rent headaches — 12 months paid upfront' },
