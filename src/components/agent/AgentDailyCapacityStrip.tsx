@@ -79,6 +79,20 @@ export function AgentDailyCapacityStrip() {
         </div>
       </div>
 
+      {cap.weekly_plan_count > 0 && (
+        <div className="flex items-center justify-between gap-2 rounded-xl bg-muted/50 px-3 py-2 text-xs">
+          <span className="text-muted-foreground">
+            <strong className="text-foreground">{cap.weekly_plan_count}</strong> weekly plan{cap.weekly_plan_count !== 1 ? 's' : ''} tracked separately
+            {' · '}<span className="tabular-nums">{formatUGX(cap.weekly_expected_week)}</span>/week
+          </span>
+          {cap.weekly_lapsed_count > 0 && (
+            <span className="font-semibold text-destructive shrink-0">
+              {cap.weekly_lapsed_count} unpaid this week
+            </span>
+          )}
+        </div>
+      )}
+
       <div
         className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold ${
           canPost
@@ -95,7 +109,7 @@ export function AgentDailyCapacityStrip() {
           <>
             <Lock className="h-4 w-4 shrink-0" />
             <span>
-              Collect <strong>{formatUGX(Math.max(0, Math.round(cap.expected_daily * 0.2) - cap.paid_today))}</strong> more today to unlock new rents
+              Collect <strong>{formatUGX(Math.max(0, Math.round(cap.expected_daily * DAILY_ELIGIBILITY_THRESHOLD) - cap.paid_today))}</strong> more today to unlock new rents
             </span>
           </>
         )}
