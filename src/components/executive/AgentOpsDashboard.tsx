@@ -43,6 +43,7 @@ import { AgentProductsServicesReport } from './agent-ops/AgentProductsServicesRe
 import { AgentGuarantorFloatPanel } from './agent-ops/AgentGuarantorFloatPanel';
 import { AgentRentBehaviourPanel } from './agent-ops/AgentRentBehaviourPanel';
 import { PartialCollectionsPanel } from './agent-ops/PartialCollectionsPanel';
+import { AgentProductsOnlyReportSection } from './agent-ops/AgentProductsOnlyReportSection';
 import { SubAgentCommissionWhitelistPanel } from './agent-ops/SubAgentCommissionWhitelistPanel';
 import { AgentFeatureFlagsPanel } from './AgentFeatureFlagsPanel';
 import { AgentBulkOpsConsole } from './AgentBulkOpsConsole';
@@ -336,6 +337,7 @@ export function AgentOpsDashboard() {
       case 'agent-products-services': {
         return (
             <div className="space-y-4">
+              <AgentProductsOnlyReportSection />
               <p className="text-sm text-muted-foreground">Choose a category to manage issuance, payments and receivables.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 {AGENT_PRODUCT_PAGES.map((c) => (
