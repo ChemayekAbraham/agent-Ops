@@ -843,6 +843,42 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   const queueRequestIds = rows.map(r => r.id);
   const { data: renewalMap } = useTenantRenewalMap(queueTenantIds, queueRequestIds);
 
+  // Sub-agent → parent-agent map for every agent visible in this queue.
+  // Presentation only: when the request's agent is a verified sub-agent we
+  // show a "Sub-agent of <parent>" tag next to their name.
+  const queueAgentIds = Array.from(
+    new Set(rows.flatMap(r => [r.agent_id, r.assigned_agent_id]).filter(Boolean)),
+  ) as string[];
+  const { data: subAgentParentMap } = useQuery({
+    queryKey: ['rent-pipeline-sub-agent-parents', queueAgentIds],
+    enabled: queueAgentIds.length > 0,
+    staleTime: 300_000,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      const { data: links } = await supabase
+        .from('agent_subagents')
+        .select('sub_agent_id, parent_agent_id')
+        .in('sub_agent_id', queueAgentIds)
+        .in('status', ['verified', 'approved']);
+      const map = new Map<string, { parentId: string; parentName: string }>();
+      if (!links || links.length === 0) return map;
+      const parentIds = Array.from(new Set(links.map(l => l.parent_agent_id).filter(Boolean))) as string[];
+      const { data: parents } = parentIds.length > 0
+        ? await supabase.from('profiles').select('id, full_name').in('id', parentIds)
+        : { data: [] as any[] };
+      const nameMap = new Map(((parents as any[]) || []).map(p => [p.id, p.full_name]));
+      for (const l of links) {
+        if (!map.has(l.sub_agent_id)) {
+          map.set(l.sub_agent_id, {
+            parentId: l.parent_agent_id,
+            parentName: nameMap.get(l.parent_agent_id) || 'Parent agent',
+          });
+        }
+      }
+      return map;
+    },
+  });
+
   // Unique tenants in the queue, for the "choose a tenant" selector.
   const tenantOptions = Array.from(
     new Map(
