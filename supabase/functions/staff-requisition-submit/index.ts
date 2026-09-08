@@ -120,7 +120,26 @@ Deno.serve(async (req) => {
     const { data: routeRows, error: routeErr } = await admin
       .rpc("staff_requisition_route", { _user_id: requester.id });
     if (routeErr) throw routeErr;
-    const route = Array.isArray(routeRows) ? routeRows[0] : routeRows;
+    let route = Array.isArray(routeRows) ? routeRows[0] : routeRows;
+    if (!route?.department_id && !staffCheck) {
+      // Agents' Space agents have no HR department: route through Agent Operations
+      const { data: agentOpsDept } = await admin
+        .from("hr_departments")
+        .select("id, key, name")
+        .eq("key", "agent_ops")
+        .eq("active", true)
+        .maybeSingle();
+      if (agentOpsDept) {
+        route = {
+          department_id: agentOpsDept.id,
+          department_key: agentOpsDept.key,
+          department_name: agentOpsDept.name,
+          stage: "supervisor",
+          approver_role: "agent_ops",
+          final_stage: "cfo",
+        };
+      }
+    }
     if (!route?.department_id) {
       return json({
         error: "no_department",
